@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,48 +84,88 @@ export default function JobDetail() {
 }
 
 function SubmissionList({ items }: { items: any[] }) {
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const generateSignedUrls = async () => {
+      const filesWithUrls = items.filter((s) => s.file_url);
+      if (filesWithUrls.length === 0) return;
+
+      const urls: Record<string, string> = {};
+      await Promise.all(
+        filesWithUrls.map(async (sub) => {
+          // Extract the storage path from the file_url
+          const path = extractStoragePath(sub.file_url);
+          if (!path) return;
+          const { data } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(path, 3600); // 1 hour expiry
+          if (data?.signedUrl) {
+            urls[sub.id] = data.signedUrl;
+          }
+        })
+      );
+      setSignedUrls(urls);
+    };
+    generateSignedUrls();
+  }, [items]);
+
   if (items.length === 0) {
     return <p className="py-12 text-center text-muted-foreground">No submissions yet.</p>;
   }
 
   return (
     <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {items.map((sub) => (
-        <Card key={sub.id}>
-          <CardContent className="p-4">
-            {sub.type === "photo" && sub.file_url && (
-              <img src={sub.file_url} alt={sub.file_name || "Photo"} className="mb-3 h-48 w-full rounded-md object-cover" />
-            )}
-            {sub.type === "document" && (
-              <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
-                <FileText className="h-10 w-10 text-muted-foreground" />
-              </div>
-            )}
-            {sub.type === "location" && (
-              <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
-                <MapPin className="h-10 w-10 text-destructive" />
-                <span className="ml-2 text-xs text-muted-foreground">
-                  {sub.latitude?.toFixed(4)}, {sub.longitude?.toFixed(4)}
-                </span>
-              </div>
-            )}
-            {sub.type === "note" && (
-              <div className="mb-3 rounded-md bg-muted p-3">
-                <MessageSquare className="mb-1 h-4 w-4 text-primary" />
-                <p className="text-sm">{sub.content}</p>
-              </div>
-            )}
-            <div className="flex items-center justify-between text-xs text-muted-foreground">
-              <span>{new Date(sub.created_at).toLocaleString()}</span>
-              {sub.file_url && (
-                <a href={sub.file_url} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
-                  Download
-                </a>
+      {items.map((sub) => {
+        const resolvedUrl = signedUrls[sub.id] || undefined;
+        return (
+          <Card key={sub.id}>
+            <CardContent className="p-4">
+              {sub.type === "photo" && resolvedUrl && (
+                <img src={resolvedUrl} alt={sub.file_name || "Photo"} className="mb-3 h-48 w-full rounded-md object-cover" />
               )}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              {sub.type === "document" && (
+                <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
+                  <FileText className="h-10 w-10 text-muted-foreground" />
+                </div>
+              )}
+              {sub.type === "location" && (
+                <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
+                  <MapPin className="h-10 w-10 text-destructive" />
+                  <span className="ml-2 text-xs text-muted-foreground">
+                    {sub.latitude?.toFixed(4)}, {sub.longitude?.toFixed(4)}
+                  </span>
+                </div>
+              )}
+              {sub.type === "note" && (
+                <div className="mb-3 rounded-md bg-muted p-3">
+                  <MessageSquare className="mb-1 h-4 w-4 text-primary" />
+                  <p className="text-sm">{sub.content}</p>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{new Date(sub.created_at).toLocaleString()}</span>
+                {resolvedUrl && (
+                  <a href={resolvedUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
+                    Download
+                  </a>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
+}
+
+/** Extract the storage object path from a full public/signed URL or raw path */
+function extractStoragePath(fileUrl: string): string | null {
+  if (!fileUrl) return null;
+  // Match /object/public/submissions/ or /object/sign/submissions/ patterns
+  const match = fileUrl.match(/\/object\/(?:public|sign)\/submissions\/(.+?)(?:\?|$)/);
+  if (match) return match[1];
+  // If it's already just a path (no URL prefix), use it directly
+  if (!fileUrl.startsWith("http")) return fileUrl;
+  return null;
 }
