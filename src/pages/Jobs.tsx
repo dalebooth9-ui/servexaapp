@@ -56,7 +56,7 @@ export default function Jobs() {
       created_by: user?.id,
     });
     if (error) {
-      // Error details intentionally omitted from client console for security
+      console.error("Job creation error:", error);
       const message = error.code === "23505"
         ? "A job with this reference number already exists."
         : "Failed to create job. Please try again.";
