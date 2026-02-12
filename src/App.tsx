@@ -23,6 +23,14 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
   return <AppLayout>{children}</AppLayout>;
 }
 
+function AdminRoute({ children }: { children: ReactNode }) {
+  const { user, userRole, loading } = useAuth();
+  if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (userRole !== "admin") return <Navigate to="/" replace />;
+  return <AppLayout>{children}</AppLayout>;
+}
+
 function AuthRoute() {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
@@ -42,8 +50,8 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
             <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
-            <Route path="/engineers" element={<ProtectedRoute><Engineers /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
+            <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -11,6 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { z } from "zod";
+
+const jobSchema = z.object({
+  name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
+  reference_number: z.string().trim().min(1, "Reference number is required").max(50, "Reference number must be under 50 characters").regex(/^[A-Za-z0-9\-_]+$/, "Reference number can only contain letters, numbers, hyphens and underscores"),
+  client: z.string().trim().max(200, "Client name must be under 200 characters").optional().or(z.literal("")),
+  address: z.string().trim().max(500, "Address must be under 500 characters").optional().or(z.literal("")),
+});
 
 export default function Jobs() {
   const { userRole, user } = useAuth();
@@ -31,12 +39,28 @@ export default function Jobs() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+
+    const parsed = jobSchema.safeParse(form);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0]?.message || "Invalid input";
+      toast({ title: "Validation error", description: firstError, variant: "destructive" });
+      setLoading(false);
+      return;
+    }
+
     const { error } = await supabase.from("jobs").insert({
-      ...form,
+      name: parsed.data.name,
+      reference_number: parsed.data.reference_number,
+      client: parsed.data.client || null,
+      address: parsed.data.address || null,
       created_by: user?.id,
     });
     if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      console.error("Job creation error:", error);
+      const message = error.code === "23505"
+        ? "A job with this reference number already exists."
+        : "Failed to create job. Please try again.";
+      toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: "Job created" });
       setForm({ name: "", reference_number: "", client: "", address: "" });

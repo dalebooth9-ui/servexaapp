@@ -7,6 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { HardHat, Wrench } from "lucide-react";
+import { z } from "zod";
+
+const loginSchema = z.object({
+  email: z.string().trim().email("Please enter a valid email address").max(255),
+  password: z.string().min(6, "Password must be at least 6 characters").max(128),
+});
+
+const signupSchema = loginSchema.extend({
+  fullName: z.string().trim().min(1, "Full name is required").max(100, "Name must be under 100 characters"),
+});
 
 export default function Auth() {
   const [isLogin, setIsLogin] = useState(true);
@@ -22,23 +32,35 @@ export default function Auth() {
     setLoading(true);
 
     if (isLogin) {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const parsed = loginSchema.safeParse({ email, password });
+      if (!parsed.success) {
+        toast({ title: "Validation error", description: parsed.error.errors[0]?.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
       if (error) {
-        toast({ title: "Login failed", description: error.message, variant: "destructive" });
+        toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
       } else {
         navigate("/");
       }
     } else {
+      const parsed = signupSchema.safeParse({ email, password, fullName });
+      if (!parsed.success) {
+        toast({ title: "Validation error", description: parsed.error.errors[0]?.message, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email: parsed.data.email,
+        password: parsed.data.password,
         options: {
-          data: { full_name: fullName },
+          data: { full_name: parsed.data.fullName },
           emailRedirectTo: window.location.origin,
         },
       });
       if (error) {
-        toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+        toast({ title: "Sign up failed", description: "Unable to create account. Please try again.", variant: "destructive" });
       } else {
         toast({
           title: "Check your email",
