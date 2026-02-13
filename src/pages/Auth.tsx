@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { HardHat, Wrench } from "lucide-react";
+import { Wrench } from "lucide-react";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -75,9 +75,7 @@ export default function Auth() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <HardHat className="h-7 w-7 text-primary-foreground" />
-          </div>
+          <img src="/favicon.png" alt="FieldReport logo" className="mx-auto mb-4 h-14 w-14 rounded-xl" />
           <CardTitle className="text-2xl font-bold">FieldReport</CardTitle>
           <CardDescription className="flex items-center justify-center gap-1.5">
             <Wrench className="h-3.5 w-3.5" />
