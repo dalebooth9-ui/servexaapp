@@ -2,9 +2,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Webhook } from "lucide-react";
+import { MessageSquare, Webhook, Copy, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+
+const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
 export default function SettingsPage() {
+  const [copied, setCopied] = useState(false);
+
+  const copyWebhookUrl = () => {
+    navigator.clipboard.writeText(WEBHOOK_URL);
+    setCopied(true);
+    toast.success("Webhook URL copied to clipboard");
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div>
       <h1 className="mb-6 text-2xl font-bold">Settings</h1>
@@ -14,22 +27,34 @@ export default function SettingsPage() {
           <CardHeader>
             <div className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5 text-accent" />
-              <CardTitle className="text-lg">WhatsApp Integration</CardTitle>
+              <CardTitle className="text-lg">WhatsApp Integration (Twilio)</CardTitle>
             </div>
             <CardDescription>
-              Configure the WhatsApp Business API to receive field reports automatically. You'll need a WhatsApp Business API provider (like Twilio or Meta Cloud API).
+              Receive field reports automatically via WhatsApp using Twilio.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border border-dashed p-6 text-center">
-              <Webhook className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
-              <p className="text-sm font-medium">WhatsApp Webhook</p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                The webhook endpoint will be set up as a backend function. Once configured, your engineers can send photos, documents, and notes to your WhatsApp Business number, and they'll appear automatically in the relevant job folder.
+            <div className="space-y-2">
+              <Label>Webhook URL</Label>
+              <div className="flex gap-2">
+                <Input value={WEBHOOK_URL} readOnly className="font-mono text-xs" />
+                <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
+                  {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Paste this URL into your Twilio WhatsApp Sandbox or Sender configuration as the "When a message comes in" webhook.
               </p>
-              <p className="mt-3 text-xs text-muted-foreground">
-                Contact your admin to set up the WhatsApp Business API credentials.
-              </p>
+            </div>
+
+            <div className="rounded-lg border border-dashed p-4">
+              <p className="text-sm font-medium">Twilio Setup Checklist</p>
+              <ul className="mt-2 space-y-1 text-xs text-muted-foreground list-disc pl-4">
+                <li>Twilio Account SID, Auth Token, and WhatsApp number are configured ✓</li>
+                <li>Go to <strong>Twilio Console → Messaging → Try WhatsApp</strong> (or your production sender)</li>
+                <li>Set the webhook URL above as the "When a message comes in" callback (HTTP POST)</li>
+                <li>Ensure each engineer's WhatsApp number is saved in their profile</li>
+              </ul>
             </div>
           </CardContent>
         </Card>
