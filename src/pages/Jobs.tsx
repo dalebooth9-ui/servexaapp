@@ -87,36 +87,38 @@ function DroppableClientFolder({
   });
 
   return (
-    <AccordionItem
-      value={clientName}
-      className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
-    >
-      <AccordionTrigger className="px-4 hover:no-underline">
-        <div className="flex items-center gap-2">
-          <FolderOpen className="h-4 w-4 text-primary" />
-          <span className="font-semibold">{clientName}</span>
-          <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="px-0 pb-0" ref={setNodeRef}>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {isAdmin && <TableHead className="w-8 px-2" />}
-              <TableHead>Reference</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Submissions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {jobs.map((job: any) => (
-              <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
-            ))}
-          </TableBody>
-        </Table>
-      </AccordionContent>
-    </AccordionItem>
+    <div ref={setNodeRef}>
+      <AccordionItem
+        value={clientName}
+        className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
+      >
+        <AccordionTrigger className="px-4 hover:no-underline">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="h-4 w-4 text-primary" />
+            <span className="font-semibold">{clientName}</span>
+            <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
+          </div>
+        </AccordionTrigger>
+        <AccordionContent className="px-0 pb-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {isAdmin && <TableHead className="w-8 px-2" />}
+                <TableHead>Reference</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Submissions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jobs.map((job: any) => (
+                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
+              ))}
+            </TableBody>
+          </Table>
+        </AccordionContent>
+      </AccordionItem>
+    </div>
   );
 }
 
@@ -126,15 +128,15 @@ function NewClientDropZone({ isOver, isDragging }: { isOver: boolean; isDragging
     data: { clientName: "__new_client__" },
   });
 
-  if (!isDragging) return null;
-
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors ${
-        isOver
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-muted-foreground/30 text-muted-foreground"
+      className={`mt-3 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-all ${
+        !isDragging
+          ? "hidden"
+          : isOver
+            ? "border-primary bg-primary/10 text-primary"
+            : "border-muted-foreground/30 text-muted-foreground"
       }`}
     >
       <FolderPlus className="mx-auto mb-2 h-6 w-6" />
@@ -153,6 +155,7 @@ export default function Jobs() {
   const [loading, setLoading] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [openFolders, setOpenFolders] = useState<string[]>([]);
   const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
   const [newClientName, setNewClientName] = useState("");
   const [pendingNewClientJob, setPendingNewClientJob] = useState<any>(null);
@@ -169,6 +172,7 @@ export default function Jobs() {
   };
 
   useEffect(() => { fetchJobs(); }, [user]);
+
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -289,6 +293,15 @@ export default function Jobs() {
     return a.localeCompare(b);
   });
 
+  // Keep all folders open by default when client list changes
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    setOpenFolders((prev) => {
+      const newNames = clientNames.filter((n) => !prev.includes(n));
+      return newNames.length > 0 ? [...prev, ...newNames] : prev;
+    });
+  }, [clientNames.join(",")]);
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -345,7 +358,7 @@ export default function Jobs() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
-          <Accordion type="multiple" defaultValue={clientNames} className="space-y-3">
+          <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-3">
             {clientNames.map((clientName) => (
               <DroppableClientFolder
                 key={clientName}
