@@ -170,6 +170,9 @@ function SubmissionList({ items }: { items: any[] }) {
               {sub.type === "photo" && resolvedUrl && (
                 <img src={resolvedUrl} alt={sub.file_name || "Photo"} className="mb-3 h-48 w-full rounded-md object-cover" />
               )}
+              {sub.type === "photo" && sub.content && (
+                <p className="mb-2 text-sm text-foreground">{sub.content}</p>
+              )}
               {sub.type === "document" && (
                 <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
                   <FileText className="h-10 w-10 text-muted-foreground" />
