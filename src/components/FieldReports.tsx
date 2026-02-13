@@ -61,6 +61,19 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
 
   useEffect(() => { fetchReports(); }, [jobId]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel(`field-reports-${jobId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'field_reports', filter: `job_id=eq.${jobId}` },
+        () => { fetchReports(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [jobId]);
+
   const openNew = () => {
     setEditingReport(null);
     setTitle("");
