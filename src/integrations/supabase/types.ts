@@ -14,6 +14,44 @@ export type Database = {
   }
   public: {
     Tables: {
+      field_reports: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          job_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content?: string
+          created_at?: string
+          id?: string
+          job_id: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "field_reports_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_assignments: {
         Row: {
           assigned_at: string
@@ -108,6 +146,41 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: []
+      }
+      submission_comments: {
+        Row: {
+          author_id: string
+          content: string
+          created_at: string
+          id: string
+          submission_id: string
+          updated_at: string
+        }
+        Insert: {
+          author_id: string
+          content: string
+          created_at?: string
+          id?: string
+          submission_id: string
+          updated_at?: string
+        }
+        Update: {
+          author_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          submission_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "submission_comments_submission_id_fkey"
+            columns: ["submission_id"]
+            isOneToOne: false
+            referencedRelation: "submissions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submissions: {
         Row: {

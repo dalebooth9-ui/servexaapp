@@ -13,6 +13,8 @@ import EngineerAssignments from "@/components/EngineerAssignments";
 import WhatsAppReply from "@/components/WhatsAppReply";
 import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
 import LocationMap from "@/components/LocationMap";
+import FieldReports from "@/components/FieldReports";
+import SubmissionComments from "@/components/SubmissionComments";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -218,6 +220,10 @@ export default function JobDetail() {
         {userRole === "admin" && <WhatsAppReply jobId={id!} engineers={engineers} />}
       </div>
 
+      <div className="mb-6">
+        <FieldReports jobId={id!} />
+      </div>
+
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Submissions ({filtered.length})</h2>
         <div className="flex gap-2">
@@ -375,6 +381,7 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
                     )}
                   </div>
                 </div>
+                <SubmissionComments submissionId={sub.id} />
               </CardContent>
             </Card>
           );
