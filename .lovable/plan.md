@@ -1,49 +1,62 @@
 
-# Field Engineer Report Collection System
 
-## Overview
-A web application that integrates with WhatsApp Business API to automatically receive field reports (photos, text notes, documents, and location data) from engineers, organizes everything by job/project, and provides a dashboard for both engineers and office staff to view and manage submissions.
+## AI-Powered Field Report Summaries
 
-## Core Features
+When a field report is saved, the app will automatically generate a concise AI summary and store it alongside the report. This summary will appear on the report cards and in the view dialog, giving users a quick overview without reading the full content.
 
-### 1. WhatsApp Integration (Incoming Messages)
-- Connect to WhatsApp Business API (via a provider like Twilio or Meta Cloud API) to receive messages from engineers
-- Engineers send photos, text notes, PDFs, and location pins to a dedicated WhatsApp Business number
-- Engineers identify which job/project a submission belongs to (e.g., by texting a job reference number before sending files)
-- The system automatically processes and stores incoming media and text
+---
 
-### 2. Job/Project Management
-- Create and manage jobs/projects with a name, reference number, client, address, and status
-- Each job acts as a "folder" where all related submissions are collected
-- Assign engineers to specific jobs
+### What changes
 
-### 3. Submissions Dashboard
-- View all submissions organized by job/project
-- Filter by engineer, date range, or submission type (photo, note, document)
-- Preview photos and documents inline
-- View location data on a map pin
-- Download all files for a job as a batch
+1. **Database: Add `summary` column to `field_reports`**
+   - Add a nullable `text` column called `summary` to the `field_reports` table
+   - No changes to RLS policies needed (existing policies cover all columns)
 
-### 4. User Roles
-- **Admin/Office staff**: Can create jobs, view all submissions across all engineers, manage engineers
-- **Engineers**: Can view their own submissions and the jobs they're assigned to
+2. **Backend: New `summarize-report` edge function**
+   - Creates `supabase/functions/summarize-report/index.ts`
+   - Accepts a `reportId` in the request body
+   - Reads the report content from the database using the service role key
+   - Strips HTML tags from the rich text content
+   - Calls Lovable AI (Gemini Flash) with a prompt to produce a 1-2 sentence summary
+   - Updates the report's `summary` column with the result
+   - Handles rate limit (429) and payment (402) errors gracefully
+   - JWT verification disabled in `config.toml`; auth checked in code
 
-### 5. Engineer Directory
-- List of field engineers with their names, WhatsApp numbers, and assigned jobs
-- Link WhatsApp numbers to user accounts so the system knows who sent what
+3. **Frontend: Trigger summarization after saving a new report**
+   - In `FieldReports.tsx`, after a successful **new report insert**, call the `summarize-report` edge function in the background (fire-and-forget)
+   - The realtime subscription will automatically refresh the report card once the summary is written to the database
+   - No summarization on edits (to avoid unnecessary AI calls); users can manually re-summarize if desired
 
-## Pages
-1. **Login page** — Simple authentication
-2. **Dashboard** — Overview of recent submissions, active jobs, quick stats
-3. **Jobs list** — All projects with status and submission counts
-4. **Job detail** — All photos, notes, documents, and location data for a specific job, organized chronologically
-5. **Engineers** — Manage engineer profiles and assignments (admin only)
-6. **Settings** — WhatsApp API configuration
+4. **Frontend: Display summaries in the UI**
+   - On each report **card**: show the summary text (truncated to 2 lines) below the author/date line
+   - In the **view dialog**: show the summary in a highlighted box above the full content
+   - Show a "Summarizing..." indicator while the summary is being generated (when summary is null on a new report)
+   - Add a "Re-summarize" button in the view dialog for updated reports
 
-## Backend Requirements
-- **Database** to store jobs, engineers, and submission records
-- **File storage** for photos and documents received via WhatsApp
-- **Edge function** to receive WhatsApp webhook messages and process them
-- **Authentication** for login and role-based access
+---
 
-This will require connecting to Lovable Cloud or Supabase for the backend (database, file storage, and edge functions), plus a WhatsApp Business API provider (like Twilio or Meta Cloud API) for receiving messages.
+### Technical Details
+
+**Edge function (`supabase/functions/summarize-report/index.ts`):**
+- Uses `LOVABLE_API_KEY` (already configured) to call `https://ai.gateway.lovable.dev/v1/chat/completions`
+- Model: `google/gemini-3-flash-preview`
+- Uses `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to read/write the report
+- Non-streaming request (simple JSON response)
+
+**Database migration:**
+```sql
+ALTER TABLE public.field_reports ADD COLUMN summary text;
+```
+
+**Config update (`supabase/config.toml`):**
+```toml
+[functions.summarize-report]
+verify_jwt = false
+```
+
+**Files to create/modify:**
+- `supabase/functions/summarize-report/index.ts` (new)
+- `supabase/config.toml` (add function config)
+- `src/components/FieldReports.tsx` (trigger summarization, display summary)
+- Database migration for the `summary` column
+
