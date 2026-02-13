@@ -1,8 +1,8 @@
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import { useEffect, useRef } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
-// Fix default marker icon issue in bundlers
+// Fix default marker icon
 const defaultIcon = L.icon({
   iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
   iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
@@ -12,7 +12,6 @@ const defaultIcon = L.icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41],
 });
-L.Marker.prototype.options.icon = defaultIcon;
 
 type LocationPoint = {
   id: string;
@@ -23,34 +22,53 @@ type LocationPoint = {
 };
 
 export default function LocationMap({ locations }: { locations: LocationPoint[] }) {
-  if (locations.length === 0) return null;
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
 
-  const center: [number, number] = [
-    locations.reduce((sum, l) => sum + l.latitude, 0) / locations.length,
-    locations.reduce((sum, l) => sum + l.longitude, 0) / locations.length,
-  ];
+  useEffect(() => {
+    if (!mapRef.current || locations.length === 0) return;
+
+    // Clean up previous map
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.remove();
+      mapInstanceRef.current = null;
+    }
+
+    const center: [number, number] = [
+      locations.reduce((sum, l) => sum + l.latitude, 0) / locations.length,
+      locations.reduce((sum, l) => sum + l.longitude, 0) / locations.length,
+    ];
+
+    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView(center, 13);
+    mapInstanceRef.current = map;
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    locations.forEach((loc) => {
+      const marker = L.marker([loc.latitude, loc.longitude], { icon: defaultIcon }).addTo(map);
+      const popupContent = `
+        <div style="font-size:12px">
+          <p style="font-weight:500">${new Date(loc.created_at).toLocaleString()}</p>
+          ${loc.content ? `<p style="margin-top:4px">${loc.content}</p>` : ""}
+          <p style="margin-top:4px;color:#888">${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}</p>
+        </div>
+      `;
+      marker.bindPopup(popupContent);
+    });
+
+    return () => {
+      map.remove();
+      mapInstanceRef.current = null;
+    };
+  }, [locations]);
+
+  if (locations.length === 0) return null;
 
   return (
     <div className="mb-6 overflow-hidden rounded-lg border">
-      <MapContainer center={center} zoom={13} className="h-[350px] w-full" scrollWheelZoom={false}>
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        {locations.map((loc) => (
-          <Marker key={loc.id} position={[loc.latitude, loc.longitude]}>
-            <Popup>
-              <div className="text-xs">
-                <p className="font-medium">{new Date(loc.created_at).toLocaleString()}</p>
-                {loc.content && <p className="mt-1">{loc.content}</p>}
-                <p className="mt-1 text-muted-foreground">
-                  {loc.latitude.toFixed(6)}, {loc.longitude.toFixed(6)}
-                </p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
-      </MapContainer>
+      <div ref={mapRef} className="h-[350px] w-full" />
     </div>
   );
 }
