@@ -178,6 +178,9 @@ function SubmissionList({ items }: { items: any[] }) {
                   <FileText className="h-10 w-10 text-muted-foreground" />
                 </div>
               )}
+              {sub.type === "document" && sub.content && (
+                <p className="mb-2 text-sm text-foreground">{sub.content}</p>
+              )}
               {sub.type === "location" && (
                 <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
                   <MapPin className="h-10 w-10 text-destructive" />
