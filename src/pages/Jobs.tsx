@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -87,38 +87,37 @@ function DroppableClientFolder({
   });
 
   return (
-    <div ref={setNodeRef}>
-      <AccordionItem
-        value={clientName}
-        className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
-      >
-        <AccordionTrigger className="px-4 hover:no-underline">
-          <div className="flex items-center gap-2">
-            <FolderOpen className="h-4 w-4 text-primary" />
-            <span className="font-semibold">{clientName}</span>
-            <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
-          </div>
-        </AccordionTrigger>
-        <AccordionContent className="px-0 pb-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {isAdmin && <TableHead className="w-8 px-2" />}
-                <TableHead>Reference</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Submissions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {jobs.map((job: any) => (
-                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
-              ))}
-            </TableBody>
-          </Table>
-        </AccordionContent>
-      </AccordionItem>
-    </div>
+    <AccordionItem
+      ref={setNodeRef}
+      value={clientName}
+      className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
+    >
+      <AccordionTrigger className="px-4 hover:no-underline">
+        <div className="flex items-center gap-2">
+          <FolderOpen className="h-4 w-4 text-primary" />
+          <span className="font-semibold">{clientName}</span>
+          <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent className="px-0 pb-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              {isAdmin && <TableHead className="w-8 px-2" />}
+              <TableHead>Reference</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Submissions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {jobs.map((job: any) => (
+              <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
+            ))}
+          </TableBody>
+        </Table>
+      </AccordionContent>
+    </AccordionItem>
   );
 }
 
@@ -293,14 +292,21 @@ export default function Jobs() {
     return a.localeCompare(b);
   });
 
-  // Keep all folders open by default when client list changes
+  // Keep all folders open by default when new clients appear
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setOpenFolders((prev) => {
-      const newNames = clientNames.filter((n) => !prev.includes(n));
-      return newNames.length > 0 ? [...prev, ...newNames] : prev;
+      const allNames = new Set(prev);
+      let changed = false;
+      for (const name of clientNames) {
+        if (!allNames.has(name)) {
+          allNames.add(name);
+          changed = true;
+        }
+      }
+      return changed ? Array.from(allNames) : prev;
     });
-  }, [clientNames.join(",")]);
+  }, [jobs]); // only re-run when jobs data changes, not on every render
 
   return (
     <div>
