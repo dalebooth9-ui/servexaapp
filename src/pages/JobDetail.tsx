@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File } from "lucide-react";
+import { ArrowLeft, Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
 import WhatsAppReply from "@/components/WhatsAppReply";
@@ -135,6 +136,23 @@ export default function JobDetail() {
     setUploading(false);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
+  const handleDeleteSubmission = async (sub: any) => {
+    // Delete file from storage if it exists
+    if (sub.file_url) {
+      const path = extractStoragePath(sub.file_url);
+      if (path) {
+        await supabase.storage.from("submissions").remove([path]);
+      }
+    }
+    // Delete the submission record
+    const { error } = await supabase.from("submissions").delete().eq("id", sub.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete submission.", variant: "destructive" });
+    } else {
+      toast({ title: "Deleted", description: "Submission removed." });
+      setSubmissions((prev) => prev.filter((s) => s.id !== sub.id));
+    }
+  };
 
   const filtered = submissions.filter((s) => {
     if (filters.type !== "all" && s.type !== filters.type) return false;
@@ -231,14 +249,15 @@ export default function JobDetail() {
         return locations.length > 0 ? <LocationMap locations={locations} /> : null;
       })()}
 
-      <SubmissionList items={filtered} />
+      <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} />
     </div>
   );
 }
 
-function SubmissionList({ items }: { items: any[] }) {
+function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: boolean; onDelete: (sub: any) => Promise<void> }) {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [previewSub, setPreviewSub] = useState<any>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const generateSignedUrls = async () => {
@@ -320,6 +339,39 @@ function SubmissionList({ items }: { items: any[] }) {
                       <a href={resolvedUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
                         Download
                       </a>
+                    )}
+                    {isAdmin && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            className="inline-flex items-center gap-1 font-medium text-destructive hover:underline"
+                            disabled={deletingId === sub.id}
+                          >
+                            <Trash2 className="h-3 w-3" /> {deletingId === sub.id ? "Deleting..." : "Delete"}
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete submission?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete {sub.file_name || "this submission"} and its associated file. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              onClick={async () => {
+                                setDeletingId(sub.id);
+                                await onDelete(sub);
+                                setDeletingId(null);
+                              }}
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                 </div>
