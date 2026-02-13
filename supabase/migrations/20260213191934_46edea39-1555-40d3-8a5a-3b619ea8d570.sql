@@ -1,0 +1,1 @@
+ALTER TABLE public.field_reports ADD COLUMN summary text;

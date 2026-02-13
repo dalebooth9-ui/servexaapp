@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Pencil, Trash2, Download } from "lucide-react";
+import { Plus, FileText, Pencil, Trash2, Download, Sparkles, Loader2 } from "lucide-react";
 import html2pdf from "html2pdf.js";
 import RichTextEditor from "./RichTextEditor";
 
@@ -22,7 +22,34 @@ interface FieldReport {
   author_id: string;
   created_at: string;
   updated_at: string;
+  summary?: string | null;
 }
+
+const triggerSummarization = async (reportId: string) => {
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/summarize-report`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ reportId }),
+      }
+    );
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      console.error("Summarization failed:", err.error || response.statusText);
+    }
+  } catch (e) {
+    console.error("Summarization error:", e);
+  }
+};
 
 export default function FieldReports({ jobId }: FieldReportsProps) {
   const { user } = useAuth();
@@ -36,6 +63,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
   const [content, setContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [authorNames, setAuthorNames] = useState<Record<string, string>>({});
+  const [summarizingIds, setSummarizingIds] = useState<Set<string>>(new Set());
 
   const fetchReports = async () => {
     const { data } = await supabase
@@ -43,8 +71,17 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
       .select("*")
       .eq("job_id", jobId)
       .order("updated_at", { ascending: false });
-    const items = data || [];
+    const items = (data || []) as FieldReport[];
     setReports(items);
+
+    // Clear summarizing state for reports that now have summaries
+    setSummarizingIds((prev) => {
+      const next = new Set(prev);
+      items.forEach((r) => {
+        if (r.summary) next.delete(r.id);
+      });
+      return next;
+    });
 
     const authorIds = [...new Set(items.map((r) => r.author_id))];
     if (authorIds.length > 0) {
@@ -106,18 +143,31 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
         toast({ title: "Saved", description: "Report updated." });
       }
     } else {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from("field_reports")
-        .insert({ job_id: jobId, author_id: user.id, title: title.trim(), content });
+        .insert({ job_id: jobId, author_id: user.id, title: title.trim(), content })
+        .select("id")
+        .single();
       if (error) {
         toast({ title: "Error", description: "Failed to create report.", variant: "destructive" });
       } else {
-        toast({ title: "Created", description: "Report saved." });
+        toast({ title: "Created", description: "Report saved. Generating summary..." });
+        if (inserted) {
+          setSummarizingIds((prev) => new Set(prev).add(inserted.id));
+          triggerSummarization(inserted.id);
+        }
       }
     }
 
     setSaving(false);
     setEditorOpen(false);
+    fetchReports();
+  };
+
+  const handleResummarize = async (reportId: string) => {
+    setSummarizingIds((prev) => new Set(prev).add(reportId));
+    toast({ title: "Re-summarizing..." });
+    await triggerSummarization(reportId);
     fetchReports();
   };
 
@@ -129,6 +179,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
         <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
           Author: ${authorNames[report.author_id] || "Unknown"} • ${new Date(report.updated_at).toLocaleString()}
         </p>
+        ${report.summary ? `<p style="font-size: 13px; color: #444; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;"><strong>Summary:</strong> ${report.summary}</p>` : ""}
         <hr style="margin-bottom: 16px;" />
         <div style="font-size: 14px; line-height: 1.6;">${report.content}</div>
       </div>
@@ -154,6 +205,14 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
       setReports((prev) => prev.filter((r) => r.id !== id));
     }
   };
+
+  // Keep viewReport in sync with latest data
+  useEffect(() => {
+    if (viewReport) {
+      const updated = reports.find((r) => r.id === viewReport.id);
+      if (updated) setViewReport(updated);
+    }
+  }, [reports]);
 
   return (
     <div className="space-y-4">
@@ -183,6 +242,13 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
               <p className="text-xs text-muted-foreground">
                 {authorNames[report.author_id] || "Unknown"} • {new Date(report.updated_at).toLocaleDateString()}
               </p>
+              {summarizingIds.has(report.id) && !report.summary ? (
+                <p className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Summarizing...
+                </p>
+              ) : report.summary ? (
+                <p className="mt-1.5 text-xs text-muted-foreground line-clamp-2">{report.summary}</p>
+              ) : null}
               <div className="mt-2 flex gap-1">
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); openEdit(report); }}>
                   <Pencil className="mr-1 h-3 w-3" /> Edit
@@ -244,6 +310,36 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
               {viewReport && authorNames[viewReport.author_id]} • Last updated {viewReport && new Date(viewReport.updated_at).toLocaleString()}
             </p>
           </DialogHeader>
+
+          {/* Summary box */}
+          {viewReport && (
+            <div className="rounded-lg border bg-muted/50 p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium flex items-center gap-1">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" /> AI Summary
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-xs"
+                  disabled={summarizingIds.has(viewReport.id)}
+                  onClick={() => handleResummarize(viewReport.id)}
+                >
+                  {summarizingIds.has(viewReport.id) ? (
+                    <><Loader2 className="mr-1 h-3 w-3 animate-spin" /> Summarizing...</>
+                  ) : (
+                    <><Sparkles className="mr-1 h-3 w-3" /> Re-summarize</>
+                  )}
+                </Button>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                {summarizingIds.has(viewReport.id) && !viewReport.summary
+                  ? "Generating summary..."
+                  : viewReport.summary || "No summary yet."}
+              </p>
+            </div>
+          )}
+
           <div className="flex-1 overflow-auto">
             {viewReport && <RichTextEditor content={viewReport.content} onChange={() => {}} editable={false} />}
           </div>
