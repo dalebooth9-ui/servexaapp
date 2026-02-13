@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.send-whatsapp]
 verify_jwt = false
+
+[functions.get-maps-key]
+verify_jwt = false

@@ -1,17 +1,6 @@
-import { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-
-// Fix default marker icon
-const defaultIcon = L.icon({
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
-});
+/// <reference types="google.maps" />
+import { useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type LocationPoint = {
   id: string;
@@ -21,45 +10,107 @@ type LocationPoint = {
   content?: string | null;
 };
 
+let googleMapsLoaded = false;
+let googleMapsPromise: Promise<void> | null = null;
+
+function loadGoogleMaps(apiKey: string): Promise<void> {
+  if (googleMapsLoaded) return Promise.resolve();
+  if (googleMapsPromise) return googleMapsPromise;
+
+  googleMapsPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      googleMapsLoaded = true;
+      resolve();
+    };
+    script.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(script);
+  });
+
+  return googleMapsPromise;
+}
+
 export default function LocationMap({ locations }: { locations: LocationPoint[] }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mapRef.current || locations.length === 0) return;
 
-    // Clean up previous map
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.remove();
-      mapInstanceRef.current = null;
-    }
+    let cancelled = false;
 
-    const center: [number, number] = [
-      locations.reduce((sum, l) => sum + l.latitude, 0) / locations.length,
-      locations.reduce((sum, l) => sum + l.longitude, 0) / locations.length,
-    ];
+    const init = async () => {
+      try {
+        // Fetch API key
+        const { data, error: fnError } = await supabase.functions.invoke("get-maps-key");
+        if (fnError || !data?.apiKey) {
+          setError("Maps API key unavailable");
+          setLoading(false);
+          return;
+        }
 
-    const map = L.map(mapRef.current, { scrollWheelZoom: false }).setView(center, 13);
-    mapInstanceRef.current = map;
+        await loadGoogleMaps(data.apiKey);
+        if (cancelled || !mapRef.current) return;
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
+        const center = {
+          lat: locations.reduce((sum, l) => sum + l.latitude, 0) / locations.length,
+          lng: locations.reduce((sum, l) => sum + l.longitude, 0) / locations.length,
+        };
 
-    locations.forEach((loc) => {
-      const marker = L.marker([loc.latitude, loc.longitude], { icon: defaultIcon }).addTo(map);
-      const popupContent = `
-        <div style="font-size:12px">
-          <p style="font-weight:500">${new Date(loc.created_at).toLocaleString()}</p>
-          ${loc.content ? `<p style="margin-top:4px">${loc.content}</p>` : ""}
-          <p style="margin-top:4px;color:#888">${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}</p>
-        </div>
-      `;
-      marker.bindPopup(popupContent);
-    });
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 14,
+          mapTypeControl: true,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+        mapInstanceRef.current = map;
+
+        const bounds = new google.maps.LatLngBounds();
+
+        locations.forEach((loc) => {
+          const position = { lat: loc.latitude, lng: loc.longitude };
+          bounds.extend(position);
+
+          const marker = new google.maps.Marker({
+            position,
+            map,
+            title: loc.content || undefined,
+          });
+
+          const infoContent = `
+            <div style="font-size:12px;max-width:200px">
+              <p style="font-weight:600;margin:0">${new Date(loc.created_at).toLocaleString()}</p>
+              ${loc.content ? `<p style="margin:4px 0 0">${loc.content}</p>` : ""}
+              <p style="margin:4px 0 0;color:#666">${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}</p>
+            </div>
+          `;
+
+          const infoWindow = new google.maps.InfoWindow({ content: infoContent });
+          marker.addListener("click", () => infoWindow.open(map, marker));
+        });
+
+        if (locations.length > 1) {
+          map.fitBounds(bounds, 50);
+        }
+
+        setLoading(false);
+      } catch (err) {
+        console.error("Google Maps init error:", err);
+        setError("Failed to load maps");
+        setLoading(false);
+      }
+    };
+
+    init();
 
     return () => {
-      map.remove();
+      cancelled = true;
       mapInstanceRef.current = null;
     };
   }, [locations]);
@@ -68,7 +119,17 @@ export default function LocationMap({ locations }: { locations: LocationPoint[] 
 
   return (
     <div className="mb-6 overflow-hidden rounded-lg border">
-      <div ref={mapRef} className="h-[350px] w-full" />
+      {loading && !error && (
+        <div className="flex h-[350px] items-center justify-center text-sm text-muted-foreground">
+          Loading map...
+        </div>
+      )}
+      {error && (
+        <div className="flex h-[350px] items-center justify-center text-sm text-destructive">
+          {error}
+        </div>
+      )}
+      <div ref={mapRef} className={`h-[350px] w-full ${loading || error ? "hidden" : ""}`} />
     </div>
   );
 }
