@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -120,6 +120,29 @@ function DroppableClientFolder({
   );
 }
 
+function NewClientDropZone({ isOver, isDragging }: { isOver: boolean; isDragging: boolean }) {
+  const { setNodeRef } = useDroppable({
+    id: "folder-__new_client__",
+    data: { clientName: "__new_client__" },
+  });
+
+  if (!isDragging) return null;
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors ${
+        isOver
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-muted-foreground/30 text-muted-foreground"
+      }`}
+    >
+      <FolderPlus className="mx-auto mb-2 h-6 w-6" />
+      <p className="text-sm font-medium">Drop here to create a new client folder</p>
+    </div>
+  );
+}
+
 export default function Jobs() {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
@@ -130,6 +153,9 @@ export default function Jobs() {
   const [loading, setLoading] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [pendingNewClientJob, setPendingNewClientJob] = useState<any>(null);
 
   const isAdmin = userRole === "admin";
 
@@ -198,12 +224,22 @@ export default function Jobs() {
     const targetFolder = over.data.current?.clientName;
     if (!draggedJob || !targetFolder) return;
 
+    if (targetFolder === "__new_client__") {
+      setPendingNewClientJob(draggedJob);
+      setNewClientName("");
+      setNewClientDialogOpen(true);
+      return;
+    }
+
     const currentClient = draggedJob.client?.trim() || "Unassigned";
     if (currentClient === targetFolder) return;
 
+    await reassignJob(draggedJob, targetFolder);
+  };
+
+  const reassignJob = async (draggedJob: any, targetFolder: string) => {
     const newClient = targetFolder === "Unassigned" ? null : targetFolder;
 
-    // Optimistic update
     setJobs((prev) =>
       prev.map((j) => (j.id === draggedJob.id ? { ...j, client: newClient } : j))
     );
@@ -215,10 +251,19 @@ export default function Jobs() {
 
     if (error) {
       toast({ title: "Error", description: "Failed to reassign job.", variant: "destructive" });
-      fetchJobs(); // revert
+      fetchJobs();
     } else {
       toast({ title: "Job reassigned", description: `Moved to ${targetFolder}` });
     }
+  };
+
+  const handleNewClientConfirm = async () => {
+    const trimmed = newClientName.trim();
+    if (!trimmed || !pendingNewClientJob) return;
+    setNewClientDialogOpen(false);
+    await reassignJob(pendingNewClientJob, trimmed);
+    setPendingNewClientJob(null);
+    setNewClientName("");
   };
 
   const filtered = jobs.filter(
@@ -312,6 +357,9 @@ export default function Jobs() {
               />
             ))}
           </Accordion>
+          {isAdmin && (
+            <NewClientDropZone isDragging={!!activeJob} isOver={overId === "folder-__new_client__"} />
+          )}
           <DragOverlay>
             {activeJob ? (
               <div className="rounded-md border bg-card px-4 py-2 shadow-lg">
@@ -322,6 +370,33 @@ export default function Jobs() {
           </DragOverlay>
         </DndContext>
       )}
+
+      <Dialog open={newClientDialogOpen} onOpenChange={(open) => {
+        setNewClientDialogOpen(open);
+        if (!open) setPendingNewClientJob(null);
+      }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>New Client Folder</DialogTitle></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); handleNewClientConfirm(); }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Client Name</Label>
+              <Input
+                value={newClientName}
+                onChange={(e) => setNewClientName(e.target.value)}
+                placeholder="Enter new client name"
+                autoFocus
+                required
+              />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              <span className="font-medium">{pendingNewClientJob?.reference_number}</span> — {pendingNewClientJob?.name} will be moved to this folder.
+            </p>
+            <Button type="submit" className="w-full" disabled={!newClientName.trim()}>
+              Create & Move
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
