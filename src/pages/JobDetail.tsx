@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Image, FileText, MapPin, MessageSquare, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
+import WhatsAppReply from "@/components/WhatsAppReply";
 import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
 import LocationMap from "@/components/LocationMap";
 
@@ -38,9 +39,9 @@ export default function JobDetail() {
       if (engineerIds.length > 0) {
         const { data: profiles } = await supabase
           .from("profiles")
-          .select("user_id, full_name")
+          .select("user_id, full_name, whatsapp_number")
           .in("user_id", engineerIds);
-        setEngineers((profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id })));
+        setEngineers((profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id, whatsappNumber: p.whatsapp_number })));
       }
       setLoading(false);
     };
@@ -107,8 +108,9 @@ export default function JobDetail() {
         </Badge>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_320px]">
         <EngineerAssignments jobId={id!} />
+        {userRole === "admin" && <WhatsAppReply jobId={id!} engineers={engineers} />}
       </div>
 
       <div className="mb-4 flex items-center justify-between">
