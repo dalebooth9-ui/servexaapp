@@ -54,6 +54,19 @@ export default function SubmissionComments({ submissionId }: SubmissionCommentsP
     if (expanded) fetchComments();
   }, [submissionId, expanded]);
 
+  // Realtime subscription
+  useEffect(() => {
+    const channel = supabase
+      .channel(`comments-${submissionId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'submission_comments', filter: `submission_id=eq.${submissionId}` },
+        () => { fetchComments(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [submissionId]);
+
   const handleAdd = async () => {
     if (!user || !newComment.trim()) return;
     setSending(true);
