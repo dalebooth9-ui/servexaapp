@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, FolderOpen } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 
@@ -80,6 +81,21 @@ export default function Jobs() {
   const statusColor = (s: string) =>
     s === "active" ? "bg-accent/10 text-accent" : s === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
 
+  // Group jobs by client
+  const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
+    const key = job.client?.trim() || "Unassigned";
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(job);
+    return acc;
+  }, {});
+
+  // Sort client names alphabetically, but put "Unassigned" last
+  const clientNames = Object.keys(grouped).sort((a, b) => {
+    if (a === "Unassigned") return 1;
+    if (b === "Unassigned") return -1;
+    return a.localeCompare(b);
+  });
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -122,48 +138,57 @@ export default function Jobs() {
         <Input className="pl-9" placeholder="Search jobs..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reference</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Submissions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
-                    No jobs found.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filtered.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell>
-                      <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
-                        {job.reference_number}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium">{job.name}</TableCell>
-                    <TableCell className="text-muted-foreground">{job.client || "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={statusColor(job.status)}>
-                        {job.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {filtered.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            No jobs found.
+          </CardContent>
+        </Card>
+      ) : (
+        <Accordion type="multiple" defaultValue={clientNames} className="space-y-3">
+          {clientNames.map((clientName) => (
+            <AccordionItem key={clientName} value={clientName} className="rounded-lg border bg-card">
+              <AccordionTrigger className="px-4 hover:no-underline">
+                <div className="flex items-center gap-2">
+                  <FolderOpen className="h-4 w-4 text-primary" />
+                  <span className="font-semibold">{clientName}</span>
+                  <Badge variant="secondary" className="ml-1 text-xs">{grouped[clientName].length}</Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="px-0 pb-0">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Reference</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead className="text-right">Submissions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {grouped[clientName].map((job: any) => (
+                      <TableRow key={job.id}>
+                        <TableCell>
+                          <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
+                            {job.reference_number}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="font-medium">{job.name}</TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className={statusColor(job.status)}>
+                            {job.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
     </div>
   );
 }
