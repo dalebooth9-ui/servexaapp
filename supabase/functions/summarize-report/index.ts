@@ -43,29 +43,53 @@ serve(async (req) => {
     }
 
     const { reportId } = await req.json();
-    if (!reportId) {
+    if (!reportId || typeof reportId !== "string") {
       return new Response(JSON.stringify({ error: "reportId is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    const userId = claimsData.claims.sub as string;
+
     // Use service role to read/write the report
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
 
+    // Fetch report and verify authorization
     const { data: report, error: fetchError } = await adminClient
       .from("field_reports")
-      .select("title, content")
+      .select("title, content, job_id, author_id")
       .eq("id", reportId)
       .single();
 
     if (fetchError || !report) {
-      console.error("Failed to fetch report:", fetchError);
       return new Response(JSON.stringify({ error: "Report not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Authorization: user must be admin, report author, or assigned to the job
+    const { data: isAdmin } = await adminClient.rpc("has_role", {
+      _user_id: userId,
+      _role: "admin",
+    });
+
+    if (!isAdmin && report.author_id !== userId) {
+      const { data: assignment } = await adminClient
+        .from("job_assignments")
+        .select("id")
+        .eq("job_id", report.job_id)
+        .eq("engineer_id", userId)
+        .maybeSingle();
+
+      if (!assignment) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const plainContent = stripHtml(report.content || "");
