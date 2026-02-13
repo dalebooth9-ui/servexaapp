@@ -286,6 +286,12 @@ export default function Jobs() {
     return acc;
   }, {});
 
+  // Keep the source folder visible during drag even if it becomes empty
+  if (activeJob) {
+    const sourceFolder = activeJob.client?.trim() || "Unassigned";
+    if (!grouped[sourceFolder]) grouped[sourceFolder] = [];
+  }
+
   const clientNames = Object.keys(grouped).sort((a, b) => {
     if (a === "Unassigned") return 1;
     if (b === "Unassigned") return -1;
