@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, HardHat, Menu, X } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -30,9 +30,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary">
-            <HardHat className="h-5 w-5 text-sidebar-primary-foreground" />
-          </div>
+          <img src="/favicon.png" alt="FieldReport logo" className="h-9 w-9 rounded-lg" />
           <span className="text-lg font-bold text-sidebar-primary-foreground">FieldReport</span>
           <button onClick={() => setMobileOpen(false)} className="ml-auto lg:hidden">
             <X className="h-5 w-5" />
@@ -81,7 +79,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
-          <span className="ml-3 font-semibold">FieldReport</span>
+          <img src="/favicon.png" alt="FieldReport logo" className="ml-3 h-7 w-7 rounded" />
+          <span className="font-semibold">FieldReport</span>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
