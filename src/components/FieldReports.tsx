@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Plus, FileText, Pencil, Trash2, Eye } from "lucide-react";
+import { Plus, FileText, Pencil, Trash2, Download } from "lucide-react";
+import html2pdf from "html2pdf.js";
 import RichTextEditor from "./RichTextEditor";
 
 interface FieldReportsProps {
@@ -107,6 +108,30 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
     fetchReports();
   };
 
+  const exportToPdf = (report: FieldReport) => {
+    const container = document.createElement("div");
+    container.innerHTML = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h1 style="font-size: 24px; margin-bottom: 4px;">${report.title || "Untitled Report"}</h1>
+        <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
+          Author: ${authorNames[report.author_id] || "Unknown"} • ${new Date(report.updated_at).toLocaleString()}
+        </p>
+        <hr style="margin-bottom: 16px;" />
+        <div style="font-size: 14px; line-height: 1.6;">${report.content}</div>
+      </div>
+    `;
+    html2pdf()
+      .set({
+        margin: 10,
+        filename: `${(report.title || "report").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2 },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      })
+      .from(container)
+      .save();
+  };
+
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("field_reports").delete().eq("id", id);
     if (error) {
@@ -148,6 +173,9 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
               <div className="mt-2 flex gap-1">
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); openEdit(report); }}>
                   <Pencil className="mr-1 h-3 w-3" /> Edit
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={(e) => { e.stopPropagation(); exportToPdf(report); }}>
+                  <Download className="mr-1 h-3 w-3" /> PDF
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
@@ -208,6 +236,9 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setViewReport(null)}>Close</Button>
+            <Button variant="outline" onClick={() => { if (viewReport) exportToPdf(viewReport); }}>
+              <Download className="mr-1.5 h-4 w-4" /> Export PDF
+            </Button>
             <Button onClick={() => { if (viewReport) { openEdit(viewReport); setViewReport(null); } }}>
               <Pencil className="mr-1.5 h-4 w-4" /> Edit
             </Button>
