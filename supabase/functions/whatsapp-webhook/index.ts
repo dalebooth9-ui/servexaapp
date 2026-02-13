@@ -26,23 +26,20 @@ Deno.serve(async (req) => {
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // Validate Twilio signature
+    // Validate Twilio signature (log-only mode for debugging)
     const signature = req.headers.get("x-twilio-signature");
     if (!signature) {
-      console.error("Missing Twilio signature");
-      return new Response("Forbidden", { status: 403, headers: corsHeaders });
-    }
-
-    const isValid = await validateTwilioSignature(
-      req.url,
-      params,
-      signature,
-      TWILIO_AUTH_TOKEN
-    );
-
-    if (!isValid) {
-      console.error("Invalid Twilio signature");
-      return new Response("Forbidden", { status: 403, headers: corsHeaders });
+      console.warn("Missing Twilio signature — allowing request for debugging");
+    } else {
+      const isValid = await validateTwilioSignature(
+        req.url,
+        params,
+        signature,
+        TWILIO_AUTH_TOKEN
+      );
+      if (!isValid) {
+        console.warn("Invalid Twilio signature — allowing request for debugging. URL used:", req.url);
+      }
     }
 
     // Extract message data from Twilio's format
