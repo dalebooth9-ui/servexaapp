@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
 
+        console.log(`Media ${i}: url=${mediaUrl}, type=${mediaType}`);
         if (!mediaUrl) continue;
 
         // Download media from Twilio
@@ -105,7 +106,13 @@ Deno.serve(async (req) => {
             Authorization: `Basic ${btoa(`${Deno.env.get("TWILIO_ACCOUNT_SID")}:${TWILIO_AUTH_TOKEN}`)}`,
           },
         });
+        console.log(`Media download status: ${fileRes.status}`);
+        if (!fileRes.ok) {
+          console.error(`Media download failed: ${fileRes.status} ${await fileRes.text()}`);
+          continue;
+        }
         const fileBlob = await fileRes.blob();
+        console.log(`Media blob size: ${fileBlob.size}`);
 
         const isImage = mediaType.startsWith("image/");
         const ext = mediaType.split("/")[1] || "bin";
