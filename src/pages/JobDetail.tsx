@@ -1,38 +1,91 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useAuth } from "@/hooks/useAuth";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Image, FileText, MapPin, MessageSquare } from "lucide-react";
+import { ArrowLeft, Image, FileText, MapPin, MessageSquare, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import EngineerAssignments from "@/components/EngineerAssignments";
+import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
+import LocationMap from "@/components/LocationMap";
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
+  const { userRole } = useAuth();
+  const { toast } = useToast();
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [downloading, setDownloading] = useState(false);
+  const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
 
   useEffect(() => {
-    const fetch = async () => {
+    const fetchData = async () => {
+      if (!id) return;
       const [jobRes, subsRes] = await Promise.all([
-        supabase.from("jobs").select("*").eq("id", id!).single(),
-        supabase.from("submissions").select("*, profiles!submissions_engineer_id_fkey(full_name)").eq("job_id", id!).order("created_at", { ascending: false }),
+        supabase.from("jobs").select("*").eq("id", id).single(),
+        supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
       ]);
       setJob(jobRes.data);
-      setSubmissions(subsRes.data || []);
+      const subs = subsRes.data || [];
+      setSubmissions(subs);
+
+      // Get unique engineer names for filter
+      const engineerIds = [...new Set(subs.map((s: any) => s.engineer_id))];
+      if (engineerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", engineerIds);
+        setEngineers((profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id })));
+      }
       setLoading(false);
     };
-    if (id) fetch();
+    fetchData();
   }, [id]);
+
+  const filtered = submissions.filter((s) => {
+    if (filters.type !== "all" && s.type !== filters.type) return false;
+    if (filters.engineerId !== "all" && s.engineer_id !== filters.engineerId) return false;
+    if (filters.dateFrom && new Date(s.created_at) < new Date(filters.dateFrom)) return false;
+    if (filters.dateTo && new Date(s.created_at) > new Date(filters.dateTo + "T23:59:59")) return false;
+    return true;
+  });
+
+  const handleBatchDownload = async () => {
+    const filesWithUrls = filtered.filter((s) => s.file_url);
+    if (filesWithUrls.length === 0) {
+      toast({ title: "No files to download", description: "No downloadable files match the current filters.", variant: "destructive" });
+      return;
+    }
+    setDownloading(true);
+    for (const sub of filesWithUrls) {
+      const path = extractStoragePath(sub.file_url);
+      if (!path) continue;
+      const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
+      if (data?.signedUrl) {
+        const link = document.createElement("a");
+        link.href = data.signedUrl;
+        link.download = sub.file_name || "download";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        // Small delay to avoid browser blocking multiple downloads
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+    setDownloading(false);
+    toast({ title: "Downloads started", description: `${filesWithUrls.length} file(s) downloading.` });
+  };
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
   if (!job) return <div className="flex h-64 items-center justify-center text-muted-foreground">Job not found.</div>;
 
-  const photos = submissions.filter((s) => s.type === "photo");
-  const notes = submissions.filter((s) => s.type === "note");
-  const documents = submissions.filter((s) => s.type === "document");
-  const locations = submissions.filter((s) => s.type === "location");
+  const fileCount = filtered.filter((s) => s.file_url).length;
 
   return (
     <div>
@@ -54,31 +107,28 @@ export default function JobDetail() {
         </Badge>
       </div>
 
-      <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">All ({submissions.length})</TabsTrigger>
-          <TabsTrigger value="photos">Photos ({photos.length})</TabsTrigger>
-          <TabsTrigger value="notes">Notes ({notes.length})</TabsTrigger>
-          <TabsTrigger value="documents">Documents ({documents.length})</TabsTrigger>
-          <TabsTrigger value="locations">Locations ({locations.length})</TabsTrigger>
-        </TabsList>
+      <div className="mb-6">
+        <EngineerAssignments jobId={id!} />
+      </div>
 
-        <TabsContent value="all">
-          <SubmissionList items={submissions} />
-        </TabsContent>
-        <TabsContent value="photos">
-          <SubmissionList items={photos} />
-        </TabsContent>
-        <TabsContent value="notes">
-          <SubmissionList items={notes} />
-        </TabsContent>
-        <TabsContent value="documents">
-          <SubmissionList items={documents} />
-        </TabsContent>
-        <TabsContent value="locations">
-          <SubmissionList items={locations} />
-        </TabsContent>
-      </Tabs>
+      <div className="mb-4 flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Submissions ({filtered.length})</h2>
+        {fileCount > 0 && (
+          <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
+            <Download className="mr-1.5 h-4 w-4" />
+            {downloading ? "Downloading..." : `Download ${fileCount} file(s)`}
+          </Button>
+        )}
+      </div>
+
+      <SubmissionFilters filters={filters} onChange={setFilters} engineers={userRole === "admin" ? engineers : []} />
+
+      {(() => {
+        const locations = filtered.filter((s) => s.type === "location" && s.latitude != null && s.longitude != null);
+        return locations.length > 0 ? <LocationMap locations={locations} /> : null;
+      })()}
+
+      <SubmissionList items={filtered} />
     </div>
   );
 }
@@ -90,19 +140,13 @@ function SubmissionList({ items }: { items: any[] }) {
     const generateSignedUrls = async () => {
       const filesWithUrls = items.filter((s) => s.file_url);
       if (filesWithUrls.length === 0) return;
-
       const urls: Record<string, string> = {};
       await Promise.all(
         filesWithUrls.map(async (sub) => {
-          // Extract the storage path from the file_url
           const path = extractStoragePath(sub.file_url);
           if (!path) return;
-          const { data } = await supabase.storage
-            .from("submissions")
-            .createSignedUrl(path, 3600); // 1 hour expiry
-          if (data?.signedUrl) {
-            urls[sub.id] = data.signedUrl;
-          }
+          const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
+          if (data?.signedUrl) urls[sub.id] = data.signedUrl;
         })
       );
       setSignedUrls(urls);
@@ -111,11 +155,11 @@ function SubmissionList({ items }: { items: any[] }) {
   }, [items]);
 
   if (items.length === 0) {
-    return <p className="py-12 text-center text-muted-foreground">No submissions yet.</p>;
+    return <p className="py-12 text-center text-muted-foreground">No submissions match the current filters.</p>;
   }
 
   return (
-    <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {items.map((sub) => {
         const resolvedUrl = signedUrls[sub.id] || undefined;
         return (
@@ -159,13 +203,10 @@ function SubmissionList({ items }: { items: any[] }) {
   );
 }
 
-/** Extract the storage object path from a full public/signed URL or raw path */
 function extractStoragePath(fileUrl: string): string | null {
   if (!fileUrl) return null;
-  // Match /object/public/submissions/ or /object/sign/submissions/ patterns
   const match = fileUrl.match(/\/object\/(?:public|sign)\/submissions\/(.+?)(?:\?|$)/);
   if (match) return match[1];
-  // If it's already just a path (no URL prefix), use it directly
   if (!fileUrl.startsWith("http")) return fileUrl;
   return null;
 }
