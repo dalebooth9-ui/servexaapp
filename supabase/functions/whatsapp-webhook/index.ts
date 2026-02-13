@@ -26,20 +26,28 @@ Deno.serve(async (req) => {
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // Validate Twilio signature (log-only mode for debugging)
+    // Validate Twilio signature
     const signature = req.headers.get("x-twilio-signature");
     if (!signature) {
-      console.warn("Missing Twilio signature — allowing request for debugging");
-    } else {
-      const isValid = await validateTwilioSignature(
-        req.url,
-        params,
-        signature,
-        TWILIO_AUTH_TOKEN
-      );
-      if (!isValid) {
-        console.warn("Invalid Twilio signature — allowing request for debugging. URL used:", req.url);
-      }
+      console.error("Missing Twilio signature");
+      return new Response("<Response></Response>", {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "text/xml" },
+      });
+    }
+
+    const isValid = await validateTwilioSignature(
+      req.url,
+      params,
+      signature,
+      TWILIO_AUTH_TOKEN
+    );
+    if (!isValid) {
+      console.error("Invalid Twilio signature");
+      return new Response("<Response></Response>", {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "text/xml" },
+      });
     }
 
     // Extract message data from Twilio's format
@@ -128,15 +136,11 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const { data: publicUrl } = supabase.storage
-          .from("submissions")
-          .getPublicUrl(storagePath);
-
         await supabase.from("submissions").insert({
           job_id: jobId,
           engineer_id: engineerId,
           type: isImage ? "photo" : "document",
-          file_url: publicUrl.publicUrl,
+          file_url: storagePath,
           file_name: fileName,
           whatsapp_message_id: messageSid,
           content: messageBody || null,

@@ -83,10 +83,16 @@ export default function LocationMap({ locations }: { locations: LocationPoint[] 
             title: loc.content || undefined,
           });
 
+          const escapeHtml = (str: string) => {
+            const div = document.createElement("div");
+            div.textContent = str;
+            return div.innerHTML;
+          };
+
           const infoContent = `
             <div style="font-size:12px;max-width:200px">
-              <p style="font-weight:600;margin:0">${new Date(loc.created_at).toLocaleString()}</p>
-              ${loc.content ? `<p style="margin:4px 0 0">${loc.content}</p>` : ""}
+              <p style="font-weight:600;margin:0">${escapeHtml(new Date(loc.created_at).toLocaleString())}</p>
+              ${loc.content ? `<p style="margin:4px 0 0">${escapeHtml(loc.content)}</p>` : ""}
               <p style="margin:4px 0 0;color:#666">${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}</p>
             </div>
           `;
