@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, FileText, Pencil, Trash2, Download, Sparkles, Loader2 } from "lucide-react";
 import html2pdf from "html2pdf.js";
+import DOMPurify from "dompurify";
 import RichTextEditor from "./RichTextEditor";
 
 interface FieldReportsProps {
@@ -172,16 +173,22 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
   };
 
   const exportToPdf = (report: FieldReport) => {
+    const escapeHtml = (str: string) => str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] || m));
+    const sanitizedTitle = escapeHtml(report.title || "Untitled Report");
+    const sanitizedAuthor = escapeHtml(authorNames[report.author_id] || "Unknown");
+    const sanitizedSummary = report.summary ? escapeHtml(report.summary) : "";
+    const sanitizedContent = DOMPurify.sanitize(report.content);
+
     const container = document.createElement("div");
     container.innerHTML = `
       <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h1 style="font-size: 24px; margin-bottom: 4px;">${report.title || "Untitled Report"}</h1>
+        <h1 style="font-size: 24px; margin-bottom: 4px;">${sanitizedTitle}</h1>
         <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
-          Author: ${authorNames[report.author_id] || "Unknown"} • ${new Date(report.updated_at).toLocaleString()}
+          Author: ${sanitizedAuthor} • ${new Date(report.updated_at).toLocaleString()}
         </p>
-        ${report.summary ? `<p style="font-size: 13px; color: #444; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;"><strong>Summary:</strong> ${report.summary}</p>` : ""}
+        ${sanitizedSummary ? `<p style="font-size: 13px; color: #444; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;"><strong>Summary:</strong> ${sanitizedSummary}</p>` : ""}
         <hr style="margin-bottom: 16px;" />
-        <div style="font-size: 14px; line-height: 1.6;">${report.content}</div>
+        <div style="font-size: 14px; line-height: 1.6;">${sanitizedContent}</div>
       </div>
     `;
     html2pdf()
