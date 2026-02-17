@@ -2,20 +2,28 @@ import { useEffect, useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, CalendarIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, GripVertical } from "lucide-react";
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  useDraggable,
+  useDroppable,
+  type DragStartEvent,
+  type DragEndEvent,
+} from "@dnd-kit/core";
 
 interface ScheduleEntry {
   id: string;
@@ -37,6 +45,116 @@ interface Job {
   status: string;
 }
 
+// Draggable schedule card
+function DraggableScheduleCard({
+  entry,
+  job,
+  isAdmin,
+  onRemove,
+}: {
+  entry: ScheduleEntry;
+  job: Job | undefined;
+  isAdmin: boolean;
+  onRemove: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: entry.id,
+    data: { entry },
+    disabled: !isAdmin,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "group relative rounded-md border bg-card p-2 text-xs shadow-sm transition-opacity",
+        isDragging && "opacity-30",
+        isAdmin && "cursor-grab"
+      )}
+    >
+      {isAdmin && (
+        <button
+          {...listeners}
+          {...attributes}
+          className="absolute left-0.5 top-1/2 -translate-y-1/2 touch-none text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+        >
+          <GripVertical className="h-3 w-3" />
+        </button>
+      )}
+      <div className={isAdmin ? "pl-3" : ""}>
+        {job ? (
+          <Link
+            to={`/jobs/${job.id}`}
+            className="block"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="font-mono font-medium text-primary hover:underline">
+              {job.reference_number}
+            </div>
+            <div className="truncate text-muted-foreground">{job.name}</div>
+          </Link>
+        ) : (
+          <div className="text-muted-foreground italic">Unknown job</div>
+        )}
+        {entry.notes && (
+          <div className="mt-1 text-muted-foreground italic">{entry.notes}</div>
+        )}
+      </div>
+      {isAdmin && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onRemove();
+          }}
+          className="absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:block"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+// Droppable cell
+function DroppableCell({
+  engineerId,
+  day,
+  isToday,
+  isAdmin,
+  isOver,
+  children,
+  onClickEmpty,
+}: {
+  engineerId: string;
+  day: Date;
+  isToday: boolean;
+  isAdmin: boolean;
+  isOver: boolean;
+  children: React.ReactNode;
+  onClickEmpty: () => void;
+}) {
+  const cellId = `${engineerId}__${format(day, "yyyy-MM-dd")}`;
+  const { setNodeRef } = useDroppable({
+    id: cellId,
+    data: { engineerId, day: format(day, "yyyy-MM-dd") },
+  });
+
+  return (
+    <td
+      ref={setNodeRef}
+      className={cn(
+        "px-2 py-2 align-top min-h-[80px] transition-colors",
+        isToday && "bg-primary/5",
+        isAdmin && "cursor-pointer",
+        isOver && "bg-primary/10 ring-1 ring-inset ring-primary/30"
+      )}
+      onClick={onClickEmpty}
+    >
+      {children}
+    </td>
+  );
+}
+
 export default function WeeklyPlanner() {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
@@ -47,6 +165,8 @@ export default function WeeklyPlanner() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeEntry, setActiveEntry] = useState<ScheduleEntry | null>(null);
+  const [overId, setOverId] = useState<string | null>(null);
 
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -55,6 +175,10 @@ export default function WeeklyPlanner() {
   const [addJobId, setAddJobId] = useState("");
   const [addNotes, setAddNotes] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
@@ -152,6 +276,62 @@ export default function WeeklyPlanner() {
     }
   };
 
+  // Drag and drop handlers
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveEntry(event.active.data.current?.entry || null);
+  };
+
+  const handleDragOver = (event: any) => {
+    setOverId(event.over?.id as string | null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const dragged = activeEntry;
+    setActiveEntry(null);
+    setOverId(null);
+
+    if (!dragged || !event.over) return;
+
+    const target = event.over.data.current as { engineerId: string; day: string } | undefined;
+    if (!target) return;
+
+    const { engineerId: newEngineerId, day: newDate } = target;
+
+    // No change
+    if (dragged.engineer_id === newEngineerId && dragged.schedule_date === newDate) return;
+
+    // Optimistic update
+    setSchedule((prev) =>
+      prev.map((e) =>
+        e.id === dragged.id
+          ? { ...e, engineer_id: newEngineerId, schedule_date: newDate }
+          : e
+      )
+    );
+
+    const { error } = await supabase
+      .from("job_schedule")
+      .update({ engineer_id: newEngineerId, schedule_date: newDate } as any)
+      .eq("id", dragged.id);
+
+    if (error) {
+      const msg = error.code === "23505"
+        ? "This job is already scheduled for that engineer on that day."
+        : "Failed to move entry.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      // Revert
+      setSchedule((prev) =>
+        prev.map((e) =>
+          e.id === dragged.id
+            ? { ...e, engineer_id: dragged.engineer_id, schedule_date: dragged.schedule_date }
+            : e
+        )
+      );
+    } else {
+      toast({ title: "Moved", description: "Schedule entry updated." });
+    }
+  };
+
   // For engineer role, filter to only show their row
   const visibleEngineers = isAdmin
     ? engineers
@@ -160,6 +340,8 @@ export default function WeeklyPlanner() {
   if (loading) {
     return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
   }
+
+  const draggedJob = activeEntry ? getJobById(activeEntry.job_id) : null;
 
   return (
     <div>
@@ -183,116 +365,105 @@ export default function WeeklyPlanner() {
 
       <Card>
         <CardContent className="overflow-x-auto p-0">
-          <table className="w-full min-w-[800px] border-collapse">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="sticky left-0 z-10 bg-muted/50 px-4 py-3 text-left text-sm font-semibold min-w-[160px]">
-                  Engineer
-                </th>
-                {weekDays.map((day) => {
-                  const isToday = isSameDay(day, new Date());
-                  return (
-                    <th
-                      key={day.toISOString()}
-                      className={cn(
-                        "px-2 py-3 text-center text-sm font-semibold min-w-[130px]",
-                        isToday && "bg-primary/5"
-                      )}
-                    >
-                      <div>{format(day, "EEE")}</div>
-                      <div className={cn("text-xs font-normal", isToday ? "text-primary font-medium" : "text-muted-foreground")}>
-                        {format(day, "MMM d")}
-                      </div>
-                    </th>
-                  );
-                })}
-              </tr>
-            </thead>
-            <tbody>
-              {visibleEngineers.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="py-12 text-center text-muted-foreground">
-                    No engineers found.
-                  </td>
+          <DndContext
+            sensors={sensors}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <table className="w-full min-w-[800px] border-collapse">
+              <thead>
+                <tr className="border-b bg-muted/50">
+                  <th className="sticky left-0 z-10 bg-muted/50 px-4 py-3 text-left text-sm font-semibold min-w-[160px]">
+                    Engineer
+                  </th>
+                  {weekDays.map((day) => {
+                    const isToday = isSameDay(day, new Date());
+                    return (
+                      <th
+                        key={day.toISOString()}
+                        className={cn(
+                          "px-2 py-3 text-center text-sm font-semibold min-w-[130px]",
+                          isToday && "bg-primary/5"
+                        )}
+                      >
+                        <div>{format(day, "EEE")}</div>
+                        <div className={cn("text-xs font-normal", isToday ? "text-primary font-medium" : "text-muted-foreground")}>
+                          {format(day, "MMM d")}
+                        </div>
+                      </th>
+                    );
+                  })}
                 </tr>
-              ) : (
-                visibleEngineers.map((eng) => (
-                  <tr key={eng.user_id} className="border-b last:border-0">
-                    <td className="sticky left-0 z-10 bg-card px-4 py-3 text-sm font-medium">
-                      {eng.full_name}
+              </thead>
+              <tbody>
+                {visibleEngineers.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
+                      No engineers found.
                     </td>
-                    {weekDays.map((day) => {
-                      const entries = getEntriesForCell(eng.user_id, day);
-                      const isToday = isSameDay(day, new Date());
-                      return (
-                        <td
-                          key={day.toISOString()}
-                          className={cn(
-                            "px-2 py-2 align-top min-h-[80px]",
-                            isToday && "bg-primary/5",
-                            isAdmin && "cursor-pointer hover:bg-muted/30"
-                          )}
-                          onClick={() => entries.length === 0 && openAddDialog(eng.user_id, day)}
-                        >
-                          <div className="space-y-1.5">
-                            {entries.map((entry) => {
-                              const job = getJobById(entry.job_id);
-                              return (
-                                <div
-                                  key={entry.id}
-                                  className="group relative rounded-md border bg-card p-2 text-xs shadow-sm"
-                                >
-                                  {job ? (
-                                    <Link
-                                      to={`/jobs/${job.id}`}
-                                      className="block"
-                                      onClick={(e) => e.stopPropagation()}
-                                    >
-                                      <div className="font-mono font-medium text-primary hover:underline">
-                                        {job.reference_number}
-                                      </div>
-                                      <div className="truncate text-muted-foreground">{job.name}</div>
-                                    </Link>
-                                  ) : (
-                                    <div className="text-muted-foreground italic">Unknown job</div>
-                                  )}
-                                  {entry.notes && (
-                                    <div className="mt-1 text-muted-foreground italic">{entry.notes}</div>
-                                  )}
-                                  {isAdmin && (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleRemoveEntry(entry.id);
-                                      }}
-                                      className="absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:block"
-                                    >
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  )}
-                                </div>
-                              );
-                            })}
-                            {isAdmin && entries.length > 0 && (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openAddDialog(eng.user_id, day);
-                                }}
-                                className="flex w-full items-center justify-center rounded border border-dashed border-muted-foreground/30 py-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                              >
-                                <Plus className="h-3 w-3" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      );
-                    })}
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : (
+                  visibleEngineers.map((eng) => (
+                    <tr key={eng.user_id} className="border-b last:border-0">
+                      <td className="sticky left-0 z-10 bg-card px-4 py-3 text-sm font-medium">
+                        {eng.full_name}
+                      </td>
+                      {weekDays.map((day) => {
+                        const entries = getEntriesForCell(eng.user_id, day);
+                        const isToday = isSameDay(day, new Date());
+                        const cellId = `${eng.user_id}__${format(day, "yyyy-MM-dd")}`;
+                        const isCellOver = overId === cellId;
+
+                        return (
+                          <DroppableCell
+                            key={day.toISOString()}
+                            engineerId={eng.user_id}
+                            day={day}
+                            isToday={isToday}
+                            isAdmin={isAdmin}
+                            isOver={isCellOver}
+                            onClickEmpty={() => entries.length === 0 && openAddDialog(eng.user_id, day)}
+                          >
+                            <div className="space-y-1.5">
+                              {entries.map((entry) => (
+                                <DraggableScheduleCard
+                                  key={entry.id}
+                                  entry={entry}
+                                  job={getJobById(entry.job_id)}
+                                  isAdmin={isAdmin}
+                                  onRemove={() => handleRemoveEntry(entry.id)}
+                                />
+                              ))}
+                              {isAdmin && entries.length > 0 && (
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openAddDialog(eng.user_id, day);
+                                  }}
+                                  className="flex w-full items-center justify-center rounded border border-dashed border-muted-foreground/30 py-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </button>
+                              )}
+                            </div>
+                          </DroppableCell>
+                        );
+                      })}
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+            <DragOverlay>
+              {activeEntry && draggedJob ? (
+                <div className="rounded-md border bg-card p-2 text-xs shadow-lg">
+                  <div className="font-mono font-medium text-primary">{draggedJob.reference_number}</div>
+                  <div className="truncate text-muted-foreground">{draggedJob.name}</div>
+                </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </CardContent>
       </Card>
 
