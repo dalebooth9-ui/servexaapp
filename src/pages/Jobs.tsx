@@ -350,6 +350,15 @@ export default function Jobs() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renamingFolder, setRenamingFolder] = useState("");
   const [renameValue, setRenameValue] = useState("");
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      const { data } = await supabase.from("customers").select("id, name").order("name");
+      setCustomers(data || []);
+    };
+    fetchCustomers();
+  }, []);
 
   const isAdmin = userRole === "admin";
 
@@ -626,7 +635,17 @@ export default function Jobs() {
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
-                  <Input value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} placeholder="Customer name" />
+                  <Select value={form.customer || "__none__"} onValueChange={(v) => setForm({ ...form, customer: v === "__none__" ? "" : v })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select customer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">No customer</SelectItem>
+                      {customers.map((c) => (
+                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label>Address</Label>
