@@ -90,32 +90,32 @@ export default function CustomerDetail() {
       return;
     }
 
-    // Create a new job for this batch of files
-    const refNumber = `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
-    const jobName = validFiles.length === 1
-      ? `${customer.name} — ${validFiles[0].name}`
-      : `${customer.name} — ${validFiles.length} files`;
-
-    const { data: job, error: jobError } = await supabase
-      .from("jobs")
-      .insert({
-        name: jobName,
-        reference_number: refNumber,
-        customer: customer.name,
-        created_by: user.id,
-      } as any)
-      .select("id")
-      .single();
-
-    if (jobError || !job) {
-      toast({ title: "Error", description: "Failed to create job.", variant: "destructive" });
-      setUploading(false);
-      return;
-    }
-
     let processed = 0;
     for (const file of validFiles) {
       const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+
+      // Create one job per file
+      const refNumber = `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+      const jobName = file.name.replace(/\.[^/.]+$/, "");
+
+      const { data: job, error: jobError } = await supabase
+        .from("jobs")
+        .insert({
+          name: jobName,
+          reference_number: refNumber,
+          customer: customer.name,
+          created_by: user.id,
+        } as any)
+        .select("id")
+        .single();
+
+      if (jobError || !job) {
+        toast({ title: "Error", description: `Failed to create job for ${file.name}.`, variant: "destructive" });
+        processed++;
+        setUploadProgress(Math.round((processed / validFiles.length) * 100));
+        continue;
+      }
+
       const filePath = `${job.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
 
@@ -136,7 +136,7 @@ export default function CustomerDetail() {
       setUploadProgress(Math.round((processed / validFiles.length) * 100));
     }
 
-    toast({ title: "Job created", description: `"${jobName}" with ${validFiles.length} file(s).` });
+    toast({ title: "Import complete", description: `${validFiles.length} job(s) created.` });
     setUploading(false);
     setUploadProgress(0);
     await fetchJobs(customer.name);
