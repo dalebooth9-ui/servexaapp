@@ -154,7 +154,13 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
           body: { file_base64: base64, file_name: file.name },
         });
         if (fnError || data?.error) {
-          setError(data?.error || "Failed to parse document.");
+          const errMsg = data?.error || "Failed to parse document.";
+          if (errMsg.includes("Rate limit")) {
+            toast({ title: "Rate limit exceeded", description: "Please wait a moment and try again.", variant: "destructive" });
+          } else if (errMsg.includes("credits exhausted")) {
+            toast({ title: "Credits exhausted", description: "AI credits have been used up. Please add funds to continue.", variant: "destructive" });
+          }
+          setError(errMsg);
         } else if (data?.jobs) {
           const jobs = data.jobs.map((j: any) => ({
             customer: j.customer || "",
