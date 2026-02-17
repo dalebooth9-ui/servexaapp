@@ -87,9 +87,9 @@ export type Database = {
       jobs: {
         Row: {
           address: string | null
-          client: string | null
           created_at: string
           created_by: string | null
+          customer: string | null
           id: string
           name: string
           reference_number: string
@@ -98,9 +98,9 @@ export type Database = {
         }
         Insert: {
           address?: string | null
-          client?: string | null
           created_at?: string
           created_by?: string | null
+          customer?: string | null
           id?: string
           name: string
           reference_number: string
@@ -109,9 +109,9 @@ export type Database = {
         }
         Update: {
           address?: string | null
-          client?: string | null
           created_at?: string
           created_by?: string | null
+          customer?: string | null
           id?: string
           name?: string
           reference_number?: string

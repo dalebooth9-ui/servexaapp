@@ -1,0 +1,1 @@
+ALTER TABLE public.jobs RENAME COLUMN client TO customer;
