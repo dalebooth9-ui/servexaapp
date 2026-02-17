@@ -7,6 +7,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil } from "lucide-react";
@@ -34,7 +35,7 @@ const jobSchema = z.object({
   address: z.string().trim().max(500, "Address must be under 500 characters").optional().or(z.literal("")),
 });
 
-function DraggableJobRow({ job, statusColor, isAdmin }: { job: any; statusColor: (s: string) => string; isAdmin: boolean }) {
+function DraggableJobRow({ job, statusColor, isAdmin, onDelete }: { job: any; statusColor: (s: string) => string; isAdmin: boolean; onDelete?: (id: string) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
     data: { job },
@@ -73,6 +74,34 @@ function DraggableJobRow({ job, statusColor, isAdmin }: { job: any; statusColor:
         </Badge>
       </TableCell>
       <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
+      {isAdmin && (
+        <TableCell className="w-10 px-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button className="text-muted-foreground hover:text-destructive transition-colors" title="Delete job">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete job?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete <strong>{job.reference_number} – {job.name}</strong> and all associated data. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => onDelete?.(job.id)}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </TableCell>
+      )}
     </TableRow>
   );
 }
@@ -85,6 +114,7 @@ function DroppableCustomerFolder({
   isOver,
   onDelete,
   onRename,
+  onDeleteJob,
 }: {
   customerName: string;
   jobs: any[];
@@ -93,6 +123,7 @@ function DroppableCustomerFolder({
   isOver: boolean;
   onDelete?: () => void;
   onRename?: () => void;
+  onDeleteJob?: (id: string) => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `folder-${customerName}`,
@@ -147,18 +178,19 @@ function DroppableCustomerFolder({
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Submissions</TableHead>
+              {isAdmin && <TableHead className="w-10 px-2" />}
             </TableRow>
           </TableHeader>
           <TableBody>
             {jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-4">
+                <TableCell colSpan={isAdmin ? 8 : 6} className="text-center text-muted-foreground py-4">
                   No jobs in this folder
                 </TableCell>
               </TableRow>
             ) : (
               jobs.map((job: any) => (
-                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
+                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} />
               ))
             )}
           </TableBody>
@@ -222,6 +254,16 @@ export default function Jobs() {
   };
 
   useEffect(() => { fetchJobs(); }, [user]);
+
+  const handleDeleteJob = async (jobId: string) => {
+    const { error } = await supabase.from("jobs").delete().eq("id", jobId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.filter((j) => j.id !== jobId));
+      toast({ title: "Job deleted", description: "The job has been removed." });
+    }
+  };
 
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -583,6 +625,7 @@ export default function Jobs() {
                 isOver={overId === `folder-${customerName}`}
                 onDelete={() => deleteCustomerFolder(customerName)}
                 onRename={() => startRenameFolder(customerName)}
+                onDeleteJob={handleDeleteJob}
               />
             ))}
           </Accordion>
