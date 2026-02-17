@@ -80,7 +80,7 @@ serve(async (req) => {
 
     const { data, error } = await supabaseAdmin
       .from("jobs")
-      .insert(rows)
+      .upsert(rows, { onConflict: "reference_number", ignoreDuplicates: true })
       .select("id");
 
     if (error) {
