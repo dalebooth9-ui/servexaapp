@@ -68,34 +68,34 @@ function DraggableJobRow({ job, statusColor, isAdmin }: { job: any; statusColor:
   );
 }
 
-function DroppableClientFolder({
-  clientName,
+function DroppableCustomerFolder({
+  customerName,
   jobs,
   statusColor,
   isAdmin,
   isOver,
 }: {
-  clientName: string;
+  customerName: string;
   jobs: any[];
   statusColor: (s: string) => string;
   isAdmin: boolean;
   isOver: boolean;
 }) {
   const { setNodeRef } = useDroppable({
-    id: `folder-${clientName}`,
-    data: { clientName },
+    id: `folder-${customerName}`,
+    data: { customerName },
   });
 
   return (
     <AccordionItem
       ref={setNodeRef}
-      value={clientName}
+      value={customerName}
       className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
     >
       <AccordionTrigger className="px-4 hover:no-underline">
         <div className="flex items-center gap-2">
           <FolderOpen className="h-4 w-4 text-primary" />
-          <span className="font-semibold">{clientName}</span>
+          <span className="font-semibold">{customerName}</span>
           <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
         </div>
       </AccordionTrigger>
@@ -111,9 +111,17 @@ function DroppableClientFolder({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {jobs.map((job: any) => (
-              <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
-            ))}
+            {jobs.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={isAdmin ? 5 : 4} className="text-center text-muted-foreground py-4">
+                  No jobs in this folder
+                </TableCell>
+              </TableRow>
+            ) : (
+              jobs.map((job: any) => (
+                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} />
+              ))
+            )}
           </TableBody>
         </Table>
       </AccordionContent>
@@ -121,10 +129,10 @@ function DroppableClientFolder({
   );
 }
 
-function NewClientDropZone({ isOver, isDragging }: { isOver: boolean; isDragging: boolean }) {
+function NewCustomerDropZone({ isOver, isDragging }: { isOver: boolean; isDragging: boolean }) {
   const { setNodeRef } = useDroppable({
-    id: "folder-__new_client__",
-    data: { clientName: "__new_client__" },
+    id: "folder-__new_customer__",
+    data: { customerName: "__new_customer__" },
   });
 
   return (
@@ -139,7 +147,7 @@ function NewClientDropZone({ isOver, isDragging }: { isOver: boolean; isDragging
       }`}
     >
       <FolderPlus className="mx-auto mb-2 h-6 w-6" />
-      <p className="text-sm font-medium">Drop here to create a new client folder</p>
+      <p className="text-sm font-medium">Drop here to create a new customer folder</p>
     </div>
   );
 }
@@ -155,9 +163,10 @@ export default function Jobs() {
   const [activeJob, setActiveJob] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState<string[]>([]);
-  const [newClientDialogOpen, setNewClientDialogOpen] = useState(false);
-  const [newClientName, setNewClientName] = useState("");
-  const [pendingNewClientJob, setPendingNewClientJob] = useState<any>(null);
+  const [newCustomerDialogOpen, setNewCustomerDialogOpen] = useState(false);
+  const [newCustomerName, setNewCustomerName] = useState("");
+  const [pendingNewCustomerJob, setPendingNewCustomerJob] = useState<any>(null);
+  const [knownCustomers, setKnownCustomers] = useState<Set<string>>(new Set());
 
   const isAdmin = userRole === "admin";
 
@@ -224,13 +233,13 @@ export default function Jobs() {
     if (!over) return;
 
     const draggedJob = active.data.current?.job;
-    const targetFolder = over.data.current?.clientName;
+    const targetFolder = over.data.current?.customerName;
     if (!draggedJob || !targetFolder) return;
 
-    if (targetFolder === "__new_client__") {
-      setPendingNewClientJob(draggedJob);
-      setNewClientName("");
-      setNewClientDialogOpen(true);
+    if (targetFolder === "__new_customer__") {
+      setPendingNewCustomerJob(draggedJob);
+      setNewCustomerName("");
+      setNewCustomerDialogOpen(true);
       return;
     }
 
@@ -260,13 +269,13 @@ export default function Jobs() {
     }
   };
 
-  const handleNewClientConfirm = async () => {
-    const trimmed = newClientName.trim();
-    if (!trimmed || !pendingNewClientJob) return;
-    setNewClientDialogOpen(false);
-    await reassignJob(pendingNewClientJob, trimmed);
-    setPendingNewClientJob(null);
-    setNewClientName("");
+  const handleNewCustomerConfirm = async () => {
+    const trimmed = newCustomerName.trim();
+    if (!trimmed || !pendingNewCustomerJob) return;
+    setNewCustomerDialogOpen(false);
+    await reassignJob(pendingNewCustomerJob, trimmed);
+    setPendingNewCustomerJob(null);
+    setNewCustomerName("");
   };
 
   const filtered = jobs.filter(
@@ -292,19 +301,36 @@ export default function Jobs() {
     if (!grouped[sourceFolder]) grouped[sourceFolder] = [];
   }
 
-  const clientNames = Object.keys(grouped).sort((a, b) => {
+  // Keep known customer folders visible even if empty
+  for (const name of knownCustomers) {
+    if (!grouped[name]) grouped[name] = [];
+  }
+
+  const customerNames = Object.keys(grouped).sort((a, b) => {
     if (a === "Unassigned") return 1;
     if (b === "Unassigned") return -1;
     return a.localeCompare(b);
   });
 
-  // Keep all folders open by default when new clients appear
+  // Track known customers and keep all folders open by default
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    setKnownCustomers((prev) => {
+      const updated = new Set(prev);
+      let changed = false;
+      for (const job of jobs) {
+        const name = job.client?.trim();
+        if (name && !updated.has(name)) {
+          updated.add(name);
+          changed = true;
+        }
+      }
+      return changed ? updated : prev;
+    });
     setOpenFolders((prev) => {
       const allNames = new Set(prev);
       let changed = false;
-      for (const name of clientNames) {
+      for (const name of customerNames) {
         if (!allNames.has(name)) {
           allNames.add(name);
           changed = true;
@@ -312,7 +338,7 @@ export default function Jobs() {
       }
       return changed ? Array.from(allNames) : prev;
     });
-  }, [jobs]); // only re-run when jobs data changes, not on every render
+  }, [jobs]);
 
   return (
     <div>
@@ -335,8 +361,8 @@ export default function Jobs() {
                   <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} required placeholder="e.g. JOB-001" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Client</Label>
-                  <Input value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} />
+                  <Label>Customer</Label>
+                  <Input value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Customer name" />
                 </div>
                 <div className="space-y-2">
                   <Label>Address</Label>
@@ -371,19 +397,19 @@ export default function Jobs() {
           onDragEnd={handleDragEnd}
         >
           <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-3">
-            {clientNames.map((clientName) => (
-              <DroppableClientFolder
-                key={clientName}
-                clientName={clientName}
-                jobs={grouped[clientName]}
+            {customerNames.map((customerName) => (
+              <DroppableCustomerFolder
+                key={customerName}
+                customerName={customerName}
+                jobs={grouped[customerName] || []}
                 statusColor={statusColor}
                 isAdmin={isAdmin}
-                isOver={overId === `folder-${clientName}`}
+                isOver={overId === `folder-${customerName}`}
               />
             ))}
           </Accordion>
           {isAdmin && (
-            <NewClientDropZone isDragging={!!activeJob} isOver={overId === "folder-__new_client__"} />
+            <NewCustomerDropZone isDragging={!!activeJob} isOver={overId === "folder-__new_customer__"} />
           )}
           <DragOverlay>
             {activeJob ? (
@@ -396,27 +422,27 @@ export default function Jobs() {
         </DndContext>
       )}
 
-      <Dialog open={newClientDialogOpen} onOpenChange={(open) => {
-        setNewClientDialogOpen(open);
-        if (!open) setPendingNewClientJob(null);
+      <Dialog open={newCustomerDialogOpen} onOpenChange={(open) => {
+        setNewCustomerDialogOpen(open);
+        if (!open) setPendingNewCustomerJob(null);
       }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>New Client Folder</DialogTitle></DialogHeader>
-          <form onSubmit={(e) => { e.preventDefault(); handleNewClientConfirm(); }} className="space-y-4">
+          <DialogHeader><DialogTitle>New Customer Folder</DialogTitle></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); handleNewCustomerConfirm(); }} className="space-y-4">
             <div className="space-y-2">
-              <Label>Client Name</Label>
+              <Label>Customer Name</Label>
               <Input
-                value={newClientName}
-                onChange={(e) => setNewClientName(e.target.value)}
-                placeholder="Enter new client name"
+                value={newCustomerName}
+                onChange={(e) => setNewCustomerName(e.target.value)}
+                placeholder="Enter new customer name"
                 autoFocus
                 required
               />
             </div>
             <p className="text-sm text-muted-foreground">
-              <span className="font-medium">{pendingNewClientJob?.reference_number}</span> — {pendingNewClientJob?.name} will be moved to this folder.
+              <span className="font-medium">{pendingNewCustomerJob?.reference_number}</span> — {pendingNewCustomerJob?.name} will be moved to this folder.
             </p>
-            <Button type="submit" className="w-full" disabled={!newClientName.trim()}>
+            <Button type="submit" className="w-full" disabled={!newCustomerName.trim()}>
               Create & Move
             </Button>
           </form>
