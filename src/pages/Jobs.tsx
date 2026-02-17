@@ -60,6 +60,14 @@ function DraggableJobRow({ job, statusColor, isAdmin }: { job: any; statusColor:
       </TableCell>
       <TableCell className="font-medium">{job.name}</TableCell>
       <TableCell>
+        <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
+          {job.priority || "medium"}
+        </Badge>
+      </TableCell>
+      <TableCell>
+        <span className="text-xs capitalize text-muted-foreground">{job.category || "general"}</span>
+      </TableCell>
+      <TableCell>
         <Badge variant="secondary" className={statusColor(job.status)}>
           {job.status}
         </Badge>
@@ -135,6 +143,8 @@ function DroppableCustomerFolder({
               {isAdmin && <TableHead className="w-8 px-2" />}
               <TableHead>Reference</TableHead>
               <TableHead>Name</TableHead>
+              <TableHead>Priority</TableHead>
+              <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Submissions</TableHead>
             </TableRow>
@@ -142,7 +152,7 @@ function DroppableCustomerFolder({
           <TableBody>
             {jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 5 : 4} className="text-center text-muted-foreground py-4">
+                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-muted-foreground py-4">
                   No jobs in this folder
                 </TableCell>
               </TableRow>
