@@ -5,6 +5,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download } from "lucide-react";
@@ -55,7 +57,7 @@ export default function CustomerDetail() {
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
-
+  const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const fetchDocuments = useCallback(async () => {
     if (!id) return;
     const { data } = await supabase
@@ -146,7 +148,37 @@ export default function CustomerDetail() {
     }
     await supabase.from("customer_documents").delete().eq("id", doc.id);
     toast({ title: "Deleted", description: `${doc.file_name} removed.` });
+    setSelectedDocIds((prev) => { const u = new Set(prev); u.delete(doc.id); return u; });
     await fetchDocuments();
+  };
+
+  const handleBulkDeleteDocuments = async () => {
+    const ids = Array.from(selectedDocIds);
+    const docsToDelete = documents.filter((d) => selectedDocIds.has(d.id));
+    
+    // Remove files from storage
+    const paths = docsToDelete
+      .map((d) => { const parts = d.file_url.split("/submissions/"); return parts.length > 1 ? decodeURIComponent(parts[1]) : null; })
+      .filter(Boolean) as string[];
+    if (paths.length > 0) await supabase.storage.from("submissions").remove(paths);
+    
+    await supabase.from("customer_documents").delete().in("id", ids);
+    toast({ title: "Deleted", description: `${ids.length} document(s) removed.` });
+    setSelectedDocIds(new Set());
+    await fetchDocuments();
+  };
+
+  const toggleDocSelect = (id: string, checked: boolean) => {
+    setSelectedDocIds((prev) => {
+      const u = new Set(prev);
+      if (checked) u.add(id); else u.delete(id);
+      return u;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    if (checked) setSelectedDocIds(new Set(documents.map((d) => d.id)));
+    else setSelectedDocIds(new Set());
   };
 
   const getFileIcon = (name: string) => {
@@ -241,6 +273,32 @@ export default function CustomerDetail() {
           </div>
         )}
 
+        {selectedDocIds.size > 0 && (
+          <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
+            <span className="text-sm font-medium">{selectedDocIds.size} document(s) selected</span>
+            <Button variant="ghost" size="sm" onClick={() => setSelectedDocIds(new Set())}>Clear</Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="destructive" size="sm">
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Selected
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete {selectedDocIds.size} document(s)?</AlertDialogTitle>
+                  <AlertDialogDescription>This will permanently delete the selected documents. This action cannot be undone.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDeleteDocuments}>
+                    Delete {selectedDocIds.size} Document(s)
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+
         <Card>
           <CardContent className="p-0">
             {documents.length === 0 && !dragging ? (
@@ -249,6 +307,12 @@ export default function CustomerDetail() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-10 px-2">
+                      <Checkbox
+                        checked={documents.length > 0 && selectedDocIds.size === documents.length ? true : selectedDocIds.size > 0 ? "indeterminate" : false}
+                        onCheckedChange={(checked) => toggleSelectAll(!!checked)}
+                      />
+                    </TableHead>
                     <TableHead>File</TableHead>
                     <TableHead>Size</TableHead>
                     <TableHead>Uploaded</TableHead>
@@ -258,6 +322,12 @@ export default function CustomerDetail() {
                 <TableBody>
                   {documents.map((doc) => (
                     <TableRow key={doc.id}>
+                      <TableCell className="w-10 px-2">
+                        <Checkbox
+                          checked={selectedDocIds.has(doc.id)}
+                          onCheckedChange={(checked) => toggleDocSelect(doc.id, !!checked)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
                           {getFileIcon(doc.file_name)}
