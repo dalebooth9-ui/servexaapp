@@ -7,7 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ArrowLeft, Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -17,6 +19,7 @@ import LocationMap from "@/components/LocationMap";
 import FieldReports from "@/components/FieldReports";
 import SubmissionComments from "@/components/SubmissionComments";
 import FileDropZone from "@/components/FileDropZone";
+import PhotoLightbox from "@/components/PhotoLightbox";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -90,6 +93,34 @@ export default function JobDetail() {
   useEffect(() => {
     fetchData();
   }, [id]);
+
+  // Realtime subscription for new submissions
+  useEffect(() => {
+    if (!id) return;
+    const channel = supabase
+      .channel(`submissions-${id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "submissions", filter: `job_id=eq.${id}` },
+        (payload) => {
+          toast({ title: "New submission", description: "A new submission was just added." });
+          fetchData();
+        }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!id) return;
+    const { error } = await supabase.from("jobs").update({ status: newStatus }).eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    } else {
+      setJob((prev: any) => ({ ...prev, status: newStatus }));
+      toast({ title: "Status updated", description: `Job is now ${newStatus}.` });
+    }
+  };
 
   const handleBulkUpload = async (files: File[]) => {
     if (!id || !user || files.length === 0) return;
@@ -199,9 +230,27 @@ export default function JobDetail() {
 
   return (
     <div>
-      <Link to="/jobs" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-4 w-4" /> Back to Jobs
-      </Link>
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to="/">Dashboard</Link></BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild><Link to="/jobs">Jobs</Link></BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          {job.customer && (
+            <>
+              <BreadcrumbItem><BreadcrumbPage>{job.customer}</BreadcrumbPage></BreadcrumbItem>
+              <BreadcrumbSeparator />
+            </>
+          )}
+          <BreadcrumbItem>
+            <BreadcrumbPage>{job.reference_number}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
 
       <div className="mb-6 flex items-start justify-between">
         <div>
@@ -212,9 +261,22 @@ export default function JobDetail() {
             {job.address && <> • {job.address}</>}
           </p>
         </div>
-        <Badge variant="secondary" className={job.status === "active" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}>
-          {job.status}
-        </Badge>
+        {userRole === "admin" ? (
+          <Select value={job.status} onValueChange={handleStatusChange}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+        ) : (
+          <Badge variant="secondary" className={job.status === "active" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}>
+            {job.status}
+          </Badge>
+        )}
       </div>
 
       <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -266,6 +328,8 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
 
   useEffect(() => {
     const generateSignedUrls = async () => {
@@ -338,6 +402,22 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
   const previewUrl = previewSub ? signedUrls[previewSub.id] : null;
   const previewFileName = previewSub?.file_name || "";
 
+  const photoItems = items.filter((s) => s.type === "photo" && signedUrls[s.id]);
+  const lightboxPhotos = photoItems.map((s) => ({
+    id: s.id,
+    url: signedUrls[s.id],
+    fileName: s.file_name,
+    date: s.created_at,
+  }));
+
+  const openLightbox = (subId: string) => {
+    const idx = photoItems.findIndex((s) => s.id === subId);
+    if (idx >= 0) {
+      setLightboxIndex(idx);
+      setLightboxOpen(true);
+    }
+  };
+
   return (
     <>
       {selectableItems.length > 0 && (
@@ -377,7 +457,12 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
                   </div>
                 )}
                 {sub.type === "photo" && resolvedUrl && (
-                  <img src={resolvedUrl} alt={sub.file_name || "Photo"} className="mb-3 h-48 w-full rounded-md object-cover" />
+                  <img
+                    src={resolvedUrl}
+                    alt={sub.file_name || "Photo"}
+                    className="mb-3 h-48 w-full cursor-pointer rounded-md object-cover hover:opacity-90 transition-opacity"
+                    onClick={() => openLightbox(sub.id)}
+                  />
                 )}
                 {sub.type === "photo" && sub.content && (
                   <p className="mb-2 text-sm text-foreground">{sub.content}</p>
@@ -500,6 +585,14 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
           </div>
         </DialogContent>
       </Dialog>
+
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        currentIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        onIndexChange={setLightboxIndex}
+      />
     </>
   );
 }
