@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -10,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft } from "lucide-react";
+import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -405,6 +406,8 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [sortBy, setSortBy] = useState<"date" | "name">("date");
+  const [sortAsc, setSortAsc] = useState(false);
 
   useEffect(() => {
     const generateSignedUrls = async () => {
@@ -424,7 +427,6 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
     generateSignedUrls();
   }, [items]);
 
-  // Reset selection when items change
   useEffect(() => {
     setSelectedIds(new Set());
   }, [items]);
@@ -432,6 +434,17 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
   if (items.length === 0) {
     return <p className="py-12 text-center text-muted-foreground">No submissions match the current filters.</p>;
   }
+
+  const sortedItems = [...items].sort((a, b) => {
+    if (sortBy === "name") {
+      const nameA = (a.file_name || a.content || "").toLowerCase();
+      const nameB = (b.file_name || b.content || "").toLowerCase();
+      return sortAsc ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    }
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return sortAsc ? dateA - dateB : dateB - dateA;
+  });
 
   const selectableItems = items.filter((s) => s.file_url);
   const allSelected = selectableItems.length > 0 && selectableItems.every((s) => selectedIds.has(s.id));
@@ -493,137 +506,177 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
     }
   };
 
+  const handleSort = (field: "date" | "name") => {
+    if (sortBy === field) {
+      setSortAsc(!sortAsc);
+    } else {
+      setSortBy(field);
+      setSortAsc(field === "name");
+    }
+  };
+
+  const getTypeIcon = (sub: any) => {
+    if (sub.type === "photo") return <Image className="h-4 w-4 text-muted-foreground" />;
+    if (sub.type === "document" && sub.file_name) {
+      const ext = getFileExtension(sub.file_name);
+      if (ext === ".pdf") return <FileText className="h-4 w-4 text-destructive" />;
+      if ([".xls", ".xlsx"].includes(ext)) return <FileSpreadsheet className="h-4 w-4 text-accent" />;
+      if ([".doc", ".docx"].includes(ext)) return <File className="h-4 w-4 text-primary" />;
+    }
+    if (sub.type === "location") return <MapPin className="h-4 w-4 text-destructive" />;
+    if (sub.type === "note") return <MessageSquare className="h-4 w-4 text-primary" />;
+    return <FileText className="h-4 w-4 text-muted-foreground" />;
+  };
+
+  const getDisplayName = (sub: any) => {
+    if (sub.file_name) return sub.file_name;
+    if (sub.type === "location") return `Location (${sub.latitude?.toFixed(4)}, ${sub.longitude?.toFixed(4)})`;
+    if (sub.type === "note" && sub.content) return sub.content.length > 60 ? sub.content.slice(0, 60) + "…" : sub.content;
+    return sub.type;
+  };
+
   return (
     <>
-      {selectableItems.length > 0 && (
-        <div className="mb-3 flex items-center gap-3">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        {selectableItems.length > 0 && (
           <div className="flex items-center gap-2">
-            <Checkbox
-              checked={allSelected}
-              onCheckedChange={toggleAll}
-              id="select-all"
-            />
-            <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">
-              Select all files
-            </label>
+            <Checkbox checked={allSelected} onCheckedChange={toggleAll} id="select-all" />
+            <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">Select all</label>
           </div>
-          {selectedIds.size > 0 && (
-            <Button variant="outline" size="sm" onClick={handleBulkSelectedDownload} disabled={bulkDownloading}>
-              <Download className="mr-1.5 h-3.5 w-3.5" />
-              {bulkDownloading ? "Downloading..." : `Download ${selectedIds.size} selected`}
-            </Button>
-          )}
+        )}
+        {selectedIds.size > 0 && (
+          <Button variant="outline" size="sm" onClick={handleBulkSelectedDownload} disabled={bulkDownloading}>
+            <Download className="mr-1.5 h-3.5 w-3.5" />
+            {bulkDownloading ? "Downloading..." : `Download ${selectedIds.size} selected`}
+          </Button>
+        )}
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant={sortBy === "date" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => handleSort("date")}
+            className="text-xs"
+          >
+            <ArrowUpDown className="mr-1 h-3 w-3" />
+            Date {sortBy === "date" ? (sortAsc ? "↑" : "↓") : ""}
+          </Button>
+          <Button
+            variant={sortBy === "name" ? "secondary" : "ghost"}
+            size="sm"
+            onClick={() => handleSort("name")}
+            className="text-xs"
+          >
+            <SortAsc className="mr-1 h-3 w-3" />
+            Name {sortBy === "name" ? (sortAsc ? "A→Z" : "Z→A") : ""}
+          </Button>
         </div>
-      )}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {items.map((sub) => {
-          const resolvedUrl = signedUrls[sub.id] || undefined;
-          const isDocument = sub.type === "document" && sub.file_name;
-          const hasFile = !!sub.file_url;
-          return (
-            <Card key={sub.id} className={selectedIds.has(sub.id) ? "ring-2 ring-primary" : ""}>
-              <CardContent className="p-4">
-                {hasFile && (
-                  <div className="mb-2 flex justify-end">
-                    <Checkbox
-                      checked={selectedIds.has(sub.id)}
-                      onCheckedChange={() => toggleSelect(sub.id)}
-                    />
-                  </div>
-                )}
-                {sub.type === "photo" && resolvedUrl && (
-                  <img
-                    src={resolvedUrl}
-                    alt={sub.file_name || "Photo"}
-                    className="mb-3 h-48 w-full cursor-pointer rounded-md object-cover hover:opacity-90 transition-opacity"
-                    onClick={() => openLightbox(sub.id)}
-                  />
-                )}
-                {sub.type === "photo" && sub.content && (
-                  <p className="mb-2 text-sm text-foreground">{sub.content}</p>
-                )}
-                {sub.type === "document" && (
-                  <div className="mb-3 flex h-32 flex-col items-center justify-center rounded-md bg-muted gap-2">
-                    {sub.file_name ? getDocIcon(sub.file_name) : <FileText className="h-10 w-10 text-muted-foreground" />}
-                    {sub.file_name && (
-                      <span className="max-w-full truncate px-2 text-xs text-muted-foreground">{sub.file_name}</span>
-                    )}
-                  </div>
-                )}
-                {sub.type === "document" && sub.content && (
-                  <p className="mb-2 text-sm text-foreground">{sub.content}</p>
-                )}
-                {sub.type === "location" && (
-                  <div className="mb-3 flex h-32 items-center justify-center rounded-md bg-muted">
-                    <MapPin className="h-10 w-10 text-destructive" />
-                    <span className="ml-2 text-xs text-muted-foreground">
-                      {sub.latitude?.toFixed(4)}, {sub.longitude?.toFixed(4)}
-                    </span>
-                  </div>
-                )}
-                {sub.type === "note" && (
-                  <div className="mb-3 rounded-md bg-muted p-3">
-                    <MessageSquare className="mb-1 h-4 w-4 text-primary" />
-                    <p className="text-sm">{sub.content}</p>
-                  </div>
-                )}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{new Date(sub.created_at).toLocaleString()}</span>
-                  <div className="flex gap-2">
-                    {isDocument && resolvedUrl && (
-                      <button
-                        onClick={() => setPreviewSub(sub)}
-                        className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
-                      >
-                        <Eye className="h-3 w-3" /> Preview
-                      </button>
-                    )}
-                    {resolvedUrl && (
-                      <a href={resolvedUrl} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">
-                        Download
-                      </a>
-                    )}
-                    {isAdmin && (
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <button
-                            className="inline-flex items-center gap-1 font-medium text-destructive hover:underline"
-                            disabled={deletingId === sub.id}
-                          >
-                            <Trash2 className="h-3 w-3" /> {deletingId === sub.id ? "Deleting..." : "Delete"}
-                          </button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete submission?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This will permanently delete {sub.file_name || "this submission"} and its associated file. This action cannot be undone.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                              onClick={async () => {
-                                setDeletingId(sub.id);
-                                await onDelete(sub);
-                                setDeletingId(null);
-                              }}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    )}
-                  </div>
-                </div>
-                <SubmissionComments submissionId={sub.id} />
-              </CardContent>
-            </Card>
-          );
-        })}
       </div>
+
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-10 px-2"></TableHead>
+                <TableHead>File</TableHead>
+                <TableHead className="hidden sm:table-cell">Type</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="w-[120px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedItems.map((sub) => {
+                const resolvedUrl = signedUrls[sub.id] || undefined;
+                const isDocument = sub.type === "document" && sub.file_name;
+                const hasFile = !!sub.file_url;
+                return (
+                  <TableRow key={sub.id} className={selectedIds.has(sub.id) ? "bg-primary/5" : ""}>
+                    <TableCell className="w-10 px-2">
+                      {hasFile && (
+                        <Checkbox
+                          checked={selectedIds.has(sub.id)}
+                          onCheckedChange={() => toggleSelect(sub.id)}
+                        />
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        {sub.type === "photo" && resolvedUrl ? (
+                          <img
+                            src={resolvedUrl}
+                            alt={sub.file_name || "Photo"}
+                            className="h-8 w-8 rounded object-cover cursor-pointer flex-shrink-0"
+                            onClick={() => openLightbox(sub.id)}
+                          />
+                        ) : (
+                          getTypeIcon(sub)
+                        )}
+                        <span className="text-sm font-medium truncate max-w-[300px]">
+                          {getDisplayName(sub)}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant="outline" className="text-[10px] uppercase">
+                        {sub.type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {new Date(sub.created_at).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        {isDocument && resolvedUrl && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewSub(sub)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {resolvedUrl && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                            <a href={resolvedUrl} target="_blank" rel="noreferrer">
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={deletingId === sub.id}>
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete submission?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete {sub.file_name || "this submission"} and its associated file.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  onClick={async () => {
+                                    setDeletingId(sub.id);
+                                    await onDelete(sub);
+                                    setDeletingId(null);
+                                  }}
+                                >
+                                  Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Dialog open={!!previewSub} onOpenChange={(open) => !open && setPreviewSub(null)}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
