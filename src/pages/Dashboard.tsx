@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Image, FileText, MapPin, Plus, Upload } from "lucide-react";
+import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
@@ -84,9 +84,12 @@ export default function Dashboard() {
       </div>
 
       {userRole === "admin" && (
-        <div className="mb-6 flex gap-3">
+        <div className="mb-6 flex flex-wrap gap-3">
           <Button onClick={() => navigate("/jobs")} variant="outline">
             <Plus className="mr-2 h-4 w-4" /> Create Job
+          </Button>
+          <Button onClick={() => navigate("/customers")} variant="outline">
+            <Building2 className="mr-2 h-4 w-4" /> Create Customer
           </Button>
           <Button onClick={() => navigate("/jobs")} variant="outline">
             <Upload className="mr-2 h-4 w-4" /> Upload Files
