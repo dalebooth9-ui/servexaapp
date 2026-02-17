@@ -11,6 +11,7 @@ import Jobs from "@/pages/Jobs";
 import JobDetail from "@/pages/JobDetail";
 import Engineers from "@/pages/Engineers";
 import SettingsPage from "@/pages/SettingsPage";
+import WeeklyPlanner from "@/pages/WeeklyPlanner";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
             <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
+            <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
