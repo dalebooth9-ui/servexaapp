@@ -52,7 +52,9 @@ export default function CustomerDetail() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dragCounterRef = useRef(0);
 
   const fetchDocuments = useCallback(async () => {
     if (!id) return;
@@ -240,8 +242,34 @@ export default function CustomerDetail() {
         </CardContent>
       </Card>
 
-      {/* Documents Section */}
-      <div className="mt-8">
+      <div
+        className="mt-8"
+        onDragEnter={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragCounterRef.current++;
+          setDragging(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragCounterRef.current--;
+          if (dragCounterRef.current === 0) setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dragCounterRef.current = 0;
+          setDragging(false);
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+            handleFileUpload(e.dataTransfer.files);
+          }
+        }}
+      >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Documents ({documents.length})</h2>
           <div>
@@ -269,10 +297,17 @@ export default function CustomerDetail() {
           </div>
         )}
 
+        {dragging && !uploading && (
+          <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-8 text-center transition-colors">
+            <Upload className="h-6 w-6 text-primary" />
+            <p className="font-medium text-primary">Drop files here to upload</p>
+          </div>
+        )}
+
         <Card>
           <CardContent className="p-0">
-            {documents.length === 0 ? (
-              <p className="p-8 text-center text-muted-foreground">No documents uploaded yet.</p>
+            {documents.length === 0 && !dragging ? (
+              <p className="p-8 text-center text-muted-foreground">No documents uploaded yet. Drag &amp; drop files here or click Upload.</p>
             ) : (
               <Table>
                 <TableHeader>
