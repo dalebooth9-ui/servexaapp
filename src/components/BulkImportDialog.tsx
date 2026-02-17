@@ -117,90 +117,100 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
   const [error, setError] = useState("");
   const { toast } = useToast();
 
-  const processRows = useCallback((rows: string[][]) => {
-    const jobs = normalizeRows(rows);
-    if (jobs.length === 0) {
-      setError("No valid rows found. Make sure your file has headers: Customer, Name, Reference Number, Address, Priority, Category");
-      setParsed([]);
-    } else {
-      const invalid = jobs.filter((j) => !j.name || !j.reference_number);
-      if (invalid.length > 0) {
-        setError(`${invalid.length} row(s) missing required Name or Reference Number.`);
-      }
-      setParsed(jobs);
-    }
-  }, []);
 
-  const handleFile = useCallback(async (file: File) => {
-    setError("");
-    setFileName(file.name);
+  const handleFile = useCallback(async (file: File): Promise<ParsedJob[]> => {
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
 
     if (ext === ".xlsx" || ext === ".xls") {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const buffer = e.target?.result as ArrayBuffer;
-        processRows(parseExcel(buffer));
-      };
-      reader.readAsArrayBuffer(file);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const buffer = e.target?.result as ArrayBuffer;
+          resolve(normalizeRows(parseExcel(buffer)));
+        };
+        reader.readAsArrayBuffer(file);
+      });
     } else if (ext === ".pdf" || ext === ".docx" || ext === ".doc") {
-      setImporting(true);
-      try {
-        const buffer = await file.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
-        );
-        const { data, error: fnError } = await supabase.functions.invoke("parse-import-document", {
-          body: { file_base64: base64, file_name: file.name },
-        });
-        if (fnError || data?.error) {
-          const errMsg = data?.error || "Failed to parse document.";
-          if (errMsg.includes("Rate limit")) {
-            toast({ title: "Rate limit exceeded", description: "Please wait a moment and try again.", variant: "destructive" });
-          } else if (errMsg.includes("credits exhausted")) {
-            toast({ title: "Credits exhausted", description: "AI credits have been used up. Please add funds to continue.", variant: "destructive" });
-          }
-          setError(errMsg);
-        } else if (data?.jobs) {
-          const jobs = data.jobs.map((j: any) => ({
-            customer: j.customer || "",
-            name: j.name || "",
-            reference_number: j.reference_number || "",
-            address: j.address || "",
-            priority: j.priority || "medium",
-            category: j.category || "general",
-          }));
-          if (jobs.length === 0) {
-            setError("No job entries found in the document.");
-          } else {
-            const invalid = jobs.filter((j: ParsedJob) => !j.name || !j.reference_number);
-            if (invalid.length > 0) {
-              setError(`${invalid.length} row(s) missing required Name or Reference Number.`);
-            }
-            setParsed(jobs);
-          }
+      const buffer = await file.arrayBuffer();
+      const base64 = btoa(
+        new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+      );
+      const { data, error: fnError } = await supabase.functions.invoke("parse-import-document", {
+        body: { file_base64: base64, file_name: file.name },
+      });
+      if (fnError || data?.error) {
+        const errMsg = data?.error || "Failed to parse document.";
+        if (errMsg.includes("Rate limit")) {
+          toast({ title: "Rate limit exceeded", description: "Please wait a moment and try again.", variant: "destructive" });
+        } else if (errMsg.includes("credits exhausted")) {
+          toast({ title: "Credits exhausted", description: "AI credits have been used up. Please add funds to continue.", variant: "destructive" });
         }
-      } catch {
-        setError("Failed to process document.");
+        throw new Error(errMsg);
       }
-      setImporting(false);
+      if (data?.jobs) {
+        return data.jobs.map((j: any) => ({
+          customer: j.customer || "",
+          name: j.name || "",
+          reference_number: j.reference_number || "",
+          address: j.address || "",
+          priority: j.priority || "medium",
+          category: j.category || "general",
+        }));
+      }
+      return [];
     } else {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        processRows(parseCSV(text));
-      };
-      reader.readAsText(file);
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const text = e.target?.result as string;
+          resolve(normalizeRows(parseCSV(text)));
+        };
+        reader.readAsText(file);
+      });
     }
-  }, [processRows]);
+  }, [toast]);
+
+  const handleFiles = useCallback(async (files: File[]) => {
+    setError("");
+    setParsed([]);
+    setFileName(files.map((f) => f.name).join(", "));
+    setImporting(true);
+
+    const allJobs: ParsedJob[] = [];
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        const jobs = await handleFile(file);
+        allJobs.push(...jobs);
+      } catch (err: any) {
+        errors.push(`${file.name}: ${err.message}`);
+      }
+    }
+
+    if (allJobs.length === 0 && errors.length > 0) {
+      setError(errors.join("; "));
+    } else if (allJobs.length === 0) {
+      setError("No valid rows found. Make sure your files have headers: Customer, Name, Reference Number, Address, Priority, Category");
+    } else {
+      const invalid = allJobs.filter((j) => !j.name || !j.reference_number);
+      if (invalid.length > 0) {
+        setError(`${invalid.length} row(s) missing required Name or Reference Number.${errors.length ? " " + errors.join("; ") : ""}`);
+      } else if (errors.length > 0) {
+        setError(errors.join("; "));
+      }
+      setParsed(allJobs);
+    }
+    setImporting(false);
+  }, [handleFile]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) handleFiles(files);
     },
-    [handleFile]
+    [handleFiles]
   );
 
   const handleImport = async () => {
@@ -253,9 +263,9 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
           >
             <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
             <div>
-              <p className="font-medium">Drop a file here</p>
+              <p className="font-medium">Drop file(s) here</p>
               <p className="text-sm text-muted-foreground">
-                Supports CSV, Excel, Word, and PDF files
+                Supports CSV, Excel, Word, and PDF — multiple files allowed
               </p>
               <p className="text-sm text-muted-foreground">
                 Required columns: <strong>Name</strong>, <strong>Reference Number</strong>
@@ -268,10 +278,11 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
               <input
                 type="file"
                 accept=".csv,.txt,.xlsx,.xls,.docx,.doc,.pdf"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) handleFile(f);
+                  const files = Array.from(e.target.files || []);
+                  if (files.length > 0) handleFiles(files);
                 }}
               />
               <Button variant="outline" asChild>
