@@ -7,9 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, X, FileText, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+
+const PRIORITIES = ["high", "medium", "low"] as const;
+const CATEGORIES = ["installation", "maintenance", "inspection", "survey", "general"] as const;
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -44,6 +48,9 @@ export default function CustomerDetail() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
+  const [stagedFiles, setStagedFiles] = useState<File[]>([]);
+  const [priority, setPriority] = useState<string>("medium");
+  const [category, setCategory] = useState<string>("general");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
@@ -74,27 +81,30 @@ export default function CustomerDetail() {
     fetchData();
   }, [id, fetchJobs]);
 
-  const handleFileUpload = async (files: FileList) => {
-    if (!user || !customer) return;
-    setUploading(true);
-    setUploadProgress(0);
-
-    const validFiles = Array.from(files).filter((f) => {
+  const stageFiles = (files: FileList) => {
+    const valid = Array.from(files).filter((f) => {
       const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
       return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
     });
-
-    if (validFiles.length === 0) {
+    if (valid.length === 0) {
       toast({ title: "No valid files", description: "Only PDF, Word, Excel, and image files under 20MB are accepted.", variant: "destructive" });
-      setUploading(false);
       return;
     }
+    setStagedFiles((prev) => [...prev, ...valid]);
+  };
+
+  const removeStagedFile = (index: number) => {
+    setStagedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleConfirmUpload = async () => {
+    if (!user || !customer || stagedFiles.length === 0) return;
+    setUploading(true);
+    setUploadProgress(0);
 
     let processed = 0;
-    for (const file of validFiles) {
+    for (const file of stagedFiles) {
       const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-
-      // Create one job per file
       const refNumber = `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
       const jobName = file.name.replace(/\.[^/.]+$/, "");
 
@@ -105,6 +115,8 @@ export default function CustomerDetail() {
           reference_number: refNumber,
           customer: customer.name,
           created_by: user.id,
+          priority,
+          category,
         } as any)
         .select("id")
         .single();
@@ -112,7 +124,7 @@ export default function CustomerDetail() {
       if (jobError || !job) {
         toast({ title: "Error", description: `Failed to create job for ${file.name}.`, variant: "destructive" });
         processed++;
-        setUploadProgress(Math.round((processed / validFiles.length) * 100));
+        setUploadProgress(Math.round((processed / stagedFiles.length) * 100));
         continue;
       }
 
@@ -133,14 +145,24 @@ export default function CustomerDetail() {
         });
       }
       processed++;
-      setUploadProgress(Math.round((processed / validFiles.length) * 100));
+      setUploadProgress(Math.round((processed / stagedFiles.length) * 100));
     }
 
-    toast({ title: "Import complete", description: `${validFiles.length} job(s) created.` });
+    toast({ title: "Import complete", description: `${stagedFiles.length} job(s) created.` });
     setUploading(false);
     setUploadProgress(0);
+    setStagedFiles([]);
+    setPriority("medium");
+    setCategory("general");
     await fetchJobs(customer.name);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const getFileIcon = (name: string) => {
+    const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+    return IMAGE_EXTENSIONS.includes(ext)
+      ? <Image className="h-4 w-4 text-muted-foreground" />
+      : <FileText className="h-4 w-4 text-muted-foreground" />;
   };
 
   const statusColor = (s: string) =>
@@ -208,7 +230,7 @@ export default function CustomerDetail() {
           dragCounterRef.current = 0;
           setDragging(false);
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-            handleFileUpload(e.dataTransfer.files);
+            stageFiles(e.dataTransfer.files);
           }
         }}
       >
@@ -222,12 +244,12 @@ export default function CustomerDetail() {
               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
               className="hidden"
               onChange={(e) => {
-                if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
+                if (e.target.files && e.target.files.length > 0) stageFiles(e.target.files);
               }}
             />
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Upload &amp; Create Job
+              <Upload className="mr-2 h-4 w-4" />
+              Add Files
             </Button>
           </div>
         </div>
@@ -242,8 +264,66 @@ export default function CustomerDetail() {
         {dragging && !uploading && (
           <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-8 text-center transition-colors">
             <Upload className="h-6 w-6 text-primary" />
-            <p className="font-medium text-primary">Drop files here to create a new job</p>
+            <p className="font-medium text-primary">Drop files here to create jobs</p>
           </div>
+        )}
+
+        {stagedFiles.length > 0 && !uploading && (
+          <Card className="mb-4">
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">{stagedFiles.length} file(s) ready to import</p>
+                <Button variant="ghost" size="sm" onClick={() => setStagedFiles([])}>Clear all</Button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Priority</label>
+                  <Select value={priority} onValueChange={setPriority}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PRIORITIES.map((p) => (
+                        <SelectItem key={p} value={p} className="capitalize">{p}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-1 block">Category</label>
+                  <Select value={category} onValueChange={setCategory}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => (
+                        <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {stagedFiles.map((file, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm py-1">
+                    {getFileIcon(file.name)}
+                    <span className="truncate flex-1">{file.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0">{(file.size / 1024).toFixed(0)} KB</span>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeStagedFile(i)}>
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <Button className="w-full" onClick={handleConfirmUpload}>
+                <Upload className="mr-2 h-4 w-4" />
+                Create {stagedFiles.length} Job{stagedFiles.length !== 1 ? "s" : ""}
+              </Button>
+            </CardContent>
+          </Card>
         )}
 
         <Card>
