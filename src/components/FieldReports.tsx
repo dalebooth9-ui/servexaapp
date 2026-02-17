@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, FileText, Pencil, Trash2, Download, Sparkles, Loader2 } from "lucide-react";
-import html2pdf from "html2pdf.js";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import DOMPurify from "dompurify";
 import RichTextEditor from "./RichTextEditor";
 
@@ -172,7 +173,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
     fetchReports();
   };
 
-  const exportToPdf = (report: FieldReport) => {
+  const exportToPdf = async (report: FieldReport) => {
     const escapeHtml = (str: string) => str.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] || m));
     const sanitizedTitle = escapeHtml(report.title || "Untitled Report");
     const sanitizedAuthor = escapeHtml(authorNames[report.author_id] || "Unknown");
@@ -180,27 +181,33 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
     const sanitizedContent = DOMPurify.sanitize(report.content);
 
     const container = document.createElement("div");
+    container.style.width = "794px";
+    container.style.padding = "40px";
+    container.style.fontFamily = "Arial, sans-serif";
+    container.style.position = "absolute";
+    container.style.left = "-9999px";
     container.innerHTML = `
-      <div style="font-family: Arial, sans-serif; padding: 20px;">
-        <h1 style="font-size: 24px; margin-bottom: 4px;">${sanitizedTitle}</h1>
-        <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
-          Author: ${sanitizedAuthor} • ${new Date(report.updated_at).toLocaleString()}
-        </p>
-        ${sanitizedSummary ? `<p style="font-size: 13px; color: #444; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;"><strong>Summary:</strong> ${sanitizedSummary}</p>` : ""}
-        <hr style="margin-bottom: 16px;" />
-        <div style="font-size: 14px; line-height: 1.6;">${sanitizedContent}</div>
-      </div>
+      <h1 style="font-size: 24px; margin-bottom: 4px;">${sanitizedTitle}</h1>
+      <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
+        Author: ${sanitizedAuthor} • ${new Date(report.updated_at).toLocaleString()}
+      </p>
+      ${sanitizedSummary ? `<p style="font-size: 13px; color: #444; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;"><strong>Summary:</strong> ${sanitizedSummary}</p>` : ""}
+      <hr style="margin-bottom: 16px;" />
+      <div style="font-size: 14px; line-height: 1.6;">${sanitizedContent}</div>
     `;
-    html2pdf()
-      .set({
-        margin: 10,
-        filename: `${(report.title || "report").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      })
-      .from(container)
-      .save();
+    document.body.appendChild(container);
+
+    try {
+      const canvas = await html2canvas(container, { scale: 2 });
+      const imgData = canvas.toDataURL("image/jpeg", 0.98);
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`${(report.title || "report").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+    } finally {
+      document.body.removeChild(container);
+    }
   };
 
   const handleDelete = async (id: string) => {
