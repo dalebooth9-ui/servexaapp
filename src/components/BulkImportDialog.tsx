@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import * as XLSX from "xlsx";
 
 type ParsedJob = {
   customer: string;
@@ -16,16 +17,11 @@ type ParsedJob = {
   category: string;
 };
 
-function parseCSV(text: string): ParsedJob[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
+function normalizeRows(rows: string[][]): ParsedJob[] {
+  if (rows.length < 2) return [];
 
-  // Parse header
-  const headerLine = lines[0];
-  const headers = parseCSVLine(headerLine).map((h) => h.toLowerCase().trim());
+  const headers = rows[0].map((h) => h.toLowerCase().trim().replace(/[^\w\s]/g, ""));
 
-  // Map headers to fields
-  const fieldMap: Record<string, string> = {};
   const aliases: Record<string, string[]> = {
     customer: ["customer", "client", "company"],
     name: ["name", "job name", "job_name", "jobname", "title", "description", "drop"],
@@ -35,29 +31,48 @@ function parseCSV(text: string): ParsedJob[] {
     category: ["category", "cat", "type"],
   };
 
+  const fieldMap: Record<string, number> = {};
   for (const [field, names] of Object.entries(aliases)) {
     const idx = headers.findIndex((h) => names.includes(h));
-    if (idx !== -1) fieldMap[field] = String(idx);
+    if (idx !== -1) fieldMap[field] = idx;
   }
 
   const jobs: ParsedJob[] = [];
-  for (let i = 1; i < lines.length; i++) {
-    const cols = parseCSVLine(lines[i]);
+  for (let i = 1; i < rows.length; i++) {
+    const cols = rows[i];
     if (cols.every((c) => !c.trim())) continue;
 
     jobs.push({
-      customer: cols[Number(fieldMap.customer)] || "",
-      name: cols[Number(fieldMap.name)] || "",
-      reference_number: cols[Number(fieldMap.reference_number)] || "",
-      address: cols[Number(fieldMap.address)] || "",
-      priority: cols[Number(fieldMap.priority)] || "medium",
-      category: cols[Number(fieldMap.category)] || "general",
+      customer: cols[fieldMap.customer] || "",
+      name: cols[fieldMap.name] || "",
+      reference_number: cols[fieldMap.reference_number] || "",
+      address: cols[fieldMap.address] || "",
+      priority: cols[fieldMap.priority] || "medium",
+      category: cols[fieldMap.category] || "general",
     });
   }
   return jobs;
 }
 
-function parseCSVLine(line: string): string[] {
+function parseCSV(text: string): string[][] {
+  // Strip BOM (common in SharePoint exports)
+  const clean = text.replace(/^\uFEFF/, "");
+  // Detect delimiter: semicolon (SharePoint EU) vs comma
+  const firstLine = clean.split(/\r?\n/)[0] || "";
+  const delimiter = firstLine.split(";").length > firstLine.split(",").length ? ";" : ",";
+
+  const lines = clean.split(/\r?\n/).filter((l) => l.trim());
+  return lines.map((line) => parseCSVLine(line, delimiter));
+}
+
+function parseExcel(buffer: ArrayBuffer): string[][] {
+  const wb = XLSX.read(buffer, { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
+  return data.map((row) => row.map((cell) => String(cell ?? "").trim()));
+}
+
+function parseCSVLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
   let current = "";
   let inQuotes = false;
@@ -75,7 +90,7 @@ function parseCSVLine(line: string): string[] {
     } else {
       if (ch === '"') {
         inQuotes = true;
-      } else if (ch === ",") {
+      } else if (ch === delimiter) {
         result.push(current.trim());
         current = "";
       } else {
@@ -86,6 +101,8 @@ function parseCSVLine(line: string): string[] {
   result.push(current.trim());
   return result;
 }
+
+
 
 interface BulkImportDialogProps {
   open: boolean;
@@ -100,26 +117,41 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
   const [error, setError] = useState("");
   const { toast } = useToast();
 
+  const processRows = useCallback((rows: string[][]) => {
+    const jobs = normalizeRows(rows);
+    if (jobs.length === 0) {
+      setError("No valid rows found. Make sure your file has headers: Customer, Name, Reference Number, Address, Priority, Category");
+      setParsed([]);
+    } else {
+      const invalid = jobs.filter((j) => !j.name || !j.reference_number);
+      if (invalid.length > 0) {
+        setError(`${invalid.length} row(s) missing required Name or Reference Number.`);
+      }
+      setParsed(jobs);
+    }
+  }, []);
+
   const handleFile = useCallback((file: File) => {
     setError("");
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const jobs = parseCSV(text);
-      if (jobs.length === 0) {
-        setError("No valid rows found. Make sure your CSV has headers: Customer, Name, Reference Number, Address, Priority, Category");
-        setParsed([]);
-      } else {
-        const invalid = jobs.filter((j) => !j.name || !j.reference_number);
-        if (invalid.length > 0) {
-          setError(`${invalid.length} row(s) missing required Name or Reference Number.`);
-        }
-        setParsed(jobs);
-      }
-    };
-    reader.readAsText(file);
-  }, []);
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+
+    if (ext === ".xlsx" || ext === ".xls") {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const buffer = e.target?.result as ArrayBuffer;
+        processRows(parseExcel(buffer));
+      };
+      reader.readAsArrayBuffer(file);
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const text = e.target?.result as string;
+        processRows(parseCSV(text));
+      };
+      reader.readAsText(file);
+    }
+  }, [processRows]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -174,7 +206,10 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
           >
             <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
             <div>
-              <p className="font-medium">Drop a CSV file here</p>
+              <p className="font-medium">Drop a CSV or Excel file here</p>
+              <p className="text-sm text-muted-foreground">
+                Supports SharePoint exports (.xlsx, .xls, .csv)
+              </p>
               <p className="text-sm text-muted-foreground">
                 Required columns: <strong>Name</strong>, <strong>Reference Number</strong>
               </p>
@@ -185,7 +220,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
             <label>
               <input
                 type="file"
-                accept=".csv,.txt"
+                accept=".csv,.txt,.xlsx,.xls"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
