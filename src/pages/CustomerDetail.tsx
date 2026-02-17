@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
@@ -59,6 +59,8 @@ export default function CustomerDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
+  const [docSortBy, setDocSortBy] = useState<"date" | "name">("date");
+  const [docSortAsc, setDocSortAsc] = useState(false);
   const fetchDocuments = useCallback(async () => {
     if (!id) return;
     const { data } = await supabase
@@ -308,58 +310,89 @@ export default function CustomerDetail() {
             {documents.length === 0 && !dragging ? (
               <p className="p-8 text-center text-muted-foreground">No documents uploaded yet. Drag &amp; drop files here or click Upload.</p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-10 px-2">
-                      <Checkbox
-                        checked={documents.length > 0 && selectedDocIds.size === documents.length ? true : selectedDocIds.size > 0 ? "indeterminate" : false}
-                        onCheckedChange={(checked) => toggleSelectAll(!!checked)}
-                      />
-                    </TableHead>
-                    <TableHead>File</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documents.map((doc) => (
-                    <TableRow key={doc.id}>
-                      <TableCell className="w-10 px-2">
+              <>
+                <div className="flex items-center justify-end gap-1 px-4 pt-3 pb-1">
+                  <Button
+                    variant={docSortBy === "date" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => { if (docSortBy === "date") setDocSortAsc(!docSortAsc); else { setDocSortBy("date"); setDocSortAsc(false); } }}
+                    className="text-xs"
+                  >
+                    <ArrowUpDown className="mr-1 h-3 w-3" />
+                    Date {docSortBy === "date" ? (docSortAsc ? "↑" : "↓") : ""}
+                  </Button>
+                  <Button
+                    variant={docSortBy === "name" ? "secondary" : "ghost"}
+                    size="sm"
+                    onClick={() => { if (docSortBy === "name") setDocSortAsc(!docSortAsc); else { setDocSortBy("name"); setDocSortAsc(true); } }}
+                    className="text-xs"
+                  >
+                    <SortAsc className="mr-1 h-3 w-3" />
+                    Name {docSortBy === "name" ? (docSortAsc ? "A→Z" : "Z→A") : ""}
+                  </Button>
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-10 px-2">
                         <Checkbox
-                          checked={selectedDocIds.has(doc.id)}
-                          onCheckedChange={(checked) => toggleDocSelect(doc.id, !!checked)}
+                          checked={documents.length > 0 && selectedDocIds.size === documents.length ? true : selectedDocIds.size > 0 ? "indeterminate" : false}
+                          onCheckedChange={(checked) => toggleSelectAll(!!checked)}
                         />
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getFileIcon(doc.file_name)}
-                          <span className="font-medium text-sm truncate max-w-[300px]">{doc.file_name}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(doc.created_at).toLocaleDateString()}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDocument(doc)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                      </TableHead>
+                      <TableHead>File</TableHead>
+                      <TableHead>Size</TableHead>
+                      <TableHead>Uploaded</TableHead>
+                      <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {[...documents].sort((a, b) => {
+                      if (docSortBy === "name") {
+                        return docSortAsc
+                          ? a.file_name.toLowerCase().localeCompare(b.file_name.toLowerCase())
+                          : b.file_name.toLowerCase().localeCompare(a.file_name.toLowerCase());
+                      }
+                      const dateA = new Date(a.created_at).getTime();
+                      const dateB = new Date(b.created_at).getTime();
+                      return docSortAsc ? dateA - dateB : dateB - dateA;
+                    }).map((doc) => (
+                      <TableRow key={doc.id}>
+                        <TableCell className="w-10 px-2">
+                          <Checkbox
+                            checked={selectedDocIds.has(doc.id)}
+                            onCheckedChange={(checked) => toggleDocSelect(doc.id, !!checked)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {getFileIcon(doc.file_name)}
+                            <span className="font-medium text-sm truncate max-w-[300px]">{doc.file_name}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : "—"}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {new Date(doc.created_at).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                                <Download className="h-4 w-4" />
+                              </a>
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDocument(doc)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
             )}
           </CardContent>
         </Card>
