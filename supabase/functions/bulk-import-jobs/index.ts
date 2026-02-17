@@ -61,12 +61,13 @@ serve(async (req) => {
     // Validate and prepare rows
     const validPriorities = ["high", "medium", "low"];
     const rows = jobs.map((job: any, i: number) => {
-      if (!job.reference_number || !job.name) {
-        throw new Error(`Row ${i + 1}: reference_number and name are required`);
-      }
+      const name = job.name ? String(job.name).trim() : `Imported Job ${i + 1}`;
+      const refNum = job.reference_number
+        ? String(job.reference_number).trim()
+        : `IMP-${Date.now()}-${i + 1}`;
       return {
-        reference_number: String(job.reference_number).trim(),
-        name: String(job.name).trim(),
+        reference_number: refNum,
+        name,
         customer: job.customer ? String(job.customer).trim() : null,
         address: job.address ? String(job.address).trim() : null,
         priority: validPriorities.includes(job.priority?.toLowerCase())
