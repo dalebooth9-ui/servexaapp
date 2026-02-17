@@ -1,12 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, FileText, Image, Trash2, Loader2, Download } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
+
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
 type Customer = {
   id: string;
@@ -28,11 +34,35 @@ type Job = {
   created_at: string;
 };
 
+type CustomerDocument = {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_size: number | null;
+  created_at: string;
+};
+
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [documents, setDocuments] = useState<CustomerDocument[]>([]);
   const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchDocuments = useCallback(async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("customer_documents")
+      .select("id, file_name, file_url, file_size, created_at")
+      .eq("customer_id", id)
+      .order("created_at", { ascending: false });
+    setDocuments((data as CustomerDocument[]) || []);
+  }, [id]);
 
   useEffect(() => {
     if (!id) return;
@@ -52,10 +82,75 @@ export default function CustomerDetail() {
           .order("created_at", { ascending: false });
         setJobs((jobData as Job[]) || []);
       }
+
+      await fetchDocuments();
       setLoading(false);
     };
     fetchData();
-  }, [id]);
+  }, [id, fetchDocuments]);
+
+  const handleFileUpload = async (files: FileList) => {
+    if (!user || !id) return;
+    setUploading(true);
+    setUploadProgress(0);
+
+    const validFiles = Array.from(files).filter((f) => {
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
+    });
+
+    if (validFiles.length === 0) {
+      toast({ title: "No valid files", description: "Only PDF, Word, Excel, and image files under 20MB are accepted.", variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
+    let processed = 0;
+    for (const file of validFiles) {
+      const filePath = `customer-docs/${id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
+
+      if (uploadError) {
+        toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });
+      } else {
+        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
+        await supabase.from("customer_documents").insert({
+          customer_id: id,
+          file_name: file.name,
+          file_url: urlData.publicUrl,
+          file_size: file.size,
+          uploaded_by: user.id,
+        } as any);
+      }
+      processed++;
+      setUploadProgress(Math.round((processed / validFiles.length) * 100));
+    }
+
+    toast({ title: "Upload complete", description: `${validFiles.length} file(s) uploaded.` });
+    setUploading(false);
+    setUploadProgress(0);
+    await fetchDocuments();
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDeleteDocument = async (doc: CustomerDocument) => {
+    // Extract storage path from URL
+    const urlParts = doc.file_url.split("/submissions/");
+    if (urlParts.length > 1) {
+      const storagePath = decodeURIComponent(urlParts[1]);
+      await supabase.storage.from("submissions").remove([storagePath]);
+    }
+    await supabase.from("customer_documents").delete().eq("id", doc.id);
+    toast({ title: "Deleted", description: `${doc.file_name} removed.` });
+    await fetchDocuments();
+  };
+
+  const getFileIcon = (name: string) => {
+    const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
+    return IMAGE_EXTENSIONS.includes(ext)
+      ? <Image className="h-4 w-4 text-muted-foreground" />
+      : <FileText className="h-4 w-4 text-muted-foreground" />;
+  };
 
   const statusColor = (s: string) =>
     s === "active" ? "bg-accent/10 text-accent" : s === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
@@ -144,6 +239,85 @@ export default function CustomerDetail() {
           )}
         </CardContent>
       </Card>
+
+      {/* Documents Section */}
+      <div className="mt-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Documents ({documents.length})</h2>
+          <div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files);
+              }}
+            />
+            <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+              {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Upload Files
+            </Button>
+          </div>
+        </div>
+
+        {uploading && (
+          <div className="mb-4">
+            <Progress value={uploadProgress} className="h-2" />
+            <p className="text-xs text-muted-foreground mt-1">{uploadProgress}%</p>
+          </div>
+        )}
+
+        <Card>
+          <CardContent className="p-0">
+            {documents.length === 0 ? (
+              <p className="p-8 text-center text-muted-foreground">No documents uploaded yet.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>File</TableHead>
+                    <TableHead>Size</TableHead>
+                    <TableHead>Uploaded</TableHead>
+                    <TableHead className="w-[80px]"></TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {documents.map((doc) => (
+                    <TableRow key={doc.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {getFileIcon(doc.file_name)}
+                          <span className="font-medium text-sm truncate max-w-[300px]">{doc.file_name}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : "—"}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {new Date(doc.created_at).toLocaleDateString()}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
+                              <Download className="h-4 w-4" />
+                            </a>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDocument(doc)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
