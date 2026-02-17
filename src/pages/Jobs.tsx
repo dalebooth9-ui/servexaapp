@@ -11,7 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload } from "lucide-react";
+import BulkImportDialog from "@/components/BulkImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
@@ -338,6 +339,7 @@ export default function Jobs() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
   const [loading, setLoading] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState<string[]>([]);
@@ -603,10 +605,14 @@ export default function Jobs() {
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Jobs</h1>
         {isAdmin && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2 h-4 w-4" /> New Job</Button>
-            </DialogTrigger>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Import CSV
+            </Button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button><Plus className="mr-2 h-4 w-4" /> New Job</Button>
+              </DialogTrigger>
             <DialogContent>
               <DialogHeader><DialogTitle>Create New Job</DialogTitle></DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
@@ -662,6 +668,8 @@ export default function Jobs() {
               </form>
             </DialogContent>
           </Dialog>
+          <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImported={fetchJobs} />
+          </div>
         )}
       </div>
 
