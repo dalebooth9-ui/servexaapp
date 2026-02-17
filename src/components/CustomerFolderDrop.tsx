@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -23,7 +23,11 @@ interface CustomerFolderDropProps {
   onImported: () => void;
 }
 
-export default function CustomerFolderDrop({ open, onOpenChange, onImported }: CustomerFolderDropProps) {
+export interface CustomerFolderDropHandle {
+  processFiles: (files: FileList) => void;
+}
+
+const CustomerFolderDrop = forwardRef<CustomerFolderDropHandle, CustomerFolderDropProps>(({ open, onOpenChange, onImported }, ref) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [folders, setFolders] = useState<FolderEntry[]>([]);
@@ -76,6 +80,8 @@ export default function CustomerFolderDrop({ open, onOpenChange, onImported }: C
     entries.sort((a, b) => a.customerName.localeCompare(b.customerName));
     setFolders(entries);
   }, []);
+
+  useImperativeHandle(ref, () => ({ processFiles }), [processFiles]);
 
   const handleImport = async () => {
     if (!user || folders.length === 0) return;
@@ -244,4 +250,6 @@ export default function CustomerFolderDrop({ open, onOpenChange, onImported }: C
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+export default CustomerFolderDrop;
