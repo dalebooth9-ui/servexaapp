@@ -127,7 +127,7 @@ export default function FileDropZone({
               Drag & drop files here, or click to browse
             </p>
             <p className="text-xs">
-              PDF, Word, Excel • Max {maxSizeMB}MB per file
+              Supported: PDF, Word, Excel, JPG, PNG • Max {maxSizeMB}MB per file
             </p>
           </div>
         )}
