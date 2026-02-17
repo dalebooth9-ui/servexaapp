@@ -380,9 +380,13 @@ export default function Jobs() {
   };
 
   const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   const filtered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
+    if (priorityFilter !== "all" && (j.priority || "medium") !== priorityFilter) return false;
+    if (categoryFilter !== "all" && (j.category || "general") !== categoryFilter) return false;
     return (
       j.name.toLowerCase().includes(search.toLowerCase()) ||
       j.reference_number.toLowerCase().includes(search.toLowerCase()) ||
@@ -526,6 +530,30 @@ export default function Jobs() {
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue placeholder="Priority" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All priorities</SelectItem>
+            <SelectItem value="high">High</SelectItem>
+            <SelectItem value="medium">Medium</SelectItem>
+            <SelectItem value="low">Low</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All categories</SelectItem>
+            <SelectItem value="general">General</SelectItem>
+            <SelectItem value="installation">Installation</SelectItem>
+            <SelectItem value="maintenance">Maintenance</SelectItem>
+            <SelectItem value="inspection">Inspection</SelectItem>
+            <SelectItem value="survey">Survey</SelectItem>
           </SelectContent>
         </Select>
       </div>
