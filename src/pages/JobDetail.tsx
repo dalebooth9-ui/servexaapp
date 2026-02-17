@@ -1,10 +1,11 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ArrowLeft, Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -15,6 +16,7 @@ import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
 import LocationMap from "@/components/LocationMap";
 import FieldReports from "@/components/FieldReports";
 import SubmissionComments from "@/components/SubmissionComments";
+import FileDropZone from "@/components/FileDropZone";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -61,7 +63,6 @@ export default function JobDetail() {
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchData = async () => {
     if (!id) return;
@@ -88,17 +89,16 @@ export default function JobDetail() {
     fetchData();
   }, [id]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0 || !id || !user) return;
+  const handleBulkUpload = async (files: File[]) => {
+    if (!id || !user || files.length === 0) return;
 
     setUploading(true);
     let uploadedCount = 0;
 
-    for (const file of Array.from(files)) {
+    for (const file of files) {
       const ext = getFileExtension(file.name);
       if (!ALLOWED_EXTENSIONS.includes(ext)) {
-        toast({ title: "Unsupported file", description: `${file.name} is not a supported format. Use PDF, Word, or Excel files.`, variant: "destructive" });
+        toast({ title: "Unsupported file", description: `${file.name} is not a supported format.`, variant: "destructive" });
         continue;
       }
       if (file.size > 20 * 1024 * 1024) {
@@ -136,7 +136,6 @@ export default function JobDetail() {
       fetchData();
     }
     setUploading(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
   };
   const handleDeleteSubmission = async (sub: any) => {
     // Delete file from storage if it exists
@@ -224,25 +223,17 @@ export default function JobDetail() {
         <FieldReports jobId={id!} />
       </div>
 
+      <div className="mb-4">
+        <FileDropZone onFilesSelected={handleBulkUpload} uploading={uploading} />
+      </div>
+
       <div className="mb-4 flex items-center justify-between">
         <h2 className="text-lg font-semibold">Submissions ({filtered.length})</h2>
         <div className="flex gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx"
-            multiple
-            className="hidden"
-            onChange={handleFileUpload}
-          />
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-            <Upload className="mr-1.5 h-4 w-4" />
-            {uploading ? "Uploading..." : "Upload Document"}
-          </Button>
           {fileCount > 0 && (
             <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
               <Download className="mr-1.5 h-4 w-4" />
-              {downloading ? "Downloading..." : `Download ${fileCount} file(s)`}
+              {downloading ? "Downloading..." : `Download All ${fileCount} file(s)`}
             </Button>
           )}
         </div>
@@ -261,9 +252,12 @@ export default function JobDetail() {
 }
 
 function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: boolean; onDelete: (sub: any) => Promise<void> }) {
+  const { toast } = useToast();
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [previewSub, setPreviewSub] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDownloading, setBulkDownloading] = useState(false);
 
   useEffect(() => {
     const generateSignedUrls = async () => {
@@ -283,22 +277,97 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
     generateSignedUrls();
   }, [items]);
 
+  // Reset selection when items change
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [items]);
+
   if (items.length === 0) {
     return <p className="py-12 text-center text-muted-foreground">No submissions match the current filters.</p>;
   }
+
+  const selectableItems = items.filter((s) => s.file_url);
+  const allSelected = selectableItems.length > 0 && selectableItems.every((s) => selectedIds.has(s.id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(selectableItems.map((s) => s.id)));
+    }
+  };
+
+  const handleBulkSelectedDownload = async () => {
+    const selected = items.filter((s) => selectedIds.has(s.id) && s.file_url);
+    if (selected.length === 0) return;
+    setBulkDownloading(true);
+    for (const sub of selected) {
+      const url = signedUrls[sub.id];
+      if (url) {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = sub.file_name || "download";
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+    setBulkDownloading(false);
+    toast({ title: "Downloads started", description: `${selected.length} file(s) downloading.` });
+  };
 
   const previewUrl = previewSub ? signedUrls[previewSub.id] : null;
   const previewFileName = previewSub?.file_name || "";
 
   return (
     <>
+      {selectableItems.length > 0 && (
+        <div className="mb-3 flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Checkbox
+              checked={allSelected}
+              onCheckedChange={toggleAll}
+              id="select-all"
+            />
+            <label htmlFor="select-all" className="text-sm text-muted-foreground cursor-pointer">
+              Select all files
+            </label>
+          </div>
+          {selectedIds.size > 0 && (
+            <Button variant="outline" size="sm" onClick={handleBulkSelectedDownload} disabled={bulkDownloading}>
+              <Download className="mr-1.5 h-3.5 w-3.5" />
+              {bulkDownloading ? "Downloading..." : `Download ${selectedIds.size} selected`}
+            </Button>
+          )}
+        </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {items.map((sub) => {
           const resolvedUrl = signedUrls[sub.id] || undefined;
           const isDocument = sub.type === "document" && sub.file_name;
+          const hasFile = !!sub.file_url;
           return (
-            <Card key={sub.id}>
+            <Card key={sub.id} className={selectedIds.has(sub.id) ? "ring-2 ring-primary" : ""}>
               <CardContent className="p-4">
+                {hasFile && (
+                  <div className="mb-2 flex justify-end">
+                    <Checkbox
+                      checked={selectedIds.has(sub.id)}
+                      onCheckedChange={() => toggleSelect(sub.id)}
+                    />
+                  </div>
+                )}
                 {sub.type === "photo" && resolvedUrl && (
                   <img src={resolvedUrl} alt={sub.file_name || "Photo"} className="mb-3 h-48 w-full rounded-md object-cover" />
                 )}
