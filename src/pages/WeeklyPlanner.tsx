@@ -518,6 +518,25 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
+      {/* Legend */}
+      <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">Legend:</span>
+        <div className="flex items-center gap-4">
+          <span className="font-medium">Priority</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-destructive" /> High</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-amber-500" /> Medium</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-emerald-500" /> Low</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="font-medium">Category</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-muted" /> General</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-blue-500/20" /> Installation</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-orange-500/20" /> Maintenance</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-purple-500/20" /> Inspection</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-teal-500/20" /> Survey</span>
+        </div>
+      </div>
+
       <Card>
         <CardContent className="overflow-x-auto p-0">
           <DndContext
