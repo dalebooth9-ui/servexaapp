@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Pencil } from "lucide-react";
+import { Phone, Pencil, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,9 @@ export default function Engineers() {
   const [editEng, setEditEng] = useState<any | null>(null);
   const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
   const [saving, setSaving] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "" });
+  const [adding, setAdding] = useState(false);
   const { toast } = useToast();
 
   const fetchEngineers = async () => {
@@ -64,9 +67,35 @@ export default function Engineers() {
     }
   };
 
+  const handleAddEngineer = async () => {
+    if (!addForm.email || !addForm.full_name) {
+      toast({ title: "Error", description: "Name and email are required.", variant: "destructive" });
+      return;
+    }
+    setAdding(true);
+    const { data, error } = await supabase.functions.invoke("create-engineer", {
+      body: addForm,
+    });
+    setAdding(false);
+
+    if (error || data?.error) {
+      toast({ title: "Error", description: data?.error || "Failed to create engineer.", variant: "destructive" });
+    } else {
+      toast({ title: "Engineer added", description: `${addForm.full_name} has been created.` });
+      setAddOpen(false);
+      setAddForm({ full_name: "", email: "", phone: "", whatsapp_number: "" });
+      fetchEngineers();
+    }
+  };
+
   return (
     <div>
-      <h1 className="mb-6 text-2xl font-bold">Engineers</h1>
+      <div className="mb-6 flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Engineers</h1>
+        <Button onClick={() => setAddOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" /> Add Engineer
+        </Button>
+      </div>
 
       <Card>
         <CardContent className="p-0">
@@ -140,6 +169,36 @@ export default function Engineers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditEng(null)}>Cancel</Button>
             <Button onClick={handleSave} disabled={saving}>{saving ? "Saving…" : "Save"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Engineer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="add-name">Full Name *</Label>
+              <Input id="add-name" value={addForm.full_name} onChange={(e) => setAddForm((f) => ({ ...f, full_name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-email">Email *</Label>
+              <Input id="add-email" type="email" value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-phone">Phone</Label>
+              <Input id="add-phone" value={addForm.phone} onChange={(e) => setAddForm((f) => ({ ...f, phone: e.target.value }))} placeholder="+44..." />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-wa">WhatsApp Number</Label>
+              <Input id="add-wa" value={addForm.whatsapp_number} onChange={(e) => setAddForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddEngineer} disabled={adding}>{adding ? "Adding…" : "Add Engineer"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
