@@ -26,7 +26,9 @@ const ALLOWED_DOC_TYPES = [
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 ];
 
-const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx"];
+const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
 function getFileExtension(name: string): string {
   return name.slice(name.lastIndexOf(".")).toLowerCase();
@@ -116,10 +118,11 @@ export default function JobDetail() {
 
       const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
 
+      const isImage = IMAGE_EXTENSIONS.includes(ext);
       const { error: insertError } = await supabase.from("submissions").insert({
         job_id: id,
         engineer_id: user.id,
-        type: "document",
+        type: isImage ? "photo" : "document",
         file_url: urlData.publicUrl,
         file_name: file.name,
       });
@@ -224,7 +227,12 @@ export default function JobDetail() {
       </div>
 
       <div className="mb-4">
-        <FileDropZone onFilesSelected={handleBulkUpload} uploading={uploading} />
+        <FileDropZone
+          onFilesSelected={handleBulkUpload}
+          uploading={uploading}
+          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+          allowedExtensions={ALLOWED_EXTENSIONS}
+        />
       </div>
 
       <div className="mb-4 flex items-center justify-between">
