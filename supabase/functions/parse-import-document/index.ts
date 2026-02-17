@@ -66,7 +66,7 @@ serve(async (req) => {
     const mimeType = ext === ".pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
     // Use Gemini to extract structured job data from the document
-    const aiResponse = await fetch("https://ai-gateway.lovable.dev/v1/chat/completions", {
+    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${LOVABLE_API_KEY}`,
