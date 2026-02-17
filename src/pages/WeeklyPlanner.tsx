@@ -9,10 +9,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, GripVertical } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Printer } from "lucide-react";
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
+import jsPDF from "jspdf";
 import {
   DndContext,
   DragOverlay,
@@ -343,6 +344,92 @@ export default function WeeklyPlanner() {
 
   const draggedJob = activeEntry ? getJobById(activeEntry.job_id) : null;
 
+  const handleExportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 10;
+    const colW = (pageW - margin * 2 - 40) / 7; // 40mm for engineer name col
+    const headerH = 12;
+    let y = margin;
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Weekly Planner — ${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`, margin, y + 5);
+    y += 12;
+
+    // Header row
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setFillColor(240, 240, 240);
+    doc.rect(margin, y, pageW - margin * 2, headerH, "F");
+    doc.text("Engineer", margin + 2, y + 7);
+    weekDays.forEach((day, i) => {
+      const x = margin + 40 + i * colW;
+      doc.text(format(day, "EEE"), x + colW / 2, y + 4, { align: "center" });
+      doc.text(format(day, "MMM d"), x + colW / 2, y + 9, { align: "center" });
+    });
+    y += headerH;
+
+    // Rows
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+
+    visibleEngineers.forEach((eng) => {
+      // Calculate row height based on max entries in any cell
+      const maxEntries = Math.max(1, ...weekDays.map((day) => getEntriesForCell(eng.user_id, day).length));
+      const rowH = Math.max(12, maxEntries * 10 + 4);
+
+      // Check page break
+      if (y + rowH > doc.internal.pageSize.getHeight() - margin) {
+        doc.addPage();
+        y = margin;
+      }
+
+      // Row border
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(margin, y, pageW - margin * 2, rowH);
+
+      // Engineer name
+      doc.setFont("helvetica", "bold");
+      doc.text(eng.full_name || "", margin + 2, y + 6, { maxWidth: 36 });
+      doc.setFont("helvetica", "normal");
+
+      // Cell borders and entries
+      weekDays.forEach((day, i) => {
+        const x = margin + 40 + i * colW;
+        doc.line(x, y, x, y + rowH);
+
+        const entries = getEntriesForCell(eng.user_id, day);
+        entries.forEach((entry, ei) => {
+          const job = getJobById(entry.job_id);
+          const cellY = y + 5 + ei * 10;
+          if (job) {
+            doc.setFont("helvetica", "bold");
+            doc.text(job.reference_number, x + 2, cellY, { maxWidth: colW - 4 });
+            doc.setFont("helvetica", "normal");
+            doc.text(job.name, x + 2, cellY + 4, { maxWidth: colW - 4 });
+          }
+          if (entry.notes) {
+            doc.setTextColor(120, 120, 120);
+            doc.text(entry.notes, x + 2, cellY + 7, { maxWidth: colW - 4 });
+            doc.setTextColor(0, 0, 0);
+          }
+        });
+      });
+
+      y += rowH;
+    });
+
+    // Footer
+    doc.setFontSize(6);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Generated ${format(new Date(), "PPP 'at' p")}`, margin, doc.internal.pageSize.getHeight() - 5);
+
+    doc.save(`planner-${format(weekStart, "yyyy-MM-dd")}.pdf`);
+    toast({ title: "PDF exported", description: "Weekly planner saved as PDF." });
+  };
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -360,6 +447,9 @@ export default function WeeklyPlanner() {
           <span className="ml-2 text-sm font-medium text-muted-foreground">
             {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
           </span>
+          <Button variant="outline" size="sm" onClick={handleExportPdf}>
+            <Printer className="mr-1.5 h-4 w-4" /> Export PDF
+          </Button>
         </div>
       </div>
 
