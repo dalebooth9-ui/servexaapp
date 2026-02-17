@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
@@ -141,7 +142,7 @@ function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jobRef: string })
   );
 }
 
-function DraggableJobRow({ job, statusColor, isAdmin, onDelete }: { job: any; statusColor: (s: string) => string; isAdmin: boolean; onDelete?: (id: string) => void }) {
+function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSelect }: { job: any; statusColor: (s: string) => string; isAdmin: boolean; onDelete?: (id: string) => void; selected?: boolean; onSelect?: (id: string, checked: boolean) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
     data: { job },
@@ -153,6 +154,14 @@ function DraggableJobRow({ job, statusColor, isAdmin, onDelete }: { job: any; st
       ref={setNodeRef}
       className={isDragging ? "opacity-30" : ""}
     >
+      {isAdmin && (
+        <TableCell className="w-8 px-2">
+          <Checkbox
+            checked={selected}
+            onCheckedChange={(checked) => onSelect?.(job.id, !!checked)}
+          />
+        </TableCell>
+      )}
       {isAdmin && (
         <TableCell className="w-8 px-2">
           <button {...listeners} {...attributes} className="cursor-grab touch-none text-muted-foreground hover:text-foreground">
@@ -214,7 +223,6 @@ function DraggableJobRow({ job, statusColor, isAdmin, onDelete }: { job: any; st
     </TableRow>
   );
 }
-
 function DroppableCustomerFolder({
   customerName,
   jobs,
@@ -224,6 +232,9 @@ function DroppableCustomerFolder({
   onDelete,
   onRename,
   onDeleteJob,
+  selectedIds,
+  onSelect,
+  onSelectAll,
 }: {
   customerName: string;
   jobs: any[];
@@ -233,11 +244,18 @@ function DroppableCustomerFolder({
   onDelete?: () => void;
   onRename?: () => void;
   onDeleteJob?: (id: string) => void;
+  selectedIds?: Set<string>;
+  onSelect?: (id: string, checked: boolean) => void;
+  onSelectAll?: (jobIds: string[], checked: boolean) => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `folder-${customerName}`,
     data: { customerName },
   });
+
+  const folderJobIds = jobs.map((j) => j.id);
+  const allSelected = jobs.length > 0 && folderJobIds.every((id) => selectedIds?.has(id));
+  const someSelected = folderJobIds.some((id) => selectedIds?.has(id));
 
   return (
     <AccordionItem
@@ -280,6 +298,14 @@ function DroppableCustomerFolder({
         <Table>
           <TableHeader>
             <TableRow>
+              {isAdmin && (
+                <TableHead className="w-8 px-2">
+                  <Checkbox
+                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
+                    onCheckedChange={(checked) => onSelectAll?.(folderJobIds, !!checked)}
+                  />
+                </TableHead>
+              )}
               {isAdmin && <TableHead className="w-8 px-2" />}
               <TableHead>Reference</TableHead>
               <TableHead>Name</TableHead>
@@ -293,13 +319,13 @@ function DroppableCustomerFolder({
           <TableBody>
             {jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 8 : 6} className="text-center text-muted-foreground py-4">
+                <TableCell colSpan={isAdmin ? 9 : 6} className="text-center text-muted-foreground py-4">
                   No jobs in this folder
                 </TableCell>
               </TableRow>
             ) : (
               jobs.map((job: any) => (
-                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} />
+                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} selected={selectedIds?.has(job.id)} onSelect={onSelect} />
               ))
             )}
           </TableBody>
@@ -308,7 +334,6 @@ function DroppableCustomerFolder({
     </AccordionItem>
   );
 }
-
 function NewCustomerDropZone({ isOver, isDragging }: { isOver: boolean; isDragging: boolean }) {
   const { setNodeRef } = useDroppable({
     id: "folder-__new_customer__",
@@ -353,6 +378,8 @@ export default function Jobs() {
   const [renamingFolder, setRenamingFolder] = useState("");
   const [renameValue, setRenameValue] = useState("");
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -385,6 +412,38 @@ export default function Jobs() {
     }
   };
 
+  const handleSelectJob = (id: string, checked: boolean) => {
+    setSelectedJobIds((prev) => {
+      const updated = new Set(prev);
+      if (checked) updated.add(id);
+      else updated.delete(id);
+      return updated;
+    });
+  };
+
+  const handleSelectAll = (jobIds: string[], checked: boolean) => {
+    setSelectedJobIds((prev) => {
+      const updated = new Set(prev);
+      for (const id of jobIds) {
+        if (checked) updated.add(id);
+        else updated.delete(id);
+      }
+      return updated;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedJobIds);
+    const { error } = await supabase.from("jobs").delete().in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete jobs.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.filter((j) => !selectedJobIds.has(j.id)));
+      toast({ title: "Deleted", description: `${ids.length} job(s) deleted.` });
+      setSelectedJobIds(new Set());
+    }
+    setBulkDeleteOpen(false);
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -740,6 +799,39 @@ export default function Jobs() {
         </Select>
       </div>
 
+      {isAdmin && selectedJobIds.size > 0 && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
+          <span className="text-sm font-medium">{selectedJobIds.size} job(s) selected</span>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds(new Set())}>
+            Clear
+          </Button>
+          <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm">
+                <Trash2 className="mr-2 h-4 w-4" /> Delete Selected
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {selectedJobIds.size} job(s)?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete the selected jobs and all associated data. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={handleBulkDelete}
+                >
+                  Delete {selectedJobIds.size} Job(s)
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+      )}
+
       {filtered.length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
@@ -766,6 +858,9 @@ export default function Jobs() {
                 onDelete={() => deleteCustomerFolder(customerName)}
                 onRename={() => startRenameFolder(customerName)}
                 onDeleteJob={handleDeleteJob}
+                selectedIds={selectedJobIds}
+                onSelect={handleSelectJob}
+                onSelectAll={handleSelectAll}
               />
             ))}
           </Accordion>
