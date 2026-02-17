@@ -197,6 +197,8 @@ export default function WeeklyPlanner() {
   const [copying, setCopying] = useState(false);
   const [activeEntry, setActiveEntry] = useState<ScheduleEntry | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [filterPriority, setFilterPriority] = useState("all");
+  const [filterCategory, setFilterCategory] = useState("all");
 
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -256,12 +258,23 @@ export default function WeeklyPlanner() {
   const nextWeek = () => setWeekStart((d) => addDays(d, 7));
   const goToday = () => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
+  const getJobById = (jobId: string) => jobs.find((j) => j.id === jobId);
+
   const getEntriesForCell = (engineerId: string, day: Date) => {
     const dayStr = format(day, "yyyy-MM-dd");
-    return schedule.filter((e) => e.engineer_id === engineerId && e.schedule_date === dayStr);
+    return schedule.filter((e) => {
+      if (e.engineer_id !== engineerId || e.schedule_date !== dayStr) return false;
+      if (filterPriority !== "all" || filterCategory !== "all") {
+        const job = getJobById(e.job_id);
+        if (!job) return true;
+        if (filterPriority !== "all" && job.priority !== filterPriority) return false;
+        if (filterCategory !== "all" && job.category !== filterCategory) return false;
+      }
+      return true;
+    });
   };
 
-  const getJobById = (jobId: string) => jobs.find((j) => j.id === jobId);
+
 
   const openAddDialog = (engineerId: string, day: Date) => {
     if (!isAdmin) return;
@@ -518,22 +531,44 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
-      {/* Legend */}
+      {/* Filters & Legend */}
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Legend:</span>
-        <div className="flex items-center gap-4">
-          <span className="font-medium">Priority</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-destructive" /> High</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-amber-500" /> Medium</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-emerald-500" /> Low</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground">Filter:</span>
+          <Select value={filterPriority} onValueChange={setFilterPriority}>
+            <SelectTrigger className="h-7 w-[120px] text-xs">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priorities</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="h-7 w-[130px] text-xs">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="general">General</SelectItem>
+              <SelectItem value="installation">Installation</SelectItem>
+              <SelectItem value="maintenance">Maintenance</SelectItem>
+              <SelectItem value="inspection">Inspection</SelectItem>
+              <SelectItem value="survey">Survey</SelectItem>
+            </SelectContent>
+          </Select>
+          {(filterPriority !== "all" || filterCategory !== "all") && (
+            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setFilterPriority("all"); setFilterCategory("all"); }}>
+              Clear
+            </Button>
+          )}
         </div>
-        <div className="flex items-center gap-4">
-          <span className="font-medium">Category</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-muted" /> General</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-blue-500/20" /> Installation</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-orange-500/20" /> Maintenance</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-purple-500/20" /> Inspection</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-3 rounded bg-teal-500/20" /> Survey</span>
+        <div className="ml-auto flex items-center gap-4">
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-destructive" /> High</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-amber-500" /> Med</span>
+          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-emerald-500" /> Low</span>
         </div>
       </div>
 
