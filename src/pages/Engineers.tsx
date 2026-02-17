@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Pencil, Plus, UserMinus } from "lucide-react";
+import { Phone, Pencil, Plus, UserMinus, ArrowLeft } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Engineers() {
+  const navigate = useNavigate();
   const [engineers, setEngineers] = useState<any[]>([]);
   const [editEng, setEditEng] = useState<any | null>(null);
   const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
@@ -106,6 +108,9 @@ export default function Engineers() {
 
   return (
     <div>
+      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Engineers</h1>
         <Button onClick={() => setAddOpen(true)}>
