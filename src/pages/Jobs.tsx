@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -358,6 +358,7 @@ function NewCustomerDropZone({ isOver, isDragging }: { isOver: boolean; isDraggi
 }
 
 export default function Jobs() {
+  const navigate = useNavigate();
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [jobs, setJobs] = useState<any[]>([]);
@@ -672,6 +673,9 @@ export default function Jobs() {
 
   return (
     <div>
+      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Jobs</h1>
         {isAdmin && (

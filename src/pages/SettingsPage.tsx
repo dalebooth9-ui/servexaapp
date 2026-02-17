@@ -2,13 +2,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Webhook, Copy, CheckCircle2 } from "lucide-react";
+import { MessageSquare, Webhook, Copy, CheckCircle2, ArrowLeft } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
 
   const copyWebhookUrl = () => {
@@ -20,6 +22,9 @@ export default function SettingsPage() {
 
   return (
     <div>
+      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
       <h1 className="mb-6 text-2xl font-bold">Settings</h1>
 
       <div className="space-y-6">

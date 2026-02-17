@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Building2 } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 type Customer = {
@@ -31,6 +31,7 @@ type CustomerForm = {
 const emptyForm: CustomerForm = { name: "", address: "", phone: "", email: "" };
 
 export default function Customers() {
+  const navigate = useNavigate();
   const { userRole } = useAuth();
   const { toast } = useToast();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -134,6 +135,9 @@ export default function Customers() {
 
   return (
     <div>
+      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Customers</h1>
         {isAdmin && (

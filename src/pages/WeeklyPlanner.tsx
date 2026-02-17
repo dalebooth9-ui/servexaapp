@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Printer, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Printer, Copy, ArrowLeft } from "lucide-react";
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import {
   DndContext,
@@ -185,6 +185,7 @@ function DroppableCell({
 }
 
 export default function WeeklyPlanner() {
+  const navigate = useNavigate();
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const isAdmin = userRole === "admin";
@@ -504,6 +505,9 @@ export default function WeeklyPlanner() {
 
   return (
     <div>
+      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Weekly Planner</h1>
         <div className="flex flex-wrap items-center gap-2">
