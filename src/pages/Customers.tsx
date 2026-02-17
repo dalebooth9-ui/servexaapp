@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import CustomerFolderDrop from "@/components/CustomerFolderDrop";
+import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
+import { useRef } from "react";
 
 type Customer = {
   id: string;
@@ -44,7 +45,9 @@ export default function Customers() {
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
-
+  const [dragging, setDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const folderDropRef = useRef<CustomerFolderDropHandle | null>(null);
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
@@ -135,6 +138,38 @@ export default function Customers() {
 
   const isAdmin = userRole === "admin";
 
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) setDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setDragging(false);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragging(false);
+    dragCounter.current = 0;
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      setFolderImportOpen(true);
+      // Small delay to let dialog mount
+      setTimeout(() => folderDropRef.current?.processFiles(files), 100);
+    }
+  };
+
   return (
     <div>
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
@@ -164,54 +199,70 @@ export default function Customers() {
         />
       </div>
 
-      <Card>
-        <CardContent className="p-0">
-          {loading ? (
-            <p className="p-8 text-center text-muted-foreground">Loading…</p>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">
-              <Building2 className="h-10 w-10" />
-              <p>{search ? "No customers match your search." : "No customers yet. Add your first customer to get started."}</p>
+      <div
+        onDragEnter={isAdmin ? handleDragEnter : undefined}
+        onDragLeave={isAdmin ? handleDragLeave : undefined}
+        onDragOver={isAdmin ? handleDragOver : undefined}
+        onDrop={isAdmin ? handleDrop : undefined}
+        className="relative"
+      >
+        {dragging && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
+            <div className="flex flex-col items-center gap-2 text-primary">
+              <FolderOpen className="h-10 w-10" />
+              <p className="font-medium">Drop folder to import customers</p>
             </div>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead className="hidden md:table-cell">Address</TableHead>
-                  {isAdmin && <TableHead className="w-24">Actions</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">
-                      <Link to={`/customers/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
-                    </TableCell>
-                    <TableCell>{c.email || "—"}</TableCell>
-                    <TableCell>{c.phone || "—"}</TableCell>
-                    <TableCell className="hidden md:table-cell max-w-[250px] truncate">{c.address || "—"}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
+          </div>
+        )}
+        <Card>
+          <CardContent className="p-0">
+            {loading ? (
+              <p className="p-8 text-center text-muted-foreground">Loading…</p>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">
+                <Building2 className="h-10 w-10" />
+                <p>{search ? "No customers match your search." : "No customers yet. Add your first customer or drop a folder to get started."}</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead className="hidden md:table-cell">Address</TableHead>
+                    {isAdmin && <TableHead className="w-24">Actions</TableHead>}
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {filtered.map((c) => (
+                    <TableRow key={c.id}>
+                      <TableCell className="font-medium">
+                        <Link to={`/customers/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
+                      </TableCell>
+                      <TableCell>{c.email || "—"}</TableCell>
+                      <TableCell>{c.phone || "—"}</TableCell>
+                      <TableCell className="hidden md:table-cell max-w-[250px] truncate">{c.address || "—"}</TableCell>
+                      {isAdmin && (
+                        <TableCell>
+                          <div className="flex gap-1">
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" onClick={() => setDeleteId(c.id)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -262,6 +313,7 @@ export default function Customers() {
 
       {/* Folder Import */}
       <CustomerFolderDrop
+        ref={folderDropRef}
         open={folderImportOpen}
         onOpenChange={setFolderImportOpen}
         onImported={fetchCustomers}
