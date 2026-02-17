@@ -122,11 +122,10 @@ export default function CustomerFolderDrop({ open, onOpenChange, onImported }: C
           if (uploadError) {
             toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });
           } else {
-            const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
             await supabase.from("customer_documents").insert({
               customer_id: customerId,
               file_name: file.name,
-              file_url: urlData.publicUrl,
+              file_url: filePath,
               file_size: file.size,
               uploaded_by: user.id,
             } as any);
