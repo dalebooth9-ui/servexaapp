@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -175,7 +176,9 @@ export default function Customers() {
               <TableBody>
                 {filtered.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link to={`/customers/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
+                    </TableCell>
                     <TableCell>{c.email || "—"}</TableCell>
                     <TableCell>{c.phone || "—"}</TableCell>
                     <TableCell className="hidden md:table-cell max-w-[250px] truncate">{c.address || "—"}</TableCell>
