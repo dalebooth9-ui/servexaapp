@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, AlertCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as XLSX from "xlsx";
 
@@ -131,7 +131,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
     }
   }, []);
 
-  const handleFile = useCallback((file: File) => {
+  const handleFile = useCallback(async (file: File) => {
     setError("");
     setFileName(file.name);
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
@@ -143,6 +143,41 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
         processRows(parseExcel(buffer));
       };
       reader.readAsArrayBuffer(file);
+    } else if (ext === ".pdf" || ext === ".docx" || ext === ".doc") {
+      setImporting(true);
+      try {
+        const buffer = await file.arrayBuffer();
+        const base64 = btoa(
+          new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+        );
+        const { data, error: fnError } = await supabase.functions.invoke("parse-import-document", {
+          body: { file_base64: base64, file_name: file.name },
+        });
+        if (fnError || data?.error) {
+          setError(data?.error || "Failed to parse document.");
+        } else if (data?.jobs) {
+          const jobs = data.jobs.map((j: any) => ({
+            customer: j.customer || "",
+            name: j.name || "",
+            reference_number: j.reference_number || "",
+            address: j.address || "",
+            priority: j.priority || "medium",
+            category: j.category || "general",
+          }));
+          if (jobs.length === 0) {
+            setError("No job entries found in the document.");
+          } else {
+            const invalid = jobs.filter((j: ParsedJob) => !j.name || !j.reference_number);
+            if (invalid.length > 0) {
+              setError(`${invalid.length} row(s) missing required Name or Reference Number.`);
+            }
+            setParsed(jobs);
+          }
+        }
+      } catch {
+        setError("Failed to process document.");
+      }
+      setImporting(false);
     } else {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -198,7 +233,13 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
           <DialogTitle>Bulk Import Jobs</DialogTitle>
         </DialogHeader>
 
-        {parsed.length === 0 ? (
+        {parsed.length === 0 && importing ? (
+          <div className="flex flex-col items-center justify-center gap-4 p-12 text-center">
+            <Loader2 className="h-10 w-10 animate-spin text-muted-foreground" />
+            <p className="font-medium">Parsing document with AI…</p>
+            <p className="text-sm text-muted-foreground">Extracting job data from {fileName}</p>
+          </div>
+        ) : parsed.length === 0 ? (
           <div
             onDrop={handleDrop}
             onDragOver={(e) => e.preventDefault()}
@@ -206,9 +247,9 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
           >
             <FileSpreadsheet className="h-10 w-10 text-muted-foreground" />
             <div>
-              <p className="font-medium">Drop a CSV or Excel file here</p>
+              <p className="font-medium">Drop a file here</p>
               <p className="text-sm text-muted-foreground">
-                Supports SharePoint exports (.xlsx, .xls, .csv)
+                Supports CSV, Excel, Word, and PDF files
               </p>
               <p className="text-sm text-muted-foreground">
                 Required columns: <strong>Name</strong>, <strong>Reference Number</strong>
@@ -220,7 +261,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
             <label>
               <input
                 type="file"
-                accept=".csv,.txt,.xlsx,.xls"
+                accept=".csv,.txt,.xlsx,.xls,.docx,.doc,.pdf"
                 className="hidden"
                 onChange={(e) => {
                   const f = e.target.files?.[0];
