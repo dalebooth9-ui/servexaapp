@@ -84,6 +84,47 @@ export type Database = {
           },
         ]
       }
+      job_schedule: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          engineer_id: string
+          id: string
+          job_id: string
+          notes: string | null
+          schedule_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          engineer_id: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          schedule_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          engineer_id?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          schedule_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_schedule_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           address: string | null
