@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import CustomerFolderDrop from "@/components/CustomerFolderDrop";
 
 type Customer = {
   id: string;
@@ -42,6 +43,7 @@ export default function Customers() {
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [folderImportOpen, setFolderImportOpen] = useState(false);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
@@ -141,9 +143,14 @@ export default function Customers() {
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold">Customers</h1>
         {isAdmin && (
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> Add Customer
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setFolderImportOpen(true)}>
+              <FolderOpen className="mr-2 h-4 w-4" /> Import Folder
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" /> Add Customer
+            </Button>
+          </div>
         )}
       </div>
 
@@ -252,6 +259,13 @@ export default function Customers() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Folder Import */}
+      <CustomerFolderDrop
+        open={folderImportOpen}
+        onOpenChange={setFolderImportOpen}
+        onImported={fetchCustomers}
+      />
     </div>
   );
 }
