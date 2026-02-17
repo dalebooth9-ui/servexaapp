@@ -193,12 +193,13 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
     } else if (allJobs.length === 0) {
       setError("No valid rows found. Make sure your files have headers: Customer, Name, Reference Number, Address, Priority, Category");
     } else {
-      const invalid = allJobs.filter((j) => !j.name || !j.reference_number);
-      if (invalid.length > 0) {
-        setError(`${invalid.length} row(s) missing required Name or Reference Number.${errors.length ? " " + errors.join("; ") : ""}`);
-      } else if (errors.length > 0) {
-        setError(errors.join("; "));
+      const incomplete = allJobs.filter((j) => !j.name || !j.reference_number);
+      const msgs: string[] = [];
+      if (incomplete.length > 0) {
+        msgs.push(`${incomplete.length} row(s) missing Name or Reference Number — defaults will be generated.`);
       }
+      if (errors.length > 0) msgs.push(...errors);
+      if (msgs.length > 0) setError(msgs.join(" "));
       setParsed(allJobs);
     }
     setImporting(false);
@@ -214,12 +215,11 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
   );
 
   const handleImport = async () => {
-    const valid = parsed.filter((j) => j.name && j.reference_number);
-    if (valid.length === 0) return;
+    if (parsed.length === 0) return;
 
     setImporting(true);
     const { data, error: fnError } = await supabase.functions.invoke("bulk-import-jobs", {
-      body: { jobs: valid },
+      body: { jobs: parsed },
     });
     setImporting(false);
 
@@ -234,7 +234,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
     }
   };
 
-  const validCount = parsed.filter((j) => j.name && j.reference_number).length;
+  const totalCount = parsed.length;
 
   return (
     <Dialog
@@ -268,10 +268,10 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
                 Supports CSV, Excel, Word, and PDF — multiple files allowed
               </p>
               <p className="text-sm text-muted-foreground">
-                Required columns: <strong>Name</strong>, <strong>Reference Number</strong>
+                Columns: Customer, Name, Reference Number, Address, Priority, Category
               </p>
               <p className="text-sm text-muted-foreground">
-                Optional: Customer, Address, Priority, Category
+                Missing Name or Reference Number will be auto-generated
               </p>
             </div>
             <label>
@@ -294,7 +294,7 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
           <div className="flex-1 overflow-auto">
             <div className="mb-3 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                {fileName} — {validCount} valid row(s)
+                {fileName} — {totalCount} row(s)
               </span>
               <Button
                 variant="ghost"
@@ -325,12 +325,12 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
               </TableHeader>
               <TableBody>
                 {parsed.slice(0, 50).map((job, i) => {
-                  const valid = job.name && job.reference_number;
+                  const incomplete = !job.name || !job.reference_number;
                   return (
-                    <TableRow key={i} className={valid ? "" : "opacity-50"}>
+                    <TableRow key={i} className={incomplete ? "bg-muted/50" : ""}>
                       <TableCell>{job.customer || "—"}</TableCell>
-                      <TableCell className="font-medium">{job.name || <span className="text-destructive">Missing</span>}</TableCell>
-                      <TableCell>{job.reference_number || <span className="text-destructive">Missing</span>}</TableCell>
+                      <TableCell className="font-medium">{job.name || <span className="text-muted-foreground italic">Auto-generated</span>}</TableCell>
+                      <TableCell>{job.reference_number || <span className="text-muted-foreground italic">Auto-generated</span>}</TableCell>
                       <TableCell className="max-w-[200px] truncate">{job.address || "—"}</TableCell>
                       <TableCell>
                         <Badge variant="secondary">{job.priority}</Badge>
@@ -352,8 +352,8 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
         {parsed.length > 0 && (
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleImport} disabled={importing || validCount === 0}>
-              {importing ? "Importing…" : `Import ${validCount} Job(s)`}
+            <Button onClick={handleImport} disabled={importing || totalCount === 0}>
+              {importing ? "Importing…" : `Import ${totalCount} Job(s)`}
             </Button>
           </DialogFooter>
         )}
