@@ -11,6 +11,7 @@ import Jobs from "@/pages/Jobs";
 import JobDetail from "@/pages/JobDetail";
 import Engineers from "@/pages/Engineers";
 import Customers from "@/pages/Customers";
+import CustomerDetail from "@/pages/CustomerDetail";
 import SettingsPage from "@/pages/SettingsPage";
 import WeeklyPlanner from "@/pages/WeeklyPlanner";
 import NotFound from "@/pages/NotFound";
@@ -54,6 +55,7 @@ const App = () => (
             <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
             <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+            <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
