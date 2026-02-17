@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2 } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -74,12 +74,14 @@ function DroppableCustomerFolder({
   statusColor,
   isAdmin,
   isOver,
+  onDelete,
 }: {
   customerName: string;
   jobs: any[];
   statusColor: (s: string) => string;
   isAdmin: boolean;
   isOver: boolean;
+  onDelete?: () => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `folder-${customerName}`,
@@ -93,10 +95,20 @@ function DroppableCustomerFolder({
       className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
     >
       <AccordionTrigger className="px-4 hover:no-underline">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-1">
           <FolderOpen className="h-4 w-4 text-primary" />
           <span className="font-semibold">{customerName}</span>
           <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
+          {isAdmin && jobs.length === 0 && customerName !== "Unassigned" && onDelete && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onDelete(); }}
+              className="ml-auto mr-2 text-muted-foreground hover:text-destructive transition-colors"
+              title="Delete empty folder"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-0 pb-0">
@@ -278,6 +290,16 @@ export default function Jobs() {
     setNewCustomerName("");
   };
 
+  const deleteCustomerFolder = (customerName: string) => {
+    setKnownCustomers((prev) => {
+      const updated = new Set(prev);
+      updated.delete(customerName);
+      return updated;
+    });
+    setOpenFolders((prev) => prev.filter((f) => f !== customerName));
+    toast({ title: "Folder deleted", description: `Removed "${customerName}" folder` });
+  };
+
   const filtered = jobs.filter(
     (j) =>
       j.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -405,6 +427,7 @@ export default function Jobs() {
                 statusColor={statusColor}
                 isAdmin={isAdmin}
                 isOver={overId === `folder-${customerName}`}
+                onDelete={() => deleteCustomerFolder(customerName)}
               />
             ))}
           </Accordion>
