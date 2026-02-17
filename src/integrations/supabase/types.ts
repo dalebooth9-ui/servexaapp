@@ -128,33 +128,39 @@ export type Database = {
       jobs: {
         Row: {
           address: string | null
+          category: string
           created_at: string
           created_by: string | null
           customer: string | null
           id: string
           name: string
+          priority: string
           reference_number: string
           status: string
           updated_at: string
         }
         Insert: {
           address?: string | null
+          category?: string
           created_at?: string
           created_by?: string | null
           customer?: string | null
           id?: string
           name: string
+          priority?: string
           reference_number: string
           status?: string
           updated_at?: string
         }
         Update: {
           address?: string | null
+          category?: string
           created_at?: string
           created_by?: string | null
           customer?: string | null
           id?: string
           name?: string
+          priority?: string
           reference_number?: string
           status?: string
           updated_at?: string

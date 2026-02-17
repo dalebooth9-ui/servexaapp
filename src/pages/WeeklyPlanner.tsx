@@ -44,7 +44,25 @@ interface Job {
   name: string;
   reference_number: string;
   status: string;
+  priority: string;
+  category: string;
 }
+
+const PRIORITY_COLORS: Record<string, string> = {
+  high: "border-l-4 border-l-destructive",
+  medium: "border-l-4 border-l-amber-500",
+  low: "border-l-4 border-l-emerald-500",
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  general: "bg-muted/50",
+  installation: "bg-blue-500/10",
+  maintenance: "bg-orange-500/10",
+  inspection: "bg-purple-500/10",
+  survey: "bg-teal-500/10",
+};
+
+const JOB_CATEGORIES = ["general", "installation", "maintenance", "inspection", "survey"];
 
 // Draggable schedule card
 function DraggableScheduleCard({
@@ -70,7 +88,9 @@ function DraggableScheduleCard({
       className={cn(
         "group relative rounded-md border bg-card p-2 text-xs shadow-sm transition-opacity",
         isDragging && "opacity-30",
-        isAdmin && "cursor-grab"
+        isAdmin && "cursor-grab",
+        job && PRIORITY_COLORS[job.priority],
+        job && CATEGORY_COLORS[job.category]
       )}
     >
       {isAdmin && (
@@ -89,10 +109,18 @@ function DraggableScheduleCard({
             className="block"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="font-mono font-medium text-primary hover:underline">
-              {job.reference_number}
+          <div className="flex items-center gap-1">
+              <span className="font-mono font-medium text-primary hover:underline">
+                {job.reference_number}
+              </span>
+              {job.priority === "high" && (
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" title="High priority" />
+              )}
             </div>
             <div className="truncate text-muted-foreground">{job.name}</div>
+            {job.category !== "general" && (
+              <div className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/70">{job.category}</div>
+            )}
           </Link>
         ) : (
           <div className="text-muted-foreground italic">Unknown job</div>
@@ -195,7 +223,7 @@ export default function WeeklyPlanner() {
 
     const [engRes, jobsRes, schedRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
-      supabase.from("jobs").select("id, name, reference_number, status").eq("status", "active"),
+      supabase.from("jobs").select("id, name, reference_number, status, priority, category").eq("status", "active"),
       supabase
         .from("job_schedule")
         .select("*")
