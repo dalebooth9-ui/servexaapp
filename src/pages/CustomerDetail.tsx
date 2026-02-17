@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, FileText, Image, Trash2, Loader2, Download } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
@@ -34,21 +34,12 @@ type Job = {
   created_at: string;
 };
 
-type CustomerDocument = {
-  id: string;
-  file_name: string;
-  file_url: string;
-  file_size: number | null;
-  created_at: string;
-};
-
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const { user } = useAuth();
   const { toast } = useToast();
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [documents, setDocuments] = useState<CustomerDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -56,15 +47,14 @@ export default function CustomerDetail() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dragCounterRef = useRef(0);
 
-  const fetchDocuments = useCallback(async () => {
-    if (!id) return;
-    const { data } = await supabase
-      .from("customer_documents")
-      .select("id, file_name, file_url, file_size, created_at")
-      .eq("customer_id", id)
+  const fetchJobs = useCallback(async (customerName: string) => {
+    const { data: jobData } = await supabase
+      .from("jobs")
+      .select("*")
+      .eq("customer", customerName)
       .order("created_at", { ascending: false });
-    setDocuments((data as CustomerDocument[]) || []);
-  }, [id]);
+    setJobs((jobData as Job[]) || []);
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -77,22 +67,15 @@ export default function CustomerDetail() {
       setCustomer(cust as Customer | null);
 
       if (cust) {
-        const { data: jobData } = await supabase
-          .from("jobs")
-          .select("*")
-          .eq("customer", cust.name)
-          .order("created_at", { ascending: false });
-        setJobs((jobData as Job[]) || []);
+        await fetchJobs(cust.name);
       }
-
-      await fetchDocuments();
       setLoading(false);
     };
     fetchData();
-  }, [id, fetchDocuments]);
+  }, [id, fetchJobs]);
 
   const handleFileUpload = async (files: FileList) => {
-    if (!user || !id) return;
+    if (!user || !customer) return;
     setUploading(true);
     setUploadProgress(0);
 
@@ -107,51 +90,57 @@ export default function CustomerDetail() {
       return;
     }
 
+    // Create a new job for this batch of files
+    const refNumber = `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
+    const jobName = validFiles.length === 1
+      ? `${customer.name} — ${validFiles[0].name}`
+      : `${customer.name} — ${validFiles.length} files`;
+
+    const { data: job, error: jobError } = await supabase
+      .from("jobs")
+      .insert({
+        name: jobName,
+        reference_number: refNumber,
+        customer: customer.name,
+        created_by: user.id,
+      } as any)
+      .select("id")
+      .single();
+
+    if (jobError || !job) {
+      toast({ title: "Error", description: "Failed to create job.", variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
     let processed = 0;
     for (const file of validFiles) {
-      const filePath = `customer-docs/${id}/${Date.now()}-${file.name}`;
+      const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+      const filePath = `${job.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
 
       if (uploadError) {
         toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });
       } else {
         const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
-        await supabase.from("customer_documents").insert({
-          customer_id: id,
-          file_name: file.name,
+        const isImage = IMAGE_EXTENSIONS.includes(ext);
+        await supabase.from("submissions").insert({
+          job_id: job.id,
+          engineer_id: user.id,
+          type: isImage ? "photo" : "document",
           file_url: urlData.publicUrl,
-          file_size: file.size,
-          uploaded_by: user.id,
-        } as any);
+          file_name: file.name,
+        });
       }
       processed++;
       setUploadProgress(Math.round((processed / validFiles.length) * 100));
     }
 
-    toast({ title: "Upload complete", description: `${validFiles.length} file(s) uploaded.` });
+    toast({ title: "Job created", description: `"${jobName}" with ${validFiles.length} file(s).` });
     setUploading(false);
     setUploadProgress(0);
-    await fetchDocuments();
+    await fetchJobs(customer.name);
     if (fileInputRef.current) fileInputRef.current.value = "";
-  };
-
-  const handleDeleteDocument = async (doc: CustomerDocument) => {
-    // Extract storage path from URL
-    const urlParts = doc.file_url.split("/submissions/");
-    if (urlParts.length > 1) {
-      const storagePath = decodeURIComponent(urlParts[1]);
-      await supabase.storage.from("submissions").remove([storagePath]);
-    }
-    await supabase.from("customer_documents").delete().eq("id", doc.id);
-    toast({ title: "Deleted", description: `${doc.file_name} removed.` });
-    await fetchDocuments();
-  };
-
-  const getFileIcon = (name: string) => {
-    const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    return IMAGE_EXTENSIONS.includes(ext)
-      ? <Image className="h-4 w-4 text-muted-foreground" />
-      : <FileText className="h-4 w-4 text-muted-foreground" />;
   };
 
   const statusColor = (s: string) =>
@@ -196,54 +185,7 @@ export default function CustomerDetail() {
         </div>
       </div>
 
-      <h2 className="text-lg font-semibold mb-3">Jobs ({jobs.length})</h2>
-      <Card>
-        <CardContent className="p-0">
-          {jobs.length === 0 ? (
-            <p className="p-8 text-center text-muted-foreground">No jobs associated with this customer.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell>
-                      <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
-                        {job.reference_number}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium">{job.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
-                        {job.priority || "medium"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs capitalize text-muted-foreground">{job.category || "general"}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={statusColor(job.status)}>
-                        {job.status}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
-
       <div
-        className="mt-8"
         onDragEnter={(e) => {
           e.preventDefault();
           e.stopPropagation();
@@ -271,7 +213,7 @@ export default function CustomerDetail() {
         }}
       >
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-semibold">Documents ({documents.length})</h2>
+          <h2 className="text-lg font-semibold">Jobs ({jobs.length})</h2>
           <div>
             <input
               ref={fileInputRef}
@@ -285,7 +227,7 @@ export default function CustomerDetail() {
             />
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-              Upload Files
+              Upload &amp; Create Job
             </Button>
           </div>
         </div>
@@ -300,50 +242,46 @@ export default function CustomerDetail() {
         {dragging && !uploading && (
           <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-8 text-center transition-colors">
             <Upload className="h-6 w-6 text-primary" />
-            <p className="font-medium text-primary">Drop files here to upload</p>
+            <p className="font-medium text-primary">Drop files here to create a new job</p>
           </div>
         )}
 
         <Card>
           <CardContent className="p-0">
-            {documents.length === 0 && !dragging ? (
-              <p className="p-8 text-center text-muted-foreground">No documents uploaded yet. Drag &amp; drop files here or click Upload.</p>
+            {jobs.length === 0 && !dragging ? (
+              <p className="p-8 text-center text-muted-foreground">No jobs associated with this customer. Drag &amp; drop files or click Upload to create one.</p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>File</TableHead>
-                    <TableHead>Size</TableHead>
-                    <TableHead>Uploaded</TableHead>
-                    <TableHead className="w-[80px]"></TableHead>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {documents.map((doc) => (
-                    <TableRow key={doc.id}>
+                  {jobs.map((job) => (
+                    <TableRow key={job.id}>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          {getFileIcon(doc.file_name)}
-                          <span className="font-medium text-sm truncate max-w-[300px]">{doc.file_name}</span>
-                        </div>
+                        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
+                          {job.reference_number}
+                        </Link>
                       </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : "—"}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {new Date(doc.created_at).toLocaleDateString()}
+                      <TableCell className="font-medium">{job.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
+                          {job.priority || "medium"}
+                        </Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                            <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                              <Download className="h-4 w-4" />
-                            </a>
-                          </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDocument(doc)}>
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        <span className="text-xs capitalize text-muted-foreground">{job.category || "general"}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={statusColor(job.status)}>
+                          {job.status}
+                        </Badge>
                       </TableCell>
                     </TableRow>
                   ))}
