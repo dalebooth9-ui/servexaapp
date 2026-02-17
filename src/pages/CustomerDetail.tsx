@@ -123,11 +123,10 @@ export default function CustomerDetail() {
       if (uploadError) {
         toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });
       } else {
-        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
         await supabase.from("customer_documents").insert({
           customer_id: id,
           file_name: file.name,
-          file_url: urlData.publicUrl,
+          file_url: filePath,
           file_size: file.size,
           uploaded_by: user.id,
         } as any);
@@ -144,11 +143,15 @@ export default function CustomerDetail() {
   };
 
   const handleDeleteDocument = async (doc: CustomerDocument) => {
-    const urlParts = doc.file_url.split("/submissions/");
-    if (urlParts.length > 1) {
-      const storagePath = decodeURIComponent(urlParts[1]);
-      await supabase.storage.from("submissions").remove([storagePath]);
+    // Handle both old public URLs and new storage paths
+    let storagePath: string;
+    if (doc.file_url.includes("/submissions/")) {
+      const urlParts = doc.file_url.split("/submissions/");
+      storagePath = decodeURIComponent(urlParts[urlParts.length - 1]);
+    } else {
+      storagePath = doc.file_url;
     }
+    await supabase.storage.from("submissions").remove([storagePath]);
     await supabase.from("customer_documents").delete().eq("id", doc.id);
     toast({ title: "Deleted", description: `${doc.file_name} removed.` });
     setSelectedDocIds((prev) => { const u = new Set(prev); u.delete(doc.id); return u; });
@@ -378,10 +381,14 @@ export default function CustomerDetail() {
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
-                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                              <a href={doc.file_url} target="_blank" rel="noopener noreferrer">
-                                <Download className="h-4 w-4" />
-                              </a>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={async () => {
+                              const storagePath = doc.file_url.includes("/object/public/submissions/")
+                                ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
+                                : doc.file_url;
+                              const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
+                              if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                            }}>
+                              <Download className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDocument(doc)}>
                               <Trash2 className="h-4 w-4" />
