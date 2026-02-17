@@ -63,7 +63,51 @@ serve(async (req) => {
     }
 
     const ext = file_name.slice(file_name.lastIndexOf(".")).toLowerCase();
-    const mimeType = ext === ".pdf" ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    const fileBytes = Uint8Array.from(atob(file_base64), c => c.charCodeAt(0));
+
+    // Build messages based on file type
+    let userContent: any[];
+
+    if (ext === ".pdf") {
+      // Gemini supports PDF inline
+      userContent = [
+        { type: "text", text: `Extract all job/drop entries from this document (${file_name}). Return as a JSON array.` },
+        { type: "image_url", image_url: { url: `data:application/pdf;base64,${file_base64}` } },
+      ];
+    } else {
+      // .docx/.doc - extract text from the ZIP (docx is a ZIP containing XML)
+      let extractedText = "";
+      try {
+        // Use Deno's built-in JSZip-like approach: docx is a zip, word/document.xml has the content
+        const { ZipReader, BlobReader, TextWriter } = await import("https://deno.land/x/zipjs@v2.7.34/index.js");
+        const reader = new ZipReader(new BlobReader(new Blob([fileBytes])));
+        const entries = await reader.getEntries();
+        for (const entry of entries) {
+          if (entry.filename === "word/document.xml") {
+            extractedText = await entry.getData!(new TextWriter());
+            break;
+          }
+        }
+        await reader.close();
+        // Strip XML tags to get plain text
+        extractedText = extractedText.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+      } catch (e) {
+        console.error("Failed to extract text from docx:", e);
+        // Fallback: try sending raw base64 as text context
+        extractedText = `[Could not extract text from ${file_name}]`;
+      }
+
+      if (!extractedText || extractedText.length < 10) {
+        return new Response(JSON.stringify({ error: "Could not extract readable text from document" }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      userContent = [
+        { type: "text", text: `Extract all job/drop entries from this document (${file_name}). The document text content is:\n\n${extractedText}\n\nReturn as a JSON array.` },
+      ];
+    }
 
     // Use Gemini to extract structured job data from the document
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -87,18 +131,7 @@ Rules:
           },
           {
             role: "user",
-            content: [
-              {
-                type: "text",
-                text: `Extract all job/drop entries from this document (${file_name}). Return as a JSON array.`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:${mimeType};base64,${file_base64}`
-                }
-              }
-            ]
+            content: userContent,
           }
         ],
         temperature: 0.1,
