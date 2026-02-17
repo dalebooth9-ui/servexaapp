@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2 } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
@@ -75,6 +75,7 @@ function DroppableCustomerFolder({
   isAdmin,
   isOver,
   onDelete,
+  onRename,
 }: {
   customerName: string;
   jobs: any[];
@@ -82,6 +83,7 @@ function DroppableCustomerFolder({
   isAdmin: boolean;
   isOver: boolean;
   onDelete?: () => void;
+  onRename?: () => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `folder-${customerName}`,
@@ -99,15 +101,29 @@ function DroppableCustomerFolder({
           <FolderOpen className="h-4 w-4 text-primary" />
           <span className="font-semibold">{customerName}</span>
           <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
-          {isAdmin && jobs.length === 0 && customerName !== "Unassigned" && onDelete && (
-            <button
-              type="button"
-              onClick={(e) => { e.stopPropagation(); onDelete(); }}
-              className="ml-auto mr-2 text-muted-foreground hover:text-destructive transition-colors"
-              title="Delete empty folder"
-            >
-              <Trash2 className="h-4 w-4" />
-            </button>
+          {isAdmin && customerName !== "Unassigned" && (
+            <div className="ml-auto mr-2 flex items-center gap-1">
+              {onRename && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onRename(); }}
+                  className="text-muted-foreground hover:text-primary transition-colors"
+                  title="Rename folder"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+              )}
+              {jobs.length === 0 && onDelete && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                  className="text-muted-foreground hover:text-destructive transition-colors"
+                  title="Delete empty folder"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
           )}
         </div>
       </AccordionTrigger>
@@ -179,6 +195,9 @@ export default function Jobs() {
   const [newCustomerName, setNewCustomerName] = useState("");
   const [pendingNewCustomerJob, setPendingNewCustomerJob] = useState<any>(null);
   const [knownCustomers, setKnownCustomers] = useState<Set<string>>(new Set());
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renamingFolder, setRenamingFolder] = useState("");
+  const [renameValue, setRenameValue] = useState("");
 
   const isAdmin = userRole === "admin";
 
@@ -298,6 +317,53 @@ export default function Jobs() {
     });
     setOpenFolders((prev) => prev.filter((f) => f !== customerName));
     toast({ title: "Folder deleted", description: `Removed "${customerName}" folder` });
+  };
+
+  const startRenameFolder = (customerName: string) => {
+    setRenamingFolder(customerName);
+    setRenameValue(customerName);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameConfirm = async () => {
+    const trimmed = renameValue.trim();
+    if (!trimmed || trimmed === renamingFolder) {
+      setRenameDialogOpen(false);
+      return;
+    }
+
+    // Update all jobs with this customer name in the DB
+    const jobsInFolder = jobs.filter((j) => (j.customer?.trim() || "Unassigned") === renamingFolder);
+    
+    setJobs((prev) =>
+      prev.map((j) => (j.customer?.trim() || "Unassigned") === renamingFolder ? { ...j, customer: trimmed } : j)
+    );
+    setKnownCustomers((prev) => {
+      const updated = new Set(prev);
+      updated.delete(renamingFolder);
+      updated.add(trimmed);
+      return updated;
+    });
+    setOpenFolders((prev) => prev.map((f) => f === renamingFolder ? trimmed : f));
+
+    const ids = jobsInFolder.map((j) => j.id);
+    if (ids.length > 0) {
+      const { error } = await supabase
+        .from("jobs")
+        .update({ customer: trimmed })
+        .in("id", ids);
+
+      if (error) {
+        toast({ title: "Error", description: "Failed to rename folder.", variant: "destructive" });
+        fetchJobs();
+      } else {
+        toast({ title: "Folder renamed", description: `"${renamingFolder}" → "${trimmed}"` });
+      }
+    } else {
+      toast({ title: "Folder renamed", description: `"${renamingFolder}" → "${trimmed}"` });
+    }
+
+    setRenameDialogOpen(false);
   };
 
   const filtered = jobs.filter(
@@ -428,6 +494,7 @@ export default function Jobs() {
                 isAdmin={isAdmin}
                 isOver={overId === `folder-${customerName}`}
                 onDelete={() => deleteCustomerFolder(customerName)}
+                onRename={() => startRenameFolder(customerName)}
               />
             ))}
           </Accordion>
@@ -467,6 +534,26 @@ export default function Jobs() {
             </p>
             <Button type="submit" className="w-full" disabled={!newCustomerName.trim()}>
               Create & Move
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Rename Customer Folder</DialogTitle></DialogHeader>
+          <form onSubmit={(e) => { e.preventDefault(); handleRenameConfirm(); }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>New Name</Label>
+              <Input
+                value={renameValue}
+                onChange={(e) => setRenameValue(e.target.value)}
+                autoFocus
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={!renameValue.trim() || renameValue.trim() === renamingFolder}>
+              Rename
             </Button>
           </form>
         </DialogContent>
