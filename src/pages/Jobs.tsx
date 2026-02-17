@@ -29,7 +29,7 @@ import {
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
   reference_number: z.string().trim().min(1, "Reference number is required").max(50, "Reference number must be under 50 characters").regex(/^[A-Za-z0-9\-_]+$/, "Reference number can only contain letters, numbers, hyphens and underscores"),
-  client: z.string().trim().max(200, "Client name must be under 200 characters").optional().or(z.literal("")),
+  customer: z.string().trim().max(200, "Customer name must be under 200 characters").optional().or(z.literal("")),
   address: z.string().trim().max(500, "Address must be under 500 characters").optional().or(z.literal("")),
 });
 
@@ -170,7 +170,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", reference_number: "", client: "", address: "" });
+  const [form, setForm] = useState({ name: "", reference_number: "", customer: "", address: "" });
   const [loading, setLoading] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -209,7 +209,7 @@ export default function Jobs() {
     const { error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       reference_number: parsed.data.reference_number,
-      client: parsed.data.client || null,
+      customer: parsed.data.customer || null,
       address: parsed.data.address || null,
       created_by: user?.id,
     });
@@ -221,7 +221,7 @@ export default function Jobs() {
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: "Job created" });
-      setForm({ name: "", reference_number: "", client: "", address: "" });
+      setForm({ name: "", reference_number: "", customer: "", address: "" });
       setDialogOpen(false);
       fetchJobs();
     }
@@ -255,22 +255,22 @@ export default function Jobs() {
       return;
     }
 
-    const currentClient = draggedJob.client?.trim() || "Unassigned";
+    const currentClient = draggedJob.customer?.trim() || "Unassigned";
     if (currentClient === targetFolder) return;
 
     await reassignJob(draggedJob, targetFolder);
   };
 
   const reassignJob = async (draggedJob: any, targetFolder: string) => {
-    const newClient = targetFolder === "Unassigned" ? null : targetFolder;
+    const newCustomer = targetFolder === "Unassigned" ? null : targetFolder;
 
     setJobs((prev) =>
-      prev.map((j) => (j.id === draggedJob.id ? { ...j, client: newClient } : j))
+      prev.map((j) => (j.id === draggedJob.id ? { ...j, customer: newCustomer } : j))
     );
 
     const { error } = await supabase
       .from("jobs")
-      .update({ client: newClient })
+      .update({ customer: newCustomer })
       .eq("id", draggedJob.id);
 
     if (error) {
@@ -304,14 +304,14 @@ export default function Jobs() {
     (j) =>
       j.name.toLowerCase().includes(search.toLowerCase()) ||
       j.reference_number.toLowerCase().includes(search.toLowerCase()) ||
-      (j.client || "").toLowerCase().includes(search.toLowerCase())
+      (j.customer || "").toLowerCase().includes(search.toLowerCase())
   );
 
   const statusColor = (s: string) =>
     s === "active" ? "bg-accent/10 text-accent" : s === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
 
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
-    const key = job.client?.trim() || "Unassigned";
+    const key = job.customer?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
     acc[key].push(job);
     return acc;
@@ -319,7 +319,7 @@ export default function Jobs() {
 
   // Keep the source folder visible during drag even if it becomes empty
   if (activeJob) {
-    const sourceFolder = activeJob.client?.trim() || "Unassigned";
+    const sourceFolder = activeJob.customer?.trim() || "Unassigned";
     if (!grouped[sourceFolder]) grouped[sourceFolder] = [];
   }
 
@@ -341,7 +341,7 @@ export default function Jobs() {
       const updated = new Set(prev);
       let changed = false;
       for (const job of jobs) {
-        const name = job.client?.trim();
+        const name = job.customer?.trim();
         if (name && !updated.has(name)) {
           updated.add(name);
           changed = true;
@@ -384,7 +384,7 @@ export default function Jobs() {
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
-                  <Input value={form.client} onChange={(e) => setForm({ ...form, client: e.target.value })} placeholder="Customer name" />
+                  <Input value={form.customer} onChange={(e) => setForm({ ...form, customer: e.target.value })} placeholder="Customer name" />
                 </div>
                 <div className="space-y-2">
                   <Label>Address</Label>
