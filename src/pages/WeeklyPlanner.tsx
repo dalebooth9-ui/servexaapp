@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Printer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Printer, Copy } from "lucide-react";
 import { format, addDays, startOfWeek, endOfWeek, isSameDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
@@ -166,6 +166,7 @@ export default function WeeklyPlanner() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
   const [activeEntry, setActiveEntry] = useState<ScheduleEntry | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -430,11 +431,41 @@ export default function WeeklyPlanner() {
     toast({ title: "PDF exported", description: "Weekly planner saved as PDF." });
   };
 
+
+
+  const handleCopyToNextWeek = async () => {
+    if (schedule.length === 0) {
+      toast({ title: "Nothing to copy", description: "This week has no schedule entries.", variant: "destructive" });
+      return;
+    }
+    setCopying(true);
+
+    const nextWeekEntries = schedule.map((e) => ({
+      job_id: e.job_id,
+      engineer_id: e.engineer_id,
+      schedule_date: format(addDays(new Date(e.schedule_date), 7), "yyyy-MM-dd"),
+      notes: e.notes,
+      created_by: user?.id,
+    }));
+
+    const { error } = await supabase.from("job_schedule").upsert(nextWeekEntries as any[], {
+      onConflict: "job_id,engineer_id,schedule_date",
+      ignoreDuplicates: true,
+    });
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to copy schedule.", variant: "destructive" });
+    } else {
+      toast({ title: "Week copied", description: `${nextWeekEntries.length} entries duplicated to next week.` });
+    }
+    setCopying(false);
+  };
+
   return (
     <div>
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Weekly Planner</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="icon" onClick={prevWeek}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -444,9 +475,15 @@ export default function WeeklyPlanner() {
           <Button variant="outline" size="icon" onClick={nextWeek}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <span className="ml-2 text-sm font-medium text-muted-foreground">
+          <span className="text-sm font-medium text-muted-foreground">
             {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
           </span>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
+              <Copy className="mr-1.5 h-4 w-4" />
+              {copying ? "Copying..." : "Copy to Next Week"}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleExportPdf}>
             <Printer className="mr-1.5 h-4 w-4" /> Export PDF
           </Button>
