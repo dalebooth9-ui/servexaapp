@@ -261,16 +261,57 @@ export default function JobDetail() {
             {job.customer && <> • {job.customer}</>}
             {job.address && <> • {job.address}</>}
           </p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
-              {job.priority || "medium"} priority
-            </Badge>
-            {job.category && job.category !== "general" && (
-              <Badge variant="outline" className="text-[10px] uppercase">
-                {job.category}
+          {userRole === "admin" ? (
+            <div className="mt-1.5 flex items-center gap-2">
+              <Select
+                value={job.priority || "medium"}
+                onValueChange={async (v) => {
+                  const { error } = await supabase.from("jobs").update({ priority: v } as any).eq("id", id!);
+                  if (error) { toast({ title: "Error", description: "Failed to update priority.", variant: "destructive" }); }
+                  else { setJob((prev: any) => ({ ...prev, priority: v })); toast({ title: "Priority updated" }); }
+                }}
+              >
+                <SelectTrigger className="h-7 w-[110px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="high">🔴 High</SelectItem>
+                  <SelectItem value="medium">🟡 Medium</SelectItem>
+                  <SelectItem value="low">🟢 Low</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={job.category || "general"}
+                onValueChange={async (v) => {
+                  const { error } = await supabase.from("jobs").update({ category: v } as any).eq("id", id!);
+                  if (error) { toast({ title: "Error", description: "Failed to update category.", variant: "destructive" }); }
+                  else { setJob((prev: any) => ({ ...prev, category: v })); toast({ title: "Category updated" }); }
+                }}
+              >
+                <SelectTrigger className="h-7 w-[130px] text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="general">General</SelectItem>
+                  <SelectItem value="installation">Installation</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                  <SelectItem value="inspection">Inspection</SelectItem>
+                  <SelectItem value="survey">Survey</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="mt-1.5 flex items-center gap-2">
+              <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
+                {job.priority || "medium"} priority
               </Badge>
-            )}
-          </div>
+              {job.category && job.category !== "general" && (
+                <Badge variant="outline" className="text-[10px] uppercase">
+                  {job.category}
+                </Badge>
+              )}
+            </div>
+          )}
         </div>
         {userRole === "admin" ? (
           <Select value={job.status} onValueChange={handleStatusChange}>
