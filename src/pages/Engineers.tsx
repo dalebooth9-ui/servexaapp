@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Pencil, Plus } from "lucide-react";
+import { Phone, Pencil, Plus, UserMinus } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -63,6 +64,21 @@ export default function Engineers() {
     } else {
       toast({ title: "Updated", description: "Engineer details saved." });
       setEditEng(null);
+      fetchEngineers();
+    }
+  };
+
+  const handleDeactivate = async (eng: any) => {
+    const { error } = await supabase
+      .from("user_roles")
+      .delete()
+      .eq("user_id", eng.user_id)
+      .eq("role", "engineer");
+
+    if (error) {
+      toast({ title: "Error", description: "Failed to deactivate engineer.", variant: "destructive" });
+    } else {
+      toast({ title: "Deactivated", description: `${eng.full_name} is no longer an engineer.` });
       fetchEngineers();
     }
   };
@@ -135,9 +151,32 @@ export default function Engineers() {
                       <Badge variant="secondary">{eng.job_count}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(eng)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => openEdit(eng)}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                              <UserMinus className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Deactivate Engineer</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will remove the engineer role from {eng.full_name}. They will no longer have access to assigned jobs. This does not delete their account.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeactivate(eng)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Deactivate
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
