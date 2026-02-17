@@ -9,7 +9,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -279,44 +280,63 @@ export default function JobDetail() {
         )}
       </div>
 
-      <div className="mb-6 grid gap-6 lg:grid-cols-[1fr_320px]">
-        <EngineerAssignments jobId={id!} />
-        {userRole === "admin" && <WhatsAppReply jobId={id!} engineers={engineers} />}
-      </div>
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Engineer Assignments
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+            <EngineerAssignments jobId={id!} />
+            {userRole === "admin" && <WhatsAppReply jobId={id!} engineers={engineers} />}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
-      <div className="mb-6">
-        <FieldReports jobId={id!} />
-      </div>
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Field Reports
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <FieldReports jobId={id!} />
+        </CollapsibleContent>
+      </Collapsible>
 
-      <div className="mb-4">
-        <FileDropZone
-          onFilesSelected={handleBulkUpload}
-          uploading={uploading}
-          accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
-          allowedExtensions={ALLOWED_EXTENSIONS}
-        />
-      </div>
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Submissions ({filtered.length})
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="mb-4">
+            <FileDropZone
+              onFilesSelected={handleBulkUpload}
+              uploading={uploading}
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+              allowedExtensions={ALLOWED_EXTENSIONS}
+            />
+          </div>
 
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Submissions ({filtered.length})</h2>
-        <div className="flex gap-2">
           {fileCount > 0 && (
-            <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
-              <Download className="mr-1.5 h-4 w-4" />
-              {downloading ? "Downloading..." : `Download All ${fileCount} file(s)`}
-            </Button>
+            <div className="mb-4 flex justify-end">
+              <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
+                <Download className="mr-1.5 h-4 w-4" />
+                {downloading ? "Downloading..." : `Download All ${fileCount} file(s)`}
+              </Button>
+            </div>
           )}
-        </div>
-      </div>
 
-      <SubmissionFilters filters={filters} onChange={setFilters} engineers={userRole === "admin" ? engineers : []} />
+          <SubmissionFilters filters={filters} onChange={setFilters} engineers={userRole === "admin" ? engineers : []} />
 
-      {(() => {
-        const locations = filtered.filter((s) => s.type === "location" && s.latitude != null && s.longitude != null);
-        return locations.length > 0 ? <LocationMap locations={locations} /> : null;
-      })()}
+          {(() => {
+            const locations = filtered.filter((s) => s.type === "location" && s.latitude != null && s.longitude != null);
+            return locations.length > 0 ? <LocationMap locations={locations} /> : null;
+          })()}
 
-      <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} />
+          <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} />
+        </CollapsibleContent>
+      </Collapsible>
     </div>
   );
 }
