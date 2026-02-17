@@ -261,6 +261,16 @@ export default function JobDetail() {
             {job.customer && <> • {job.customer}</>}
             {job.address && <> • {job.address}</>}
           </p>
+          <div className="mt-1.5 flex items-center gap-2">
+            <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
+              {job.priority || "medium"} priority
+            </Badge>
+            {job.category && job.category !== "general" && (
+              <Badge variant="outline" className="text-[10px] uppercase">
+                {job.category}
+              </Badge>
+            )}
+          </div>
         </div>
         {userRole === "admin" ? (
           <Select value={job.status} onValueChange={handleStatusChange}>

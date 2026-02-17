@@ -187,7 +187,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", reference_number: "", customer: "", address: "" });
+  const [form, setForm] = useState({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
   const [loading, setLoading] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -231,8 +231,10 @@ export default function Jobs() {
       reference_number: parsed.data.reference_number,
       customer: parsed.data.customer || null,
       address: parsed.data.address || null,
+      priority: form.priority,
+      category: form.category,
       created_by: user?.id,
-    });
+    } as any);
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
@@ -241,7 +243,7 @@ export default function Jobs() {
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: "Job created" });
-      setForm({ name: "", reference_number: "", customer: "", address: "" });
+      setForm({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
       setDialogOpen(false);
       fetchJobs();
     }
@@ -460,6 +462,36 @@ export default function Jobs() {
                 <div className="space-y-2">
                   <Label>Address</Label>
                   <Input value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Priority</Label>
+                    <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="low">Low</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="general">General</SelectItem>
+                        <SelectItem value="installation">Installation</SelectItem>
+                        <SelectItem value="maintenance">Maintenance</SelectItem>
+                        <SelectItem value="inspection">Inspection</SelectItem>
+                        <SelectItem value="survey">Survey</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Creating..." : "Create Job"}
