@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -15,6 +15,8 @@ const navItems = [
   { to: "/invoices", label: "Invoices", icon: FileText },
   { to: "/sites", label: "Sites", icon: MapPin },
   { to: "/assets", label: "Assets", icon: Package },
+  { to: "/compliance", label: "Compliance", icon: Shield },
+  { to: "/audits", label: "Audits", icon: ClipboardCheck },
   { to: "/planner", label: "Planner", icon: CalendarDays },
   { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
