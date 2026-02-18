@@ -13,6 +13,8 @@ export default function AssetCategorySettings() {
   const { toast } = useToast();
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
 
   const toSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -40,6 +42,26 @@ export default function AssetCategorySettings() {
       refetch();
     }
     setAdding(false);
+  };
+
+  const handleRename = async (id: string, oldName: string) => {
+    const name = editName.trim();
+    if (!name || name === oldName) {
+      setEditingId(null);
+      return;
+    }
+    const slug = toSlug(name);
+    const { error } = await supabase
+      .from("asset_categories" as any)
+      .update({ name, slug } as any)
+      .eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Category renamed" });
+      refetch();
+    }
+    setEditingId(null);
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -92,7 +114,32 @@ export default function AssetCategorySettings() {
               {categories.map((cat, i) => (
                 <TableRow key={cat.id}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{cat.name}</TableCell>
+                  <TableCell className="font-medium">
+                    {editingId === cat.id ? (
+                      <Input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleRename(cat.id, cat.name);
+                          if (e.key === "Escape") setEditingId(null);
+                        }}
+                        onBlur={() => handleRename(cat.id, cat.name)}
+                        autoFocus
+                        className="h-7 text-sm"
+                      />
+                    ) : (
+                      <span
+                        className="cursor-pointer hover:underline"
+                        onDoubleClick={() => {
+                          setEditingId(cat.id);
+                          setEditName(cat.name);
+                        }}
+                        title="Double-click to rename"
+                      >
+                        {cat.name}
+                      </span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">{cat.slug}</TableCell>
                   <TableCell>
                     <button
