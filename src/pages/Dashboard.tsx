@@ -1,17 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2 } from "lucide-react";
+import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 
 export default function Dashboard() {
   const { userRole, user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ jobs: 0, photos: 0, documents: 0, locations: 0 });
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
+  const [fileDragging, setFileDragging] = useState(false);
+  const [folderImportOpen, setFolderImportOpen] = useState(false);
+  const fileDragCounter = useRef(0);
+  const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -61,8 +66,51 @@ export default function Dashboard() {
     { label: "Locations", value: stats.locations, icon: MapPin, color: "text-destructive", link: "/jobs" },
   ];
 
+  const isAdmin = userRole === "admin";
+
+  const handleFileDragEnter = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    fileDragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) setFileDragging(true);
+  };
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    fileDragCounter.current--;
+    if (fileDragCounter.current === 0) setFileDragging(false);
+  };
+  const handleFileDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setFileDragging(false);
+    fileDragCounter.current = 0;
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      setFolderImportOpen(true);
+      setTimeout(() => folderImportRef.current?.processFiles(files), 100);
+    }
+  };
+
+  const fetchDashboard = () => {
+    // Trigger re-fetch after import
+    window.location.reload();
+  };
+
   return (
-    <div>
+    <div
+      onDragEnter={isAdmin ? handleFileDragEnter : undefined}
+      onDragLeave={isAdmin ? handleFileDragLeave : undefined}
+      onDragOver={isAdmin ? handleFileDragOver : undefined}
+      onDrop={isAdmin ? handleFileDrop : undefined}
+      className="relative"
+    >
+      {fileDragging && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <FolderOpen className="h-10 w-10" />
+            <p className="font-medium">Drop folder to import jobs</p>
+          </div>
+        </div>
+      )}
       <h1 className="mb-6 text-2xl font-bold">Dashboard</h1>
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -134,6 +182,7 @@ export default function Dashboard() {
           )}
         </CardContent>
       </Card>
+      <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchDashboard} />
     </div>
   );
 }
