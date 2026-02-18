@@ -404,6 +404,41 @@ export type Database = {
           },
         ]
       }
+      customer_notification_log: {
+        Row: {
+          customer_email: string
+          id: string
+          job_id: string | null
+          notification_type: string
+          sent_at: string
+          subject: string
+        }
+        Insert: {
+          customer_email: string
+          id?: string
+          job_id?: string | null
+          notification_type: string
+          sent_at?: string
+          subject: string
+        }
+        Update: {
+          customer_email?: string
+          id?: string
+          job_id?: string | null
+          notification_type?: string
+          sent_at?: string
+          subject?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_notification_log_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
@@ -437,6 +472,39 @@ export type Database = {
           phone?: string | null
           updated_at?: string
           xero_contact_id?: string | null
+        }
+        Relationships: []
+      }
+      engineer_locations: {
+        Row: {
+          accuracy: number | null
+          heading: number | null
+          id: string
+          latitude: number
+          longitude: number
+          speed: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          accuracy?: number | null
+          heading?: number | null
+          id?: string
+          latitude: number
+          longitude: number
+          speed?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          accuracy?: number | null
+          heading?: number | null
+          id?: string
+          latitude?: number
+          longitude?: number
+          speed?: number | null
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

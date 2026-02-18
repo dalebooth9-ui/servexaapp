@@ -21,6 +21,7 @@ import Compliance from "@/pages/Compliance";
 import Audits from "@/pages/Audits";
 import Invoices from "@/pages/Invoices";
 import InvoiceDetail from "@/pages/InvoiceDetail";
+import Install from "@/pages/Install";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -72,6 +73,7 @@ const App = () => (
             <Route path="/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+            <Route path="/install" element={<Install />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

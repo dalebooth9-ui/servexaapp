@@ -1,5 +1,10 @@
-import { useEffect, useRef, useMemo } from "react";
+import { useEffect, useRef, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useLiveEngineerLocations } from "@/hooks/useLiveEngineerLocations";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Route, Loader2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ScheduleEntry {
   id: string;
@@ -37,11 +42,15 @@ export default function PlannerMapView({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const engineerLocations = useLiveEngineerLocations();
+  const { toast } = useToast();
+  const [optimising, setOptimising] = useState(false);
+  const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number } | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
 
-  // Get unique jobs with addresses from schedule
   const scheduledJobs = useMemo(() => {
     const seen = new Set<string>();
     const result: { job: Job; engineerName: string; date: string }[] = [];
@@ -59,6 +68,24 @@ export default function PlannerMapView({
     return result;
   }, [schedule, jobs, engineers]);
 
+  // Optimise route for all scheduled jobs
+  const handleOptimise = async () => {
+    if (scheduledJobs.length < 2) return;
+    setOptimising(true);
+    try {
+      const waypoints = scheduledJobs.map((s) => ({ address: s.job.address, job_id: s.job.id }));
+      const { data, error } = await supabase.functions.invoke("optimise-route", {
+        body: { waypoints, origin: null },
+      });
+      if (error) throw error;
+      setRouteResult(data);
+      toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${data.total_duration_mins} mins` });
+    } catch {
+      toast({ title: "Route optimisation failed", variant: "destructive" });
+    }
+    setOptimising(false);
+  };
+
   useEffect(() => {
     let cancelled = false;
 
@@ -67,7 +94,6 @@ export default function PlannerMapView({
         const { data } = await supabase.functions.invoke("get-maps-key");
         if (cancelled || !data?.key || !mapRef.current) return;
 
-        // Load Google Maps script
         if (!(window as any).google?.maps) {
           const script = document.createElement("script");
           script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=marker`;
@@ -88,7 +114,6 @@ export default function PlannerMapView({
         });
         mapInstanceRef.current = map;
 
-        // Geocode and place markers
         const geocoder = new google.maps.Geocoder();
         const bounds = new google.maps.LatLngBounds();
         let hasMarkers = false;
@@ -141,7 +166,44 @@ export default function PlannerMapView({
     return () => { cancelled = true; };
   }, [scheduledJobs]);
 
-  if (scheduledJobs.length === 0) {
+  // Update engineer live pins
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !engineerLocations.length) return;
+
+    // Clear old engineer markers
+    engineerMarkersRef.current.forEach((m) => (m.map = null));
+    engineerMarkersRef.current = [];
+
+    for (const loc of engineerLocations) {
+      const eng = getEngineer(loc.user_id);
+      if (!eng) continue;
+
+      // Create a blue pin for engineers
+      const el = document.createElement("div");
+      el.style.cssText = "width:32px;height:32px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;";
+      el.textContent = eng.full_name.charAt(0).toUpperCase();
+
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        map,
+        position: { lat: loc.latitude, lng: loc.longitude },
+        title: `${eng.full_name} (Live)`,
+        content: el,
+      });
+
+      const infoWindow = new google.maps.InfoWindow({
+        content: `<div style="font-family:system-ui;font-size:13px">
+          <strong>🔵 ${eng.full_name}</strong><br/>
+          <span style="color:#666">Live location — ${new Date(loc.updated_at).toLocaleTimeString()}</span>
+          ${loc.speed ? `<br/><span style="color:#666">Speed: ${Math.round(loc.speed * 3.6)} km/h</span>` : ""}
+        </div>`,
+      });
+      marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
+      engineerMarkersRef.current.push(marker);
+    }
+  }, [engineerLocations, engineers]);
+
+  if (scheduledJobs.length === 0 && engineerLocations.length === 0) {
     return (
       <div className="flex h-[500px] items-center justify-center rounded-lg border bg-muted/30 text-muted-foreground">
         No scheduled jobs with addresses to show on the map.
@@ -150,6 +212,29 @@ export default function PlannerMapView({
   }
 
   return (
-    <div ref={mapRef} className="h-[calc(100vh-280px)] min-h-[400px] rounded-lg border" />
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          {engineerLocations.length > 0 && (
+            <Badge variant="secondary" className="text-xs gap-1">
+              <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+              {engineerLocations.length} engineer{engineerLocations.length !== 1 ? "s" : ""} live
+            </Badge>
+          )}
+          {routeResult && (
+            <Badge variant="outline" className="text-xs">
+              {routeResult.total_distance_km} km · {routeResult.total_duration_mins} mins
+            </Badge>
+          )}
+        </div>
+        {scheduledJobs.length >= 2 && (
+          <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
+            {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
+            Optimise Route
+          </Button>
+        )}
+      </div>
+      <div ref={mapRef} className="h-[calc(100vh-320px)] min-h-[400px] rounded-lg border" />
+    </div>
   );
 }
