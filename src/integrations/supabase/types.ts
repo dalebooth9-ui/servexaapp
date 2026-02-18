@@ -62,6 +62,7 @@ export type Database = {
           name: string
           phone: string | null
           updated_at: string
+          xero_contact_id: string | null
         }
         Insert: {
           address?: string | null
@@ -72,6 +73,7 @@ export type Database = {
           name: string
           phone?: string | null
           updated_at?: string
+          xero_contact_id?: string | null
         }
         Update: {
           address?: string | null
@@ -82,6 +84,7 @@ export type Database = {
           name?: string
           phone?: string | null
           updated_at?: string
+          xero_contact_id?: string | null
         }
         Relationships: []
       }
@@ -184,6 +187,8 @@ export type Database = {
           tax_rate: number
           total: number
           updated_at: string
+          xero_invoice_id: string | null
+          xero_synced_at: string | null
         }
         Insert: {
           created_at?: string
@@ -204,6 +209,8 @@ export type Database = {
           tax_rate?: number
           total?: number
           updated_at?: string
+          xero_invoice_id?: string | null
+          xero_synced_at?: string | null
         }
         Update: {
           created_at?: string
@@ -224,6 +231,8 @@ export type Database = {
           tax_rate?: number
           total?: number
           updated_at?: string
+          xero_invoice_id?: string | null
+          xero_synced_at?: string | null
         }
         Relationships: [
           {
@@ -476,6 +485,42 @@ export type Database = {
         Update: {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      xero_connections: {
+        Row: {
+          access_token: string
+          created_at: string
+          id: string
+          refresh_token: string
+          tenant_id: string
+          tenant_name: string | null
+          token_expires_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          created_at?: string
+          id?: string
+          refresh_token: string
+          tenant_id: string
+          tenant_name?: string | null
+          token_expires_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          created_at?: string
+          id?: string
+          refresh_token?: string
+          tenant_id?: string
+          tenant_name?: string | null
+          token_expires_at?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

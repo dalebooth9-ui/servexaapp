@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { ArrowLeft, Download, Send, Loader2 } from "lucide-react";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
@@ -33,6 +33,7 @@ export default function InvoiceDetail() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [syncingXero, setSyncingXero] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
   const fetchData = async () => {
@@ -133,6 +134,27 @@ export default function InvoiceDetail() {
     }
   };
 
+  const handleSyncXero = async () => {
+    setSyncingXero(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("xero-sync", {
+        body: { action: "sync_invoice", invoiceId: id },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      setInvoice((prev: any) => ({
+        ...prev,
+        xero_invoice_id: data.xero_invoice_id,
+        xero_synced_at: new Date().toISOString(),
+      }));
+      toast({ title: "Synced to Xero", description: "Invoice has been sent to Xero." });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to sync to Xero.", variant: "destructive" });
+    } finally {
+      setSyncingXero(false);
+    }
+  };
+
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
   if (!invoice) return <div className="flex h-64 items-center justify-center text-muted-foreground">Invoice not found.</div>;
 
@@ -181,6 +203,12 @@ export default function InvoiceDetail() {
             <Download className="mr-1.5 h-4 w-4" />
             {generatingPdf ? "Generating..." : "PDF"}
           </Button>
+          {userRole === "admin" && (
+            <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
+              {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
+              {invoice.xero_invoice_id ? "Re-sync Xero" : "Send to Xero"}
+            </Button>
+          )}
           {userRole === "admin" && (
             <Button size="sm" onClick={handleSendEmail} disabled={sending || !invoice.customer_email}>
               {sending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
