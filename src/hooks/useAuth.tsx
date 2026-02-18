@@ -37,10 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Fetch role and profile using setTimeout to avoid deadlock
           setTimeout(async () => {
             const [roleRes, profileRes] = await Promise.all([
-              supabase.from("user_roles").select("role").eq("user_id", session.user.id).maybeSingle(),
+              supabase.from("user_roles").select("role").eq("user_id", session.user.id),
               supabase.from("profiles").select("full_name, whatsapp_number").eq("user_id", session.user.id).maybeSingle(),
             ]);
-            setUserRole((roleRes.data?.role as "admin" | "engineer") ?? null);
+            const roles = (roleRes.data ?? []).map((r) => r.role);
+            setUserRole(roles.includes("admin") ? "admin" : roles.includes("engineer") ? "engineer" : null);
             setProfile(profileRes.data ?? null);
             setLoading(false);
           }, 0);
