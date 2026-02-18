@@ -229,6 +229,15 @@ function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSele
           {job.status.replace(/_/g, " ")}
         </Badge>
       </TableCell>
+      <TableCell>
+        {job.result === "pass" ? (
+          <Badge className="bg-green-600 text-white text-[10px] uppercase">Pass</Badge>
+        ) : job.result === "fail" ? (
+          <Badge variant="destructive" className="text-[10px] uppercase">Fail</Badge>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
+      </TableCell>
       <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
       {isAdmin && (
         <TableCell className="w-20 px-2">
@@ -391,6 +400,7 @@ function DroppableCustomerFolder({
               <TableHead>Priority</TableHead>
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Result</TableHead>
               <TableHead className="text-right">Submissions</TableHead>
               {isAdmin && <TableHead className="w-10 px-2" />}
             </TableRow>
@@ -398,7 +408,7 @@ function DroppableCustomerFolder({
           <TableBody>
             {jobs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 9 : 6} className="text-center text-muted-foreground py-4">
+                <TableCell colSpan={isAdmin ? 10 : 7} className="text-center text-muted-foreground py-4">
                   No jobs in this folder
                 </TableCell>
               </TableRow>
