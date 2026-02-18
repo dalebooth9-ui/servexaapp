@@ -74,6 +74,18 @@ export default function AssetCategorySettings() {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!confirm("Are you sure you want to delete ALL asset categories? This cannot be undone.")) return;
+    const ids = categories.map((c) => c.id);
+    const { error } = await supabase.from("asset_categories" as any).delete().in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "All categories removed" });
+      refetch();
+    }
+  };
+
   if (loading) return null;
 
   return (
@@ -98,6 +110,11 @@ export default function AssetCategorySettings() {
           <Button onClick={handleAdd} disabled={adding || !newName.trim()} size="sm">
             <Plus className="mr-1 h-4 w-4" /> Add
           </Button>
+          {categories.length > 0 && (
+            <Button onClick={handleDeleteAll} variant="destructive" size="sm">
+              <Trash2 className="mr-1 h-4 w-4" /> Delete All
+            </Button>
+          )}
         </div>
 
         {categories.length > 0 && (
