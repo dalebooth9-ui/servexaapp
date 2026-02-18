@@ -471,12 +471,59 @@ export default function JobDetail() {
             />
           </div>
 
-          {fileCount > 0 && (
-            <div className="mb-4 flex justify-end">
-              <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
-                <Download className="mr-1.5 h-4 w-4" />
-                {downloading ? "Downloading..." : `Download All ${fileCount} file(s)`}
-              </Button>
+          {(fileCount > 0 || filtered.length > 0) && (
+            <div className="mb-4 flex justify-end gap-2">
+              {fileCount > 0 && (
+                <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
+                  <Download className="mr-1.5 h-4 w-4" />
+                  {downloading ? "Downloading..." : `Download All ${fileCount} file(s)`}
+                </Button>
+              )}
+              {userRole === "admin" && filtered.length > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm">
+                      <Trash2 className="mr-1.5 h-4 w-4" /> Delete All ({filtered.length})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete all submissions?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete {filtered.length} submission(s) and their associated files. This cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        onClick={async () => {
+                          const toDelete = [...filtered];
+                          // Delete storage files
+                          const paths = toDelete
+                            .filter((s) => s.file_url)
+                            .map((s) => extractStoragePath(s.file_url))
+                            .filter(Boolean) as string[];
+                          if (paths.length > 0) {
+                            await supabase.storage.from("submissions").remove(paths);
+                          }
+                          // Delete records
+                          const ids = toDelete.map((s) => s.id);
+                          const { error } = await supabase.from("submissions").delete().in("id", ids);
+                          if (error) {
+                            toast({ title: "Error", description: "Failed to delete submissions.", variant: "destructive" });
+                          } else {
+                            toast({ title: "Deleted", description: `${toDelete.length} submission(s) removed.` });
+                            setSubmissions((prev) => prev.filter((s) => !ids.includes(s.id)));
+                          }
+                        }}
+                      >
+                        Delete All
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
             </div>
           )}
 
