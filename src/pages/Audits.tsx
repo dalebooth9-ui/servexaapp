@@ -20,7 +20,7 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  ClipboardCheck, Plus, Pencil, Trash2, Play, CheckCircle2, XCircle, Minus, Search,
+  ClipboardCheck, Plus, Pencil, Trash2, Play, CheckCircle2, XCircle, Minus, Search, Flame, Shield,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -42,6 +42,14 @@ type LookupOption = { id: string; name: string };
 
 const CATEGORIES = ["general", "fire_safety", "health_safety", "electrical", "water_hygiene", "hvac", "building_fabric"];
 
+const CATEGORY_ICONS: Record<string, React.ElementType> = {
+  fire_safety: Flame,
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+  fire_safety: "text-orange-500",
+};
+
 export default function Audits() {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
@@ -53,6 +61,7 @@ export default function Audits() {
   const [assets, setAssets] = useState<LookupOption[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   // Template dialog
   const [tplDialogOpen, setTplDialogOpen] = useState(false);
@@ -101,6 +110,13 @@ export default function Audits() {
   const siteLookup = Object.fromEntries(sites.map((s) => [s.id, s.name]));
   const assetLookup = Object.fromEntries(assets.map((a) => [a.id, a.name]));
   const tplLookup = Object.fromEntries(templates.map((t) => [t.id, t.name]));
+  const tplCategoryLookup = Object.fromEntries(templates.map((t) => [t.id, t.category]));
+
+  const filteredTemplates = categoryFilter === "all" ? templates : templates.filter((t) => t.category === categoryFilter);
+  const filteredAudits = categoryFilter === "all" ? audits : audits.filter((a) => tplCategoryLookup[a.template_id] === categoryFilter);
+
+  const fireSafetyTemplates = templates.filter((t) => t.category === "fire_safety");
+  const otherTemplates = templates.filter((t) => t.category !== "fire_safety");
 
   // --- Template CRUD ---
   const openCreateTpl = () => {
@@ -232,6 +248,13 @@ export default function Audits() {
           <p className="text-sm text-muted-foreground">Create checklist templates and conduct site/asset audits.</p>
         </div>
         <div className="flex gap-2">
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}</SelectItem>)}
+            </SelectContent>
+          </Select>
           <Button variant="outline" onClick={() => { setSelectedTemplate(""); setAuditSite(""); setAuditAsset(""); setStartDialogOpen(true); }}>
             <Play className="mr-2 h-4 w-4" /> Start Audit
           </Button>
@@ -243,14 +266,14 @@ export default function Audits() {
 
       <Tabs defaultValue="audits">
         <TabsList>
-          <TabsTrigger value="audits">Completed Audits ({audits.length})</TabsTrigger>
-          <TabsTrigger value="templates">Templates ({templates.length})</TabsTrigger>
+          <TabsTrigger value="audits">Audits ({filteredAudits.length})</TabsTrigger>
+          <TabsTrigger value="templates">Templates ({filteredTemplates.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="audits" className="mt-4">
           <Card>
             <CardContent className="p-0">
-              {audits.length === 0 ? (
+              {filteredAudits.length === 0 ? (
                 <p className="py-8 text-center text-sm text-muted-foreground">No audits yet. Start one from a template.</p>
               ) : (
                 <Table>
@@ -266,9 +289,21 @@ export default function Audits() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {audits.map((a) => (
+                    {filteredAudits.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell className="font-medium text-sm">{tplLookup[a.template_id] || "—"}</TableCell>
+                        <TableCell className="font-medium text-sm">
+                          {(() => {
+                            const cat = tplCategoryLookup[a.template_id];
+                            const CatIcon = CATEGORY_ICONS[cat];
+                            const catColor = CATEGORY_COLORS[cat];
+                            return (
+                              <span className="flex items-center gap-1.5">
+                                {CatIcon && <CatIcon className={`h-3.5 w-3.5 ${catColor}`} />}
+                                {tplLookup[a.template_id] || "—"}
+                              </span>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
                           {a.site_id ? siteLookup[a.site_id] : a.asset_id ? assetLookup[a.asset_id] : "—"}
                         </TableCell>
@@ -307,8 +342,8 @@ export default function Audits() {
         <TabsContent value="templates" className="mt-4">
           <Card>
             <CardContent className="p-0">
-              {templates.length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">No templates yet.</p>
+              {filteredTemplates.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">No templates match this category.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -320,13 +355,19 @@ export default function Audits() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {templates.map((t) => (
+                    {filteredTemplates.map((t) => {
+                      const CatIcon = CATEGORY_ICONS[t.category];
+                      const catColor = CATEGORY_COLORS[t.category];
+                      return (
                       <TableRow key={t.id}>
                         <TableCell>
-                          <p className="font-medium text-sm">{t.name}</p>
+                          <p className="font-medium text-sm flex items-center gap-1.5">
+                            {CatIcon && <CatIcon className={`h-3.5 w-3.5 ${catColor}`} />}
+                            {t.name}
+                          </p>
                           {t.description && <p className="text-xs text-muted-foreground truncate max-w-[300px]">{t.description}</p>}
                         </TableCell>
-                        <TableCell><Badge variant="outline" className="text-[10px] capitalize">{t.category.replace("_", " ")}</Badge></TableCell>
+                        <TableCell><Badge variant={t.category === "fire_safety" ? "destructive" : "outline"} className="text-[10px] capitalize">{t.category.replace(/_/g, " ")}</Badge></TableCell>
                         <TableCell className="text-xs text-muted-foreground">{format(new Date(t.created_at), "dd MMM yy")}</TableCell>
                         {userRole === "admin" && (
                           <TableCell>
@@ -337,7 +378,8 @@ export default function Audits() {
                           </TableCell>
                         )}
                       </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               )}
@@ -414,7 +456,18 @@ export default function Audits() {
               <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
                 <SelectTrigger><SelectValue placeholder="Select template" /></SelectTrigger>
                 <SelectContent>
-                  {templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                  {fireSafetyTemplates.length > 0 && (
+                    <>
+                      <SelectItem value="__fire_header" disabled className="text-xs font-semibold text-orange-500">🔥 Fire Safety</SelectItem>
+                      {fireSafetyTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </>
+                  )}
+                  {otherTemplates.length > 0 && (
+                    <>
+                      {fireSafetyTemplates.length > 0 && <SelectItem value="__other_header" disabled className="text-xs font-semibold text-muted-foreground">Other</SelectItem>}
+                      {otherTemplates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
