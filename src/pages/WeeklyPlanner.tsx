@@ -28,6 +28,13 @@ interface ScheduleEntry {
 
 interface Engineer { user_id: string; full_name: string }
 
+interface Site {
+  id: string;
+  name: string;
+  address: string | null;
+  postcode: string | null;
+}
+
 interface Job {
   id: string;
   name: string;
@@ -58,6 +65,7 @@ export default function WeeklyPlanner() {
   const [monthDate, setMonthDate] = useState(new Date());
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
@@ -67,6 +75,7 @@ export default function WeeklyPlanner() {
   const [addDay, setAddDay] = useState("");
   const [addEngineerId, setAddEngineerId] = useState("");
   const [addJobId, setAddJobId] = useState("");
+  const [addSiteId, setAddSiteId] = useState("");
   const [addNotes, setAddNotes] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -99,13 +108,15 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [engRes, jobsRes, schedRes] = await Promise.all([
+    const [engRes, jobsRes, schedRes, sitesRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
       supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, address, site_id, sites(name, address, postcode)").eq("status", "active"),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
+      supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);
     setEngineers(engRes.data || []);
     setJobs(((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null })));
+    setSites(sitesRes.data || []);
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
     setLoading(false);
   }, [rangeStart, rangeEnd]);
@@ -196,6 +207,10 @@ export default function WeeklyPlanner() {
   const handleAddEntry = async () => {
     if (!addDay || !addEngineerId || !addJobId) return;
     setSaving(true);
+    // If a site was selected, update the job's site_id
+    if (addSiteId) {
+      await supabase.from("jobs").update({ site_id: addSiteId } as any).eq("id", addJobId);
+    }
     await handleAssign(addJobId, addEngineerId, addDay);
     setAddOpen(false);
     setSaving(false);
@@ -354,7 +369,7 @@ export default function WeeklyPlanner() {
 
           {isAdmin && (
             <>
-              <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddNotes(""); setAddOpen(true); }}>
+              <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
               <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
@@ -438,10 +453,28 @@ export default function WeeklyPlanner() {
             </div>
             <div className="space-y-2">
               <Label>Job</Label>
-              <Select value={addJobId} onValueChange={setAddJobId}>
+              <Select value={addJobId} onValueChange={(v) => {
+                setAddJobId(v);
+                // Pre-select site if job already has one
+                const job = jobs.find((j) => j.id === v);
+                setAddSiteId(job?.site_id || "");
+              }}>
                 <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
                 <SelectContent>
                   {jobs.map((j) => <SelectItem key={j.id} value={j.id}><span className="font-mono text-xs mr-1">{j.reference_number}</span> {j.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Site <span className="text-xs text-muted-foreground font-normal">(assigns site &amp; postcode to job)</span></Label>
+              <Select value={addSiteId} onValueChange={setAddSiteId}>
+                <SelectTrigger><SelectValue placeholder="No site selected..." /></SelectTrigger>
+                <SelectContent>
+                  {sites.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}{s.postcode ? ` — ${s.postcode}` : ""}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
