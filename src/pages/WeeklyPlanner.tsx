@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, Printer, Copy, ArrowLeft, Pencil } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, X, Printer, Copy, ArrowLeft, Pencil, Check } from "lucide-react";
 import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
@@ -57,6 +57,78 @@ function extractPostcode(address: string | null): string {
   if (!address) return "";
   const match = address.match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
   return match ? match[0].toUpperCase() : "";
+}
+
+function InlineComment({
+  entryId,
+  value,
+  isAdmin,
+  onSave,
+}: {
+  entryId: string;
+  value: string;
+  isAdmin: boolean;
+  onSave: (entryId: string, newValue: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [savingComment, setSavingComment] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  const save = async () => {
+    if (draft === value) {
+      setEditing(false);
+      return;
+    }
+    setSavingComment(true);
+    await onSave(entryId, draft);
+    setSavingComment(false);
+    setEditing(false);
+  };
+
+  if (!isAdmin) {
+    return <span>{value || "—"}</span>;
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <Input
+          ref={inputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") { setDraft(value); setEditing(false); }
+          }}
+          onBlur={save}
+          className="h-7 text-sm"
+          disabled={savingComment}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => setEditing(true)}
+      className="group/comment flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted transition-colors"
+    >
+      <span className="flex-1 truncate">{value || <span className="italic text-muted-foreground/50">Add comment…</span>}</span>
+      <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover/comment:opacity-100 transition-opacity" />
+    </button>
+  );
 }
 
 export default function WeeklyPlanner() {
@@ -233,6 +305,15 @@ export default function WeeklyPlanner() {
       }
     }
     setSaving(false);
+  };
+
+  const handleInlineCommentSave = async (entryId: string, newNotes: string) => {
+    const { error } = await supabase.from("job_schedule").update({ notes: newNotes || null } as any).eq("id", entryId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to save comment.", variant: "destructive" });
+    } else {
+      setSchedule((prev) => prev.map((e) => e.id === entryId ? { ...e, notes: newNotes || null } : e));
+    }
   };
 
   const handleRemoveEntry = async (entryId: string) => {
@@ -503,7 +584,14 @@ export default function WeeklyPlanner() {
                             <span className="text-muted-foreground italic">Unknown job</span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{entry.notes || "—"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          <InlineComment
+                            entryId={entry.id}
+                            value={entry.notes || ""}
+                            isAdmin={isAdmin}
+                            onSave={handleInlineCommentSave}
+                          />
+                        </TableCell>
                         {isAdmin && (
                           <TableCell>
                             <div className="flex items-center gap-1">
