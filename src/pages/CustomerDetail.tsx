@@ -9,9 +9,14 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -63,6 +68,15 @@ export default function CustomerDetail() {
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [docSortBy, setDocSortBy] = useState<"date" | "name">("date");
   const [docSortAsc, setDocSortAsc] = useState(false);
+
+  // Job creation from dropped files
+  const [jobDropDragging, setJobDropDragging] = useState(false);
+  const jobDragCounter = useRef(0);
+  const [jobDropFiles, setJobDropFiles] = useState<File[]>([]);
+  const [jobDropDialogOpen, setJobDropDialogOpen] = useState(false);
+  const [jobDropForm, setJobDropForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
+  const [jobDropSaving, setJobDropSaving] = useState(false);
+
   const fetchDocuments = useCallback(async () => {
     if (!id) return;
     const { data } = await supabase
@@ -242,6 +256,70 @@ export default function CustomerDetail() {
 
   const statusColor = (s: string) =>
     s === "active" ? "bg-accent/10 text-accent" : s === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
+
+  const handleJobDropFiles = (files: FileList) => {
+    const validFiles = Array.from(files).filter((f) => {
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
+    });
+    if (validFiles.length === 0) {
+      toast({ title: "No valid files", description: "Only PDF, Word, Excel, and image files under 20MB are accepted.", variant: "destructive" });
+      return;
+    }
+    setJobDropFiles(validFiles);
+    setJobDropForm({ name: validFiles[0].name.replace(/\.[^.]+$/, ""), reference_number: "", priority: "medium", category: "general" });
+    setJobDropDialogOpen(true);
+  };
+
+  const handleCreateJobFromDrop = async () => {
+    if (!jobDropForm.name.trim() || !jobDropForm.reference_number.trim() || !user || !customer) return;
+    setJobDropSaving(true);
+
+    // Create the job
+    const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
+      name: jobDropForm.name.trim(),
+      reference_number: jobDropForm.reference_number.trim(),
+      customer: customer.name,
+      address: customer.address || null,
+      priority: jobDropForm.priority,
+      category: jobDropForm.category,
+      created_by: user.id,
+    } as any).select().single();
+
+    if (jobError || !newJob) {
+      const msg = jobError?.code === "23505" ? "A job with that reference number already exists." : "Failed to create job.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      setJobDropSaving(false);
+      return;
+    }
+
+    // Upload files as submissions
+    let uploaded = 0;
+    for (const file of jobDropFiles) {
+      const filePath = `${newJob.id}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
+      if (!upErr) {
+        const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+        const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
+        await supabase.from("submissions").insert({
+          job_id: newJob.id,
+          engineer_id: user.id,
+          type,
+          file_name: file.name,
+          file_url: filePath,
+          content: file.name,
+        } as any);
+        uploaded++;
+      }
+    }
+
+    toast({ title: "Job created", description: `${newJob.reference_number} created with ${uploaded} file(s).` });
+    setJobDropDialogOpen(false);
+    setJobDropFiles([]);
+    setJobDropSaving(false);
+    await fetchJobs(customer.name);
+  };
+
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading…</div>;
   if (!customer) return <div className="flex h-64 items-center justify-center text-muted-foreground">Customer not found.</div>;
@@ -473,51 +551,131 @@ export default function CustomerDetail() {
       </div>
 
       {/* Jobs Section */}
-      <h2 className="text-lg font-semibold mb-3">Jobs ({jobs.length})</h2>
-      <Card>
-        <CardContent className="p-0">
-          {jobs.length === 0 ? (
-            <p className="p-8 text-center text-muted-foreground">No jobs associated with this customer.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Priority</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {jobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell>
-                      <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
-                        {job.reference_number}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="font-medium">{job.name}</TableCell>
-                    <TableCell>
-                      <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
-                        {job.priority || "medium"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-xs capitalize text-muted-foreground">{job.category || "general"}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className={statusColor(job.status)}>
-                        {job.status}
-                      </Badge>
-                    </TableCell>
+      <div
+        onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); jobDragCounter.current++; setJobDropDragging(true); }}
+        onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+        onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); jobDragCounter.current--; if (jobDragCounter.current === 0) setJobDropDragging(false); }}
+        onDrop={(e) => {
+          e.preventDefault(); e.stopPropagation(); jobDragCounter.current = 0; setJobDropDragging(false);
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleJobDropFiles(e.dataTransfer.files);
+        }}
+      >
+        <h2 className="text-lg font-semibold mb-3">Jobs ({jobs.length})</h2>
+
+        {jobDropDragging && (
+          <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-8 text-center transition-colors">
+            <Plus className="h-6 w-6 text-primary" />
+            <p className="font-medium text-primary">Drop files here to create a new job</p>
+          </div>
+        )}
+
+        <Card>
+          <CardContent className="p-0">
+            {jobs.length === 0 && !jobDropDragging ? (
+              <p className="p-8 text-center text-muted-foreground">No jobs associated with this customer. Drop files here to create one.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Reference</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Status</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                </TableHeader>
+                <TableBody>
+                  {jobs.map((job) => (
+                    <TableRow key={job.id}>
+                      <TableCell>
+                        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
+                          {job.reference_number}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="font-medium">{job.name}</TableCell>
+                      <TableCell>
+                        <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
+                          {job.priority || "medium"}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs capitalize text-muted-foreground">{job.category || "general"}</span>
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={statusColor(job.status)}>
+                          {job.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Create Job from Drop Dialog */}
+      <Dialog open={jobDropDialogOpen} onOpenChange={setJobDropDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Job from Files</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2">
+              {jobDropFiles.map((file, i) => (
+                <div key={`${file.name}-${i}`} className="flex items-center gap-2 text-sm px-2 py-1">
+                  {IMAGE_EXTENSIONS.includes(file.name.slice(file.name.lastIndexOf(".")).toLowerCase())
+                    ? <Image className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                  <span className="truncate">{file.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                </div>
+              ))}
+            </div>
+            <div className="space-y-2">
+              <Label>Job Name</Label>
+              <Input value={jobDropForm.name} onChange={(e) => setJobDropForm({ ...jobDropForm, name: e.target.value })} placeholder="e.g. Site Survey" />
+            </div>
+            <div className="space-y-2">
+              <Label>Reference Number</Label>
+              <Input value={jobDropForm.reference_number} onChange={(e) => setJobDropForm({ ...jobDropForm, reference_number: e.target.value })} placeholder="e.g. JOB-001" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={jobDropForm.priority} onValueChange={(v) => setJobDropForm({ ...jobDropForm, priority: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={jobDropForm.category} onValueChange={(v) => setJobDropForm({ ...jobDropForm, category: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="installation">Installation</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                    <SelectItem value="survey">Survey</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Customer: <strong>{customer.name}</strong> · {jobDropFiles.length} file(s) will be uploaded as submissions
+            </p>
+            <Button onClick={handleCreateJobFromDrop} className="w-full" disabled={!jobDropForm.name.trim() || !jobDropForm.reference_number.trim() || jobDropSaving}>
+              {jobDropSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Create Job & Upload Files"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
