@@ -331,11 +331,11 @@ export default function JobDetail() {
                 </SelectContent>
               </Select>
               <FaultCodeSelect
-                value={job.fault_code_id || null}
+                value={(job as any).result || null}
                 onChange={async (v) => {
-                  const { error } = await supabase.from("jobs").update({ fault_code_id: v } as any).eq("id", id!);
+                  const { error } = await supabase.from("jobs").update({ result: v } as any).eq("id", id!);
                   if (error) { toast({ title: "Error", description: "Failed to update result.", variant: "destructive" }); }
-                  else { setJob((prev: any) => ({ ...prev, fault_code_id: v })); toast({ title: "Result updated" }); }
+                  else { setJob((prev: any) => ({ ...prev, result: v })); toast({ title: "Result updated" }); }
                 }}
               />
             </div>
