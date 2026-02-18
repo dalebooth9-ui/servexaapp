@@ -462,6 +462,8 @@ export default function Jobs() {
   const [fileDragging, setFileDragging] = useState(false);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
+  const [fileDropChoiceOpen, setFileDropChoiceOpen] = useState(false);
+  const [fileDropTargetJob, setFileDropTargetJob] = useState<any>(null);
   const [fileDropCustomer, setFileDropCustomer] = useState("");
   const [fileDropPendingFiles, setFileDropPendingFiles] = useState<File[]>([]);
   const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
@@ -532,20 +534,28 @@ export default function Jobs() {
     setBulkDeleteOpen(false);
   };
 
-  // Handle files dropped directly onto a job row — upload as submissions
-  const handleJobFileDrop = async (jobId: string, files: File[]) => {
-    if (!user) return;
+  // Handle files dropped directly onto a job row — show choice dialog
+  const handleJobFileDrop = (jobId: string, files: File[]) => {
+    const targetJob = jobs.find((j) => j.id === jobId);
+    setFileDropTargetJob(targetJob || null);
+    setFileDropPendingFiles(files);
+    setFileDropChoiceOpen(true);
+  };
+
+  const handleAddToExistingJob = async () => {
+    if (!user || !fileDropTargetJob || fileDropPendingFiles.length === 0) return;
+    setFileDropChoiceOpen(false);
     setFileDropUploading(true);
     let uploaded = 0;
-    for (const file of files) {
+    for (const file of fileDropPendingFiles) {
       const ext = getFileExt(file.name);
       const isImage = IMAGE_EXTENSIONS.includes(ext);
-      const path = `${jobId}/${Date.now()}-${file.name}`;
+      const path = `${fileDropTargetJob.id}/${Date.now()}-${file.name}`;
       const { error: uploadError } = await supabase.storage.from("submissions").upload(path, file);
       if (uploadError) { console.error("Upload error:", uploadError); continue; }
       const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(path);
       await supabase.from("submissions").insert({
-        job_id: jobId,
+        job_id: fileDropTargetJob.id,
         engineer_id: user.id,
         type: isImage ? "photo" : "document",
         file_url: urlData.publicUrl,
@@ -554,10 +564,19 @@ export default function Jobs() {
       uploaded++;
     }
     setFileDropUploading(false);
+    setFileDropPendingFiles([]);
+    setFileDropTargetJob(null);
     if (uploaded > 0) {
-      toast({ title: "Files uploaded", description: `${uploaded} file(s) added to job.` });
+      toast({ title: "Files uploaded", description: `${uploaded} file(s) added to ${fileDropTargetJob.reference_number}.` });
       fetchJobs();
     }
+  };
+
+  const handleCreateSiblingJob = () => {
+    setFileDropChoiceOpen(false);
+    setFileDropCustomer(fileDropTargetJob?.customer || "");
+    setFileDropNewJobForm({ name: fileDropPendingFiles[0]?.name.replace(/\.[^.]+$/, "") || "", reference_number: "", priority: fileDropTargetJob?.priority || "medium", category: fileDropTargetJob?.category || "general" });
+    setFileDropDialogOpen(true);
   };
 
   // Handle files dropped onto a customer folder — open dialog to create new job with files
@@ -1138,6 +1157,31 @@ export default function Jobs() {
               Rename
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fileDropChoiceOpen} onOpenChange={(open) => { setFileDropChoiceOpen(open); if (!open) { setFileDropPendingFiles([]); setFileDropTargetJob(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader><DialogTitle>Add Files to Job</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            You dropped <strong>{fileDropPendingFiles.length} file(s)</strong> onto <strong>{fileDropTargetJob?.reference_number} – {fileDropTargetJob?.name}</strong>. What would you like to do?
+          </p>
+          <div className="grid gap-3 pt-2">
+            <Button onClick={handleAddToExistingJob} className="w-full justify-start gap-3" variant="outline">
+              <Upload className="h-4 w-4 shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">Add to this job</p>
+                <p className="text-xs text-muted-foreground">Upload as submissions to {fileDropTargetJob?.reference_number}</p>
+              </div>
+            </Button>
+            <Button onClick={handleCreateSiblingJob} className="w-full justify-start gap-3" variant="outline">
+              <Plus className="h-4 w-4 shrink-0" />
+              <div className="text-left">
+                <p className="font-medium">Create new job</p>
+                <p className="text-xs text-muted-foreground">Create a sibling job{fileDropTargetJob?.customer ? ` under ${fileDropTargetJob.customer}` : ""} with these files</p>
+              </div>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
