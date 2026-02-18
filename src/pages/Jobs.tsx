@@ -225,7 +225,7 @@ function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSele
       </TableCell>
       <TableCell>
         <Badge variant="secondary" className={statusColor(job.status)}>
-          {job.status}
+          {job.status.replace(/_/g, " ")}
         </Badge>
       </TableCell>
       <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
@@ -671,6 +671,16 @@ export default function Jobs() {
       setForm({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
       setDialogOpen(false);
       fetchJobs();
+
+      // Send job_booked notification to customer if they have an email
+      if (parsed.data.customer) {
+        const createdJobs = await supabase.from("jobs").select("id").eq("reference_number", parsed.data.reference_number).single();
+        if (createdJobs.data) {
+          supabase.functions.invoke("notify-customer", {
+            body: { job_id: createdJobs.data.id, notification_type: "job_booked" },
+          });
+        }
+      }
     }
     setLoading(false);
   };
@@ -809,8 +819,19 @@ export default function Jobs() {
     );
   });
 
-  const statusColor = (s: string) =>
-    s === "active" ? "bg-accent/10 text-accent" : s === "completed" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground";
+  const statusColor = (s: string) => {
+    const colors: Record<string, string> = {
+      active: "bg-accent/10 text-accent",
+      in_progress: "bg-indigo-500/10 text-indigo-600",
+      awaiting_parts: "bg-amber-500/10 text-amber-600",
+      on_hold: "bg-orange-500/10 text-orange-600",
+      requires_revisit: "bg-purple-500/10 text-purple-600",
+      scheduled: "bg-cyan-500/10 text-cyan-600",
+      completed: "bg-primary/10 text-primary",
+      archived: "bg-muted text-muted-foreground",
+    };
+    return colors[s] || "bg-muted text-muted-foreground";
+  };
 
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
     const key = job.customer?.trim() || "Unassigned";
@@ -1002,6 +1023,11 @@ export default function Jobs() {
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
             <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
+            <SelectItem value="on_hold">On Hold</SelectItem>
+            <SelectItem value="requires_revisit">Requires Revisit</SelectItem>
+            <SelectItem value="scheduled">Scheduled</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="archived">Archived</SelectItem>
           </SelectContent>

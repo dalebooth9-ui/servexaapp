@@ -47,6 +47,14 @@ serve(async (req) => {
 
     // Build email content based on notification type
     const templates: Record<string, { subject: string; body: string }> = {
+      job_booked: {
+        subject: `Job booked — ${job.reference_number}`,
+        body: `<h2>Job Booked</h2>
+          <p>A new job has been created for you: <strong>${job.reference_number}</strong> — ${job.name}.</p>
+          ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
+          <p>We will keep you updated on progress.</p>
+          <p>Thank you,<br/>FieldReport</p>`,
+      },
       engineer_dispatched: {
         subject: `Engineer dispatched — ${job.reference_number}`,
         body: `<h2>Engineer Dispatched</h2>

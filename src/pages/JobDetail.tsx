@@ -27,6 +27,9 @@ import JobVisits from "@/components/JobVisits";
 import FaultCodeSelect from "@/components/FaultCodeSelect";
 import CloneJobDialog from "@/components/CloneJobDialog";
 import JobSheet from "@/components/JobSheet";
+import JobParts from "@/components/JobParts";
+import JobPdfReport from "@/components/JobPdfReport";
+import JobStatusPipeline, { ALL_JOB_STATUSES, getStatusLabel } from "@/components/JobStatusPipeline";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -349,6 +352,7 @@ export default function JobDetail() {
         </div>
         {userRole === "admin" ? (
           <div className="flex items-center gap-2">
+            <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
               <CreateInvoiceDialog
@@ -359,13 +363,13 @@ export default function JobDetail() {
               />
             )}
             <Select value={job.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-[140px]">
-                <SelectValue />
+              <SelectTrigger className="w-[160px]">
+                <SelectValue>{getStatusLabel(job.status)}</SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="active">Active</SelectItem>
-                <SelectItem value="completed">Completed</SelectItem>
-                <SelectItem value="archived">Archived</SelectItem>
+                {ALL_JOB_STATUSES.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -396,6 +400,23 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <JobVisits jobId={id!} jobData={job} />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Status Pipeline */}
+      {userRole === "admin" && (
+        <div className="mb-6">
+          <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
+        </div>
+      )}
+
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Parts & Materials
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobParts jobId={id!} />
         </CollapsibleContent>
       </Collapsible>
 
