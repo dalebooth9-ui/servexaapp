@@ -29,3 +29,6 @@ verify_jwt = false
 
 [functions.customer-sign-off]
 verify_jwt = false
+
+[functions.parse-import-parts]
+verify_jwt = false
