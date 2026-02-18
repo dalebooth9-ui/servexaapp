@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc } from "lucide-react";
+import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -408,6 +408,8 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
   const [sortAsc, setSortAsc] = useState(false);
+  const [replacingSub, setReplacingSub] = useState<any>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const generateSignedUrls = async () => {
@@ -487,6 +489,50 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
     toast({ title: "Downloads started", description: `${selected.length} file(s) downloading.` });
   };
 
+  const handleReplaceSubmission = async (file: File) => {
+    if (!replacingSub) return;
+    const ext = getFileExtension(file.name);
+    if (!ALLOWED_EXTENSIONS.includes(ext) || file.size > 20 * 1024 * 1024) {
+      toast({ title: "Invalid file", description: "Only supported file types under 20MB are accepted.", variant: "destructive" });
+      setReplacingSub(null);
+      return;
+    }
+
+    // Remove old file
+    if (replacingSub.file_url) {
+      const oldPath = extractStoragePath(replacingSub.file_url);
+      if (oldPath) await supabase.storage.from("submissions").remove([oldPath]);
+    }
+
+    // Upload new file
+    const jobId = replacingSub.job_id;
+    const newPath = `${jobId}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(newPath, file);
+    if (uploadError) {
+      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+      setReplacingSub(null);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(newPath);
+    const isImage = IMAGE_EXTENSIONS.includes(ext);
+
+    await supabase.from("submissions").update({
+      file_url: urlData.publicUrl,
+      file_name: file.name,
+      type: isImage ? "photo" : "document",
+    }).eq("id", replacingSub.id);
+
+    toast({ title: "File replaced", description: `${replacingSub.file_name} → ${file.name}` });
+    setReplacingSub(null);
+    if (replaceInputRef.current) replaceInputRef.current.value = "";
+    // Refresh signed URLs
+    const { data } = await supabase.storage.from("submissions").createSignedUrl(newPath, 3600);
+    if (data?.signedUrl) {
+      setSignedUrls((prev) => ({ ...prev, [replacingSub.id]: data.signedUrl }));
+    }
+  };
+
   const previewUrl = previewSub ? signedUrls[previewSub.id] : null;
   const previewFileName = previewSub?.file_name || "";
 
@@ -537,6 +583,15 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
 
   return (
     <>
+      <input
+        ref={replaceInputRef}
+        type="file"
+        accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) handleReplaceSubmission(e.target.files[0]);
+        }}
+      />
       <div className="mb-3 flex flex-wrap items-center gap-3">
         {selectableItems.length > 0 && (
           <div className="flex items-center gap-2">
@@ -640,6 +695,14 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
                             <a href={resolvedUrl} target="_blank" rel="noreferrer">
                               <Download className="h-4 w-4" />
                             </a>
+                          </Button>
+                        )}
+                        {hasFile && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Replace with edited version" onClick={() => {
+                            setReplacingSub(sub);
+                            setTimeout(() => replaceInputRef.current?.click(), 50);
+                          }}>
+                            <RefreshCw className="h-4 w-4" />
                           </Button>
                         )}
                         {isAdmin && (
