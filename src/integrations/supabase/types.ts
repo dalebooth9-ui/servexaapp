@@ -123,6 +123,249 @@ export type Database = {
           },
         ]
       }
+      audit_responses: {
+        Row: {
+          audit_id: string
+          id: string
+          item_id: string
+          notes: string | null
+          photo_url: string | null
+          result: string
+        }
+        Insert: {
+          audit_id: string
+          id?: string
+          item_id: string
+          notes?: string | null
+          photo_url?: string | null
+          result?: string
+        }
+        Update: {
+          audit_id?: string
+          id?: string
+          item_id?: string
+          notes?: string | null
+          photo_url?: string | null
+          result?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_responses_audit_id_fkey"
+            columns: ["audit_id"]
+            isOneToOne: false
+            referencedRelation: "audits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_responses_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "audit_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_template_items: {
+        Row: {
+          id: string
+          item_type: string
+          question: string
+          required: boolean
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          id?: string
+          item_type?: string
+          question: string
+          required?: boolean
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          id?: string
+          item_type?: string
+          question?: string
+          required?: boolean
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audit_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "audit_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_templates: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      audits: {
+        Row: {
+          asset_id: string | null
+          auditor_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          score_percent: number | null
+          site_id: string | null
+          status: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          auditor_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          score_percent?: number | null
+          site_id?: string | null
+          status?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          auditor_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          score_percent?: number | null
+          site_id?: string | null
+          status?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "audits_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audits_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audits_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "audit_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      compliance_records: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          created_by: string | null
+          expiry_date: string | null
+          file_name: string | null
+          file_url: string | null
+          id: string
+          issue_date: string | null
+          issuer: string | null
+          notes: string | null
+          record_type: string
+          reference_number: string | null
+          site_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          issue_date?: string | null
+          issuer?: string | null
+          notes?: string | null
+          record_type?: string
+          reference_number?: string | null
+          site_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          expiry_date?: string | null
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          issue_date?: string | null
+          issuer?: string | null
+          notes?: string | null
+          record_type?: string
+          reference_number?: string | null
+          site_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "compliance_records_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "compliance_records_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_documents: {
         Row: {
           created_at: string
