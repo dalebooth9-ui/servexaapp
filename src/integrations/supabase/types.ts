@@ -88,6 +88,30 @@ export type Database = {
         }
         Relationships: []
       }
+      fault_codes: {
+        Row: {
+          code: string
+          created_at: string
+          description: string
+          id: string
+          priority: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string
+          id?: string
+          priority?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string
+          id?: string
+          priority?: string
+        }
+        Relationships: []
+      }
       field_reports: {
         Row: {
           author_id: string
@@ -314,6 +338,53 @@ export type Database = {
           },
         ]
       }
+      job_visits: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          engineer_id: string | null
+          id: string
+          job_id: string
+          notes: string | null
+          scheduled_date: string
+          scheduled_time: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          engineer_id?: string | null
+          id?: string
+          job_id: string
+          notes?: string | null
+          scheduled_date: string
+          scheduled_time?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          engineer_id?: string | null
+          id?: string
+          job_id?: string
+          notes?: string | null
+          scheduled_date?: string
+          scheduled_time?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_visits_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           address: string | null
@@ -321,9 +392,15 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer: string | null
+          fault_code_id: string | null
           id: string
+          job_type: string
           name: string
           priority: string
+          recurrence_end_date: string | null
+          recurrence_interval: number | null
+          recurrence_start_date: string | null
+          recurrence_unit: string | null
           reference_number: string
           status: string
           updated_at: string
@@ -334,9 +411,15 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer?: string | null
+          fault_code_id?: string | null
           id?: string
+          job_type?: string
           name: string
           priority?: string
+          recurrence_end_date?: string | null
+          recurrence_interval?: number | null
+          recurrence_start_date?: string | null
+          recurrence_unit?: string | null
           reference_number: string
           status?: string
           updated_at?: string
@@ -347,14 +430,28 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer?: string | null
+          fault_code_id?: string | null
           id?: string
+          job_type?: string
           name?: string
           priority?: string
+          recurrence_end_date?: string | null
+          recurrence_interval?: number | null
+          recurrence_start_date?: string | null
+          recurrence_unit?: string | null
           reference_number?: string
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "jobs_fault_code_id_fkey"
+            columns: ["fault_code_id"]
+            isOneToOne: false
+            referencedRelation: "fault_codes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
