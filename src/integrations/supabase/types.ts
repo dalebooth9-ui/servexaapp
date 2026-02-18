@@ -14,6 +14,68 @@ export type Database = {
   }
   public: {
     Tables: {
+      assets: {
+        Row: {
+          asset_tag: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          id: string
+          install_date: string | null
+          make: string | null
+          model: string | null
+          name: string
+          notes: string | null
+          serial_number: string | null
+          site_id: string | null
+          status: string
+          updated_at: string
+          warranty_expiry: string | null
+        }
+        Insert: {
+          asset_tag?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          install_date?: string | null
+          make?: string | null
+          model?: string | null
+          name: string
+          notes?: string | null
+          serial_number?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          warranty_expiry?: string | null
+        }
+        Update: {
+          asset_tag?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          install_date?: string | null
+          make?: string | null
+          model?: string | null
+          name?: string
+          notes?: string | null
+          serial_number?: string | null
+          site_id?: string | null
+          status?: string
+          updated_at?: string
+          warranty_expiry?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assets_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_documents: {
         Row: {
           created_at: string
@@ -423,6 +485,7 @@ export type Database = {
       jobs: {
         Row: {
           address: string | null
+          asset_id: string | null
           category: string
           created_at: string
           created_by: string | null
@@ -437,11 +500,13 @@ export type Database = {
           recurrence_start_date: string | null
           recurrence_unit: string | null
           reference_number: string
+          site_id: string | null
           status: string
           updated_at: string
         }
         Insert: {
           address?: string | null
+          asset_id?: string | null
           category?: string
           created_at?: string
           created_by?: string | null
@@ -456,11 +521,13 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
           reference_number: string
+          site_id?: string | null
           status?: string
           updated_at?: string
         }
         Update: {
           address?: string | null
+          asset_id?: string | null
           category?: string
           created_at?: string
           created_by?: string | null
@@ -475,15 +542,30 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
           reference_number?: string
+          site_id?: string | null
           status?: string
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "jobs_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "jobs_fault_code_id_fkey"
             columns: ["fault_code_id"]
             isOneToOne: false
             referencedRelation: "fault_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
             referencedColumns: ["id"]
           },
         ]
@@ -555,6 +637,62 @@ export type Database = {
           whatsapp_number?: string | null
         }
         Relationships: []
+      }
+      sites: {
+        Row: {
+          address: string | null
+          contact_email: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          parent_id: string | null
+          postcode: string | null
+          site_type: string
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          parent_id?: string | null
+          postcode?: string | null
+          site_type?: string
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          contact_email?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          parent_id?: string | null
+          postcode?: string | null
+          site_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sites_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       submission_comments: {
         Row: {
