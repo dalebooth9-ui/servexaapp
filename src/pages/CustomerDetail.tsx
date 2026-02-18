@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { Progress } from "@/components/ui/progress";
@@ -82,6 +82,50 @@ export default function CustomerDetail() {
   const [jobRowDropTarget, setJobRowDropTarget] = useState<string | null>(null);
   const [jobRowUploading, setJobRowUploading] = useState<string | null>(null);
 
+
+  const [attachingDocId, setAttachingDocId] = useState<string | null>(null);
+
+  const handleAttachToJob = async (doc: CustomerDocument, jobId: string) => {
+    if (!user) return;
+    // Copy the file to the job's submission folder
+    const job = jobs.find((j) => j.id === jobId);
+    const storagePath = doc.file_url.includes("/object/public/submissions/")
+      ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
+      : doc.file_url;
+
+    // Download then re-upload to job folder
+    const { data: fileData, error: dlErr } = await supabase.storage.from("submissions").download(storagePath);
+    if (dlErr || !fileData) {
+      toast({ title: "Error", description: "Failed to read document file.", variant: "destructive" });
+      setAttachingDocId(null);
+      return;
+    }
+    const newPath = `${jobId}/${Date.now()}-${doc.file_name}`;
+    const { error: upErr } = await supabase.storage.from("submissions").upload(newPath, fileData);
+    if (upErr) {
+      toast({ title: "Error", description: "Failed to copy file to job.", variant: "destructive" });
+      setAttachingDocId(null);
+      return;
+    }
+
+    const ext = doc.file_name.slice(doc.file_name.lastIndexOf(".")).toLowerCase();
+    const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
+    const { error: insertErr } = await supabase.from("submissions").insert({
+      job_id: jobId,
+      engineer_id: user.id,
+      type,
+      file_name: doc.file_name,
+      file_url: newPath,
+      content: doc.file_name,
+    } as any);
+
+    if (insertErr) {
+      toast({ title: "Error", description: "Failed to create submission record.", variant: "destructive" });
+    } else {
+      toast({ title: "Attached", description: `${doc.file_name} attached to ${job?.reference_number || "job"}.` });
+    }
+    setAttachingDocId(null);
+  };
 
   const fetchDocuments = useCallback(async () => {
     if (!id) return;
@@ -570,6 +614,34 @@ export default function CustomerDetail() {
                             }}>
                               <Download className="h-4 w-4" />
                             </Button>
+                            {jobs.length > 0 && (
+                              <div className="relative">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  title="Attach to job"
+                                  onClick={() => setAttachingDocId(attachingDocId === doc.id ? null : doc.id)}
+                                >
+                                  <FolderInput className="h-4 w-4" />
+                                </Button>
+                                {attachingDocId === doc.id && (
+                                  <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-md border bg-popover p-1 shadow-md">
+                                    <p className="px-2 py-1.5 text-xs font-medium text-muted-foreground">Attach to job:</p>
+                                    {jobs.map((job) => (
+                                      <button
+                                        key={job.id}
+                                        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                                        onClick={() => handleAttachToJob(doc, job.id)}
+                                      >
+                                        <span className="font-mono text-xs text-primary">{job.reference_number}</span>
+                                        <span className="truncate">{job.name}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                             <Button variant="ghost" size="icon" className="h-8 w-8" title="Replace with edited version" onClick={() => {
                               setReplacingDoc(doc);
                               setTimeout(() => replaceInputRef.current?.click(), 50);
