@@ -40,7 +40,13 @@ import {
   Wrench,
   AlertTriangle,
   XCircle,
+  Settings2,
 } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { format } from "date-fns";
 
 type Asset = {
@@ -87,7 +93,7 @@ const emptyAsset = {
 export default function Assets() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const { categories: assetCategories } = useAssetCategories();
+  const { categories: assetCategories, refetch: refetchCategories } = useAssetCategories();
   const CATEGORIES = assetCategories.map((c) => c.slug);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
@@ -98,7 +104,46 @@ export default function Assets() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [form, setForm] = useState(emptyAsset);
+  const [catOpen, setCatOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState("");
 
+  const toSlug = (name: string) =>
+    name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
+  const handleAddCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    const slug = toSlug(name);
+    if (assetCategories.some((c) => c.slug === slug)) {
+      toast({ title: "Category already exists", variant: "destructive" });
+      return;
+    }
+    setAddingCat(true);
+    const maxOrder = assetCategories.reduce((m, c) => Math.max(m, c.sort_order), -1);
+    const { error } = await supabase.from("asset_categories" as any).insert({ name, slug, sort_order: maxOrder + 1 } as any);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { setNewCatName(""); toast({ title: "Category added" }); refetchCategories(); }
+    setAddingCat(false);
+  };
+
+  const handleRenameCategory = async (id: string, oldName: string) => {
+    const name = editCatName.trim();
+    if (!name || name === oldName) { setEditingCatId(null); return; }
+    const slug = toSlug(name);
+    const { error } = await supabase.from("asset_categories" as any).update({ name, slug } as any).eq("id", id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: "Category renamed" }); refetchCategories(); }
+    setEditingCatId(null);
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    const { error } = await supabase.from("asset_categories" as any).delete().eq("id", id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: `"${name}" removed` }); refetchCategories(); }
+  };
   const fetchData = async () => {
     const [assetRes, siteRes] = await Promise.all([
       supabase.from("assets").select("*").order("name"),
@@ -268,7 +313,83 @@ export default function Assets() {
             ))}
           </SelectContent>
         </Select>
+        {userRole === "admin" && (
+          <Collapsible open={catOpen} onOpenChange={setCatOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="outline" size="sm">
+                <Settings2 className="mr-1 h-4 w-4" /> Manage Categories
+              </Button>
+            </CollapsibleTrigger>
+          </Collapsible>
+        )}
       </div>
+
+      {userRole === "admin" && catOpen && (
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="flex gap-2">
+              <Input
+                placeholder="New category name"
+                value={newCatName}
+                onChange={(e) => setNewCatName(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                className="max-w-xs"
+              />
+              <Button onClick={handleAddCategory} disabled={addingCat || !newCatName.trim()} size="sm">
+                <Plus className="mr-1 h-4 w-4" /> Add
+              </Button>
+            </div>
+            {assetCategories.length > 0 && (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead className="w-10" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {assetCategories.map((cat, i) => (
+                    <TableRow key={cat.id}>
+                      <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                      <TableCell className="font-medium">
+                        {editingCatId === cat.id ? (
+                          <Input
+                            value={editCatName}
+                            onChange={(e) => setEditCatName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") handleRenameCategory(cat.id, cat.name);
+                              if (e.key === "Escape") setEditingCatId(null);
+                            }}
+                            onBlur={() => handleRenameCategory(cat.id, cat.name)}
+                            autoFocus
+                            className="h-7 text-sm max-w-[200px]"
+                          />
+                        ) : (
+                          <span
+                            className="cursor-pointer hover:underline"
+                            onDoubleClick={() => { setEditingCatId(cat.id); setEditCatName(cat.name); }}
+                            title="Double-click to rename"
+                          >
+                            {cat.name}
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs font-mono">{cat.slug}</TableCell>
+                      <TableCell>
+                        <button onClick={() => handleDeleteCategory(cat.id, cat.name)} className="text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Table */}
       <Card>
