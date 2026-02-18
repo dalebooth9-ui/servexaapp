@@ -8,6 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import XeroSettings from "@/components/XeroSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
+import AssetCategorySettings from "@/components/AssetCategorySettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
@@ -92,6 +93,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
         <JobCategorySettings />
+        <AssetCategorySettings />
         <XeroSettings />
       </div>
     </div>

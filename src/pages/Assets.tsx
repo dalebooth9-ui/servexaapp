@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useAssetCategories } from "@/hooks/useAssetCategories";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,11 +82,13 @@ const emptyAsset = {
   notes: "",
 };
 
-const CATEGORIES = ["general", "hvac", "electrical", "plumbing", "fire_safety", "elevator", "security", "it_network"];
+// Categories now loaded dynamically via useAssetCategories hook
 
 export default function Assets() {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { categories: assetCategories } = useAssetCategories();
+  const CATEGORIES = assetCategories.map((c) => c.slug);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [loading, setLoading] = useState(true);
