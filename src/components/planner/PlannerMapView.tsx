@@ -92,11 +92,11 @@ export default function PlannerMapView({
     const init = async () => {
       try {
         const { data } = await supabase.functions.invoke("get-maps-key");
-        if (cancelled || !data?.key || !mapRef.current) return;
+        if (cancelled || !data?.apiKey || !mapRef.current) return;
 
         if (!(window as any).google?.maps) {
           const script = document.createElement("script");
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.key}&libraries=marker`;
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=marker`;
           script.async = true;
           await new Promise<void>((resolve, reject) => {
             script.onload = () => resolve();
