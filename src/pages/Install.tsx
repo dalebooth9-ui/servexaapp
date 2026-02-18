@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Download, Smartphone, CheckCircle2, Wifi } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 
 export default function Install() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -55,6 +56,17 @@ export default function Install() {
                 <span>{text}</span>
               </div>
             ))}
+          </div>
+
+          <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted/50 p-4">
+            <p className="text-xs font-medium text-muted-foreground">Scan to open on your phone</p>
+            <QRCodeSVG
+              value="https://field-aid-box.lovable.app/install"
+              size={160}
+              bgColor="transparent"
+              fgColor="hsl(var(--foreground))"
+              level="M"
+            />
           </div>
 
           {installed ? (
