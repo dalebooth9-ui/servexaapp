@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Package, Upload } from "lucide-react";
+import { Plus, Trash2, Package, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
 
@@ -96,6 +96,28 @@ export default function JobParts({ jobId }: { jobId: string }) {
         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
           <Upload className="mr-1 h-4 w-4" /> Import
         </Button>
+        {parts.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => {
+            const headers = ["Part / Material", "Quantity", "Unit Cost", "Total Cost", "Notes"];
+            const rows = parts.map(p => [
+              `"${(p.name || "").replace(/"/g, '""')}"`,
+              p.quantity,
+              Number(p.unit_cost).toFixed(2),
+              Number(p.total_cost).toFixed(2),
+              `"${(p.notes || "").replace(/"/g, '""')}"`,
+            ].join(","));
+            const csv = [headers.join(","), ...rows].join("\n");
+            const blob = new Blob([csv], { type: "text/csv" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `parts-${jobId.slice(0, 8)}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}>
+            <Download className="mr-1 h-4 w-4" /> Export CSV
+          </Button>
+        )}
       </div>
 
       {parts.length === 0 ? (
