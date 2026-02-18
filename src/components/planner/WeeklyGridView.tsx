@@ -42,6 +42,8 @@ interface Job {
   category: string;
   customer: string | null;
   address: string | null;
+  site_id: string | null;
+  site?: { name: string; address: string | null; postcode: string | null } | null;
 }
 
 const PRIORITY_BG: Record<string, string> = {
@@ -56,9 +58,14 @@ const STATUS_INDICATOR: Record<string, { label: string; class: string }> = {
   archived: { label: "Archived", class: "bg-muted text-muted-foreground" },
 };
 
-function extractPostcodeArea(address: string | null): string {
-  if (!address) return "No area";
-  const match = address.match(/([A-Z]{1,2}\d)/i);
+function extractPostcodeArea(job: Job): string {
+  // Prefer site postcode
+  if (job.site?.postcode) {
+    const match = job.site.postcode.match(/([A-Z]{1,2}\d)/i);
+    return match ? match[1].toUpperCase() : job.site.postcode.toUpperCase();
+  }
+  if (!job.address) return "No area";
+  const match = job.address.match(/([A-Z]{1,2}\d)/i);
   return match ? match[1].toUpperCase() : "No area";
 }
 
@@ -83,6 +90,11 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
       <div className="font-mono font-medium text-primary">{job.reference_number}</div>
       <div className="truncate text-foreground">{job.name}</div>
       {job.customer && <div className="text-muted-foreground truncate">{job.customer}</div>}
+      {(job.site?.name || job.site?.postcode) && (
+        <div className="text-muted-foreground truncate">
+          {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+        </div>
+      )}
     </div>
   );
 }
@@ -135,6 +147,11 @@ function DraggableScheduleCard({
             )}
           </div>
           <div className="truncate text-foreground">{job.name}</div>
+          {(job.site?.name || job.site?.postcode) && (
+            <div className="truncate text-muted-foreground text-[10px]">
+              📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+            </div>
+          )}
           {entry.notes && <div className="truncate text-muted-foreground italic">{entry.notes}</div>}
         </div>
         {isAdmin && (
@@ -211,7 +228,7 @@ export default function WeeklyGridView({
   const groupedUnallocated = useMemo(() => {
     const groups: Record<string, Job[]> = {};
     for (const job of unallocatedJobs) {
-      const area = extractPostcodeArea(job.address);
+      const area = extractPostcodeArea(job);
       if (!groups[area]) groups[area] = [];
       groups[area].push(job);
     }
