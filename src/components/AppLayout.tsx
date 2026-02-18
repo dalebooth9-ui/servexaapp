@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,7 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, userRole, profile, signOut } = useAuth();
+  useEngineerLocation(); // Start GPS tracking for engineers
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
 

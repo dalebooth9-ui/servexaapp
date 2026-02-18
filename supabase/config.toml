@@ -20,3 +20,9 @@ verify_jwt = false
 
 [functions.xero-sync]
 verify_jwt = false
+
+[functions.optimise-route]
+verify_jwt = false
+
+[functions.notify-customer]
+verify_jwt = false
