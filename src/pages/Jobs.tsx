@@ -1166,6 +1166,28 @@ export default function Jobs() {
           <p className="text-sm text-muted-foreground">
             You dropped <strong>{fileDropPendingFiles.length} file(s)</strong> onto <strong>{fileDropTargetJob?.reference_number} – {fileDropTargetJob?.name}</strong>. What would you like to do?
           </p>
+          <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2">
+            {fileDropPendingFiles.map((file, i) => (
+              <div key={`${file.name}-${i}`} className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted">
+                <div className="flex items-center gap-2 truncate">
+                  {IMAGE_EXTENSIONS.includes(getFileExt(file.name))
+                    ? <Image className="h-3.5 w-3.5 shrink-0 text-accent" />
+                    : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                  <span className="truncate">{file.name}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFileDropPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                  className="shrink-0 text-muted-foreground hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
           <div className="grid gap-3 pt-2">
             <Button onClick={handleAddToExistingJob} className="w-full justify-start gap-3" variant="outline">
               <Upload className="h-4 w-4 shrink-0" />
