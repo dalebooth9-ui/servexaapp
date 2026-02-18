@@ -18,18 +18,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
     setGenerating(true);
     try {
       // Fetch all related data
-      const [subsRes, reportsRes, visitsRes, partsRes, assignRes] = await Promise.all([
+      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("field_reports").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_visits").select("*").eq("job_id", jobId).order("scheduled_date", { ascending: true }),
         supabase.from("job_parts" as any).select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
+        supabase.from("job_signatures" as any).select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
       ]);
 
       const submissions = subsRes.data || [];
       const reports = reportsRes.data || [];
       const visits = visitsRes.data || [];
       const parts = (partsRes.data as any[]) || [];
+      const signatures = (sigRes.data as any[]) || [];
 
       // Fetch engineer names
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
@@ -153,6 +155,48 @@ export default function JobPdfReport({ jobId, job }: Props) {
           doc.text(`• ${p.file_name} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y);
           y += 5;
         });
+      }
+
+      // Signatures
+      if (signatures.length > 0) {
+        checkPage(30);
+        doc.setFontSize(13);
+        doc.setFont("helvetica", "bold");
+        doc.text("Sign-Off Signatures", margin, y); y += 7;
+        
+        for (const sig of signatures) {
+          checkPage(50);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`${sig.signer_name} (${sig.signer_role}) — ${new Date(sig.created_at).toLocaleDateString("en-GB")}`, margin, y);
+          y += 5;
+          
+          // Try to embed signature image
+          try {
+            const { data: urlData } = await supabase.storage
+              .from("signatures")
+              .createSignedUrl(sig.file_path, 60);
+            if (urlData?.signedUrl) {
+              const response = await fetch(urlData.signedUrl);
+              const blob = await response.blob();
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              doc.addImage(dataUrl, "PNG", margin, y, 60, 20);
+              y += 25;
+            }
+          } catch {
+            doc.text("[Signature image unavailable]", margin, y);
+            y += 5;
+          }
+          
+          // Signature line
+          doc.setDrawColor(150);
+          doc.line(margin, y, margin + 80, y);
+          y += 8;
+        }
       }
 
       doc.save(`${job.reference_number}-report.pdf`);
