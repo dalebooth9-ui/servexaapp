@@ -1035,6 +1035,7 @@ export type Database = {
           recurrence_start_date: string | null
           recurrence_unit: string | null
           reference_number: string
+          result: string | null
           site_id: string | null
           status: string
           updated_at: string
@@ -1056,6 +1057,7 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
           reference_number: string
+          result?: string | null
           site_id?: string | null
           status?: string
           updated_at?: string
@@ -1077,6 +1079,7 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
           reference_number?: string
+          result?: string | null
           site_id?: string | null
           status?: string
           updated_at?: string
