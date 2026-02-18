@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft, Loader2 } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -142,17 +142,57 @@ function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jobRef: string })
   );
 }
 
-function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSelect }: { job: any; statusColor: (s: string) => string; isAdmin: boolean; onDelete?: (id: string) => void; selected?: boolean; onSelect?: (id: string, checked: boolean) => void }) {
+const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+
+function getFileExt(name: string) {
+  return name.slice(name.lastIndexOf(".")).toLowerCase();
+}
+
+function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSelect, onFileDrop }: { job: any; statusColor: (s: string) => string; isAdmin: boolean; onDelete?: (id: string) => void; selected?: boolean; onSelect?: (id: string, checked: boolean) => void; onFileDrop?: (jobId: string, files: File[]) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
     data: { job },
     disabled: !isAdmin,
   });
+  const [fileOver, setFileOver] = useState(false);
+  const fileCounter = useRef(0);
+
+  const handleNativeDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault(); e.stopPropagation();
+    fileCounter.current++;
+    setFileOver(true);
+  };
+  const handleNativeDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    fileCounter.current--;
+    if (fileCounter.current === 0) setFileOver(false);
+  };
+  const handleNativeDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault(); e.stopPropagation();
+  };
+  const handleNativeDrop = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault(); e.stopPropagation();
+    fileCounter.current = 0;
+    setFileOver(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => {
+      const ext = getFileExt(f.name);
+      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
+    });
+    if (files.length > 0 && onFileDrop) onFileDrop(job.id, files);
+  };
 
   return (
     <TableRow
       ref={setNodeRef}
-      className={isDragging ? "opacity-30" : ""}
+      className={`${isDragging ? "opacity-30" : ""} ${fileOver ? "ring-2 ring-primary bg-primary/5" : ""}`}
+      onDragEnter={handleNativeDragEnter}
+      onDragLeave={handleNativeDragLeave}
+      onDragOver={handleNativeDragOver}
+      onDrop={handleNativeDrop}
     >
       {isAdmin && (
         <TableCell className="w-8 px-2">
@@ -235,6 +275,8 @@ function DroppableCustomerFolder({
   selectedIds,
   onSelect,
   onSelectAll,
+  onJobFileDrop,
+  onFolderFileDrop,
 }: {
   customerName: string;
   jobs: any[];
@@ -247,11 +289,43 @@ function DroppableCustomerFolder({
   selectedIds?: Set<string>;
   onSelect?: (id: string, checked: boolean) => void;
   onSelectAll?: (jobIds: string[], checked: boolean) => void;
+  onJobFileDrop?: (jobId: string, files: File[]) => void;
+  onFolderFileDrop?: (customerName: string, files: File[]) => void;
 }) {
   const { setNodeRef } = useDroppable({
     id: `folder-${customerName}`,
     data: { customerName },
   });
+  const [fileOver, setFileOver] = useState(false);
+  const fileCounter = useRef(0);
+
+  const handleFolderFileDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault(); e.stopPropagation();
+    fileCounter.current++;
+    setFileOver(true);
+  };
+  const handleFolderFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    fileCounter.current--;
+    if (fileCounter.current === 0) setFileOver(false);
+  };
+  const handleFolderFileDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault(); e.stopPropagation();
+  };
+  const handleFolderFileDrop = (e: React.DragEvent) => {
+    // Only handle if not already handled by a job row
+    if (!e.dataTransfer.types.includes("Files")) return;
+    e.preventDefault(); e.stopPropagation();
+    fileCounter.current = 0;
+    setFileOver(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => {
+      const ext = getFileExt(f.name);
+      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
+    });
+    if (files.length > 0 && onFolderFileDrop) onFolderFileDrop(customerName, files);
+  };
 
   const folderJobIds = jobs.map((j) => j.id);
   const allSelected = jobs.length > 0 && folderJobIds.every((id) => selectedIds?.has(id));
@@ -261,7 +335,11 @@ function DroppableCustomerFolder({
     <AccordionItem
       ref={setNodeRef}
       value={customerName}
-      className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}
+      className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""} ${fileOver ? "ring-2 ring-accent/50 bg-accent/5" : ""}`}
+      onDragEnter={handleFolderFileDragEnter}
+      onDragLeave={handleFolderFileDragLeave}
+      onDragOver={handleFolderFileDragOver}
+      onDrop={handleFolderFileDrop}
     >
       <AccordionTrigger className="px-4 hover:no-underline">
         <div className="flex items-center gap-2 flex-1">
@@ -325,7 +403,7 @@ function DroppableCustomerFolder({
               </TableRow>
             ) : (
               jobs.map((job: any) => (
-                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} selected={selectedIds?.has(job.id)} onSelect={onSelect} />
+                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} selected={selectedIds?.has(job.id)} onSelect={onSelect} onFileDrop={onJobFileDrop} />
               ))
             )}
           </TableBody>
@@ -382,6 +460,11 @@ export default function Jobs() {
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [fileDragging, setFileDragging] = useState(false);
+  const [fileDropUploading, setFileDropUploading] = useState(false);
+  const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
+  const [fileDropCustomer, setFileDropCustomer] = useState("");
+  const [fileDropPendingFiles, setFileDropPendingFiles] = useState<File[]>([]);
+  const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
@@ -447,6 +530,94 @@ export default function Jobs() {
       setSelectedJobIds(new Set());
     }
     setBulkDeleteOpen(false);
+  };
+
+  // Handle files dropped directly onto a job row — upload as submissions
+  const handleJobFileDrop = async (jobId: string, files: File[]) => {
+    if (!user) return;
+    setFileDropUploading(true);
+    let uploaded = 0;
+    for (const file of files) {
+      const ext = getFileExt(file.name);
+      const isImage = IMAGE_EXTENSIONS.includes(ext);
+      const path = `${jobId}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(path, file);
+      if (uploadError) { console.error("Upload error:", uploadError); continue; }
+      const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(path);
+      await supabase.from("submissions").insert({
+        job_id: jobId,
+        engineer_id: user.id,
+        type: isImage ? "photo" : "document",
+        file_url: urlData.publicUrl,
+        file_name: file.name,
+      } as any);
+      uploaded++;
+    }
+    setFileDropUploading(false);
+    if (uploaded > 0) {
+      toast({ title: "Files uploaded", description: `${uploaded} file(s) added to job.` });
+      fetchJobs();
+    }
+  };
+
+  // Handle files dropped onto a customer folder — open dialog to create new job with files
+  const handleFolderFileDrop = (customerName: string, files: File[]) => {
+    setFileDropCustomer(customerName === "Unassigned" ? "" : customerName);
+    setFileDropPendingFiles(files);
+    setFileDropNewJobForm({ name: files[0]?.name.replace(/\.[^.]+$/, "") || "", reference_number: "", priority: "medium", category: "general" });
+    setFileDropDialogOpen(true);
+  };
+
+  const handleFileDropCreateJob = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user || fileDropPendingFiles.length === 0) return;
+
+    const parsed = jobSchema.safeParse({ ...fileDropNewJobForm, customer: fileDropCustomer });
+    if (!parsed.success) {
+      toast({ title: "Validation error", description: parsed.error.errors[0]?.message || "Invalid input", variant: "destructive" });
+      return;
+    }
+
+    setFileDropUploading(true);
+    // Create the job
+    const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
+      name: parsed.data.name,
+      reference_number: parsed.data.reference_number,
+      customer: fileDropCustomer || null,
+      priority: fileDropNewJobForm.priority,
+      category: fileDropNewJobForm.category,
+      created_by: user.id,
+    } as any).select().single();
+
+    if (jobError || !newJob) {
+      const message = jobError?.code === "23505" ? "A job with this reference number already exists." : "Failed to create job.";
+      toast({ title: "Error", description: message, variant: "destructive" });
+      setFileDropUploading(false);
+      return;
+    }
+
+    // Upload files as submissions
+    for (const file of fileDropPendingFiles) {
+      const ext = getFileExt(file.name);
+      const isImage = IMAGE_EXTENSIONS.includes(ext);
+      const path = `${newJob.id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(path, file);
+      if (uploadError) { console.error("Upload error:", uploadError); continue; }
+      const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(path);
+      await supabase.from("submissions").insert({
+        job_id: newJob.id,
+        engineer_id: user.id,
+        type: isImage ? "photo" : "document",
+        file_url: urlData.publicUrl,
+        file_name: file.name,
+      } as any);
+    }
+
+    setFileDropUploading(false);
+    setFileDropDialogOpen(false);
+    setFileDropPendingFiles([]);
+    toast({ title: "Job created", description: `${parsed.data.name} created with ${fileDropPendingFiles.length} file(s).` });
+    fetchJobs();
   };
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -904,6 +1075,8 @@ export default function Jobs() {
                 selectedIds={selectedJobIds}
                 onSelect={handleSelectJob}
                 onSelectAll={handleSelectAll}
+                onJobFileDrop={handleJobFileDrop}
+                onFolderFileDrop={handleFolderFileDrop}
               />
             ))}
           </Accordion>
@@ -967,6 +1140,67 @@ export default function Jobs() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={fileDropDialogOpen} onOpenChange={(open) => { setFileDropDialogOpen(open); if (!open) setFileDropPendingFiles([]); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Create Job from Dropped Files</DialogTitle></DialogHeader>
+          <form onSubmit={handleFileDropCreateJob} className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              {fileDropPendingFiles.length} file(s) will be added as submissions to the new job.
+            </p>
+            <div className="space-y-2">
+              <Label>Job Name</Label>
+              <Input value={fileDropNewJobForm.name} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, name: e.target.value }))} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Reference Number</Label>
+              <Input value={fileDropNewJobForm.reference_number} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, reference_number: e.target.value }))} required placeholder="e.g. JOB-001" />
+            </div>
+            {fileDropCustomer && (
+              <div className="space-y-2">
+                <Label>Customer</Label>
+                <Input value={fileDropCustomer} disabled />
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={fileDropNewJobForm.priority} onValueChange={(v) => setFileDropNewJobForm((f) => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={fileDropNewJobForm.category} onValueChange={(v) => setFileDropNewJobForm((f) => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="installation">Installation</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                    <SelectItem value="survey">Survey</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <Button type="submit" className="w-full" disabled={fileDropUploading}>
+              {fileDropUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : `Create Job & Upload ${fileDropPendingFiles.length} File(s)`}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {fileDropUploading && (
+        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-lg border bg-card px-4 py-3 shadow-lg">
+          <Loader2 className="h-4 w-4 animate-spin text-primary" />
+          <span className="text-sm font-medium">Uploading files...</span>
+        </div>
+      )}
     </div>
   );
 }
