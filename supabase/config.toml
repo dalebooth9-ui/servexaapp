@@ -11,3 +11,12 @@ verify_jwt = false
 
 [functions.summarize-report]
 verify_jwt = false
+
+[functions.xero-auth]
+verify_jwt = false
+
+[functions.xero-oauth-callback]
+verify_jwt = false
+
+[functions.xero-sync]
+verify_jwt = false

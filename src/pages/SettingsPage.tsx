@@ -6,6 +6,7 @@ import { MessageSquare, Webhook, Copy, CheckCircle2, ArrowLeft } from "lucide-re
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import XeroSettings from "@/components/XeroSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
@@ -89,6 +90,7 @@ export default function SettingsPage() {
             </ol>
           </CardContent>
         </Card>
+        <XeroSettings />
       </div>
     </div>
   );
