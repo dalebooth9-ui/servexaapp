@@ -9,22 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, GripVertical, Printer, Copy, ArrowLeft } from "lucide-react";
-import { format, addDays, startOfWeek, endOfWeek, isSameDay } from "date-fns";
+import { ChevronLeft, ChevronRight, Plus, X, Printer, Copy, ArrowLeft, Pencil } from "lucide-react";
+import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
 import {
-  DndContext,
-  DragOverlay,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  useDraggable,
-  useDroppable,
-  type DragStartEvent,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface ScheduleEntry {
   id: string;
@@ -46,6 +43,8 @@ interface Job {
   status: string;
   priority: string;
   category: string;
+  customer: string | null;
+  address: string | null;
 }
 
 const PRIORITY_COLORS: Record<string, string> = {
@@ -54,134 +53,10 @@ const PRIORITY_COLORS: Record<string, string> = {
   low: "border-l-4 border-l-emerald-500",
 };
 
-const CATEGORY_COLORS: Record<string, string> = {
-  general: "bg-muted/50",
-  installation: "bg-blue-500/10",
-  maintenance: "bg-orange-500/10",
-  inspection: "bg-purple-500/10",
-  survey: "bg-teal-500/10",
-};
-
-const JOB_CATEGORIES = ["general", "installation", "maintenance", "inspection", "survey"];
-
-// Draggable schedule card
-function DraggableScheduleCard({
-  entry,
-  job,
-  isAdmin,
-  onRemove,
-}: {
-  entry: ScheduleEntry;
-  job: Job | undefined;
-  isAdmin: boolean;
-  onRemove: () => void;
-}) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: entry.id,
-    data: { entry },
-    disabled: !isAdmin,
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={cn(
-        "group relative rounded-md border bg-card p-2 text-xs shadow-sm transition-opacity",
-        isDragging && "opacity-30",
-        isAdmin && "cursor-grab",
-        job && PRIORITY_COLORS[job.priority],
-        job && CATEGORY_COLORS[job.category]
-      )}
-    >
-      {isAdmin && (
-        <button
-          {...listeners}
-          {...attributes}
-          className="absolute left-0.5 top-1/2 -translate-y-1/2 touch-none text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-        >
-          <GripVertical className="h-3 w-3" />
-        </button>
-      )}
-      <div className={isAdmin ? "pl-3" : ""}>
-        {job ? (
-          <Link
-            to={`/jobs/${job.id}`}
-            className="block"
-            onClick={(e) => e.stopPropagation()}
-          >
-          <div className="flex items-center gap-1">
-              <span className="font-mono font-medium text-primary hover:underline">
-                {job.reference_number}
-              </span>
-              {job.priority === "high" && (
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-destructive" title="High priority" />
-              )}
-            </div>
-            <div className="truncate text-muted-foreground">{job.name}</div>
-            {job.category !== "general" && (
-              <div className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground/70">{job.category}</div>
-            )}
-          </Link>
-        ) : (
-          <div className="text-muted-foreground italic">Unknown job</div>
-        )}
-        {entry.notes && (
-          <div className="mt-1 text-muted-foreground italic">{entry.notes}</div>
-        )}
-      </div>
-      {isAdmin && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onRemove();
-          }}
-          className="absolute -right-1 -top-1 hidden rounded-full bg-destructive p-0.5 text-destructive-foreground group-hover:block"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-// Droppable cell
-function DroppableCell({
-  engineerId,
-  day,
-  isToday,
-  isAdmin,
-  isOver,
-  children,
-  onClickEmpty,
-}: {
-  engineerId: string;
-  day: Date;
-  isToday: boolean;
-  isAdmin: boolean;
-  isOver: boolean;
-  children: React.ReactNode;
-  onClickEmpty: () => void;
-}) {
-  const cellId = `${engineerId}__${format(day, "yyyy-MM-dd")}`;
-  const { setNodeRef } = useDroppable({
-    id: cellId,
-    data: { engineerId, day: format(day, "yyyy-MM-dd") },
-  });
-
-  return (
-    <td
-      ref={setNodeRef}
-      className={cn(
-        "px-2 py-2 align-top min-h-[80px] transition-colors",
-        isToday && "bg-primary/5",
-        isAdmin && "cursor-pointer",
-        isOver && "bg-primary/10 ring-1 ring-inset ring-primary/30"
-      )}
-      onClick={onClickEmpty}
-    >
-      {children}
-    </td>
-  );
+function extractPostcode(address: string | null): string {
+  if (!address) return "";
+  const match = address.match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
+  return match ? match[0].toUpperCase() : "";
 }
 
 export default function WeeklyPlanner() {
@@ -196,28 +71,23 @@ export default function WeeklyPlanner() {
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
-  const [activeEntry, setActiveEntry] = useState<ScheduleEntry | null>(null);
-  const [overId, setOverId] = useState<string | null>(null);
   const [filterPriority, setFilterPriority] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
 
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
-  const [addDay, setAddDay] = useState<Date | null>(null);
+  const [addDay, setAddDay] = useState<string>("");
   const [addEngineerId, setAddEngineerId] = useState("");
   const [addJobId, setAddJobId] = useState("");
   const [addNotes, setAddNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
-  );
+  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
 
   const weekDays = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   }, [weekStart]);
-
-  const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
 
   const fetchData = async () => {
     setLoading(true);
@@ -226,7 +96,7 @@ export default function WeeklyPlanner() {
 
     const [engRes, jobsRes, schedRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
-      supabase.from("jobs").select("id, name, reference_number, status, priority, category").eq("status", "active"),
+      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, address").eq("status", "active"),
       supabase
         .from("job_schedule")
         .select("*")
@@ -235,7 +105,7 @@ export default function WeeklyPlanner() {
     ]);
 
     setEngineers(engRes.data || []);
-    setJobs(jobsRes.data || []);
+    setJobs((jobsRes.data as Job[]) || []);
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
     setLoading(false);
   };
@@ -260,29 +130,66 @@ export default function WeeklyPlanner() {
   const goToday = () => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
 
   const getJobById = (jobId: string) => jobs.find((j) => j.id === jobId);
+  const getEngineerById = (engId: string) => engineers.find((e) => e.user_id === engId);
 
-  const getEntriesForCell = (engineerId: string, day: Date) => {
-    const dayStr = format(day, "yyyy-MM-dd");
-    return schedule.filter((e) => {
-      if (e.engineer_id !== engineerId || e.schedule_date !== dayStr) return false;
-      if (filterPriority !== "all" || filterCategory !== "all") {
+  // Build flat rows sorted by date, then engineer
+  const rows = useMemo(() => {
+    let filtered = [...schedule];
+
+    // Role filter: engineers only see their own
+    if (!isAdmin) {
+      filtered = filtered.filter((e) => e.engineer_id === user?.id);
+    }
+
+    // Priority/category filter
+    if (filterPriority !== "all" || filterCategory !== "all") {
+      filtered = filtered.filter((e) => {
         const job = getJobById(e.job_id);
         if (!job) return true;
         if (filterPriority !== "all" && job.priority !== filterPriority) return false;
         if (filterCategory !== "all" && job.category !== filterCategory) return false;
-      }
-      return true;
+        return true;
+      });
+    }
+
+    // Sort by date then engineer name
+    filtered.sort((a, b) => {
+      const dateCmp = a.schedule_date.localeCompare(b.schedule_date);
+      if (dateCmp !== 0) return dateCmp;
+      const engA = getEngineerById(a.engineer_id)?.full_name || "";
+      const engB = getEngineerById(b.engineer_id)?.full_name || "";
+      return engA.localeCompare(engB);
     });
-  };
 
+    return filtered;
+  }, [schedule, filterPriority, filterCategory, isAdmin, user, engineers, jobs]);
 
+  // Group rows by date for display
+  const groupedByDate = useMemo(() => {
+    const map = new Map<string, ScheduleEntry[]>();
+    for (const entry of rows) {
+      const existing = map.get(entry.schedule_date) || [];
+      existing.push(entry);
+      map.set(entry.schedule_date, existing);
+    }
+    return map;
+  }, [rows]);
 
-  const openAddDialog = (engineerId: string, day: Date) => {
-    if (!isAdmin) return;
-    setAddEngineerId(engineerId);
-    setAddDay(day);
+  const openAddDialog = (date?: string) => {
+    setEditingEntryId(null);
+    setAddDay(date || format(weekDays[0], "yyyy-MM-dd"));
+    setAddEngineerId("");
     setAddJobId("");
     setAddNotes("");
+    setAddOpen(true);
+  };
+
+  const openEditDialog = (entry: ScheduleEntry) => {
+    setEditingEntryId(entry.id);
+    setAddDay(entry.schedule_date);
+    setAddEngineerId(entry.engineer_id);
+    setAddJobId(entry.job_id);
+    setAddNotes(entry.notes || "");
     setAddOpen(true);
   };
 
@@ -290,23 +197,40 @@ export default function WeeklyPlanner() {
     if (!addDay || !addEngineerId || !addJobId) return;
     setSaving(true);
 
-    const { error } = await supabase.from("job_schedule").insert({
-      job_id: addJobId,
-      engineer_id: addEngineerId,
-      schedule_date: format(addDay, "yyyy-MM-dd"),
-      notes: addNotes || null,
-      created_by: user?.id,
-    } as any);
+    if (editingEntryId) {
+      const { error } = await supabase.from("job_schedule").update({
+        job_id: addJobId,
+        engineer_id: addEngineerId,
+        schedule_date: addDay,
+        notes: addNotes || null,
+      } as any).eq("id", editingEntryId);
 
-    if (error) {
-      const msg = error.code === "23505"
-        ? "This job is already scheduled for this engineer on this day."
-        : "Failed to add schedule entry.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
+      if (error) {
+        toast({ title: "Error", description: "Failed to update entry.", variant: "destructive" });
+      } else {
+        toast({ title: "Updated", description: "Schedule entry updated." });
+        setAddOpen(false);
+        fetchData();
+      }
     } else {
-      toast({ title: "Scheduled", description: "Job added to the planner." });
-      setAddOpen(false);
-      fetchData();
+      const { error } = await supabase.from("job_schedule").insert({
+        job_id: addJobId,
+        engineer_id: addEngineerId,
+        schedule_date: addDay,
+        notes: addNotes || null,
+        created_by: user?.id,
+      } as any);
+
+      if (error) {
+        const msg = error.code === "23505"
+          ? "This job is already scheduled for this engineer on this day."
+          : "Failed to add schedule entry.";
+        toast({ title: "Error", description: msg, variant: "destructive" });
+      } else {
+        toast({ title: "Scheduled", description: "Job added to the planner." });
+        setAddOpen(false);
+        fetchData();
+      }
     }
     setSaving(false);
   };
@@ -319,161 +243,6 @@ export default function WeeklyPlanner() {
       setSchedule((prev) => prev.filter((e) => e.id !== entryId));
     }
   };
-
-  // Drag and drop handlers
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveEntry(event.active.data.current?.entry || null);
-  };
-
-  const handleDragOver = (event: any) => {
-    setOverId(event.over?.id as string | null);
-  };
-
-  const handleDragEnd = async (event: DragEndEvent) => {
-    const dragged = activeEntry;
-    setActiveEntry(null);
-    setOverId(null);
-
-    if (!dragged || !event.over) return;
-
-    const target = event.over.data.current as { engineerId: string; day: string } | undefined;
-    if (!target) return;
-
-    const { engineerId: newEngineerId, day: newDate } = target;
-
-    // No change
-    if (dragged.engineer_id === newEngineerId && dragged.schedule_date === newDate) return;
-
-    // Optimistic update
-    setSchedule((prev) =>
-      prev.map((e) =>
-        e.id === dragged.id
-          ? { ...e, engineer_id: newEngineerId, schedule_date: newDate }
-          : e
-      )
-    );
-
-    const { error } = await supabase
-      .from("job_schedule")
-      .update({ engineer_id: newEngineerId, schedule_date: newDate } as any)
-      .eq("id", dragged.id);
-
-    if (error) {
-      const msg = error.code === "23505"
-        ? "This job is already scheduled for that engineer on that day."
-        : "Failed to move entry.";
-      toast({ title: "Error", description: msg, variant: "destructive" });
-      // Revert
-      setSchedule((prev) =>
-        prev.map((e) =>
-          e.id === dragged.id
-            ? { ...e, engineer_id: dragged.engineer_id, schedule_date: dragged.schedule_date }
-            : e
-        )
-      );
-    } else {
-      toast({ title: "Moved", description: "Schedule entry updated." });
-    }
-  };
-
-  // For engineer role, filter to only show their row
-  const visibleEngineers = isAdmin
-    ? engineers
-    : engineers.filter((e) => e.user_id === user?.id);
-
-  if (loading) {
-    return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
-  }
-
-  const draggedJob = activeEntry ? getJobById(activeEntry.job_id) : null;
-
-  const handleExportPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const margin = 10;
-    const colW = (pageW - margin * 2 - 40) / 7; // 40mm for engineer name col
-    const headerH = 12;
-    let y = margin;
-
-    // Title
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Weekly Planner — ${format(weekStart, "MMM d")} – ${format(weekEnd, "MMM d, yyyy")}`, margin, y + 5);
-    y += 12;
-
-    // Header row
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setFillColor(240, 240, 240);
-    doc.rect(margin, y, pageW - margin * 2, headerH, "F");
-    doc.text("Engineer", margin + 2, y + 7);
-    weekDays.forEach((day, i) => {
-      const x = margin + 40 + i * colW;
-      doc.text(format(day, "EEE"), x + colW / 2, y + 4, { align: "center" });
-      doc.text(format(day, "MMM d"), x + colW / 2, y + 9, { align: "center" });
-    });
-    y += headerH;
-
-    // Rows
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
-
-    visibleEngineers.forEach((eng) => {
-      // Calculate row height based on max entries in any cell
-      const maxEntries = Math.max(1, ...weekDays.map((day) => getEntriesForCell(eng.user_id, day).length));
-      const rowH = Math.max(12, maxEntries * 10 + 4);
-
-      // Check page break
-      if (y + rowH > doc.internal.pageSize.getHeight() - margin) {
-        doc.addPage();
-        y = margin;
-      }
-
-      // Row border
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(margin, y, pageW - margin * 2, rowH);
-
-      // Engineer name
-      doc.setFont("helvetica", "bold");
-      doc.text(eng.full_name || "", margin + 2, y + 6, { maxWidth: 36 });
-      doc.setFont("helvetica", "normal");
-
-      // Cell borders and entries
-      weekDays.forEach((day, i) => {
-        const x = margin + 40 + i * colW;
-        doc.line(x, y, x, y + rowH);
-
-        const entries = getEntriesForCell(eng.user_id, day);
-        entries.forEach((entry, ei) => {
-          const job = getJobById(entry.job_id);
-          const cellY = y + 5 + ei * 10;
-          if (job) {
-            doc.setFont("helvetica", "bold");
-            doc.text(job.reference_number, x + 2, cellY, { maxWidth: colW - 4 });
-            doc.setFont("helvetica", "normal");
-            doc.text(job.name, x + 2, cellY + 4, { maxWidth: colW - 4 });
-          }
-          if (entry.notes) {
-            doc.setTextColor(120, 120, 120);
-            doc.text(entry.notes, x + 2, cellY + 7, { maxWidth: colW - 4 });
-            doc.setTextColor(0, 0, 0);
-          }
-        });
-      });
-
-      y += rowH;
-    });
-
-    // Footer
-    doc.setFontSize(6);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Generated ${format(new Date(), "PPP 'at' p")}`, margin, doc.internal.pageSize.getHeight() - 5);
-
-    doc.save(`planner-${format(weekStart, "yyyy-MM-dd")}.pdf`);
-    toast({ title: "PDF exported", description: "Weekly planner saved as PDF." });
-  };
-
-
 
   const handleCopyToNextWeek = async () => {
     if (schedule.length === 0) {
@@ -503,13 +272,101 @@ export default function WeeklyPlanner() {
     setCopying(false);
   };
 
+  const handleExportPdf = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 10;
+    let y = margin;
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(`WEEK COMMENCING ${format(weekStart, "dd/MM/yyyy")}`, margin, y + 5);
+    y += 14;
+
+    // Column widths
+    const cols = [
+      { label: "DATE", w: 28 },
+      { label: "ENGINEER", w: 35 },
+      { label: "COMPANY", w: 40 },
+      { label: "SITE", w: 55 },
+      { label: "POSTCODE", w: 22 },
+      { label: "JOB DESCRIPTION", w: 55 },
+      { label: "COMMENT", w: 42 },
+    ];
+    const headerH = 8;
+
+    // Header
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setFillColor(220, 220, 220);
+    doc.rect(margin, y, pageW - margin * 2, headerH, "F");
+    let cx = margin;
+    cols.forEach((col) => {
+      doc.text(col.label, cx + 2, y + 5.5);
+      cx += col.w;
+    });
+    y += headerH;
+
+    // Rows
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7);
+
+    rows.forEach((entry) => {
+      if (y + 8 > pageH - margin) {
+        doc.addPage();
+        y = margin;
+      }
+      const job = getJobById(entry.job_id);
+      const eng = getEngineerById(entry.engineer_id);
+      const rowData = [
+        format(parseISO(entry.schedule_date), "EEE dd/MM"),
+        eng?.full_name || "",
+        job?.customer || "",
+        job?.address || "",
+        extractPostcode(job?.address || null),
+        job ? `${job.reference_number} - ${job.name}` : "",
+        entry.notes || "",
+      ];
+
+      doc.setDrawColor(200, 200, 200);
+      cx = margin;
+      cols.forEach((col, i) => {
+        doc.rect(cx, y, col.w, 8);
+        doc.text(rowData[i], cx + 2, y + 5.5, { maxWidth: col.w - 4 });
+        cx += col.w;
+      });
+      y += 8;
+    });
+
+    // Footer
+    doc.setFontSize(6);
+    doc.setTextColor(150, 150, 150);
+    doc.text(`Generated ${format(new Date(), "PPP 'at' p")}`, margin, pageH - 5);
+
+    doc.save(`planner-${format(weekStart, "yyyy-MM-dd")}.pdf`);
+    toast({ title: "PDF exported", description: "Weekly planner saved as PDF." });
+  };
+
+  if (loading) {
+    return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
+  }
+
   return (
     <div>
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
+
+      {/* Header */}
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-bold">Weekly Planner</h1>
+        <div>
+          <h1 className="text-2xl font-bold">Weekly Planner</h1>
+          <p className="text-lg font-semibold text-muted-foreground mt-0.5">
+            Week Commencing {format(weekStart, "dd/MM/yyyy")}
+          </p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" size="icon" onClick={prevWeek}>
             <ChevronLeft className="h-4 w-4" />
@@ -520,14 +377,16 @@ export default function WeeklyPlanner() {
           <Button variant="outline" size="icon" onClick={nextWeek}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <span className="text-sm font-medium text-muted-foreground">
-            {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
-          </span>
           {isAdmin && (
-            <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
-              <Copy className="mr-1.5 h-4 w-4" />
-              {copying ? "Copying..." : "Copy to Next Week"}
-            </Button>
+            <>
+              <Button size="sm" onClick={() => openAddDialog()}>
+                <Plus className="mr-1.5 h-4 w-4" /> Add Entry
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
+                <Copy className="mr-1.5 h-4 w-4" />
+                {copying ? "Copying..." : "Copy to Next Week"}
+              </Button>
+            </>
           )}
           <Button variant="outline" size="sm" onClick={handleExportPdf}>
             <Printer className="mr-1.5 h-4 w-4" /> Export PDF
@@ -535,7 +394,7 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
-      {/* Filters & Legend */}
+      {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-xs text-muted-foreground">
         <div className="flex items-center gap-2">
           <span className="font-medium text-foreground">Filter:</span>
@@ -576,125 +435,135 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
+      {/* Table */}
       <Card>
         <CardContent className="overflow-x-auto p-0">
-          <DndContext
-            sensors={sensors}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDragEnd={handleDragEnd}
-          >
-            <table className="w-full min-w-[800px] border-collapse">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="sticky left-0 z-10 bg-muted/50 px-4 py-3 text-left text-sm font-semibold min-w-[160px]">
-                    Engineer
-                  </th>
-                  {weekDays.map((day) => {
-                    const isToday = isSameDay(day, new Date());
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50">
+                <TableHead className="min-w-[100px]">DATE</TableHead>
+                <TableHead className="min-w-[120px]">ENGINEER</TableHead>
+                <TableHead className="min-w-[120px]">COMPANY</TableHead>
+                <TableHead className="min-w-[160px]">SITE</TableHead>
+                <TableHead className="min-w-[90px]">POSTCODE</TableHead>
+                <TableHead className="min-w-[200px]">JOB DESCRIPTION</TableHead>
+                <TableHead className="min-w-[140px]">COMMENT</TableHead>
+                {isAdmin && <TableHead className="w-[80px]" />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={isAdmin ? 8 : 7} className="py-12 text-center text-muted-foreground">
+                    No entries this week.
+                    {isAdmin && (
+                      <Button variant="link" className="ml-2" onClick={() => openAddDialog()}>
+                        Add one
+                      </Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                Array.from(groupedByDate.entries()).map(([dateStr, entries]) => {
+                  const date = parseISO(dateStr);
+                  const isToday = isSameDay(date, new Date());
+
+                  return entries.map((entry, idx) => {
+                    const job = getJobById(entry.job_id);
+                    const eng = getEngineerById(entry.engineer_id);
+
                     return (
-                      <th
-                        key={day.toISOString()}
+                      <TableRow
+                        key={entry.id}
                         className={cn(
-                          "px-2 py-3 text-center text-sm font-semibold min-w-[130px]",
-                          isToday && "bg-primary/5"
+                          isToday && "bg-primary/5",
+                          job && PRIORITY_COLORS[job.priority]
                         )}
                       >
-                        <div>{format(day, "EEE")}</div>
-                        <div className={cn("text-xs font-normal", isToday ? "text-primary font-medium" : "text-muted-foreground")}>
-                          {format(day, "MMM d")}
-                        </div>
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {visibleEngineers.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-muted-foreground">
-                      No engineers found.
-                    </td>
-                  </tr>
-                ) : (
-                  visibleEngineers.map((eng) => (
-                    <tr key={eng.user_id} className="border-b last:border-0">
-                      <td className="sticky left-0 z-10 bg-card px-4 py-3 text-sm font-medium">
-                        {eng.full_name}
-                      </td>
-                      {weekDays.map((day) => {
-                        const entries = getEntriesForCell(eng.user_id, day);
-                        const isToday = isSameDay(day, new Date());
-                        const cellId = `${eng.user_id}__${format(day, "yyyy-MM-dd")}`;
-                        const isCellOver = overId === cellId;
-
-                        return (
-                          <DroppableCell
-                            key={day.toISOString()}
-                            engineerId={eng.user_id}
-                            day={day}
-                            isToday={isToday}
-                            isAdmin={isAdmin}
-                            isOver={isCellOver}
-                            onClickEmpty={() => entries.length === 0 && openAddDialog(eng.user_id, day)}
-                          >
-                            <div className="space-y-1.5">
-                              {entries.map((entry) => (
-                                <DraggableScheduleCard
-                                  key={entry.id}
-                                  entry={entry}
-                                  job={getJobById(entry.job_id)}
-                                  isAdmin={isAdmin}
-                                  onRemove={() => handleRemoveEntry(entry.id)}
-                                />
-                              ))}
-                              {isAdmin && entries.length > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openAddDialog(eng.user_id, day);
-                                  }}
-                                  className="flex w-full items-center justify-center rounded border border-dashed border-muted-foreground/30 py-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </button>
-                              )}
+                        {/* Show date only on first row of each group */}
+                        <TableCell className={cn("font-medium", idx > 0 && "border-t-0")}>
+                          {idx === 0 ? (
+                            <div>
+                              <div className={cn("font-semibold", isToday && "text-primary")}>{format(date, "EEE")}</div>
+                              <div className="text-xs text-muted-foreground">{format(date, "dd/MM/yyyy")}</div>
                             </div>
-                          </DroppableCell>
-                        );
-                      })}
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-            <DragOverlay>
-              {activeEntry && draggedJob ? (
-                <div className="rounded-md border bg-card p-2 text-xs shadow-lg">
-                  <div className="font-mono font-medium text-primary">{draggedJob.reference_number}</div>
-                  <div className="truncate text-muted-foreground">{draggedJob.name}</div>
-                </div>
-              ) : null}
-            </DragOverlay>
-          </DndContext>
+                          ) : null}
+                        </TableCell>
+                        <TableCell className="text-sm">{eng?.full_name || "—"}</TableCell>
+                        <TableCell className="text-sm">{job?.customer || "—"}</TableCell>
+                        <TableCell className="text-sm max-w-[200px] truncate">{job?.address || "—"}</TableCell>
+                        <TableCell className="text-sm font-mono">{extractPostcode(job?.address || null) || "—"}</TableCell>
+                        <TableCell>
+                          {job ? (
+                            <Link to={`/jobs/${job.id}`} className="hover:underline">
+                              <span className="font-mono text-xs font-medium text-primary">{job.reference_number}</span>
+                              <span className="ml-1.5 text-sm">{job.name}</span>
+                            </Link>
+                          ) : (
+                            <span className="text-muted-foreground italic">Unknown job</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{entry.notes || "—"}</TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(entry)}>
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleRemoveEntry(entry.id)}>
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  });
+                })
+              )}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
 
-      {/* Add Schedule Entry Dialog */}
+      {/* Add / Edit Schedule Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              Schedule Job — {addDay && format(addDay, "EEE, MMM d")}
+              {editingEntryId ? "Edit Schedule Entry" : "Add Schedule Entry"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
+              <Label>Date</Label>
+              <Select value={addDay} onValueChange={setAddDay}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a day..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {weekDays.map((d) => (
+                    <SelectItem key={format(d, "yyyy-MM-dd")} value={format(d, "yyyy-MM-dd")}>
+                      {format(d, "EEE, MMM d")}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
               <Label>Engineer</Label>
-              <Input
-                value={engineers.find((e) => e.user_id === addEngineerId)?.full_name || ""}
-                disabled
-              />
+              <Select value={addEngineerId} onValueChange={setAddEngineerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select an engineer..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => (
+                    <SelectItem key={e.user_id} value={e.user_id}>
+                      {e.full_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Job</Label>
@@ -712,16 +581,16 @@ export default function WeeklyPlanner() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Notes (optional)</Label>
+              <Label>Comment (optional)</Label>
               <Textarea
                 value={addNotes}
                 onChange={(e) => setAddNotes(e.target.value)}
-                placeholder="Any notes for this day..."
+                placeholder="Any notes for this entry..."
                 rows={2}
               />
             </div>
-            <Button onClick={handleAddEntry} className="w-full" disabled={!addJobId || saving}>
-              {saving ? "Saving..." : "Add to Schedule"}
+            <Button onClick={handleAddEntry} className="w-full" disabled={!addJobId || !addEngineerId || !addDay || saving}>
+              {saving ? "Saving..." : editingEntryId ? "Update Entry" : "Add to Schedule"}
             </Button>
           </div>
         </DialogContent>
