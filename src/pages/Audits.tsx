@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useAuditCategories } from "@/hooks/useAuditCategories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -20,9 +21,12 @@ import {
   Tabs, TabsContent, TabsList, TabsTrigger,
 } from "@/components/ui/tabs";
 import {
-  ClipboardCheck, Plus, Pencil, Trash2, Play, CheckCircle2, XCircle, Minus, Search, Flame, Shield,
+  ClipboardCheck, Plus, Pencil, Trash2, Play, CheckCircle2, XCircle, Minus, Search, Flame, Shield, Settings2,
 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  Collapsible, CollapsibleContent, CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 type AuditTemplate = {
   id: string; name: string; description: string | null; category: string; created_at: string;
@@ -40,8 +44,6 @@ type AuditResponse = {
 };
 type LookupOption = { id: string; name: string };
 
-const CATEGORIES = ["general", "fire_safety", "health_safety", "electrical", "water_hygiene", "hvac", "building_fabric"];
-
 const CATEGORY_ICONS: Record<string, React.ElementType> = {
   fire_safety: Flame,
 };
@@ -53,7 +55,8 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function Audits() {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
-
+  const { categories: auditCategories, refetch: refetchCategories } = useAuditCategories();
+  const CATEGORIES = auditCategories.map((c) => c.slug);
   const [templates, setTemplates] = useState<AuditTemplate[]>([]);
   const [templateItems, setTemplateItems] = useState<Record<string, TemplateItem[]>>({});
   const [audits, setAudits] = useState<Audit[]>([]);
@@ -80,6 +83,48 @@ export default function Audits() {
   const [activeAudit, setActiveAudit] = useState<Audit | null>(null);
   const [activeItems, setActiveItems] = useState<TemplateItem[]>([]);
   const [responses, setResponses] = useState<Record<string, { result: string; notes: string }>>({});
+
+  // Category management state
+  const [catOpen, setCatOpen] = useState(false);
+  const [newCatName, setNewCatName] = useState("");
+  const [addingCat, setAddingCat] = useState(false);
+  const [editingCatId, setEditingCatId] = useState<string | null>(null);
+  const [editCatName, setEditCatName] = useState("");
+
+  const toSlug = (name: string) =>
+    name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
+  const handleAddCategory = async () => {
+    const name = newCatName.trim();
+    if (!name) return;
+    const slug = toSlug(name);
+    if (auditCategories.some((c) => c.slug === slug)) {
+      toast({ title: "Category already exists", variant: "destructive" });
+      return;
+    }
+    setAddingCat(true);
+    const maxOrder = auditCategories.reduce((m, c) => Math.max(m, c.sort_order), -1);
+    const { error } = await supabase.from("audit_categories" as any).insert({ name, slug, sort_order: maxOrder + 1 } as any);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { setNewCatName(""); toast({ title: "Category added" }); refetchCategories(); }
+    setAddingCat(false);
+  };
+
+  const handleRenameCategory = async (id: string, oldName: string) => {
+    const name = editCatName.trim();
+    if (!name || name === oldName) { setEditingCatId(null); return; }
+    const slug = toSlug(name);
+    const { error } = await supabase.from("audit_categories" as any).update({ name, slug } as any).eq("id", id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: "Category renamed" }); refetchCategories(); }
+    setEditingCatId(null);
+  };
+
+  const handleDeleteCategory = async (id: string, name: string) => {
+    const { error } = await supabase.from("audit_categories" as any).delete().eq("id", id);
+    if (error) toast({ title: "Error", description: error.message, variant: "destructive" });
+    else { toast({ title: `"${name}" removed` }); refetchCategories(); }
+  };
 
   const fetchData = async () => {
     const [tplRes, auditRes, siteRes, assetRes] = await Promise.all([
@@ -252,7 +297,7 @@ export default function Audits() {
             <SelectTrigger className="w-[160px]"><SelectValue placeholder="Category" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Categories</SelectItem>
-              {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}</SelectItem>)}
+              {auditCategories.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
             </SelectContent>
           </Select>
           <Button variant="outline" onClick={() => { setSelectedTemplate(""); setAuditSite(""); setAuditAsset(""); setStartDialogOpen(true); }}>
@@ -263,6 +308,83 @@ export default function Audits() {
           )}
         </div>
       </div>
+
+      {/* Inline Category Management */}
+      {userRole === "admin" && (
+        <Collapsible open={catOpen} onOpenChange={setCatOpen}>
+          <CollapsibleTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Settings2 className="mr-1 h-4 w-4" /> Manage Categories
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent className="mt-3">
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="New category name"
+                    value={newCatName}
+                    onChange={(e) => setNewCatName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleAddCategory()}
+                    className="max-w-xs"
+                  />
+                  <Button onClick={handleAddCategory} disabled={addingCat || !newCatName.trim()} size="sm">
+                    <Plus className="mr-1 h-4 w-4" /> Add
+                  </Button>
+                </div>
+                {auditCategories.length > 0 && (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-10">#</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Slug</TableHead>
+                        <TableHead className="w-10" />
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {auditCategories.map((cat, i) => (
+                        <TableRow key={cat.id}>
+                          <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                          <TableCell className="font-medium">
+                            {editingCatId === cat.id ? (
+                              <Input
+                                value={editCatName}
+                                onChange={(e) => setEditCatName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleRenameCategory(cat.id, cat.name);
+                                  if (e.key === "Escape") setEditingCatId(null);
+                                }}
+                                onBlur={() => handleRenameCategory(cat.id, cat.name)}
+                                autoFocus
+                                className="h-7 text-sm max-w-[200px]"
+                              />
+                            ) : (
+                              <span
+                                className="cursor-pointer hover:underline"
+                                onDoubleClick={() => { setEditingCatId(cat.id); setEditCatName(cat.name); }}
+                                title="Double-click to rename"
+                              >
+                                {cat.name}
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-xs font-mono">{cat.slug}</TableCell>
+                          <TableCell>
+                            <button onClick={() => handleDeleteCategory(cat.id, cat.name)} className="text-muted-foreground hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       <Tabs defaultValue="audits">
         <TabsList>
@@ -403,7 +525,7 @@ export default function Audits() {
                 <Select value={tplForm.category} onValueChange={(v) => setTplForm((f) => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {CATEGORIES.map((c) => <SelectItem key={c} value={c}>{c.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}</SelectItem>)}
+                    {auditCategories.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
