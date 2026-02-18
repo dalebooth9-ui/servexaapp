@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -293,7 +294,11 @@ export default function Assets() {
                   const sc = STATUS_CONFIG[asset.status];
                   return (
                     <TableRow key={asset.id}>
-                      <TableCell className="font-medium">{asset.name}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link to={`/assets/${asset.id}`} className="text-primary hover:underline">
+                          {asset.name}
+                        </Link>
+                      </TableCell>
                       <TableCell className="text-muted-foreground text-xs font-mono">
                         {asset.asset_tag || "—"}
                       </TableCell>

@@ -16,6 +16,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import WeeklyPlanner from "@/pages/WeeklyPlanner";
 import Sites from "@/pages/Sites";
 import Assets from "@/pages/Assets";
+import AssetDetail from "@/pages/AssetDetail";
 import Invoices from "@/pages/Invoices";
 import InvoiceDetail from "@/pages/InvoiceDetail";
 import NotFound from "@/pages/NotFound";
@@ -64,6 +65,7 @@ const App = () => (
             <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
             <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
             <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+            <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
