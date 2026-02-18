@@ -26,6 +26,7 @@ import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
 import JobVisits from "@/components/JobVisits";
 import FaultCodeSelect from "@/components/FaultCodeSelect";
 import CloneJobDialog from "@/components/CloneJobDialog";
+import JobSheet from "@/components/JobSheet";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -389,6 +390,16 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <FieldReports jobId={id!} />
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Job Sheet & Activity
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobSheet jobId={id!} job={job} />
         </CollapsibleContent>
       </Collapsible>
 
