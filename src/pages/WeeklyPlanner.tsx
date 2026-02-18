@@ -110,11 +110,15 @@ export default function WeeklyPlanner() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Realtime
+  // Realtime — listen to both schedule and job status changes
   useEffect(() => {
     const channel = supabase
       .channel("planner_realtime")
       .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, () => fetchData())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, (payload) => {
+        // Live-update job status without full refetch
+        setJobs((prev) => prev.map((j) => j.id === payload.new.id ? { ...j, status: (payload.new as any).status } : j));
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);

@@ -50,6 +50,12 @@ const PRIORITY_BG: Record<string, string> = {
   low: "border-l-accent bg-accent/5",
 };
 
+const STATUS_INDICATOR: Record<string, { label: string; class: string }> = {
+  active: { label: "Active", class: "bg-primary/20 text-primary" },
+  completed: { label: "Done", class: "bg-green-500/20 text-green-700 dark:text-green-400" },
+  archived: { label: "Archived", class: "bg-muted text-muted-foreground" },
+};
+
 function extractPostcodeArea(address: string | null): string {
   if (!address) return "No area";
   const match = address.match(/([A-Z]{1,2}\d)/i);
@@ -118,9 +124,16 @@ function DraggableScheduleCard({
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline">
-            {job.reference_number}
-          </Link>
+          <div className="flex items-center gap-1">
+            <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline">
+              {job.reference_number}
+            </Link>
+            {STATUS_INDICATOR[job.status] && (
+              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none", STATUS_INDICATOR[job.status].class)}>
+                {STATUS_INDICATOR[job.status].label}
+              </span>
+            )}
+          </div>
           <div className="truncate text-foreground">{job.name}</div>
           {entry.notes && <div className="truncate text-muted-foreground italic">{entry.notes}</div>}
         </div>
@@ -304,8 +317,30 @@ export default function WeeklyGridView({
                     className="grid gap-1"
                     style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
                   >
-                    <div className="flex items-center px-2 text-sm font-medium truncate">
-                      {eng.full_name}
+                    <div className="flex items-center gap-2 px-2 text-sm font-medium truncate">
+                      <span className="truncate">{eng.full_name}</span>
+                      {(() => {
+                        const totalJobs = schedule.filter((s) => s.engineer_id === eng.user_id).length;
+                        const todayJobs = schedule.filter(
+                          (s) => s.engineer_id === eng.user_id && s.schedule_date === format(new Date(), "yyyy-MM-dd")
+                        ).length;
+                        const available = todayJobs === 0;
+                        return (
+                          <span
+                            className={cn(
+                              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+                              available
+                                ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                                : todayJobs >= 3
+                                  ? "bg-destructive/20 text-destructive"
+                                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+                            )}
+                            title={`${totalJobs} jobs this period, ${todayJobs} today`}
+                          >
+                            {available ? "Free" : `${todayJobs} today`}
+                          </span>
+                        );
+                      })()}
                     </div>
                     {weekDays.map((d) => {
                       const dateStr = format(d, "yyyy-MM-dd");
