@@ -655,6 +655,65 @@ export type Database = {
           },
         ]
       }
+      ppm_schedules: {
+        Row: {
+          asset_id: string
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          frequency_interval: number
+          frequency_unit: string
+          id: string
+          last_generated_at: string | null
+          next_due_date: string
+          priority: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          frequency_interval?: number
+          frequency_unit?: string
+          id?: string
+          last_generated_at?: string | null
+          next_due_date: string
+          priority?: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          frequency_interval?: number
+          frequency_unit?: string
+          id?: string
+          last_generated_at?: string | null
+          next_due_date?: string
+          priority?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ppm_schedules_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
