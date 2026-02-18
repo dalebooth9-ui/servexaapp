@@ -1,27 +1,22 @@
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ChevronLeft, ChevronRight, Plus, X, Printer, Copy, ArrowLeft, Pencil, Check } from "lucide-react";
-import { format, addDays, startOfWeek, endOfWeek, isSameDay, parseISO } from "date-fns";
-import { cn } from "@/lib/utils";
-import { Link, useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users } from "lucide-react";
+import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
+import { useNavigate } from "react-router-dom";
 import jsPDF from "jspdf";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import WeeklyGridView from "@/components/planner/WeeklyGridView";
+import MonthlyView from "@/components/planner/MonthlyView";
+import ListView from "@/components/planner/ListView";
+import PlannerMapView from "@/components/planner/PlannerMapView";
 
 interface ScheduleEntry {
   id: string;
@@ -31,10 +26,7 @@ interface ScheduleEntry {
   notes: string | null;
 }
 
-interface Engineer {
-  user_id: string;
-  full_name: string;
-}
+interface Engineer { user_id: string; full_name: string }
 
 interface Job {
   id: string;
@@ -47,88 +39,10 @@ interface Job {
   address: string | null;
 }
 
-const PRIORITY_COLORS: Record<string, string> = {
-  high: "border-l-4 border-l-destructive",
-  medium: "border-l-4 border-l-amber-500",
-  low: "border-l-4 border-l-emerald-500",
-};
-
 function extractPostcode(address: string | null): string {
   if (!address) return "";
   const match = address.match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
   return match ? match[0].toUpperCase() : "";
-}
-
-function InlineComment({
-  entryId,
-  value,
-  isAdmin,
-  onSave,
-}: {
-  entryId: string;
-  value: string;
-  isAdmin: boolean;
-  onSave: (entryId: string, newValue: string) => Promise<void>;
-}) {
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(value);
-  const [savingComment, setSavingComment] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (editing) {
-      inputRef.current?.focus();
-      inputRef.current?.select();
-    }
-  }, [editing]);
-
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  const save = async () => {
-    if (draft === value) {
-      setEditing(false);
-      return;
-    }
-    setSavingComment(true);
-    await onSave(entryId, draft);
-    setSavingComment(false);
-    setEditing(false);
-  };
-
-  if (!isAdmin) {
-    return <span>{value || "—"}</span>;
-  }
-
-  if (editing) {
-    return (
-      <div className="flex items-center gap-1">
-        <Input
-          ref={inputRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") save();
-            if (e.key === "Escape") { setDraft(value); setEditing(false); }
-          }}
-          onBlur={save}
-          className="h-7 text-sm"
-          disabled={savingComment}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <button
-      onClick={() => setEditing(true)}
-      className="group/comment flex w-full items-center gap-1 rounded px-1 py-0.5 text-left hover:bg-muted transition-colors"
-    >
-      <span className="flex-1 truncate">{value || <span className="italic text-muted-foreground/50">Add comment…</span>}</span>
-      <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 group-hover/comment:opacity-100 transition-opacity" />
-    </button>
-  );
 }
 
 export default function WeeklyPlanner() {
@@ -137,222 +51,220 @@ export default function WeeklyPlanner() {
   const { toast } = useToast();
   const isAdmin = userRole === "admin";
 
+  const [view, setView] = useState<"grid" | "month" | "list" | "map">("grid");
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [monthDate, setMonthDate] = useState(new Date());
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
-  const [filterPriority, setFilterPriority] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
 
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
-  const [addDay, setAddDay] = useState<string>("");
+  const [addDay, setAddDay] = useState("");
   const [addEngineerId, setAddEngineerId] = useState("");
   const [addJobId, setAddJobId] = useState("");
   const [addNotes, setAddNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+
+  // Batch deploy dialog
+  const [batchOpen, setBatchOpen] = useState(false);
+  const [batchEngineerId, setBatchEngineerId] = useState("");
+  const [batchJobIds, setBatchJobIds] = useState<Set<string>>(new Set());
+  const [batchDate, setBatchDate] = useState("");
+
+  // Shunt dialog
+  const [shuntOpen, setShuntOpen] = useState(false);
+  const [shuntEngineerId, setShuntEngineerId] = useState("");
+  const [shuntDays, setShuntDays] = useState("1");
+  const [shuntDirection, setShuntDirection] = useState<"forward" | "backward">("forward");
+  const [shuntFromDate, setShuntFromDate] = useState("");
 
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+  const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
-  const weekDays = useMemo(() => {
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [weekStart]);
+  // Compute date range based on view
+  const rangeStart = useMemo(() => {
+    if (view === "month") return format(startOfMonth(monthDate), "yyyy-MM-dd");
+    return format(weekStart, "yyyy-MM-dd");
+  }, [view, weekStart, monthDate]);
 
-  const fetchData = async () => {
+  const rangeEnd = useMemo(() => {
+    if (view === "month") return format(endOfMonth(monthDate), "yyyy-MM-dd");
+    return format(weekEnd, "yyyy-MM-dd");
+  }, [view, weekEnd, monthDate]);
+
+  const fetchData = useCallback(async () => {
     setLoading(true);
-    const startStr = format(weekStart, "yyyy-MM-dd");
-    const endStr = format(weekEnd, "yyyy-MM-dd");
-
     const [engRes, jobsRes, schedRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
       supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, address").eq("status", "active"),
-      supabase
-        .from("job_schedule")
-        .select("*")
-        .gte("schedule_date", startStr)
-        .lte("schedule_date", endStr),
+      supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
     ]);
-
     setEngineers(engRes.data || []);
     setJobs((jobsRes.data as Job[]) || []);
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
     setLoading(false);
-  };
+  }, [rangeStart, rangeEnd]);
 
-  useEffect(() => {
-    fetchData();
-  }, [weekStart]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // Realtime
   useEffect(() => {
     const channel = supabase
-      .channel("job_schedule_realtime")
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, () => {
-        fetchData();
-      })
+      .channel("planner_realtime")
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [weekStart]);
+  }, [fetchData]);
 
+  // Unallocated: active jobs with no schedule entry this period
+  const unallocatedJobs = useMemo(() => {
+    const scheduledJobIds = new Set(schedule.map((s) => s.job_id));
+    return jobs.filter((j) => !scheduledJobIds.has(j.id));
+  }, [jobs, schedule]);
+
+  // Filter schedule for non-admin
+  const filteredSchedule = useMemo(() => {
+    if (isAdmin) return schedule;
+    return schedule.filter((s) => s.engineer_id === user?.id);
+  }, [schedule, isAdmin, user]);
+
+  // Navigation
   const prevWeek = () => setWeekStart((d) => addDays(d, -7));
   const nextWeek = () => setWeekStart((d) => addDays(d, 7));
   const goToday = () => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const prevMonth = () => setMonthDate((d) => addMonths(d, -1));
+  const nextMonth = () => setMonthDate((d) => addMonths(d, 1));
+  const goThisMonth = () => setMonthDate(new Date());
 
-  const getJobById = (jobId: string) => jobs.find((j) => j.id === jobId);
-  const getEngineerById = (engId: string) => engineers.find((e) => e.user_id === engId);
-
-  // Build flat rows sorted by date, then engineer
-  const rows = useMemo(() => {
-    let filtered = [...schedule];
-
-    // Role filter: engineers only see their own
-    if (!isAdmin) {
-      filtered = filtered.filter((e) => e.engineer_id === user?.id);
+  // CRUD operations
+  const handleAssign = async (jobId: string, engineerId: string, date: string) => {
+    const { error } = await supabase.from("job_schedule").insert({
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+    } as any);
+    if (error) {
+      toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
+    } else {
+      toast({ title: "Assigned" });
+      fetchData();
     }
-
-    // Priority/category filter
-    if (filterPriority !== "all" || filterCategory !== "all") {
-      filtered = filtered.filter((e) => {
-        const job = getJobById(e.job_id);
-        if (!job) return true;
-        if (filterPriority !== "all" && job.priority !== filterPriority) return false;
-        if (filterCategory !== "all" && job.category !== filterCategory) return false;
-        return true;
-      });
-    }
-
-    // Sort by date then engineer name
-    filtered.sort((a, b) => {
-      const dateCmp = a.schedule_date.localeCompare(b.schedule_date);
-      if (dateCmp !== 0) return dateCmp;
-      const engA = getEngineerById(a.engineer_id)?.full_name || "";
-      const engB = getEngineerById(b.engineer_id)?.full_name || "";
-      return engA.localeCompare(engB);
-    });
-
-    return filtered;
-  }, [schedule, filterPriority, filterCategory, isAdmin, user, engineers, jobs]);
-
-  // Group rows by date for display
-  const groupedByDate = useMemo(() => {
-    const map = new Map<string, ScheduleEntry[]>();
-    for (const entry of rows) {
-      const existing = map.get(entry.schedule_date) || [];
-      existing.push(entry);
-      map.set(entry.schedule_date, existing);
-    }
-    return map;
-  }, [rows]);
-
-  const openAddDialog = (date?: string) => {
-    setEditingEntryId(null);
-    setAddDay(date || format(weekDays[0], "yyyy-MM-dd"));
-    setAddEngineerId("");
-    setAddJobId("");
-    setAddNotes("");
-    setAddOpen(true);
   };
 
-  const openEditDialog = (entry: ScheduleEntry) => {
-    setEditingEntryId(entry.id);
-    setAddDay(entry.schedule_date);
-    setAddEngineerId(entry.engineer_id);
-    setAddJobId(entry.job_id);
-    setAddNotes(entry.notes || "");
-    setAddOpen(true);
+  const handleMove = async (entryId: string, newEngineerId: string, newDate: string) => {
+    const { error } = await supabase.from("job_schedule").update({
+      engineer_id: newEngineerId, schedule_date: newDate,
+    } as any).eq("id", entryId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to move.", variant: "destructive" });
+    } else {
+      fetchData();
+    }
   };
 
+  const handleRemove = async (entryId: string) => {
+    const { error } = await supabase.from("job_schedule").delete().eq("id", entryId);
+    if (!error) fetchData();
+  };
+
+  const handleBulkReassign = async (entryIds: string[], newEngineerId: string) => {
+    const { error } = await supabase.from("job_schedule").update({ engineer_id: newEngineerId } as any).in("id", entryIds);
+    if (error) {
+      toast({ title: "Error", description: "Failed to reassign.", variant: "destructive" });
+    } else {
+      toast({ title: "Reassigned", description: `${entryIds.length} entries moved.` });
+      fetchData();
+    }
+  };
+
+  const handleBulkDelete = async (entryIds: string[]) => {
+    const { error } = await supabase.from("job_schedule").delete().in("id", entryIds);
+    if (!error) {
+      toast({ title: "Removed", description: `${entryIds.length} entries removed.` });
+      fetchData();
+    }
+  };
+
+  // Add entry
   const handleAddEntry = async () => {
     if (!addDay || !addEngineerId || !addJobId) return;
     setSaving(true);
+    await handleAssign(addJobId, addEngineerId, addDay);
+    setAddOpen(false);
+    setSaving(false);
+  };
 
-    if (editingEntryId) {
-      const { error } = await supabase.from("job_schedule").update({
-        job_id: addJobId,
-        engineer_id: addEngineerId,
-        schedule_date: addDay,
-        notes: addNotes || null,
-      } as any).eq("id", editingEntryId);
-
-      if (error) {
-        toast({ title: "Error", description: "Failed to update entry.", variant: "destructive" });
-      } else {
-        toast({ title: "Updated", description: "Schedule entry updated." });
-        setAddOpen(false);
-        fetchData();
-      }
+  // Batch deploy
+  const handleBatchDeploy = async () => {
+    if (!batchEngineerId || batchJobIds.size === 0 || !batchDate) return;
+    setSaving(true);
+    const rows = Array.from(batchJobIds).map((jobId) => ({
+      job_id: jobId, engineer_id: batchEngineerId, schedule_date: batchDate, created_by: user?.id,
+    }));
+    const { error } = await supabase.from("job_schedule").insert(rows as any);
+    if (error) {
+      toast({ title: "Error", description: "Some jobs may already be scheduled.", variant: "destructive" });
     } else {
-      const { error } = await supabase.from("job_schedule").insert({
-        job_id: addJobId,
-        engineer_id: addEngineerId,
-        schedule_date: addDay,
-        notes: addNotes || null,
-        created_by: user?.id,
-      } as any);
-
-      if (error) {
-        const msg = error.code === "23505"
-          ? "This job is already scheduled for this engineer on this day."
-          : "Failed to add schedule entry.";
-        toast({ title: "Error", description: msg, variant: "destructive" });
-      } else {
-        toast({ title: "Scheduled", description: "Job added to the planner." });
-        setAddOpen(false);
-        fetchData();
-      }
+      toast({ title: "Batch deployed", description: `${batchJobIds.size} jobs assigned.` });
+      setBatchOpen(false);
+      setBatchJobIds(new Set());
+      fetchData();
     }
     setSaving(false);
   };
 
-  const handleInlineCommentSave = async (entryId: string, newNotes: string) => {
-    const { error } = await supabase.from("job_schedule").update({ notes: newNotes || null } as any).eq("id", entryId);
-    if (error) {
-      toast({ title: "Error", description: "Failed to save comment.", variant: "destructive" });
-    } else {
-      setSchedule((prev) => prev.map((e) => e.id === entryId ? { ...e, notes: newNotes || null } : e));
-    }
-  };
+  // Shunt scheduling
+  const handleShunt = async () => {
+    if (!shuntEngineerId || !shuntFromDate) return;
+    setSaving(true);
+    const days = parseInt(shuntDays) || 1;
+    const offset = shuntDirection === "forward" ? days : -days;
 
-  const handleRemoveEntry = async (entryId: string) => {
-    const { error } = await supabase.from("job_schedule").delete().eq("id", entryId);
-    if (error) {
-      toast({ title: "Error", description: "Failed to remove entry.", variant: "destructive" });
-    } else {
-      setSchedule((prev) => prev.filter((e) => e.id !== entryId));
-    }
-  };
+    // Get all entries for this engineer from the date onwards
+    const { data: entries } = await supabase
+      .from("job_schedule")
+      .select("id, schedule_date")
+      .eq("engineer_id", shuntEngineerId)
+      .gte("schedule_date", shuntFromDate)
+      .order("schedule_date", { ascending: shuntDirection === "forward" ? false : true });
 
-  const handleCopyToNextWeek = async () => {
-    if (schedule.length === 0) {
-      toast({ title: "Nothing to copy", description: "This week has no schedule entries.", variant: "destructive" });
+    if (!entries || entries.length === 0) {
+      toast({ title: "Nothing to shunt", variant: "destructive" });
+      setSaving(false);
       return;
     }
-    setCopying(true);
 
-    const nextWeekEntries = schedule.map((e) => ({
-      job_id: e.job_id,
-      engineer_id: e.engineer_id,
-      schedule_date: format(addDays(new Date(e.schedule_date), 7), "yyyy-MM-dd"),
-      notes: e.notes,
-      created_by: user?.id,
-    }));
-
-    const { error } = await supabase.from("job_schedule").upsert(nextWeekEntries as any[], {
-      onConflict: "job_id,engineer_id,schedule_date",
-      ignoreDuplicates: true,
-    });
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to copy schedule.", variant: "destructive" });
-    } else {
-      toast({ title: "Week copied", description: `${nextWeekEntries.length} entries duplicated to next week.` });
+    // Update each entry sequentially (reverse order to avoid conflicts)
+    for (const entry of entries) {
+      const newDate = format(addDays(new Date(entry.schedule_date), offset), "yyyy-MM-dd");
+      await supabase.from("job_schedule").update({ schedule_date: newDate } as any).eq("id", entry.id);
     }
+
+    toast({ title: "Shunt complete", description: `${entries.length} entries shifted ${days} day(s) ${shuntDirection}.` });
+    setShuntOpen(false);
+    fetchData();
+    setSaving(false);
+  };
+
+  // Copy week
+  const handleCopyToNextWeek = async () => {
+    if (schedule.length === 0) return;
+    setCopying(true);
+    const entries = schedule.map((e) => ({
+      job_id: e.job_id, engineer_id: e.engineer_id,
+      schedule_date: format(addDays(new Date(e.schedule_date), 7), "yyyy-MM-dd"),
+      notes: e.notes, created_by: user?.id,
+    }));
+    const { error } = await supabase.from("job_schedule").upsert(entries as any[], {
+      onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
+    });
+    if (error) toast({ title: "Error", description: "Failed to copy.", variant: "destructive" });
+    else toast({ title: "Week copied", description: `${entries.length} entries duplicated.` });
     setCopying(false);
   };
 
+  // PDF export
   const handleExportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
@@ -360,79 +272,51 @@ export default function WeeklyPlanner() {
     const margin = 10;
     let y = margin;
 
-    // Title
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.text(`WEEK COMMENCING ${format(weekStart, "dd/MM/yyyy")}`, margin, y + 5);
     y += 14;
 
-    // Column widths
     const cols = [
-      { label: "DATE", w: 28 },
-      { label: "ENGINEER", w: 35 },
-      { label: "COMPANY", w: 40 },
-      { label: "SITE", w: 55 },
-      { label: "POSTCODE", w: 22 },
-      { label: "JOB DESCRIPTION", w: 55 },
-      { label: "COMMENT", w: 42 },
+      { label: "DATE", w: 28 }, { label: "ENGINEER", w: 35 }, { label: "COMPANY", w: 40 },
+      { label: "SITE", w: 55 }, { label: "POSTCODE", w: 22 }, { label: "JOB", w: 55 }, { label: "COMMENT", w: 42 },
     ];
-    const headerH = 8;
 
-    // Header
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
     doc.setFillColor(220, 220, 220);
-    doc.rect(margin, y, pageW - margin * 2, headerH, "F");
+    doc.rect(margin, y, pageW - margin * 2, 8, "F");
     let cx = margin;
-    cols.forEach((col) => {
-      doc.text(col.label, cx + 2, y + 5.5);
-      cx += col.w;
-    });
-    y += headerH;
+    cols.forEach((col) => { doc.text(col.label, cx + 2, y + 5.5); cx += col.w; });
+    y += 8;
 
-    // Rows
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(7);
+    const getJob = (id: string) => jobs.find((j) => j.id === id);
+    const getEng = (id: string) => engineers.find((e) => e.user_id === id);
 
-    rows.forEach((entry) => {
-      if (y + 8 > pageH - margin) {
-        doc.addPage();
-        y = margin;
-      }
-      const job = getJobById(entry.job_id);
-      const eng = getEngineerById(entry.engineer_id);
-      const rowData = [
-        format(parseISO(entry.schedule_date), "EEE dd/MM"),
-        eng?.full_name || "",
-        job?.customer || "",
-        job?.address || "",
-        extractPostcode(job?.address || null),
-        job ? `${job.reference_number} - ${job.name}` : "",
-        entry.notes || "",
+    const sorted = [...filteredSchedule].sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
+    sorted.forEach((entry) => {
+      if (y + 8 > pageH - margin) { doc.addPage(); y = margin; }
+      const job = getJob(entry.job_id);
+      const eng = getEng(entry.engineer_id);
+      const row = [
+        format(new Date(entry.schedule_date), "EEE dd/MM"), eng?.full_name || "", job?.customer || "",
+        job?.address || "", extractPostcode(job?.address || null),
+        job ? `${job.reference_number} - ${job.name}` : "", entry.notes || "",
       ];
-
       doc.setDrawColor(200, 200, 200);
       cx = margin;
-      cols.forEach((col, i) => {
-        doc.rect(cx, y, col.w, 8);
-        doc.text(rowData[i], cx + 2, y + 5.5, { maxWidth: col.w - 4 });
-        cx += col.w;
-      });
+      cols.forEach((col, i) => { doc.rect(cx, y, col.w, 8); doc.text(row[i], cx + 2, y + 5.5, { maxWidth: col.w - 4 }); cx += col.w; });
       y += 8;
     });
 
-    // Footer
-    doc.setFontSize(6);
-    doc.setTextColor(150, 150, 150);
-    doc.text(`Generated ${format(new Date(), "PPP 'at' p")}`, margin, pageH - 5);
-
     doc.save(`planner-${format(weekStart, "yyyy-MM-dd")}.pdf`);
-    toast({ title: "PDF exported", description: "Weekly planner saved as PDF." });
+    toast({ title: "PDF exported" });
   };
 
-  if (loading) {
-    return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
-  }
+  const isWeeklyNav = view === "grid" || view === "list" || view === "map";
+
+  if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
 
   return (
     <div>
@@ -441,244 +325,219 @@ export default function WeeklyPlanner() {
       </Button>
 
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Weekly Planner</h1>
+          <h1 className="text-2xl font-bold">Job Planner</h1>
           <p className="text-lg font-semibold text-muted-foreground mt-0.5">
-            Week Commencing {format(weekStart, "dd/MM/yyyy")}
+            {isWeeklyNav
+              ? `Week Commencing ${format(weekStart, "dd/MM/yyyy")}`
+              : format(monthDate, "MMMM yyyy")}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Button variant="outline" size="icon" onClick={prevWeek}>
+          {/* Date nav */}
+          <Button variant="outline" size="icon" onClick={isWeeklyNav ? prevWeek : prevMonth}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="sm" onClick={goToday}>
+          <Button variant="outline" size="sm" onClick={isWeeklyNav ? goToday : goThisMonth}>
             Today
           </Button>
-          <Button variant="outline" size="icon" onClick={nextWeek}>
+          <Button variant="outline" size="icon" onClick={isWeeklyNav ? nextWeek : nextMonth}>
             <ChevronRight className="h-4 w-4" />
           </Button>
+
           {isAdmin && (
             <>
-              <Button size="sm" onClick={() => openAddDialog()}>
+              <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
+              <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
+                <Users className="mr-1.5 h-4 w-4" /> Batch Deploy
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => { setShuntEngineerId(""); setShuntDays("1"); setShuntDirection("forward"); setShuntFromDate(format(new Date(), "yyyy-MM-dd")); setShuntOpen(true); }}>
+                <Zap className="mr-1.5 h-4 w-4" /> Shunt
+              </Button>
               <Button variant="outline" size="sm" onClick={handleCopyToNextWeek} disabled={copying || schedule.length === 0}>
-                <Copy className="mr-1.5 h-4 w-4" />
-                {copying ? "Copying..." : "Copy to Next Week"}
+                <Copy className="mr-1.5 h-4 w-4" /> {copying ? "Copying..." : "Copy Week"}
               </Button>
             </>
           )}
           <Button variant="outline" size="sm" onClick={handleExportPdf}>
-            <Printer className="mr-1.5 h-4 w-4" /> Export PDF
+            <Printer className="mr-1.5 h-4 w-4" /> PDF
           </Button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-card px-4 py-2.5 text-xs text-muted-foreground">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-foreground">Filter:</span>
-          <Select value={filterPriority} onValueChange={setFilterPriority}>
-            <SelectTrigger className="h-7 w-[120px] text-xs">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Priorities</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={filterCategory} onValueChange={setFilterCategory}>
-            <SelectTrigger className="h-7 w-[130px] text-xs">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
-              <SelectItem value="general">General</SelectItem>
-              <SelectItem value="installation">Installation</SelectItem>
-              <SelectItem value="maintenance">Maintenance</SelectItem>
-              <SelectItem value="inspection">Inspection</SelectItem>
-              <SelectItem value="survey">Survey</SelectItem>
-            </SelectContent>
-          </Select>
-          {(filterPriority !== "all" || filterCategory !== "all") && (
-            <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => { setFilterPriority("all"); setFilterCategory("all"); }}>
-              Clear
-            </Button>
-          )}
-        </div>
-        <div className="ml-auto flex items-center gap-4">
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-destructive" /> High</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-amber-500" /> Med</span>
-          <span className="flex items-center gap-1.5"><span className="inline-block h-3 w-1 rounded-full bg-emerald-500" /> Low</span>
-        </div>
-      </div>
+      {/* View Tabs */}
+      <Tabs value={view} onValueChange={(v) => setView(v as any)} className="mb-4">
+        <TabsList>
+          <TabsTrigger value="grid" className="gap-1.5"><LayoutGrid className="h-3.5 w-3.5" /> Weekly Grid</TabsTrigger>
+          <TabsTrigger value="month" className="gap-1.5"><CalendarIcon className="h-3.5 w-3.5" /> Monthly</TabsTrigger>
+          <TabsTrigger value="list" className="gap-1.5"><List className="h-3.5 w-3.5" /> List</TabsTrigger>
+          <TabsTrigger value="map" className="gap-1.5"><MapIcon className="h-3.5 w-3.5" /> Map</TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      <Card>
-        <CardContent className="overflow-x-auto p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="min-w-[100px]">DATE</TableHead>
-                <TableHead className="min-w-[120px]">ENGINEER</TableHead>
-                <TableHead className="min-w-[120px]">COMPANY</TableHead>
-                <TableHead className="min-w-[160px]">SITE</TableHead>
-                <TableHead className="min-w-[90px]">POSTCODE</TableHead>
-                <TableHead className="min-w-[200px]">JOB DESCRIPTION</TableHead>
-                <TableHead className="min-w-[140px]">COMMENT</TableHead>
-                {isAdmin && <TableHead className="w-[80px]" />}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={isAdmin ? 8 : 7} className="py-12 text-center text-muted-foreground">
-                    No entries this week.
-                    {isAdmin && (
-                      <Button variant="link" className="ml-2" onClick={() => openAddDialog()}>
-                        Add one
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                Array.from(groupedByDate.entries()).map(([dateStr, entries]) => {
-                  const date = parseISO(dateStr);
-                  const isToday = isSameDay(date, new Date());
+        <TabsContent value="grid" className="mt-4">
+          <WeeklyGridView
+            weekDays={weekDays}
+            engineers={engineers}
+            schedule={filteredSchedule}
+            jobs={jobs}
+            unallocatedJobs={unallocatedJobs}
+            isAdmin={isAdmin}
+            onAssign={handleAssign}
+            onMove={handleMove}
+            onRemove={handleRemove}
+          />
+        </TabsContent>
 
-                  return entries.map((entry, idx) => {
-                    const job = getJobById(entry.job_id);
-                    const eng = getEngineerById(entry.engineer_id);
+        <TabsContent value="month" className="mt-4">
+          <MonthlyView currentDate={monthDate} schedule={filteredSchedule} jobs={jobs} />
+        </TabsContent>
 
-                    return (
-                      <TableRow
-                        key={entry.id}
-                        className={cn(
-                          isToday && "bg-primary/5",
-                          job && PRIORITY_COLORS[job.priority]
-                        )}
-                      >
-                        {/* Show date only on first row of each group */}
-                        <TableCell className={cn("font-medium", idx > 0 && "border-t-0")}>
-                          {idx === 0 ? (
-                            <div>
-                              <div className={cn("font-semibold", isToday && "text-primary")}>{format(date, "EEE")}</div>
-                              <div className="text-xs text-muted-foreground">{format(date, "dd/MM/yyyy")}</div>
-                            </div>
-                          ) : null}
-                        </TableCell>
-                        <TableCell className="text-sm">{eng?.full_name || "—"}</TableCell>
-                        <TableCell className="text-sm">{job?.customer || "—"}</TableCell>
-                        <TableCell className="text-sm max-w-[200px] truncate">{job?.address || "—"}</TableCell>
-                        <TableCell className="text-sm font-mono">{extractPostcode(job?.address || null) || "—"}</TableCell>
-                        <TableCell>
-                          {job ? (
-                            <Link to={`/jobs/${job.id}`} className="hover:underline">
-                              <span className="font-mono text-xs font-medium text-primary">{job.reference_number}</span>
-                              <span className="ml-1.5 text-sm">{job.name}</span>
-                            </Link>
-                          ) : (
-                            <span className="text-muted-foreground italic">Unknown job</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          <InlineComment
-                            entryId={entry.id}
-                            value={entry.notes || ""}
-                            isAdmin={isAdmin}
-                            onSave={handleInlineCommentSave}
-                          />
-                        </TableCell>
-                        {isAdmin && (
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEditDialog(entry)}>
-                                <Pencil className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleRemoveEntry(entry.id)}>
-                                <X className="h-3.5 w-3.5" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    );
-                  });
-                })
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+        <TabsContent value="list" className="mt-4">
+          <ListView
+            schedule={filteredSchedule}
+            engineers={engineers}
+            jobs={jobs}
+            isAdmin={isAdmin}
+            onRemove={handleRemove}
+            onBulkReassign={handleBulkReassign}
+            onBulkDelete={handleBulkDelete}
+          />
+        </TabsContent>
 
-      {/* Add / Edit Schedule Entry Dialog */}
+        <TabsContent value="map" className="mt-4">
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} />
+        </TabsContent>
+      </Tabs>
+
+      {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              {editingEntryId ? "Edit Schedule Entry" : "Add Schedule Entry"}
-            </DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Add Schedule Entry</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Date</Label>
-              <Select value={addDay} onValueChange={setAddDay}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a day..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {weekDays.map((d) => (
-                    <SelectItem key={format(d, "yyyy-MM-dd")} value={format(d, "yyyy-MM-dd")}>
-                      {format(d, "EEE, MMM d")}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input type="date" value={addDay} onChange={(e) => setAddDay(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Engineer</Label>
               <Select value={addEngineerId} onValueChange={setAddEngineerId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select an engineer..." />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select engineer..." /></SelectTrigger>
                 <SelectContent>
-                  {engineers.map((e) => (
-                    <SelectItem key={e.user_id} value={e.user_id}>
-                      {e.full_name}
-                    </SelectItem>
-                  ))}
+                  {engineers.map((e) => <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Job</Label>
               <Select value={addJobId} onValueChange={setAddJobId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a job..." />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue placeholder="Select job..." /></SelectTrigger>
                 <SelectContent>
-                  {jobs.map((j) => (
-                    <SelectItem key={j.id} value={j.id}>
-                      <span className="font-mono text-xs mr-1">{j.reference_number}</span> {j.name}
-                    </SelectItem>
-                  ))}
+                  {jobs.map((j) => <SelectItem key={j.id} value={j.id}><span className="font-mono text-xs mr-1">{j.reference_number}</span> {j.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Comment (optional)</Label>
-              <Textarea
-                value={addNotes}
-                onChange={(e) => setAddNotes(e.target.value)}
-                placeholder="Any notes for this entry..."
-                rows={2}
-              />
+              <Label>Notes</Label>
+              <Textarea value={addNotes} onChange={(e) => setAddNotes(e.target.value)} rows={2} />
             </div>
             <Button onClick={handleAddEntry} className="w-full" disabled={!addJobId || !addEngineerId || !addDay || saving}>
-              {saving ? "Saving..." : editingEntryId ? "Update Entry" : "Add to Schedule"}
+              {saving ? "Saving..." : "Add to Schedule"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Batch Deploy Dialog */}
+      <Dialog open={batchOpen} onOpenChange={setBatchOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>Batch Deploy Jobs</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground mb-2">Assign multiple unallocated jobs to one engineer at once.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Engineer</Label>
+              <Select value={batchEngineerId} onValueChange={setBatchEngineerId}>
+                <SelectTrigger><SelectValue placeholder="Select engineer..." /></SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={batchDate} onChange={(e) => setBatchDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Select Jobs ({batchJobIds.size} selected)</Label>
+              <div className="max-h-[200px] overflow-y-auto rounded border p-2 space-y-1">
+                {unallocatedJobs.length === 0 ? (
+                  <p className="text-xs text-muted-foreground py-2 text-center">All jobs are allocated this period.</p>
+                ) : unallocatedJobs.map((j) => (
+                  <label key={j.id} className="flex items-center gap-2 rounded px-2 py-1 hover:bg-muted cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={batchJobIds.has(j.id)}
+                      onChange={() => {
+                        setBatchJobIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(j.id)) next.delete(j.id); else next.add(j.id);
+                          return next;
+                        });
+                      }}
+                      className="rounded"
+                    />
+                    <span className="font-mono text-xs text-primary">{j.reference_number}</span>
+                    <span className="truncate">{j.name}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+            <Button onClick={handleBatchDeploy} className="w-full" disabled={!batchEngineerId || batchJobIds.size === 0 || !batchDate || saving}>
+              {saving ? "Deploying..." : `Deploy ${batchJobIds.size} Job(s)`}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Shunt Dialog */}
+      <Dialog open={shuntOpen} onOpenChange={setShuntOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Shunt Schedule</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground mb-2">Push or pull all visits for an engineer from a date onwards.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Engineer</Label>
+              <Select value={shuntEngineerId} onValueChange={setShuntEngineerId}>
+                <SelectTrigger><SelectValue placeholder="Select engineer..." /></SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>From Date</Label>
+              <Input type="date" value={shuntFromDate} onChange={(e) => setShuntFromDate(e.target.value)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Direction</Label>
+                <Select value={shuntDirection} onValueChange={(v) => setShuntDirection(v as "forward" | "backward")}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="forward">Push Forward</SelectItem>
+                    <SelectItem value="backward">Pull Back</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Days</Label>
+                <Input type="number" min="1" value={shuntDays} onChange={(e) => setShuntDays(e.target.value)} />
+              </div>
+            </div>
+            <Button onClick={handleShunt} className="w-full" disabled={!shuntEngineerId || !shuntFromDate || saving}>
+              {saving ? "Shunting..." : "Apply Shunt"}
             </Button>
           </div>
         </DialogContent>
