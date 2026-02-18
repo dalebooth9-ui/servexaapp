@@ -4,8 +4,9 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Package } from "lucide-react";
+import { Plus, Trash2, Package, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import ImportPartsDialog from "@/components/ImportPartsDialog";
 
 interface JobPart {
   id: string;
@@ -25,6 +26,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", notes: "" });
+  const [importOpen, setImportOpen] = useState(false);
 
   const fetchParts = async () => {
     const { data } = await supabase
@@ -91,6 +93,9 @@ export default function JobParts({ jobId }: { jobId: string }) {
         <Button onClick={handleAdd} disabled={adding || !form.name.trim()} size="sm">
           <Plus className="mr-1 h-4 w-4" /> Add
         </Button>
+        <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+          <Upload className="mr-1 h-4 w-4" /> Import
+        </Button>
       </div>
 
       {parts.length === 0 ? (
@@ -135,6 +140,12 @@ export default function JobParts({ jobId }: { jobId: string }) {
           </div>
         </>
       )}
+      <ImportPartsDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        jobId={jobId}
+        onImported={fetchParts}
+      />
     </div>
   );
 }
