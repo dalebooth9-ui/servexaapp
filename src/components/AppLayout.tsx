@@ -6,6 +6,7 @@ import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarD
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
+import NotificationBell from "@/components/NotificationBell";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -36,9 +37,12 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
           <img src="/favicon.png" alt="FieldReport logo" className="h-9 w-9 rounded-lg" />
           <span className="text-lg font-bold text-sidebar-primary-foreground">FieldReport</span>
-          <button onClick={() => setMobileOpen(false)} className="ml-auto lg:hidden">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="ml-auto flex items-center gap-1">
+            <NotificationBell />
+            <button onClick={() => setMobileOpen(false)} className="lg:hidden">
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <nav className="flex-1 space-y-1 px-3 py-4">
