@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,9 @@ export default function CustomerDetail() {
   const [jobDropDialogOpen, setJobDropDialogOpen] = useState(false);
   const [jobDropForm, setJobDropForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const [jobDropSaving, setJobDropSaving] = useState(false);
+  const [jobRowDropTarget, setJobRowDropTarget] = useState<string | null>(null);
+  const [jobRowUploading, setJobRowUploading] = useState<string | null>(null);
+
 
   const fetchDocuments = useCallback(async () => {
     if (!id) return;
@@ -319,6 +323,41 @@ export default function CustomerDetail() {
     setJobDropSaving(false);
     await fetchJobs(customer.name);
   };
+
+  const handleDropOnExistingJob = async (jobId: string, files: FileList) => {
+    if (!user) return;
+    const validFiles = Array.from(files).filter((f) => {
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
+    });
+    if (validFiles.length === 0) {
+      toast({ title: "No valid files", description: "Only PDF, Word, Excel, and image files under 20MB are accepted.", variant: "destructive" });
+      return;
+    }
+    setJobRowUploading(jobId);
+    let uploaded = 0;
+    for (const file of validFiles) {
+      const filePath = `${jobId}/${Date.now()}-${file.name}`;
+      const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
+      if (!upErr) {
+        const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+        const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
+        await supabase.from("submissions").insert({
+          job_id: jobId,
+          engineer_id: user.id,
+          type,
+          file_name: file.name,
+          file_url: filePath,
+          content: file.name,
+        } as any);
+        uploaded++;
+      }
+    }
+    const job = jobs.find((j) => j.id === jobId);
+    toast({ title: "Files added", description: `${uploaded} file(s) added to ${job?.reference_number || "job"}.` });
+    setJobRowUploading(null);
+  };
+
 
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading…</div>;
@@ -586,13 +625,40 @@ export default function CustomerDetail() {
                 </TableHeader>
                 <TableBody>
                   {jobs.map((job) => (
-                    <TableRow key={job.id}>
+                    <TableRow
+                      key={job.id}
+                      className={cn(
+                        jobRowDropTarget === job.id && "ring-2 ring-inset ring-primary bg-primary/5",
+                        jobRowUploading === job.id && "opacity-60"
+                      )}
+                      onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setJobRowDropTarget(job.id); }}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDragLeave={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        const { clientX, clientY } = e;
+                        if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+                          setJobRowDropTarget(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault(); e.stopPropagation();
+                        setJobRowDropTarget(null);
+                        jobDragCounter.current = 0; setJobDropDragging(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleDropOnExistingJob(job.id, e.dataTransfer.files);
+                        }
+                      }}
+                    >
                       <TableCell>
                         <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
                           {job.reference_number}
                         </Link>
                       </TableCell>
-                      <TableCell className="font-medium">{job.name}</TableCell>
+                      <TableCell className="font-medium">
+                        {job.name}
+                        {jobRowUploading === job.id && <Loader2 className="ml-2 inline h-3.5 w-3.5 animate-spin text-primary" />}
+                      </TableCell>
                       <TableCell>
                         <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
                           {job.priority || "medium"}
