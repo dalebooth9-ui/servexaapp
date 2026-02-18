@@ -840,6 +840,44 @@ export type Database = {
           },
         ]
       }
+      job_signatures: {
+        Row: {
+          created_at: string
+          file_path: string
+          id: string
+          job_id: string
+          signer_id: string
+          signer_name: string
+          signer_role: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          id?: string
+          job_id: string
+          signer_id: string
+          signer_name?: string
+          signer_role?: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          id?: string
+          job_id?: string
+          signer_id?: string
+          signer_name?: string
+          signer_role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_signatures_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_visits: {
         Row: {
           completed_at: string | null
