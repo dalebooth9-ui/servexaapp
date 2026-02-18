@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ import {
   ChevronDown,
   Search,
   Pencil,
+  FileSpreadsheet,
   Trash2,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -92,6 +94,7 @@ export default function Sites() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
+  const [bulkOpen, setBulkOpen] = useState(false);
 
   const fetchSites = async () => {
     const { data, error } = await supabase
@@ -295,9 +298,14 @@ export default function Sites() {
           </p>
         </div>
         {userRole === "admin" && (
-          <Button onClick={() => openCreate(null, "region")}>
-            <Plus className="mr-2 h-4 w-4" /> Add Region
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBulkOpen(true)}>
+              <FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Import
+            </Button>
+            <Button onClick={() => openCreate(null, "region")}>
+              <Plus className="mr-2 h-4 w-4" /> Add Region
+            </Button>
+          </div>
         )}
       </div>
 
@@ -436,6 +444,8 @@ export default function Sites() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
     </div>
   );
 }

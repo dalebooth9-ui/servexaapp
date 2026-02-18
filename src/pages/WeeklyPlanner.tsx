@@ -37,6 +37,8 @@ interface Job {
   category: string;
   customer: string | null;
   address: string | null;
+  site_id: string | null;
+  site?: { name: string; address: string | null; postcode: string | null } | null;
 }
 
 function extractPostcode(address: string | null): string {
@@ -99,11 +101,11 @@ export default function WeeklyPlanner() {
     setLoading(true);
     const [engRes, jobsRes, schedRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
-      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, address").eq("status", "active"),
+      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, address, site_id, sites(name, address, postcode)").eq("status", "active"),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
     ]);
     setEngineers(engRes.data || []);
-    setJobs((jobsRes.data as Job[]) || []);
+    setJobs(((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null })));
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
     setLoading(false);
   }, [rangeStart, rangeEnd]);
@@ -305,7 +307,7 @@ export default function WeeklyPlanner() {
       const eng = getEng(entry.engineer_id);
       const row = [
         format(new Date(entry.schedule_date), "EEE dd/MM"), eng?.full_name || "", job?.customer || "",
-        job?.address || "", extractPostcode(job?.address || null),
+        job?.site?.address || job?.address || "", job?.site?.postcode || extractPostcode(job?.address || null),
         job ? `${job.reference_number} - ${job.name}` : "", entry.notes || "",
       ];
       doc.setDrawColor(200, 200, 200);
