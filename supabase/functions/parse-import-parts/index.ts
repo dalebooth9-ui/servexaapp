@@ -67,10 +67,30 @@ serve(async (req) => {
         { type: "text", text: `Extract all parts, materials, and components from this CSV/text data (${file_name}):\n\n${text}\n\nReturn as a JSON array.` },
       ];
     } else if (ext === ".xlsx" || ext === ".xls") {
-      // For Excel, send as base64 with instruction
-      const text = `[Excel file: ${file_name}. Unable to parse binary Excel in this context. Please use CSV export instead.]`;
+      // Parse Excel server-side using SheetJS
+      const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+      const fileBytes = Uint8Array.from(atob(file_base64), c => c.charCodeAt(0));
+      const workbook = XLSX.read(fileBytes, { type: "array" });
+
+      // Convert all sheets to CSV text
+      const sheetsText: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
+        if (csv.trim()) {
+          sheetsText.push(`--- Sheet: ${sheetName} ---\n${csv}`);
+        }
+      }
+      const combinedText = sheetsText.join("\n\n");
+
+      if (!combinedText || combinedText.length < 5) {
+        return new Response(JSON.stringify({ error: "Excel file appears to be empty" }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
       userContent = [
-        { type: "text", text: `${text}\n\nReturn an empty JSON array since Excel binary cannot be parsed here.` },
+        { type: "text", text: `Extract all parts, materials, and components from this spreadsheet data (${file_name}):\n\n${combinedText}\n\nReturn as a JSON array.` },
       ];
     } else {
       // .docx/.doc
