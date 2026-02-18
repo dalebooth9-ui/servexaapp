@@ -334,8 +334,8 @@ export default function JobDetail() {
                 value={job.fault_code_id || null}
                 onChange={async (v) => {
                   const { error } = await supabase.from("jobs").update({ fault_code_id: v } as any).eq("id", id!);
-                  if (error) { toast({ title: "Error", description: "Failed to update fault code.", variant: "destructive" }); }
-                  else { setJob((prev: any) => ({ ...prev, fault_code_id: v })); toast({ title: "Fault code updated" }); }
+                  if (error) { toast({ title: "Error", description: "Failed to update result.", variant: "destructive" }); }
+                  else { setJob((prev: any) => ({ ...prev, fault_code_id: v })); toast({ title: "Result updated" }); }
                 }}
               />
             </div>
