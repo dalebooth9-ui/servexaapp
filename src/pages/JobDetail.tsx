@@ -23,6 +23,9 @@ import SubmissionComments from "@/components/SubmissionComments";
 import FileDropZone from "@/components/FileDropZone";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
+import JobVisits from "@/components/JobVisits";
+import FaultCodeSelect from "@/components/FaultCodeSelect";
+import CloneJobDialog from "@/components/CloneJobDialog";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -305,6 +308,14 @@ export default function JobDetail() {
                   <SelectItem value="survey">Survey</SelectItem>
                 </SelectContent>
               </Select>
+              <FaultCodeSelect
+                value={job.fault_code_id || null}
+                onChange={async (v) => {
+                  const { error } = await supabase.from("jobs").update({ fault_code_id: v } as any).eq("id", id!);
+                  if (error) { toast({ title: "Error", description: "Failed to update fault code.", variant: "destructive" }); }
+                  else { setJob((prev: any) => ({ ...prev, fault_code_id: v })); toast({ title: "Fault code updated" }); }
+                }}
+              />
             </div>
           ) : (
             <div className="mt-1.5 flex items-center gap-2">
@@ -321,6 +332,7 @@ export default function JobDetail() {
         </div>
         {userRole === "admin" ? (
           <div className="flex items-center gap-2">
+            <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
               <CreateInvoiceDialog
                 jobId={id!}
@@ -357,6 +369,16 @@ export default function JobDetail() {
             <EngineerAssignments jobId={id!} />
             {userRole === "admin" && <WhatsAppReply jobId={id!} engineers={engineers} />}
           </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Scheduled Visits
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobVisits jobId={id!} jobData={job} />
         </CollapsibleContent>
       </Collapsible>
 
