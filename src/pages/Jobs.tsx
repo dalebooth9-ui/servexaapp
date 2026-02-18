@@ -18,6 +18,7 @@ import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
+import { useJobCategories } from "@/hooks/useJobCategories";
 import { z } from "zod";
 import {
   DndContext,
@@ -439,6 +440,7 @@ export default function Jobs() {
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
   const { toast } = useToast();
+  const { categories } = useJobCategories();
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -990,11 +992,9 @@ export default function Jobs() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="general">General</SelectItem>
-                        <SelectItem value="installation">Installation</SelectItem>
-                        <SelectItem value="maintenance">Maintenance</SelectItem>
-                        <SelectItem value="inspection">Inspection</SelectItem>
-                        <SelectItem value="survey">Survey</SelectItem>
+                        {categories.map((c) => (
+                          <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>
@@ -1049,11 +1049,9 @@ export default function Jobs() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
-            <SelectItem value="general">General</SelectItem>
-            <SelectItem value="installation">Installation</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
-            <SelectItem value="inspection">Inspection</SelectItem>
-            <SelectItem value="survey">Survey</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -1293,11 +1291,9 @@ export default function Jobs() {
                 <Select value={fileDropNewJobForm.category} onValueChange={(v) => setFileDropNewJobForm((f) => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="installation">Installation</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="inspection">Inspection</SelectItem>
-                    <SelectItem value="survey">Survey</SelectItem>
+                    {categories.map((c) => (
+                      <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
