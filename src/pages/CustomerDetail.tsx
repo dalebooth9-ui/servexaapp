@@ -9,7 +9,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
 
@@ -57,6 +57,8 @@ export default function CustomerDetail() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragging, setDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const replaceInputRef = useRef<HTMLInputElement>(null);
+  const [replacingDoc, setReplacingDoc] = useState<CustomerDocument | null>(null);
   const dragCounterRef = useRef(0);
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [docSortBy, setDocSortBy] = useState<"date" | "name">("date");
@@ -174,6 +176,50 @@ export default function CustomerDetail() {
     await fetchDocuments();
   };
 
+  const handleReplaceDocument = async (file: File) => {
+    if (!replacingDoc || !user || !id) return;
+    setUploading(true);
+    setUploadProgress(0);
+
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext) || file.size > 20 * 1024 * 1024) {
+      toast({ title: "Invalid file", description: "Only PDF, Word, Excel, and image files under 20MB are accepted.", variant: "destructive" });
+      setUploading(false);
+      setReplacingDoc(null);
+      return;
+    }
+
+    // Remove old file from storage
+    const oldPath = replacingDoc.file_url.includes("/submissions/")
+      ? decodeURIComponent(replacingDoc.file_url.split("/submissions/").pop()!)
+      : replacingDoc.file_url;
+    await supabase.storage.from("submissions").remove([oldPath]);
+
+    // Upload new file
+    const newPath = `customer-docs/${id}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(newPath, file);
+    if (uploadError) {
+      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+      setUploading(false);
+      setReplacingDoc(null);
+      return;
+    }
+
+    // Update DB record
+    await supabase.from("customer_documents").update({
+      file_name: file.name,
+      file_url: newPath,
+      file_size: file.size,
+    } as any).eq("id", replacingDoc.id);
+
+    toast({ title: "Document replaced", description: `${replacingDoc.file_name} → ${file.name}` });
+    setUploading(false);
+    setUploadProgress(0);
+    setReplacingDoc(null);
+    await fetchDocuments();
+    if (replaceInputRef.current) replaceInputRef.current.value = "";
+  };
+
   const toggleDocSelect = (id: string, checked: boolean) => {
     setSelectedDocIds((prev) => {
       const u = new Set(prev);
@@ -260,6 +306,15 @@ export default function CustomerDetail() {
               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
               className="hidden"
               onChange={(e) => { if (e.target.files && e.target.files.length > 0) handleFileUpload(e.target.files); }}
+            />
+            <input
+              ref={replaceInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) handleReplaceDocument(e.target.files[0]);
+              }}
             />
             <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
               {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
@@ -395,6 +450,12 @@ export default function CustomerDetail() {
                               if (data?.signedUrl) window.open(data.signedUrl, "_blank");
                             }}>
                               <Download className="h-4 w-4" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" title="Replace with edited version" onClick={() => {
+                              setReplacingDoc(doc);
+                              setTimeout(() => replaceInputRef.current?.click(), 50);
+                            }} disabled={uploading}>
+                              <RefreshCw className="h-4 w-4" />
                             </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleDeleteDocument(doc)}>
                               <Trash2 className="h-4 w-4" />
