@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      asset_documents: {
+        Row: {
+          asset_id: string
+          created_at: string
+          document_type: string
+          expiry_date: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          notes: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          document_type?: string
+          expiry_date?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          document_type?: string
+          expiry_date?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_documents_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_tag: string | null
