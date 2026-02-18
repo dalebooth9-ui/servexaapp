@@ -439,6 +439,50 @@ export type Database = {
           },
         ]
       }
+      customer_sign_off_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_email: string | null
+          customer_name: string
+          expires_at: string
+          id: string
+          job_id: string
+          signed_at: string | null
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_email?: string | null
+          customer_name?: string
+          expires_at?: string
+          id?: string
+          job_id: string
+          signed_at?: string | null
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_email?: string | null
+          customer_name?: string
+          expires_at?: string
+          id?: string
+          job_id?: string
+          signed_at?: string | null
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_sign_off_tokens_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customers: {
         Row: {
           address: string | null
