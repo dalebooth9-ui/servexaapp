@@ -594,7 +594,7 @@ export default function CustomerDetail() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             {getFileIcon(doc.file_name)}
-                            <span className="font-medium text-sm truncate max-w-[300px]">{doc.file_name}</span>
+                            <span className="font-medium text-sm break-all">{doc.file_name}</span>
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
