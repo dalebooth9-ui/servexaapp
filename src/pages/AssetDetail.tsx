@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import PpmSchedules from "@/components/PpmSchedules";
 import { Separator } from "@/components/ui/separator";
 import {
   Select,
@@ -426,6 +427,9 @@ export default function AssetDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* PPM Schedules */}
+      <PpmSchedules assetId={asset.id} />
 
       {/* Compliance Documents */}
       <Card>
