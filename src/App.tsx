@@ -14,6 +14,8 @@ import Customers from "@/pages/Customers";
 import CustomerDetail from "@/pages/CustomerDetail";
 import SettingsPage from "@/pages/SettingsPage";
 import WeeklyPlanner from "@/pages/WeeklyPlanner";
+import Invoices from "@/pages/Invoices";
+import InvoiceDetail from "@/pages/InvoiceDetail";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -56,6 +58,8 @@ const App = () => (
             <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+            <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+            <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />

@@ -22,6 +22,7 @@ import FieldReports from "@/components/FieldReports";
 import SubmissionComments from "@/components/SubmissionComments";
 import FileDropZone from "@/components/FileDropZone";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -319,16 +320,26 @@ export default function JobDetail() {
           )}
         </div>
         {userRole === "admin" ? (
-          <Select value={job.status} onValueChange={handleStatusChange}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            {(job.status === "completed" || job.status === "archived") && (
+              <CreateInvoiceDialog
+                jobId={id!}
+                customerName={job.customer || ""}
+                customerAddress={job.address || ""}
+                jobName={job.name}
+              />
+            )}
+            <Select value={job.status} onValueChange={handleStatusChange}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         ) : (
           <Badge variant="secondary" className={job.status === "active" ? "bg-accent/10 text-accent" : "bg-muted text-muted-foreground"}>
             {job.status}
