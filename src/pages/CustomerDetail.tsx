@@ -82,6 +82,10 @@ export default function CustomerDetail() {
   const [jobRowDropTarget, setJobRowDropTarget] = useState<string | null>(null);
   const [jobRowUploading, setJobRowUploading] = useState<string | null>(null);
 
+  // Internal doc drag to jobs
+  const [docDragDocs, setDocDragDocs] = useState<CustomerDocument[]>([]);
+  const [jobDropMode, setJobDropMode] = useState<"files" | "docs">("files");
+
 
   const [attachingDocId, setAttachingDocId] = useState<string | null>(null);
 
@@ -317,6 +321,8 @@ export default function CustomerDetail() {
       return;
     }
     setJobDropFiles(validFiles);
+    setJobDropMode("files");
+    setDocDragDocs([]);
     setJobDropForm({ name: validFiles[0].name.replace(/\.[^.]+$/, ""), reference_number: "", priority: "medium", category: "general" });
     setJobDropDialogOpen(true);
   };
@@ -343,29 +349,57 @@ export default function CustomerDetail() {
       return;
     }
 
-    // Upload files as submissions
     let uploaded = 0;
-    for (const file of jobDropFiles) {
-      const filePath = `${newJob.id}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
-      if (!upErr) {
-        const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-        const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
-        await supabase.from("submissions").insert({
-          job_id: newJob.id,
-          engineer_id: user.id,
-          type,
-          file_name: file.name,
-          file_url: filePath,
-          content: file.name,
-        } as any);
-        uploaded++;
+
+    if (jobDropMode === "files") {
+      // Upload new files as submissions
+      for (const file of jobDropFiles) {
+        const filePath = `${newJob.id}/${Date.now()}-${file.name}`;
+        const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
+        if (!upErr) {
+          const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+          const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
+          await supabase.from("submissions").insert({
+            job_id: newJob.id,
+            engineer_id: user.id,
+            type,
+            file_name: file.name,
+            file_url: filePath,
+            content: file.name,
+          } as any);
+          uploaded++;
+        }
+      }
+    } else {
+      // Copy existing customer documents to the new job
+      for (const doc of docDragDocs) {
+        const storagePath = doc.file_url.includes("/object/public/submissions/")
+          ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
+          : doc.file_url;
+        const { data: fileData } = await supabase.storage.from("submissions").download(storagePath);
+        if (!fileData) continue;
+        const newPath = `${newJob.id}/${Date.now()}-${doc.file_name}`;
+        const { error: upErr } = await supabase.storage.from("submissions").upload(newPath, fileData);
+        if (!upErr) {
+          const ext = doc.file_name.slice(doc.file_name.lastIndexOf(".")).toLowerCase();
+          const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
+          await supabase.from("submissions").insert({
+            job_id: newJob.id,
+            engineer_id: user.id,
+            type,
+            file_name: doc.file_name,
+            file_url: newPath,
+            content: doc.file_name,
+          } as any);
+          uploaded++;
+        }
       }
     }
 
     toast({ title: "Job created", description: `${newJob.reference_number} created with ${uploaded} file(s).` });
     setJobDropDialogOpen(false);
     setJobDropFiles([]);
+    setDocDragDocs([]);
     setJobDropSaving(false);
     await fetchJobs(customer.name);
   };
@@ -578,13 +612,26 @@ export default function CustomerDetail() {
                       const dateB = new Date(b.created_at).getTime();
                       return docSortAsc ? dateA - dateB : dateB - dateA;
                     }).map((doc) => (
-                      <TableRow key={doc.id} className="cursor-pointer" onDoubleClick={async () => {
-                        const storagePath = doc.file_url.includes("/object/public/submissions/")
-                          ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
-                          : doc.file_url;
-                        const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
-                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
-                      }}>
+                      <TableRow
+                        key={doc.id}
+                        className="cursor-pointer"
+                        draggable
+                        onDragStart={(e) => {
+                          // If this doc is selected, drag all selected; otherwise drag just this one
+                          const dragDocs = selectedDocIds.has(doc.id)
+                            ? documents.filter((d) => selectedDocIds.has(d.id))
+                            : [doc];
+                          e.dataTransfer.setData("application/x-customer-docs", JSON.stringify(dragDocs.map((d) => d.id)));
+                          e.dataTransfer.effectAllowed = "copy";
+                        }}
+                        onDoubleClick={async () => {
+                          const storagePath = doc.file_url.includes("/object/public/submissions/")
+                            ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
+                            : doc.file_url;
+                          const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
+                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                        }}
+                      >
                         <TableCell className="w-10 px-2">
                           <Checkbox
                             checked={selectedDocIds.has(doc.id)}
@@ -670,6 +717,22 @@ export default function CustomerDetail() {
         onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); jobDragCounter.current--; if (jobDragCounter.current === 0) setJobDropDragging(false); }}
         onDrop={(e) => {
           e.preventDefault(); e.stopPropagation(); jobDragCounter.current = 0; setJobDropDragging(false);
+          // Check for internal doc drag first
+          const docIdsJson = e.dataTransfer.getData("application/x-customer-docs");
+          if (docIdsJson) {
+            try {
+              const docIds = JSON.parse(docIdsJson) as string[];
+              const draggedDocs = documents.filter((d) => docIds.includes(d.id));
+              if (draggedDocs.length > 0) {
+                setDocDragDocs(draggedDocs);
+                setJobDropMode("docs");
+                setJobDropForm({ name: draggedDocs[0].file_name.replace(/\.[^.]+$/, ""), reference_number: "", priority: "medium", category: "general" });
+                setJobDropDialogOpen(true);
+                return;
+              }
+            } catch {}
+          }
+          // Fall back to external file drop
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleJobDropFiles(e.dataTransfer.files);
         }}
       >
@@ -678,7 +741,7 @@ export default function CustomerDetail() {
         {jobDropDragging && (
           <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-8 text-center transition-colors">
             <Plus className="h-6 w-6 text-primary" />
-            <p className="font-medium text-primary">Drop files here to create a new job</p>
+            <p className="font-medium text-primary">Drop files or documents here to create a new job</p>
           </div>
         )}
 
@@ -763,13 +826,21 @@ export default function CustomerDetail() {
           </DialogHeader>
           <div className="space-y-4">
             <div className="max-h-28 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2">
-              {jobDropFiles.map((file, i) => (
+              {jobDropMode === "files" ? jobDropFiles.map((file, i) => (
                 <div key={`${file.name}-${i}`} className="flex items-center gap-2 text-sm px-2 py-1">
                   {IMAGE_EXTENSIONS.includes(file.name.slice(file.name.lastIndexOf(".")).toLowerCase())
                     ? <Image className="h-3.5 w-3.5 shrink-0 text-primary" />
                     : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                   <span className="truncate">{file.name}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
+                </div>
+              )) : docDragDocs.map((doc) => (
+                <div key={doc.id} className="flex items-center gap-2 text-sm px-2 py-1">
+                  {IMAGE_EXTENSIONS.includes(doc.file_name.slice(doc.file_name.lastIndexOf(".")).toLowerCase())
+                    ? <Image className="h-3.5 w-3.5 shrink-0 text-primary" />
+                    : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                  <span className="truncate">{doc.file_name}</span>
+                  {doc.file_size && <span className="shrink-0 text-xs text-muted-foreground">({(doc.file_size / 1024).toFixed(0)} KB)</span>}
                 </div>
               ))}
             </div>
@@ -806,10 +877,10 @@ export default function CustomerDetail() {
               </div>
             </div>
             <p className="text-xs text-muted-foreground">
-              Customer: <strong>{customer.name}</strong> · {jobDropFiles.length} file(s) will be uploaded as submissions
+              Customer: <strong>{customer.name}</strong> · {jobDropMode === "files" ? jobDropFiles.length : docDragDocs.length} document(s) will be attached as submissions
             </p>
             <Button onClick={handleCreateJobFromDrop} className="w-full" disabled={!jobDropForm.name.trim() || !jobDropForm.reference_number.trim() || jobDropSaving}>
-              {jobDropSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Create Job & Upload Files"}
+              {jobDropSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Create Job & Attach Files"}
             </Button>
           </div>
         </DialogContent>
