@@ -1,22 +1,36 @@
 
 
-## Surface Rate Limit and Credit Exhaustion Errors in BulkImportDialog
+## Fix Xero OAuth Redirect
 
-### What Changes
-Update the `BulkImportDialog` component to detect 429 and 402 error responses from the `parse-import-document` edge function and show specific toast notifications instead of a generic error message.
+### Root Cause
+
+The edge function analytics reveal that `xero-oauth-callback` IS being called and returns a 302, but it redirects to a garbled URL like:
+```
+.../functions/v1/zRSsVD7t9upXQnykO_8wGZqfN7ruJYtWQ-gQQMthn3c5__S2/settings?xero_error=missing_params
+```
+
+This means the `APP_URL` secret is set to an incorrect value. The callback is also receiving requests without `code`/`state` parameters, suggesting Xero is hitting the callback with an error.
+
+### Changes Required
+
+#### 1. Fix the APP_URL Secret
+Update the `APP_URL` secret to the correct published app URL:
+```
+https://field-aid-box.lovable.app
+```
+
+#### 2. Harden the Callback Function
+Make the redirect URL more resilient by:
+- Adding a fallback validation for APP_URL to catch malformed values
+- Logging the actual APP_URL value being used for easier debugging
+- Ensuring the redirect always goes to a sensible URL even if the secret is wrong
+
+#### 3. Improve Error Visibility
+Update the callback to include the Xero error description in the redirect when Xero returns an error, so you can see the exact failure reason on the settings page.
 
 ### Technical Details
 
-**File: `src/components/BulkImportDialog.tsx`**
-
-In the `handleFile` function, where `.pdf`/`.docx`/`.doc` files are processed, the current `catch` block and error handling only checks `fnError` or `data?.error` generically. The change will:
-
-1. After calling `supabase.functions.invoke("parse-import-document", ...)`, inspect the returned `error` object for status codes (Supabase client wraps HTTP errors).
-2. Check `data?.error` string for the known messages ("Rate limit exceeded" and "AI credits exhausted") since the edge function returns these as JSON error messages.
-3. Show a descriptive toast notification for each case:
-   - **429**: Toast with title "Rate limit exceeded" and description asking to wait and retry.
-   - **402**: Toast with title "Credits exhausted" and description about adding funds.
-4. For other errors, keep the existing generic error behavior.
-
-The same pattern will be applied to the `handleImport` function for the `bulk-import-jobs` edge function call, ensuring consistent error surfacing across both import paths.
+- **File**: `supabase/functions/xero-oauth-callback/index.ts` — add URL validation for APP_URL and better error pass-through
+- **Secret**: Update `APP_URL` to `https://field-aid-box.lovable.app`
+- **No database changes needed**
 
