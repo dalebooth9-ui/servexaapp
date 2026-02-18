@@ -23,12 +23,6 @@ export default function XeroSettings() {
 
   const checkStatus = async () => {
     setLoading(true);
-    const { data, error } = await supabase.functions.invoke("xero-auth", {
-      body: null,
-      method: "GET",
-      headers: {},
-    });
-    // Use fetch directly since invoke doesn't support query params well
     const session = await supabase.auth.getSession();
     const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/xero-auth?action=status`,
