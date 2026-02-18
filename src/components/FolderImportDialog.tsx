@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, forwardRef, useImperativeHandle } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -27,13 +27,17 @@ type FolderEntry = {
 
 type ImportMode = "one-per-customer" | "one-per-subfolder";
 
+export type FolderImportDialogHandle = {
+  processFiles: (files: FileList) => void;
+};
+
 interface FolderImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImported: () => void;
 }
 
-export default function FolderImportDialog({ open, onOpenChange, onImported }: FolderImportDialogProps) {
+const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDialogProps>(({ open, onOpenChange, onImported }, ref) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [folders, setFolders] = useState<FolderEntry[]>([]);
@@ -104,6 +108,8 @@ export default function FolderImportDialog({ open, onOpenChange, onImported }: F
 
     setFolders(entries);
   }, []);
+
+  useImperativeHandle(ref, () => ({ processFiles }), [processFiles]);
 
   const uploadFiles = async (files: File[], jobId: string, userId: string, onProgress: () => void) => {
     for (const file of files) {
@@ -417,4 +423,8 @@ export default function FolderImportDialog({ open, onOpenChange, onImported }: F
       </DialogContent>
     </Dialog>
   );
-}
+});
+
+FolderImportDialog.displayName = "FolderImportDialog";
+
+export default FolderImportDialog;

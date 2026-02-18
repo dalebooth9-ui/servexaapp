@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
-import FolderImportDialog from "@/components/FolderImportDialog";
+import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
@@ -381,6 +381,9 @@ export default function Jobs() {
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [fileDragging, setFileDragging] = useState(false);
+  const fileDragCounter = useRef(0);
+  const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -671,8 +674,44 @@ export default function Jobs() {
     });
   }, [jobs]);
 
+  const handleFileDragEnter = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    fileDragCounter.current++;
+    if (e.dataTransfer.types.includes("Files")) setFileDragging(true);
+  };
+  const handleFileDragLeave = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    fileDragCounter.current--;
+    if (fileDragCounter.current === 0) setFileDragging(false);
+  };
+  const handleFileDragOver = (e: React.DragEvent) => { e.preventDefault(); e.stopPropagation(); };
+  const handleFileDrop = (e: React.DragEvent) => {
+    e.preventDefault(); e.stopPropagation();
+    setFileDragging(false);
+    fileDragCounter.current = 0;
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      setFolderImportOpen(true);
+      setTimeout(() => folderImportRef.current?.processFiles(files), 100);
+    }
+  };
+
   return (
-    <div>
+    <div
+      onDragEnter={isAdmin ? handleFileDragEnter : undefined}
+      onDragLeave={isAdmin ? handleFileDragLeave : undefined}
+      onDragOver={isAdmin ? handleFileDragOver : undefined}
+      onDrop={isAdmin ? handleFileDrop : undefined}
+      className="relative"
+    >
+      {fileDragging && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-2 text-primary">
+            <FolderOpen className="h-10 w-10" />
+            <p className="font-medium">Drop folder to import jobs</p>
+          </div>
+        </div>
+      )}
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
@@ -756,7 +795,7 @@ export default function Jobs() {
             </DialogContent>
           </Dialog>
           <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImported={fetchJobs} />
-          <FolderImportDialog open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchJobs} />
+          <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchJobs} />
           </div>
         )}
       </div>
