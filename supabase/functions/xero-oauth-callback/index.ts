@@ -2,28 +2,44 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
 const XERO_CONNECTIONS_URL = "https://api.xero.com/connections";
+const FALLBACK_APP_URL = "https://field-aid-box.lovable.app";
+
+function getAppUrl(): string {
+  const raw = Deno.env.get("APP_URL") || FALLBACK_APP_URL;
+  // Validate it looks like a URL
+  try {
+    const parsed = new URL(raw);
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      return parsed.origin;
+    }
+  } catch {
+    // not a valid URL
+  }
+  console.warn(`APP_URL is not a valid URL ("${raw}"), using fallback: ${FALLBACK_APP_URL}`);
+  return FALLBACK_APP_URL;
+}
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
   const error = url.searchParams.get("error");
+  const errorDescription = url.searchParams.get("error_description");
 
-  console.log("OAuth callback hit:", { hasCode: !!code, hasState: !!state, error });
-
-  const appUrl = Deno.env.get("APP_URL") || "https://field-aid-box.lovable.app";
-  console.log("APP_URL:", appUrl);
+  const appUrl = getAppUrl();
+  console.log("OAuth callback hit:", { hasCode: !!code, hasState: !!state, error, errorDescription, appUrl });
 
   if (error) {
-    console.error("Xero returned error:", error);
+    const msg = errorDescription || error;
+    console.error("Xero returned error:", msg);
     return new Response(null, {
       status: 302,
-      headers: { Location: `${appUrl}/settings?xero_error=${encodeURIComponent(error)}` },
+      headers: { Location: `${appUrl}/settings?xero_error=${encodeURIComponent(msg)}` },
     });
   }
 
   if (!code || !state) {
-    console.error("Missing code or state params");
+    console.error("Missing code or state params. Full query:", url.search);
     return new Response(null, {
       status: 302,
       headers: { Location: `${appUrl}/settings?xero_error=missing_params` },
@@ -35,13 +51,6 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
   const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
-  console.log("Env check:", {
-    hasClientId: !!XERO_CLIENT_ID,
-    hasClientSecret: !!XERO_CLIENT_SECRET,
-    hasSupabaseUrl: !!SUPABASE_URL,
-    hasServiceKey: !!SERVICE_ROLE_KEY,
-  });
-
   if (!XERO_CLIENT_ID || !XERO_CLIENT_SECRET || !SUPABASE_URL || !SERVICE_ROLE_KEY) {
     console.error("Missing required environment variables");
     return new Response(null, {
@@ -51,14 +60,12 @@ Deno.serve(async (req) => {
   }
 
   const redirectUri = `${SUPABASE_URL}/functions/v1/xero-oauth-callback`;
-  console.log("Redirect URI for token exchange:", redirectUri);
 
   try {
     let userId: string;
     try {
       const parsed = JSON.parse(atob(state));
       userId = parsed.userId;
-      console.log("Parsed state, userId:", userId);
     } catch (e) {
       console.error("Failed to parse state:", e);
       return new Response(null, {
@@ -68,7 +75,6 @@ Deno.serve(async (req) => {
     }
 
     // Exchange code for tokens
-    console.log("Exchanging code for tokens...");
     const tokenRes = await fetch(XERO_TOKEN_URL, {
       method: "POST",
       headers: {
@@ -93,7 +99,6 @@ Deno.serve(async (req) => {
     }
 
     const tokens = JSON.parse(tokenBody);
-    console.log("Token exchange successful, has access_token:", !!tokens.access_token);
 
     // Get connected Xero tenants
     const connectionsRes = await fetch(XERO_CONNECTIONS_URL, {
@@ -101,7 +106,6 @@ Deno.serve(async (req) => {
     });
 
     const connectionsBody = await connectionsRes.text();
-    console.log("Connections response status:", connectionsRes.status);
     if (!connectionsRes.ok) {
       console.error("Connections fetch failed:", connectionsBody);
       return new Response(null, {
@@ -111,7 +115,6 @@ Deno.serve(async (req) => {
     }
 
     const connections = JSON.parse(connectionsBody);
-    console.log("Connections count:", connections.length);
     if (!connections.length) {
       return new Response(null, {
         status: 302,
@@ -120,8 +123,6 @@ Deno.serve(async (req) => {
     }
 
     const tenant = connections[0];
-    console.log("Using tenant:", tenant.tenantName, tenant.tenantId);
-
     const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
@@ -142,7 +143,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log("Connection saved successfully");
+    console.log("Connection saved successfully for tenant:", tenant.tenantName);
     return new Response(null, {
       status: 302,
       headers: { Location: `${appUrl}/settings?xero_connected=true&tenant=${encodeURIComponent(tenant.tenantName)}` },
