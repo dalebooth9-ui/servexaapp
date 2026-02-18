@@ -125,8 +125,24 @@ export default function JobDetail() {
     if (error) {
       toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
     } else {
+      const prevStatus = job?.status;
       setJob((prev: any) => ({ ...prev, status: newStatus }));
       toast({ title: "Status updated", description: `Job is now ${newStatus}.` });
+
+      // Auto-trigger customer email notifications
+      if (newStatus === "active" && prevStatus !== "active") {
+        supabase.functions.invoke("notify-customer", {
+          body: { job_id: id, notification_type: "engineer_dispatched" },
+        }).then(({ error: notifyErr }) => {
+          if (!notifyErr) toast({ title: "Customer notified", description: "Dispatch email sent." });
+        });
+      } else if (newStatus === "completed" && prevStatus !== "completed") {
+        supabase.functions.invoke("notify-customer", {
+          body: { job_id: id, notification_type: "job_completed" },
+        }).then(({ error: notifyErr }) => {
+          if (!notifyErr) toast({ title: "Customer notified", description: "Completion email sent." });
+        });
+      }
     }
   };
 
