@@ -152,7 +152,7 @@ export default function PlannerMapView({
 
               const infoWindow = new google.maps.InfoWindow({
                 content: `<div style="font-family:system-ui;font-size:13px;max-width:250px">
-                  <strong>${job.reference_number}</strong> — ${job.name}<br/>
+                  <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${job.reference_number}</a> — ${job.name}<br/>
                   <span style="color:#666">${job.customer || ""}</span><br/>
                   <span style="color:#666">${engineerName}</span>
                 </div>`,
