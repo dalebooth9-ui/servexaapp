@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLiveEngineerLocations } from "@/hooks/useLiveEngineerLocations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Route, Loader2 } from "lucide-react";
+import { Route, Loader2, MapPin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface ScheduleEntry {
@@ -47,6 +47,8 @@ export default function PlannerMapView({
   const { toast } = useToast();
   const [optimising, setOptimising] = useState(false);
   const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number } | null>(null);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
@@ -88,11 +90,19 @@ export default function PlannerMapView({
 
   useEffect(() => {
     let cancelled = false;
+    setMapLoading(true);
+    setMapError(null);
 
     const init = async () => {
       try {
         const { data } = await supabase.functions.invoke("get-maps-key");
-        if (cancelled || !data?.apiKey || !mapRef.current) return;
+        if (cancelled || !data?.apiKey || !mapRef.current) {
+          if (!cancelled && !data?.apiKey) {
+            setMapError("Google Maps API key is not configured.");
+            setMapLoading(false);
+          }
+          return;
+        }
 
         if (!(window as any).google?.maps) {
           const script = document.createElement("script");
@@ -157,8 +167,11 @@ export default function PlannerMapView({
         }
 
         if (hasMarkers) map.fitBounds(bounds);
-      } catch {
-        // Maps key not available
+        setMapLoading(false);
+      } catch (err) {
+        console.error("Planner map init error:", err);
+        setMapError("Failed to load the map. Please try again.");
+        setMapLoading(false);
       }
     };
 
@@ -234,7 +247,22 @@ export default function PlannerMapView({
           </Button>
         )}
       </div>
-      <div ref={mapRef} className="h-[calc(100vh-320px)] min-h-[400px] rounded-lg border" />
+      <div className="relative">
+        {mapLoading && !mapError && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-lg border bg-muted/50 backdrop-blur-sm">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <p className="mt-2 text-sm text-muted-foreground">Loading map...</p>
+          </div>
+        )}
+        {mapError && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-lg border bg-muted/30">
+            <AlertTriangle className="h-8 w-8 text-destructive" />
+            <p className="mt-2 text-sm font-medium text-destructive">{mapError}</p>
+            <p className="mt-1 text-xs text-muted-foreground">Check that the Google Maps API key is configured.</p>
+          </div>
+        )}
+        <div ref={mapRef} className={`h-[calc(100vh-320px)] min-h-[400px] rounded-lg border ${mapError ? "invisible" : ""}`} />
+      </div>
     </div>
   );
 }
