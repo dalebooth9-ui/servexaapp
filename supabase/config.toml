@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.notify-customer]
 verify_jwt = false
+
+[functions.customer-sign-off]
+verify_jwt = false

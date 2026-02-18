@@ -31,6 +31,7 @@ import JobParts from "@/components/JobParts";
 import JobPdfReport from "@/components/JobPdfReport";
 import JobStatusPipeline, { ALL_JOB_STATUSES, getStatusLabel } from "@/components/JobStatusPipeline";
 import SignatureCapture from "@/components/SignatureCapture";
+import CustomerSignOffLink from "@/components/CustomerSignOffLink";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -436,8 +437,12 @@ export default function JobDetail() {
           Sign-Off Signatures
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
+        <CollapsibleContent className="pt-3 space-y-4">
           <SignatureCapture jobId={id!} />
+          <div className="border-t pt-3">
+            <p className="text-sm text-muted-foreground mb-2">Need the customer to sign off remotely?</p>
+            <CustomerSignOffLink jobId={id!} customerName={job.customer || ""} />
+          </div>
         </CollapsibleContent>
       </Collapsible>
 
