@@ -590,7 +590,11 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
                 const isDocument = sub.type === "document" && sub.file_name;
                 const hasFile = !!sub.file_url;
                 return (
-                  <TableRow key={sub.id} className={selectedIds.has(sub.id) ? "bg-primary/5" : ""}>
+                  <TableRow key={sub.id} className={`${selectedIds.has(sub.id) ? "bg-primary/5" : ""} ${hasFile ? "cursor-pointer" : ""}`} onDoubleClick={() => {
+                    if (sub.type === "photo" && resolvedUrl) { openLightbox(sub.id); }
+                    else if (isDocument && resolvedUrl) { setPreviewSub(sub); }
+                    else if (resolvedUrl) { window.open(resolvedUrl, "_blank"); }
+                  }}>
                     <TableCell className="w-10 px-2">
                       {hasFile && (
                         <Checkbox

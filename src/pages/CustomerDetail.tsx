@@ -360,7 +360,13 @@ export default function CustomerDetail() {
                       const dateB = new Date(b.created_at).getTime();
                       return docSortAsc ? dateA - dateB : dateB - dateA;
                     }).map((doc) => (
-                      <TableRow key={doc.id}>
+                      <TableRow key={doc.id} className="cursor-pointer" onDoubleClick={async () => {
+                        const storagePath = doc.file_url.includes("/object/public/submissions/")
+                          ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
+                          : doc.file_url;
+                        const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
+                        if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                      }}>
                         <TableCell className="w-10 px-2">
                           <Checkbox
                             checked={selectedDocIds.has(doc.id)}
