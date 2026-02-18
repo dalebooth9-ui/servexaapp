@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft, Loader2 } from "lucide-react";
+import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft, Loader2, FileText, Image, X } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1189,9 +1189,31 @@ export default function Jobs() {
         <DialogContent>
           <DialogHeader><DialogTitle>Create Job from Dropped Files</DialogTitle></DialogHeader>
           <form onSubmit={handleFileDropCreateJob} className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              {fileDropPendingFiles.length} file(s) will be added as submissions to the new job.
-            </p>
+            <div className="space-y-2">
+              <Label>Files to upload</Label>
+              <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border bg-muted/30 p-2">
+                {fileDropPendingFiles.map((file, i) => (
+                  <div key={`${file.name}-${i}`} className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted">
+                    <div className="flex items-center gap-2 truncate">
+                      {IMAGE_EXTENSIONS.includes(getFileExt(file.name))
+                        ? <Image className="h-3.5 w-3.5 shrink-0 text-accent" />
+                        : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                      <span className="truncate">{file.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">
+                        ({(file.size / 1024 / 1024).toFixed(1)} MB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setFileDropPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="shrink-0 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label>Job Name</Label>
               <Input value={fileDropNewJobForm.name} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, name: e.target.value }))} required />
