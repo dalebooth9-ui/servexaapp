@@ -752,6 +752,53 @@ export type Database = {
           },
         ]
       }
+      job_parts: {
+        Row: {
+          added_by: string
+          created_at: string
+          id: string
+          job_id: string
+          name: string
+          notes: string | null
+          quantity: number
+          total_cost: number | null
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          added_by: string
+          created_at?: string
+          id?: string
+          job_id: string
+          name: string
+          notes?: string | null
+          quantity?: number
+          total_cost?: number | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          added_by?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          name?: string
+          notes?: string | null
+          quantity?: number
+          total_cost?: number | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_parts_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_schedule: {
         Row: {
           created_at: string

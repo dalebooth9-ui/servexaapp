@@ -3,15 +3,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen } from "lucide-react";
+import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 
 export default function Dashboard() {
   const { userRole, user } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ jobs: 0, photos: 0, documents: 0, locations: 0 });
+  const [kpis, setKpis] = useState({ completedThisMonth: 0, revenue: 0, activeEngineers: 0, completionRate: 0 });
+  const [weeklyData, setWeeklyData] = useState<{ name: string; completed: number; created: number }[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
@@ -22,32 +25,61 @@ export default function Dashboard() {
     const fetchStats = async () => {
       if (!user) return;
 
-      const [jobsRes, subsRes, recentRes] = await Promise.all([
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const fourWeeksAgo = new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000).toISOString();
+
+      const [jobsRes, subsRes, recentRes, completedRes, allJobsRes, invoiceRes, engRes] = await Promise.all([
         supabase.from("jobs").select("id", { count: "exact", head: true }),
         supabase.from("submissions").select("type"),
-        supabase
-          .from("submissions")
-          .select("*, jobs(name, reference_number)")
-          .order("created_at", { ascending: false })
-          .limit(5),
+        supabase.from("submissions").select("*, jobs(name, reference_number)").order("created_at", { ascending: false }).limit(5),
+        supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", startOfMonth),
+        supabase.from("jobs").select("id, status, created_at, updated_at").gte("created_at", fourWeeksAgo),
+        supabase.from("invoices").select("total, status").gte("created_at", startOfMonth),
+        supabase.from("job_assignments").select("engineer_id").gte("assigned_at", startOfMonth),
       ]);
 
       const subs = subsRes.data || [];
+      const totalJobs = jobsRes.count || 0;
+      const completedCount = completedRes.count || 0;
+      const invoices = invoiceRes.data || [];
+      const revenue = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + Number(i.total || 0), 0);
+      const uniqueEngineers = new Set((engRes.data || []).map((e) => e.engineer_id)).size;
+
       setStats({
-        jobs: jobsRes.count || 0,
+        jobs: totalJobs,
         photos: subs.filter((s) => s.type === "photo").length,
         documents: subs.filter((s) => s.type === "document").length,
         locations: subs.filter((s) => s.type === "location").length,
       });
 
+      setKpis({
+        completedThisMonth: completedCount,
+        revenue,
+        activeEngineers: uniqueEngineers,
+        completionRate: totalJobs > 0 ? Math.round((completedCount / totalJobs) * 100) : 0,
+      });
+
+      // Build weekly trend data
+      const allJobs = allJobsRes.data || [];
+      const weeks: { name: string; completed: number; created: number }[] = [];
+      for (let i = 3; i >= 0; i--) {
+        const weekStart = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
+        const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
+        const label = `W${4 - i}`;
+        weeks.push({
+          name: label,
+          completed: allJobs.filter((j) => j.status === "completed" && new Date(j.updated_at) >= weekStart && new Date(j.updated_at) < weekEnd).length,
+          created: allJobs.filter((j) => new Date(j.created_at) >= weekStart && new Date(j.created_at) < weekEnd).length,
+        });
+      }
+      setWeeklyData(weeks);
+
       // Fetch engineer names for recent submissions
       const recent = recentRes.data || [];
       if (recent.length > 0) {
         const engineerIds = [...new Set(recent.map((s: any) => s.engineer_id))];
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("user_id, full_name")
-          .in("user_id", engineerIds);
+        const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
         const nameMap: Record<string, string> = {};
         (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
         setRecentSubmissions(recent.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
@@ -59,14 +91,21 @@ export default function Dashboard() {
     fetchStats();
   }, [user]);
 
+  const isAdmin = userRole === "admin";
+
+  const kpiCards = [
+    { label: "Completed This Month", value: kpis.completedThisMonth, icon: CheckCircle2, color: "text-green-500" },
+    { label: "Revenue (Paid)", value: `£${kpis.revenue.toLocaleString()}`, icon: PoundSterling, color: "text-emerald-500" },
+    { label: "Active Engineers", value: kpis.activeEngineers, icon: Users, color: "text-blue-500" },
+    { label: "Completion Rate", value: `${kpis.completionRate}%`, icon: TrendingUp, color: "text-primary" },
+  ];
+
   const statCards = [
-    { label: "Active Jobs", value: stats.jobs, icon: Briefcase, color: "text-primary", link: "/jobs" },
+    { label: "Total Jobs", value: stats.jobs, icon: Briefcase, color: "text-primary", link: "/jobs" },
     { label: "Photos", value: stats.photos, icon: Image, color: "text-accent", link: "/jobs" },
     { label: "Documents", value: stats.documents, icon: FileText, color: "text-warning", link: "/jobs" },
     { label: "Locations", value: stats.locations, icon: MapPin, color: "text-destructive", link: "/jobs" },
   ];
-
-  const isAdmin = userRole === "admin";
 
   const handleFileDragEnter = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
@@ -90,10 +129,7 @@ export default function Dashboard() {
     }
   };
 
-  const fetchDashboard = () => {
-    // Trigger re-fetch after import
-    window.location.reload();
-  };
+  const fetchDashboard = () => { window.location.reload(); };
 
   return (
     <div
@@ -113,6 +149,46 @@ export default function Dashboard() {
       )}
       <h1 className="mb-6 text-2xl font-bold">Dashboard</h1>
 
+      {/* KPI Cards */}
+      {isAdmin && (
+        <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {kpiCards.map((kpi) => (
+            <Card key={kpi.label} className="transition-shadow hover:shadow-md">
+              <CardContent className="flex items-center gap-4 p-5">
+                <div className={cn("rounded-lg bg-muted p-2.5", kpi.color)}>
+                  <kpi.icon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{kpi.value}</p>
+                  <p className="text-sm text-muted-foreground">{kpi.label}</p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Trend Chart */}
+      {isAdmin && weeklyData.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="text-lg">Weekly Job Trends (Last 4 Weeks)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <BarChart data={weeklyData}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                <XAxis dataKey="name" className="text-xs" />
+                <YAxis allowDecimals={false} className="text-xs" />
+                <Tooltip />
+                <Bar dataKey="created" fill="hsl(var(--primary))" name="Created" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="completed" fill="hsl(var(--accent))" name="Completed" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => (
           <Link key={stat.label} to={stat.link}>
@@ -131,7 +207,7 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {userRole === "admin" && (
+      {isAdmin && (
         <div className="mb-6 flex flex-wrap gap-3">
           <Button onClick={() => navigate("/jobs")} variant="outline">
             <Plus className="mr-2 h-4 w-4" /> Create Job
