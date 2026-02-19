@@ -17,7 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy,
 } from "lucide-react";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
@@ -123,6 +123,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       toast({ title: "Error deleting template", variant: "destructive" });
     }
     setDeletingTemplateId(null);
+  };
+
+  const handleDuplicateTemplate = async (tpl: Template) => {
+    const { error } = await supabase.from("job_sheet_templates").insert({
+      name: tpl.name + " (copy)",
+      description: tpl.description,
+      fields: tpl.fields as any,
+      created_by: user?.id,
+    } as any);
+    if (error) {
+      toast({ title: "Error duplicating template", variant: "destructive" });
+    } else {
+      toast({ title: "Template duplicated" });
+      fetchData();
+    }
   };
 
   const getAutoPopulatedData = (template: Template): Record<string, any> => {
@@ -468,8 +483,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
                     </Button>
                     {userRole === "admin" && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingTemplate(tpl)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingTemplate(tpl)} title="Edit template">
                         <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {userRole === "admin" && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDuplicateTemplate(tpl)} title="Duplicate template">
+                        <Copy className="h-3.5 w-3.5" />
                       </Button>
                     )}
                     {userRole === "admin" && (
