@@ -54,7 +54,7 @@ serve(async (req) => {
 
     const ext = file_name.slice(file_name.lastIndexOf(".")).toLowerCase();
 
-    let userContent: any[];
+    let userContent: any;
 
     if (ext === ".pdf") {
       userContent = [
@@ -63,20 +63,15 @@ serve(async (req) => {
       ];
     } else if (ext === ".csv" || ext === ".txt") {
       let text = new TextDecoder().decode(Uint8Array.from(atob(file_base64), c => c.charCodeAt(0)));
-      // Truncate to avoid exceeding AI model token limits
       if (text.length > 60000) {
         text = text.slice(0, 60000) + "\n\n[TRUNCATED - file too large, showing first portion]";
       }
-      userContent = [
-        { type: "text", text: `Extract all parts, materials, and components from this CSV/text data (${file_name}):\n\n${text}\n\nReturn as a JSON array.` },
-      ];
+      userContent = `Extract all parts, materials, and components from this CSV/text data (${file_name}):\n\n${text}\n\nReturn as a JSON array.`;
     } else if (ext === ".xlsx" || ext === ".xls") {
-      // Parse Excel server-side using SheetJS
       const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
       const fileBytes = Uint8Array.from(atob(file_base64), c => c.charCodeAt(0));
       const workbook = XLSX.read(fileBytes, { type: "array" });
 
-      // Convert all sheets to CSV text
       const sheetsText: string[] = [];
       for (const sheetName of workbook.SheetNames) {
         const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
@@ -84,7 +79,7 @@ serve(async (req) => {
           sheetsText.push(`--- Sheet: ${sheetName} ---\n${csv}`);
         }
       }
-      const combinedText = sheetsText.join("\n\n");
+      let combinedText = sheetsText.join("\n\n");
 
       if (!combinedText || combinedText.length < 5) {
         return new Response(JSON.stringify({ error: "Excel file appears to be empty" }), {
@@ -92,10 +87,11 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+      if (combinedText.length > 60000) {
+        combinedText = combinedText.slice(0, 60000) + "\n\n[TRUNCATED]";
+      }
 
-      userContent = [
-        { type: "text", text: `Extract all parts, materials, and components from this spreadsheet data (${file_name}):\n\n${combinedText}\n\nReturn as a JSON array.` },
-      ];
+      userContent = `Extract all parts, materials, and components from this spreadsheet data (${file_name}):\n\n${combinedText}\n\nReturn as a JSON array.`;
     } else {
       // .docx/.doc
       let extractedText = "";
@@ -124,9 +120,7 @@ serve(async (req) => {
         });
       }
 
-      userContent = [
-        { type: "text", text: `Extract all parts, materials, and components from this document (${file_name}). The document text:\n\n${extractedText}\n\nReturn as a JSON array.` },
-      ];
+      userContent = `Extract all parts, materials, and components from this document (${file_name}). The document text:\n\n${extractedText}\n\nReturn as a JSON array.`;
     }
 
     const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
