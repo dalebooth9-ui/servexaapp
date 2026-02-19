@@ -147,10 +147,34 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
     setAdding(false);
   };
 
-  const handleExportPdf = () => {
+  const handleExportPdf = async () => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const margin = 15;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const maxWidth = pageWidth - margin * 2;
     let y = margin;
+
+    const checkPage = (needed: number) => { if (y + needed > 270) { doc.addPage(); y = margin; } };
+
+    // Helper: fetch image from storage and return data URL
+    const fetchImageDataUrl = async (path: string): Promise<string | null> => {
+      try {
+        const { data: urlData } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(path, 60);
+        if (!urlData?.signedUrl) return null;
+        const response = await fetch(urlData.signedUrl);
+        const blob = await response.blob();
+        return new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      } catch {
+        return null;
+      }
+    };
 
     // Header
     doc.setFontSize(16);
@@ -201,14 +225,15 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
 
     // Completed Template Reports
     if (templateResponses.length > 0) {
-      templateResponses.forEach((resp) => {
-        if (y > 250) { doc.addPage(); y = margin; }
+      for (const resp of templateResponses) {
+        checkPage(20);
         const tpl = templates.find((t: any) => t.id === resp.template_id);
-        if (!tpl) return;
+        if (!tpl) continue;
         const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
         const responses = resp.responses as Record<string, any>;
 
         doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
         doc.text(`REPORT: ${tpl.name.toUpperCase()}`, margin, y);
         y += 4;
         doc.setFontSize(8);
@@ -219,8 +244,8 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         doc.setFontSize(10);
 
         const sections = [...new Set(fields.map((f: any) => f.section || "General"))];
-        sections.forEach((section) => {
-          if (y > 265) { doc.addPage(); y = margin; }
+        for (const section of sections) {
+          checkPage(10);
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.text(section, margin + 2, y);
@@ -228,11 +253,30 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
           doc.setFont("helvetica", "normal");
           doc.setFontSize(10);
 
-          fields
-            .filter((f: any) => (f.section || "General") === section)
-            .forEach((field: any) => {
-              if (y > 270) { doc.addPage(); y = margin; }
-              const val = responses[field.id];
+          const sectionFields = fields.filter((f: any) => (f.section || "General") === section);
+          for (const field of sectionFields) {
+            checkPage(8);
+            const val = responses[field.id];
+
+            if (field.type === "photo" && val && typeof val === "string" && val.startsWith("template-photos/")) {
+              // Embed photo inline
+              doc.text(`${field.label}:`, margin + 4, y);
+              y += 4;
+              const dataUrl = await fetchImageDataUrl(val);
+              if (dataUrl) {
+                checkPage(45);
+                try {
+                  doc.addImage(dataUrl, "JPEG", margin + 4, y, 50, 37.5);
+                  y += 40;
+                } catch {
+                  doc.text("[Photo could not be embedded]", margin + 8, y);
+                  y += 4.5;
+                }
+              } else {
+                doc.text("[Photo unavailable]", margin + 8, y);
+                y += 4.5;
+              }
+            } else {
               let displayVal = "";
               if (field.type === "checkbox") {
                 displayVal = val ? "Yes" : "No";
@@ -241,11 +285,12 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
               }
               doc.text(`${field.label}: ${displayVal}`, margin + 4, y, { maxWidth: 165 });
               y += 4.5;
-            });
+            }
+          }
           y += 1;
-        });
+        }
         y += 3;
-      });
+      }
     }
 
     // Activity
