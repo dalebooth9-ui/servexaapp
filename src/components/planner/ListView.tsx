@@ -27,6 +27,8 @@ interface Job {
   category: string;
   customer: string | null;
   address: string | null;
+  site_id: string | null;
+  site?: { name: string; address: string | null; postcode: string | null } | null;
 }
 
 function extractPostcode(address: string | null): string {
@@ -182,8 +184,8 @@ export default function ListView({
                     <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.schedule_date), "EEE dd/MM")}</TableCell>
                     <TableCell className="text-sm">{eng?.full_name || "—"}</TableCell>
                     <TableCell className="text-sm">{job?.customer || "—"}</TableCell>
-                    <TableCell className="text-sm max-w-[180px] truncate">{job?.address || "—"}</TableCell>
-                    <TableCell className="text-sm font-mono">{extractPostcode(job?.address || null) || "—"}</TableCell>
+                    <TableCell className="text-sm max-w-[180px] truncate">{job?.site?.name || job?.address || "—"}</TableCell>
+                    <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>
                     <TableCell>
                       {job ? (
                         <Link to={`/jobs/${job.id}`} className="hover:underline">
