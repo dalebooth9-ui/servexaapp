@@ -959,6 +959,87 @@ export type Database = {
           },
         ]
       }
+      job_sheet_responses: {
+        Row: {
+          created_at: string
+          id: string
+          job_id: string
+          responses: Json
+          status: string
+          submitted_at: string | null
+          submitted_by: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          job_id: string
+          responses?: Json
+          status?: string
+          submitted_at?: string | null
+          submitted_by: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          job_id?: string
+          responses?: Json
+          status?: string
+          submitted_at?: string | null
+          submitted_by?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_sheet_responses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_sheet_responses_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_sheet_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          fields: Json
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          fields?: Json
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       job_signatures: {
         Row: {
           created_at: string
