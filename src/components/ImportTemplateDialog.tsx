@@ -94,7 +94,14 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
       setFields((prev) => {
         const oldIndex = prev.findIndex((f) => f.id === active.id);
         const newIndex = prev.findIndex((f) => f.id === over.id);
-        return arrayMove(prev, oldIndex, newIndex);
+        const reordered = arrayMove(prev, oldIndex, newIndex);
+        // Update moved field's section to match its new neighbour
+        const movedField = reordered[newIndex];
+        const neighbour = reordered[newIndex > 0 ? newIndex - 1 : newIndex + 1];
+        if (neighbour && neighbour.section !== movedField.section) {
+          reordered[newIndex] = { ...movedField, section: neighbour.section };
+        }
+        return reordered;
       });
     }
   }, []);
