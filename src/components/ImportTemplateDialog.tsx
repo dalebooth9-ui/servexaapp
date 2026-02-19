@@ -217,7 +217,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
         )}
 
         {step === "review" && (
-          <>
+          <div className="flex flex-col flex-1 min-h-0 gap-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
                 <Label>Template Name</Label>
@@ -306,7 +306,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
                 Save Template
               </Button>
             </DialogFooter>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>
