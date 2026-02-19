@@ -32,6 +32,7 @@ import JobPdfReport from "@/components/JobPdfReport";
 import JobStatusPipeline, { ALL_JOB_STATUSES, getStatusLabel } from "@/components/JobStatusPipeline";
 import SignatureCapture from "@/components/SignatureCapture";
 import CustomerSignOffLink from "@/components/CustomerSignOffLink";
+import SendToCustomerMenu from "@/components/SendToCustomerMenu";
 
 const ALLOWED_DOC_TYPES = [
   "application/pdf",
@@ -354,6 +355,7 @@ export default function JobDetail() {
         </div>
         {userRole === "admin" ? (
           <div className="flex items-center gap-2">
+            <SendToCustomerMenu jobId={id!} job={job} customerEmail="" />
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
