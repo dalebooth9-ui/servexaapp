@@ -427,7 +427,7 @@ export default function JobDetail() {
         <CollapsibleContent className="pt-3">
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
             <EngineerAssignments jobId={id!} />
-            {userRole === "admin" && <WhatsAppReply jobId={id!} engineers={engineers} />}
+            <WhatsAppReply jobId={id!} engineers={engineers} />
           </div>
         </CollapsibleContent>
       </Collapsible>
