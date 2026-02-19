@@ -367,6 +367,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 template={activeTemplate}
                 formData={formData}
                 jobInfo={jobInfo}
+                jobId={jobId}
                 submittedBy={viewingResponse.submitted_by ? profiles[viewingResponse.submitted_by] : undefined}
                 submittedAt={viewingResponse.submitted_at}
               />
