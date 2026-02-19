@@ -364,6 +364,15 @@ export default function JobDetail() {
                 jobName={job.name}
               />
             )}
+            {job.status !== "scheduled" && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => handleStatusChange("scheduled")}
+              >
+                Save & Submit to Planner
+              </Button>
+            )}
             <Select value={job.status} onValueChange={handleStatusChange}>
               <SelectTrigger className="w-[160px]">
                 <SelectValue>{getStatusLabel(job.status)}</SelectValue>
