@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 
 type TemplateField = {
@@ -49,6 +50,26 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
   const generate = async () => {
     setGenerating(true);
     try {
+      // Pre-fetch signed URLs for all photo fields
+      const photoFields = template.fields.filter(f => f.type === "photo" && formData[f.id]);
+      const photoImages: Record<string, HTMLImageElement> = {};
+      await Promise.all(photoFields.map(async (field) => {
+        const path = formData[field.id];
+        if (!path || typeof path !== "string") return;
+        try {
+          const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
+          if (!data?.signedUrl) return;
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            img.src = data.signedUrl;
+          });
+          photoImages[field.id] = img;
+        } catch { /* skip failed photos */ }
+      }));
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -204,16 +225,28 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
           // Value
           const val = formData[field.id];
           let displayVal = "";
-          if (field.type === "pass_fail") {
+          if (field.type === "photo") {
+            // Photo field — embed image inline
+            const photoImg = photoImages[field.id];
+            if (photoImg) {
+              displayVal = "See below";
+              doc.text(displayVal, margin + colSplit + 1, y + 3);
+            } else {
+              displayVal = "—";
+              doc.text(displayVal, margin + colSplit + 1, y + 3);
+            }
+          } else if (field.type === "pass_fail") {
             displayVal = val === "pass" ? "PASS" : val === "fail" ? "FAIL" : val === "n/a" ? "N/A" : "—";
             if (val === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
             else if (val === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+            doc.text(displayVal, margin + colSplit + 1, y + 3);
           } else if (field.type === "checkbox") {
             displayVal = val ? "YES" : "NO";
+            doc.text(displayVal, margin + colSplit + 1, y + 3);
           } else {
             displayVal = val ? String(val).substring(0, 50) : "—";
+            doc.text(displayVal, margin + colSplit + 1, y + 3);
           }
-          doc.text(displayVal, margin + colSplit + 1, y + 3);
           doc.setTextColor(0, 0, 0);
           doc.setFont("helvetica", "normal");
 
@@ -231,6 +264,24 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
           }
 
           y += rowH;
+
+          // Embed photo below row if present
+          if (field.type === "photo" && photoImages[field.id]) {
+            const photoImg = photoImages[field.id];
+            const maxPhotoW = maxWidth * 0.45;
+            const maxPhotoH = 30;
+            const aspect = photoImg.naturalWidth / photoImg.naturalHeight;
+            let pW = maxPhotoW;
+            let pH = pW / aspect;
+            if (pH > maxPhotoH) { pH = maxPhotoH; pW = pH * aspect; }
+            // Check if photo fits on current page
+            if (y + pH + 2 > pageHeight - footerSpace) {
+              doc.addPage();
+              y = margin;
+            }
+            doc.addImage(photoImg, "JPEG", margin + 2, y + 1, pW, pH);
+            y += pH + 3;
+          }
         }
         y += 1;
       }
