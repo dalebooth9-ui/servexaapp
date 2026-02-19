@@ -14,6 +14,8 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
+  const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
+  const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER")!;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
@@ -22,7 +24,6 @@ Deno.serve(async (req) => {
       return new Response("Method not allowed", { status: 405, headers: corsHeaders });
     }
 
-    // Parse Twilio's form-encoded body
     const body = await req.text();
     const params = new URLSearchParams(body);
 
@@ -36,12 +37,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const isValid = await validateTwilioSignature(
-      req.url,
-      params,
-      signature,
-      TWILIO_AUTH_TOKEN
-    );
+    const isValid = await validateTwilioSignature(req.url, params, signature, TWILIO_AUTH_TOKEN);
     if (!isValid) {
       console.error("Invalid Twilio signature");
       return new Response("<Response></Response>", {
@@ -50,7 +46,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Extract message data from Twilio's format
     const from = params.get("From")?.replace("whatsapp:", "") || "";
     const messageBody = params.get("Body") || "";
     const numMedia = parseInt(params.get("NumMedia") || "0", 10);
@@ -59,10 +54,7 @@ Deno.serve(async (req) => {
     const longitude = params.get("Longitude");
 
     if (!from) {
-      return new Response("<Response></Response>", {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "text/xml" },
-      });
+      return twimlResponse();
     }
 
     // Find engineer by WhatsApp number
@@ -78,6 +70,7 @@ Deno.serve(async (req) => {
     }
 
     const engineerId = profile.user_id;
+    const twilioSender = { accountSid: TWILIO_ACCOUNT_SID, authToken: TWILIO_AUTH_TOKEN, fromNumber: TWILIO_WHATSAPP_NUMBER };
 
     // Handle location messages
     if (latitude && longitude) {
@@ -104,23 +97,16 @@ Deno.serve(async (req) => {
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
-
-        console.log(`Media ${i}: url=${mediaUrl}, type=${mediaType}`);
         if (!mediaUrl) continue;
 
-        // Download media from Twilio
         const fileRes = await fetch(mediaUrl, {
-          headers: {
-            Authorization: `Basic ${btoa(`${Deno.env.get("TWILIO_ACCOUNT_SID")}:${TWILIO_AUTH_TOKEN}`)}`,
-          },
+          headers: { Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}` },
         });
-        console.log(`Media download status: ${fileRes.status}`);
         if (!fileRes.ok) {
-          console.error(`Media download failed: ${fileRes.status} ${await fileRes.text()}`);
+          console.error(`Media download failed: ${fileRes.status}`);
           continue;
         }
         const fileBlob = await fileRes.blob();
-        console.log(`Media blob size: ${fileBlob.size}`);
 
         const isImage = mediaType.startsWith("image/");
         const ext = mediaType.split("/")[1] || "bin";
@@ -150,12 +136,72 @@ Deno.serve(async (req) => {
       return twimlResponse();
     }
 
-    // Handle text messages
+    // Handle text messages — check for commands first
     if (messageBody) {
+      const command = messageBody.trim().toLowerCase();
+
+      // Command: info / details / job — send job summary
+      if (["info", "details", "job", "status"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first to set context.");
+          return twimlResponse();
+        }
+        await handleInfoCommand(supabase, twilioSender, from, jobId);
+        return twimlResponse();
+      }
+
+      // Command: photos / images — send submission photos
+      if (["photos", "images", "pics"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first.");
+          return twimlResponse();
+        }
+        await handlePhotosCommand(supabase, twilioSender, from, jobId);
+        return twimlResponse();
+      }
+
+      // Command: report — send field report
+      if (["report", "reports"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first.");
+          return twimlResponse();
+        }
+        await handleReportCommand(supabase, twilioSender, from, jobId);
+        return twimlResponse();
+      }
+
+      // Command: notes — send recent notes/submissions
+      if (["notes", "history", "log"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first.");
+          return twimlResponse();
+        }
+        await handleNotesCommand(supabase, twilioSender, from, jobId);
+        return twimlResponse();
+      }
+
+      // Command: help — list available commands
+      if (["help", "commands", "menu"].includes(command)) {
+        await sendWhatsApp(twilioSender, from,
+          "📋 *Available Commands:*\n\n" +
+          "*info* — Job details (name, address, status, priority)\n" +
+          "*photos* — Download all photos for current job\n" +
+          "*report* — Get field report summary\n" +
+          "*notes* — Recent notes and submissions\n" +
+          "*help* — Show this menu\n\n" +
+          "Send a *job reference number* to switch jobs."
+        );
+        return twimlResponse();
+      }
+
       // Check if it's a job reference number
       const { data: job } = await supabase
         .from("jobs")
-        .select("id")
+        .select("id, name, reference_number")
         .eq("reference_number", messageBody.trim())
         .maybeSingle();
 
@@ -168,6 +214,9 @@ Deno.serve(async (req) => {
           content: `Job context set: ${messageBody.trim()}`,
           whatsapp_message_id: messageSid,
         });
+        await sendWhatsApp(twilioSender, from,
+          `✅ Job set: *${job.reference_number}* — ${job.name}\n\nType *info* for details, *photos* for images, or *help* for all commands.`
+        );
         return twimlResponse();
       }
 
@@ -196,6 +245,181 @@ Deno.serve(async (req) => {
   }
 });
 
+// ── Twilio helpers ──────────────────────────────────────────────
+
+type TwilioSender = { accountSid: string; authToken: string; fromNumber: string };
+
+async function sendWhatsApp(sender: TwilioSender, to: string, body: string, mediaUrl?: string) {
+  const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${sender.accountSid}/Messages.json`;
+  const formParams: Record<string, string> = {
+    From: `whatsapp:${sender.fromNumber}`,
+    To: `whatsapp:${to}`,
+    Body: body,
+  };
+  if (mediaUrl) {
+    formParams["MediaUrl"] = mediaUrl;
+  }
+
+  const res = await fetch(twilioUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${btoa(`${sender.accountSid}:${sender.authToken}`)}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: new URLSearchParams(formParams).toString(),
+  });
+
+  if (!res.ok) {
+    const err = await res.json();
+    console.error("Twilio send error:", err);
+  }
+}
+
+// ── Command handlers ────────────────────────────────────────────
+
+async function handleInfoCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("reference_number, name, status, priority, customer, address, category, job_type")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (!job) {
+    await sendWhatsApp(sender, to, "Could not load job details.");
+    return;
+  }
+
+  // Get assignment count
+  const { count: engineerCount } = await supabase
+    .from("job_assignments")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+
+  // Get submissions count
+  const { count: submissionCount } = await supabase
+    .from("submissions")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+
+  // Get parts count
+  const { count: partsCount } = await supabase
+    .from("job_parts")
+    .select("id", { count: "exact", head: true })
+    .eq("job_id", jobId);
+
+  const statusEmoji: Record<string, string> = {
+    active: "🟢", completed: "✅", archived: "📦", awaiting_parts: "⏳",
+    on_hold: "⏸️", requires_revisit: "🔄", scheduled: "📅", in_progress: "🔧",
+  };
+
+  const priorityEmoji: Record<string, string> = { high: "🔴", medium: "🟡", low: "🟢" };
+
+  const msg =
+    `📋 *Job: ${job.reference_number}*\n` +
+    `*${job.name}*\n\n` +
+    `${statusEmoji[job.status] || "⚪"} Status: ${job.status.replace(/_/g, " ")}\n` +
+    `${priorityEmoji[job.priority] || "⚪"} Priority: ${job.priority}\n` +
+    `📁 Category: ${job.category}\n` +
+    `🔄 Type: ${job.job_type === "recurring" ? "Recurring" : "One-off"}\n` +
+    (job.customer ? `👤 Customer: ${job.customer}\n` : "") +
+    (job.address ? `📍 Address: ${job.address}\n` : "") +
+    `\n👷 Engineers: ${engineerCount || 0}\n` +
+    `📝 Submissions: ${submissionCount || 0}\n` +
+    `🔧 Parts: ${partsCount || 0}`;
+
+  await sendWhatsApp(sender, to, msg);
+}
+
+async function handlePhotosCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
+  const { data: photos } = await supabase
+    .from("submissions")
+    .select("file_url, file_name, created_at")
+    .eq("job_id", jobId)
+    .eq("type", "photo")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (!photos || photos.length === 0) {
+    await sendWhatsApp(sender, to, "📷 No photos found for this job.");
+    return;
+  }
+
+  await sendWhatsApp(sender, to, `📷 Sending ${photos.length} photo(s) for this job...`);
+
+  for (const photo of photos) {
+    if (!photo.file_url) continue;
+
+    // Create a signed URL (1 hour expiry)
+    const { data: signedData } = await supabase.storage
+      .from("submissions")
+      .createSignedUrl(photo.file_url, 3600);
+
+    if (signedData?.signedUrl) {
+      const caption = photo.file_name || "Photo";
+      await sendWhatsApp(sender, to, caption, signedData.signedUrl);
+    }
+  }
+}
+
+async function handleReportCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
+  const { data: reports } = await supabase
+    .from("field_reports")
+    .select("title, content, summary, created_at")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false })
+    .limit(5);
+
+  if (!reports || reports.length === 0) {
+    await sendWhatsApp(sender, to, "📄 No field reports found for this job.");
+    return;
+  }
+
+  for (const report of reports) {
+    // Strip HTML tags from content for WhatsApp
+    const plainContent = (report.summary || report.content || "").replace(/<[^>]*>/g, "").trim();
+    const truncated = plainContent.length > 1000 ? plainContent.substring(0, 1000) + "..." : plainContent;
+
+    const msg =
+      `📄 *${report.title || "Field Report"}*\n` +
+      `🕐 ${new Date(report.created_at).toLocaleDateString("en-GB")}\n\n` +
+      truncated;
+
+    await sendWhatsApp(sender, to, msg);
+  }
+}
+
+async function handleNotesCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
+  const { data: submissions } = await supabase
+    .from("submissions")
+    .select("type, content, file_name, created_at")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false })
+    .limit(15);
+
+  if (!submissions || submissions.length === 0) {
+    await sendWhatsApp(sender, to, "📝 No submissions found for this job.");
+    return;
+  }
+
+  const typeEmoji: Record<string, string> = {
+    note: "💬", photo: "📷", document: "📄", location: "📍",
+  };
+
+  let msg = `📝 *Recent Submissions (${submissions.length}):*\n\n`;
+
+  for (const sub of submissions) {
+    const date = new Date(sub.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    const emoji = typeEmoji[sub.type] || "📌";
+    const detail = sub.content || sub.file_name || sub.type;
+    const truncDetail = detail && detail.length > 80 ? detail.substring(0, 80) + "..." : detail;
+    msg += `${emoji} ${date} — ${truncDetail}\n`;
+  }
+
+  await sendWhatsApp(sender, to, msg);
+}
+
+// ── Utility functions ───────────────────────────────────────────
+
 function twimlResponse(message?: string): Response {
   const body = message
     ? `<Response><Message>${message}</Message></Response>`
@@ -207,26 +431,18 @@ function twimlResponse(message?: string): Response {
 }
 
 async function validateTwilioSignature(
-  url: string,
-  params: URLSearchParams,
-  signature: string,
-  authToken: string
+  url: string, params: URLSearchParams, signature: string, authToken: string
 ): Promise<boolean> {
-  // Sort params and concatenate
   const sortedKeys = Array.from(params.keys()).sort();
   let dataString = url;
   for (const key of sortedKeys) {
     dataString += key + params.get(key);
   }
 
-  // HMAC-SHA1 + Base64
   const encoder = new TextEncoder();
   const key = await crypto.subtle.importKey(
-    "raw",
-    encoder.encode(authToken),
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"]
+    "raw", encoder.encode(authToken),
+    { name: "HMAC", hash: "SHA-1" }, false, ["sign"]
   );
   const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(dataString));
   const computed = btoa(String.fromCharCode(...new Uint8Array(sig)));
