@@ -64,10 +64,12 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [newNote, setNewNote] = useState("");
   const [adding, setAdding] = useState(false);
+  const [templateResponses, setTemplateResponses] = useState<any[]>([]);
+  const [templates, setTemplates] = useState<any[]>([]);
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const fetchAll = async () => {
-    const [actRes, visitRes, assignRes] = await Promise.all([
+    const [actRes, visitRes, assignRes, respRes, tplRes] = await Promise.all([
       supabase
         .from("job_activity_log")
         .select("*")
@@ -83,16 +85,28 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         .from("job_assignments")
         .select("engineer_id, assigned_at")
         .eq("job_id", jobId),
+      supabase
+        .from("job_sheet_responses")
+        .select("*")
+        .eq("job_id", jobId)
+        .eq("status", "submitted")
+        .order("submitted_at", { ascending: true }),
+      supabase
+        .from("job_sheet_templates")
+        .select("*"),
     ]);
     setActivities((actRes.data as ActivityEntry[]) || []);
     setVisits((visitRes.data as Visit[]) || []);
     setAssignments((assignRes.data as Assignment[]) || []);
+    setTemplateResponses(respRes.data || []);
+    setTemplates(tplRes.data || []);
 
     // Fetch profile names for all user_ids
     const userIds = new Set<string>();
     (actRes.data || []).forEach((a: any) => a.user_id && userIds.add(a.user_id));
     (assignRes.data || []).forEach((a: any) => a.engineer_id && userIds.add(a.engineer_id));
     (visitRes.data || []).forEach((v: any) => v.engineer_id && userIds.add(v.engineer_id));
+    (respRes.data || []).forEach((r: any) => r.submitted_by && userIds.add(r.submitted_by));
     if (userIds.size > 0) {
       const { data: profs } = await supabase
         .from("profiles")
@@ -183,6 +197,55 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         if (y > 270) { doc.addPage(); y = margin; }
       });
       y += 3;
+    }
+
+    // Completed Template Reports
+    if (templateResponses.length > 0) {
+      templateResponses.forEach((resp) => {
+        if (y > 250) { doc.addPage(); y = margin; }
+        const tpl = templates.find((t: any) => t.id === resp.template_id);
+        if (!tpl) return;
+        const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
+        const responses = resp.responses as Record<string, any>;
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`REPORT: ${tpl.name.toUpperCase()}`, margin, y);
+        y += 4;
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        const submitter = resp.submitted_by ? profiles[resp.submitted_by] || "Unknown" : "Unknown";
+        doc.text(`Submitted by ${submitter}${resp.submitted_at ? " on " + format(new Date(resp.submitted_at), "dd/MM/yyyy HH:mm") : ""}`, margin, y);
+        y += 5;
+        doc.setFontSize(10);
+
+        const sections = [...new Set(fields.map((f: any) => f.section || "General"))];
+        sections.forEach((section) => {
+          if (y > 265) { doc.addPage(); y = margin; }
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.text(section, margin + 2, y);
+          y += 4;
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(10);
+
+          fields
+            .filter((f: any) => (f.section || "General") === section)
+            .forEach((field: any) => {
+              if (y > 270) { doc.addPage(); y = margin; }
+              const val = responses[field.id];
+              let displayVal = "";
+              if (field.type === "checkbox") {
+                displayVal = val ? "Yes" : "No";
+              } else {
+                displayVal = val != null && val !== "" ? String(val) : "—";
+              }
+              doc.text(`${field.label}: ${displayVal}`, margin + 4, y, { maxWidth: 165 });
+              y += 4.5;
+            });
+          y += 1;
+        });
+        y += 3;
+      });
     }
 
     // Activity
