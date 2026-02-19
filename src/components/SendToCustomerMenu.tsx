@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -30,55 +29,100 @@ interface Props {
   customerEmail?: string;
 }
 
-type SendType = "report" | "quote" | "invoice" | null;
+type DocOption = "report" | "quote" | "invoice";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [sendType, setSendType] = useState<SendType>(null);
+  const [selectedDocs, setSelectedDocs] = useState<Set<DocOption>>(new Set());
   const [sending, setSending] = useState(false);
   const [email, setEmail] = useState(customerEmail || "");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [includeReport, setIncludeReport] = useState(false);
   const [reportBase64, setReportBase64] = useState<string | null>(null);
   const [reportFileName, setReportFileName] = useState("");
-  const [generatingReport, setGeneratingReport] = useState(false);
 
-  // Fetch invoices for this job
+  // Invoice selection
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [selectedInvoice, setSelectedInvoice] = useState<string>("");
+  const [selectedInvoice, setSelectedInvoice] = useState("");
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
-  const openDialog = async (type: SendType) => {
-    setSendType(type);
+  const toggleDoc = (doc: DocOption) => {
+    setSelectedDocs((prev) => {
+      const next = new Set(prev);
+      if (next.has(doc)) next.delete(doc);
+      else next.add(doc);
+      return next;
+    });
+  };
+
+  const openDialog = async () => {
     setEmail(customerEmail || "");
     setReportBase64(null);
-    setIncludeReport(false);
     setSelectedInvoice("");
-
-    if (type === "report") {
-      setSubject(`Job Report — ${job.reference_number}`);
-      setMessage(`Dear ${job.customer || "Customer"},\n\nPlease find attached the report for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
-      setIncludeReport(true);
-    } else if (type === "quote") {
-      setSubject(`Quote for Further Works — ${job.reference_number}`);
-      setMessage(`Dear ${job.customer || "Customer"},\n\nFollowing our recent inspection/works (${job.reference_number}), please find our recommendations for further works required.\n\nPlease review and let us know if you'd like to proceed.\n\nKind regards,\nFieldReport`);
-    } else if (type === "invoice") {
-      setSubject(`Invoice — ${job.reference_number}`);
-      setMessage(`Dear ${job.customer || "Customer"},\n\nPlease find attached your invoice for job ${job.reference_number}.\n\nKind regards,\nFieldReport`);
-      // Load invoices for this job
-      setLoadingInvoices(true);
-      const { data } = await supabase
-        .from("invoices")
-        .select("id, invoice_number, total, status")
-        .eq("job_id", jobId)
-        .order("created_at", { ascending: false });
-      setInvoices(data || []);
-      if (data && data.length > 0) setSelectedInvoice(data[0].id);
-      setLoadingInvoices(false);
-    }
+    setSelectedDocs(new Set());
     setDialogOpen(true);
+
+    // Pre-load invoices
+    setLoadingInvoices(true);
+    const { data } = await supabase
+      .from("invoices")
+      .select("id, invoice_number, total, status, document_type")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    setInvoices(data || []);
+    if (data && data.length > 0) setSelectedInvoice(data[0].id);
+    setLoadingInvoices(false);
+  };
+
+  // Build subject line based on selections
+  const getAutoSubject = () => {
+    const parts: string[] = [];
+    if (selectedDocs.has("report")) parts.push("Report");
+    if (selectedDocs.has("quote")) parts.push("Quote");
+    if (selectedDocs.has("invoice")) parts.push("Invoice");
+    if (parts.length === 0) return `Documents — ${job.reference_number}`;
+    return `${parts.join(" & ")} — ${job.reference_number}`;
+  };
+
+  const getAutoMessage = () => {
+    const items: string[] = [];
+    if (selectedDocs.has("report")) items.push("the report");
+    if (selectedDocs.has("quote")) items.push("our quote for further works");
+    if (selectedDocs.has("invoice")) items.push("your invoice");
+    const itemStr = items.length > 0 ? items.join(", ") : "the documents";
+    return `Dear ${job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`;
+  };
+
+  // Update subject/message when selections change
+  const handleDocToggle = (doc: DocOption) => {
+    toggleDoc(doc);
+    // Defer to next tick so state is updated
+    setTimeout(() => {
+      setSubject(getAutoSubject());
+      setMessage(getAutoMessage());
+    }, 0);
+  };
+
+  // We need a version that reads from the toggled set directly
+  const handleDocToggleImmediate = (doc: DocOption) => {
+    const next = new Set(selectedDocs);
+    if (next.has(doc)) next.delete(doc);
+    else next.add(doc);
+    setSelectedDocs(next);
+
+    const parts: string[] = [];
+    if (next.has("report")) parts.push("Report");
+    if (next.has("quote")) parts.push("Quote");
+    if (next.has("invoice")) parts.push("Invoice");
+    setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
+
+    const items: string[] = [];
+    if (next.has("report")) items.push("the report");
+    if (next.has("quote")) items.push("our quote for further works");
+    if (next.has("invoice")) items.push("your invoice");
+    const itemStr = items.length > 0 ? items.join(", ") : "the documents";
+    setMessage(`Dear ${job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
   };
 
   const handleSend = async () => {
@@ -86,14 +130,16 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       toast({ title: "Error", description: "Customer email is required.", variant: "destructive" });
       return;
     }
+    if (selectedDocs.size === 0) {
+      toast({ title: "Error", description: "Select at least one document to send.", variant: "destructive" });
+      return;
+    }
 
     setSending(true);
     try {
-      // Build attachments array
       const attachments: { filename: string; content: string }[] = [];
 
-      // Generate report PDF if included
-      if (includeReport && reportBase64) {
+      if (selectedDocs.has("report") && reportBase64) {
         attachments.push({ filename: reportFileName || `${job.reference_number}-report.pdf`, content: reportBase64 });
       }
 
@@ -105,14 +151,15 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
           htmlBody: message.replace(/\n/g, "<br/>"),
           attachments,
           jobId,
-          emailType: sendType,
-          invoiceId: sendType === "invoice" ? selectedInvoice : undefined,
+          emailType: Array.from(selectedDocs).join(","),
+          invoiceId: selectedDocs.has("invoice") ? selectedInvoice : undefined,
         },
       });
 
       if (error) throw error;
 
-      toast({ title: "Email sent", description: `${sendType === "report" ? "Report" : sendType === "quote" ? "Quote" : "Invoice"} sent to ${email}.` });
+      const docNames = Array.from(selectedDocs).map((d) => d.charAt(0).toUpperCase() + d.slice(1));
+      toast({ title: "Email sent", description: `${docNames.join(", ")} sent to ${email}.` });
       setDialogOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send email.", variant: "destructive" });
@@ -121,44 +168,142 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     }
   };
 
+  const invoiceOptions = invoices.filter((i) => (i.document_type || "invoice") === "invoice");
+  const quoteOptions = invoices.filter((i) => i.document_type === "quote");
+
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button size="sm" variant="default" className="gap-1.5">
-            <Send className="h-4 w-4" /> Send to Customer
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>Send Documents</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => openDialog("report")} className="gap-2">
-            <FileText className="h-4 w-4" /> Send Report
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openDialog("quote")} className="gap-2">
-            <ClipboardList className="h-4 w-4" /> Send Quote
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openDialog("invoice")} className="gap-2">
-            <Receipt className="h-4 w-4" /> Send Invoice
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <Button size="sm" variant="default" className="gap-1.5" onClick={openDialog}>
+        <Send className="h-4 w-4" /> Send to Customer
+      </Button>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5" />
-              {sendType === "report" && "Send Customer Report"}
-              {sendType === "quote" && "Send Quote for Further Works"}
-              {sendType === "invoice" && "Send Invoice"}
+              Send to Customer
             </DialogTitle>
             <DialogDescription>
-              Email will be sent via FieldReport to the customer.
+              Select documents to include and customise the email.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Document selection */}
+            <div>
+              <Label className="text-sm font-semibold mb-2 block">Include Documents</Label>
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Checkbox
+                    checked={selectedDocs.has("report")}
+                    onCheckedChange={() => handleDocToggleImmediate("report")}
+                  />
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Job Report</p>
+                    <p className="text-xs text-muted-foreground">Customer report PDF for this job</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Checkbox
+                    checked={selectedDocs.has("quote")}
+                    onCheckedChange={() => handleDocToggleImmediate("quote")}
+                  />
+                  <ClipboardList className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Quote</p>
+                    <p className="text-xs text-muted-foreground">Quote for further works</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Checkbox
+                    checked={selectedDocs.has("invoice")}
+                    onCheckedChange={() => handleDocToggleImmediate("invoice")}
+                  />
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Invoice</p>
+                    <p className="text-xs text-muted-foreground">Invoice for completed work</p>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Report PDF generation */}
+            {selectedDocs.has("report") && (
+              <div className="rounded-md border border-dashed p-3 flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Customer Report PDF</span>
+                {reportBase64 ? (
+                  <span className="text-xs font-medium text-primary">✓ PDF ready</span>
+                ) : (
+                  <CustomerReportPdf
+                    jobId={jobId}
+                    job={job}
+                    onPdfGenerated={(base64, fileName) => {
+                      setReportBase64(base64);
+                      setReportFileName(fileName);
+                      toast({ title: "Report ready", description: "PDF attached." });
+                    }}
+                    trigger={
+                      <Button type="button" size="sm" variant="outline" className="gap-1">
+                        <FileText className="h-3 w-3" /> Generate PDF
+                      </Button>
+                    }
+                  />
+                )}
+              </div>
+            )}
+
+            {/* Quote selection */}
+            {selectedDocs.has("quote") && (
+              <div>
+                <Label>Select Quote</Label>
+                {quoteOptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-1">No quotes found for this job. Create one first.</p>
+                ) : (
+                  <select
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm mt-1"
+                    value={selectedInvoice}
+                    onChange={(e) => setSelectedInvoice(e.target.value)}
+                  >
+                    {quoteOptions.map((q: any) => (
+                      <option key={q.id} value={q.id}>
+                        {q.invoice_number} — £{Number(q.total).toFixed(2)} ({q.status})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Invoice selection */}
+            {selectedDocs.has("invoice") && (
+              <div>
+                <Label>Select Invoice</Label>
+                {loadingInvoices ? (
+                  <p className="text-sm text-muted-foreground mt-1">Loading…</p>
+                ) : invoiceOptions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-1">No invoices found for this job. Create one first.</p>
+                ) : (
+                  <select
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm mt-1"
+                    value={selectedInvoice}
+                    onChange={(e) => setSelectedInvoice(e.target.value)}
+                  >
+                    {invoiceOptions.map((inv: any) => (
+                      <option key={inv.id} value={inv.id}>
+                        {inv.invoice_number} — £{Number(inv.total).toFixed(2)} ({inv.status})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
+
+            {/* Email fields */}
             <div>
               <Label>Customer Email *</Label>
               <Input
@@ -186,69 +331,11 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
               />
             </div>
 
-            {/* Report attachment toggle */}
-            {(sendType === "report" || sendType === "quote") && (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="attach-report"
-                  checked={includeReport}
-                  onCheckedChange={(v) => setIncludeReport(!!v)}
-                />
-                <Label htmlFor="attach-report" className="text-sm">
-                  Attach Customer Report PDF
-                </Label>
-                {includeReport && !reportBase64 && (
-                  <CustomerReportPdf
-                    jobId={jobId}
-                    job={job}
-                    onPdfGenerated={(base64, fileName) => {
-                      setReportBase64(base64);
-                      setReportFileName(fileName);
-                      toast({ title: "Report ready", description: "PDF attached." });
-                    }}
-                    trigger={
-                      <Button type="button" size="sm" variant="outline" className="ml-2 gap-1">
-                        {generatingReport ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
-                        Generate PDF
-                      </Button>
-                    }
-                  />
-                )}
-                {reportBase64 && (
-                  <span className="text-xs font-medium ml-2 text-primary">✓ PDF attached</span>
-                )}
-              </div>
-            )}
-
-            {/* Invoice selection */}
-            {sendType === "invoice" && (
-              <div>
-                <Label>Select Invoice</Label>
-                {loadingInvoices ? (
-                  <p className="text-sm text-muted-foreground">Loading invoices…</p>
-                ) : invoices.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No invoices found for this job. Create one first.</p>
-                ) : (
-                  <select
-                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                    value={selectedInvoice}
-                    onChange={(e) => setSelectedInvoice(e.target.value)}
-                  >
-                    {invoices.map((inv: any) => (
-                      <option key={inv.id} value={inv.id}>
-                        {inv.invoice_number} — £{Number(inv.total).toFixed(2)} ({inv.status})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-            )}
-
             <div className="flex justify-end gap-2 pt-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button
                 onClick={handleSend}
-                disabled={sending || (sendType === "invoice" && !selectedInvoice)}
+                disabled={sending || selectedDocs.size === 0}
                 className="gap-1.5"
               >
                 {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
