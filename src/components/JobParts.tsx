@@ -303,7 +303,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
 
                     {/* Unit Cost */}
                     <TableCell className="text-right">
-                      {isEditing ? (
+                      {isEditing && isAdmin ? (
                         <Input
                           type="number" min="0" step="0.01"
                           className="w-24 h-8 text-right text-sm"
@@ -324,7 +324,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
                     {isAdmin && (
                       <>
                         <TableCell className="text-right">
-                          {isEditing ? (
+                          {isEditing && isAdmin ? (
                             <Input
                               type="number" min="0" step="0.01"
                               className="w-24 h-8 text-right text-sm"
@@ -352,17 +352,15 @@ export default function JobParts({ jobId }: { jobId: string }) {
                     {/* Actions */}
                     <TableCell>
                       <div className="flex items-center gap-1 justify-end">
-                        {isAdmin && (
-                          isEditing ? (
-                            <>
-                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={saveEdit}>Save</Button>
-                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={cancelEdit}>Cancel</Button>
-                            </>
-                          ) : (
-                            <button onClick={() => startEdit(part)} className="text-muted-foreground hover:text-primary">
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                          )
+                        {isEditing ? (
+                          <>
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={saveEdit}>Save</Button>
+                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={cancelEdit}>Cancel</Button>
+                          </>
+                        ) : (
+                          <button onClick={() => startEdit(part)} className="text-muted-foreground hover:text-primary">
+                            <Pencil className="h-4 w-4" />
+                          </button>
                         )}
                         {(isAdmin || part.added_by === user?.id) && !isEditing && (
                           <button onClick={() => handleDelete(part.id)} className="text-muted-foreground hover:text-destructive">
