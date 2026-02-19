@@ -17,9 +17,10 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil,
 } from "lucide-react";
 import ImportTemplateDialog from "./ImportTemplateDialog";
+import EditTemplateDialog from "./EditTemplateDialog";
 
 type TemplateField = {
   id: string;
@@ -63,6 +64,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [importOpen, setImportOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
@@ -456,7 +458,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <span className="text-sm font-medium">{tpl.name}</span>
                     <span className="text-xs text-muted-foreground ml-2">{tpl.fields.length} fields</span>
                   </div>
-                  <div className="flex gap-1">
+                    <div className="flex gap-1">
                     <Button
                       variant="outline"
                       size="sm"
@@ -465,6 +467,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     >
                       <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
                     </Button>
+                    {userRole === "admin" && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingTemplate(tpl)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     {userRole === "admin" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -499,6 +506,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       </Card>
 
       <ImportTemplateDialog open={importOpen} onOpenChange={setImportOpen} onCreated={fetchData} />
+      <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
     </>
   );
 }
