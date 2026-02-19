@@ -167,7 +167,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetState(); onOpenChange(v); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>
             {step === "upload" ? "Import Job Sheet Template" : "Review & Edit Template Fields"}
@@ -246,7 +246,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 max-h-[400px] border rounded-md">
+            <ScrollArea className="flex-1 min-h-0 border rounded-md">
               <div className="p-3 space-y-1">
                 {sections.map((section) => (
                   <div key={section}>
