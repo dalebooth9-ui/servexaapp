@@ -877,6 +877,7 @@ export type Database = {
           name: string
           notes: string | null
           quantity: number
+          sell_price: number
           total_cost: number | null
           unit_cost: number
           updated_at: string
@@ -889,6 +890,7 @@ export type Database = {
           name: string
           notes?: string | null
           quantity?: number
+          sell_price?: number
           total_cost?: number | null
           unit_cost?: number
           updated_at?: string
@@ -901,6 +903,7 @@ export type Database = {
           name?: string
           notes?: string | null
           quantity?: number
+          sell_price?: number
           total_cost?: number | null
           unit_cost?: number
           updated_at?: string

@@ -1,10 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Package, Upload, Download } from "lucide-react";
+import { Plus, Trash2, Package, Upload, Download, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -18,6 +18,7 @@ interface JobPart {
   name: string;
   quantity: number;
   unit_cost: number;
+  sell_price: number;
   total_cost: number;
   notes: string | null;
   added_by: string;
@@ -30,9 +31,13 @@ export default function JobParts({ jobId }: { jobId: string }) {
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", notes: "" });
+  const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
   const [importOpen, setImportOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ quantity: "", unit_cost: "", sell_price: "" });
+
+  const isAdmin = userRole === "admin";
 
   const fetchParts = async () => {
     const { data } = await supabase
@@ -54,13 +59,14 @@ export default function JobParts({ jobId }: { jobId: string }) {
       name: form.name.trim(),
       quantity: parseFloat(form.quantity) || 1,
       unit_cost: parseFloat(form.unit_cost) || 0,
+      sell_price: parseFloat(form.sell_price) || 0,
       notes: form.notes.trim() || null,
       added_by: user.id,
     } as any);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setForm({ name: "", quantity: "1", unit_cost: "0", notes: "" });
+      setForm({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
       fetchParts();
       toast({ title: "Part added" });
     }
@@ -90,6 +96,40 @@ export default function JobParts({ jobId }: { jobId: string }) {
     }
   };
 
+  const startEdit = (part: JobPart) => {
+    setEditingId(part.id);
+    setEditForm({
+      quantity: String(part.quantity),
+      unit_cost: String(part.unit_cost),
+      sell_price: String(part.sell_price || 0),
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ quantity: "", unit_cost: "", sell_price: "" });
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const qty = parseFloat(editForm.quantity) || 0;
+    const unitCost = parseFloat(editForm.unit_cost) || 0;
+    const sellPrice = parseFloat(editForm.sell_price) || 0;
+
+    const { error } = await supabase
+      .from("job_parts" as any)
+      .update({ quantity: qty, unit_cost: unitCost, sell_price: sellPrice } as any)
+      .eq("id", editingId);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Part updated" });
+      cancelEdit();
+      fetchParts();
+    }
+  };
+
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
       const n = new Set(prev);
@@ -104,6 +144,8 @@ export default function JobParts({ jobId }: { jobId: string }) {
   };
 
   const totalCost = parts.reduce((sum, p) => sum + (p.total_cost || 0), 0);
+  const totalSellValue = parts.reduce((sum, p) => sum + ((p.sell_price || 0) * p.quantity), 0);
+  const totalProfit = totalSellValue - totalCost;
 
   if (loading) return <p className="text-sm text-muted-foreground py-4">Loading parts...</p>;
 
@@ -119,6 +161,11 @@ export default function JobParts({ jobId }: { jobId: string }) {
         <div className="w-24">
           <Input type="number" placeholder="Unit £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
         </div>
+        {isAdmin && (
+          <div className="w-24">
+            <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
+          </div>
+        )}
         <div className="flex-1 min-w-[120px]">
           <Input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
         </div>
@@ -130,14 +177,20 @@ export default function JobParts({ jobId }: { jobId: string }) {
         </Button>
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
-            const headers = ["Part / Material", "Quantity", "Unit Cost", "Total Cost", "Notes"];
-            const rows = parts.map(p => [
-              `"${(p.name || "").replace(/"/g, '""')}"`,
-              p.quantity,
-              Number(p.unit_cost).toFixed(2),
-              Number(p.total_cost).toFixed(2),
-              `"${(p.notes || "").replace(/"/g, '""')}"`,
-            ].join(","));
+            const headers = ["Part / Material", "Quantity", "Unit Cost", "Sell Price", "Total Cost", "Profit", "Notes"];
+            const rows = parts.map(p => {
+              const sell = p.sell_price || 0;
+              const profit = (sell - p.unit_cost) * p.quantity;
+              return [
+                `"${(p.name || "").replace(/"/g, '""')}"`,
+                p.quantity,
+                Number(p.unit_cost).toFixed(2),
+                Number(sell).toFixed(2),
+                Number(p.total_cost).toFixed(2),
+                profit.toFixed(2),
+                `"${(p.notes || "").replace(/"/g, '""')}"`,
+              ].join(",");
+            });
             const csv = [headers.join(","), ...rows].join("\n");
             const blob = new Blob([csv], { type: "text/csv" });
             const url = URL.createObjectURL(blob);
@@ -208,35 +261,128 @@ export default function JobParts({ jobId }: { jobId: string }) {
                 <TableHead>Part / Material</TableHead>
                 <TableHead className="text-right w-20">Qty</TableHead>
                 <TableHead className="text-right w-24">Unit Cost</TableHead>
-                <TableHead className="text-right w-24">Total</TableHead>
+                <TableHead className="text-right w-24">Total Cost</TableHead>
+                {isAdmin && (
+                  <>
+                    <TableHead className="text-right w-24">Sell Price</TableHead>
+                    <TableHead className="text-right w-24">Sell Total</TableHead>
+                    <TableHead className="text-right w-24">Profit</TableHead>
+                  </>
+                )}
                 <TableHead>Notes</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {parts.map((part) => (
-                <TableRow key={part.id} data-state={selected.has(part.id) ? "selected" : undefined}>
-                  <TableCell>
-                    <Checkbox checked={selected.has(part.id)} onCheckedChange={() => toggleSelect(part.id)} />
-                  </TableCell>
-                  <TableCell className="font-medium">{part.name}</TableCell>
-                  <TableCell className="text-right">{part.quantity}</TableCell>
-                  <TableCell className="text-right">£{Number(part.unit_cost).toFixed(2)}</TableCell>
-                  <TableCell className="text-right font-medium">£{Number(part.total_cost).toFixed(2)}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{part.notes || "—"}</TableCell>
-                  <TableCell>
-                    {(userRole === "admin" || part.added_by === user?.id) && (
-                      <button onClick={() => handleDelete(part.id)} className="text-muted-foreground hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+              {parts.map((part) => {
+                const isEditing = editingId === part.id;
+                const sellPrice = part.sell_price || 0;
+                const sellTotal = sellPrice * part.quantity;
+                const profit = (sellPrice - part.unit_cost) * part.quantity;
+
+                return (
+                  <TableRow key={part.id} data-state={selected.has(part.id) ? "selected" : undefined}>
+                    <TableCell>
+                      <Checkbox checked={selected.has(part.id)} onCheckedChange={() => toggleSelect(part.id)} />
+                    </TableCell>
+                    <TableCell className="font-medium">{part.name}</TableCell>
+
+                    {/* Quantity */}
+                    <TableCell className="text-right">
+                      {isEditing ? (
+                        <Input
+                          type="number" min="0" step="1"
+                          className="w-20 h-8 text-right text-sm"
+                          value={editForm.quantity}
+                          onChange={(e) => setEditForm({ ...editForm, quantity: e.target.value })}
+                        />
+                      ) : part.quantity}
+                    </TableCell>
+
+                    {/* Unit Cost */}
+                    <TableCell className="text-right">
+                      {isEditing ? (
+                        <Input
+                          type="number" min="0" step="0.01"
+                          className="w-24 h-8 text-right text-sm"
+                          value={editForm.unit_cost}
+                          onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })}
+                        />
+                      ) : (
+                        <>£{Number(part.unit_cost).toFixed(2)}</>
+                      )}
+                    </TableCell>
+
+                    {/* Total Cost */}
+                    <TableCell className="text-right font-medium">
+                      £{Number(part.total_cost).toFixed(2)}
+                    </TableCell>
+
+                    {/* Admin-only: Sell Price, Sell Total, Profit */}
+                    {isAdmin && (
+                      <>
+                        <TableCell className="text-right">
+                          {isEditing ? (
+                            <Input
+                              type="number" min="0" step="0.01"
+                              className="w-24 h-8 text-right text-sm"
+                              value={editForm.sell_price}
+                              onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })}
+                            />
+                          ) : (
+                            <>£{Number(sellPrice).toFixed(2)}</>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          £{sellTotal.toFixed(2)}
+                        </TableCell>
+                        <TableCell className={`text-right font-semibold ${profit > 0 ? "text-green-600" : profit < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                          £{profit.toFixed(2)}
+                        </TableCell>
+                      </>
                     )}
-                  </TableCell>
-                </TableRow>
-              ))}
+
+                    <TableCell className="text-muted-foreground text-sm">{part.notes || "—"}</TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex items-center gap-1 justify-end">
+                        {isAdmin && (
+                          isEditing ? (
+                            <>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={saveEdit}>Save</Button>
+                              <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={cancelEdit}>Cancel</Button>
+                            </>
+                          ) : (
+                            <button onClick={() => startEdit(part)} className="text-muted-foreground hover:text-primary">
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                          )
+                        )}
+                        {(isAdmin || part.added_by === user?.id) && !isEditing && (
+                          <button onClick={() => handleDelete(part.id)} className="text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
-          <div className="text-right text-sm font-semibold">
-            Total: £{totalCost.toFixed(2)}
+
+          {/* Totals row */}
+          <div className="flex justify-end gap-6 text-sm font-semibold">
+            <span>Cost: £{totalCost.toFixed(2)}</span>
+            {isAdmin && (
+              <>
+                <span>Sell: £{totalSellValue.toFixed(2)}</span>
+                <span className={totalProfit > 0 ? "text-green-600" : totalProfit < 0 ? "text-destructive" : ""}>
+                  Profit: £{totalProfit.toFixed(2)}
+                </span>
+              </>
+            )}
           </div>
         </>
       )}
