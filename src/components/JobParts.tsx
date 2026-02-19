@@ -4,9 +4,10 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Package, Upload, Download, Pencil } from "lucide-react";
+import { Plus, Trash2, Package, Upload, Download, Pencil, Library } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
+import PartsLibraryPicker from "@/components/PartsLibraryPicker";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -33,6 +34,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
   const [importOpen, setImportOpen] = useState(false);
+  const [libraryOpen, setLibraryOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ quantity: "", unit_cost: "", sell_price: "" });
@@ -174,6 +176,9 @@ export default function JobParts({ jobId }: { jobId: string }) {
         </Button>
         <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
           <Upload className="mr-1 h-4 w-4" /> Import
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => setLibraryOpen(true)}>
+          <Library className="mr-1 h-4 w-4" /> From Library
         </Button>
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
@@ -397,6 +402,12 @@ export default function JobParts({ jobId }: { jobId: string }) {
         onOpenChange={setImportOpen}
         jobId={jobId}
         onImported={fetchParts}
+      />
+      <PartsLibraryPicker
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        jobId={jobId}
+        onAdded={fetchParts}
       />
     </div>
   );
