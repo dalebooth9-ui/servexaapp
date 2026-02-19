@@ -4,11 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { ArrowLeft, Download, Send, Loader2, RefreshCw } from "lucide-react";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
@@ -21,6 +21,8 @@ const statusStyles: Record<string, string> = {
   paid: "bg-accent/10 text-accent",
   overdue: "bg-destructive/10 text-destructive",
   cancelled: "bg-muted text-muted-foreground line-through",
+  accepted: "bg-accent/10 text-accent",
+  declined: "bg-destructive/10 text-destructive",
 };
 
 export default function InvoiceDetail() {
@@ -34,7 +36,10 @@ export default function InvoiceDetail() {
   const [sending, setSending] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [syncingXero, setSyncingXero] = useState(false);
+  const [converting, setConverting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+
+  const isQuote = invoice?.document_type === "quote";
 
   const fetchData = async () => {
     if (!id) return;
@@ -61,6 +66,59 @@ export default function InvoiceDetail() {
     } else {
       setInvoice((prev: any) => ({ ...prev, ...updates }));
       toast({ title: "Status updated" });
+    }
+  };
+
+  const handleConvertToInvoice = async () => {
+    if (!invoice) return;
+    setConverting(true);
+    try {
+      // Create new invoice from quote data
+      const { data: newInv, error: invErr } = await supabase
+        .from("invoices")
+        .insert({
+          job_id: invoice.job_id,
+          customer_name: invoice.customer_name,
+          customer_email: invoice.customer_email,
+          customer_address: invoice.customer_address,
+          due_date: invoice.due_date,
+          notes: invoice.notes,
+          subtotal: invoice.subtotal,
+          tax_rate: invoice.tax_rate,
+          tax_amount: invoice.tax_amount,
+          total: invoice.total,
+          created_by: invoice.created_by,
+          invoice_number: "", // auto-generated
+          document_type: "invoice",
+        } as any)
+        .select()
+        .single();
+
+      if (invErr) throw invErr;
+
+      // Copy line items
+      if (lineItems.length > 0) {
+        const newItems = lineItems.map((it, idx) => ({
+          invoice_id: newInv.id,
+          description: it.description,
+          quantity: it.quantity,
+          unit_price: it.unit_price,
+          amount: it.amount,
+          sort_order: idx,
+        }));
+        const { error: itemsErr } = await supabase.from("invoice_line_items").insert(newItems as any);
+        if (itemsErr) throw itemsErr;
+      }
+
+      // Mark quote as accepted
+      await supabase.from("invoices").update({ status: "accepted" } as any).eq("id", id);
+
+      toast({ title: "Converted to invoice", description: `${newInv.invoice_number} created from quote.` });
+      navigate(`/invoices/${newInv.id}`);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to convert.", variant: "destructive" });
+    } finally {
+      setConverting(false);
     }
   };
 
@@ -98,14 +156,13 @@ export default function InvoiceDetail() {
 
   const handleSendEmail = async () => {
     if (!invoice.customer_email) {
-      toast({ title: "No email", description: "Customer email is not set on this invoice.", variant: "destructive" });
+      toast({ title: "No email", description: "Customer email is not set.", variant: "destructive" });
       return;
     }
     setSending(true);
     try {
       const pdf = await generatePdf();
       if (!pdf) { setSending(false); return; }
-
       const pdfBase64 = pdf.output("datauristring").split(",")[1];
 
       const { data, error } = await supabase.functions.invoke("send-invoice-email", {
@@ -122,13 +179,12 @@ export default function InvoiceDetail() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Mark as sent
       if (invoice.status === "draft") {
         await handleStatusChange("sent");
       }
-      toast({ title: "Invoice sent", description: `Email sent to ${invoice.customer_email}` });
+      toast({ title: `${isQuote ? "Quote" : "Invoice"} sent`, description: `Email sent to ${invoice.customer_email}` });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to send invoice.", variant: "destructive" });
+      toast({ title: "Error", description: err.message || "Failed to send.", variant: "destructive" });
     } finally {
       setSending(false);
     }
@@ -147,16 +203,21 @@ export default function InvoiceDetail() {
         xero_invoice_id: data.xero_invoice_id,
         xero_synced_at: new Date().toISOString(),
       }));
-      toast({ title: "Synced to Xero", description: "Invoice has been sent to Xero." });
+      toast({ title: "Synced to Xero" });
     } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to sync to Xero.", variant: "destructive" });
+      toast({ title: "Error", description: err.message || "Failed to sync.", variant: "destructive" });
     } finally {
       setSyncingXero(false);
     }
   };
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
-  if (!invoice) return <div className="flex h-64 items-center justify-center text-muted-foreground">Invoice not found.</div>;
+  if (!invoice) return <div className="flex h-64 items-center justify-center text-muted-foreground">Not found.</div>;
+
+  const docLabel = isQuote ? "QUOTE" : "INVOICE";
+  const invoiceStatuses = ["draft", "sent", "paid", "overdue", "cancelled"];
+  const quoteStatuses = ["draft", "sent", "accepted", "declined"];
+  const availableStatuses = isQuote ? quoteStatuses : invoiceStatuses;
 
   return (
     <div>
@@ -167,7 +228,7 @@ export default function InvoiceDetail() {
         <BreadcrumbList>
           <BreadcrumbItem><BreadcrumbLink asChild><Link to="/">Dashboard</Link></BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
-          <BreadcrumbItem><BreadcrumbLink asChild><Link to="/invoices">Invoices</Link></BreadcrumbLink></BreadcrumbItem>
+          <BreadcrumbItem><BreadcrumbLink asChild><Link to="/invoices">Invoices & Quotes</Link></BreadcrumbLink></BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem><BreadcrumbPage>{invoice.invoice_number}</BreadcrumbPage></BreadcrumbItem>
         </BreadcrumbList>
@@ -176,7 +237,10 @@ export default function InvoiceDetail() {
       {/* Actions bar */}
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{invoice.invoice_number}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">{invoice.invoice_number}</h1>
+            {isQuote && <Badge variant="outline">Quote</Badge>}
+          </div>
           <p className="text-sm text-muted-foreground">
             {invoice.customer_name}
             {invoice.job_id && (
@@ -191,19 +255,24 @@ export default function InvoiceDetail() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="sent">Sent</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
+                {availableStatuses.map((s) => (
+                  <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
+          )}
+          {/* Convert quote to invoice */}
+          {isQuote && userRole === "admin" && (
+            <Button size="sm" variant="outline" onClick={handleConvertToInvoice} disabled={converting}>
+              {converting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-1.5 h-4 w-4" />}
+              Convert to Invoice
+            </Button>
           )}
           <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
             <Download className="mr-1.5 h-4 w-4" />
             {generatingPdf ? "Generating..." : "PDF"}
           </Button>
-          {userRole === "admin" && (
+          {!isQuote && userRole === "admin" && (
             <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
               {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
               {invoice.xero_invoice_id ? "Re-sync Xero" : "Send to Xero"}
@@ -212,26 +281,26 @@ export default function InvoiceDetail() {
           {userRole === "admin" && (
             <Button size="sm" onClick={handleSendEmail} disabled={sending || !invoice.customer_email}>
               {sending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
-              {sending ? "Sending..." : "Email Invoice"}
+              {sending ? "Sending..." : `Email ${isQuote ? "Quote" : "Invoice"}`}
             </Button>
           )}
         </div>
       </div>
 
-      {/* Printable invoice */}
+      {/* Printable document */}
       <Card>
         <CardContent className="p-0">
           <div ref={printRef} className="bg-white p-8 text-foreground" style={{ color: "#1a1a1a" }}>
             {/* Header */}
             <div className="mb-8 flex justify-between">
               <div>
-                <h2 className="text-2xl font-bold" style={{ color: "#1a1a1a" }}>INVOICE</h2>
+                <h2 className="text-2xl font-bold" style={{ color: "#1a1a1a" }}>{docLabel}</h2>
                 <p className="text-lg font-mono" style={{ color: "#555" }}>{invoice.invoice_number}</p>
               </div>
               <div className="text-right text-sm" style={{ color: "#555" }}>
                 <p className="font-semibold" style={{ color: "#1a1a1a" }}>FieldReport</p>
                 <p>Date: {format(new Date(invoice.created_at), "dd MMM yyyy")}</p>
-                {invoice.due_date && <p>Due: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
+                {invoice.due_date && <p>{isQuote ? "Valid Until" : "Due"}: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
                 <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
                   {invoice.status}
                 </Badge>
@@ -240,7 +309,7 @@ export default function InvoiceDetail() {
 
             {/* Bill to */}
             <div className="mb-6">
-              <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>Bill To</p>
+              <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>{isQuote ? "Quote For" : "Bill To"}</p>
               <p className="font-semibold" style={{ color: "#1a1a1a" }}>{invoice.customer_name}</p>
               {invoice.customer_email && <p className="text-sm" style={{ color: "#555" }}>{invoice.customer_email}</p>}
               {invoice.customer_address && <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{invoice.customer_address}</p>}

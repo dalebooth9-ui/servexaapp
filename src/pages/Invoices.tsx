@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { FileText, Search, Plus } from "lucide-react";
+import { FileText, Search } from "lucide-react";
 import { format } from "date-fns";
 
 const statusStyles: Record<string, string> = {
@@ -17,27 +18,32 @@ const statusStyles: Record<string, string> = {
   paid: "bg-accent/10 text-accent",
   overdue: "bg-destructive/10 text-destructive",
   cancelled: "bg-muted text-muted-foreground line-through",
+  accepted: "bg-accent/10 text-accent",
+  declined: "bg-destructive/10 text-destructive",
 };
 
 export default function Invoices() {
   const { userRole } = useAuth();
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [allRecords, setAllRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [docTab, setDocTab] = useState<"invoice" | "quote">("invoice");
 
   const fetchInvoices = async () => {
     const { data } = await supabase
       .from("invoices")
       .select("*")
       .order("created_at", { ascending: false });
-    setInvoices(data || []);
+    setAllRecords(data || []);
     setLoading(false);
   };
 
   useEffect(() => { fetchInvoices(); }, []);
 
-  const filtered = invoices.filter((inv) => {
+  const records = allRecords.filter((r) => (r.document_type || "invoice") === docTab);
+
+  const filtered = records.filter((inv) => {
     if (statusFilter !== "all" && inv.status !== statusFilter) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -49,12 +55,16 @@ export default function Invoices() {
     return true;
   });
 
-  const totals = {
-    draft: invoices.filter((i) => i.status === "draft").reduce((s, i) => s + Number(i.total), 0),
-    sent: invoices.filter((i) => i.status === "sent").reduce((s, i) => s + Number(i.total), 0),
-    paid: invoices.filter((i) => i.status === "paid").reduce((s, i) => s + Number(i.total), 0),
-    overdue: invoices.filter((i) => i.status === "overdue").reduce((s, i) => s + Number(i.total), 0),
-  };
+  const invoiceStatuses = ["draft", "sent", "overdue", "paid"] as const;
+  const quoteStatuses = ["draft", "sent", "accepted", "declined"] as const;
+  const currentStatuses = docTab === "invoice" ? invoiceStatuses : quoteStatuses;
+
+  const totals = Object.fromEntries(
+    currentStatuses.map((s) => [
+      s,
+      records.filter((i) => i.status === s).reduce((sum, i) => sum + Number(i.total), 0),
+    ])
+  );
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading...</div>;
 
@@ -62,19 +72,31 @@ export default function Invoices() {
     <div>
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Invoices</h1>
-          <p className="text-sm text-muted-foreground">Manage and track invoices for completed jobs</p>
+          <h1 className="text-2xl font-bold">Invoices & Quotes</h1>
+          <p className="text-sm text-muted-foreground">Manage invoices and quotes for jobs</p>
         </div>
       </div>
 
+      {/* Tabs */}
+      <Tabs value={docTab} onValueChange={(v) => { setDocTab(v as any); setStatusFilter("all"); }} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="invoice">
+            Invoices ({allRecords.filter((r) => (r.document_type || "invoice") === "invoice").length})
+          </TabsTrigger>
+          <TabsTrigger value="quote">
+            Quotes ({allRecords.filter((r) => r.document_type === "quote").length})
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
       {/* Summary cards */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-        {(["draft", "sent", "overdue", "paid"] as const).map((s) => (
+        {currentStatuses.map((s) => (
           <Card key={s} className="cursor-pointer hover:ring-1 hover:ring-primary/20 transition-all" onClick={() => setStatusFilter(statusFilter === s ? "all" : s)}>
             <CardContent className="p-4">
               <p className="text-xs font-medium uppercase text-muted-foreground">{s}</p>
-              <p className="text-xl font-bold">£{totals[s].toFixed(2)}</p>
-              <p className="text-xs text-muted-foreground">{invoices.filter((i) => i.status === s).length} invoice(s)</p>
+              <p className="text-xl font-bold">£{(totals[s] || 0).toFixed(2)}</p>
+              <p className="text-xs text-muted-foreground">{records.filter((i) => i.status === s).length} {docTab}(s)</p>
             </CardContent>
           </Card>
         ))}
@@ -85,7 +107,7 @@ export default function Invoices() {
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search invoices..."
+            placeholder={`Search ${docTab}s...`}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -97,11 +119,10 @@ export default function Invoices() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="sent">Sent</SelectItem>
-            <SelectItem value="paid">Paid</SelectItem>
-            <SelectItem value="overdue">Overdue</SelectItem>
-            <SelectItem value="cancelled">Cancelled</SelectItem>
+            {currentStatuses.map((s) => (
+              <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+            ))}
+            {docTab === "invoice" && <SelectItem value="cancelled">Cancelled</SelectItem>}
           </SelectContent>
         </Select>
       </div>
@@ -112,7 +133,7 @@ export default function Invoices() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Invoice #</TableHead>
+                <TableHead>{docTab === "quote" ? "Quote #" : "Invoice #"}</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Due Date</TableHead>
@@ -125,9 +146,9 @@ export default function Invoices() {
                 <TableRow>
                   <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
                     <FileText className="mx-auto mb-2 h-8 w-8 opacity-40" />
-                    <p>No invoices found</p>
+                    <p>No {docTab}s found</p>
                     {userRole === "admin" && (
-                      <p className="mt-1 text-xs">Create invoices from completed jobs</p>
+                      <p className="mt-1 text-xs">Create {docTab}s from completed jobs</p>
                     )}
                   </TableCell>
                 </TableRow>
