@@ -286,7 +286,7 @@ export default function CreateInvoiceDialog({
                       <Package className="h-3 w-3" /> From Parts Library
                     </Button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 p-0 bg-popover border shadow-md z-50" align="end">
+                  <PopoverContent className="w-[26rem] p-0 bg-popover border shadow-md z-50" align="end">
                     <div className="p-2 border-b">
                       <div className="relative">
                         <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
