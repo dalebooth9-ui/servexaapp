@@ -268,8 +268,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[600px]">
-            <div className="border-t border-border">
+          <div className="overflow-y-auto border-t border-border" style={{ maxHeight: "calc(90vh - 200px)" }}>
               {sections.map((section) => (
                 <div key={section}>
                   {/* Section header bar */}
@@ -301,8 +300,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     ))}
                 </div>
               ))}
-            </div>
-          </ScrollArea>
+          </div>
           <div className="flex gap-2 p-3 border-t border-border">
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
@@ -334,8 +332,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <ScrollArea className="max-h-[600px]">
-            <div className="border-t border-border">
+          <div className="overflow-y-auto border-t border-border" style={{ maxHeight: "calc(90vh - 200px)" }}>
               {sections.map((section) => (
                 <div key={section}>
                   <div className="bg-muted px-3 py-1.5 border-b border-border">
@@ -374,8 +371,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     ))}
                 </div>
               ))}
-            </div>
-          </ScrollArea>
+          </div>
         </CardContent>
       </Card>
     );
