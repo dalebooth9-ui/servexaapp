@@ -50,23 +50,74 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const [showOptions, setShowOptions] = useState(false);
+  const [newOption, setNewOption] = useState("");
+
+  const isDropdown = field.type === "select";
+  const options = field.options || [];
+
+  const addOption = () => {
+    if (!newOption.trim()) return;
+    onFieldChange(idx, "options", [...options, newOption.trim()]);
+    setNewOption("");
+  };
+
+  const removeOption = (optIdx: number) => {
+    onFieldChange(idx, "options", options.filter((_, i) => i !== optIdx));
+  };
 
   return (
-    <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 group">
-      <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none shrink-0">
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
-      </button>
-      <Input value={field.label} onChange={(e) => onFieldChange(idx, "label", e.target.value)} className="h-7 text-sm flex-1" />
-      <select value={field.type} onChange={(e) => onFieldChange(idx, "type", e.target.value)} className="h-7 text-xs border rounded px-1.5 bg-background">
-        {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
-      </select>
-      <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-        <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} />
-        Req
-      </label>
-      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onRemove(idx)}>
-        <X className="h-3 w-3" />
-      </Button>
+    <div ref={setNodeRef} style={style} className="rounded hover:bg-muted/50 group">
+      <div className="flex items-center gap-2 py-1.5 px-2">
+        <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none shrink-0">
+          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+        </button>
+        <Input value={field.label} onChange={(e) => onFieldChange(idx, "label", e.target.value)} className="h-7 text-sm flex-1" />
+        <select value={field.type} onChange={(e) => onFieldChange(idx, "type", e.target.value)} className="h-7 text-xs border rounded px-1.5 bg-background">
+          {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+        </select>
+        {isDropdown && (
+          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => setShowOptions(!showOptions)}>
+            {options.length} opt{options.length !== 1 ? "s" : ""}
+          </Button>
+        )}
+        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+          <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} />
+          Req
+        </label>
+        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onRemove(idx)}>
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+      {isDropdown && showOptions && (
+        <div className="ml-8 mr-2 mb-2 p-2 border rounded bg-background space-y-1.5">
+          {options.length === 0 && (
+            <p className="text-[10px] text-muted-foreground">No options yet. Add some below.</p>
+          )}
+          {options.map((opt, optIdx) => (
+            <div key={optIdx} className="flex items-center gap-1.5">
+              <Badge variant="secondary" className="text-[10px] gap-1">
+                {opt}
+                <button type="button" onClick={() => removeOption(optIdx)} className="hover:text-destructive">
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </Badge>
+            </div>
+          ))}
+          <div className="flex items-center gap-1.5 mt-1">
+            <Input
+              value={newOption}
+              onChange={(e) => setNewOption(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOption(); } }}
+              placeholder="Add option..."
+              className="h-6 text-xs flex-1"
+            />
+            <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={addOption} disabled={!newOption.trim()}>
+              <Plus className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
