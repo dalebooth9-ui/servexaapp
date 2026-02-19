@@ -7,6 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Plus, Trash2, Package, Upload, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface JobPart {
   id: string;
@@ -27,6 +32,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", notes: "" });
   const [importOpen, setImportOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const fetchParts = async () => {
     const { data } = await supabase
@@ -67,8 +73,34 @@ export default function JobParts({ jobId }: { jobId: string }) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
       setParts((prev) => prev.filter((p) => p.id !== id));
+      setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
       toast({ title: "Part removed" });
     }
+  };
+
+  const handleBulkDelete = async (ids: string[]) => {
+    if (!ids.length) return;
+    const { error } = await supabase.from("job_parts" as any).delete().in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      setParts((prev) => prev.filter((p) => !ids.includes(p.id)));
+      setSelected(new Set());
+      toast({ title: `${ids.length} part(s) removed` });
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === parts.length) setSelected(new Set());
+    else setSelected(new Set(parts.map((p) => p.id)));
   };
 
   const totalCost = parts.reduce((sum, p) => sum + (p.total_cost || 0), 0);
@@ -127,9 +159,52 @@ export default function JobParts({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <>
+          {selected.size > 0 && (
+            <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
+              <span className="text-sm font-medium">{selected.size} selected</span>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="sm">
+                    <Trash2 className="mr-1 h-4 w-4" /> Delete Selected
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {selected.size} part(s)?</AlertDialogTitle>
+                    <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleBulkDelete(Array.from(selected))}>Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                    <Trash2 className="mr-1 h-4 w-4" /> Delete All
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all {parts.length} parts?</AlertDialogTitle>
+                    <AlertDialogDescription>This will remove every part and material from this job. This action cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => handleBulkDelete(parts.map((p) => p.id))}>Delete All</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+              <Button variant="ghost" size="sm" onClick={() => setSelected(new Set())}>Clear selection</Button>
+            </div>
+          )}
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">
+                  <Checkbox checked={selected.size === parts.length && parts.length > 0} onCheckedChange={toggleAll} />
+                </TableHead>
                 <TableHead>Part / Material</TableHead>
                 <TableHead className="text-right w-20">Qty</TableHead>
                 <TableHead className="text-right w-24">Unit Cost</TableHead>
@@ -140,7 +215,10 @@ export default function JobParts({ jobId }: { jobId: string }) {
             </TableHeader>
             <TableBody>
               {parts.map((part) => (
-                <TableRow key={part.id}>
+                <TableRow key={part.id} data-state={selected.has(part.id) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox checked={selected.has(part.id)} onCheckedChange={() => toggleSelect(part.id)} />
+                  </TableCell>
                   <TableCell className="font-medium">{part.name}</TableCell>
                   <TableCell className="text-right">{part.quantity}</TableCell>
                   <TableCell className="text-right">£{Number(part.unit_cost).toFixed(2)}</TableCell>
