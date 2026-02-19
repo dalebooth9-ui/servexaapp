@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,7 +15,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, ImageIcon, X,
 } from "lucide-react";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 
@@ -267,13 +267,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   {activeTemplate.fields
                     .filter((f) => (f.section || "General") === section)
                     .map((field) => (
-                      <div key={field.id} className="flex justify-between py-1 border-b border-border/50 last:border-0">
+                      <div key={field.id} className="py-1.5 border-b border-border/50 last:border-0">
                         <span className="text-sm text-muted-foreground">{field.label}</span>
-                        <span className="text-sm font-medium">
-                          {field.type === "checkbox"
-                            ? (formData[field.id] ? "✓ Yes" : "✗ No")
-                            : (formData[field.id] || "—")}
-                        </span>
+                        {field.type === "photo" ? (
+                          formData[field.id] ? (
+                            <PhotoPreview path={formData[field.id]} className="mt-1 max-w-[200px] rounded" />
+                          ) : (
+                            <span className="text-sm font-medium block">—</span>
+                          )
+                        ) : (
+                          <span className="text-sm font-medium block text-right">
+                            {field.type === "checkbox"
+                              ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                              : (formData[field.id] || "—")}
+                          </span>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -456,11 +464,7 @@ function renderFormField(
         </Select>
       );
     case "photo":
-      return (
-        <div className="text-xs text-muted-foreground italic">
-          Photo capture — coming soon
-        </div>
-      );
+      return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
     default:
       return (
         <Input
@@ -470,4 +474,91 @@ function renderFormField(
         />
       );
   }
+}
+
+function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: any) => void; fieldId: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (value) {
+      supabase.storage.from("submissions").createSignedUrl(value, 3600).then(({ data }) => {
+        if (data?.signedUrl) setSignedUrl(data.signedUrl);
+      });
+    } else {
+      setSignedUrl(null);
+    }
+  }, [value]);
+
+  const handleUpload = async (file: File) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `template-photos/${fieldId}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    if (error) {
+      console.error("Upload error:", error);
+    } else {
+      onChange(path);
+    }
+    setUploading(false);
+  };
+
+  const handleRemove = () => {
+    onChange(null);
+    setSignedUrl(null);
+  };
+
+  return (
+    <div className="space-y-2">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+      />
+      {signedUrl ? (
+        <div className="relative inline-block">
+          <img src={signedUrl} alt="Captured" className="max-w-[200px] max-h-[150px] rounded border object-cover" />
+          <Button
+            variant="destructive"
+            size="icon"
+            className="absolute -top-2 -right-2 h-5 w-5 rounded-full"
+            onClick={handleRemove}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading}
+          >
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+            {uploading ? "Uploading..." : "Take Photo"}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PhotoPreview({ path, className }: { path: string; className?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    supabase.storage.from("submissions").createSignedUrl(path, 3600).then(({ data }) => {
+      if (data?.signedUrl) setUrl(data.signedUrl);
+    });
+  }, [path]);
+
+  if (!url) return <span className="text-xs text-muted-foreground">Loading photo...</span>;
+  return <img src={url} alt="Attached" className={className || "max-w-[200px] rounded border object-cover"} />;
 }
