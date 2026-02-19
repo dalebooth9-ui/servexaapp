@@ -8,7 +8,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -18,7 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, ImageIcon, X, Trash2,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2,
 } from "lucide-react";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 
@@ -50,6 +49,13 @@ type Response = {
   created_at: string;
 };
 
+type JobInfo = {
+  address: string | null;
+  customer: string | null;
+  reference_number: string;
+  site?: { name: string; address: string | null } | null;
+};
+
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
@@ -63,11 +69,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
+  const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
 
   const fetchData = async () => {
-    const [tplRes, respRes] = await Promise.all([
+    const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+      supabase.from("jobs").select("address, customer, reference_number, site_id, sites(name, address)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -75,6 +83,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }));
     setTemplates(tpls);
     setResponses((respRes.data || []) as Response[]);
+
+    if (jobRes.data) {
+      const jd = jobRes.data as any;
+      setJobInfo({
+        address: jd.address,
+        customer: jd.customer,
+        reference_number: jd.reference_number,
+        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address } : null,
+      });
+    }
 
     // Fetch profile names
     const userIds = new Set<string>();
@@ -95,7 +113,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleDeleteTemplate = async (templateId: string) => {
     setDeletingTemplateId(templateId);
     try {
-      // Delete associated responses first, then the template
       await supabase.from("job_sheet_responses").delete().eq("template_id", templateId);
       await supabase.from("job_sheet_templates").delete().eq("id", templateId);
       toast({ title: "Template deleted" });
@@ -106,6 +123,38 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setDeletingTemplateId(null);
   };
 
+  const getAutoPopulatedData = (template: Template): Record<string, any> => {
+    const prefilled: Record<string, any> = {};
+    if (!jobInfo) return prefilled;
+
+    const siteAddress = jobInfo.site?.address || jobInfo.address || "";
+    const siteName = jobInfo.site?.name || "";
+    const customerName = jobInfo.customer || "";
+    const fullSiteDetails = [customerName, siteAddress].filter(Boolean).join("\n");
+
+    template.fields.forEach((f) => {
+      const label = f.label.toLowerCase();
+      // Auto-fill site/address fields
+      if (
+        (label.includes("site") && (label.includes("address") || label.includes("detail"))) ||
+        (label.includes("customer") && label.includes("site")) ||
+        label === "address" ||
+        label === "site address"
+      ) {
+        prefilled[f.id] = fullSiteDetails;
+      } else if (label.includes("customer") && !label.includes("sign") && !label.includes("name")) {
+        prefilled[f.id] = customerName;
+      } else if (label === "customer name") {
+        prefilled[f.id] = customerName;
+      } else if (label.includes("po number") || label.includes("reference")) {
+        prefilled[f.id] = jobInfo.reference_number || "";
+      } else if (label === "date" || label === "inspection date") {
+        prefilled[f.id] = new Date().toISOString().split("T")[0];
+      }
+    });
+    return prefilled;
+  };
+
   const handleStartForm = (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
@@ -114,7 +163,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       setFormData(existingResponse.responses as Record<string, any>);
     } else {
       setActiveResponse(null);
-      setFormData({});
+      const prefilled = getAutoPopulatedData(template);
+      setFormData(prefilled);
     }
   };
 
@@ -150,7 +200,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const handleSubmit = async () => {
     if (!activeTemplate) return;
-    // Validate required fields
     const missing = activeTemplate.fields.filter((f) => f.required && !formData[f.id]);
     if (missing.length > 0) {
       toast({
@@ -204,11 +253,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
     : [];
 
-  // Active form view
+  // Active form view — inspection sheet style
   if (activeTemplate && !viewingResponse) {
     return (
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4" /> {activeTemplate.name}
@@ -218,33 +267,43 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="max-h-[500px]">
-            <div className="space-y-4 pr-2">
+        <CardContent className="p-0">
+          <ScrollArea className="max-h-[600px]">
+            <div className="border-t border-border">
               {sections.map((section) => (
                 <div key={section}>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    {section}
-                  </p>
-                  <div className="space-y-3">
-                    {activeTemplate.fields
-                      .filter((f) => (f.section || "General") === section)
-                      .map((field) => (
-                        <div key={field.id} className="space-y-1">
-                          <Label className="text-sm">
+                  {/* Section header bar */}
+                  <div className="bg-muted px-3 py-1.5 border-b border-border">
+                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      {section}
+                    </span>
+                  </div>
+                  {/* Fields as table rows */}
+                  {activeTemplate.fields
+                    .filter((f) => (f.section || "General") === section)
+                    .map((field) => (
+                      <div
+                        key={field.id}
+                        className="grid grid-cols-[1fr,1fr] border-b border-border last:border-b-0"
+                      >
+                        {/* Label cell */}
+                        <div className="px-3 py-2 border-r border-border flex items-start">
+                          <Label className="text-xs leading-tight">
                             {field.label}
                             {field.required && <span className="text-destructive ml-0.5">*</span>}
                           </Label>
+                        </div>
+                        {/* Input cell */}
+                        <div className="px-2 py-1.5 flex items-center">
                           {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v))}
                         </div>
-                      ))}
-                  </div>
-                  <Separator className="mt-3" />
+                      </div>
+                    ))}
                 </div>
               ))}
             </div>
           </ScrollArea>
-          <div className="flex gap-2 mt-4">
+          <div className="flex gap-2 p-3 border-t border-border">
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
               Save Draft
@@ -259,11 +318,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     );
   }
 
-  // Read-only view of submitted response
+  // Read-only view — inspection sheet style
   if (viewingResponse && activeTemplate) {
     return (
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-1">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
               <Eye className="h-4 w-4" /> {activeTemplate.name}
@@ -274,32 +333,41 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
-          <ScrollArea className="max-h-[500px]">
-            <div className="space-y-3 pr-2">
+        <CardContent className="p-0">
+          <ScrollArea className="max-h-[600px]">
+            <div className="border-t border-border">
               {sections.map((section) => (
                 <div key={section}>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                    {section}
-                  </p>
+                  <div className="bg-muted px-3 py-1.5 border-b border-border">
+                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
+                      {section}
+                    </span>
+                  </div>
                   {activeTemplate.fields
                     .filter((f) => (f.section || "General") === section)
                     .map((field) => (
-                      <div key={field.id} className="py-1.5 border-b border-border/50 last:border-0">
-                        <span className="text-sm text-muted-foreground">{field.label}</span>
-                        {field.type === "photo" ? (
-                          formData[field.id] ? (
-                            <PhotoPreview path={formData[field.id]} className="mt-1 max-w-[200px] rounded" />
+                      <div
+                        key={field.id}
+                        className="grid grid-cols-[1fr,1fr] border-b border-border last:border-b-0"
+                      >
+                        <div className="px-3 py-2 border-r border-border">
+                          <span className="text-xs text-muted-foreground leading-tight">{field.label}</span>
+                        </div>
+                        <div className="px-3 py-2">
+                          {field.type === "photo" ? (
+                            formData[field.id] ? (
+                              <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )
                           ) : (
-                            <span className="text-sm font-medium block">—</span>
-                          )
-                        ) : (
-                          <span className="text-sm font-medium block text-right">
-                            {field.type === "checkbox"
-                              ? (formData[field.id] ? "✓ Yes" : "✗ No")
-                              : (formData[field.id] || "—")}
-                          </span>
-                        )}
+                            <span className="text-xs font-medium whitespace-pre-wrap">
+                              {field.type === "checkbox"
+                                ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                                : (formData[field.id] || "—")}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     ))}
                 </div>
@@ -449,7 +517,7 @@ function renderFormField(
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder || ""}
-          className="h-8 text-sm"
+          className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
         />
       );
     case "number":
@@ -459,7 +527,7 @@ function renderFormField(
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder || ""}
-          className="h-8 text-sm"
+          className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
         />
       );
     case "date":
@@ -468,7 +536,7 @@ function renderFormField(
           type="date"
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 text-sm"
+          className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
         />
       );
     case "textarea":
@@ -477,8 +545,8 @@ function renderFormField(
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
           placeholder={field.placeholder || ""}
-          rows={3}
-          className="text-sm"
+          rows={2}
+          className="text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 resize-none w-full min-h-[40px]"
         />
       );
     case "checkbox":
@@ -488,13 +556,13 @@ function renderFormField(
             checked={!!value}
             onCheckedChange={(checked) => onChange(checked)}
           />
-          <span className="text-sm text-muted-foreground">Yes</span>
+          <span className="text-xs text-muted-foreground">{value ? "YES" : "NO"}</span>
         </div>
       );
     case "select":
       return (
         <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="h-8 text-sm">
+          <SelectTrigger className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full">
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
@@ -511,7 +579,7 @@ function renderFormField(
         <Input
           value={value || ""}
           onChange={(e) => onChange(e.target.value)}
-          className="h-8 text-sm"
+          className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
         />
       );
   }
@@ -552,7 +620,7 @@ function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: an
   };
 
   return (
-    <div className="space-y-2">
+    <div>
       <input
         ref={fileRef}
         type="file"
@@ -563,7 +631,7 @@ function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: an
       />
       {signedUrl ? (
         <div className="relative inline-block">
-          <img src={signedUrl} alt="Captured" className="max-w-[200px] max-h-[150px] rounded border object-cover" />
+          <img src={signedUrl} alt="Captured" className="max-w-[120px] max-h-[80px] rounded border object-cover" />
           <Button
             variant="destructive"
             size="icon"
@@ -574,18 +642,16 @@ function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: an
           </Button>
         </div>
       ) : (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => fileRef.current?.click()}
-            disabled={uploading}
-          >
-            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
-            {uploading ? "Uploading..." : "Take Photo"}
-          </Button>
-        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 h-7 text-xs"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+          {uploading ? "Uploading..." : "Take Photo"}
+        </Button>
       )}
     </div>
   );
@@ -601,5 +667,5 @@ function PhotoPreview({ path, className }: { path: string; className?: string })
   }, [path]);
 
   if (!url) return <span className="text-xs text-muted-foreground">Loading photo...</span>;
-  return <img src={url} alt="Attached" className={className || "max-w-[200px] rounded border object-cover"} />;
+  return <img src={url} alt="Attached" className={className || "max-w-[180px] rounded border object-cover"} />;
 }
