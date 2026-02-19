@@ -370,10 +370,24 @@ export default function JobDetail() {
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
+            <CreateInvoiceDialog
+              jobId={id!}
+              customerName={job.customer || ""}
+              customerEmail={customerEmail}
+              customerAddress={job.address || ""}
+              jobName={job.name}
+              documentType="quote"
+              trigger={
+                <Button size="sm" variant="outline">
+                  <FileText className="mr-1.5 h-4 w-4" /> Create Quote
+                </Button>
+              }
+            />
             {(job.status === "completed" || job.status === "archived") && (
               <CreateInvoiceDialog
                 jobId={id!}
                 customerName={job.customer || ""}
+                customerEmail={customerEmail}
                 customerAddress={job.address || ""}
                 jobName={job.name}
               />
