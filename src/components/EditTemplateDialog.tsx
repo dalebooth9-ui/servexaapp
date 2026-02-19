@@ -1,12 +1,13 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical } from "lucide-react";
+import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -27,6 +28,12 @@ type Template = {
   name: string;
   description: string | null;
   fields: TemplateField[];
+  branding?: {
+    company_name?: string;
+    company_subtitle?: string;
+    logo_url?: string;
+    footer_text?: string;
+  };
 };
 
 type Props = {
@@ -137,13 +144,24 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [templateName, setTemplateName] = useState("");
   const [templateDesc, setTemplateDesc] = useState("");
   const [fields, setFields] = useState<TemplateField[]>([]);
+  const [companyName, setCompanyName] = useState("");
+  const [companySubtitle, setCompanySubtitle] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [footerText, setFooterText] = useState("");
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [initialised, setInitialised] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   // Sync state when template changes or dialog opens
   if (open && template && !initialised) {
     setTemplateName(template.name);
     setTemplateDesc(template.description || "");
     setFields(template.fields.map(f => ({ ...f })));
+    const b = template.branding || {};
+    setCompanyName(b.company_name || "");
+    setCompanySubtitle(b.company_subtitle || "");
+    setLogoUrl(b.logo_url || "");
+    setFooterText(b.footer_text || "");
     setInitialised(true);
   }
   if (!open && initialised) {
@@ -193,6 +211,21 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     ]);
   };
 
+  const handleLogoUpload = async (file: File) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `template-logos/${template?.id}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } else {
+      const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 60 * 60 * 24 * 365);
+      if (data?.signedUrl) setLogoUrl(data.signedUrl);
+    }
+    setUploadingLogo(false);
+  };
+
   const handleSave = async () => {
     if (!template) return;
     if (!templateName.trim()) {
@@ -205,10 +238,17 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     }
 
     setSaving(true);
+    const branding = {
+      company_name: companyName.trim() || undefined,
+      company_subtitle: companySubtitle.trim() || undefined,
+      logo_url: logoUrl || undefined,
+      footer_text: footerText.trim() || undefined,
+    };
     const { error } = await supabase.from("job_sheet_templates").update({
       name: templateName.trim(),
       description: templateDesc.trim() || null,
       fields: fields as any,
+      branding: branding as any,
     } as any).eq("id", template.id);
 
     if (error) {
@@ -245,6 +285,43 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                 onChange={(e) => setTemplateDesc(e.target.value)}
                 placeholder="Brief description"
               />
+            </div>
+          </div>
+
+          {/* Company Branding */}
+          <div className="border rounded-md p-3 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+              <ImageIcon className="h-3 w-3" /> Company Branding (PDF)
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div>
+                <Label className="text-xs">Company Name</Label>
+                <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. VIVAFIRE" className="h-7 text-xs" />
+              </div>
+              <div>
+                <Label className="text-xs">Subtitle</Label>
+                <Input value={companySubtitle} onChange={(e) => setCompanySubtitle(e.target.value)} placeholder="e.g. Wet & Dry Riser Specialists" className="h-7 text-xs" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Footer Declaration</Label>
+              <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have carried out..." rows={2} className="text-xs min-h-[40px]" />
+            </div>
+            <div className="flex items-center gap-2">
+              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
+                {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+                {logoUrl ? "Change Logo" : "Upload Logo"}
+              </Button>
+              {logoUrl && (
+                <div className="flex items-center gap-1.5">
+                  <img src={logoUrl} alt="Logo" className="h-6 rounded border" />
+                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setLogoUrl("")}>
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+              {!logoUrl && <span className="text-[10px] text-muted-foreground">No logo — will use default</span>}
             </div>
           </div>
 

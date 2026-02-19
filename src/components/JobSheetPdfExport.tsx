@@ -19,6 +19,12 @@ type Template = {
   name: string;
   description: string | null;
   fields: TemplateField[];
+  branding?: {
+    company_name?: string;
+    company_subtitle?: string;
+    logo_url?: string;
+    footer_text?: string;
+  };
 };
 
 type JobInfo = {
@@ -45,49 +51,72 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
     try {
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
       const maxWidth = pageWidth - margin * 2;
-      let y = 15;
+      let y = 8;
 
-      const checkPage = (needed: number) => {
-        if (y + needed > 275) {
-          doc.addPage();
-          y = 15;
+      const branding = template.branding || {};
+      const companyName = branding.company_name || "VIVAFIRE";
+      const companySubtitle = branding.company_subtitle || "Wet & Dry Riser Specialists";
+      const footerText = branding.footer_text || "We have, today, carried out a Hydraulic Pressure Test of 12 Bars\nfor a period of 15 minutes to the requirements of BS 9990:2015";
+
+      // --- HEADER: Logo or company text ---
+      const logoUrl = branding.logo_url;
+      if (logoUrl) {
+        try {
+          const logoImg = new Image();
+          logoImg.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            logoImg.onload = () => resolve();
+            logoImg.onerror = () => reject();
+            logoImg.src = logoUrl;
+          });
+          const logoWidth = 40;
+          const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
+          doc.addImage(logoImg, "JPEG", (pageWidth - logoWidth) / 2, y, logoWidth, Math.min(logoHeight, 14));
+          y += Math.min(logoHeight, 14) + 2;
+        } catch {
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "bold");
+          doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+          y += 12;
         }
-      };
-
-      // --- HEADER: Logo ---
-      try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = "anonymous";
-        await new Promise<void>((resolve, reject) => {
-          logoImg.onload = () => resolve();
-          logoImg.onerror = () => reject();
-          logoImg.src = "/images/vivafire-logo.jpg";
-        });
-        const logoWidth = 55;
-        const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
-        const logoX = (pageWidth - logoWidth) / 2;
-        doc.addImage(logoImg, "JPEG", logoX, y, logoWidth, logoHeight);
-        y += logoHeight + 4;
-      } catch {
-        // Fallback text header
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.text("VIVAFIRE", pageWidth / 2, y + 8, { align: "center" });
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.text("Wet & Dry Riser Specialists", pageWidth / 2, y + 13, { align: "center" });
-        y += 18;
+      } else {
+        // Fallback: no logo uploaded, use default image
+        try {
+          const logoImg = new Image();
+          logoImg.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            logoImg.onload = () => resolve();
+            logoImg.onerror = () => reject();
+            logoImg.src = "/images/vivafire-logo.jpg";
+          });
+          const logoWidth = 40;
+          const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
+          doc.addImage(logoImg, "JPEG", (pageWidth - logoWidth) / 2, y, logoWidth, Math.min(logoHeight, 14));
+          y += Math.min(logoHeight, 14) + 2;
+        } catch {
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "bold");
+          doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+          y += 12;
+        }
       }
 
       // --- Title ---
-      doc.setFontSize(13);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.text(template.name.toUpperCase(), pageWidth / 2, y, { align: "center" });
-      y += 8;
+      y += 5;
 
-      // --- Customer/Site Details box ---
+      // --- Customer details compact row ---
       const customerName = jobInfo?.customer || "";
       const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
       const siteName = jobInfo?.site?.name || "";
@@ -95,184 +124,176 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
       const dateVal = formData["date"] || formData["inspection_date"] || new Date().toLocaleDateString("en-GB");
 
       doc.setDrawColor(0);
-      doc.setLineWidth(0.3);
-      doc.rect(margin, y, maxWidth, 22);
-      doc.line(margin + maxWidth / 2, y, margin + maxWidth / 2, y + 22);
-      doc.line(margin, y + 11, margin + maxWidth, y + 11);
+      doc.setLineWidth(0.2);
+      const detailH = 10;
+      doc.rect(margin, y, maxWidth, detailH);
+      doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
+      doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      doc.setFontSize(8);
+      doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text("Customer/Site Details:", margin + 2, y + 4);
+      doc.text("Customer/Site:", margin + 1, y + 3);
       doc.setFont("helvetica", "normal");
-      doc.text([customerName, siteName, siteAddress].filter(Boolean).join(", "), margin + 2, y + 8);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("DATE:", margin + maxWidth / 2 + 2, y + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(String(dateVal), margin + maxWidth / 2 + 18, y + 4);
+      const siteStr = [customerName, siteName, siteAddress].filter(Boolean).join(", ");
+      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 20).slice(0, 1).join(""), margin + 22, y + 3);
 
       doc.setFont("helvetica", "bold");
-      doc.text("PO NUMBER:", margin + maxWidth / 2 + 2, y + 15);
+      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 3);
       doc.setFont("helvetica", "normal");
-      doc.text(refNumber, margin + maxWidth / 2 + 30, y + 15);
+      doc.text(String(dateVal), margin + maxWidth * 0.5 + 14, y + 3);
 
-      y += 26;
+      doc.setFont("helvetica", "bold");
+      doc.text("PO/REF:", margin + 1, y + 3 + detailH / 2);
+      doc.setFont("helvetica", "normal");
+      doc.text(refNumber, margin + 16, y + 3 + detailH / 2);
 
-      // --- Sections and fields as table ---
+      // Find riser location field value
+      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
+      if (riserField && formData[riserField.id]) {
+        doc.setFont("helvetica", "bold");
+        doc.text("RISER LOC:", margin + maxWidth * 0.5 + 1, y + 3 + detailH / 2);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(formData[riserField.id]), margin + maxWidth * 0.5 + 22, y + 3 + detailH / 2);
+      }
+
+      y += detailH + 2;
+
+      // --- Calculate available space for sections ---
+      const footerSpace = 28; // signatures + footer declaration
+      const availableH = pageHeight - y - footerSpace;
+
+      // --- Sections and fields as compact table ---
       const sections = [...new Set(template.fields.map((f) => f.section || "General"))];
+      // Skip fields already shown in header (customer, date, PO, riser location)
+      const skipLabels = ["customer /site details", "customer/site details", "date", "po number", "riser location"];
+
+      const colSplit = maxWidth * 0.68;
 
       for (const section of sections) {
-        const sectionFields = template.fields.filter((f) => (f.section || "General") === section);
-
-        checkPage(12 + sectionFields.length * 8);
+        const sectionFields = template.fields.filter(
+          (f) => (f.section || "General") === section &&
+            !skipLabels.some(sl => f.label.toLowerCase().includes(sl))
+        );
+        if (sectionFields.length === 0) continue;
 
         // Section header
         doc.setFillColor(230, 230, 230);
-        doc.rect(margin, y, maxWidth, 7, "F");
+        doc.rect(margin, y, maxWidth, 4.5, "F");
         doc.setDrawColor(0);
-        doc.rect(margin, y, maxWidth, 7);
-        doc.setFontSize(9);
+        doc.rect(margin, y, maxWidth, 4.5);
+        doc.setFontSize(6.5);
         doc.setFont("helvetica", "bold");
-        doc.text(section.toUpperCase(), margin + 2, y + 5);
-
-        // "PASS" header on right
-        const colSplit = maxWidth * 0.7;
-        doc.text("RESULT", margin + colSplit + 2, y + 5);
-        y += 7;
+        doc.text(section.toUpperCase(), margin + 1, y + 3.2);
+        doc.text("RESULT", margin + colSplit + 1, y + 3.2);
+        y += 4.5;
 
         // Field rows
-        doc.setFontSize(8);
+        doc.setFontSize(6);
         for (const field of sectionFields) {
-          checkPage(10);
-          const rowH = 7;
-
+          const rowH = 4.2;
           doc.setDrawColor(180);
           doc.rect(margin, y, colSplit, rowH);
           doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
 
           // Label
           doc.setFont("helvetica", "normal");
-          const labelLines = doc.splitTextToSize(field.label, colSplit - 4);
-          const actualH = Math.max(rowH, labelLines.length * 4 + 3);
-          if (actualH > rowH) {
-            // Redraw taller
-            doc.setFillColor(255, 255, 255);
-            doc.rect(margin, y, colSplit, actualH, "FD");
-            doc.rect(margin + colSplit, y, maxWidth - colSplit, actualH, "FD");
-          }
-          labelLines.forEach((line: string, i: number) => {
-            doc.text(line, margin + 2, y + 4 + i * 4);
-          });
+          doc.setTextColor(0, 0, 0);
+          const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
+          doc.text(label, margin + 1, y + 3);
 
           // Value
           const val = formData[field.id];
           let displayVal = "";
           if (field.type === "pass_fail") {
             displayVal = val === "pass" ? "PASS" : val === "fail" ? "FAIL" : val === "n/a" ? "N/A" : "—";
-            if (val === "pass") {
-              doc.setTextColor(0, 128, 0);
-              doc.setFont("helvetica", "bold");
-            } else if (val === "fail") {
-              doc.setTextColor(200, 0, 0);
-              doc.setFont("helvetica", "bold");
-            }
+            if (val === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
+            else if (val === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
           } else if (field.type === "checkbox") {
             displayVal = val ? "YES" : "NO";
           } else {
-            displayVal = val ? String(val) : "—";
+            displayVal = val ? String(val).substring(0, 50) : "—";
           }
-
-          doc.text(displayVal, margin + colSplit + 2, y + 4);
+          doc.text(displayVal, margin + colSplit + 1, y + 3);
           doc.setTextColor(0, 0, 0);
           doc.setFont("helvetica", "normal");
 
-          // Notes
+          // Inline note
           const noteVal = formData[`${field.id}_notes`];
           if (field.allow_notes && noteVal) {
-            y += actualH;
-            checkPage(6);
-            doc.setFontSize(7);
+            doc.setFontSize(5);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(100, 100, 100);
-            doc.text(`Note: ${noteVal}`, margin + 4, y + 3);
+            doc.text(`Note: ${noteVal}`.substring(0, 80), margin + 2, y + rowH + 2.5);
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(8);
+            doc.setFontSize(6);
             doc.setFont("helvetica", "normal");
-            y += 5;
-          } else {
-            y += actualH;
+            y += 3;
           }
+
+          y += rowH;
         }
-        y += 4;
+        y += 1;
       }
 
-      // --- Comments section ---
-      checkPage(20);
-      doc.setFontSize(9);
+      // --- Comments + Materials compact ---
+      doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text("Comments:", margin, y + 5);
-      doc.setDrawColor(0);
-      doc.rect(margin, y + 7, maxWidth, 15);
-      y += 26;
+      const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
+      const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
+      const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
+      const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
 
-      // --- Materials Required ---
-      checkPage(15);
-      doc.setFont("helvetica", "bold");
-      doc.text("MATERIALS REQUIRED:", margin, y + 5);
-      doc.rect(margin, y + 7, maxWidth, 12);
-      y += 23;
+      if (commentsVal || materialsVal) {
+        doc.text("Comments:", margin, y + 3);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(commentsVal).substring(0, 100) || "None", margin + 18, y + 3);
+        y += 4;
+        doc.setFont("helvetica", "bold");
+        doc.text("Materials:", margin, y + 3);
+        doc.setFont("helvetica", "normal");
+        doc.text(String(materialsVal).substring(0, 100) || "None", margin + 18, y + 3);
+        y += 5;
+      }
 
       // --- Signature blocks ---
-      checkPage(35);
+      const sigY = Math.max(y + 2, pageHeight - footerSpace);
       const halfW = maxWidth / 2 - 2;
-      const sigY = y;
+      const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
-      // Technician
-      doc.setFontSize(8);
+      doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text("Date:", margin, sigY + 5);
+      doc.text(`Date: `, margin, sigY + 3);
       doc.setFont("helvetica", "normal");
-      doc.text(submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"), margin + 12, sigY + 5);
+      doc.text(dateStr, margin + 10, sigY + 3);
       doc.setFont("helvetica", "bold");
-      doc.text("Technician Name:", margin, sigY + 12);
+      doc.text("Technician:", margin, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(submittedBy || "", margin + 35, sigY + 12);
-      doc.text("Signature:", margin, sigY + 19);
-      doc.line(margin + 20, sigY + 19, margin + halfW, sigY + 19);
+      doc.text(submittedBy || "", margin + 20, sigY + 7);
+      doc.text("Signature:", margin, sigY + 11);
+      doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
 
-      // Customer
       const cx = margin + halfW + 4;
       doc.setFont("helvetica", "bold");
-      doc.text("Date:", cx, sigY + 5);
+      doc.text(`Date: `, cx, sigY + 3);
       doc.setFont("helvetica", "normal");
-      doc.text(submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"), cx + 12, sigY + 5);
+      doc.text(dateStr, cx + 10, sigY + 3);
       doc.setFont("helvetica", "bold");
-      doc.text("Customer Name:", cx, sigY + 12);
+      doc.text("Customer:", cx, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(jobInfo?.customer || "", cx + 32, sigY + 12);
-      doc.text("Signature:", cx, sigY + 19);
-      doc.line(cx + 20, sigY + 19, cx + halfW, sigY + 19);
-
-      y = sigY + 28;
+      doc.text(jobInfo?.customer || "", cx + 18, sigY + 7);
+      doc.text("Signature:", cx, sigY + 11);
+      doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
 
       // --- Footer declaration ---
-      checkPage(15);
+      const footerY = sigY + 15;
       doc.setDrawColor(0);
-      doc.rect(margin, y, maxWidth, 12);
-      doc.setFontSize(8);
+      doc.rect(margin, footerY, maxWidth, 9);
+      doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text(
-        "We have, today, carried out a Hydraulic Pressure Test of 12 Bars",
-        pageWidth / 2,
-        y + 4,
-        { align: "center" }
-      );
-      doc.text(
-        "for a period of 15 minutes to the requirements of BS 9990:2015",
-        pageWidth / 2,
-        y + 9,
-        { align: "center" }
-      );
+      const footerLines = footerText.split("\n");
+      footerLines.forEach((line, i) => {
+        doc.text(line.trim(), pageWidth / 2, footerY + 3 + i * 3.5, { align: "center" });
+      });
 
       const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
       doc.save(fileName);
