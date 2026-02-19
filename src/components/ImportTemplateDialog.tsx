@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -11,6 +11,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { Upload, Loader2, X, Plus, GripVertical } from "lucide-react";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 type TemplateField = {
   id: string;
@@ -39,6 +42,35 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   photo: "Photo",
 };
 
+function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
+  field: TemplateField;
+  idx: number;
+  onFieldChange: (idx: number, key: keyof TemplateField, value: any) => void;
+  onRemove: (idx: number) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 group">
+      <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none shrink-0">
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+      </button>
+      <Input value={field.label} onChange={(e) => onFieldChange(idx, "label", e.target.value)} className="h-7 text-sm flex-1" />
+      <select value={field.type} onChange={(e) => onFieldChange(idx, "type", e.target.value)} className="h-7 text-xs border rounded px-1.5 bg-background">
+        {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
+      </select>
+      <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+        <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} />
+        Req
+      </label>
+      <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onRemove(idx)}>
+        <X className="h-3 w-3" />
+      </Button>
+    </div>
+  );
+}
+
 export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -50,6 +82,22 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
   const [templateDesc, setTemplateDesc] = useState("");
   const [fields, setFields] = useState<TemplateField[]>([]);
   const [fileName, setFileName] = useState("");
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  const handleDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setFields((prev) => {
+        const oldIndex = prev.findIndex((f) => f.id === active.id);
+        const newIndex = prev.findIndex((f) => f.id === over.id);
+        return arrayMove(prev, oldIndex, newIndex);
+      });
+    }
+  }, []);
 
   const resetState = () => {
     setStep("upload");
@@ -163,7 +211,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
     setSaving(false);
   };
 
-  const sections = [...new Set(fields.map((f) => f.section || "General"))];
+  
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) resetState(); onOpenChange(v); }}>
@@ -248,54 +296,19 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
 
             <div className="overflow-y-auto border rounded-md" style={{ maxHeight: "calc(90vh - 280px)" }}>
               <div className="p-3 space-y-1">
-                {sections.map((section) => (
-                  <div key={section}>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-2 mb-1">
-                      {section}
-                    </p>
-                    {fields
-                      .map((f, idx) => ({ ...f, _idx: idx }))
-                      .filter((f) => (f.section || "General") === section)
-                      .map((field) => (
-                        <div
-                          key={field._idx}
-                          className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-muted/50 group"
-                        >
-                          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40 shrink-0" />
-                          <Input
-                            value={field.label}
-                            onChange={(e) => handleFieldChange(field._idx, "label", e.target.value)}
-                            className="h-7 text-sm flex-1"
-                          />
-                          <select
-                            value={field.type}
-                            onChange={(e) => handleFieldChange(field._idx, "type", e.target.value)}
-                            className="h-7 text-xs border rounded px-1.5 bg-background"
-                          >
-                            {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (
-                              <option key={k} value={k}>{v}</option>
-                            ))}
-                          </select>
-                          <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-                            <input
-                              type="checkbox"
-                              checked={field.required}
-                              onChange={(e) => handleFieldChange(field._idx, "required", e.target.checked)}
-                            />
-                            Req
-                          </label>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                            onClick={() => handleRemoveField(field._idx)}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                  </div>
-                ))}
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                    {fields.map((field, idx) => (
+                      <SortableFieldRow
+                        key={field.id}
+                        field={field}
+                        idx={idx}
+                        onFieldChange={handleFieldChange}
+                        onRemove={handleRemoveField}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </div>
             </div>
 
