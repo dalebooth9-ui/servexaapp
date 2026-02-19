@@ -15,7 +15,10 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, ImageIcon, X,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, ImageIcon, X, Trash2,
 } from "lucide-react";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 
@@ -54,6 +57,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [importOpen, setImportOpen] = useState(false);
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -87,6 +91,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   };
 
   useEffect(() => { fetchData(); }, [jobId]);
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    setDeletingTemplateId(templateId);
+    try {
+      // Delete associated responses first, then the template
+      await supabase.from("job_sheet_responses").delete().eq("template_id", templateId);
+      await supabase.from("job_sheet_templates").delete().eq("id", templateId);
+      toast({ title: "Template deleted" });
+      fetchData();
+    } catch {
+      toast({ title: "Error deleting template", variant: "destructive" });
+    }
+    setDeletingTemplateId(null);
+  };
 
   const handleStartForm = (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
@@ -372,14 +390,37 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <span className="text-sm font-medium">{tpl.name}</span>
                     <span className="text-xs text-muted-foreground ml-2">{tpl.fields.length} fields</span>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => handleStartForm(tpl)}
-                  >
-                    <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => handleStartForm(tpl)}
+                    >
+                      <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
+                    </Button>
+                    {userRole === "admin" && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" disabled={deletingTemplateId === tpl.id}>
+                            {deletingTemplateId === tpl.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will permanently delete "{tpl.name}" and all associated responses across all jobs. This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteTemplate(tpl.id)}>Delete</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
