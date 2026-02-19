@@ -78,6 +78,7 @@ export default function JobDetail() {
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
+  const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -92,6 +93,17 @@ export default function JobDetail() {
     setJob(jobRes.data);
     const subs = subsRes.data || [];
     setSubmissions(subs);
+
+    // Look up customer email from customers table
+    if (jobRes.data?.customer) {
+      const { data: custData } = await supabase
+        .from("customers")
+        .select("email")
+        .eq("name", jobRes.data.customer)
+        .limit(1)
+        .maybeSingle();
+      setCustomerEmail(custData?.email || "");
+    }
 
     const engineerIds = [...new Set(subs.map((s: any) => s.engineer_id))];
     if (engineerIds.length > 0) {
@@ -355,7 +367,7 @@ export default function JobDetail() {
         </div>
         {userRole === "admin" ? (
           <div className="flex items-center gap-2">
-            <SendToCustomerMenu jobId={id!} job={job} customerEmail="" />
+            <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
