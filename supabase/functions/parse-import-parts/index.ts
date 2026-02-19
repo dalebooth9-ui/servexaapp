@@ -62,7 +62,11 @@ serve(async (req) => {
         { type: "image_url", image_url: { url: `data:application/pdf;base64,${file_base64}` } },
       ];
     } else if (ext === ".csv" || ext === ".txt") {
-      const text = new TextDecoder().decode(Uint8Array.from(atob(file_base64), c => c.charCodeAt(0)));
+      let text = new TextDecoder().decode(Uint8Array.from(atob(file_base64), c => c.charCodeAt(0)));
+      // Truncate to avoid exceeding AI model token limits
+      if (text.length > 60000) {
+        text = text.slice(0, 60000) + "\n\n[TRUNCATED - file too large, showing first portion]";
+      }
       userContent = [
         { type: "text", text: `Extract all parts, materials, and components from this CSV/text data (${file_name}):\n\n${text}\n\nReturn as a JSON array.` },
       ];
@@ -164,7 +168,13 @@ Rules:
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ error: "Failed to parse document with AI" }), {
+      if (aiResponse.status === 402) {
+        return new Response(JSON.stringify({ error: "AI credits exhausted. Please add funds to continue." }), {
+          status: 402,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ error: `Failed to parse document with AI (${aiResponse.status})` }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
