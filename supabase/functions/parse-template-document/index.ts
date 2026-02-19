@@ -118,7 +118,7 @@ serve(async (req) => {
 Return a JSON array of field objects. Each field must have:
 - "id": a unique snake_case identifier (e.g. "site_address", "gas_pressure_reading")
 - "label": the human-readable field label as it appears in the document
-- "type": one of "text", "number", "date", "checkbox", "select", "textarea", "photo"
+- "type": one of "text", "number", "date", "checkbox", "pass_fail", "select", "textarea", "photo"
 - "required": boolean, true if the field seems mandatory
 - "section": a group/section name if the document has sections (e.g. "Site Details", "Safety Checks")
 - "options": array of strings ONLY if type is "select" (dropdown choices)
@@ -126,7 +126,7 @@ Return a JSON array of field objects. Each field must have:
 
 Guidelines:
 - Yes/No questions → type "checkbox"
-- Pass/Fail items → type "select" with options ["Pass", "Fail", "N/A"]
+- Pass/Fail items → type "pass_fail" (NOT select)
 - Long text / notes / comments → type "textarea"
 - Readings, measurements, quantities → type "number"
 - Dates → type "date"
