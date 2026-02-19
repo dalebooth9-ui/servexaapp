@@ -267,6 +267,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
                     <TableHead className="text-right w-24">Sell Price</TableHead>
                     <TableHead className="text-right w-24">Sell Total</TableHead>
                     <TableHead className="text-right w-24">Profit</TableHead>
+                    <TableHead className="text-right w-20">Margin</TableHead>
                   </>
                 )}
                 <TableHead>Notes</TableHead>
@@ -279,6 +280,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
                 const sellPrice = part.sell_price || 0;
                 const sellTotal = sellPrice * part.quantity;
                 const profit = (sellPrice - part.unit_cost) * part.quantity;
+                const margin = sellTotal > 0 ? (profit / sellTotal) * 100 : 0;
 
                 return (
                   <TableRow key={part.id} data-state={selected.has(part.id) ? "selected" : undefined}>
@@ -339,6 +341,9 @@ export default function JobParts({ jobId }: { jobId: string }) {
                         <TableCell className={`text-right font-semibold ${profit > 0 ? "text-green-600" : profit < 0 ? "text-destructive" : "text-muted-foreground"}`}>
                           £{profit.toFixed(2)}
                         </TableCell>
+                        <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                          {sellTotal > 0 ? `${margin.toFixed(1)}%` : "—"}
+                        </TableCell>
                       </>
                     )}
 
@@ -380,6 +385,9 @@ export default function JobParts({ jobId }: { jobId: string }) {
                 <span>Sell: £{totalSellValue.toFixed(2)}</span>
                 <span className={totalProfit > 0 ? "text-green-600" : totalProfit < 0 ? "text-destructive" : ""}>
                   Profit: £{totalProfit.toFixed(2)}
+                </span>
+                <span className={totalSellValue > 0 ? (totalProfit / totalSellValue * 100 > 0 ? "text-green-600" : "text-destructive") : "text-muted-foreground"}>
+                  Margin: {totalSellValue > 0 ? `${(totalProfit / totalSellValue * 100).toFixed(1)}%` : "—"}
                 </span>
               </>
             )}
