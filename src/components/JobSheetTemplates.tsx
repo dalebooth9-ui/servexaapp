@@ -364,6 +364,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             <span className="text-xs font-medium whitespace-pre-wrap">
                               {field.type === "checkbox"
                                 ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                                : field.type === "pass_fail"
+                                ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : "—")
                                 : (formData[field.id] || "—")}
                             </span>
                           )}
@@ -557,6 +559,31 @@ function renderFormField(
             onCheckedChange={(checked) => onChange(checked)}
           />
           <span className="text-xs text-muted-foreground">{value ? "YES" : "NO"}</span>
+        </div>
+      );
+    case "pass_fail":
+      return (
+        <div className="flex items-center gap-1.5">
+          <Button
+            type="button"
+            size="sm"
+            variant={value === "pass" ? "default" : "outline"}
+            className={`h-7 px-2.5 text-xs gap-1 ${value === "pass" ? "bg-green-600 hover:bg-green-700 text-white" : ""}`}
+            onClick={() => onChange(value === "pass" ? null : "pass")}
+          >
+            <CheckCircle2 className="h-3.5 w-3.5" />
+            Pass
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={value === "fail" ? "default" : "outline"}
+            className={`h-7 px-2.5 text-xs gap-1 ${value === "fail" ? "bg-destructive hover:bg-destructive/90 text-white" : ""}`}
+            onClick={() => onChange(value === "fail" ? null : "fail")}
+          >
+            <X className="h-3.5 w-3.5" />
+            Fail
+          </Button>
         </div>
       );
     case "select":

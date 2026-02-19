@@ -33,6 +33,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   number: "Number",
   date: "Date",
   checkbox: "Checkbox",
+  pass_fail: "Pass/Fail",
   select: "Dropdown",
   textarea: "Long Text",
   photo: "Photo",
