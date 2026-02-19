@@ -1173,6 +1173,48 @@ export type Database = {
           },
         ]
       }
+      parts_library: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          part_number: string | null
+          sell_price: number
+          supplier: string | null
+          unit_cost: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          part_number?: string | null
+          sell_price?: number
+          supplier?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          part_number?: string | null
+          sell_price?: number
+          supplier?: string | null
+          unit_cost?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ppm_schedules: {
         Row: {
           asset_id: string
