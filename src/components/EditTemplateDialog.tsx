@@ -19,6 +19,7 @@ type TemplateField = {
   section: string;
   options?: string[];
   placeholder?: string;
+  allow_notes?: boolean;
 };
 
 type Template = {
@@ -88,6 +89,10 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
         <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
           <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} />
           Req
+        </label>
+        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" title="Allow notes next to this field">
+          <input type="checkbox" checked={!!field.allow_notes} onChange={(e) => onFieldChange(idx, "allow_notes", e.target.checked)} />
+          Notes
         </label>
         <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onRemove(idx)}>
           <X className="h-3 w-3" />
