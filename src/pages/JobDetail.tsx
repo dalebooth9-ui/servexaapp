@@ -543,14 +543,14 @@ export default function JobDetail() {
             return locations.length > 0 ? <LocationMap locations={locations} /> : null;
           })()}
 
-          <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} />
+          <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} currentUserId={user?.id} />
         </CollapsibleContent>
       </Collapsible>
     </div>
   );
 }
 
-function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: boolean; onDelete: (sub: any) => Promise<void> }) {
+function SubmissionList({ items, isAdmin, onDelete, currentUserId }: { items: any[]; isAdmin: boolean; onDelete: (sub: any) => Promise<void>; currentUserId?: string }) {
   const { toast } = useToast();
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [previewSub, setPreviewSub] = useState<any>(null);
@@ -858,7 +858,7 @@ function SubmissionList({ items, isAdmin, onDelete }: { items: any[]; isAdmin: b
                             <RefreshCw className="h-4 w-4" />
                           </Button>
                         )}
-                        {isAdmin && (
+                        {(isAdmin || sub.engineer_id === currentUserId) && (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" disabled={deletingId === sub.id}>
