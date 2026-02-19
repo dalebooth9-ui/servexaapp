@@ -140,12 +140,16 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You extract parts/materials data from documents. Return a JSON array of objects with these fields: name, quantity, unit_cost, notes.
+            content: `You extract parts/materials data from documents. Return a JSON array of objects with these fields: name, quantity, unit_cost, sell_price, supplier, part_number, category, notes.
 Rules:
 - name: the part or material name (required)
 - quantity: numeric quantity, default 1
-- unit_cost: numeric cost per unit, default 0
-- notes: any extra info like supplier, spec, part number
+- unit_cost: numeric cost per unit, default 0. Look for fields like "Cost per item", "cost", "wholesale price"
+- sell_price: numeric selling price per unit, default 0. Look for fields like "Variant Price", "price", "retail price", "sell price"
+- supplier: supplier or vendor name if available
+- part_number: part number, SKU, or product code if available
+- category: product category if available, default "general"
+- notes: any extra info like specs, description, or other details
 - Extract ALL parts/materials/components you can find
 - If a field is not found, use the default
 - Return ONLY the JSON array, no markdown, no explanation`
