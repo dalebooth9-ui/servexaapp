@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -49,6 +50,7 @@ export default function CreateInvoiceDialog({
   const [partsLibrary, setPartsLibrary] = useState<any[]>([]);
   const [partsSearch, setPartsSearch] = useState("");
   const [partsPickerOpen, setPartsPickerOpen] = useState(false);
+  const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
 
   const [form, setForm] = useState({
     customer_name: customerName || "",
@@ -99,9 +101,24 @@ export default function CreateInvoiceDialog({
     }
   };
 
-  const addPartAsLineItem = (part: any) => {
-    const desc = part.part_number ? `${part.name} (${part.part_number})` : part.name;
-    setItems((prev) => [...prev, { description: desc, quantity: 1, unit_price: Number(part.sell_price) || 0 }]);
+  const togglePartSelection = (partId: string) => {
+    setSelectedParts((prev) => {
+      const n = new Set(prev);
+      if (n.has(partId)) n.delete(partId); else n.add(partId);
+      return n;
+    });
+  };
+
+  const addSelectedParts = () => {
+    const newItems = partsLibrary
+      .filter((p) => selectedParts.has(p.id))
+      .map((part) => ({
+        description: part.part_number ? `${part.name} (${part.part_number})` : part.name,
+        quantity: 1,
+        unit_price: Number(part.sell_price) || 0,
+      }));
+    setItems((prev) => [...prev, ...newItems]);
+    setSelectedParts(new Set());
     setPartsPickerOpen(false);
     setPartsSearch("");
   };
@@ -276,13 +293,15 @@ export default function CreateInvoiceDialog({
                         <p className="p-3 text-sm text-muted-foreground text-center">No parts found</p>
                       ) : (
                         filteredParts.slice(0, 50).map((part) => (
-                          <button
+                          <label
                             key={part.id}
-                            type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 transition-colors border-b last:border-b-0 flex items-center justify-between gap-2"
-                            onClick={() => addPartAsLineItem(part)}
+                            className="w-full px-3 py-2 text-sm hover:bg-muted/50 transition-colors border-b last:border-b-0 flex items-center gap-2 cursor-pointer"
                           >
-                            <div className="min-w-0">
+                            <Checkbox
+                              checked={selectedParts.has(part.id)}
+                              onCheckedChange={() => togglePartSelection(part.id)}
+                            />
+                            <div className="min-w-0 flex-1">
                               <p className="font-medium truncate">{part.name}</p>
                               <p className="text-xs text-muted-foreground truncate">
                                 {part.part_number && <span>{part.part_number} • </span>}
@@ -292,10 +311,17 @@ export default function CreateInvoiceDialog({
                             <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
                               £{Number(part.sell_price).toFixed(2)}
                             </span>
-                          </button>
+                          </label>
                         ))
                       )}
                     </div>
+                    {selectedParts.size > 0 && (
+                      <div className="p-2 border-t">
+                        <Button type="button" size="sm" className="w-full" onClick={addSelectedParts}>
+                          Add {selectedParts.size} Part(s)
+                        </Button>
+                      </div>
+                    )}
                   </PopoverContent>
                 </Popover>
                 <Button type="button" size="sm" variant="ghost" onClick={() => setItems([...items, { description: "", quantity: 1, unit_price: 0 }])}>
