@@ -246,7 +246,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 min-h-0 border rounded-md">
+            <div className="overflow-y-auto border rounded-md" style={{ maxHeight: "calc(90vh - 280px)" }}>
               <div className="p-3 space-y-1">
                 {sections.map((section) => (
                   <div key={section}>
@@ -297,7 +297,7 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
 
             <DialogFooter>
               <Button variant="outline" onClick={() => { resetState(); }}>Cancel</Button>
