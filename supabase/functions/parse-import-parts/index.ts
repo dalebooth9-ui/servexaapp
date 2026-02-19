@@ -63,8 +63,48 @@ serve(async (req) => {
       ];
     } else if (ext === ".csv" || ext === ".txt") {
       let text = new TextDecoder().decode(Uint8Array.from(atob(file_base64), c => c.charCodeAt(0)));
-      if (text.length > 60000) {
-        text = text.slice(0, 60000) + "\n\n[TRUNCATED - file too large, showing first portion]";
+      
+      // Pre-process CSV: strip HTML tags and trim large fields to reduce token count
+      text = text.replace(/<[^>]*>/g, " ").replace(/\s{2,}/g, " ");
+      
+      // For Shopify-style CSVs, try to keep only relevant columns
+      const lines = text.split("\n");
+      if (lines.length > 1) {
+        const header = lines[0].toLowerCase();
+        // If it looks like a Shopify CSV with many irrelevant columns, simplify
+        if (header.includes("handle") && header.includes("body") && header.includes("variant price")) {
+          try {
+            // Parse header to find relevant column indices
+            const cols = lines[0].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+            const keepCols = ["handle", "title", "vendor", "variant sku", "variant price", "variant compare at price", "cost per item", "product category", "type", "tags", "variant barcode", "variant grams", "variant weight unit"];
+            const keepIndices: number[] = [];
+            cols.forEach((c, i) => {
+              if (keepCols.some(k => c.toLowerCase().includes(k))) keepIndices.push(i);
+            });
+            
+            if (keepIndices.length > 3) {
+              const filteredLines = lines.map(line => {
+                // Simple CSV field extraction (handles quoted fields with commas)
+                const fields: string[] = [];
+                let current = "";
+                let inQuotes = false;
+                for (const ch of line) {
+                  if (ch === '"') { inQuotes = !inQuotes; }
+                  else if (ch === ',' && !inQuotes) { fields.push(current.trim()); current = ""; }
+                  else { current += ch; }
+                }
+                fields.push(current.trim());
+                return keepIndices.map(i => fields[i] || "").join(",");
+              });
+              // Filter out empty data rows (all commas)
+              text = filteredLines.filter(l => l.replace(/,/g, "").trim().length > 0).join("\n");
+            }
+          } catch { /* fall through to raw text */ }
+        }
+      }
+      
+      if (text.length > 40000) {
+        text = text.slice(0, 40000) + "\n\n[TRUNCATED]";
       }
       userContent = `Extract all parts, materials, and components from this CSV/text data (${file_name}):\n\n${text}\n\nReturn as a JSON array.`;
     } else if (ext === ".xlsx" || ext === ".xls") {
