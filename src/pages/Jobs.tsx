@@ -651,7 +651,7 @@ export default function Jobs() {
     fetchJobs();
   };
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent, statusOverride?: string) => {
     e.preventDefault();
     setLoading(true);
 
@@ -670,6 +670,7 @@ export default function Jobs() {
       address: parsed.data.address || null,
       priority: form.priority,
       category: form.category,
+      status: statusOverride || "active",
       created_by: user?.id,
     } as any);
     if (error) {
@@ -679,7 +680,7 @@ export default function Jobs() {
         : "Failed to create job. Please try again.";
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
-      toast({ title: "Job created" });
+      toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
       setForm({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
       setDialogOpen(false);
       fetchJobs();
@@ -1009,9 +1010,20 @@ export default function Jobs() {
                     </Select>
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading ? "Creating..." : "Create Job"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button type="submit" className="flex-1" disabled={loading}>
+                    {loading ? "Creating..." : "Create Job"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="flex-1"
+                    disabled={loading}
+                    onClick={(e) => handleCreate(e as any, "scheduled")}
+                  >
+                    {loading ? "Creating..." : "Save & Submit to Planner"}
+                  </Button>
+                </div>
               </form>
             </DialogContent>
           </Dialog>
