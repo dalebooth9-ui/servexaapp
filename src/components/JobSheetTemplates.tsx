@@ -365,7 +365,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                               {field.type === "checkbox"
                                 ? (formData[field.id] ? "✓ Yes" : "✗ No")
                                 : field.type === "pass_fail"
-                                ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : "—")
+                                ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
                                 : (formData[field.id] || "—")}
                             </span>
                           )}
@@ -583,6 +583,15 @@ function renderFormField(
           >
             <X className="h-3.5 w-3.5" />
             Fail
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={value === "n/a" ? "default" : "outline"}
+            className={`h-7 px-2.5 text-xs gap-1 ${value === "n/a" ? "bg-muted text-muted-foreground" : ""}`}
+            onClick={() => onChange(value === "n/a" ? null : "n/a")}
+          >
+            N/A
           </Button>
         </div>
       );
