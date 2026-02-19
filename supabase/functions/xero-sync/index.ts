@@ -104,7 +104,7 @@ Deno.serve(async (req) => {
   };
 
   try {
-    // ========== SYNC INVOICE TO XERO ==========
+    // ========== SYNC INVOICE OR QUOTE TO XERO ==========
     if (action === "sync_invoice") {
       const { invoiceId } = body;
 
@@ -122,11 +122,11 @@ Deno.serve(async (req) => {
 
       const inv = invRes.data;
       const items = itemsRes.data || [];
+      const isQuote = inv.document_type === "quote";
 
       // Find or create Xero contact
       let contactId: string | null = null;
       if (inv.customer_email) {
-        // Search for existing contact
         const searchRes = await fetch(`${XERO_API_URL}/Contacts?where=EmailAddress="${inv.customer_email}"`, {
           headers: xeroHeaders,
         });
@@ -137,7 +137,6 @@ Deno.serve(async (req) => {
       }
 
       if (!contactId) {
-        // Create contact in Xero
         const createRes = await fetch(`${XERO_API_URL}/Contacts`, {
           method: "POST",
           headers: xeroHeaders,
@@ -153,72 +152,125 @@ Deno.serve(async (req) => {
         contactId = createData.Contacts?.[0]?.ContactID;
       }
 
-      // Map status
-      const statusMap: Record<string, string> = {
-        draft: "DRAFT",
-        sent: "AUTHORISED",
-        paid: "AUTHORISED",
-        overdue: "AUTHORISED",
-        cancelled: "VOIDED",
-      };
-
-      // Create/update invoice in Xero
-      const xeroInvoice: any = {
-        Type: "ACCREC",
-        Contact: { ContactID: contactId },
-        LineItems: items.map((item: any) => ({
-          Description: item.description,
-          Quantity: Number(item.quantity),
-          UnitAmount: Number(item.unit_price),
-          AccountCode: "200", // Default sales account
-        })),
-        Status: statusMap[inv.status] || "DRAFT",
-        InvoiceNumber: inv.invoice_number,
-        Reference: inv.invoice_number,
-        CurrencyCode: "GBP",
-      };
-
-      if (inv.due_date) {
-        xeroInvoice.DueDate = inv.due_date;
-      }
+      const lineItemsPayload = items.map((item: any) => ({
+        Description: item.description,
+        Quantity: Number(item.quantity),
+        UnitAmount: Number(item.unit_price),
+        AccountCode: "200",
+      }));
 
       let xeroRes: Response;
-      if (inv.xero_invoice_id) {
-        // Update existing
-        xeroInvoice.InvoiceID = inv.xero_invoice_id;
-        xeroRes = await fetch(`${XERO_API_URL}/Invoices/${inv.xero_invoice_id}`, {
-          method: "POST",
-          headers: xeroHeaders,
-          body: JSON.stringify({ Invoices: [xeroInvoice] }),
-        });
+      let xeroResultId: string | null = null;
+
+      if (isQuote) {
+        // ---- XERO QUOTES API ----
+        const quoteStatusMap: Record<string, string> = {
+          draft: "DRAFT",
+          sent: "SENT",
+          accepted: "ACCEPTED",
+          declined: "DECLINED",
+        };
+
+        const xeroQuote: any = {
+          Contact: { ContactID: contactId },
+          LineItems: lineItemsPayload,
+          QuoteNumber: inv.invoice_number,
+          Reference: inv.invoice_number,
+          Status: quoteStatusMap[inv.status] || "DRAFT",
+          CurrencyCode: "GBP",
+          Title: inv.invoice_number,
+          Summary: inv.notes || "",
+        };
+
+        if (inv.due_date) {
+          xeroQuote.ExpiryDate = inv.due_date;
+        }
+
+        if (inv.xero_invoice_id) {
+          xeroQuote.QuoteID = inv.xero_invoice_id;
+          xeroRes = await fetch(`${XERO_API_URL}/Quotes/${inv.xero_invoice_id}`, {
+            method: "POST",
+            headers: xeroHeaders,
+            body: JSON.stringify({ Quotes: [xeroQuote] }),
+          });
+        } else {
+          xeroRes = await fetch(`${XERO_API_URL}/Quotes`, {
+            method: "POST",
+            headers: xeroHeaders,
+            body: JSON.stringify({ Quotes: [xeroQuote] }),
+          });
+        }
+
+        if (!xeroRes.ok) {
+          const errText = await xeroRes.text();
+          console.error("Xero quote sync failed:", errText);
+          return new Response(JSON.stringify({ error: "Failed to sync quote to Xero", details: errText }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const xeroData = await xeroRes.json();
+        xeroResultId = xeroData.Quotes?.[0]?.QuoteID;
       } else {
-        xeroRes = await fetch(`${XERO_API_URL}/Invoices`, {
-          method: "POST",
-          headers: xeroHeaders,
-          body: JSON.stringify({ Invoices: [xeroInvoice] }),
-        });
+        // ---- XERO INVOICES API ----
+        const statusMap: Record<string, string> = {
+          draft: "DRAFT",
+          sent: "AUTHORISED",
+          paid: "AUTHORISED",
+          overdue: "AUTHORISED",
+          cancelled: "VOIDED",
+        };
+
+        const xeroInvoice: any = {
+          Type: "ACCREC",
+          Contact: { ContactID: contactId },
+          LineItems: lineItemsPayload,
+          Status: statusMap[inv.status] || "DRAFT",
+          InvoiceNumber: inv.invoice_number,
+          Reference: inv.invoice_number,
+          CurrencyCode: "GBP",
+        };
+
+        if (inv.due_date) {
+          xeroInvoice.DueDate = inv.due_date;
+        }
+
+        if (inv.xero_invoice_id) {
+          xeroInvoice.InvoiceID = inv.xero_invoice_id;
+          xeroRes = await fetch(`${XERO_API_URL}/Invoices/${inv.xero_invoice_id}`, {
+            method: "POST",
+            headers: xeroHeaders,
+            body: JSON.stringify({ Invoices: [xeroInvoice] }),
+          });
+        } else {
+          xeroRes = await fetch(`${XERO_API_URL}/Invoices`, {
+            method: "POST",
+            headers: xeroHeaders,
+            body: JSON.stringify({ Invoices: [xeroInvoice] }),
+          });
+        }
+
+        if (!xeroRes.ok) {
+          const errText = await xeroRes.text();
+          console.error("Xero invoice sync failed:", errText);
+          return new Response(JSON.stringify({ error: "Failed to sync invoice to Xero", details: errText }), {
+            status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+
+        const xeroData = await xeroRes.json();
+        xeroResultId = xeroData.Invoices?.[0]?.InvoiceID;
       }
 
-      if (!xeroRes.ok) {
-        const errText = await xeroRes.text();
-        console.error("Xero invoice sync failed:", errText);
-        return new Response(JSON.stringify({ error: "Failed to sync invoice to Xero", details: errText }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const xeroData = await xeroRes.json();
-      const xeroInvId = xeroData.Invoices?.[0]?.InvoiceID;
-
-      // Update local invoice with Xero ID
-      if (xeroInvId) {
+      // Update local record with Xero ID
+      if (xeroResultId) {
         await serviceClient.from("invoices").update({
-          xero_invoice_id: xeroInvId,
+          xero_invoice_id: xeroResultId,
           xero_synced_at: new Date().toISOString(),
         }).eq("id", invoiceId);
       }
 
-      return new Response(JSON.stringify({ success: true, xero_invoice_id: xeroInvId }), {
+      return new Response(JSON.stringify({ success: true, xero_invoice_id: xeroResultId }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

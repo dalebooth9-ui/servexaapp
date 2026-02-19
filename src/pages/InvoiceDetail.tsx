@@ -272,7 +272,7 @@ export default function InvoiceDetail() {
             <Download className="mr-1.5 h-4 w-4" />
             {generatingPdf ? "Generating..." : "PDF"}
           </Button>
-          {!isQuote && userRole === "admin" && (
+          {userRole === "admin" && (
             <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
               {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
               {invoice.xero_invoice_id ? "Re-sync Xero" : "Send to Xero"}
