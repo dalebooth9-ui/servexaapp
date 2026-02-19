@@ -30,6 +30,7 @@ type TemplateField = {
   section: string;
   options?: string[];
   placeholder?: string;
+  allow_notes?: boolean;
 };
 
 type Template = {
@@ -298,21 +299,30 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   {activeTemplate.fields
                     .filter((f) => (f.section || "General") === section)
                     .map((field) => (
-                      <div
-                        key={field.id}
-                        className="grid grid-cols-[1fr,1fr] border-b border-border last:border-b-0"
-                      >
-                        {/* Label cell */}
-                        <div className="px-3 py-2 border-r border-border flex items-start">
-                          <Label className="text-xs leading-tight">
-                            {field.label}
-                            {field.required && <span className="text-destructive ml-0.5">*</span>}
-                          </Label>
+                      <div key={field.id} className="border-b border-border last:border-b-0">
+                        <div className="grid grid-cols-[1fr,1fr]">
+                          {/* Label cell */}
+                          <div className="px-3 py-2 border-r border-border flex items-start">
+                            <Label className="text-xs leading-tight">
+                              {field.label}
+                              {field.required && <span className="text-destructive ml-0.5">*</span>}
+                            </Label>
+                          </div>
+                          {/* Input cell */}
+                          <div className="px-2 py-1.5 flex items-center">
+                            {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v))}
+                          </div>
                         </div>
-                        {/* Input cell */}
-                        <div className="px-2 py-1.5 flex items-center">
-                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v))}
-                        </div>
+                        {field.allow_notes && (
+                          <div className="px-3 pb-1.5">
+                            <Input
+                              value={formData[`${field.id}_notes`] || ""}
+                              onChange={(e) => handleFieldValue(`${field.id}_notes`, e.target.value)}
+                              placeholder="Add note..."
+                              className="h-6 text-[11px] border-dashed"
+                            />
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>
@@ -360,30 +370,34 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   {activeTemplate.fields
                     .filter((f) => (f.section || "General") === section)
                     .map((field) => (
-                      <div
-                        key={field.id}
-                        className="grid grid-cols-[1fr,1fr] border-b border-border last:border-b-0"
-                      >
-                        <div className="px-3 py-2 border-r border-border">
-                          <span className="text-xs text-muted-foreground leading-tight">{field.label}</span>
-                        </div>
-                        <div className="px-3 py-2">
-                          {field.type === "photo" ? (
-                            formData[field.id] ? (
-                              <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
+                      <div key={field.id} className="border-b border-border last:border-b-0">
+                        <div className="grid grid-cols-[1fr,1fr]">
+                          <div className="px-3 py-2 border-r border-border">
+                            <span className="text-xs text-muted-foreground leading-tight">{field.label}</span>
+                          </div>
+                          <div className="px-3 py-2">
+                            {field.type === "photo" ? (
+                              formData[field.id] ? (
+                                <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )
                             ) : (
-                              <span className="text-xs text-muted-foreground">—</span>
-                            )
-                          ) : (
-                            <span className="text-xs font-medium whitespace-pre-wrap">
-                              {field.type === "checkbox"
-                                ? (formData[field.id] ? "✓ Yes" : "✗ No")
-                                : field.type === "pass_fail"
-                                ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
-                                : (formData[field.id] || "—")}
-                            </span>
-                          )}
+                              <span className="text-xs font-medium whitespace-pre-wrap">
+                                {field.type === "checkbox"
+                                  ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                                  : field.type === "pass_fail"
+                                  ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
+                                  : (formData[field.id] || "—")}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        {field.allow_notes && formData[`${field.id}_notes`] && (
+                          <div className="px-3 pb-1.5">
+                            <span className="text-[11px] text-muted-foreground italic">Note: {formData[`${field.id}_notes`]}</span>
+                          </div>
+                        )}
                       </div>
                     ))}
                 </div>
