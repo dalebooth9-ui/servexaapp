@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+
 import jsPDF from "jspdf";
 
 type TemplateField = {
@@ -50,26 +50,6 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
   const generate = async () => {
     setGenerating(true);
     try {
-      // Pre-fetch signed URLs for all photo fields
-      const photoFields = template.fields.filter(f => f.type === "photo" && formData[f.id]);
-      const photoImages: Record<string, HTMLImageElement> = {};
-      await Promise.all(photoFields.map(async (field) => {
-        const path = formData[field.id];
-        if (!path || typeof path !== "string") return;
-        try {
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-          if (!data?.signedUrl) return;
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject();
-            img.src = data.signedUrl;
-          });
-          photoImages[field.id] = img;
-        } catch { /* skip failed photos */ }
-      }));
-
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -190,6 +170,30 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
 
       const colSplit = maxWidth * 0.68;
 
+      // Count total rows and section headers to dynamically size rows
+      let totalFieldRows = 0;
+      let totalSectionHeaders = 0;
+      const sectionHeaderH = 4.5;
+      const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
+      const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
+      const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
+      const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
+      const commentsH = (commentsVal || materialsVal) ? 9 : 0;
+
+      for (const sec of sections) {
+        const sf = template.fields.filter(
+          (f) => (f.section || "General") === sec &&
+            !skipLabels.some(sl => f.label.toLowerCase().includes(sl))
+        );
+        if (sf.length === 0) continue;
+        totalSectionHeaders++;
+        totalFieldRows += sf.length;
+      }
+
+      const usedByHeaders = totalSectionHeaders * sectionHeaderH + totalSectionHeaders; // +1 gap per section
+      const spaceForRows = availableH - usedByHeaders - commentsH;
+      const rowH = Math.max(4, Math.min(7, spaceForRows / Math.max(totalFieldRows, 1)));
+
       for (const section of sections) {
         const sectionFields = template.fields.filter(
           (f) => (f.section || "General") === section &&
@@ -199,19 +203,18 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
 
         // Section header
         doc.setFillColor(230, 230, 230);
-        doc.rect(margin, y, maxWidth, 4.5, "F");
+        doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
         doc.setDrawColor(0);
-        doc.rect(margin, y, maxWidth, 4.5);
+        doc.rect(margin, y, maxWidth, sectionHeaderH);
         doc.setFontSize(6.5);
         doc.setFont("helvetica", "bold");
         doc.text(section.toUpperCase(), margin + 1, y + 3.2);
         doc.text("RESULT", margin + colSplit + 1, y + 3.2);
-        y += 4.5;
+        y += sectionHeaderH;
 
         // Field rows
         doc.setFontSize(6);
         for (const field of sectionFields) {
-          const rowH = 4.2;
           doc.setDrawColor(180);
           doc.rect(margin, y, colSplit, rowH);
           doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
@@ -225,23 +228,16 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
           // Value
           const val = formData[field.id];
           let displayVal = "";
-          if (field.type === "photo") {
-            // Photo field — embed image inline
-            const photoImg = photoImages[field.id];
-            if (photoImg) {
-              displayVal = "See below";
-              doc.text(displayVal, margin + colSplit + 1, y + 3);
-            } else {
-              displayVal = "—";
-              doc.text(displayVal, margin + colSplit + 1, y + 3);
-            }
-          } else if (field.type === "pass_fail") {
+          if (field.type === "pass_fail") {
             displayVal = val === "pass" ? "PASS" : val === "fail" ? "FAIL" : val === "n/a" ? "N/A" : "—";
             if (val === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
             else if (val === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
             doc.text(displayVal, margin + colSplit + 1, y + 3);
           } else if (field.type === "checkbox") {
             displayVal = val ? "YES" : "NO";
+            doc.text(displayVal, margin + colSplit + 1, y + 3);
+          } else if (field.type === "photo") {
+            displayVal = val ? "✓ Captured" : "—";
             doc.text(displayVal, margin + colSplit + 1, y + 3);
           } else {
             displayVal = val ? String(val).substring(0, 50) : "—";
@@ -264,24 +260,6 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
           }
 
           y += rowH;
-
-          // Embed photo below row if present
-          if (field.type === "photo" && photoImages[field.id]) {
-            const photoImg = photoImages[field.id];
-            const maxPhotoW = maxWidth * 0.45;
-            const maxPhotoH = 30;
-            const aspect = photoImg.naturalWidth / photoImg.naturalHeight;
-            let pW = maxPhotoW;
-            let pH = pW / aspect;
-            if (pH > maxPhotoH) { pH = maxPhotoH; pW = pH * aspect; }
-            // Check if photo fits on current page
-            if (y + pH + 2 > pageHeight - footerSpace) {
-              doc.addPage();
-              y = margin;
-            }
-            doc.addImage(photoImg, "JPEG", margin + 2, y + 1, pW, pH);
-            y += pH + 3;
-          }
         }
         y += 1;
       }
@@ -289,10 +267,6 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
       // --- Comments + Materials compact ---
       doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
-      const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
-      const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
-      const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
 
       if (commentsVal || materialsVal) {
         doc.text("Comments:", margin, y + 3);
