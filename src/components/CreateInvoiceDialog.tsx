@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,7 +25,7 @@ export default function CreateInvoiceDialog({
   trigger,
   documentType = "invoice",
 }: {
-  jobId: string;
+  jobId?: string;
   customerName?: string;
   customerEmail?: string;
   customerAddress?: string;
@@ -40,6 +40,10 @@ export default function CreateInvoiceDialog({
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  // Customer lookup for standalone mode
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomerId, setSelectedCustomerId] = useState("");
+
   const [form, setForm] = useState({
     customer_name: customerName || "",
     customer_email: customerEmail || "",
@@ -52,6 +56,28 @@ export default function CreateInvoiceDialog({
   const [items, setItems] = useState<LineItem[]>([
     { description: jobName || "", quantity: 1, unit_price: 0 },
   ]);
+
+  // Load customers when dialog opens in standalone mode (no jobId)
+  useEffect(() => {
+    if (open && !jobId) {
+      supabase.from("customers").select("id, name, email, address").order("name").then(({ data }) => {
+        setCustomers(data || []);
+      });
+    }
+  }, [open, jobId]);
+
+  const handleCustomerSelect = (custId: string) => {
+    setSelectedCustomerId(custId);
+    const cust = customers.find((c) => c.id === custId);
+    if (cust) {
+      setForm((prev) => ({
+        ...prev,
+        customer_name: cust.name || "",
+        customer_email: cust.email || "",
+        customer_address: cust.address || "",
+      }));
+    }
+  };
 
   const updateItem = (idx: number, field: keyof LineItem, value: string | number) => {
     setItems((prev) => prev.map((it, i) => (i === idx ? { ...it, [field]: value } : it)));
@@ -82,7 +108,7 @@ export default function CreateInvoiceDialog({
       const { data: inv, error: invErr } = await supabase
         .from("invoices")
         .insert({
-          job_id: jobId,
+          job_id: jobId || null,
           customer_name: form.customer_name.trim(),
           customer_email: form.customer_email.trim() || null,
           customer_address: form.customer_address.trim() || null,
@@ -143,6 +169,23 @@ export default function CreateInvoiceDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Customer picker for standalone mode */}
+          {!jobId && customers.length > 0 && (
+            <div>
+              <Label>Select Customer</Label>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={selectedCustomerId}
+                onChange={(e) => handleCustomerSelect(e.target.value)}
+              >
+                <option value="">— Select or enter manually —</option>
+                {customers.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Customer info */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>

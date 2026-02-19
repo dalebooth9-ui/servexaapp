@@ -9,8 +9,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
-import { FileText, Search } from "lucide-react";
+import { FileText, Search, Plus, ClipboardList } from "lucide-react";
 import { format } from "date-fns";
+import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
 
 const statusStyles: Record<string, string> = {
   draft: "bg-muted text-muted-foreground",
@@ -75,6 +76,25 @@ export default function Invoices() {
           <h1 className="text-2xl font-bold">Invoices & Quotes</h1>
           <p className="text-sm text-muted-foreground">Manage invoices and quotes for jobs</p>
         </div>
+        {userRole === "admin" && (
+          <div className="flex items-center gap-2">
+            <CreateInvoiceDialog
+              documentType="quote"
+              trigger={
+                <Button size="sm" variant="outline" className="gap-1.5">
+                  <ClipboardList className="h-4 w-4" /> Create Quote
+                </Button>
+              }
+            />
+            <CreateInvoiceDialog
+              trigger={
+                <Button size="sm" className="gap-1.5">
+                  <Plus className="h-4 w-4" /> Create Invoice
+                </Button>
+              }
+            />
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
