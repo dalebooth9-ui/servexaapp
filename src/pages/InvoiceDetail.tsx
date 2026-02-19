@@ -49,6 +49,11 @@ export default function InvoiceDetail() {
   const [editItems, setEditItems] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Inline line item editing (read-only view)
+  const [inlineEditIdx, setInlineEditIdx] = useState<number | null>(null);
+  const [inlineEditData, setInlineEditData] = useState<any>(null);
+  const [inlineSaving, setInlineSaving] = useState(false);
+
   const isQuote = invoice?.document_type === "quote";
 
   const fetchData = async () => {
@@ -145,12 +150,66 @@ export default function InvoiceDetail() {
     }
   };
 
+  // --- Inline line item edit ---
+  const startInlineEdit = (idx: number) => {
+    const item = lineItems[idx];
+    setInlineEditIdx(idx);
+    setInlineEditData({ description: item.description, quantity: Number(item.quantity), unit_price: Number(item.unit_price) });
+  };
+
+  const cancelInlineEdit = () => {
+    setInlineEditIdx(null);
+    setInlineEditData(null);
+  };
+
+  const saveInlineEdit = async () => {
+    if (inlineEditIdx === null || !inlineEditData || !id) return;
+    const item = lineItems[inlineEditIdx];
+    setInlineSaving(true);
+    try {
+      const qty = Number(inlineEditData.quantity) || 0;
+      const price = Number(inlineEditData.unit_price) || 0;
+      const amount = (qty * price).toFixed(2);
+
+      const { error: itemErr } = await supabase.from("invoice_line_items").update({
+        description: inlineEditData.description.trim(),
+        quantity: qty,
+        unit_price: price,
+        amount: amount,
+      } as any).eq("id", item.id);
+      if (itemErr) throw itemErr;
+
+      // Recalculate totals
+      const updatedItems = lineItems.map((it, i) =>
+        i === inlineEditIdx ? { ...it, description: inlineEditData.description.trim(), quantity: qty, unit_price: price, amount: Number(amount) } : it
+      );
+      const newSubtotal = updatedItems.reduce((s, it) => s + Number(it.quantity) * Number(it.unit_price), 0);
+      const newTax = newSubtotal * (Number(invoice.tax_rate) / 100);
+      const newTotal = newSubtotal + newTax;
+
+      const { error: invErr } = await supabase.from("invoices").update({
+        subtotal: newSubtotal.toFixed(2),
+        tax_amount: newTax.toFixed(2),
+        total: newTotal.toFixed(2),
+      } as any).eq("id", id);
+      if (invErr) throw invErr;
+
+      setLineItems(updatedItems);
+      setInvoice((prev: any) => ({ ...prev, subtotal: newSubtotal, tax_amount: newTax, total: newTotal }));
+      cancelInlineEdit();
+      toast({ title: "Line item updated" });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to save.", variant: "destructive" });
+    } finally {
+      setInlineSaving(false);
+    }
+  };
+
   // --- Delete ---
   const handleDelete = async () => {
     if (!id) return;
     setDeleting(true);
     try {
-      // Delete line items first, then invoice
       await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
       const { error } = await supabase.from("invoices").delete().eq("id", id);
       if (error) throw error;
@@ -567,16 +626,68 @@ export default function InvoiceDetail() {
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Qty</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Unit Price</th>
                     <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Amount</th>
+                    {userRole === "admin" && <th className="py-2 w-20" />}
                   </tr>
                 </thead>
                 <tbody>
-                  {lineItems.map((item) => (
-                    <tr key={item.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                      <td className="py-2.5 text-sm" style={{ color: "#1a1a1a" }}>{item.description}</td>
-                      <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{Number(item.quantity)}</td>
-                      <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>£{Number(item.unit_price).toFixed(2)}</td>
-                      <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{Number(item.amount).toFixed(2)}</td>
-                    </tr>
+                  {lineItems.map((item, idx) => (
+                    inlineEditIdx === idx && inlineEditData ? (
+                      <tr key={item.id} style={{ borderBottom: "1px solid #f0f0f0" }} className="bg-muted/30">
+                        <td className="py-1.5 pr-2">
+                          <Input
+                            value={inlineEditData.description}
+                            onChange={(e) => setInlineEditData({ ...inlineEditData, description: e.target.value })}
+                            className="h-8 text-sm"
+                          />
+                        </td>
+                        <td className="py-1.5 px-1">
+                          <Input
+                            type="number" min={0} step={0.01}
+                            value={inlineEditData.quantity}
+                            onChange={(e) => setInlineEditData({ ...inlineEditData, quantity: parseFloat(e.target.value) || 0 })}
+                            className="h-8 w-20 text-sm text-right ml-auto"
+                          />
+                        </td>
+                        <td className="py-1.5 px-1">
+                          <Input
+                            type="number" min={0} step={0.01}
+                            value={inlineEditData.unit_price}
+                            onChange={(e) => setInlineEditData({ ...inlineEditData, unit_price: parseFloat(e.target.value) || 0 })}
+                            className="h-8 w-28 text-sm text-right ml-auto"
+                          />
+                        </td>
+                        <td className="py-1.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>
+                          £{((Number(inlineEditData.quantity) || 0) * (Number(inlineEditData.unit_price) || 0)).toFixed(2)}
+                        </td>
+                        <td className="py-1.5 pl-2">
+                          <div className="flex items-center gap-1 justify-end">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={saveInlineEdit} disabled={inlineSaving}>
+                              {inlineSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                            </Button>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={cancelInlineEdit}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : (
+                      <tr
+                        key={item.id}
+                        style={{ borderBottom: "1px solid #f0f0f0" }}
+                        className={userRole === "admin" ? "cursor-pointer hover:bg-muted/20 transition-colors" : ""}
+                        onClick={() => userRole === "admin" && startInlineEdit(idx)}
+                      >
+                        <td className="py-2.5 text-sm" style={{ color: "#1a1a1a" }}>{item.description}</td>
+                        <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{Number(item.quantity)}</td>
+                        <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>£{Number(item.unit_price).toFixed(2)}</td>
+                        <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{Number(item.amount).toFixed(2)}</td>
+                        {userRole === "admin" && (
+                          <td className="py-2.5 text-right">
+                            <Pencil className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 inline-block" />
+                          </td>
+                        )}
+                      </tr>
+                    )
                   ))}
                 </tbody>
               </table>
