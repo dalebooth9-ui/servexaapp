@@ -40,6 +40,12 @@ type Template = {
   description: string | null;
   fields: TemplateField[];
   created_at: string;
+  branding?: {
+    company_name?: string;
+    company_subtitle?: string;
+    logo_url?: string;
+    footer_text?: string;
+  };
 };
 
 type Response = {
@@ -84,6 +90,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
       fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
+      branding: t.branding || {},
     }));
     setTemplates(tpls);
     setResponses((respRes.data || []) as Response[]);
@@ -132,6 +139,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       name: tpl.name + " (copy)",
       description: tpl.description,
       fields: tpl.fields as any,
+      branding: tpl.branding as any,
       created_by: user?.id,
     } as any);
     if (error) {
