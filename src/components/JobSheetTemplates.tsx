@@ -19,6 +19,7 @@ import {
 import {
   FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy,
 } from "lucide-react";
+import JobSheetPdfExport from "./JobSheetPdfExport";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
 
@@ -353,9 +354,18 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <Eye className="h-4 w-4" /> {activeTemplate.name}
               <Badge variant="secondary" className="text-[10px]">{viewingResponse.status}</Badge>
             </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => { setViewingResponse(null); setActiveTemplate(null); setFormData({}); }}>
-              ← Back
-            </Button>
+            <div className="flex gap-1.5">
+              <JobSheetPdfExport
+                template={activeTemplate}
+                formData={formData}
+                jobInfo={jobInfo}
+                submittedBy={viewingResponse.submitted_by ? profiles[viewingResponse.submitted_by] : undefined}
+                submittedAt={viewingResponse.submitted_at}
+              />
+              <Button variant="ghost" size="sm" onClick={() => { setViewingResponse(null); setActiveTemplate(null); setFormData({}); }}>
+                ← Back
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
