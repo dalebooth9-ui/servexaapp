@@ -51,6 +51,7 @@ export default function CreateInvoiceDialog({
   const [partsSearch, setPartsSearch] = useState("");
   const [partsPickerOpen, setPartsPickerOpen] = useState(false);
   const [selectedParts, setSelectedParts] = useState<Set<string>>(new Set());
+  const [partQuantities, setPartQuantities] = useState<Record<string, number>>({});
 
   const [form, setForm] = useState({
     customer_name: customerName || "",
@@ -104,7 +105,7 @@ export default function CreateInvoiceDialog({
   const togglePartSelection = (partId: string) => {
     setSelectedParts((prev) => {
       const n = new Set(prev);
-      if (n.has(partId)) n.delete(partId); else n.add(partId);
+      if (n.has(partId)) { n.delete(partId); } else { n.add(partId); if (!partQuantities[partId]) setPartQuantities((q) => ({ ...q, [partId]: 1 })); }
       return n;
     });
   };
@@ -114,11 +115,12 @@ export default function CreateInvoiceDialog({
       .filter((p) => selectedParts.has(p.id))
       .map((part) => ({
         description: part.part_number ? `${part.name} (${part.part_number})` : part.name,
-        quantity: 1,
+        quantity: partQuantities[part.id] || 1,
         unit_price: Number(part.sell_price) || 0,
       }));
     setItems((prev) => [...prev, ...newItems]);
     setSelectedParts(new Set());
+    setPartQuantities({});
     setPartsPickerOpen(false);
     setPartsSearch("");
   };
@@ -297,7 +299,7 @@ export default function CreateInvoiceDialog({
                             key={part.id}
                             className="w-full px-3 py-2 text-sm hover:bg-muted/50 transition-colors border-b last:border-b-0 flex items-center gap-2 cursor-pointer"
                           >
-                            <Checkbox
+                           <Checkbox
                               checked={selectedParts.has(part.id)}
                               onCheckedChange={() => togglePartSelection(part.id)}
                             />
@@ -308,9 +310,19 @@ export default function CreateInvoiceDialog({
                                 {part.category}
                               </p>
                             </div>
-                            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
-                              £{Number(part.sell_price).toFixed(2)}
-                            </span>
+                            {selectedParts.has(part.id) ? (
+                              <Input
+                                type="number" min={1} step={1}
+                                className="h-7 w-14 text-right text-xs"
+                                value={partQuantities[part.id] || 1}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => { e.stopPropagation(); setPartQuantities((q) => ({ ...q, [part.id]: parseInt(e.target.value) || 1 })); }}
+                              />
+                            ) : (
+                              <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+                                £{Number(part.sell_price).toFixed(2)}
+                              </span>
+                            )}
                           </label>
                         ))
                       )}
