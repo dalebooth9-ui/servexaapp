@@ -310,8 +310,8 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const halfW = maxWidth / 2 - 2;
       const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
-      // Find engineer and customer signatures
-      const engineerSig = signatures.find((s: any) => s.signer_role === "engineer");
+      // Find engineer and customer signatures (treat admin as technician)
+      const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
       const customerSig = signatures.find((s: any) => s.signer_role === "customer");
       const sigImgH = 8;
       const sigImgW = 25;
