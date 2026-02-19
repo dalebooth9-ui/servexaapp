@@ -298,15 +298,26 @@ export default function ImportTemplateDialog({ open, onOpenChange, onCreated }: 
               <div className="p-3 space-y-1">
                 <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                   <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                    {fields.map((field, idx) => (
-                      <SortableFieldRow
-                        key={field.id}
-                        field={field}
-                        idx={idx}
-                        onFieldChange={handleFieldChange}
-                        onRemove={handleRemoveField}
-                      />
-                    ))}
+                    {fields.map((field, idx) => {
+                      const section = field.section || "General";
+                      const prevSection = idx > 0 ? (fields[idx - 1].section || "General") : null;
+                      const showHeader = section !== prevSection;
+                      return (
+                        <div key={field.id}>
+                          {showHeader && (
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1 first:mt-0">
+                              {section}
+                            </p>
+                          )}
+                          <SortableFieldRow
+                            field={field}
+                            idx={idx}
+                            onFieldChange={handleFieldChange}
+                            onRemove={handleRemoveField}
+                          />
+                        </div>
+                      );
+                    })}
                   </SortableContext>
                 </DndContext>
               </div>
