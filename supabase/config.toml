@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.parse-import-parts]
 verify_jwt = false
+
+[functions.parse-template-document]
+verify_jwt = false

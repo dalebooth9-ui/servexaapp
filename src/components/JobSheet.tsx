@@ -11,6 +11,7 @@ import {
   ClipboardList, Clock, FileText, MapPin, User, CheckCircle2, AlertTriangle,
   Ban, Send, Printer, Plus, Activity,
 } from "lucide-react";
+import JobSheetTemplates from "./JobSheetTemplates";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -226,8 +227,9 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
-        {/* Visit summary */}
-        <Card>
+        {/* Visit summary + Templates */}
+        <div className="space-y-4">
+          <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <ClipboardList className="h-4 w-4" /> Visit Progress
@@ -266,6 +268,10 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
             )}
           </CardContent>
         </Card>
+
+          {/* Job Sheet Templates */}
+          <JobSheetTemplates jobId={jobId} />
+        </div>
 
         {/* Activity timeline */}
         <Card>
