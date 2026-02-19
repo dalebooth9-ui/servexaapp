@@ -55,7 +55,7 @@ export default function ListView({
   onBulkDelete: (entryIds: string[]) => Promise<void>;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<"date" | "engineer" | "customer">("date");
+  const [sortBy, setSortBy] = useState<"date" | "engineer" | "customer" | "postcode">("date");
   const [sortAsc, setSortAsc] = useState(true);
   const [reassignTarget, setReassignTarget] = useState("");
 
@@ -69,8 +69,12 @@ export default function ListView({
       if (sortBy === "date") cmp = a.schedule_date.localeCompare(b.schedule_date);
       else if (sortBy === "engineer") {
         cmp = (getEngineer(a.engineer_id)?.full_name || "").localeCompare(getEngineer(b.engineer_id)?.full_name || "");
-      } else {
+      } else if (sortBy === "customer") {
         cmp = (getJob(a.job_id)?.customer || "").localeCompare(getJob(b.job_id)?.customer || "");
+      } else {
+        const pcA = getJob(a.job_id)?.site?.postcode || extractPostcode(getJob(a.job_id)?.address || null) || "";
+        const pcB = getJob(b.job_id)?.site?.postcode || extractPostcode(getJob(b.job_id)?.address || null) || "";
+        cmp = pcA.localeCompare(pcB);
       }
       return sortAsc ? cmp : -cmp;
     });
@@ -157,7 +161,9 @@ export default function ListView({
                   <span className="flex items-center gap-1">Customer <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead>Site</TableHead>
-                <TableHead>Postcode</TableHead>
+                <TableHead className="cursor-pointer" onClick={() => toggleSort("postcode")}>
+                  <span className="flex items-center gap-1">Postcode <ArrowUpDown className="h-3 w-3" /></span>
+                </TableHead>
                 <TableHead>Job</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Comment</TableHead>
