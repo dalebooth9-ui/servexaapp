@@ -5,10 +5,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
@@ -37,7 +40,14 @@ export default function InvoiceDetail() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [syncingXero, setSyncingXero] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
+
+  // Edit mode state
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+  const [editItems, setEditItems] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
 
   const isQuote = invoice?.document_type === "quote";
 
@@ -53,6 +63,105 @@ export default function InvoiceDetail() {
   };
 
   useEffect(() => { fetchData(); }, [id]);
+
+  // --- Edit helpers ---
+  const startEditing = () => {
+    setEditForm({
+      customer_name: invoice.customer_name || "",
+      customer_email: invoice.customer_email || "",
+      customer_address: invoice.customer_address || "",
+      due_date: invoice.due_date || "",
+      notes: invoice.notes || "",
+      tax_rate: Number(invoice.tax_rate) || 0,
+    });
+    setEditItems(lineItems.map((it) => ({ ...it })));
+    setEditing(true);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setEditForm({});
+    setEditItems([]);
+  };
+
+  const updateEditItem = (idx: number, field: string, value: string | number) => {
+    setEditItems((prev) => prev.map((it, i) => i === idx ? { ...it, [field]: value } : it));
+  };
+
+  const removeEditItem = (idx: number) => {
+    setEditItems((prev) => prev.filter((_, i) => i !== idx));
+  };
+
+  const addEditItem = () => {
+    setEditItems((prev) => [...prev, { id: `new-${Date.now()}`, description: "", quantity: 1, unit_price: 0, amount: 0 }]);
+  };
+
+  const editSubtotal = editItems.reduce((s, it) => s + (Number(it.quantity) || 0) * (Number(it.unit_price) || 0), 0);
+  const editTaxAmount = editSubtotal * ((editForm.tax_rate || 0) / 100);
+  const editTotal = editSubtotal + editTaxAmount;
+
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    setSaving(true);
+    try {
+      // Update invoice record
+      const { error: invErr } = await supabase.from("invoices").update({
+        customer_name: editForm.customer_name.trim(),
+        customer_email: editForm.customer_email.trim() || null,
+        customer_address: editForm.customer_address.trim() || null,
+        due_date: editForm.due_date || null,
+        notes: editForm.notes.trim() || null,
+        tax_rate: editForm.tax_rate,
+        subtotal: editSubtotal.toFixed(2),
+        tax_amount: editTaxAmount.toFixed(2),
+        total: editTotal.toFixed(2),
+      } as any).eq("id", id);
+      if (invErr) throw invErr;
+
+      // Delete existing line items and re-insert
+      await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+
+      const validItems = editItems.filter((it) => it.description?.trim());
+      if (validItems.length > 0) {
+        const rows = validItems.map((it, idx) => ({
+          invoice_id: id,
+          description: it.description.trim(),
+          quantity: Number(it.quantity) || 0,
+          unit_price: Number(it.unit_price) || 0,
+          amount: ((Number(it.quantity) || 0) * (Number(it.unit_price) || 0)).toFixed(2),
+          sort_order: idx,
+        }));
+        const { error: itemsErr } = await supabase.from("invoice_line_items").insert(rows as any);
+        if (itemsErr) throw itemsErr;
+      }
+
+      toast({ title: "Changes saved" });
+      setEditing(false);
+      await fetchData();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to save.", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Delete ---
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      // Delete line items first, then invoice
+      await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+      const { error } = await supabase.from("invoices").delete().eq("id", id);
+      if (error) throw error;
+      toast({ title: `${isQuote ? "Quote" : "Invoice"} deleted` });
+      navigate("/invoices");
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to delete.", variant: "destructive" });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handleStatusChange = async (newStatus: string) => {
     if (!id) return;
@@ -73,7 +182,6 @@ export default function InvoiceDetail() {
     if (!invoice) return;
     setConverting(true);
     try {
-      // Create new invoice from quote data
       const { data: newInv, error: invErr } = await supabase
         .from("invoices")
         .insert({
@@ -88,7 +196,7 @@ export default function InvoiceDetail() {
           tax_amount: invoice.tax_amount,
           total: invoice.total,
           created_by: invoice.created_by,
-          invoice_number: "", // auto-generated
+          invoice_number: "",
           document_type: "invoice",
         } as any)
         .select()
@@ -96,7 +204,6 @@ export default function InvoiceDetail() {
 
       if (invErr) throw invErr;
 
-      // Copy line items
       if (lineItems.length > 0) {
         const newItems = lineItems.map((it, idx) => ({
           invoice_id: newInv.id,
@@ -110,9 +217,7 @@ export default function InvoiceDetail() {
         if (itemsErr) throw itemsErr;
       }
 
-      // Mark quote as accepted
       await supabase.from("invoices").update({ status: "accepted" } as any).eq("id", id);
-
       toast({ title: "Converted to invoice", description: `${newInv.invoice_number} created from quote.` });
       navigate(`/invoices/${newInv.id}`);
     } catch (err: any) {
@@ -248,132 +353,272 @@ export default function InvoiceDetail() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {userRole === "admin" && (
-            <Select value={invoice.status} onValueChange={handleStatusChange}>
-              <SelectTrigger className="w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {availableStatuses.map((s) => (
-                  <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          {userRole === "admin" && !editing && (
+            <>
+              <Select value={invoice.status} onValueChange={handleStatusChange}>
+                <SelectTrigger className="w-[130px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableStatuses.map((s) => (
+                    <SelectItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button size="sm" variant="outline" onClick={startEditing}>
+                <Pencil className="mr-1.5 h-4 w-4" /> Edit
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                    <Trash2 className="mr-1.5 h-4 w-4" /> Delete
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete {isQuote ? "quote" : "invoice"} {invoice.invoice_number}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete this {isQuote ? "quote" : "invoice"} and all its line items. This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                      {deleting ? "Deleting..." : "Delete"}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           )}
-          {/* Convert quote to invoice */}
-          {isQuote && userRole === "admin" && (
-            <Button size="sm" variant="outline" onClick={handleConvertToInvoice} disabled={converting}>
-              {converting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-1.5 h-4 w-4" />}
-              Convert to Invoice
-            </Button>
+          {editing && (
+            <>
+              <Button size="sm" variant="outline" onClick={cancelEditing}>
+                <X className="mr-1.5 h-4 w-4" /> Cancel
+              </Button>
+              <Button size="sm" onClick={handleSaveEdit} disabled={saving}>
+                {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+                Save Changes
+              </Button>
+            </>
           )}
-          <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
-            <Download className="mr-1.5 h-4 w-4" />
-            {generatingPdf ? "Generating..." : "PDF"}
-          </Button>
-          {userRole === "admin" && (
-            <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
-              {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
-              {invoice.xero_invoice_id ? "Re-sync Xero" : "Send to Xero"}
-            </Button>
-          )}
-          {userRole === "admin" && (
-            <Button size="sm" onClick={handleSendEmail} disabled={sending || !invoice.customer_email}>
-              {sending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
-              {sending ? "Sending..." : `Email ${isQuote ? "Quote" : "Invoice"}`}
-            </Button>
+          {!editing && (
+            <>
+              {isQuote && userRole === "admin" && (
+                <Button size="sm" variant="outline" onClick={handleConvertToInvoice} disabled={converting}>
+                  {converting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-1.5 h-4 w-4" />}
+                  Convert to Invoice
+                </Button>
+              )}
+              <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
+                <Download className="mr-1.5 h-4 w-4" />
+                {generatingPdf ? "Generating..." : "PDF"}
+              </Button>
+              {userRole === "admin" && (
+                <Button size="sm" variant="outline" onClick={handleSyncXero} disabled={syncingXero}>
+                  {syncingXero ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
+                  {invoice.xero_invoice_id ? "Re-sync Xero" : "Send to Xero"}
+                </Button>
+              )}
+              {userRole === "admin" && (
+                <Button size="sm" onClick={handleSendEmail} disabled={sending || !invoice.customer_email}>
+                  {sending ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
+                  {sending ? "Sending..." : `Email ${isQuote ? "Quote" : "Invoice"}`}
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
 
-      {/* Printable document */}
-      <Card>
-        <CardContent className="p-0">
-          <div ref={printRef} className="bg-white p-8 text-foreground" style={{ color: "#1a1a1a" }}>
-            {/* Header */}
-            <div className="mb-8 flex justify-between">
+      {/* Edit form */}
+      {editing ? (
+        <Card>
+          <CardContent className="p-6 space-y-5">
+            <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <h2 className="text-2xl font-bold" style={{ color: "#1a1a1a" }}>{docLabel}</h2>
-                <p className="text-lg font-mono" style={{ color: "#555" }}>{invoice.invoice_number}</p>
+                <Label>Customer Name</Label>
+                <Input value={editForm.customer_name} onChange={(e) => setEditForm({ ...editForm, customer_name: e.target.value })} />
               </div>
-              <div className="text-right text-sm" style={{ color: "#555" }}>
-                <p className="font-semibold" style={{ color: "#1a1a1a" }}>FieldReport</p>
-                <p>Date: {format(new Date(invoice.created_at), "dd MMM yyyy")}</p>
-                {invoice.due_date && <p>{isQuote ? "Valid Until" : "Due"}: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
-                <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
-                  {invoice.status}
-                </Badge>
+              <div>
+                <Label>Customer Email</Label>
+                <Input type="email" value={editForm.customer_email} onChange={(e) => setEditForm({ ...editForm, customer_email: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <Label>Customer Address</Label>
+              <Textarea value={editForm.customer_address} onChange={(e) => setEditForm({ ...editForm, customer_address: e.target.value })} rows={2} />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <Label>{isQuote ? "Valid Until" : "Due Date"}</Label>
+                <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} />
+              </div>
+              <div>
+                <Label>Tax Rate (%)</Label>
+                <Input type="number" min={0} max={100} step={0.01} value={editForm.tax_rate} onChange={(e) => setEditForm({ ...editForm, tax_rate: parseFloat(e.target.value) || 0 })} />
               </div>
             </div>
 
-            {/* Bill to */}
-            <div className="mb-6">
-              <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>{isQuote ? "Quote For" : "Bill To"}</p>
-              <p className="font-semibold" style={{ color: "#1a1a1a" }}>{invoice.customer_name}</p>
-              {invoice.customer_email && <p className="text-sm" style={{ color: "#555" }}>{invoice.customer_email}</p>}
-              {invoice.customer_address && <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{invoice.customer_address}</p>}
-            </div>
-
-            {/* Line items */}
-            <table className="w-full mb-6" style={{ borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid #e5e5e5" }}>
-                  <th className="py-2 text-left text-xs font-semibold uppercase" style={{ color: "#888" }}>Description</th>
-                  <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Qty</th>
-                  <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Unit Price</th>
-                  <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-                    <td className="py-2.5 text-sm" style={{ color: "#1a1a1a" }}>{item.description}</td>
-                    <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{Number(item.quantity)}</td>
-                    <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>£{Number(item.unit_price).toFixed(2)}</td>
-                    <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{Number(item.amount).toFixed(2)}</td>
-                  </tr>
+            {/* Editable line items */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-sm font-semibold">Line Items</Label>
+                <Button type="button" size="sm" variant="ghost" onClick={addEditItem}>
+                  <Plus className="mr-1 h-3 w-3" /> Add Item
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {editItems.map((item, idx) => (
+                  <div key={item.id || idx} className="flex items-start gap-2">
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Description"
+                        value={item.description}
+                        onChange={(e) => updateEditItem(idx, "description", e.target.value)}
+                      />
+                    </div>
+                    <div className="w-20">
+                      <Input
+                        type="number" min={0} step={0.01} placeholder="Qty"
+                        value={item.quantity}
+                        onChange={(e) => updateEditItem(idx, "quantity", parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="w-28">
+                      <Input
+                        type="number" min={0} step={0.01} placeholder="Price"
+                        value={item.unit_price}
+                        onChange={(e) => updateEditItem(idx, "unit_price", parseFloat(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="w-24 flex items-center justify-end gap-1 pt-2">
+                      <span className="text-sm font-medium">£{((Number(item.quantity) || 0) * (Number(item.unit_price) || 0)).toFixed(2)}</span>
+                      {editItems.length > 1 && (
+                        <button type="button" onClick={() => removeEditItem(idx)} className="text-muted-foreground hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+            </div>
 
-            {/* Totals */}
+            {/* Edit totals */}
             <div className="flex justify-end">
               <div className="w-64 space-y-1 text-sm">
-                <div className="flex justify-between" style={{ color: "#555" }}>
-                  <span>Subtotal</span>
-                  <span>£{Number(invoice.subtotal).toFixed(2)}</span>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span><span>£{editSubtotal.toFixed(2)}</span>
                 </div>
-                {Number(invoice.tax_rate) > 0 && (
-                  <div className="flex justify-between" style={{ color: "#555" }}>
-                    <span>Tax ({Number(invoice.tax_rate)}%)</span>
-                    <span>£{Number(invoice.tax_amount).toFixed(2)}</span>
+                {editForm.tax_rate > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Tax ({editForm.tax_rate}%)</span><span>£{editTaxAmount.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between border-t pt-1 text-base font-bold" style={{ borderColor: "#e5e5e5", color: "#1a1a1a" }}>
-                  <span>Total</span>
-                  <span>£{Number(invoice.total).toFixed(2)}</span>
+                <div className="flex justify-between border-t pt-1 font-bold">
+                  <span>Total</span><span>£{editTotal.toFixed(2)}</span>
                 </div>
               </div>
             </div>
 
             {/* Notes */}
-            {invoice.notes && (
-              <div className="mt-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555" }}>
-                <p className="text-xs font-semibold uppercase mb-1" style={{ color: "#888" }}>Notes</p>
-                <p className="whitespace-pre-line">{invoice.notes}</p>
+            <div>
+              <Label>Notes</Label>
+              <Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={3} placeholder="Payment terms, bank details, etc." />
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Printable document (read-only view) */
+        <Card>
+          <CardContent className="p-0">
+            <div ref={printRef} className="bg-white p-8 text-foreground" style={{ color: "#1a1a1a" }}>
+              {/* Header */}
+              <div className="mb-8 flex justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold" style={{ color: "#1a1a1a" }}>{docLabel}</h2>
+                  <p className="text-lg font-mono" style={{ color: "#555" }}>{invoice.invoice_number}</p>
+                </div>
+                <div className="text-right text-sm" style={{ color: "#555" }}>
+                  <p className="font-semibold" style={{ color: "#1a1a1a" }}>FieldReport</p>
+                  <p>Date: {format(new Date(invoice.created_at), "dd MMM yyyy")}</p>
+                  {invoice.due_date && <p>{isQuote ? "Valid Until" : "Due"}: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
+                  <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
+                    {invoice.status}
+                  </Badge>
+                </div>
               </div>
-            )}
 
-            {/* Payment info */}
-            {invoice.paid_at && (
-              <p className="mt-4 text-xs" style={{ color: "#888" }}>
-                Paid on {format(new Date(invoice.paid_at), "dd MMM yyyy 'at' HH:mm")}
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+              {/* Bill to */}
+              <div className="mb-6">
+                <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>{isQuote ? "Quote For" : "Bill To"}</p>
+                <p className="font-semibold" style={{ color: "#1a1a1a" }}>{invoice.customer_name}</p>
+                {invoice.customer_email && <p className="text-sm" style={{ color: "#555" }}>{invoice.customer_email}</p>}
+                {invoice.customer_address && <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{invoice.customer_address}</p>}
+              </div>
+
+              {/* Line items */}
+              <table className="w-full mb-6" style={{ borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #e5e5e5" }}>
+                    <th className="py-2 text-left text-xs font-semibold uppercase" style={{ color: "#888" }}>Description</th>
+                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Qty</th>
+                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Unit Price</th>
+                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lineItems.map((item) => (
+                    <tr key={item.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
+                      <td className="py-2.5 text-sm" style={{ color: "#1a1a1a" }}>{item.description}</td>
+                      <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>{Number(item.quantity)}</td>
+                      <td className="py-2.5 text-sm text-right" style={{ color: "#555" }}>£{Number(item.unit_price).toFixed(2)}</td>
+                      <td className="py-2.5 text-sm text-right font-medium" style={{ color: "#1a1a1a" }}>£{Number(item.amount).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Totals */}
+              <div className="flex justify-end">
+                <div className="w-64 space-y-1 text-sm">
+                  <div className="flex justify-between" style={{ color: "#555" }}>
+                    <span>Subtotal</span>
+                    <span>£{Number(invoice.subtotal).toFixed(2)}</span>
+                  </div>
+                  {Number(invoice.tax_rate) > 0 && (
+                    <div className="flex justify-between" style={{ color: "#555" }}>
+                      <span>Tax ({Number(invoice.tax_rate)}%)</span>
+                      <span>£{Number(invoice.tax_amount).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between border-t pt-1 text-base font-bold" style={{ borderColor: "#e5e5e5", color: "#1a1a1a" }}>
+                    <span>Total</span>
+                    <span>£{Number(invoice.total).toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {invoice.notes && (
+                <div className="mt-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555" }}>
+                  <p className="text-xs font-semibold uppercase mb-1" style={{ color: "#888" }}>Notes</p>
+                  <p className="whitespace-pre-line">{invoice.notes}</p>
+                </div>
+              )}
+
+              {/* Payment info */}
+              {invoice.paid_at && (
+                <p className="mt-4 text-xs" style={{ color: "#888" }}>
+                  Paid on {format(new Date(invoice.paid_at), "dd MMM yyyy 'at' HH:mm")}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
