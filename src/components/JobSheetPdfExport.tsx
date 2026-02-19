@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 import jsPDF from "jspdf";
 
@@ -39,17 +40,41 @@ interface Props {
   template: Template;
   formData: Record<string, any>;
   jobInfo: JobInfo | null;
+  jobId: string;
   submittedBy?: string;
   submittedAt?: string | null;
 }
 
-export default function JobSheetPdfExport({ template, formData, jobInfo, submittedBy, submittedAt }: Props) {
+export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
 
   const generate = async () => {
     setGenerating(true);
     try {
+      // Pre-fetch signatures for this job
+      const { data: sigData } = await supabase
+        .from("job_signatures")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: true });
+      const signatures = (sigData || []) as any[];
+      const sigImages: Record<string, HTMLImageElement> = {};
+      await Promise.all(signatures.map(async (sig) => {
+        try {
+          const { data } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
+          if (!data?.signedUrl) return;
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            img.src = data.signedUrl;
+          });
+          sigImages[sig.id] = img;
+        } catch { /* skip */ }
+      }));
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -285,6 +310,12 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
       const halfW = maxWidth / 2 - 2;
       const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
+      // Find engineer and customer signatures
+      const engineerSig = signatures.find((s: any) => s.signer_role === "engineer");
+      const customerSig = signatures.find((s: any) => s.signer_role === "customer");
+      const sigImgH = 8;
+      const sigImgW = 25;
+
       doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
       doc.text(`Date: `, margin, sigY + 3);
@@ -293,9 +324,13 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
       doc.setFont("helvetica", "bold");
       doc.text("Technician:", margin, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(submittedBy || "", margin + 20, sigY + 7);
-      doc.text("Signature:", margin, sigY + 11);
-      doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+      doc.text(engineerSig?.signer_name || submittedBy || "", margin + 20, sigY + 7);
+      if (engineerSig && sigImages[engineerSig.id]) {
+        doc.addImage(sigImages[engineerSig.id], "PNG", margin + 18, sigY + 8, sigImgW, sigImgH);
+      } else {
+        doc.text("Signature:", margin, sigY + 11);
+        doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+      }
 
       const cx = margin + halfW + 4;
       doc.setFont("helvetica", "bold");
@@ -305,9 +340,13 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, submitt
       doc.setFont("helvetica", "bold");
       doc.text("Customer:", cx, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(jobInfo?.customer || "", cx + 18, sigY + 7);
-      doc.text("Signature:", cx, sigY + 11);
-      doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+      doc.text(customerSig?.signer_name || jobInfo?.customer || "", cx + 18, sigY + 7);
+      if (customerSig && sigImages[customerSig.id]) {
+        doc.addImage(sigImages[customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
+      } else {
+        doc.text("Signature:", cx, sigY + 11);
+        doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+      }
 
       // --- Footer declaration ---
       const footerY = sigY + 15;
