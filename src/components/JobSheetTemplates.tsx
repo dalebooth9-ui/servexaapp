@@ -308,8 +308,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-y-auto border-t border-border" style={{ maxHeight: "calc(90vh - 200px)" }}>
+        <CardContent className="p-0 flex flex-col" style={{ maxHeight: "calc(90vh - 200px)" }}>
+          <div className="overflow-y-auto flex-1 border-t border-border">
               {sections.map((section) => (
                 <div key={section}>
                   {/* Section header bar */}
@@ -351,7 +351,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 </div>
               ))}
           </div>
-          <div className="flex gap-2 p-3 border-t border-border">
+          <div className="flex gap-2 p-3 border-t border-border sticky bottom-0 bg-card z-10 shrink-0">
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
               {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
               Save Draft
