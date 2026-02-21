@@ -63,6 +63,7 @@ type JobInfo = {
   address: string | null;
   customer: string | null;
   reference_number: string;
+  category?: string | null;
   site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null } | null;
 };
 
@@ -86,7 +87,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("address, customer, reference_number, site_id, sites(name, address, postcode, contact_name, contact_phone)").eq("id", jobId).single(),
+      supabase.from("jobs").select("address, customer, reference_number, category, site_id, sites(name, address, postcode, contact_name, contact_phone)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -102,6 +103,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         address: jd.address,
         customer: jd.customer,
         reference_number: jd.reference_number,
+        category: jd.category,
         site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone } : null,
       });
     }
@@ -195,6 +197,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         prefilled[f.id] = jobInfo.reference_number || "";
       } else if (label === "date" || label === "date:" || label === "inspection date") {
         prefilled[f.id] = new Date().toISOString().split("T")[0];
+      } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
+        prefilled[f.id] = jobInfo.category || "";
       }
     });
     return prefilled;
@@ -511,11 +515,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           )}
 
-          {/* Available templates */}
-          {templates.length > 0 ? (
-            <div>
-              <p className="text-xs font-semibold text-muted-foreground mb-1.5">Available Templates</p>
-              {templates.map((tpl) => (
+          {/* Available templates — engineers only see templates matching the job category */}
+          {(() => {
+            const jobCategory = jobInfo?.category || "";
+            const visibleTemplates = userRole === "admin"
+              ? templates
+              : templates.filter((tpl) => {
+                  const tplCategory = (tpl as any).category;
+                  // Show template if it matches job category, or if neither has a category set
+                  return tplCategory === jobCategory || (!tplCategory && !jobCategory);
+                });
+            // Also exclude templates that already have a response for this job
+            const templatesWithoutResponses = visibleTemplates.filter(
+              (tpl) => !responses.some((r) => r.template_id === tpl.id)
+            );
+
+            if (templatesWithoutResponses.length > 0) {
+              return (
+                <div>
+                  {userRole === "admin" && (
+                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Available Templates</p>
+                  )}
+                  {templatesWithoutResponses.map((tpl) => (
                 <div
                   key={tpl.id}
                   className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
@@ -572,8 +593,12 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   </div>
                 </div>
               ))}
-            </div>
-          ) : (
+                </div>
+              );
+            }
+            return null;
+          })()}
+          {templates.length === 0 && (
             <p className="text-sm text-muted-foreground py-2">
               No templates yet.{userRole === "admin" ? " Import a template to get started." : " Ask an admin to import a template."}
             </p>
