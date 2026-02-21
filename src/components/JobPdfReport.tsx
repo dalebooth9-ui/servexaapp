@@ -119,6 +119,18 @@ export default function JobPdfReport({ jobId, job }: Props) {
         } catch { /* skip */ }
       }));
 
+      // Pre-load company logo
+      let logoDataUrl: string | null = null;
+      try {
+        const logoResp = await fetch("/images/vivafire-logo.jpg");
+        const logoBlob = await logoResp.blob();
+        logoDataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(logoBlob);
+        });
+      } catch { /* logo unavailable, continue without it */ }
+
       const doc = new jsPDF();
       let y = 15;
       const pageWidth = doc.internal.pageSize.getWidth();
@@ -130,17 +142,29 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
 
       // ── HEADER ──
+      const headerH = 28;
       doc.setFillColor(33, 61, 99);
-      doc.rect(0, 0, pageWidth, 28, "F");
+      doc.rect(0, 0, pageWidth, headerH, "F");
+
+      // Logo on the left
+      const logoSize = 20;
+      const logoPad = 4;
+      if (logoDataUrl) {
+        try {
+          doc.addImage(logoDataUrl, "JPEG", margin, logoPad, logoSize, logoSize);
+        } catch { /* skip logo */ }
+      }
+
+      const textX = logoDataUrl ? margin + logoSize + 4 : margin;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
       doc.setTextColor(255, 255, 255);
-      doc.text("JOB REPORT", margin, 14);
+      doc.text("JOB REPORT", textX, 14);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, margin, 22);
+      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, textX, 22);
       doc.setTextColor(30, 30, 30);
-      y = 35;
+      y = headerH + 7;
 
       // ── JOB DETAILS TABLE ──
       doc.setFontSize(8);
