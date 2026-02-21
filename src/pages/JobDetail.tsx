@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, Pencil, Check } from "lucide-react";
+import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, Pencil, Check, Camera } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -1020,7 +1020,9 @@ function SubmissionList({ items, isAdmin, onDelete, currentUserId, onUpdate }: {
 function AddNoteInput({ jobId, userId, onAdded }: { jobId: string; userId?: string; onAdded: () => void }) {
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const { toast } = useToast();
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   const handleAdd = async () => {
     if (!note.trim() || !userId) return;
@@ -1041,8 +1043,48 @@ function AddNoteInput({ jobId, userId, onAdded }: { jobId: string; userId?: stri
     setSaving(false);
   };
 
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+    setUploading(true);
+
+    const filePath = `${jobId}/${Date.now()}-${file.name}`;
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
+    if (uploadError) {
+      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
+      setUploading(false);
+      return;
+    }
+
+    const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
+    const { error: insertError } = await supabase.from("submissions").insert({
+      job_id: jobId,
+      engineer_id: userId,
+      type: "photo",
+      file_url: urlData.publicUrl,
+      file_name: file.name,
+    });
+
+    if (insertError) {
+      toast({ title: "Error", description: "Failed to save photo.", variant: "destructive" });
+    } else {
+      toast({ title: "Photo added" });
+      onAdded();
+    }
+    setUploading(false);
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+  };
+
   return (
     <div className="mb-4 flex gap-2">
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleCameraCapture}
+      />
       <input
         value={note}
         onChange={(e) => setNote(e.target.value)}
@@ -1052,6 +1094,15 @@ function AddNoteInput({ jobId, userId, onAdded }: { jobId: string; userId?: stri
       />
       <Button size="sm" onClick={handleAdd} disabled={saving || !note.trim()}>
         <Plus className="h-3.5 w-3.5 mr-1" /> Add Note
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        onClick={() => cameraInputRef.current?.click()}
+        disabled={uploading}
+      >
+        <Camera className="h-3.5 w-3.5 mr-1" />
+        {uploading ? "Uploading..." : "Photo"}
       </Button>
     </div>
   );
