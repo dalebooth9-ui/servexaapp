@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw } from "lucide-react";
+import { Image, FileText, MapPin, MessageSquare, Download, Upload, Eye, X, FileSpreadsheet, File, Trash2, ChevronDown, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, Pencil, Check } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -499,6 +499,8 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
+          {/* Add Note */}
+          <AddNoteInput jobId={id!} userId={user?.id} onAdded={fetchData} />
           <div className="mb-4">
             <FileDropZone
               onFilesSelected={handleBulkUpload}
@@ -571,14 +573,14 @@ export default function JobDetail() {
             return locations.length > 0 ? <LocationMap locations={locations} /> : null;
           })()}
 
-          <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} currentUserId={user?.id} />
+          <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} currentUserId={user?.id} onUpdate={fetchData} />
         </CollapsibleContent>
       </Collapsible>
     </div>
   );
 }
 
-function SubmissionList({ items, isAdmin, onDelete, currentUserId }: { items: any[]; isAdmin: boolean; onDelete: (sub: any) => Promise<void>; currentUserId?: string }) {
+function SubmissionList({ items, isAdmin, onDelete, currentUserId, onUpdate }: { items: any[]; isAdmin: boolean; onDelete: (sub: any) => Promise<void>; currentUserId?: string; onUpdate?: () => void }) {
   const { toast } = useToast();
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [previewSub, setPreviewSub] = useState<any>(null);
@@ -587,6 +589,8 @@ function SubmissionList({ items, isAdmin, onDelete, currentUserId }: { items: an
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editNoteText, setEditNoteText] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
   const [sortAsc, setSortAsc] = useState(false);
   const [replacingSub, setReplacingSub] = useState<any>(null);
@@ -851,9 +855,41 @@ function SubmissionList({ items, isAdmin, onDelete, currentUserId }: { items: an
                         ) : (
                           getTypeIcon(sub)
                         )}
-                        <span className="text-sm font-medium truncate max-w-[300px]">
-                          {getDisplayName(sub)}
-                        </span>
+                        {sub.type === "note" && editingNoteId === sub.id ? (
+                          <div className="flex items-center gap-1 flex-1">
+                            <input
+                              value={editNoteText}
+                              onChange={(e) => setEditNoteText(e.target.value)}
+                              onKeyDown={async (e) => {
+                                if (e.key === "Enter") {
+                                  await supabase.from("submissions").update({ content: editNoteText }).eq("id", sub.id);
+                                  setEditingNoteId(null);
+                                  onUpdate?.();
+                                  toast({ title: "Note updated" });
+                                } else if (e.key === "Escape") {
+                                  setEditingNoteId(null);
+                                }
+                              }}
+                              className="flex-1 h-7 rounded border border-input bg-background px-2 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                              autoFocus
+                            />
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={async () => {
+                              await supabase.from("submissions").update({ content: editNoteText }).eq("id", sub.id);
+                              setEditingNoteId(null);
+                              onUpdate?.();
+                              toast({ title: "Note updated" });
+                            }}>
+                              <Check className="h-3.5 w-3.5" />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingNoteId(null)}>
+                              <X className="h-3.5 w-3.5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-sm font-medium truncate max-w-[300px]">
+                            {getDisplayName(sub)}
+                          </span>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
@@ -866,6 +902,14 @@ function SubmissionList({ items, isAdmin, onDelete, currentUserId }: { items: an
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        {sub.type === "note" && (isAdmin || sub.engineer_id === currentUserId) && editingNoteId !== sub.id && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit note" onClick={() => {
+                            setEditingNoteId(sub.id);
+                            setEditNoteText(sub.content || "");
+                          }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
                         {isDocument && resolvedUrl && (
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewSub(sub)}>
                             <Eye className="h-4 w-4" />
@@ -970,6 +1014,46 @@ function SubmissionList({ items, isAdmin, onDelete, currentUserId }: { items: an
         onIndexChange={setLightboxIndex}
       />
     </>
+  );
+}
+
+function AddNoteInput({ jobId, userId, onAdded }: { jobId: string; userId?: string; onAdded: () => void }) {
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+
+  const handleAdd = async () => {
+    if (!note.trim() || !userId) return;
+    setSaving(true);
+    const { error } = await supabase.from("submissions").insert({
+      job_id: jobId,
+      engineer_id: userId,
+      type: "note",
+      content: note.trim(),
+    });
+    if (error) {
+      toast({ title: "Error", description: "Failed to add note.", variant: "destructive" });
+    } else {
+      toast({ title: "Note added" });
+      setNote("");
+      onAdded();
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div className="mb-4 flex gap-2">
+      <input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAdd(); } }}
+        placeholder="Add a note..."
+        className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      />
+      <Button size="sm" onClick={handleAdd} disabled={saving || !note.trim()}>
+        <Plus className="h-3.5 w-3.5 mr-1" /> Add Note
+      </Button>
+    </div>
   );
 }
 
