@@ -304,6 +304,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
             ], rowH, margin, maxWidth, [220, 225, 235]);
             y += rowH;
 
+            let fieldRowIdx = 0;
             for (const field of sectionFields) {
               checkPage(rowH + 4);
               const val = responses[field.id];
@@ -323,10 +324,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
               }
 
               const labelText = doc.splitTextToSize(field.label, fieldLabelW - 4).slice(0, 1)[0];
+              const rowBg: [number, number, number] | undefined = fieldRowIdx % 2 === 0 ? [248, 249, 252] : undefined;
               drawTableRow(doc, y, [
                 { text: labelText, x: margin, width: fieldLabelW },
                 { text: displayVal, x: 0, width: fieldValW, bold: !!valColor, color: valColor, align: "center" },
-              ], rowH, margin, maxWidth);
+              ], rowH, margin, maxWidth, rowBg);
+              fieldRowIdx++;
               y += rowH;
 
               // Inline note
