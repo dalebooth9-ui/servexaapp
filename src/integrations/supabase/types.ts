@@ -1021,6 +1021,7 @@ export type Database = {
           description: string | null
           fields: Json
           id: string
+          locked: boolean
           name: string
           updated_at: string
         }
@@ -1031,6 +1032,7 @@ export type Database = {
           description?: string | null
           fields?: Json
           id?: string
+          locked?: boolean
           name: string
           updated_at?: string
         }
@@ -1041,6 +1043,7 @@ export type Database = {
           description?: string | null
           fields?: Json
           id?: string
+          locked?: boolean
           name?: string
           updated_at?: string
         }
