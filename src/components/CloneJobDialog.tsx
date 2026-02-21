@@ -27,12 +27,12 @@ export default function CloneJobDialog({ sourceJob }: { sourceJob: any }) {
 
   const handleClone = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.reference_number.trim()) return;
+    if (!form.name.trim()) return;
     setLoading(true);
 
     const { data: newJob, error } = await supabase.from("jobs").insert({
       name: form.name.trim(),
-      reference_number: form.reference_number.trim(),
+      ...(form.reference_number.trim() ? { reference_number: form.reference_number.trim() } : {}),
       customer: sourceJob.customer || null,
       address: sourceJob.address || null,
       priority: sourceJob.priority || "medium",
@@ -98,8 +98,8 @@ export default function CloneJobDialog({ sourceJob }: { sourceJob: any }) {
             <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
           </div>
           <div className="space-y-2">
-            <Label>New Reference Number</Label>
-            <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} required placeholder="e.g. JOB-002" />
+            <Label>New Reference Number <span className="text-muted-foreground text-xs font-normal">(auto-generated if left blank)</span></Label>
+            <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} placeholder="Auto: VFP-00001" />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? "Cloning..." : "Clone Job"}

@@ -35,7 +35,7 @@ import {
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
-  reference_number: z.string().trim().min(1, "Reference number is required").max(50, "Reference number must be under 50 characters").regex(/^[A-Za-z0-9\-_]+$/, "Reference number can only contain letters, numbers, hyphens and underscores"),
+  reference_number: z.string().trim().max(50, "Reference number must be under 50 characters").regex(/^[A-Za-z0-9\-_]*$/, "Reference number can only contain letters, numbers, hyphens and underscores").optional().or(z.literal("")),
   customer: z.string().trim().max(200, "Customer name must be under 200 characters").optional().or(z.literal("")),
   address: z.string().trim().max(500, "Address must be under 500 characters").optional().or(z.literal("")),
 });
@@ -613,7 +613,7 @@ export default function Jobs() {
     // Create the job
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       name: parsed.data.name,
-      reference_number: parsed.data.reference_number,
+      ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
       customer: fileDropCustomer || null,
       priority: fileDropNewJobForm.priority,
       category: fileDropNewJobForm.category,
@@ -663,16 +663,16 @@ export default function Jobs() {
       return;
     }
 
-    const { error } = await supabase.from("jobs").insert({
+    const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
-      reference_number: parsed.data.reference_number,
+      ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
       customer: parsed.data.customer || null,
       address: parsed.data.address || null,
       priority: form.priority,
       category: form.category,
       status: statusOverride || "active",
       created_by: user?.id,
-    } as any);
+    } as any).select("id").single();
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
@@ -686,13 +686,10 @@ export default function Jobs() {
       fetchJobs();
 
       // Send job_booked notification to customer if they have an email
-      if (parsed.data.customer) {
-        const createdJobs = await supabase.from("jobs").select("id").eq("reference_number", parsed.data.reference_number).single();
-        if (createdJobs.data) {
-          supabase.functions.invoke("notify-customer", {
-            body: { job_id: createdJobs.data.id, notification_type: "job_booked" },
-          });
-        }
+      if (parsed.data.customer && createdJob) {
+        supabase.functions.invoke("notify-customer", {
+          body: { job_id: createdJob.id, notification_type: "job_booked" },
+        });
       }
     }
     setLoading(false);
@@ -961,8 +958,8 @@ export default function Jobs() {
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
                 </div>
                 <div className="space-y-2">
-                  <Label>Reference Number</Label>
-                  <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} required placeholder="e.g. JOB-001" />
+                  <Label>Reference Number <span className="text-muted-foreground text-xs font-normal">(auto-generated if left blank)</span></Label>
+                  <Input value={form.reference_number} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} placeholder="Auto: VFP-00001" />
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
@@ -1287,8 +1284,8 @@ export default function Jobs() {
               <Input value={fileDropNewJobForm.name} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, name: e.target.value }))} required />
             </div>
             <div className="space-y-2">
-              <Label>Reference Number</Label>
-              <Input value={fileDropNewJobForm.reference_number} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, reference_number: e.target.value }))} required placeholder="e.g. JOB-001" />
+              <Label>Reference Number <span className="text-muted-foreground text-xs font-normal">(auto-generated if left blank)</span></Label>
+              <Input value={fileDropNewJobForm.reference_number} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, reference_number: e.target.value }))} placeholder="Auto: VFP-00001" />
             </div>
             {fileDropCustomer && (
               <div className="space-y-2">
