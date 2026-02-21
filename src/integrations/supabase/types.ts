@@ -1016,6 +1016,7 @@ export type Database = {
       job_sheet_templates: {
         Row: {
           branding: Json | null
+          category: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -1027,6 +1028,7 @@ export type Database = {
         }
         Insert: {
           branding?: Json | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1038,6 +1040,7 @@ export type Database = {
         }
         Update: {
           branding?: Json | null
+          category?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null

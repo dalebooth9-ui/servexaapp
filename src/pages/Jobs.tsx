@@ -644,6 +644,23 @@ export default function Jobs() {
       } as any);
     }
 
+    // Auto-attach matching job sheet template
+    const { data: matchingTpls } = await supabase
+      .from("job_sheet_templates")
+      .select("id")
+      .eq("category", fileDropNewJobForm.category);
+    if (matchingTpls && matchingTpls.length > 0) {
+      for (const tpl of matchingTpls) {
+        await supabase.from("job_sheet_responses").insert({
+          job_id: newJob.id,
+          template_id: tpl.id,
+          submitted_by: user.id,
+          status: "draft",
+          responses: {},
+        } as any);
+      }
+    }
+
     setFileDropUploading(false);
     setFileDropDialogOpen(false);
     setFileDropPendingFiles([]);
@@ -685,11 +702,30 @@ export default function Jobs() {
       setDialogOpen(false);
       fetchJobs();
 
-      // Send job_booked notification to customer if they have an email
-      if (parsed.data.customer && createdJob) {
-        supabase.functions.invoke("notify-customer", {
-          body: { job_id: createdJob.id, notification_type: "job_booked" },
-        });
+      if (createdJob) {
+        // Auto-attach matching job sheet template
+        const { data: matchingTemplates } = await supabase
+          .from("job_sheet_templates")
+          .select("id")
+          .eq("category", form.category);
+        if (matchingTemplates && matchingTemplates.length > 0) {
+          for (const tpl of matchingTemplates) {
+            await supabase.from("job_sheet_responses").insert({
+              job_id: createdJob.id,
+              template_id: tpl.id,
+              submitted_by: user.id,
+              status: "draft",
+              responses: {},
+            } as any);
+          }
+        }
+
+        // Send job_booked notification to customer if they have an email
+        if (parsed.data.customer) {
+          supabase.functions.invoke("notify-customer", {
+            body: { job_id: createdJob.id, notification_type: "job_booked" },
+          });
+        }
       }
     }
     setLoading(false);

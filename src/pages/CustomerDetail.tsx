@@ -396,6 +396,23 @@ export default function CustomerDetail() {
       }
     }
 
+    // Auto-attach matching job sheet template
+    const { data: matchingTpls } = await supabase
+      .from("job_sheet_templates")
+      .select("id")
+      .eq("category", jobDropForm.category);
+    if (matchingTpls && matchingTpls.length > 0) {
+      for (const tpl of matchingTpls) {
+        await supabase.from("job_sheet_responses").insert({
+          job_id: newJob.id,
+          template_id: tpl.id,
+          submitted_by: user.id,
+          status: "draft",
+          responses: {},
+        } as any);
+      }
+    }
+
     toast({ title: "Job created", description: `${newJob.reference_number} created with ${uploaded} file(s).` });
     setJobDropDialogOpen(false);
     setJobDropFiles([]);
