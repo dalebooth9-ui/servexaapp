@@ -154,24 +154,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const prefilled: Record<string, any> = {};
     if (!jobInfo) return prefilled;
 
-    const siteAddress = jobInfo.site?.address || jobInfo.address || "";
-    const sitePostcode = jobInfo.site?.postcode || "";
+    const jobAddress = jobInfo.address || "";
     const siteName = jobInfo.site?.name || "";
-    const siteContactName = jobInfo.site?.contact_name || "";
-    const siteContactPhone = jobInfo.site?.contact_phone || "";
     const customerName = jobInfo.customer || "";
-    const fullSiteDetails = [customerName, siteAddress].filter(Boolean).join("\n");
+    const fullSiteDetails = [customerName, jobAddress].filter(Boolean).join("\n");
 
     template.fields.forEach((f) => {
       const label = f.label.toLowerCase();
-      // Auto-fill site details (site name + address + postcode + contact)
+      // Auto-fill site details (site name + job address)
       if (
         (label.includes("site") && label.includes("detail")) ||
         label === "site address" ||
         label === "address"
       ) {
-        const contactLine = [siteContactName, siteContactPhone].filter(Boolean).join(" - ");
-        const siteInfo = [siteName, siteAddress, sitePostcode, contactLine].filter(Boolean).join("\n");
+        const siteInfo = [siteName, jobAddress].filter(Boolean).join("\n");
         prefilled[f.id] = siteInfo || "";
       // Auto-fill customer details
       } else if (
