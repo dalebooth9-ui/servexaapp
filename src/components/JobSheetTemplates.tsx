@@ -62,7 +62,7 @@ type JobInfo = {
   address: string | null;
   customer: string | null;
   reference_number: string;
-  site?: { name: string; address: string | null } | null;
+  site?: { name: string; address: string | null; postcode: string | null } | null;
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
@@ -85,7 +85,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("address, customer, reference_number, site_id, sites(name, address)").eq("id", jobId).single(),
+      supabase.from("jobs").select("address, customer, reference_number, site_id, sites(name, address, postcode)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -101,7 +101,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         address: jd.address,
         customer: jd.customer,
         reference_number: jd.reference_number,
-        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address } : null,
+        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode } : null,
       });
     }
 
@@ -155,19 +155,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     if (!jobInfo) return prefilled;
 
     const siteAddress = jobInfo.site?.address || jobInfo.address || "";
+    const sitePostcode = jobInfo.site?.postcode || "";
     const siteName = jobInfo.site?.name || "";
     const customerName = jobInfo.customer || "";
     const fullSiteDetails = [customerName, siteAddress].filter(Boolean).join("\n");
 
     template.fields.forEach((f) => {
       const label = f.label.toLowerCase();
-      // Auto-fill site details (site name + address)
+      // Auto-fill site details (site name + address + postcode)
       if (
         (label.includes("site") && label.includes("detail")) ||
         label === "site address" ||
         label === "address"
       ) {
-        const siteInfo = [siteName, siteAddress].filter(Boolean).join("\n");
+        const siteInfo = [siteName, siteAddress, sitePostcode].filter(Boolean).join("\n");
         prefilled[f.id] = siteInfo || "";
       // Auto-fill customer details
       } else if (
