@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2 } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -28,6 +29,7 @@ type Template = {
   name: string;
   description: string | null;
   fields: TemplateField[];
+  category?: string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -143,6 +145,8 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [saving, setSaving] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [templateDesc, setTemplateDesc] = useState("");
+  const [templateCategory, setTemplateCategory] = useState<string>("");
+  const [jobCategories, setJobCategories] = useState<{ slug: string; name: string }[]>([]);
   const [fields, setFields] = useState<TemplateField[]>([]);
   const [companyName, setCompanyName] = useState("");
   const [companySubtitle, setCompanySubtitle] = useState("");
@@ -152,10 +156,18 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // Fetch job categories once
+  useEffect(() => {
+    supabase.from("job_categories").select("slug, name").order("sort_order").then(({ data }) => {
+      if (data) setJobCategories(data);
+    });
+  }, []);
+
   // Sync state when template changes or dialog opens
   if (open && template && !initialised) {
     setTemplateName(template.name);
     setTemplateDesc(template.description || "");
+    setTemplateCategory(template.category || "");
     setFields(template.fields.map(f => ({ ...f })));
     const b = template.branding || {};
     setCompanyName(b.company_name || "");
@@ -247,6 +259,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     const { error } = await supabase.from("job_sheet_templates").update({
       name: templateName.trim(),
       description: templateDesc.trim() || null,
+      category: templateCategory || null,
       fields: fields as any,
       branding: branding as any,
     } as any).eq("id", template.id);
@@ -269,7 +282,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         </DialogHeader>
 
         <div className="flex flex-col flex-1 min-h-0 gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <Label>Template Name</Label>
               <Input
@@ -285,6 +298,20 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                 onChange={(e) => setTemplateDesc(e.target.value)}
                 placeholder="Brief description"
               />
+            </div>
+            <div>
+              <Label>Job Category <span className="text-muted-foreground text-xs font-normal">(auto-attach)</span></Label>
+              <Select value={templateCategory || "none"} onValueChange={(v) => setTemplateCategory(v === "none" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {jobCategories.map((c) => (
+                    <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -371,6 +398,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                 if (!template) return;
                 setTemplateName(template.name);
                 setTemplateDesc(template.description || "");
+                setTemplateCategory(template.category || "");
                 setFields(template.fields.map(f => ({ ...f })));
                 const b = template.branding || {};
                 setCompanyName(b.company_name || "");
