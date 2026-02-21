@@ -415,7 +415,7 @@ export default function CustomerDetail() {
           } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
             prefilled[f.id] = address;
           } else if (label.includes("po number") || label.includes("reference")) {
-            prefilled[f.id] = jobDropForm.reference_number || "";
+            prefilled[f.id] = newJob.reference_number || jobDropForm.reference_number || "";
           } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
             const catLabel = categories.find(c => c.slug === category)?.name || category;
             prefilled[f.id] = catLabel;
