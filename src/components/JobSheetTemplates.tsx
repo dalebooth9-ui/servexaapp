@@ -62,7 +62,7 @@ type JobInfo = {
   address: string | null;
   customer: string | null;
   reference_number: string;
-  site?: { name: string; address: string | null; postcode: string | null } | null;
+  site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null } | null;
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
@@ -85,7 +85,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("address, customer, reference_number, site_id, sites(name, address, postcode)").eq("id", jobId).single(),
+      supabase.from("jobs").select("address, customer, reference_number, site_id, sites(name, address, postcode, contact_name, contact_phone)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -101,7 +101,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         address: jd.address,
         customer: jd.customer,
         reference_number: jd.reference_number,
-        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode } : null,
+        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone } : null,
       });
     }
 
@@ -157,18 +157,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const siteAddress = jobInfo.site?.address || jobInfo.address || "";
     const sitePostcode = jobInfo.site?.postcode || "";
     const siteName = jobInfo.site?.name || "";
+    const siteContactName = jobInfo.site?.contact_name || "";
+    const siteContactPhone = jobInfo.site?.contact_phone || "";
     const customerName = jobInfo.customer || "";
     const fullSiteDetails = [customerName, siteAddress].filter(Boolean).join("\n");
 
     template.fields.forEach((f) => {
       const label = f.label.toLowerCase();
-      // Auto-fill site details (site name + address + postcode)
+      // Auto-fill site details (site name + address + postcode + contact)
       if (
         (label.includes("site") && label.includes("detail")) ||
         label === "site address" ||
         label === "address"
       ) {
-        const siteInfo = [siteName, siteAddress, sitePostcode].filter(Boolean).join("\n");
+        const contactLine = [siteContactName, siteContactPhone].filter(Boolean).join(" - ");
+        const siteInfo = [siteName, siteAddress, sitePostcode, contactLine].filter(Boolean).join("\n");
         prefilled[f.id] = siteInfo || "";
       // Auto-fill customer details
       } else if (
