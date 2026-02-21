@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -44,6 +45,9 @@ export default function Customers() {
   const [form, setForm] = useState<CustomerForm>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
@@ -142,6 +146,37 @@ export default function Customers() {
   };
 
   const isAdmin = userRole === "admin";
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    const { error } = await supabase.from("customers").delete().in("id", Array.from(selectedIds));
+    if (error) {
+      toast({ title: "Failed to delete customers", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: `Deleted ${selectedIds.size} customer(s)` });
+      setSelectedIds(new Set());
+      fetchCustomers();
+    }
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -269,6 +304,16 @@ export default function Customers() {
         )}
       </div>
 
+      {isAdmin && selectedIds.size > 0 && (
+        <div className="mb-4 flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">{selectedIds.size} selected</span>
+          <Button variant="destructive" size="sm" onClick={() => setBulkDeleteOpen(true)}>
+            <Trash2 className="mr-1 h-4 w-4" /> Delete Selected
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+        </div>
+      )}
+
       <div className="mb-4 relative max-w-sm">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -307,6 +352,14 @@ export default function Customers() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {isAdmin && (
+                      <TableHead className="w-10">
+                        <Checkbox
+                          checked={filtered.length > 0 && selectedIds.size === filtered.length}
+                          onCheckedChange={toggleAll}
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
@@ -316,7 +369,15 @@ export default function Customers() {
                 </TableHeader>
                 <TableBody>
                   {filtered.map((c) => (
-                    <TableRow key={c.id}>
+                    <TableRow key={c.id} data-state={selectedIds.has(c.id) ? "selected" : undefined}>
+                      {isAdmin && (
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedIds.has(c.id)}
+                            onCheckedChange={() => toggleSelect(c.id)}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell className="font-medium">
                         <Link to={`/customers/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
                       </TableCell>
@@ -387,6 +448,22 @@ export default function Customers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Delete Confirmation */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete {selectedIds.size} Customer(s)</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Are you sure you want to delete {selectedIds.size} selected customer(s)? This action cannot be undone.</p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting ? "Deleting…" : `Delete ${selectedIds.size}`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
