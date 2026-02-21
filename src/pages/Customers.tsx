@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,10 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload, X, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
-import { useRef } from "react";
 
 type Customer = {
   id: string;
@@ -48,6 +48,11 @@ export default function Customers() {
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
   const folderDropRef = useRef<CustomerFolderDropHandle | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [uploadCustomerId, setUploadCustomerId] = useState<string>("");
+  const [uploading, setUploading] = useState(false);
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
@@ -138,6 +143,57 @@ export default function Customers() {
 
   const isAdmin = userRole === "admin";
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    setUploadFiles(files);
+    setUploadCustomerId("");
+    setUploadDialogOpen(true);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleUploadFiles = async () => {
+    if (!uploadCustomerId || uploadFiles.length === 0) return;
+    setUploading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setUploading(false); return; }
+
+    let successCount = 0;
+    for (const file of uploadFiles) {
+      if (file.size > 20 * 1024 * 1024) {
+        toast({ title: `${file.name} exceeds 20MB limit`, variant: "destructive" });
+        continue;
+      }
+      const storagePath = `${uploadCustomerId}/${Date.now()}_${file.name}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("submissions")
+        .upload(storagePath, file, { contentType: file.type });
+      if (uploadErr) {
+        toast({ title: `Failed to upload ${file.name}`, description: uploadErr.message, variant: "destructive" });
+        continue;
+      }
+      const { error: dbErr } = await supabase.from("customer_documents").insert({
+        customer_id: uploadCustomerId,
+        file_name: file.name,
+        file_url: storagePath,
+        file_size: file.size,
+        uploaded_by: user.id,
+      });
+      if (dbErr) {
+        toast({ title: `Failed to save ${file.name}`, description: dbErr.message, variant: "destructive" });
+        continue;
+      }
+      successCount++;
+    }
+
+    if (successCount > 0) {
+      toast({ title: `Uploaded ${successCount} file(s)` });
+    }
+    setUploadDialogOpen(false);
+    setUploadFiles([]);
+    setUploading(false);
+  };
+
   const handleDragEnter = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -179,6 +235,16 @@ export default function Customers() {
         <h1 className="text-2xl font-bold">Customers</h1>
         {isAdmin && (
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
+              <Upload className="mr-2 h-4 w-4" /> Upload Files
+            </Button>
             <Button variant="outline" onClick={() => setFolderImportOpen(true)}>
               <FolderOpen className="mr-2 h-4 w-4" /> Import Folder
             </Button>
@@ -307,6 +373,56 @@ export default function Customers() {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteId(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDelete}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* File Upload Dialog */}
+      <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Files to Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Select Customer *</Label>
+              <Select value={uploadCustomerId} onValueChange={setUploadCustomerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a customer…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {customers.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Files ({uploadFiles.length})</Label>
+              <div className="mt-1 max-h-40 overflow-y-auto space-y-1">
+                {uploadFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 rounded border p-2 text-sm">
+                    <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate flex-1">{f.name}</span>
+                    <span className="text-xs text-muted-foreground">{(f.size / 1024).toFixed(0)}KB</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setUploadFiles((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUploadFiles} disabled={uploading || !uploadCustomerId || uploadFiles.length === 0}>
+              {uploading ? "Uploading…" : `Upload ${uploadFiles.length} File(s)`}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
