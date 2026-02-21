@@ -161,21 +161,27 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     template.fields.forEach((f) => {
       const label = f.label.toLowerCase();
-      // Auto-fill site/address fields
+      // Auto-fill site details (site name + address)
       if (
-        (label.includes("site") && (label.includes("address") || label.includes("detail"))) ||
-        (label.includes("customer") && label.includes("site")) ||
-        label === "address" ||
-        label === "site address"
+        (label.includes("site") && label.includes("detail")) ||
+        label === "site address" ||
+        label === "address"
       ) {
-        prefilled[f.id] = fullSiteDetails;
+        const siteInfo = [siteName, siteAddress].filter(Boolean).join("\n");
+        prefilled[f.id] = siteInfo || "";
+      // Auto-fill customer details
+      } else if (
+        (label.includes("customer") && label.includes("detail")) ||
+        (label.includes("customer") && label.includes("site"))
+      ) {
+        prefilled[f.id] = customerName;
       } else if (label.includes("customer") && !label.includes("sign") && !label.includes("name")) {
         prefilled[f.id] = customerName;
-      } else if (label === "customer name") {
+      } else if (label === "customer name" || label === "customer name:") {
         prefilled[f.id] = customerName;
       } else if (label.includes("po number") || label.includes("reference")) {
         prefilled[f.id] = jobInfo.reference_number || "";
-      } else if (label === "date" || label === "inspection date") {
+      } else if (label === "date" || label === "date:" || label === "inspection date") {
         prefilled[f.id] = new Date().toISOString().split("T")[0];
       }
     });
