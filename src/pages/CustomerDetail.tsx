@@ -396,19 +396,39 @@ export default function CustomerDetail() {
       }
     }
 
-    // Auto-attach matching job sheet template
+    // Auto-attach matching job sheet template with pre-filled data
     const { data: matchingTpls } = await supabase
       .from("job_sheet_templates")
-      .select("id")
+      .select("id, fields")
       .eq("category", jobDropForm.category);
     if (matchingTpls && matchingTpls.length > 0) {
       for (const tpl of matchingTpls) {
+        const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
+        const prefilled: Record<string, any> = {};
+        const customerName = customer?.name || "";
+        const address = customer?.address || "";
+        const category = jobDropForm.category || "";
+        fields.forEach((f: any) => {
+          const label = (f.label || "").toLowerCase();
+          if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) {
+            prefilled[f.id] = customerName;
+          } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
+            prefilled[f.id] = address;
+          } else if (label.includes("po number") || label.includes("reference")) {
+            prefilled[f.id] = jobDropForm.reference_number || "";
+          } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
+            const catLabel = categories.find(c => c.slug === category)?.name || category;
+            prefilled[f.id] = catLabel;
+          } else if (label === "date" || label === "date:" || label === "inspection date") {
+            prefilled[f.id] = new Date().toISOString().split("T")[0];
+          }
+        });
         await supabase.from("job_sheet_responses").insert({
           job_id: newJob.id,
           template_id: tpl.id,
           submitted_by: user.id,
           status: "draft",
-          responses: {},
+          responses: prefilled,
         } as any);
       }
     }
