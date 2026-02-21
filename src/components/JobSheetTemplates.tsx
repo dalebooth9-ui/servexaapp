@@ -249,15 +249,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const handleSubmit = async () => {
     if (!activeTemplate) return;
-    const missing = activeTemplate.fields.filter((f) => f.required && !formData[f.id]);
-    if (missing.length > 0) {
-      toast({
-        title: "Required fields missing",
-        description: missing.map((f) => f.label).join(", "),
-        variant: "destructive",
-      });
-      return;
-    }
+    // Allow all fields to be left blank — no required validation block
 
     setSubmitting(true);
     try {
