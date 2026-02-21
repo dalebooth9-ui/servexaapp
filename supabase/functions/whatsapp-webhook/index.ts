@@ -184,14 +184,50 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
+      // Command: parts — list parts for current job
+      if (["parts", "materials"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first.");
+          return twimlResponse();
+        }
+        await handlePartsCommand(supabase, twilioSender, from, jobId);
+        return twimlResponse();
+      }
+
+      // Command: files / documents — send document files
+      if (["files", "documents", "docs"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first.");
+          return twimlResponse();
+        }
+        await handleFilesCommand(supabase, twilioSender, from, jobId);
+        return twimlResponse();
+      }
+
+      // Command: complete / done — mark job as completed
+      if (["complete", "done", "finish", "finished"].includes(command)) {
+        const jobId = await getActiveJob(supabase, engineerId);
+        if (!jobId) {
+          await sendWhatsApp(twilioSender, from, "No active job found. Send a job reference number first.");
+          return twimlResponse();
+        }
+        await handleCompleteCommand(supabase, twilioSender, from, jobId, engineerId);
+        return twimlResponse();
+      }
+
       // Command: help — list available commands
       if (["help", "commands", "menu"].includes(command)) {
         await sendWhatsApp(twilioSender, from,
           "📋 *Available Commands:*\n\n" +
           "*info* — Job details (name, address, status, priority)\n" +
           "*photos* — Download all photos for current job\n" +
+          "*files* — Download documents for current job\n" +
           "*report* — Get field report summary\n" +
           "*notes* — Recent notes and submissions\n" +
+          "*parts* — List parts logged against current job\n" +
+          "*complete* — Mark current job as completed\n" +
           "*help* — Show this menu\n\n" +
           "Send a *job reference number* to switch jobs."
         );
@@ -416,6 +452,94 @@ async function handleNotesCommand(supabase: any, sender: TwilioSender, to: strin
   }
 
   await sendWhatsApp(sender, to, msg);
+}
+
+async function handlePartsCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
+  const { data: parts } = await supabase
+    .from("job_parts")
+    .select("name, quantity, unit_cost, notes")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: false });
+
+  if (!parts || parts.length === 0) {
+    await sendWhatsApp(sender, to, "🔧 No parts logged for this job.");
+    return;
+  }
+
+  let msg = `🔧 *Parts (${parts.length}):*\n\n`;
+  let total = 0;
+  for (const p of parts) {
+    const lineTotal = (p.quantity || 1) * (p.unit_cost || 0);
+    total += lineTotal;
+    msg += `• ${p.name} × ${p.quantity || 1}`;
+    if (p.unit_cost) msg += ` — £${lineTotal.toFixed(2)}`;
+    if (p.notes) msg += ` _(${p.notes})_`;
+    msg += "\n";
+  }
+  msg += `\n💰 *Total: £${total.toFixed(2)}*`;
+
+  await sendWhatsApp(sender, to, msg);
+}
+
+async function handleFilesCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
+  const { data: docs } = await supabase
+    .from("submissions")
+    .select("file_url, file_name, created_at")
+    .eq("job_id", jobId)
+    .eq("type", "document")
+    .order("created_at", { ascending: false })
+    .limit(10);
+
+  if (!docs || docs.length === 0) {
+    await sendWhatsApp(sender, to, "📄 No documents found for this job.");
+    return;
+  }
+
+  await sendWhatsApp(sender, to, `📄 Sending ${docs.length} document(s)...`);
+
+  for (const doc of docs) {
+    if (!doc.file_url) continue;
+    const { data: signedData } = await supabase.storage
+      .from("submissions")
+      .createSignedUrl(doc.file_url, 3600);
+
+    if (signedData?.signedUrl) {
+      await sendWhatsApp(sender, to, doc.file_name || "Document", signedData.signedUrl);
+    }
+  }
+}
+
+async function handleCompleteCommand(supabase: any, sender: TwilioSender, to: string, jobId: string, engineerId: string) {
+  const { data: job } = await supabase
+    .from("jobs")
+    .select("reference_number, name, status")
+    .eq("id", jobId)
+    .maybeSingle();
+
+  if (!job) {
+    await sendWhatsApp(sender, to, "Could not load job.");
+    return;
+  }
+
+  if (job.status === "completed") {
+    await sendWhatsApp(sender, to, `✅ *${job.reference_number}* is already marked as completed.`);
+    return;
+  }
+
+  const { error } = await supabase
+    .from("jobs")
+    .update({ status: "completed" })
+    .eq("id", jobId);
+
+  if (error) {
+    console.error("Complete error:", error);
+    await sendWhatsApp(sender, to, "❌ Failed to update job status. Please try again.");
+    return;
+  }
+
+  await sendWhatsApp(sender, to,
+    `✅ *${job.reference_number}* — ${job.name}\n\nJob marked as *completed*.`
+  );
 }
 
 // ── Utility functions ───────────────────────────────────────────
