@@ -10,6 +10,55 @@ interface Props {
   job: any;
 }
 
+// ── Table drawing helpers ──────────────────────────────────────────
+
+function drawTableRow(
+  doc: jsPDF,
+  y: number,
+  cols: { text: string; x: number; width: number; bold?: boolean; color?: [number, number, number]; align?: "left" | "center" | "right" }[],
+  rowHeight: number,
+  margin: number,
+  totalWidth: number,
+  bg?: [number, number, number]
+) {
+  if (bg) {
+    doc.setFillColor(...bg);
+    doc.rect(margin, y, totalWidth, rowHeight, "F");
+  }
+  doc.setDrawColor(200, 200, 200);
+  doc.rect(margin, y, totalWidth, rowHeight, "S");
+  let xOffset = margin;
+  cols.forEach((col) => {
+    doc.rect(xOffset, y, col.width, rowHeight, "S");
+    doc.setFont("helvetica", col.bold ? "bold" : "normal");
+    if (col.color) doc.setTextColor(...col.color);
+    else doc.setTextColor(30, 30, 30);
+    const textY = y + rowHeight / 2 + 1;
+    if (col.align === "right") {
+      doc.text(col.text, xOffset + col.width - 2, textY, { align: "right" });
+    } else if (col.align === "center") {
+      doc.text(col.text, xOffset + col.width / 2, textY, { align: "center" });
+    } else {
+      doc.text(col.text, xOffset + 2, textY);
+    }
+    doc.setTextColor(30, 30, 30);
+    xOffset += col.width;
+  });
+}
+
+function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxWidth: number): number {
+  doc.setFillColor(33, 61, 99);
+  doc.rect(margin, y, maxWidth, 8, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.setTextColor(255, 255, 255);
+  doc.text(title.toUpperCase(), margin + 3, y + 5.5);
+  doc.setTextColor(30, 30, 30);
+  return y + 8;
+}
+
+// ── Main component ──────────────────────────────────────────────
+
 export default function JobPdfReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
@@ -17,7 +66,6 @@ export default function JobPdfReport({ jobId, job }: Props) {
   const generate = async () => {
     setGenerating(true);
     try {
-      // Fetch all related data including site details and job sheet responses
       const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, siteRes, sheetRespRes, templatesRes] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("field_reports").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
@@ -39,16 +87,11 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const sheetResponses = (sheetRespRes.data || []) as any[];
       const templates = (templatesRes.data || []) as any[];
 
-      // Build template lookup
       const templateMap: Record<string, any> = {};
       templates.forEach((t: any) => {
-        templateMap[t.id] = {
-          ...t,
-          fields: typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields,
-        };
+        templateMap[t.id] = { ...t, fields: typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields };
       });
 
-      // Fetch engineer names
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
       let engineerNames: string[] = [];
       if (engIds.length > 0) {
@@ -56,7 +99,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
       }
 
-      // Pre-load photo images for embedding
+      // Pre-load photos
       const photos = submissions.filter((s: any) => s.type === "photo" && s.file_url);
       const photoImages: Record<string, string> = {};
       await Promise.all(photos.map(async (p: any) => {
@@ -77,144 +120,190 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }));
 
       const doc = new jsPDF();
-      let y = 20;
+      let y = 15;
       const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
+      const margin = 12;
       const maxWidth = pageWidth - margin * 2;
+      const rowH = 6;
 
-      const addPage = () => { doc.addPage(); y = 20; };
-      const checkPage = (needed: number) => { if (y + needed > 270) addPage(); };
+      const addPage = () => { doc.addPage(); y = 15; };
+      const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
 
-      // Header
-      doc.setFontSize(18);
+      // ── HEADER ──
+      doc.setFillColor(33, 61, 99);
+      doc.rect(0, 0, pageWidth, 28, "F");
       doc.setFont("helvetica", "bold");
-      doc.text("Job Report", margin, y);
-      y += 10;
-
-      // --- Job Details ---
+      doc.setFontSize(18);
+      doc.setTextColor(255, 255, 255);
+      doc.text("JOB REPORT", margin, 14);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Reference: ${job.reference_number}`, margin, y); y += 5;
-      doc.text(`Name: ${job.name}`, margin, y); y += 5;
-      if (job.customer) { doc.text(`Customer: ${job.customer}`, margin, y); y += 5; }
-      if (job.address) { doc.text(`Address: ${job.address}`, margin, y); y += 5; }
-      doc.text(`Status: ${job.status}`, margin, y); y += 5;
-      doc.text(`Priority: ${job.priority || "medium"}`, margin, y); y += 5;
-      if (engineerNames.length > 0) { doc.text(`Engineers: ${engineerNames.join(", ")}`, margin, y); y += 5; }
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, margin, y); y += 8;
+      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, margin, 22);
+      doc.setTextColor(30, 30, 30);
+      y = 35;
 
-      // --- Full Site Details ---
+      // ── JOB DETAILS TABLE ──
+      doc.setFontSize(8);
+      const detailRows: [string, string][] = [
+        ["Job Name", job.name || "—"],
+        ["Reference", job.reference_number || "—"],
+        ["Customer", job.customer || "—"],
+        ["Address", job.address || "—"],
+        ["Status", (job.status || "—").toUpperCase()],
+        ["Priority", (job.priority || "medium").toUpperCase()],
+        ["Engineers", engineerNames.length > 0 ? engineerNames.join(", ") : "—"],
+      ];
+
+      y = sectionTitle(doc, "Job Details", y, margin, maxWidth);
+      const labelW = maxWidth * 0.3;
+      const valW = maxWidth * 0.7;
+      detailRows.forEach(([label, value]) => {
+        checkPage(rowH);
+        drawTableRow(doc, y, [
+          { text: label, x: margin, width: labelW, bold: true },
+          { text: value.substring(0, 90), x: margin + labelW, width: valW },
+        ], rowH, margin, maxWidth);
+        y += rowH;
+      });
+      y += 6;
+
+      // ── SITE DETAILS TABLE ──
       if (site) {
         checkPage(30);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Site Details", margin, y); y += 7;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        if (site.name) { doc.text(`Site Name: ${site.name}`, margin, y); y += 5; }
-        if (site.address) { doc.text(`Address: ${site.address}`, margin, y); y += 5; }
-        if (site.postcode) { doc.text(`Postcode: ${site.postcode}`, margin, y); y += 5; }
-        if (site.contact_name) { doc.text(`Contact: ${site.contact_name}`, margin, y); y += 5; }
-        if (site.contact_phone) { doc.text(`Phone: ${site.contact_phone}`, margin, y); y += 5; }
-        if (site.contact_email) { doc.text(`Email: ${site.contact_email}`, margin, y); y += 5; }
-        y += 3;
+        y = sectionTitle(doc, "Site Details", y, margin, maxWidth);
+        const siteRows: [string, string][] = [
+          ["Site Name", site.name || "—"],
+          ["Address", site.address || "—"],
+          ["Postcode", site.postcode || "—"],
+          ["Contact", site.contact_name || "—"],
+          ["Phone", site.contact_phone || "—"],
+          ["Email", site.contact_email || "—"],
+        ].filter(([, v]) => v !== "—") as [string, string][];
+        siteRows.forEach(([label, value]) => {
+          checkPage(rowH);
+          drawTableRow(doc, y, [
+            { text: label, x: margin, width: labelW, bold: true },
+            { text: value, x: margin + labelW, width: valW },
+          ], rowH, margin, maxWidth);
+          y += rowH;
+        });
+        y += 6;
       }
 
-      // --- Visits ---
+      // ── VISITS TABLE ──
       if (visits.length > 0) {
         checkPage(20);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Visits", margin, y); y += 7;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
+        y = sectionTitle(doc, "Visits", y, margin, maxWidth);
+        const dateW = maxWidth * 0.25;
+        const statusW = maxWidth * 0.2;
+        const notesW = maxWidth * 0.55;
+        // Header
+        drawTableRow(doc, y, [
+          { text: "Date", x: margin, width: dateW, bold: true },
+          { text: "Status", x: margin + dateW, width: statusW, bold: true },
+          { text: "Notes", x: margin + dateW + statusW, width: notesW, bold: true },
+        ], rowH, margin, maxWidth, [235, 240, 248]);
+        y += rowH;
         visits.forEach((v: any) => {
-          checkPage(8);
-          doc.text(`${v.scheduled_date} — ${v.status}${v.notes ? ` — ${v.notes}` : ""}`, margin, y);
-          y += 5;
+          checkPage(rowH);
+          drawTableRow(doc, y, [
+            { text: v.scheduled_date || "—", x: margin, width: dateW },
+            { text: (v.status || "—").toUpperCase(), x: margin + dateW, width: statusW },
+            { text: (v.notes || "—").substring(0, 60), x: margin + dateW + statusW, width: notesW },
+          ], rowH, margin, maxWidth);
+          y += rowH;
         });
-        y += 5;
+        y += 6;
       }
 
-      // --- Parts ---
+      // ── PARTS TABLE ──
       if (parts.length > 0) {
         checkPage(20);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Parts & Materials", margin, y); y += 7;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
+        y = sectionTitle(doc, "Parts & Materials", y, margin, maxWidth);
+        const nameW = maxWidth * 0.35;
+        const qtyW = maxWidth * 0.1;
+        const unitW = maxWidth * 0.2;
+        const totalW = maxWidth * 0.2;
+        const noteW = maxWidth * 0.15;
+        drawTableRow(doc, y, [
+          { text: "Part Name", x: margin, width: nameW, bold: true },
+          { text: "Qty", x: 0, width: qtyW, bold: true, align: "center" },
+          { text: "Unit Cost", x: 0, width: unitW, bold: true, align: "right" },
+          { text: "Total", x: 0, width: totalW, bold: true, align: "right" },
+          { text: "Notes", x: 0, width: noteW, bold: true },
+        ], rowH, margin, maxWidth, [235, 240, 248]);
+        y += rowH;
         parts.forEach((p: any) => {
-          checkPage(8);
-          doc.text(`${p.name} — Qty: ${p.quantity} — £${Number(p.unit_cost).toFixed(2)} ea — Total: £${Number(p.total_cost).toFixed(2)}`, margin, y);
-          y += 5;
+          checkPage(rowH);
+          drawTableRow(doc, y, [
+            { text: (p.name || "—").substring(0, 30), x: margin, width: nameW },
+            { text: String(p.quantity), x: 0, width: qtyW, align: "center" },
+            { text: `£${Number(p.unit_cost).toFixed(2)}`, x: 0, width: unitW, align: "right" },
+            { text: `£${Number(p.total_cost).toFixed(2)}`, x: 0, width: totalW, align: "right" },
+            { text: (p.notes || "").substring(0, 15), x: 0, width: noteW },
+          ], rowH, margin, maxWidth);
+          y += rowH;
         });
+        // Totals row
         const totalParts = parts.reduce((s: number, p: any) => s + Number(p.total_cost || 0), 0);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Parts Total: £${totalParts.toFixed(2)}`, margin, y); y += 8;
-        doc.setFont("helvetica", "normal");
+        drawTableRow(doc, y, [
+          { text: "", x: margin, width: nameW + qtyW + unitW },
+          { text: `£${totalParts.toFixed(2)}`, x: 0, width: totalW, bold: true, align: "right" },
+          { text: "", x: 0, width: noteW },
+        ], rowH, margin, maxWidth, [245, 248, 255]);
+        y += rowH + 6;
       }
 
-      // --- Job Sheet Template Responses ---
+      // ── JOB SHEET RESPONSES ──
       if (sheetResponses.length > 0) {
         for (const resp of sheetResponses) {
           const tpl = templateMap[resp.template_id];
           if (!tpl) continue;
 
           checkPage(20);
-          doc.setFontSize(13);
-          doc.setFont("helvetica", "bold");
-          doc.text(`Job Sheet: ${tpl.name}`, margin, y); y += 7;
+          y = sectionTitle(doc, `Job Sheet: ${tpl.name}`, y, margin, maxWidth);
 
           const fields = tpl.fields || [];
           const responses = resp.responses || {};
           const sections = [...new Set(fields.map((f: any) => f.section || "General"))] as string[];
+          const fieldLabelW = maxWidth * 0.6;
+          const fieldValW = maxWidth * 0.4;
 
           for (const section of sections) {
             const sectionFields = fields.filter((f: any) => (f.section || "General") === section);
             if (sectionFields.length === 0) continue;
 
             checkPage(12);
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "bold");
-            doc.setFillColor(230, 230, 230);
-            doc.rect(margin, y - 3, maxWidth, 5, "F");
-            doc.text(section.toUpperCase(), margin + 1, y);
-            y += 5;
-
-            doc.setFont("helvetica", "normal");
-            doc.setFontSize(8);
+            // Sub-section header
+            drawTableRow(doc, y, [
+              { text: section.toUpperCase(), x: margin, width: maxWidth, bold: true },
+            ], rowH, margin, maxWidth, [220, 225, 235]);
+            y += rowH;
 
             for (const field of sectionFields) {
-              checkPage(8);
+              checkPage(rowH + 4);
               const val = responses[field.id];
               let displayVal = "—";
+              let valColor: [number, number, number] | undefined;
+
               if (field.type === "pass_fail") {
-                displayVal = val === "pass" ? "PASS" : val === "fail" ? "FAIL" : val === "n/a" ? "N/A" : "—";
+                if (val === "pass") { displayVal = "PASS"; valColor = [0, 128, 0]; }
+                else if (val === "fail") { displayVal = "FAIL"; valColor = [200, 0, 0]; }
+                else if (val === "n/a") { displayVal = "N/A"; valColor = [120, 120, 120]; }
               } else if (field.type === "checkbox") {
                 displayVal = val ? "YES" : "NO";
               } else if (field.type === "photo") {
                 displayVal = val ? "✓ Captured" : "—";
-              } else if (val) {
-                displayVal = String(val).substring(0, 80);
+              } else if (val !== undefined && val !== null && val !== "") {
+                displayVal = String(val).substring(0, 60);
               }
 
-              const labelWidth = maxWidth * 0.6;
-              const label = doc.splitTextToSize(field.label, labelWidth - 2).slice(0, 1)[0];
-              doc.text(label, margin, y);
-              
-              // Color coding for pass/fail
-              if (field.type === "pass_fail" && val === "pass") {
-                doc.setTextColor(0, 128, 0);
-                doc.setFont("helvetica", "bold");
-              } else if (field.type === "pass_fail" && val === "fail") {
-                doc.setTextColor(200, 0, 0);
-                doc.setFont("helvetica", "bold");
-              }
-              doc.text(displayVal, margin + labelWidth, y);
-              doc.setTextColor(0, 0, 0);
-              doc.setFont("helvetica", "normal");
-              y += 4.5;
+              const labelText = doc.splitTextToSize(field.label, fieldLabelW - 4).slice(0, 1)[0];
+              drawTableRow(doc, y, [
+                { text: labelText, x: margin, width: fieldLabelW },
+                { text: displayVal, x: 0, width: fieldValW, bold: !!valColor, color: valColor, align: "center" },
+              ], rowH, margin, maxWidth);
+              y += rowH;
 
               // Inline note
               const noteVal = responses[`${field.id}_notes`];
@@ -222,108 +311,110 @@ export default function JobPdfReport({ jobId, job }: Props) {
                 doc.setFontSize(7);
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(100, 100, 100);
-                doc.text(`Note: ${noteVal}`.substring(0, 100), margin + 4, y);
-                doc.setTextColor(0, 0, 0);
+                doc.text(`Note: ${noteVal}`.substring(0, 100), margin + 4, y + 3);
+                doc.setTextColor(30, 30, 30);
                 doc.setFontSize(8);
                 doc.setFont("helvetica", "normal");
-                y += 3.5;
+                y += 5;
               }
             }
-            y += 2;
           }
-          y += 5;
+          y += 6;
         }
       }
 
-      // --- Field Reports ---
+      // ── FIELD REPORTS ──
       if (reports.length > 0) {
         checkPage(20);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Field Reports", margin, y); y += 7;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
+        y = sectionTitle(doc, "Field Reports", y, margin, maxWidth);
         reports.forEach((r: any) => {
           checkPage(15);
-          doc.setFont("helvetica", "bold");
-          doc.text(r.title || "Untitled Report", margin, y); y += 5;
-          doc.setFont("helvetica", "normal");
+          drawTableRow(doc, y, [
+            { text: r.title || "Untitled Report", x: margin, width: maxWidth, bold: true },
+          ], rowH, margin, maxWidth, [245, 248, 255]);
+          y += rowH;
           if (r.summary) {
-            const lines = doc.splitTextToSize(r.summary, maxWidth);
-            lines.forEach((line: string) => { checkPage(5); doc.text(line, margin, y); y += 4; });
+            const lines = doc.splitTextToSize(r.summary, maxWidth - 4);
+            lines.forEach((line: string) => {
+              checkPage(5);
+              doc.setFontSize(8);
+              doc.setFont("helvetica", "normal");
+              doc.text(line, margin + 2, y + 4);
+              y += 4;
+            });
           }
-          y += 3;
+          y += 4;
         });
-        y += 5;
+        y += 4;
       }
 
-      // --- Engineer Notes ---
+      // ── ENGINEER NOTES ──
       const notes = submissions.filter((s: any) => s.type === "note" && s.content);
       if (notes.length > 0) {
         checkPage(20);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Engineer Notes", margin, y); y += 7;
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
+        y = sectionTitle(doc, "Engineer Notes", y, margin, maxWidth);
+        const noteDateW = maxWidth * 0.2;
+        const noteTextW = maxWidth * 0.8;
+        drawTableRow(doc, y, [
+          { text: "Date", x: margin, width: noteDateW, bold: true },
+          { text: "Note", x: 0, width: noteTextW, bold: true },
+        ], rowH, margin, maxWidth, [235, 240, 248]);
+        y += rowH;
         notes.forEach((n: any) => {
-          checkPage(10);
-          const lines = doc.splitTextToSize(`${new Date(n.created_at).toLocaleDateString("en-GB")}: ${n.content}`, maxWidth);
-          lines.forEach((line: string) => { checkPage(5); doc.text(line, margin, y); y += 4; });
-          y += 3;
+          checkPage(rowH);
+          drawTableRow(doc, y, [
+            { text: new Date(n.created_at).toLocaleDateString("en-GB"), x: margin, width: noteDateW },
+            { text: (n.content || "").substring(0, 80), x: 0, width: noteTextW },
+          ], rowH, margin, maxWidth);
+          y += rowH;
         });
+        y += 6;
       }
 
-      // --- Embedded Photos ---
+      // ── PHOTOS ──
       if (photos.length > 0) {
         checkPage(20);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Photos (${photos.length})`, margin, y); y += 7;
-
+        y = sectionTitle(doc, `Photos (${photos.length})`, y, margin, maxWidth);
         for (const p of photos) {
           const dataUrl = photoImages[p.id];
           if (dataUrl) {
-            checkPage(65);
-            doc.setFontSize(8);
+            checkPage(60);
+            doc.setFontSize(7);
             doc.setFont("helvetica", "normal");
-            doc.text(`${p.file_name || "Photo"} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y);
-            y += 3;
+            doc.setTextColor(100, 100, 100);
+            doc.text(`${p.file_name || "Photo"} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 3);
+            doc.setTextColor(30, 30, 30);
+            y += 5;
             try {
               doc.addImage(dataUrl, "JPEG", margin, y, 60, 45);
               y += 50;
             } catch {
-              doc.text("[Image could not be embedded]", margin, y);
-              y += 5;
+              doc.text("[Image could not be embedded]", margin, y + 3);
+              y += 6;
             }
           } else {
-            checkPage(8);
-            doc.setFontSize(9);
-            doc.setFont("helvetica", "normal");
-            doc.text(`• ${p.file_name} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y);
-            y += 5;
+            checkPage(rowH);
+            doc.setFontSize(8);
+            doc.text(`• ${p.file_name} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 4);
+            y += rowH;
           }
         }
+        y += 4;
       }
 
-      // --- Signatures ---
+      // ── SIGNATURES ──
       if (signatures.length > 0) {
         checkPage(30);
-        doc.setFontSize(13);
-        doc.setFont("helvetica", "bold");
-        doc.text("Sign-Off Signatures", margin, y); y += 7;
-        
+        y = sectionTitle(doc, "Sign-Off Signatures", y, margin, maxWidth);
         for (const sig of signatures) {
-          checkPage(50);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.text(`${sig.signer_name} (${sig.signer_role}) — ${new Date(sig.created_at).toLocaleDateString("en-GB")}`, margin, y);
-          y += 5;
-          
+          checkPage(40);
+          drawTableRow(doc, y, [
+            { text: `${sig.signer_name} (${sig.signer_role})`, x: margin, width: maxWidth * 0.6, bold: true },
+            { text: new Date(sig.created_at).toLocaleDateString("en-GB"), x: 0, width: maxWidth * 0.4, align: "right" },
+          ], rowH, margin, maxWidth, [245, 248, 255]);
+          y += rowH + 2;
           try {
-            const { data: urlData } = await supabase.storage
-              .from("signatures")
-              .createSignedUrl(sig.file_path, 60);
+            const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 60);
             if (urlData?.signedUrl) {
               const response = await fetch(urlData.signedUrl);
               const blob = await response.blob();
@@ -332,18 +423,27 @@ export default function JobPdfReport({ jobId, job }: Props) {
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.readAsDataURL(blob);
               });
-              doc.addImage(dataUrl, "PNG", margin, y, 60, 20);
-              y += 25;
+              doc.addImage(dataUrl, "PNG", margin, y, 55, 18);
+              y += 22;
             }
           } catch {
-            doc.text("[Signature image unavailable]", margin, y);
-            y += 5;
+            doc.text("[Signature unavailable]", margin, y + 3);
+            y += 6;
           }
-          
-          doc.setDrawColor(150);
-          doc.line(margin, y, margin + 80, y);
-          y += 8;
+          y += 4;
         }
+      }
+
+      // ── FOOTER on every page ──
+      const pageCount = doc.getNumberOfPages();
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(150, 150, 150);
+        doc.text(`${job.reference_number}  —  Page ${i} of ${pageCount}`, pageWidth / 2, 290, { align: "center" });
+        doc.setDrawColor(200, 200, 200);
+        doc.line(margin, 286, pageWidth - margin, 286);
       }
 
       doc.save(`${job.reference_number}-report.pdf`);
