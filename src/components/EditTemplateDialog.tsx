@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon } from "lucide-react";
+import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2 } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -365,6 +365,23 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                if (!template) return;
+                setTemplateName(template.name);
+                setTemplateDesc(template.description || "");
+                setFields(template.fields.map(f => ({ ...f })));
+                const b = template.branding || {};
+                setCompanyName(b.company_name || "");
+                setCompanySubtitle(b.company_subtitle || "");
+                setLogoUrl(b.logo_url || "");
+                setFooterText(b.footer_text || "");
+                toast({ title: "Reverted to saved version" });
+              }}
+            >
+              <Undo2 className="h-4 w-4 mr-1" /> Revert
+            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Save Changes

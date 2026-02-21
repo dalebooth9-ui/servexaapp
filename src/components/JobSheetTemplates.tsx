@@ -17,7 +17,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import ImportTemplateDialog from "./ImportTemplateDialog";
@@ -40,6 +40,7 @@ type Template = {
   description: string | null;
   fields: TemplateField[];
   created_at: string;
+  locked?: boolean;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -132,6 +133,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       toast({ title: "Error deleting template", variant: "destructive" });
     }
     setDeletingTemplateId(null);
+  };
+
+  const handleToggleLock = async (tpl: Template) => {
+    const newLocked = !tpl.locked;
+    const { error } = await supabase.from("job_sheet_templates").update({ locked: newLocked } as any).eq("id", tpl.id);
+    if (error) {
+      toast({ title: "Error toggling lock", variant: "destructive" });
+    } else {
+      toast({ title: newLocked ? "Template locked" : "Template unlocked" });
+      fetchData();
+    }
   };
 
   const handleDuplicateTemplate = async (tpl: Template) => {
@@ -522,6 +534,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
                     </Button>
                     {userRole === "admin" && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleLock(tpl)} title={tpl.locked ? "Unlock template" : "Lock template"}>
+                        {tpl.locked ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}
+                      </Button>
+                    )}
+                    {userRole === "admin" && !tpl.locked && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setEditingTemplate(tpl)} title="Edit template">
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -531,7 +548,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    {userRole === "admin" && (
+                    {userRole === "admin" && !tpl.locked && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" disabled={deletingTemplateId === tpl.id}>

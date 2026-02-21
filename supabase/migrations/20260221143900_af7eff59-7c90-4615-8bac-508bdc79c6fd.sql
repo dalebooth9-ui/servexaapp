@@ -1,0 +1,1 @@
+ALTER TABLE public.job_sheet_templates ADD COLUMN locked boolean NOT NULL DEFAULT false;
