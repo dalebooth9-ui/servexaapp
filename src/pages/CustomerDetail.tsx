@@ -328,13 +328,13 @@ export default function CustomerDetail() {
   };
 
   const handleCreateJobFromDrop = async () => {
-    if (!jobDropForm.name.trim() || !jobDropForm.reference_number.trim() || !user || !customer) return;
+    if (!jobDropForm.name.trim() || !user || !customer) return;
     setJobDropSaving(true);
 
     // Create the job
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       name: jobDropForm.name.trim(),
-      reference_number: jobDropForm.reference_number.trim(),
+      ...(jobDropForm.reference_number.trim() ? { reference_number: jobDropForm.reference_number.trim() } : {}),
       customer: customer.name,
       address: customer.address || null,
       priority: jobDropForm.priority,

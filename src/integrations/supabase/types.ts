@@ -1173,7 +1173,7 @@ export type Database = {
           recurrence_interval?: number | null
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
-          reference_number: string
+          reference_number?: string
           result?: string | null
           site_id?: string | null
           status?: string
@@ -1594,6 +1594,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_vfp_reference: { Args: never; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
