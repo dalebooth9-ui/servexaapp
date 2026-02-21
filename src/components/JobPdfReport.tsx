@@ -142,20 +142,21 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
 
       // ── HEADER ──
-      const headerH = 28;
+      const headerH = 32;
       doc.setFillColor(33, 61, 99);
       doc.rect(0, 0, pageWidth, headerH, "F");
 
-      // Logo on the left
-      const logoSize = 20;
-      const logoPad = 4;
+      // Logo on the left — use natural aspect ratio
+      const logoH = 24;
+      const logoW = 24;
+      const logoPad = (headerH - logoH) / 2;
       if (logoDataUrl) {
         try {
-          doc.addImage(logoDataUrl, "JPEG", margin, logoPad, logoSize, logoSize);
+          doc.addImage(logoDataUrl, "JPEG", margin, logoPad, logoW, logoH);
         } catch { /* skip logo */ }
       }
 
-      const textX = logoDataUrl ? margin + logoSize + 4 : margin;
+      const textX = logoDataUrl ? margin + logoW + 4 : margin;
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
       doc.setTextColor(255, 255, 255);
