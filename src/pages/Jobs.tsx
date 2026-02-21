@@ -661,7 +661,7 @@ export default function Jobs() {
           } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
             prefilled[f.id] = "";
           } else if (label.includes("po number") || label.includes("reference")) {
-            prefilled[f.id] = parsed.data.reference_number || "";
+            prefilled[f.id] = newJob.reference_number || parsed.data.reference_number || "";
           } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
             const catLabel = categories.find(c => c.slug === category)?.name || category;
             prefilled[f.id] = catLabel;
@@ -707,7 +707,7 @@ export default function Jobs() {
       category: form.category,
       status: statusOverride || "active",
       created_by: user?.id,
-    } as any).select("id").single();
+    } as any).select("id, reference_number").single();
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
       const message = error.code === "23505"
@@ -740,8 +740,7 @@ export default function Jobs() {
               } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
                 prefilled[f.id] = address;
               } else if (label.includes("po number") || label.includes("reference")) {
-                // Will be filled after trigger assigns reference; use form value or empty
-                prefilled[f.id] = parsed.data.reference_number || "";
+                prefilled[f.id] = createdJob.reference_number || parsed.data.reference_number || "";
               } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
                 const catLabel = categories.find(c => c.slug === category)?.name || category;
                 prefilled[f.id] = catLabel;
