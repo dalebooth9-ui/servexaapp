@@ -6,17 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Search, FolderOpen, GripVertical, FolderPlus, Trash2, Pencil, MessageSquare, Send, Upload, ArrowLeft, Loader2, FileText, Image, X } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { z } from "zod";
@@ -27,11 +24,13 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  useDraggable,
-  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import { getStatusColor, getFileExtension, IMAGE_EXTENSIONS, isImageFile } from "@/lib/fileUtils";
+import { useFileUpload } from "@/hooks/useFileUpload";
+import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
+import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
@@ -40,417 +39,12 @@ const jobSchema = z.object({
   address: z.string().trim().max(500, "Address must be under 500 characters").optional().or(z.literal("")),
 });
 
-function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jobRef: string }) {
-  const [open, setOpen] = useState(false);
-  const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
-  const [selectedEngineer, setSelectedEngineer] = useState("");
-  const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [loadingEngineers, setLoadingEngineers] = useState(false);
-  const { toast } = useToast();
-
-  const loadEngineers = async () => {
-    setLoadingEngineers(true);
-    const { data } = await supabase
-      .from("job_assignments")
-      .select("engineer_id")
-      .eq("job_id", jobId);
-    if (data && data.length > 0) {
-      const ids = data.map((d) => d.engineer_id);
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", ids);
-      setEngineers((profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id })));
-    } else {
-      setEngineers([]);
-    }
-    setLoadingEngineers(false);
-  };
-
-  const handleOpen = () => {
-    setOpen(true);
-    setSelectedEngineer("");
-    setMessage("");
-    loadEngineers();
-  };
-
-  const handleSend = async () => {
-    if (!selectedEngineer || !message.trim()) return;
-    setSending(true);
-    try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-        body: { engineerId: selectedEngineer, message: message.trim(), jobId },
-      });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      toast({ title: "Sent", description: `WhatsApp message sent for ${jobRef}.` });
-      setOpen(false);
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message || "Failed to send message.", variant: "destructive" });
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <>
-      <button onClick={(e) => { e.stopPropagation(); handleOpen(); }} className="text-muted-foreground hover:text-accent transition-colors" title="Send WhatsApp">
-        <MessageSquare className="h-4 w-4" />
-      </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Send className="h-4 w-4 text-accent" />
-              WhatsApp — {jobRef}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            {loadingEngineers ? (
-              <p className="text-sm text-muted-foreground">Loading engineers...</p>
-            ) : engineers.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No engineers assigned to this job.</p>
-            ) : (
-              <>
-                <Select value={selectedEngineer} onValueChange={setSelectedEngineer}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select engineer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {engineers.map((eng) => (
-                      <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Textarea
-                  placeholder="Type your message..."
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  rows={3}
-                  maxLength={1600}
-                />
-                <Button onClick={handleSend} disabled={!selectedEngineer || !message.trim() || sending} className="w-full">
-                  <Send className="mr-2 h-4 w-4" />
-                  {sending ? "Sending..." : "Send WhatsApp Message"}
-                </Button>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
-const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-
-function getFileExt(name: string) {
-  return name.slice(name.lastIndexOf(".")).toLowerCase();
-}
-
-function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSelect, onFileDrop }: { job: any; statusColor: (s: string) => string; isAdmin: boolean; onDelete?: (id: string) => void; selected?: boolean; onSelect?: (id: string, checked: boolean) => void; onFileDrop?: (jobId: string, files: File[]) => void }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id: job.id,
-    data: { job },
-    disabled: !isAdmin,
-  });
-  const [fileOver, setFileOver] = useState(false);
-  const fileCounter = useRef(0);
-
-  const handleNativeDragEnter = (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes("Files")) return;
-    e.preventDefault(); e.stopPropagation();
-    fileCounter.current++;
-    setFileOver(true);
-  };
-  const handleNativeDragLeave = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    fileCounter.current--;
-    if (fileCounter.current === 0) setFileOver(false);
-  };
-  const handleNativeDragOver = (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes("Files")) return;
-    e.preventDefault(); e.stopPropagation();
-  };
-  const handleNativeDrop = (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes("Files")) return;
-    e.preventDefault(); e.stopPropagation();
-    fileCounter.current = 0;
-    setFileOver(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => {
-      const ext = getFileExt(f.name);
-      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
-    });
-    if (files.length > 0 && onFileDrop) onFileDrop(job.id, files);
-  };
-
-  return (
-    <TableRow
-      ref={setNodeRef}
-      className={`${isDragging ? "opacity-30" : ""} ${fileOver ? "ring-2 ring-primary bg-primary/5" : ""}`}
-      onDragEnter={handleNativeDragEnter}
-      onDragLeave={handleNativeDragLeave}
-      onDragOver={handleNativeDragOver}
-      onDrop={handleNativeDrop}
-    >
-      {isAdmin && (
-        <TableCell className="w-8 px-2">
-          <Checkbox
-            checked={selected}
-            onCheckedChange={(checked) => onSelect?.(job.id, !!checked)}
-          />
-        </TableCell>
-      )}
-      {isAdmin && (
-        <TableCell className="w-8 px-2">
-          <button {...listeners} {...attributes} className="cursor-grab touch-none text-muted-foreground hover:text-foreground">
-            <GripVertical className="h-4 w-4" />
-          </button>
-        </TableCell>
-      )}
-      <TableCell>
-        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-primary hover:underline">
-          {job.reference_number}
-        </Link>
-      </TableCell>
-      <TableCell className="font-medium">{job.name}</TableCell>
-      <TableCell>
-        <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
-          {job.priority || "medium"}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        <span className="text-xs capitalize text-muted-foreground">{job.category || "general"}</span>
-      </TableCell>
-      <TableCell>
-        <Badge variant="secondary" className={statusColor(job.status)}>
-          {job.status.replace(/_/g, " ")}
-        </Badge>
-      </TableCell>
-      <TableCell>
-        {job.result === "pass" ? (
-          <Badge className="bg-green-600 text-white text-[10px] uppercase">Pass</Badge>
-        ) : job.result === "fail" ? (
-          <Badge variant="destructive" className="text-[10px] uppercase">Fail</Badge>
-        ) : (
-          <span className="text-xs text-muted-foreground">—</span>
-        )}
-      </TableCell>
-      <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
-      {isAdmin && (
-        <TableCell className="w-20 px-2">
-          <div className="flex items-center gap-2">
-            <WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} />
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button className="text-muted-foreground hover:text-destructive transition-colors" title="Delete job">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete job?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete <strong>{job.reference_number} – {job.name}</strong> and all associated data. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => onDelete?.(job.id)}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </TableCell>
-      )}
-    </TableRow>
-  );
-}
-function DroppableCustomerFolder({
-  customerName,
-  jobs,
-  statusColor,
-  isAdmin,
-  isOver,
-  onDelete,
-  onRename,
-  onDeleteJob,
-  selectedIds,
-  onSelect,
-  onSelectAll,
-  onJobFileDrop,
-  onFolderFileDrop,
-}: {
-  customerName: string;
-  jobs: any[];
-  statusColor: (s: string) => string;
-  isAdmin: boolean;
-  isOver: boolean;
-  onDelete?: () => void;
-  onRename?: () => void;
-  onDeleteJob?: (id: string) => void;
-  selectedIds?: Set<string>;
-  onSelect?: (id: string, checked: boolean) => void;
-  onSelectAll?: (jobIds: string[], checked: boolean) => void;
-  onJobFileDrop?: (jobId: string, files: File[]) => void;
-  onFolderFileDrop?: (customerName: string, files: File[]) => void;
-}) {
-  const { setNodeRef } = useDroppable({
-    id: `folder-${customerName}`,
-    data: { customerName },
-  });
-  const [fileOver, setFileOver] = useState(false);
-  const fileCounter = useRef(0);
-
-  const handleFolderFileDragEnter = (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes("Files")) return;
-    e.preventDefault(); e.stopPropagation();
-    fileCounter.current++;
-    setFileOver(true);
-  };
-  const handleFolderFileDragLeave = (e: React.DragEvent) => {
-    e.preventDefault(); e.stopPropagation();
-    fileCounter.current--;
-    if (fileCounter.current === 0) setFileOver(false);
-  };
-  const handleFolderFileDragOver = (e: React.DragEvent) => {
-    if (!e.dataTransfer.types.includes("Files")) return;
-    e.preventDefault(); e.stopPropagation();
-  };
-  const handleFolderFileDrop = (e: React.DragEvent) => {
-    // Only handle if not already handled by a job row
-    if (!e.dataTransfer.types.includes("Files")) return;
-    e.preventDefault(); e.stopPropagation();
-    fileCounter.current = 0;
-    setFileOver(false);
-    const files = Array.from(e.dataTransfer.files).filter(f => {
-      const ext = getFileExt(f.name);
-      return ALLOWED_EXTENSIONS.includes(ext) && f.size <= 20 * 1024 * 1024;
-    });
-    if (files.length > 0 && onFolderFileDrop) onFolderFileDrop(customerName, files);
-  };
-
-  const folderJobIds = jobs.map((j) => j.id);
-  const allSelected = jobs.length > 0 && folderJobIds.every((id) => selectedIds?.has(id));
-  const someSelected = folderJobIds.some((id) => selectedIds?.has(id));
-
-  return (
-    <AccordionItem
-      ref={setNodeRef}
-      value={customerName}
-      className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""} ${fileOver ? "ring-2 ring-accent/50 bg-accent/5" : ""}`}
-      onDragEnter={handleFolderFileDragEnter}
-      onDragLeave={handleFolderFileDragLeave}
-      onDragOver={handleFolderFileDragOver}
-      onDrop={handleFolderFileDrop}
-    >
-      <AccordionTrigger className="px-4 hover:no-underline">
-        <div className="flex items-center gap-2 flex-1">
-          <FolderOpen className="h-4 w-4 text-primary" />
-          <span className="font-semibold">{customerName}</span>
-          <Badge variant="secondary" className="ml-1 text-xs">{jobs.length}</Badge>
-          {isAdmin && customerName !== "Unassigned" && (
-            <div className="ml-auto mr-2 flex items-center gap-1">
-              {onRename && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onRename(); }}
-                  className="text-muted-foreground hover:text-primary transition-colors"
-                  title="Rename folder"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-              )}
-              {jobs.length === 0 && onDelete && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                  className="text-muted-foreground hover:text-destructive transition-colors"
-                  title="Delete empty folder"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      </AccordionTrigger>
-      <AccordionContent className="px-0 pb-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {isAdmin && (
-                <TableHead className="w-8 px-2">
-                  <Checkbox
-                    checked={allSelected ? true : someSelected ? "indeterminate" : false}
-                    onCheckedChange={(checked) => onSelectAll?.(folderJobIds, !!checked)}
-                  />
-                </TableHead>
-              )}
-              {isAdmin && <TableHead className="w-8 px-2" />}
-              <TableHead>Reference</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Priority</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Result</TableHead>
-              <TableHead className="text-right">Submissions</TableHead>
-              {isAdmin && <TableHead className="w-10 px-2" />}
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {jobs.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={isAdmin ? 10 : 7} className="text-center text-muted-foreground py-4">
-                  No jobs in this folder
-                </TableCell>
-              </TableRow>
-            ) : (
-              jobs.map((job: any) => (
-                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} selected={selectedIds?.has(job.id)} onSelect={onSelect} onFileDrop={onJobFileDrop} />
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </AccordionContent>
-    </AccordionItem>
-  );
-}
-function NewCustomerDropZone({ isOver, isDragging }: { isOver: boolean; isDragging: boolean }) {
-  const { setNodeRef } = useDroppable({
-    id: "folder-__new_customer__",
-    data: { customerName: "__new_customer__" },
-  });
-
-  return (
-    <div
-      ref={setNodeRef}
-      className={`mt-3 rounded-lg border-2 border-dashed px-4 py-6 text-center transition-all ${
-        !isDragging
-          ? "hidden"
-          : isOver
-            ? "border-primary bg-primary/10 text-primary"
-            : "border-muted-foreground/30 text-muted-foreground"
-      }`}
-    >
-      <FolderPlus className="mx-auto mb-2 h-6 w-6" />
-      <p className="text-sm font-medium">Drop here to create a new customer folder</p>
-    </div>
-  );
-}
-
 export default function Jobs() {
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const { categories } = useJobCategories();
+  const { uploadFilesAsSubmissions } = useFileUpload();
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -481,6 +75,10 @@ export default function Jobs() {
   const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
+
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [priorityFilter, setPriorityFilter] = useState("all");
+  const [categoryFilter, setCategoryFilter] = useState("all");
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -546,7 +144,6 @@ export default function Jobs() {
     setBulkDeleteOpen(false);
   };
 
-  // Handle files dropped directly onto a job row — show choice dialog
   const handleJobFileDrop = (jobId: string, files: File[]) => {
     const targetJob = jobs.find((j) => j.id === jobId);
     setFileDropTargetJob(targetJob || null);
@@ -558,30 +155,11 @@ export default function Jobs() {
     if (!user || !fileDropTargetJob || fileDropPendingFiles.length === 0) return;
     setFileDropChoiceOpen(false);
     setFileDropUploading(true);
-    let uploaded = 0;
-    for (const file of fileDropPendingFiles) {
-      const ext = getFileExt(file.name);
-      const isImage = IMAGE_EXTENSIONS.includes(ext);
-      const path = `${fileDropTargetJob.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(path, file);
-      if (uploadError) { console.error("Upload error:", uploadError); continue; }
-      const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(path);
-      await supabase.from("submissions").insert({
-        job_id: fileDropTargetJob.id,
-        engineer_id: user.id,
-        type: isImage ? "photo" : "document",
-        file_url: urlData.publicUrl,
-        file_name: file.name,
-      } as any);
-      uploaded++;
-    }
+    const uploaded = await uploadFilesAsSubmissions(fileDropPendingFiles, fileDropTargetJob.id, user.id);
     setFileDropUploading(false);
     setFileDropPendingFiles([]);
     setFileDropTargetJob(null);
-    if (uploaded > 0) {
-      toast({ title: "Files uploaded", description: `${uploaded} file(s) added to ${fileDropTargetJob.reference_number}.` });
-      fetchJobs();
-    }
+    if (uploaded > 0) fetchJobs();
   };
 
   const handleCreateSiblingJob = () => {
@@ -591,7 +169,6 @@ export default function Jobs() {
     setFileDropDialogOpen(true);
   };
 
-  // Handle files dropped onto a customer folder — open dialog to create new job with files
   const handleFolderFileDrop = (customerName: string, files: File[]) => {
     setFileDropCustomer(customerName === "Unassigned" ? "" : customerName);
     setFileDropPendingFiles(files);
@@ -610,7 +187,6 @@ export default function Jobs() {
     }
 
     setFileDropUploading(true);
-    // Create the job
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
@@ -627,24 +203,9 @@ export default function Jobs() {
       return;
     }
 
-    // Upload files as submissions
-    for (const file of fileDropPendingFiles) {
-      const ext = getFileExt(file.name);
-      const isImage = IMAGE_EXTENSIONS.includes(ext);
-      const path = `${newJob.id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(path, file);
-      if (uploadError) { console.error("Upload error:", uploadError); continue; }
-      const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(path);
-      await supabase.from("submissions").insert({
-        job_id: newJob.id,
-        engineer_id: user.id,
-        type: isImage ? "photo" : "document",
-        file_url: urlData.publicUrl,
-        file_name: file.name,
-      } as any);
-    }
+    await uploadFilesAsSubmissions(fileDropPendingFiles, newJob.id, user.id);
 
-    // Auto-attach matching job sheet template with pre-filled data
+    // Auto-attach matching job sheet template
     const { data: matchingTpls } = await supabase
       .from("job_sheet_templates")
       .select("id, fields")
@@ -721,7 +282,6 @@ export default function Jobs() {
       fetchJobs();
 
       if (createdJob) {
-        // Auto-attach matching job sheet template with pre-filled data
         const { data: matchingTemplates } = await supabase
           .from("job_sheet_templates")
           .select("id, fields")
@@ -751,14 +311,13 @@ export default function Jobs() {
             await supabase.from("job_sheet_responses").insert({
               job_id: createdJob.id,
               template_id: tpl.id,
-              submitted_by: user.id,
+              submitted_by: user!.id,
               status: "draft",
               responses: prefilled,
             } as any);
           }
         }
 
-        // Send job_booked notification to customer if they have an email
         if (parsed.data.customer) {
           supabase.functions.invoke("notify-customer", {
             body: { job_id: createdJob.id, notification_type: "job_booked" },
@@ -804,16 +363,10 @@ export default function Jobs() {
 
   const reassignJob = async (draggedJob: any, targetFolder: string) => {
     const newCustomer = targetFolder === "Unassigned" ? null : targetFolder;
-
     setJobs((prev) =>
       prev.map((j) => (j.id === draggedJob.id ? { ...j, customer: newCustomer } : j))
     );
-
-    const { error } = await supabase
-      .from("jobs")
-      .update({ customer: newCustomer })
-      .eq("id", draggedJob.id);
-
+    const { error } = await supabase.from("jobs").update({ customer: newCustomer }).eq("id", draggedJob.id);
     if (error) {
       toast({ title: "Error", description: "Failed to reassign job.", variant: "destructive" });
       fetchJobs();
@@ -853,69 +406,35 @@ export default function Jobs() {
       setRenameDialogOpen(false);
       return;
     }
-
-    // Update all jobs with this customer name in the DB
-    const jobsInFolder = jobs.filter((j) => (j.customer?.trim() || "Unassigned") === renamingFolder);
-    
-    setJobs((prev) =>
-      prev.map((j) => (j.customer?.trim() || "Unassigned") === renamingFolder ? { ...j, customer: trimmed } : j)
-    );
-    setKnownCustomers((prev) => {
-      const updated = new Set(prev);
-      updated.delete(renamingFolder);
-      updated.add(trimmed);
-      return updated;
-    });
-    setOpenFolders((prev) => prev.map((f) => f === renamingFolder ? trimmed : f));
-
-    const ids = jobsInFolder.map((j) => j.id);
-    if (ids.length > 0) {
-      const { error } = await supabase
-        .from("jobs")
-        .update({ customer: trimmed })
-        .in("id", ids);
-
-      if (error) {
-        toast({ title: "Error", description: "Failed to rename folder.", variant: "destructive" });
-        fetchJobs();
-      } else {
-        toast({ title: "Folder renamed", description: `"${renamingFolder}" → "${trimmed}"` });
-      }
+    const { error } = await supabase.from("jobs").update({ customer: trimmed }).eq("customer", renamingFolder);
+    if (error) {
+      toast({ title: "Error", description: "Failed to rename folder.", variant: "destructive" });
     } else {
+      setJobs((prev) => prev.map((j) => j.customer === renamingFolder ? { ...j, customer: trimmed } : j));
+      setKnownCustomers((prev) => {
+        const updated = new Set(prev);
+        updated.delete(renamingFolder);
+        updated.add(trimmed);
+        return updated;
+      });
+      setOpenFolders((prev) => prev.map((f) => f === renamingFolder ? trimmed : f));
       toast({ title: "Folder renamed", description: `"${renamingFolder}" → "${trimmed}"` });
     }
-
     setRenameDialogOpen(false);
   };
 
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-
   const filtered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
-    if (priorityFilter !== "all" && (j.priority || "medium") !== priorityFilter) return false;
-    if (categoryFilter !== "all" && (j.category || "general") !== categoryFilter) return false;
+    if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
+    if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
+    if (!search) return true;
+    const s = search.toLowerCase();
     return (
-      j.name.toLowerCase().includes(search.toLowerCase()) ||
-      j.reference_number.toLowerCase().includes(search.toLowerCase()) ||
-      (j.customer || "").toLowerCase().includes(search.toLowerCase())
+      j.name.toLowerCase().includes(s) ||
+      j.reference_number.toLowerCase().includes(s) ||
+      (j.customer || "").toLowerCase().includes(s)
     );
   });
-
-  const statusColor = (s: string) => {
-    const colors: Record<string, string> = {
-      active: "bg-accent/10 text-accent",
-      in_progress: "bg-indigo-500/10 text-indigo-600",
-      awaiting_parts: "bg-amber-500/10 text-amber-600",
-      on_hold: "bg-orange-500/10 text-orange-600",
-      requires_revisit: "bg-purple-500/10 text-purple-600",
-      scheduled: "bg-cyan-500/10 text-cyan-600",
-      completed: "bg-primary/10 text-primary",
-      archived: "bg-muted text-muted-foreground",
-    };
-    return colors[s] || "bg-muted text-muted-foreground";
-  };
 
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
     const key = job.customer?.trim() || "Unassigned";
@@ -924,13 +443,11 @@ export default function Jobs() {
     return acc;
   }, {});
 
-  // Keep the source folder visible during drag even if it becomes empty
   if (activeJob) {
     const sourceFolder = activeJob.customer?.trim() || "Unassigned";
     if (!grouped[sourceFolder]) grouped[sourceFolder] = [];
   }
 
-  // Keep known customer folders visible even if empty
   for (const name of knownCustomers) {
     if (!grouped[name]) grouped[name] = [];
   }
@@ -941,7 +458,6 @@ export default function Jobs() {
     return a.localeCompare(b);
   });
 
-  // Track known customers and keep all folders open by default
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setKnownCustomers((prev) => {
@@ -1057,9 +573,7 @@ export default function Jobs() {
                   <div className="space-y-2">
                     <Label>Priority</Label>
                     <Select value={form.priority} onValueChange={(v) => setForm({ ...form, priority: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="high">High</SelectItem>
                         <SelectItem value="medium">Medium</SelectItem>
@@ -1070,9 +584,7 @@ export default function Jobs() {
                   <div className="space-y-2">
                     <Label>Category</Label>
                     <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v })}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {categories.map((c) => (
                           <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
@@ -1152,9 +664,7 @@ export default function Jobs() {
       {isAdmin && selectedJobIds.size > 0 && (
         <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
           <span className="text-sm font-medium">{selectedJobIds.size} job(s) selected</span>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds(new Set())}>
-            Clear
-          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds(new Set())}>Clear</Button>
           <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm">
@@ -1170,10 +680,7 @@ export default function Jobs() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={handleBulkDelete}
-                >
+                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete}>
                   Delete {selectedJobIds.size} Job(s)
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -1184,9 +691,7 @@ export default function Jobs() {
 
       {filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">
-            No jobs found.
-          </CardContent>
+          <CardContent className="py-8 text-center text-muted-foreground">No jobs found.</CardContent>
         </Card>
       ) : (
         <DndContext
@@ -1202,7 +707,7 @@ export default function Jobs() {
                 key={customerName}
                 customerName={customerName}
                 jobs={grouped[customerName] || []}
-                statusColor={statusColor}
+                statusColor={getStatusColor}
                 isAdmin={isAdmin}
                 isOver={overId === `folder-${customerName}`}
                 onDelete={() => deleteCustomerFolder(customerName)}
@@ -1239,20 +744,12 @@ export default function Jobs() {
           <form onSubmit={(e) => { e.preventDefault(); handleNewCustomerConfirm(); }} className="space-y-4">
             <div className="space-y-2">
               <Label>Customer Name</Label>
-              <Input
-                value={newCustomerName}
-                onChange={(e) => setNewCustomerName(e.target.value)}
-                placeholder="Enter new customer name"
-                autoFocus
-                required
-              />
+              <Input value={newCustomerName} onChange={(e) => setNewCustomerName(e.target.value)} placeholder="Enter new customer name" autoFocus required />
             </div>
             <p className="text-sm text-muted-foreground">
               <span className="font-medium">{pendingNewCustomerJob?.reference_number}</span> — {pendingNewCustomerJob?.name} will be moved to this folder.
             </p>
-            <Button type="submit" className="w-full" disabled={!newCustomerName.trim()}>
-              Create & Move
-            </Button>
+            <Button type="submit" className="w-full" disabled={!newCustomerName.trim()}>Create & Move</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -1263,16 +760,9 @@ export default function Jobs() {
           <form onSubmit={(e) => { e.preventDefault(); handleRenameConfirm(); }} className="space-y-4">
             <div className="space-y-2">
               <Label>New Name</Label>
-              <Input
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                autoFocus
-                required
-              />
+              <Input value={renameValue} onChange={(e) => setRenameValue(e.target.value)} autoFocus required />
             </div>
-            <Button type="submit" className="w-full" disabled={!renameValue.trim() || renameValue.trim() === renamingFolder}>
-              Rename
-            </Button>
+            <Button type="submit" className="w-full" disabled={!renameValue.trim() || renameValue.trim() === renamingFolder}>Rename</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -1287,7 +777,7 @@ export default function Jobs() {
             {fileDropPendingFiles.map((file, i) => (
               <div key={`${file.name}-${i}`} className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted">
                 <div className="flex items-center gap-2 truncate">
-                  {IMAGE_EXTENSIONS.includes(getFileExt(file.name))
+                  {isImageFile(file.name)
                     ? <Image className="h-3.5 w-3.5 shrink-0 text-accent" />
                     : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                   <span className="truncate">{file.name}</span>
@@ -1334,7 +824,7 @@ export default function Jobs() {
                 {fileDropPendingFiles.map((file, i) => (
                   <div key={`${file.name}-${i}`} className="flex items-center justify-between rounded px-2 py-1 text-sm hover:bg-muted">
                     <div className="flex items-center gap-2 truncate">
-                      {IMAGE_EXTENSIONS.includes(getFileExt(file.name))
+                      {isImageFile(file.name)
                         ? <Image className="h-3.5 w-3.5 shrink-0 text-accent" />
                         : <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
                       <span className="truncate">{file.name}</span>
