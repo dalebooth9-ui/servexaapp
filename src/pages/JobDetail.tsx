@@ -398,7 +398,7 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <JobSheet jobId={id!} jobData={job} />
+          <JobSheet jobId={id!} job={job} />
         </CollapsibleContent>
       </Collapsible>
 
@@ -408,8 +408,8 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3 space-y-4">
-          <FileDropZone onFilesDropped={handleBulkUpload} uploading={uploading} />
-          <AddNoteInput jobId={id!} userId={user?.id} onNoteAdded={fetchData} />
+           <FileDropZone onFilesSelected={handleBulkUpload} uploading={uploading} />
+           <AddNoteInput jobId={id!} userId={user?.id} onAdded={fetchData} />
 
           <div className="flex items-center justify-between">
             <SubmissionFilters filters={filters} onChange={setFilters} engineers={engineers} />
@@ -421,9 +421,8 @@ export default function JobDetail() {
           </div>
 
           <SubmissionList
-            submissions={filtered}
-            engineers={engineers}
-            userRole={userRole}
+            items={filtered}
+            isAdmin={userRole === "admin"}
             onDelete={handleDeleteSubmission}
           />
         </CollapsibleContent>
