@@ -1145,6 +1145,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           customer: string | null
+          customer_id: string | null
           fault_code_id: string | null
           id: string
           job_type: string
@@ -1167,6 +1168,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer?: string | null
+          customer_id?: string | null
           fault_code_id?: string | null
           id?: string
           job_type?: string
@@ -1189,6 +1191,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           customer?: string | null
+          customer_id?: string | null
           fault_code_id?: string | null
           id?: string
           job_type?: string
@@ -1210,6 +1213,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
           {

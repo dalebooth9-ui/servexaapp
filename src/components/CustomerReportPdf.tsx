@@ -130,7 +130,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       doc.setFont("helvetica", "normal");
       doc.text(job.reference_number || "", col1 + 22, y + 6);
       doc.text(job.name || "", col1 + 10, y + 12);
-      doc.text(job.customer || "N/A", col1 + 22, y + 18);
+      doc.text(job.customers?.name || job.customer || "N/A", col1 + 22, y + 18);
       const addrLines = doc.splitTextToSize(job.address || "N/A", maxWidth / 2 - 30);
       doc.text(addrLines[0] || "", col1 + 18, y + 24);
       doc.text(job.status || "", col2 + 14, y + 6);

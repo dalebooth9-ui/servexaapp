@@ -110,7 +110,7 @@ export default function WeeklyPlanner() {
     setLoading(true);
     const [engRes, jobsRes, schedRes, sitesRes] = await Promise.all([
       supabase.from("profiles").select("user_id, full_name"),
-      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, address, site_id, sites(name, address, postcode)").eq("status", "active"),
+      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, sites(name, address, postcode), customers(id, name)").eq("status", "active"),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);
@@ -321,7 +321,7 @@ export default function WeeklyPlanner() {
       const job = getJob(entry.job_id);
       const eng = getEng(entry.engineer_id);
       const row = [
-        format(new Date(entry.schedule_date), "EEE dd/MM"), eng?.full_name || "", job?.customer || "",
+        format(new Date(entry.schedule_date), "EEE dd/MM"), eng?.full_name || "", (job as any)?.customers?.name || job?.customer || "",
         job?.site?.address || job?.address || "", job?.site?.postcode || extractPostcode(job?.address || null),
         job ? `${job.reference_number} - ${job.name}` : "", entry.notes || "",
       ];

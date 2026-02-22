@@ -33,7 +33,8 @@ export default function CloneJobDialog({ sourceJob }: { sourceJob: any }) {
     const { data: newJob, error } = await supabase.from("jobs").insert({
       name: form.name.trim(),
       ...(form.reference_number.trim() ? { reference_number: form.reference_number.trim() } : {}),
-      customer: sourceJob.customer || null,
+      customer_id: sourceJob.customer_id || null,
+      customer: sourceJob.customers?.name || sourceJob.customer || null,
       address: sourceJob.address || null,
       priority: sourceJob.priority || "medium",
       category: sourceJob.category || "general",

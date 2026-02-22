@@ -32,6 +32,11 @@ import AddNoteInput from "@/components/jobs/AddNoteInput";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 
+// Helper to get customer name from job with joined customers
+function getCustomerName(job: any): string | null {
+  return job?.customers?.name || job?.customer || null;
+}
+
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -50,14 +55,18 @@ export default function JobDetail() {
   const fetchData = async () => {
     if (!id) return;
     const [jobRes, subsRes] = await Promise.all([
-      supabase.from("jobs").select("*").eq("id", id).single(),
+      supabase.from("jobs").select("*, customers(id, name, email)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
     ]);
     setJob(jobRes.data);
     const subs = subsRes.data || [];
     setSubmissions(subs);
 
-    if (jobRes.data?.customer) {
+    // Get customer email from joined data
+    if (jobRes.data?.customers?.email) {
+      setCustomerEmail(jobRes.data.customers.email);
+    } else if (jobRes.data?.customer) {
+      // Fallback: lookup by name for legacy data
       const { data: custData } = await supabase
         .from("customers")
         .select("email")
@@ -179,6 +188,7 @@ export default function JobDetail() {
   if (!job) return <div className="flex h-64 items-center justify-center text-muted-foreground">Job not found.</div>;
 
   const fileCount = filtered.filter((s) => s.file_url).length;
+  const custName = getCustomerName(job);
 
   return (
     <div>
@@ -195,9 +205,9 @@ export default function JobDetail() {
             <BreadcrumbLink asChild><Link to="/jobs">Jobs</Link></BreadcrumbLink>
           </BreadcrumbItem>
           <BreadcrumbSeparator />
-          {job.customer && (
+          {custName && (
             <>
-              <BreadcrumbItem><BreadcrumbPage>{job.customer}</BreadcrumbPage></BreadcrumbItem>
+              <BreadcrumbItem><BreadcrumbPage>{custName}</BreadcrumbPage></BreadcrumbItem>
               <BreadcrumbSeparator />
             </>
           )}
@@ -212,7 +222,7 @@ export default function JobDetail() {
           <h1 className="text-2xl font-bold">{job.name}</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono">{job.reference_number}</span>
-            {job.customer && <> • {job.customer}</>}
+            {custName && <> • {custName}</>}
             {job.address && <> • {job.address}</>}
           </p>
           {userRole === "admin" ? (
@@ -276,7 +286,7 @@ export default function JobDetail() {
             <CloneJobDialog sourceJob={job} />
             <CreateInvoiceDialog
               jobId={id!}
-              customerName={job.customer || ""}
+              customerName={custName || ""}
               customerEmail={customerEmail}
               customerAddress={job.address || ""}
               jobName={job.name}
@@ -290,7 +300,7 @@ export default function JobDetail() {
             {(job.status === "completed" || job.status === "archived") && (
               <CreateInvoiceDialog
                 jobId={id!}
-                customerName={job.customer || ""}
+                customerName={custName || ""}
                 customerEmail={customerEmail}
                 customerAddress={job.address || ""}
                 jobName={job.name}
@@ -377,18 +387,18 @@ export default function JobDetail() {
           <SignatureCapture jobId={id!} />
           <div className="border-t pt-3">
             <p className="text-sm text-muted-foreground mb-2">Need the customer to sign off remotely?</p>
-            <CustomerSignOffLink jobId={id!} customerName={job.customer || ""} />
+            <CustomerSignOffLink jobId={id!} customerName={custName || ""} />
           </div>
         </CollapsibleContent>
       </Collapsible>
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Job Sheet & Activity
+          Job Sheets
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <JobSheet jobId={id!} job={job} />
+          <JobSheet jobId={id!} jobData={job} />
         </CollapsibleContent>
       </Collapsible>
 
@@ -397,79 +407,25 @@ export default function JobDetail() {
           Submissions ({filtered.length})
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <AddNoteInput jobId={id!} userId={user?.id} onAdded={fetchData} />
-          <div className="mb-4">
-            <FileDropZone
-              onFilesSelected={handleBulkUpload}
-              uploading={uploading}
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.gif"
-              allowedExtensions={ALLOWED_EXTENSIONS}
-            />
+        <CollapsibleContent className="pt-3 space-y-4">
+          <FileDropZone onFilesDropped={handleBulkUpload} uploading={uploading} />
+          <AddNoteInput jobId={id!} userId={user?.id} onNoteAdded={fetchData} />
+
+          <div className="flex items-center justify-between">
+            <SubmissionFilters filters={filters} onChange={setFilters} engineers={engineers} />
+            {fileCount > 0 && (
+              <Button size="sm" variant="outline" onClick={handleBatchDownload} disabled={downloading}>
+                <Download className="mr-1.5 h-4 w-4" /> {downloading ? "Downloading..." : `Download ${fileCount} file(s)`}
+              </Button>
+            )}
           </div>
 
-          {(fileCount > 0 || filtered.length > 0) && (
-            <div className="mb-4 flex justify-end gap-2">
-              {fileCount > 0 && (
-                <Button variant="outline" size="sm" onClick={handleBatchDownload} disabled={downloading}>
-                  <Download className="mr-1.5 h-4 w-4" />
-                  {downloading ? "Downloading..." : `Download All ${fileCount} file(s)`}
-                </Button>
-              )}
-              {userRole === "admin" && filtered.length > 0 && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="destructive" size="sm">
-                      <Trash2 className="mr-1.5 h-4 w-4" /> Delete All ({filtered.length})
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete all submissions?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This will permanently delete {filtered.length} submission(s) and their associated files. This cannot be undone.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={async () => {
-                          const toDelete = [...filtered];
-                          const paths = toDelete
-                            .filter((s) => s.file_url)
-                            .map((s) => extractStoragePath(s.file_url))
-                            .filter(Boolean) as string[];
-                          if (paths.length > 0) {
-                            await supabase.storage.from("submissions").remove(paths);
-                          }
-                          const ids = toDelete.map((s) => s.id);
-                          const { error } = await supabase.from("submissions").delete().in("id", ids);
-                          if (error) {
-                            toast({ title: "Error", description: "Failed to delete submissions.", variant: "destructive" });
-                          } else {
-                            toast({ title: "Deleted", description: `${toDelete.length} submission(s) removed.` });
-                            setSubmissions((prev) => prev.filter((s) => !ids.includes(s.id)));
-                          }
-                        }}
-                      >
-                        Delete All
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          )}
-
-          <SubmissionFilters filters={filters} onChange={setFilters} engineers={userRole === "admin" ? engineers : []} />
-
-          {(() => {
-            const locations = filtered.filter((s) => s.type === "location" && s.latitude != null && s.longitude != null);
-            return locations.length > 0 ? <LocationMap locations={locations} /> : null;
-          })()}
-
-          <SubmissionList items={filtered} isAdmin={userRole === "admin"} onDelete={handleDeleteSubmission} currentUserId={user?.id} onUpdate={fetchData} />
+          <SubmissionList
+            submissions={filtered}
+            engineers={engineers}
+            userRole={userRole}
+            onDelete={handleDeleteSubmission}
+          />
         </CollapsibleContent>
       </Collapsible>
     </div>
