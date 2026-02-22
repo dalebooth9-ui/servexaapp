@@ -424,6 +424,9 @@ export default function JobDetail() {
             items={filtered}
             isAdmin={userRole === "admin"}
             onDelete={handleDeleteSubmission}
+            engineers={engineers}
+            currentUserId={user?.id}
+            onUpdate={fetchData}
           />
         </CollapsibleContent>
       </Collapsible>

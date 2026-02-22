@@ -35,9 +35,14 @@ interface SubmissionListProps {
   onDelete: (sub: any) => Promise<void>;
   currentUserId?: string;
   onUpdate?: () => void;
+  engineers?: { id: string; name: string }[];
 }
 
-export default function SubmissionList({ items, isAdmin, onDelete, currentUserId, onUpdate }: SubmissionListProps) {
+export default function SubmissionList({ items, isAdmin, onDelete, currentUserId, onUpdate, engineers = [] }: SubmissionListProps) {
+  const getEngineerName = (engineerId: string) => {
+    const eng = engineers.find((e) => e.id === engineerId);
+    return eng?.name || "Unknown";
+  };
   const { toast } = useToast();
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [previewSub, setPreviewSub] = useState<any>(null);
@@ -256,6 +261,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
                 <TableHead className="w-10 px-2"></TableHead>
                 <TableHead>File</TableHead>
                 <TableHead className="hidden sm:table-cell">Type</TableHead>
+                <TableHead className="hidden md:table-cell">Engineer</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="w-[120px]"></TableHead>
               </TableRow>
@@ -320,6 +326,9 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <Badge variant="outline" className="text-[10px] uppercase">{sub.type}</Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground truncate max-w-[150px]">
+                      {getEngineerName(sub.engineer_id)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
                       {new Date(sub.created_at).toLocaleDateString()}
