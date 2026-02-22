@@ -91,7 +91,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (selectedDocs.has("quote")) items.push("our quote for further works");
     if (selectedDocs.has("invoice")) items.push("your invoice");
     const itemStr = items.length > 0 ? items.join(", ") : "the documents";
-    return `Dear ${job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`;
+    return `Dear ${job.customers?.name || job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`;
   };
 
   // Update subject/message when selections change
@@ -122,7 +122,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (next.has("quote")) items.push("our quote for further works");
     if (next.has("invoice")) items.push("your invoice");
     const itemStr = items.length > 0 ? items.join(", ") : "the documents";
-    setMessage(`Dear ${job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
+    setMessage(`Dear ${job.customers?.name || job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
   };
 
   const handleSend = async () => {
@@ -146,7 +146,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       const { error } = await supabase.functions.invoke("send-customer-email", {
         body: {
           customerEmail: email.trim(),
-          customerName: job.customer || "Customer",
+          customerName: job.customers?.name || job.customer || "Customer",
           subject: subject.trim(),
           htmlBody: message.replace(/\n/g, "<br/>"),
           attachments,

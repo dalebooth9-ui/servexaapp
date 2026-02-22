@@ -35,9 +35,14 @@ import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
   reference_number: z.string().trim().max(50, "Reference number must be under 50 characters").regex(/^[A-Za-z0-9\-_]*$/, "Reference number can only contain letters, numbers, hyphens and underscores").optional().or(z.literal("")),
-  customer: z.string().trim().max(200, "Customer name must be under 200 characters").optional().or(z.literal("")),
+  customer_id: z.string().optional().or(z.literal("")),
   address: z.string().trim().max(500, "Address must be under 500 characters").optional().or(z.literal("")),
 });
+
+// Helper to get customer name from job object
+function getCustomerName(job: any): string | null {
+  return job.customers?.name || job.customer || null;
+}
 
 export default function Jobs() {
   const navigate = useNavigate();
@@ -48,7 +53,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
+  const [form, setForm] = useState({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general" });
   const [loading, setLoading] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
@@ -70,7 +75,8 @@ export default function Jobs() {
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
   const [fileDropChoiceOpen, setFileDropChoiceOpen] = useState(false);
   const [fileDropTargetJob, setFileDropTargetJob] = useState<any>(null);
-  const [fileDropCustomer, setFileDropCustomer] = useState("");
+  const [fileDropCustomerId, setFileDropCustomerId] = useState("");
+  const [fileDropCustomerName, setFileDropCustomerName] = useState("");
   const [fileDropPendingFiles, setFileDropPendingFiles] = useState<File[]>([]);
   const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const fileDragCounter = useRef(0);
@@ -95,7 +101,7 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const { data } = await supabase.from("jobs").select("*, submissions(id)").order("created_at", { ascending: false });
+    const { data } = await supabase.from("jobs").select("*, submissions(id), customers(id, name, email)").order("created_at", { ascending: false });
     setJobs(data || []);
   };
 
@@ -164,13 +170,23 @@ export default function Jobs() {
 
   const handleCreateSiblingJob = () => {
     setFileDropChoiceOpen(false);
-    setFileDropCustomer(fileDropTargetJob?.customer || "");
+    const custName = getCustomerName(fileDropTargetJob);
+    setFileDropCustomerId(fileDropTargetJob?.customer_id || "");
+    setFileDropCustomerName(custName || "");
     setFileDropNewJobForm({ name: fileDropPendingFiles[0]?.name.replace(/\.[^.]+$/, "") || "", reference_number: "", priority: fileDropTargetJob?.priority || "medium", category: fileDropTargetJob?.category || "general" });
     setFileDropDialogOpen(true);
   };
 
   const handleFolderFileDrop = (customerName: string, files: File[]) => {
-    setFileDropCustomer(customerName === "Unassigned" ? "" : customerName);
+    if (customerName === "Unassigned") {
+      setFileDropCustomerId("");
+      setFileDropCustomerName("");
+    } else {
+      // Find customer_id from name
+      const cust = customers.find((c) => c.name === customerName);
+      setFileDropCustomerId(cust?.id || "");
+      setFileDropCustomerName(customerName);
+    }
     setFileDropPendingFiles(files);
     setFileDropNewJobForm({ name: files[0]?.name.replace(/\.[^.]+$/, "") || "", reference_number: "", priority: "medium", category: "general" });
     setFileDropDialogOpen(true);
@@ -180,7 +196,7 @@ export default function Jobs() {
     e.preventDefault();
     if (!user || fileDropPendingFiles.length === 0) return;
 
-    const parsed = jobSchema.safeParse({ ...fileDropNewJobForm, customer: fileDropCustomer });
+    const parsed = jobSchema.safeParse({ ...fileDropNewJobForm, customer_id: fileDropCustomerId });
     if (!parsed.success) {
       toast({ title: "Validation error", description: parsed.error.errors[0]?.message || "Invalid input", variant: "destructive" });
       return;
@@ -190,7 +206,8 @@ export default function Jobs() {
     const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
-      customer: fileDropCustomer || null,
+      customer_id: fileDropCustomerId || null,
+      customer: fileDropCustomerName || null,
       priority: fileDropNewJobForm.priority,
       category: fileDropNewJobForm.category,
       created_by: user.id,
@@ -218,7 +235,7 @@ export default function Jobs() {
         fields.forEach((f: any) => {
           const label = (f.label || "").toLowerCase();
           if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) {
-            prefilled[f.id] = fileDropCustomer;
+            prefilled[f.id] = fileDropCustomerName;
           } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
             prefilled[f.id] = "";
           } else if (label.includes("po number") || label.includes("reference")) {
@@ -259,11 +276,16 @@ export default function Jobs() {
       return;
     }
 
+    // Resolve customer name for backward compat
+    const selectedCustomer = customers.find((c) => c.id === form.customer_id);
+    const customerName = selectedCustomer?.name || null;
+
     const { data: createdJob, error } = await supabase.from("jobs").insert({
       name: parsed.data.name,
       ...(parsed.data.reference_number ? { reference_number: parsed.data.reference_number } : {}),
-      customer: parsed.data.customer || null,
-      address: parsed.data.address || null,
+      customer_id: form.customer_id || null,
+      customer: customerName,
+      address: form.address || null,
       priority: form.priority,
       category: form.category,
       status: statusOverride || "active",
@@ -277,7 +299,7 @@ export default function Jobs() {
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
-      setForm({ name: "", reference_number: "", customer: "", address: "", priority: "medium", category: "general" });
+      setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general" });
       setDialogOpen(false);
       fetchJobs();
 
@@ -290,13 +312,12 @@ export default function Jobs() {
           for (const tpl of matchingTemplates) {
             const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
             const prefilled: Record<string, any> = {};
-            const customerName = parsed.data.customer || "";
-            const address = parsed.data.address || "";
+            const address = form.address || "";
             const category = form.category || "";
             fields.forEach((f: any) => {
               const label = (f.label || "").toLowerCase();
               if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) {
-                prefilled[f.id] = customerName;
+                prefilled[f.id] = customerName || "";
               } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
                 prefilled[f.id] = address;
               } else if (label.includes("po number") || label.includes("reference")) {
@@ -318,7 +339,7 @@ export default function Jobs() {
           }
         }
 
-        if (parsed.data.customer) {
+        if (form.customer_id) {
           supabase.functions.invoke("notify-customer", {
             body: { job_id: createdJob.id, notification_type: "job_booked" },
           });
@@ -355,23 +376,38 @@ export default function Jobs() {
       return;
     }
 
-    const currentClient = draggedJob.customer?.trim() || "Unassigned";
+    const currentClient = getCustomerName(draggedJob)?.trim() || "Unassigned";
     if (currentClient === targetFolder) return;
 
     await reassignJob(draggedJob, targetFolder);
   };
 
   const reassignJob = async (draggedJob: any, targetFolder: string) => {
-    const newCustomer = targetFolder === "Unassigned" ? null : targetFolder;
-    setJobs((prev) =>
-      prev.map((j) => (j.id === draggedJob.id ? { ...j, customer: newCustomer } : j))
-    );
-    const { error } = await supabase.from("jobs").update({ customer: newCustomer }).eq("id", draggedJob.id);
-    if (error) {
-      toast({ title: "Error", description: "Failed to reassign job.", variant: "destructive" });
-      fetchJobs();
+    if (targetFolder === "Unassigned") {
+      setJobs((prev) =>
+        prev.map((j) => (j.id === draggedJob.id ? { ...j, customer: null, customer_id: null, customers: null } : j))
+      );
+      const { error } = await supabase.from("jobs").update({ customer: null, customer_id: null } as any).eq("id", draggedJob.id);
+      if (error) {
+        toast({ title: "Error", description: "Failed to reassign job.", variant: "destructive" });
+        fetchJobs();
+      } else {
+        toast({ title: "Job reassigned", description: `Moved to ${targetFolder}` });
+      }
     } else {
-      toast({ title: "Job reassigned", description: `Moved to ${targetFolder}` });
+      // Find customer by name
+      const cust = customers.find((c) => c.name === targetFolder);
+      const newCustomerId = cust?.id || null;
+      setJobs((prev) =>
+        prev.map((j) => (j.id === draggedJob.id ? { ...j, customer: targetFolder, customer_id: newCustomerId, customers: cust ? { id: cust.id, name: cust.name } : null } : j))
+      );
+      const { error } = await supabase.from("jobs").update({ customer: targetFolder, customer_id: newCustomerId } as any).eq("id", draggedJob.id);
+      if (error) {
+        toast({ title: "Error", description: "Failed to reassign job.", variant: "destructive" });
+        fetchJobs();
+      } else {
+        toast({ title: "Job reassigned", description: `Moved to ${targetFolder}` });
+      }
     }
   };
 
@@ -379,6 +415,17 @@ export default function Jobs() {
     const trimmed = newCustomerName.trim();
     if (!trimmed || !pendingNewCustomerJob) return;
     setNewCustomerDialogOpen(false);
+
+    // Create customer record if it doesn't exist
+    let cust = customers.find((c) => c.name.toLowerCase() === trimmed.toLowerCase());
+    if (!cust) {
+      const { data: newCust } = await supabase.from("customers").insert({ name: trimmed, created_by: user?.id } as any).select("id, name").single();
+      if (newCust) {
+        cust = newCust;
+        setCustomers((prev) => [...prev, newCust].sort((a, b) => a.name.localeCompare(b.name)));
+      }
+    }
+
     await reassignJob(pendingNewCustomerJob, trimmed);
     setPendingNewCustomerJob(null);
     setNewCustomerName("");
@@ -406,11 +453,16 @@ export default function Jobs() {
       setRenameDialogOpen(false);
       return;
     }
-    const { error } = await supabase.from("jobs").update({ customer: trimmed }).eq("customer", renamingFolder);
+    // Update jobs' customer text AND the customer record name
+    const cust = customers.find((c) => c.name === renamingFolder);
+    if (cust) {
+      await supabase.from("customers").update({ name: trimmed } as any).eq("id", cust.id);
+    }
+    const { error } = await supabase.from("jobs").update({ customer: trimmed } as any).eq("customer", renamingFolder);
     if (error) {
       toast({ title: "Error", description: "Failed to rename folder.", variant: "destructive" });
     } else {
-      setJobs((prev) => prev.map((j) => j.customer === renamingFolder ? { ...j, customer: trimmed } : j));
+      setJobs((prev) => prev.map((j) => getCustomerName(j) === renamingFolder ? { ...j, customer: trimmed, customers: j.customers ? { ...j.customers, name: trimmed } : null } : j));
       setKnownCustomers((prev) => {
         const updated = new Set(prev);
         updated.delete(renamingFolder);
@@ -418,6 +470,7 @@ export default function Jobs() {
         return updated;
       });
       setOpenFolders((prev) => prev.map((f) => f === renamingFolder ? trimmed : f));
+      setCustomers((prev) => prev.map((c) => c.name === renamingFolder ? { ...c, name: trimmed } : c));
       toast({ title: "Folder renamed", description: `"${renamingFolder}" → "${trimmed}"` });
     }
     setRenameDialogOpen(false);
@@ -429,22 +482,23 @@ export default function Jobs() {
     if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
     if (!search) return true;
     const s = search.toLowerCase();
+    const custName = getCustomerName(j) || "";
     return (
       j.name.toLowerCase().includes(s) ||
       j.reference_number.toLowerCase().includes(s) ||
-      (j.customer || "").toLowerCase().includes(s)
+      custName.toLowerCase().includes(s)
     );
   });
 
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
-    const key = job.customer?.trim() || "Unassigned";
+    const key = getCustomerName(job)?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
     acc[key].push(job);
     return acc;
   }, {});
 
   if (activeJob) {
-    const sourceFolder = activeJob.customer?.trim() || "Unassigned";
+    const sourceFolder = getCustomerName(activeJob)?.trim() || "Unassigned";
     if (!grouped[sourceFolder]) grouped[sourceFolder] = [];
   }
 
@@ -464,7 +518,7 @@ export default function Jobs() {
       const updated = new Set(prev);
       let changed = false;
       for (const job of jobs) {
-        const name = job.customer?.trim();
+        const name = getCustomerName(job)?.trim();
         if (name && !updated.has(name)) {
           updated.add(name);
           changed = true;
@@ -553,14 +607,14 @@ export default function Jobs() {
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
-                  <Select value={form.customer || "__none__"} onValueChange={(v) => setForm({ ...form, customer: v === "__none__" ? "" : v })}>
+                  <Select value={form.customer_id || "__none__"} onValueChange={(v) => setForm({ ...form, customer_id: v === "__none__" ? "" : v })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select customer" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">No customer</SelectItem>
                       {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
@@ -807,7 +861,7 @@ export default function Jobs() {
               <Plus className="h-4 w-4 shrink-0" />
               <div className="text-left">
                 <p className="font-medium">Create new job</p>
-                <p className="text-xs text-muted-foreground">Create a sibling job{fileDropTargetJob?.customer ? ` under ${fileDropTargetJob.customer}` : ""} with these files</p>
+                <p className="text-xs text-muted-foreground">Create a sibling job{getCustomerName(fileDropTargetJob) ? ` under ${getCustomerName(fileDropTargetJob)}` : ""} with these files</p>
               </div>
             </Button>
           </div>
@@ -851,10 +905,10 @@ export default function Jobs() {
               <Label>Reference Number <span className="text-muted-foreground text-xs font-normal">(auto-generated if left blank)</span></Label>
               <Input value={fileDropNewJobForm.reference_number} onChange={(e) => setFileDropNewJobForm((f) => ({ ...f, reference_number: e.target.value }))} placeholder="Auto: VFP-00001" />
             </div>
-            {fileDropCustomer && (
+            {fileDropCustomerName && (
               <div className="space-y-2">
                 <Label>Customer</Label>
-                <Input value={fileDropCustomer} disabled />
+                <Input value={fileDropCustomerName} disabled />
               </div>
             )}
             <div className="grid grid-cols-2 gap-4">

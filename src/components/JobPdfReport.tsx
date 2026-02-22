@@ -172,7 +172,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const detailRows: [string, string][] = [
         ["Job Name", job.name || "—"],
         ["Reference", job.reference_number || "—"],
-        ["Customer", job.customer || "—"],
+        ["Customer", job.customers?.name || job.customer || "—"],
         ["Address", job.address || "—"],
         ["Status", (job.status || "—").toUpperCase()],
         ["Priority", (job.priority || "medium").toUpperCase()],

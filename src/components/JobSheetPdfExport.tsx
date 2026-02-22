@@ -32,6 +32,7 @@ type Template = {
 type JobInfo = {
   address: string | null;
   customer: string | null;
+  customers?: { name: string } | null;
   reference_number: string;
   site?: { name: string; address: string | null } | null;
 };
@@ -143,7 +144,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       y += 5;
 
       // --- Customer details compact row ---
-      const customerName = jobInfo?.customer || "";
+      const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
       const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
       const siteName = jobInfo?.site?.name || "";
       const refNumber = jobInfo?.reference_number || "";
@@ -340,7 +341,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.setFont("helvetica", "bold");
       doc.text("Customer:", cx, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(customerSig?.signer_name || jobInfo?.customer || "", cx + 18, sigY + 7);
+      doc.text(customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "", cx + 18, sigY + 7);
       if (customerSig && sigImages[customerSig.id]) {
         doc.addImage(sigImages[customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
       } else {

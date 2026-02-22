@@ -70,7 +70,7 @@ export default function ListView({
       else if (sortBy === "engineer") {
         cmp = (getEngineer(a.engineer_id)?.full_name || "").localeCompare(getEngineer(b.engineer_id)?.full_name || "");
       } else if (sortBy === "customer") {
-        cmp = (getJob(a.job_id)?.customer || "").localeCompare(getJob(b.job_id)?.customer || "");
+        cmp = ((getJob(a.job_id) as any)?.customers?.name || getJob(a.job_id)?.customer || "").localeCompare((getJob(b.job_id) as any)?.customers?.name || getJob(b.job_id)?.customer || "");
       } else {
         const pcA = getJob(a.job_id)?.site?.postcode || extractPostcode(getJob(a.job_id)?.address || null) || "";
         const pcB = getJob(b.job_id)?.site?.postcode || extractPostcode(getJob(b.job_id)?.address || null) || "";
@@ -189,7 +189,7 @@ export default function ListView({
                     )}
                     <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.schedule_date), "EEE dd/MM")}</TableCell>
                     <TableCell className="text-sm">{eng?.full_name || "—"}</TableCell>
-                    <TableCell className="text-sm">{job?.customer || "—"}</TableCell>
+                    <TableCell className="text-sm">{(job as any)?.customers?.name || job?.customer || "—"}</TableCell>
                     <TableCell className="text-sm max-w-[180px] truncate">{job?.site?.name || job?.address || "—"}</TableCell>
                     <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>
                     <TableCell>
