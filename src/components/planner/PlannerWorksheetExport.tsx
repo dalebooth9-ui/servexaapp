@@ -59,6 +59,7 @@ type WorksheetRow = {
   materials: string;
   comments: string;
   notes: string;
+  routeOrder: string;
 };
 
 function buildRows(
@@ -66,7 +67,8 @@ function buildRows(
   jobs: Job[],
   engineers: Engineer[],
   jobParts: JobPart[] = [],
-  submissionComments: SubmissionComment[] = []
+  submissionComments: SubmissionComment[] = [],
+  optimisedJobOrder: string[] = []
 ): WorksheetRow[] {
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEng = (id: string) => engineers.find((e) => e.user_id === id);
@@ -104,6 +106,10 @@ function buildRows(
         materials: materialsStr,
         comments: latestComment?.content || "",
         notes: entry.notes || "",
+        routeOrder: (() => {
+          const idx = optimisedJobOrder.indexOf(entry.job_id);
+          return idx >= 0 ? String(idx + 1) : "";
+        })(),
       };
     });
 }
@@ -115,9 +121,11 @@ export function exportWorksheetPdf(
   jobs: Job[],
   engineers: Engineer[],
   jobParts: JobPart[] = [],
-  submissionComments: SubmissionComment[] = []
+  submissionComments: SubmissionComment[] = [],
+  optimisedJobOrder: string[] = []
 ) {
-  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments);
+  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder);
+  const hasRoute = optimisedJobOrder.length > 0;
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -142,7 +150,7 @@ export function exportWorksheetPdf(
 
   // ── Column definitions (match template proportions) ────────────────────────
   const usableW = pageW - margin * 2;
-  const cols = [
+  const baseCols = [
     { label: "DATE:",           key: "date",           w: usableW * 0.08 },
     { label: "ENGINEER",        key: "engineer",       w: usableW * 0.09 },
     { label: "COMPANY",         key: "company",        w: usableW * 0.10 },
@@ -154,6 +162,9 @@ export function exportWorksheetPdf(
     { label: "COMMENTS",        key: "comments",       w: usableW * 0.10 },
     { label: "NOTES",           key: "notes",          w: usableW * 0.10 },
   ];
+  const cols = hasRoute
+    ? [{ label: "#", key: "routeOrder", w: usableW * 0.03 }, ...baseCols.map(c => ({ ...c, w: c.w * 0.97 }))]
+    : baseCols;
 
   // ── Header row ─────────────────────────────────────────────────────────────
   doc.setFontSize(7);
@@ -210,27 +221,36 @@ export function exportWorksheetXlsx(
   jobs: Job[],
   engineers: Engineer[],
   jobParts: JobPart[] = [],
-  submissionComments: SubmissionComment[] = []
+  submissionComments: SubmissionComment[] = [],
+  optimisedJobOrder: string[] = []
 ) {
-  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments);
+  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder);
+  const hasRoute = optimisedJobOrder.length > 0;
+
+  const headers = hasRoute
+    ? ["#", "DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"]
+    : ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"];
+
+  const dataRows = rows.map((r) => {
+    const base = [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.comments, r.notes];
+    return hasRoute ? [r.routeOrder, ...base] : base;
+  });
 
   const wsData: (string | number)[][] = [
     [`WEEK COMMENCING ${format(weekStart, "dd/MM/yyyy")}`],
     [],
-    ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"],
-    ...rows.map((r) => [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.comments, r.notes]),
+    headers,
+    ...dataRows,
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  // Column widths
-  ws["!cols"] = [
-    { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 },
-    { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 28 }, { wch: 28 }, { wch: 24 },
-  ];
+  const colWidths = hasRoute
+    ? [{ wch: 4 }, { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 28 }, { wch: 28 }, { wch: 24 }]
+    : [{ wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 28 }, { wch: 28 }, { wch: 24 }];
+  ws["!cols"] = colWidths;
 
-  // Merge title cell across all columns
-  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Weekly Planner");
