@@ -90,26 +90,47 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       const addPage = () => { doc.addPage(); y = 20; };
       const checkPage = (needed: number) => { if (y + needed > 270) addPage(); };
 
-      // === BRANDED HEADER ===
-      // Logo placeholder - blue bar with company name
-      doc.setFillColor(30, 64, 175); // royal blue
-      doc.rect(0, 0, pageWidth, 28, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text("FieldReport", margin, 14);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text("Fire Safety & Compliance Solutions", margin, 20);
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, pageWidth - margin, 20, { align: "right" });
-      doc.setTextColor(0, 0, 0);
-      y = 36;
+      // === BRANDED HEADER (white background, logo centred) ===
+      let logoImg: HTMLImageElement | null = null;
+      try {
+        logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          logoImg!.onload = () => resolve();
+          logoImg!.onerror = () => reject();
+          logoImg!.src = "/images/vivafire-logo-new.jpg";
+        });
+      } catch { logoImg = null; }
 
-      // === REPORT TITLE ===
-      doc.setFontSize(16);
+      let headerBottomY = 10;
+      if (logoImg) {
+        const logoMaxH = 20;
+        const logoMaxW = 70;
+        const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+        let lw = logoMaxH * aspect;
+        let lh = logoMaxH;
+        if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
+        doc.addImage(logoImg, "JPEG", (pageWidth - lw) / 2, 8, lw, lh);
+        headerBottomY = 8 + lh + 3;
+      }
+
+      // Title below logo
       doc.setFont("helvetica", "bold");
-      doc.text("Customer Report", margin, y);
-      y += 8;
+      doc.setFontSize(14);
+      doc.setTextColor(33, 61, 99);
+      doc.text("CUSTOMER REPORT", pageWidth / 2, headerBottomY, { align: "center" });
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, headerBottomY + 5, { align: "center" });
+
+      // Separator line
+      doc.setDrawColor(33, 61, 99);
+      doc.setLineWidth(0.5);
+      doc.line(margin, headerBottomY + 8, pageWidth - margin, headerBottomY + 8);
+
+      doc.setTextColor(0, 0, 0);
+      y = headerBottomY + 13;
 
       // === JOB DETAILS BOX ===
       doc.setFillColor(245, 247, 250);
@@ -313,16 +334,17 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         }
       }
 
-      // === FOOTER ===
+      // === FOOTER (clean line style) ===
       const footerY = 280;
-      doc.setFillColor(30, 64, 175);
-      doc.rect(0, footerY, pageWidth, 17, "F");
-      doc.setTextColor(255, 255, 255);
+      doc.setDrawColor(33, 61, 99);
+      doc.setLineWidth(0.5);
+      doc.line(margin, footerY, pageWidth - margin, footerY);
+      doc.setTextColor(100, 100, 100);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text("FieldReport — Fire Safety & Compliance Solutions", margin, footerY + 5);
-      doc.text("This report has been generated automatically from verified field data.", margin, footerY + 9);
-      doc.text(`Report ref: ${job.reference_number} | ${new Date().toLocaleDateString("en-GB")}`, pageWidth - margin, footerY + 5, { align: "right" });
+      doc.text("VivaFire — Wet & Dry Riser Specialists", margin, footerY + 4);
+      doc.text("This report has been generated automatically from verified field data.", margin, footerY + 8);
+      doc.text(`Report ref: ${job.reference_number} | ${new Date().toLocaleDateString("en-GB")}`, pageWidth - margin, footerY + 4, { align: "right" });
       doc.setTextColor(0, 0, 0);
 
       const fileName = `${job.reference_number}-customer-report.pdf`;
