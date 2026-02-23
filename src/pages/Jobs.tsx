@@ -17,6 +17,7 @@ import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { z } from "zod";
+import { saveMapPinForJob } from "@/lib/saveMapPin";
 import {
   DndContext,
   DragOverlay,
@@ -345,6 +346,17 @@ export default function Jobs() {
         if (form.customer_id) {
           supabase.functions.invoke("notify-customer", {
             body: { job_id: createdJob.id, notification_type: "job_booked" },
+          });
+        }
+
+        // Auto-save map pin image if address is provided
+        if (form.address?.trim() && user?.id) {
+          saveMapPinForJob({
+            jobId: createdJob.id,
+            address: form.address.trim(),
+            refNumber: createdJob.reference_number || "",
+            customerName: customerName || "",
+            userId: user.id,
           });
         }
       }
