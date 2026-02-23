@@ -147,12 +147,12 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
-      const detailH = 10;
+      const detailH = 12;
       doc.rect(margin, y, maxWidth, detailH);
       doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
       doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      doc.setFontSize(6);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.text("Customer/Site:", margin + 1, y + 3);
       doc.setFont("helvetica", "normal");
@@ -194,7 +194,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       // Count total rows and section headers to dynamically size rows
       let totalFieldRows = 0;
       let totalSectionHeaders = 0;
-      const sectionHeaderH = 4.5;
+      const sectionHeaderH = 6;
       const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
       const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
       const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
@@ -227,14 +227,14 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
         doc.setDrawColor(0);
         doc.rect(margin, y, maxWidth, sectionHeaderH);
-        doc.setFontSize(6.5);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
-        doc.text(section.toUpperCase(), margin + 1, y + 3.2);
-        doc.text("RESULT", margin + colSplit + 1, y + 3.2);
+        doc.text(section.toUpperCase(), margin + 1, y + 4.2);
+        doc.text("RESULT", margin + colSplit + 1, y + 4.2);
         y += sectionHeaderH;
 
         // Field rows
-        doc.setFontSize(6);
+        doc.setFontSize(7.5);
         for (const field of sectionFields) {
           doc.setDrawColor(180);
           doc.rect(margin, y, colSplit, rowH);
@@ -270,12 +270,12 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           // Inline note
           const noteVal = formData[`${field.id}_notes`];
           if (field.allow_notes && noteVal) {
-            doc.setFontSize(5);
+            doc.setFontSize(6);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(100, 100, 100);
             doc.text(`Note: ${noteVal}`.substring(0, 80), margin + 2, y + rowH + 2.5);
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(6);
+            doc.setFontSize(7.5);
             doc.setFont("helvetica", "normal");
             y += 3;
           }

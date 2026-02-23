@@ -119,14 +119,14 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const dateVal = new Date().toLocaleDateString("en-GB");
       const siteStr = [customerName, siteName, siteAddress, sitePostcode].filter(Boolean).join(", ");
 
-      const detailH = 10;
+      const detailH = 12;
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
       doc.rect(margin, y, maxWidth, detailH);
       doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
       doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      doc.setFontSize(6);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "bold");
       doc.text("Customer/Site:", margin + 1, y + 3);
       doc.setFont("helvetica", "normal");
@@ -147,7 +147,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const sections = [...new Set(template.fields.map((f) => f.section || "General"))];
       const skipLabels = ["customer /site details", "customer/site details", "date", "po number", "riser location"];
       const colSplit = maxWidth * 0.68;
-      const sectionHeaderH = 4.5;
+      const sectionHeaderH = 6;
 
       // Count rows for dynamic sizing
       let totalFieldRows = 0;
@@ -185,14 +185,14 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
         doc.setDrawColor(0);
         doc.rect(margin, y, maxWidth, sectionHeaderH);
-        doc.setFontSize(6.5);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
-        doc.text(section.toUpperCase(), margin + 1, y + 3.2);
-        doc.text("RESULT", margin + colSplit + 1, y + 3.2);
+        doc.text(section.toUpperCase(), margin + 1, y + 4.2);
+        doc.text("RESULT", margin + colSplit + 1, y + 4.2);
         y += sectionHeaderH;
 
         // Empty field rows
-        doc.setFontSize(6);
+        doc.setFontSize(7.5);
         for (const field of sectionFields) {
           doc.setDrawColor(180);
           doc.rect(margin, y, colSplit, rowH);
@@ -205,14 +205,14 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           // For pass_fail, add P/F/NA checkboxes
           if (field.type === "pass_fail") {
             const bx = margin + colSplit + 2;
-            doc.setFontSize(5);
+            doc.setFontSize(6.5);
             doc.rect(bx, y + 1, 3, 3);
             doc.text("P", bx + 4, y + 3.5);
             doc.rect(bx + 10, y + 1, 3, 3);
             doc.text("F", bx + 14, y + 3.5);
             doc.rect(bx + 20, y + 1, 3, 3);
             doc.text("N/A", bx + 24, y + 3.5);
-            doc.setFontSize(6);
+            doc.setFontSize(7.5);
           } else if (field.type === "checkbox") {
             const bx = margin + colSplit + 2;
             doc.setFontSize(5);
@@ -230,7 +230,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       }
 
       // --- Comments section ---
-      doc.setFontSize(6);
+      doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
       doc.text("Comments:", margin, y + 3);
       doc.setDrawColor(180);
@@ -241,7 +241,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const sigY = Math.max(y + 2, pageHeight - footerSpace);
       const halfW = maxWidth / 2 - 2;
 
-      doc.setFontSize(6);
+      doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
       doc.text("Date:", margin, sigY + 3);
       doc.line(margin + 10, sigY + 3, margin + halfW, sigY + 3);
@@ -262,7 +262,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const footerY = sigY + 15;
       doc.setDrawColor(0);
       doc.rect(margin, footerY, maxWidth, 9);
-      doc.setFontSize(6);
+      doc.setFontSize(7.5);
       doc.setFont("helvetica", "bold");
       const footerLines = footerText.split("\n");
       footerLines.forEach((line, i) => {
