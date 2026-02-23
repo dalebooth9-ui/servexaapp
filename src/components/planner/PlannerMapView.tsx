@@ -109,7 +109,7 @@ export default function PlannerMapView({
   };
 
   // Save a static map pin image to a job's folder
-  const saveMapPinToJob = useCallback(async (jobId: string, address: string, lat: number, lng: number) => {
+  const saveMapPinToJob = useCallback(async (jobId: string, address: string, lat: number, lng: number, refNumber: string, customerName: string) => {
     if (!user?.id || !mapsApiKeyRef.current) return;
     setSavingPin(jobId);
     try {
@@ -117,11 +117,41 @@ export default function PlannerMapView({
       const staticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x400&scale=2&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
       const res = await fetch(staticUrl);
       if (!res.ok) throw new Error("Failed to fetch map image");
-      const blob = await res.blob();
+      const imgBlob = await res.blob();
+
+      // Draw text overlay on canvas
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      const bitmapUrl = URL.createObjectURL(imgBlob);
+      const finalBlob: Blob = await new Promise((resolve, reject) => {
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0);
+
+          // Semi-transparent banner at top
+          ctx.fillStyle = "rgba(0,0,0,0.6)";
+          ctx.fillRect(0, 0, canvas.width, 64);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.font = "bold 28px system-ui, sans-serif";
+          ctx.textBaseline = "middle";
+          const label = [refNumber, customerName].filter(Boolean).join(" — ");
+          ctx.fillText(label, 16, 32, canvas.width - 32);
+
+          URL.revokeObjectURL(bitmapUrl);
+          canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Canvas toBlob failed"))), "image/png");
+        };
+        img.onerror = () => { URL.revokeObjectURL(bitmapUrl); reject(new Error("Image load failed")); };
+        img.src = bitmapUrl;
+      });
+
       const fileName = `map-pin-${Date.now()}.png`;
       const filePath = `${jobId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, blob, { contentType: "image/png" });
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, finalBlob, { contentType: "image/png" });
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
@@ -147,9 +177,9 @@ export default function PlannerMapView({
     const handler = (e: MouseEvent) => {
       const target = (e.target as HTMLElement)?.closest("[data-save-pin]") as HTMLElement | null;
       if (!target) return;
-      const { jobId, address, lat, lng } = target.dataset as any;
+      const { jobId, address, lat, lng, refNumber, customerName } = target.dataset as any;
       if (jobId && address && lat && lng) {
-        saveMapPinToJob(jobId, address, parseFloat(lat), parseFloat(lng));
+        saveMapPinToJob(jobId, address, parseFloat(lat), parseFloat(lng), refNumber || "", customerName || "");
       }
     };
     document.addEventListener("click", handler);
@@ -230,7 +260,7 @@ export default function PlannerMapView({
                   <span style="color:#666">${engineerName}</span><br/>
                   <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
                     <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#2563eb;color:white;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">📍 Directions</a>
-                    <button data-save-pin data-job-id="${job.id}" data-address="${job.address?.replace(/"/g, '&quot;')}" data-lat="${posLat}" data-lng="${posLng}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#16a34a;color:white;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:500" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">📷 Save Pin</button>
+                    <button data-save-pin data-job-id="${job.id}" data-address="${job.address?.replace(/"/g, '&quot;')}" data-lat="${posLat}" data-lng="${posLng}" data-ref-number="${job.reference_number?.replace(/"/g, '&quot;') || ""}" data-customer-name="${((job as any).customers?.name || job.customer || "").replace(/"/g, '&quot;')}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#16a34a;color:white;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:500" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">📷 Save Pin</button>
                   </div>
                 </div>`,
               });
