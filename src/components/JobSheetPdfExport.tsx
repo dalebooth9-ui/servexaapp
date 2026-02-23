@@ -147,13 +147,21 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
-      const detailH = 12;
+
+      // Find riser location field value
+      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
+      const riserLocValue = riserField && formData[riserField.id] ? String(formData[riserField.id]) : "";
+
+      const headerRowH = 6;
+      const totalRows = 3;
+      const detailH = headerRowH * totalRows;
       doc.rect(margin, y, maxWidth, detailH);
       doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
-      doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
+      doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
+      doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
 
       doc.setFontSize(8);
-      // Top row: Customer + DATE
+      // Row 1: Customer + DATE
       doc.setFont("helvetica", "bold");
       doc.text("Customer:", margin + 1, y + 4);
       doc.setFont("helvetica", "normal");
@@ -164,17 +172,23 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.setFont("helvetica", "normal");
       doc.text(String(dateVal), margin + maxWidth * 0.5 + 14, y + 4);
 
-      // Bottom row: Site + PO/REF
+      // Row 2: Site + PO/REF
       const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
       doc.setFont("helvetica", "bold");
-      doc.text("Site:", margin + 1, y + detailH / 2 + 4);
+      doc.text("Site:", margin + 1, y + headerRowH + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""), margin + 10, y + detailH / 2 + 4);
+      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""), margin + 10, y + headerRowH + 4);
 
       doc.setFont("helvetica", "bold");
-      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + detailH / 2 + 4);
+      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + headerRowH + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(refNumber, margin + maxWidth * 0.5 + 16, y + detailH / 2 + 4);
+      doc.text(refNumber, margin + maxWidth * 0.5 + 16, y + headerRowH + 4);
+
+      // Row 3: Riser Location (full width)
+      doc.setFont("helvetica", "bold");
+      doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(riserLocValue, margin + 28, y + headerRowH * 2 + 4);
 
       y += detailH + 2;
 
@@ -195,7 +209,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           (label.includes("site") && (label.includes("detail") || label.includes("info"))) ||
           label === "site name" || label === "site" || label === "site address" || label === "address" ||
           label.includes("postcode") || label.includes("post code") ||
-          // riser location is now shown in template body, not skipped
+          label.includes("riser location") ||
           label.includes("technician name") || label.includes("engineer") ||
           label === "comments" || label.includes("comment") ||
           label.includes("material")
