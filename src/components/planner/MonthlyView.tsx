@@ -97,7 +97,7 @@ export default function MonthlyView({
                             {optimisedJobOrder.length > 0 && optimisedJobOrder.indexOf(entry.job_id) >= 0 && (
                               <span className="text-[9px] font-bold text-primary shrink-0">{optimisedJobOrder.indexOf(entry.job_id) + 1}.</span>
                             )}
-                            <span className="truncate text-[10px]">{job?.reference_number || "?"}</span>
+                            <span className="truncate text-[10px]">{job?.name || "?"}</span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs">
