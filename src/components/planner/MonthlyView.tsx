@@ -32,10 +32,12 @@ export default function MonthlyView({
   currentDate,
   schedule,
   jobs,
+  optimisedJobOrder = [],
 }: {
   currentDate: Date;
   schedule: ScheduleEntry[];
   jobs: Job[];
+  optimisedJobOrder?: string[];
 }) {
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
@@ -92,6 +94,9 @@ export default function MonthlyView({
                         <TooltipTrigger asChild>
                           <div className="flex items-center gap-1 truncate">
                             <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", PRIORITY_DOT[job?.priority || "medium"])} />
+                            {optimisedJobOrder.length > 0 && optimisedJobOrder.indexOf(entry.job_id) >= 0 && (
+                              <span className="text-[9px] font-bold text-primary shrink-0">{optimisedJobOrder.indexOf(entry.job_id) + 1}.</span>
+                            )}
                             <span className="truncate text-[10px]">{job?.reference_number || "?"}</span>
                           </div>
                         </TooltipTrigger>
