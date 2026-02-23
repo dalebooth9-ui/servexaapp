@@ -364,7 +364,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       y += 14;
 
       // --- Signature blocks ---
-      const sigY = Math.max(y + 2, pageHeight - footerSpace);
+      const sigY = Math.max(y + 2, pageHeight - footerSpace - 10);
       const halfW = maxWidth / 2 - 2;
 
       const engineerList = (jobInfo?.engineers || []).join(", ");
