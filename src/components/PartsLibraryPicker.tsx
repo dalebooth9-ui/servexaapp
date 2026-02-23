@@ -30,7 +30,8 @@ export default function PartsLibraryPicker({
   jobId: string;
   onAdded: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === "admin";
   const { toast } = useToast();
   const [parts, setParts] = useState<LibraryPart[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,12 +127,12 @@ export default function PartsLibraryPicker({
         ) : (
           <Table>
             <TableHeader>
-              <TableRow>
+             <TableRow>
                 <TableHead className="w-10" />
                 <TableHead>Part</TableHead>
                 <TableHead className="text-sm">Part #</TableHead>
                 <TableHead className="text-sm">Supplier</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
+                {isAdmin && <TableHead className="text-right">Cost</TableHead>}
                 <TableHead className="text-right w-20">Qty</TableHead>
               </TableRow>
             </TableHeader>
@@ -142,9 +143,9 @@ export default function PartsLibraryPicker({
                     <Checkbox checked={selected.has(part.id)} onCheckedChange={() => toggleSelect(part.id)} />
                   </TableCell>
                   <TableCell className="font-medium">{part.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{part.part_number || "—"}</TableCell>
-                  <TableCell className="text-muted-foreground text-sm">{part.supplier || "—"}</TableCell>
-                  <TableCell className="text-right">£{Number(part.unit_cost).toFixed(2)}</TableCell>
+                   <TableCell className="text-muted-foreground text-sm">{part.part_number || "—"}</TableCell>
+                   <TableCell className="text-muted-foreground text-sm">{part.supplier || "—"}</TableCell>
+                   {isAdmin && <TableCell className="text-right">£{Number(part.unit_cost).toFixed(2)}</TableCell>}
                   <TableCell className="text-right">
                     {selected.has(part.id) ? (
                       <Input
