@@ -405,6 +405,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  const handleDeleteResponse = async (respId: string) => {
+    try {
+      const { error } = await supabase.from("job_sheet_responses").delete().eq("id", respId);
+      if (error) throw error;
+      setResponses((prev) => prev.filter((r) => r.id !== respId));
+      toast({ title: "Report deleted" });
+    } catch (err: any) {
+      toast({ title: "Error deleting report", description: err.message, variant: "destructive" });
+    }
+  };
+
   const sections = activeTemplate
     ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
     : [];
@@ -636,6 +647,29 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       >
                         View
                       </Button>
+                      {canEdit && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Report</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will permanently delete this completed report. This cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </div>
                 );
