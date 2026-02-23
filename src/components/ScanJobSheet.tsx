@@ -70,8 +70,36 @@ export default function ScanJobSheet({ template, jobId, onExtracted }: Props) {
         const h = img.naturalHeight * ratio;
         doc.addImage(img, "JPEG", (pageW - w) / 2, (pageH - h) / 2, w, h);
       }
+
+      // Also save to local
       doc.save(`scanned-sheet-${Date.now()}.pdf`);
-      toast({ title: "PDF created", description: `${images.length} page(s) converted to PDF.` });
+
+      // Upload to storage and create submission record
+      const pdfBlob = doc.output("blob");
+      const fileName = `scanned-${template.name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.pdf`;
+      const filePath = `${jobId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("submissions")
+        .upload(filePath, pdfBlob, { contentType: "application/pdf" });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        toast({ title: "PDF downloaded locally", description: "Could not save to job submissions.", variant: "destructive" });
+      } else {
+        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: user.id,
+            type: "document",
+            file_url: urlData.publicUrl,
+            file_name: fileName,
+          });
+        }
+        toast({ title: "PDF saved", description: `${images.length} page(s) converted and saved to job submissions.` });
+      }
     } catch (err: any) {
       toast({ title: "Error creating PDF", description: err.message, variant: "destructive" });
     }
