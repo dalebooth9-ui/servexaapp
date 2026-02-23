@@ -5,7 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+
 
 type TemplateField = {
   id: string;
@@ -103,13 +103,14 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           logoImg.onerror = () => reject();
           logoImg.src = logoUrl;
         });
-        const logoMaxW = 50;
-        const logoMaxH = 18;
+        const logoMaxW = 70;
+        const logoMaxH = 20;
         const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
         let lw = logoMaxH * aspect;
         let lh = logoMaxH;
         if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
-        doc.addImage(logoImg, "JPEG", (pageWidth - lw) / 2, y, lw, lh);
+        const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
+        doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
         y += lh + 2;
       } catch {
         doc.setFontSize(12);
@@ -344,9 +345,6 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         doc.text(line.trim(), pageWidth / 2, footerY + 3 + i * 3.5, { align: "center" });
       });
 
-      // Add watermark to all pages
-      const watermark = await loadWatermarkImage();
-      if (watermark) addWatermarkToAllPages(doc, watermark);
 
       const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
       doc.save(fileName);
