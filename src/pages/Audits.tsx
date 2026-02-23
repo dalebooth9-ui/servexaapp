@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAuditCategories } from "@/hooks/useAuditCategories";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,7 @@ const CATEGORY_COLORS: Record<string, string> = {
 export default function Audits() {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const { categories: auditCategories, refetch: refetchCategories } = useAuditCategories();
   const CATEGORIES = auditCategories.map((c) => c.slug);
   const [templates, setTemplates] = useState<AuditTemplate[]>([]);
@@ -210,9 +212,21 @@ export default function Audits() {
   };
 
   const deleteTpl = async (id: string) => {
-    const { error } = await supabase.from("audit_templates").delete().eq("id", id);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Template deleted" }); fetchData();
+    const deletedTpl = templates.find((t) => t.id === id);
+    if (!deletedTpl) return;
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    deleteWithUndo({
+      key: id,
+      label: "Template deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("audit_templates").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setTemplates((prev) => [...prev, deletedTpl]);
+        }
+      },
+      onUndo: () => setTemplates((prev) => [...prev, deletedTpl]),
+    });
   };
 
   // --- Start audit ---

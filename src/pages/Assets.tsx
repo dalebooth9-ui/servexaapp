@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -93,6 +94,7 @@ const emptyAsset = {
 export default function Assets() {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const { categories: assetCategories, refetch: refetchCategories } = useAssetCategories();
   const CATEGORIES = assetCategories.map((c) => c.slug);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -239,13 +241,21 @@ export default function Assets() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("assets").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: "Asset deleted" });
-    fetchData();
+    const deletedAsset = assets.find((a) => a.id === id);
+    if (!deletedAsset) return;
+    setAssets((prev) => prev.filter((a) => a.id !== id));
+    deleteWithUndo({
+      key: id,
+      label: "Asset deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("assets").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setAssets((prev) => [...prev, deletedAsset]);
+        }
+      },
+      onUndo: () => setAssets((prev) => [...prev, deletedAsset]),
+    });
   };
 
   const statusCounts = {

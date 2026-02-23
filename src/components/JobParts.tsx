@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Plus, Trash2, Package, Upload, Download, Pencil, Library, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
 import PartsLibraryPicker from "@/components/PartsLibraryPicker";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -221,6 +222,7 @@ function SortablePartRow({
 export default function JobParts({ jobId }: { jobId: string }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -308,26 +310,41 @@ export default function JobParts({ jobId }: { jobId: string }) {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("job_parts" as any).delete().eq("id", id);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setParts((prev) => prev.filter((p) => p.id !== id));
-      setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
-      toast({ title: "Part removed" });
-    }
+    const deletedPart = parts.find((p) => p.id === id);
+    if (!deletedPart) return;
+    setParts((prev) => prev.filter((p) => p.id !== id));
+    setSelected((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    deleteWithUndo({
+      key: id,
+      label: "Part removed",
+      onConfirm: async () => {
+        const { error } = await supabase.from("job_parts" as any).delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setParts((prev) => [...prev, deletedPart].sort((a, b) => a.sort_order - b.sort_order));
+        }
+      },
+      onUndo: () => setParts((prev) => [...prev, deletedPart].sort((a, b) => a.sort_order - b.sort_order)),
+    });
   };
 
   const handleBulkDelete = async (ids: string[]) => {
     if (!ids.length) return;
-    const { error } = await supabase.from("job_parts" as any).delete().in("id", ids);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setParts((prev) => prev.filter((p) => !ids.includes(p.id)));
-      setSelected(new Set());
-      toast({ title: `${ids.length} part(s) removed` });
-    }
+    const deletedParts = parts.filter((p) => ids.includes(p.id));
+    setParts((prev) => prev.filter((p) => !ids.includes(p.id)));
+    setSelected(new Set());
+    deleteWithUndo({
+      key: `bulk-parts-${ids.join(",")}`,
+      label: `${ids.length} part(s) removed`,
+      onConfirm: async () => {
+        const { error } = await supabase.from("job_parts" as any).delete().in("id", ids);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setParts((prev) => [...prev, ...deletedParts].sort((a, b) => a.sort_order - b.sort_order));
+        }
+      },
+      onUndo: () => setParts((prev) => [...prev, ...deletedParts].sort((a, b) => a.sort_order - b.sort_order)),
+    });
   };
 
   const startEdit = (part: JobPart) => {

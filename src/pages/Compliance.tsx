@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ const emptyForm = {
 export default function Compliance() {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const fileRef = useRef<HTMLInputElement>(null);
   const [records, setRecords] = useState<ComplianceRecord[]>([]);
   const [assets, setAssets] = useState<LookupOption[]>([]);
@@ -148,9 +150,21 @@ export default function Compliance() {
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("compliance_records").delete().eq("id", id);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Record deleted" }); fetchData();
+    const deletedRecord = records.find((r) => r.id === id);
+    if (!deletedRecord) return;
+    setRecords((prev) => prev.filter((r) => r.id !== id));
+    deleteWithUndo({
+      key: id,
+      label: "Record deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("compliance_records").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setRecords((prev) => [...prev, deletedRecord]);
+        }
+      },
+      onUndo: () => setRecords((prev) => [...prev, deletedRecord]),
+    });
   };
 
   const handleDownload = async (r: ComplianceRecord) => {
