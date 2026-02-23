@@ -398,10 +398,11 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       doc.text("Signature:", cx, sigY + 3 + lineSpacing * 2);
       doc.line(cx + labelX, sigY + 4 + lineSpacing * 2, cx + halfW, sigY + 4 + lineSpacing * 2);
 
-      // --- Footer declaration ---
-      const footerY = sigY + 15;
+      // --- Footer declaration pinned to bottom of page ---
+      const footerH = 9;
+      const footerY = pageHeight - margin - footerH;
       doc.setDrawColor(0);
-      doc.rect(margin, footerY, maxWidth, 9);
+      doc.rect(margin, footerY, maxWidth, footerH);
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
       const footerLines = footerText.split("\n");
