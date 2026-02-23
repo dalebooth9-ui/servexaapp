@@ -51,6 +51,7 @@ export default function PlannerMapView({
   const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string }[]>([]);
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const engineerLocations = useLiveEngineerLocations();
   const { user } = useAuth();
@@ -90,18 +91,71 @@ export default function PlannerMapView({
     return result;
   }, [schedule, jobs, engineers]);
 
+  // Clear any existing route line from the map
+  const clearRouteOverlay = useCallback(() => {
+    if (directionsRendererRef.current) {
+      directionsRendererRef.current.setMap(null);
+      directionsRendererRef.current = null;
+    }
+  }, []);
+
+  // Render the optimised route as a polyline on the map
+  const renderRouteOnMap = useCallback(async (optimisedWaypoints: { address: string; job_id: string }[]) => {
+    const map = mapInstanceRef.current;
+    if (!map || optimisedWaypoints.length < 2) return;
+
+    clearRouteOverlay();
+
+    const directionsService = new google.maps.DirectionsService();
+    const origin = optimisedWaypoints[0].address;
+    const destination = optimisedWaypoints[optimisedWaypoints.length - 1].address;
+    const intermediates = optimisedWaypoints.slice(1, -1).map((wp) => ({
+      location: wp.address,
+      stopover: true,
+    }));
+
+    try {
+      const result = await directionsService.route({
+        origin,
+        destination,
+        waypoints: intermediates,
+        travelMode: google.maps.TravelMode.DRIVING,
+      });
+
+      const renderer = new google.maps.DirectionsRenderer({
+        map,
+        directions: result,
+        suppressMarkers: true, // Keep our custom markers
+        polylineOptions: {
+          strokeColor: "#2563eb",
+          strokeWeight: 4,
+          strokeOpacity: 0.75,
+        },
+      });
+      directionsRendererRef.current = renderer;
+    } catch (err) {
+      console.error("Failed to render route on map:", err);
+    }
+  }, [clearRouteOverlay]);
+
   // Optimise route for all scheduled jobs
   const handleOptimise = async () => {
     if (scheduledJobs.length < 2) return;
     setOptimising(true);
+    clearRouteOverlay();
     try {
-      const waypoints = scheduledJobs.map((s) => ({ address: s.job.address, job_id: s.job.id }));
+      const waypoints = scheduledJobs.map((s) => ({ address: s.job.address!, job_id: s.job.id }));
       const { data, error } = await supabase.functions.invoke("optimise-route", {
         body: { waypoints, origin: null },
       });
       if (error) throw error;
       setRouteResult(data);
       toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${data.total_duration_mins} mins` });
+
+      // Draw optimised route on map
+      if (data.optimised?.length >= 2) {
+        await renderRouteOnMap(data.optimised);
+      }
     } catch {
       toast({ title: "Route optimisation failed", variant: "destructive" });
     }
@@ -463,10 +517,17 @@ export default function PlannerMapView({
             {showUnallocated ? "Hide Unallocated" : "Show Unallocated"}
           </Button>
           {scheduledJobs.length >= 2 && (
-            <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
-              {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
-              Optimise Route
-            </Button>
+            <>
+              <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
+                {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
+                Optimise Route
+              </Button>
+              {directionsRendererRef.current && routeResult && (
+                <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
+                  Clear Route
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
