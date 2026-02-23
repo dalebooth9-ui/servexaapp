@@ -143,28 +143,35 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
 
       // ── HEADER ──
-      const headerH = 32;
+      const headerH = 36;
       doc.setFillColor(33, 61, 99);
       doc.rect(0, 0, pageWidth, headerH, "F");
 
-      // Logo on the left — use natural aspect ratio
-      const logoH = 24;
-      const logoW = 24;
-      const logoPad = (headerH - logoH) / 2;
+      // Logo centred — preserve natural aspect ratio
       if (logoDataUrl) {
         try {
-          doc.addImage(logoDataUrl, "JPEG", margin, logoPad, logoW, logoH);
+          const tmpImg = new Image();
+          tmpImg.src = logoDataUrl;
+          const logoMaxH = 22;
+          const logoMaxW = 50;
+          const aspect = tmpImg.naturalWidth / tmpImg.naturalHeight;
+          let logoW = logoMaxH * aspect;
+          let logoH = logoMaxH;
+          if (logoW > logoMaxW) { logoW = logoMaxW; logoH = logoW / aspect; }
+          const logoX = (pageWidth - logoW) / 2;
+          const logoY = (headerH - logoH) / 2 - 3;
+          doc.addImage(logoDataUrl, "JPEG", logoX, logoY, logoW, logoH);
         } catch { /* skip logo */ }
       }
 
-      const textX = logoDataUrl ? margin + logoW + 4 : margin;
+      // Title text centred below logo
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
+      doc.setFontSize(14);
       doc.setTextColor(255, 255, 255);
-      doc.text("JOB REPORT", textX, 14);
-      doc.setFontSize(10);
+      doc.text("JOB REPORT", pageWidth / 2, headerH - 10, { align: "center" });
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, textX, 22);
+      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, headerH - 4, { align: "center" });
       doc.setTextColor(30, 30, 30);
       y = headerH + 7;
 
