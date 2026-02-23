@@ -114,6 +114,19 @@ function buildRows(
     });
 }
 
+// ─── Group rows by engineer ─────────────────────────────────────────────────
+function groupByEngineer(rows: WorksheetRow[]): { engineer: string; rows: WorksheetRow[] }[] {
+  const map = new Map<string, WorksheetRow[]>();
+  for (const r of rows) {
+    const list = map.get(r.engineer) || [];
+    list.push(r);
+    map.set(r.engineer, list);
+  }
+  return [...map.entries()]
+    .map(([engineer, rows]) => ({ engineer, rows }))
+    .sort((a, b) => a.engineer.localeCompare(b.engineer));
+}
+
 // ─── PDF export ──────────────────────────────────────────────────────────────
 export function exportWorksheetPdf(
   weekStart: Date,
@@ -126,12 +139,13 @@ export function exportWorksheetPdf(
 ) {
   const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder);
   const hasRoute = optimisedJobOrder.length > 0;
+  const groups = groupByEngineer(rows);
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
   const pageH = doc.internal.pageSize.getHeight();
   const margin = 10;
-  const ROW_H = 8;
+  const BASE_ROW_H = 8;
   let y = margin + 4;
 
   // ── Title ─────────────────────────────────────────────────────────────────
@@ -144,71 +158,117 @@ export function exportWorksheetPdf(
   doc.setFont("helvetica", "normal");
   doc.setFontSize(12);
   doc.text(dateStr, margin + titleTextW + 3, y);
-  // underline WEEK COMMENCING
   doc.line(margin, y + 1, margin + titleTextW, y + 1);
   y += 10;
 
-  // ── Column definitions (match template proportions) ────────────────────────
+  // ── Column definitions (no ENGINEER column, wider materials/comments) ─────
   const usableW = pageW - margin * 2;
   const baseCols = [
-    { label: "DATE:",           key: "date",           w: usableW * 0.08 },
-    { label: "ENGINEER",        key: "engineer",       w: usableW * 0.09 },
-    { label: "COMPANY",         key: "company",        w: usableW * 0.10 },
+    { label: "DATE:",           key: "date",           w: usableW * 0.09 },
+    { label: "COMPANY",         key: "company",        w: usableW * 0.11 },
     { label: "SITE",            key: "site",           w: usableW * 0.14 },
     { label: "POSTCODE",        key: "postcode",       w: usableW * 0.06 },
     { label: "JOB DESCRIPTION", key: "jobDescription", w: usableW * 0.14 },
-    { label: "SCOPE",           key: "scope",          w: usableW * 0.07 },
-    { label: "MATERIALS",       key: "materials",      w: usableW * 0.12 },
-    { label: "COMMENTS",        key: "comments",       w: usableW * 0.10 },
+    { label: "SCOPE",           key: "scope",          w: usableW * 0.06 },
+    { label: "MATERIALS",       key: "materials",      w: usableW * 0.16 },
+    { label: "COMMENTS",        key: "comments",       w: usableW * 0.14 },
     { label: "NOTES",           key: "notes",          w: usableW * 0.10 },
   ];
   const cols = hasRoute
     ? [{ label: "#", key: "routeOrder", w: usableW * 0.03 }, ...baseCols.map(c => ({ ...c, w: c.w * 0.97 }))]
     : baseCols;
 
-  // ── Header row ─────────────────────────────────────────────────────────────
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  let cx = margin;
-  cols.forEach((col) => {
-    doc.rect(cx, y, col.w, ROW_H);
-    doc.text(col.label, cx + 1.5, y + 5.5);
-    cx += col.w;
-  });
-  y += ROW_H;
+  // Helper: calculate row height based on wrapped text
+  const calcRowH = (row: WorksheetRow): number => {
+    doc.setFontSize(6.5);
+    let maxLines = 1;
+    for (const col of cols) {
+      const val = row[col.key as keyof WorksheetRow] || "";
+      const lines = doc.splitTextToSize(val, col.w - 2.5);
+      if (lines.length > maxLines) maxLines = lines.length;
+    }
+    return Math.max(BASE_ROW_H, maxLines * 3 + 2);
+  };
 
-  // ── Data rows — alternate grey band per calendar day ──────────────────────
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  // ── Draw table header ─────────────────────────────────────────────────────
+  const drawHeader = () => {
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "bold");
+    doc.setDrawColor(0);
+    let cx = margin;
+    cols.forEach((col) => {
+      doc.rect(cx, y, col.w, BASE_ROW_H);
+      doc.text(col.label, cx + 1.5, y + 5.5);
+      cx += col.w;
+    });
+    y += BASE_ROW_H;
+  };
 
+  drawHeader();
+
+  // ── Data rows grouped by engineer ─────────────────────────────────────────
   let lastDate = "";
   let bandGrey = false;
 
-  for (const row of rows) {
-    if (y + ROW_H > pageH - margin) {
+  for (const group of groups) {
+    // Engineer group header
+    if (y + BASE_ROW_H > pageH - margin) {
       doc.addPage();
       y = margin;
+      drawHeader();
     }
+    doc.setFillColor(180, 200, 230);
+    doc.rect(margin, y, usableW, BASE_ROW_H, "F");
+    doc.setDrawColor(100, 100, 100);
+    doc.rect(margin, y, usableW, BASE_ROW_H);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text(`${group.engineer}  (${group.rows.length} job${group.rows.length !== 1 ? "s" : ""})`, margin + 2, y + 5.5);
+    y += BASE_ROW_H;
 
-    if (row.date !== lastDate) {
-      bandGrey = !bandGrey;
-      lastDate = row.date;
+    // Reset banding per engineer group
+    lastDate = "";
+    bandGrey = false;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+
+    for (const row of group.rows) {
+      const rowH = calcRowH(row);
+
+      if (y + rowH > pageH - margin) {
+        doc.addPage();
+        y = margin;
+        drawHeader();
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+      }
+
+      if (row.date !== lastDate) {
+        bandGrey = !bandGrey;
+        lastDate = row.date;
+      }
+
+      if (bandGrey) {
+        doc.setFillColor(230, 230, 230);
+        doc.rect(margin, y, usableW, rowH, "F");
+      }
+
+      let cx = margin;
+      doc.setDrawColor(180, 180, 180);
+      doc.setTextColor(0, 0, 0);
+      cols.forEach((col) => {
+        doc.rect(cx, y, col.w, rowH);
+        const val = row[col.key as keyof WorksheetRow] || "";
+        const lines: string[] = doc.splitTextToSize(val, col.w - 2.5);
+        lines.forEach((line: string, i: number) => {
+          doc.text(line, cx + 1.2, y + 3.5 + i * 3);
+        });
+        cx += col.w;
+      });
+      y += rowH;
     }
-
-    if (bandGrey) {
-      doc.setFillColor(210, 210, 210);
-      doc.rect(margin, y, usableW, ROW_H, "F");
-    }
-
-    cx = margin;
-    doc.setDrawColor(180, 180, 180);
-    cols.forEach((col) => {
-      doc.rect(cx, y, col.w, ROW_H);
-      const val = row[col.key as keyof WorksheetRow];
-      doc.text(val, cx + 1.5, y + 5.5, { maxWidth: col.w - 3 });
-      cx += col.w;
-    });
-    y += ROW_H;
   }
 
   doc.save(`weekly-planner-${format(weekStart, "yyyy-MM-dd")}.pdf`);
@@ -226,31 +286,43 @@ export function exportWorksheetXlsx(
 ) {
   const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder);
   const hasRoute = optimisedJobOrder.length > 0;
+  const groups = groupByEngineer(rows);
 
-  const headers = hasRoute
-    ? ["#", "DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"]
-    : ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"];
-
-  const dataRows = rows.map((r) => {
-    const base = [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.comments, r.notes];
-    return hasRoute ? [r.routeOrder, ...base] : base;
-  });
+  // Build headers without ENGINEER column
+  const baseHeaders = ["DATE", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"];
+  const headers = hasRoute ? ["#", ...baseHeaders] : baseHeaders;
 
   const wsData: (string | number)[][] = [
     [`WEEK COMMENCING ${format(weekStart, "dd/MM/yyyy")}`],
     [],
     headers,
-    ...dataRows,
   ];
+
+  for (const group of groups) {
+    // Engineer group header row (merged across all columns)
+    const groupRow = new Array(headers.length).fill("");
+    groupRow[0] = `${group.engineer} (${group.rows.length} job${group.rows.length !== 1 ? "s" : ""})`;
+    wsData.push(groupRow);
+
+    for (const r of group.rows) {
+      const base = [r.date, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.comments, r.notes];
+      wsData.push(hasRoute ? [r.routeOrder, ...base] : base);
+    }
+  }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  const colWidths = hasRoute
-    ? [{ wch: 4 }, { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 28 }, { wch: 28 }, { wch: 24 }]
-    : [{ wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 28 }, { wch: 28 }, { wch: 24 }];
-  ws["!cols"] = colWidths;
+  const baseWidths = [{ wch: 16 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 14 }, { wch: 34 }, { wch: 34 }, { wch: 24 }];
+  ws["!cols"] = hasRoute ? [{ wch: 4 }, ...baseWidths] : baseWidths;
 
-  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+  // Merge title + engineer group header rows
+  const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
+  let rowIdx = 3; // after title, blank, headers
+  for (const group of groups) {
+    merges.push({ s: { r: rowIdx, c: 0 }, e: { r: rowIdx, c: headers.length - 1 } });
+    rowIdx += 1 + group.rows.length;
+  }
+  ws["!merges"] = merges;
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Weekly Planner");
