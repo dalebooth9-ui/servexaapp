@@ -33,6 +33,7 @@ type JobInfo = {
   customer?: string | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
+  engineers?: string[];
 };
 
 interface Props {
@@ -210,7 +211,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setFont("helvetica", "bold");
       doc.text("Technician:", margin, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text("", margin + 20, sigY + 7);
+      const techName = jobInfo?.engineers?.length ? jobInfo.engineers.join(", ") : "";
+      doc.text(techName, margin + 20, sigY + 7);
       doc.text("Signature:", margin, sigY + 11);
       doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
 
