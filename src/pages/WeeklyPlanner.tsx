@@ -164,6 +164,11 @@ export default function WeeklyPlanner() {
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
     } else {
+      // If the job was in 'scheduled' status, promote it to 'active' now it has an engineer assigned
+      const job = jobs.find((j) => j.id === jobId);
+      if (job?.status === "scheduled") {
+        await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
+      }
       toast({ title: "Assigned" });
       fetchData();
     }
