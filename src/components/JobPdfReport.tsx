@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+
 
 interface Props {
   jobId: string;
@@ -130,7 +130,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(logoBlob);
         });
-      } catch { /* logo unavailable, continue without it */ }
+      } catch { /* logo unavailable */ }
 
       const doc = new jsPDF();
       let y = 15;
@@ -151,16 +151,22 @@ export default function JobPdfReport({ jobId, job }: Props) {
       if (logoDataUrl) {
         try {
           const tmpImg = new Image();
-          tmpImg.src = logoDataUrl;
-          const logoMaxH = 22;
-          const logoMaxW = 50;
+          tmpImg.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            tmpImg.onload = () => resolve();
+            tmpImg.onerror = () => reject();
+            tmpImg.src = logoDataUrl!;
+          });
+          const logoMaxH = 20;
+          const logoMaxW = 70;
           const aspect = tmpImg.naturalWidth / tmpImg.naturalHeight;
           let logoW = logoMaxH * aspect;
           let logoH = logoMaxH;
           if (logoW > logoMaxW) { logoW = logoMaxW; logoH = logoW / aspect; }
           const logoX = (pageWidth - logoW) / 2;
           const logoY = (headerH - logoH) / 2 - 3;
-          doc.addImage(logoDataUrl, "JPEG", logoX, logoY, logoW, logoH);
+          const fmt = logoDataUrl.includes("image/png") ? "PNG" : "JPEG";
+          doc.addImage(tmpImg, fmt, logoX, logoY, logoW, logoH);
         } catch { /* skip logo */ }
       }
 
@@ -509,9 +515,6 @@ export default function JobPdfReport({ jobId, job }: Props) {
         doc.line(margin, 286, pageWidth - margin, 286);
       }
 
-      // Add watermark to all pages
-      const watermark = await loadWatermarkImage();
-      if (watermark) addWatermarkToAllPages(doc, watermark);
 
       doc.save(`${job.reference_number}-report.pdf`);
       toast({ title: "PDF generated", description: `${job.reference_number}-report.pdf downloaded.` });
