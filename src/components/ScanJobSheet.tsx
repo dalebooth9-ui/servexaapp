@@ -197,7 +197,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setFont("helvetica", "normal");
       doc.text(riserLocValue, margin + 28, y + headerRowH * 2 + 4);
 
-      y += detailH + 1;
+      y += detailH + 2;
 
       // Scanned note
       doc.setFontSize(7);

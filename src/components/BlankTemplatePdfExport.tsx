@@ -203,7 +203,6 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const refNumber = jobInfo?.reference_number || "";
       const dateVal = new Date().toLocaleDateString("en-GB");
 
-      const detailRowH = 6;
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
 
@@ -234,7 +233,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       doc.setFont("helvetica", "bold");
       doc.text("Site:", margin + 1, y + headerRowH + 4);
       doc.setFont("helvetica", "normal");
-      const siteStr = [siteName, siteAddress, sitePostcode].filter(Boolean).join(", ");
+      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
       if (siteStr) {
         doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""), margin + 10, y + headerRowH + 4);
       }
