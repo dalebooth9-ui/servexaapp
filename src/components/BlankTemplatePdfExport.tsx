@@ -258,13 +258,16 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       template.fields.forEach((f) => {
         const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
         if (
-          label.includes("customer") && (label.includes("detail") || label === "customer" || label === "customer name") ||
-          label === "date" ||
-          label.includes("po number") ||
-          label.includes("site detail") ||
-          f.id === "comments" ||
-          f.id === "materials_required" ||
-          f.id === "technician_name"
+          (label.includes("customer") && (label.includes("detail") || label === "customer" || label === "customer name" || label === "client")) ||
+          label === "date" || label === "inspection date" || label === "service date" || label === "visit date" ||
+          label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("order number") ||
+          (label.includes("site") && (label.includes("detail") || label.includes("info"))) ||
+          label === "site name" || label === "site" || label === "site address" || label === "address" ||
+          label.includes("postcode") || label.includes("post code") ||
+          label.includes("riser location") ||
+          label.includes("technician name") || label.includes("engineer") ||
+          label === "comments" || label.includes("comment") ||
+          label.includes("material")
         ) {
           skipIds.add(f.id);
         }
