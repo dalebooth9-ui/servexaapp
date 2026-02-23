@@ -101,7 +101,7 @@ function buildRows(
         company: (job as any)?.customers?.name || job?.customer || "",
         site: site?.name || site?.address || job?.address || "",
         postcode: site?.postcode || extractPostcode(job?.address || null),
-        jobDescription: job ? `${job.reference_number} - ${job.name}` : "",
+        jobDescription: job ? [job.site?.name, job.name].filter(Boolean).join(" – ") : "",
         scope: scopeParts.join(", "),
         materials: materialsStr,
         comments: latestComment?.content || "",
