@@ -23,7 +23,7 @@ export default function Engineers() {
   const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "" });
   const [adding, setAdding] = useState(false);
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
 
   const fetchEngineers = async () => {
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
@@ -66,9 +66,21 @@ export default function Engineers() {
     if (error) {
       toast({ title: "Error", description: "Failed to update engineer.", variant: "destructive" });
     } else {
-      toast({ title: "Updated", description: "Engineer details saved." });
+      const oldValues = {
+        full_name: editEng.full_name,
+        phone: editEng.phone || null,
+        whatsapp_number: editEng.whatsapp_number || null,
+      };
+      const engId = editEng.id;
       setEditEng(null);
       fetchEngineers();
+      editWithUndo({
+        label: "Engineer updated",
+        onUndo: async () => {
+          await supabase.from("profiles").update(oldValues).eq("id", engId);
+          fetchEngineers();
+        },
+      });
     }
   };
 

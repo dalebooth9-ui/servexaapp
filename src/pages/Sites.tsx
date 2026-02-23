@@ -88,7 +88,7 @@ const emptySite = {
 export default function Sites() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -174,12 +174,31 @@ export default function Sites() {
     };
 
     if (editing) {
-      const { error } = await supabase.from("sites").update(payload).eq("id", editing.id);
+      const oldSite = sites.find((s) => s.id === editing.id);
+      const oldPayload = oldSite ? {
+        name: oldSite.name, site_type: oldSite.site_type, parent_id: oldSite.parent_id,
+        address: oldSite.address, postcode: oldSite.postcode,
+        contact_name: oldSite.contact_name, contact_phone: oldSite.contact_phone,
+        contact_email: oldSite.contact_email, notes: oldSite.notes,
+      } : null;
+      const editId = editing.id;
+      const { error } = await supabase.from("sites").update(payload).eq("id", editId);
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Site updated" });
+      setDialogOpen(false);
+      fetchSites();
+      editWithUndo({
+        label: "Site updated",
+        onUndo: async () => {
+          if (oldPayload) {
+            await supabase.from("sites").update(oldPayload).eq("id", editId);
+            fetchSites();
+          }
+        },
+      });
+      return;
     } else {
       const { error } = await supabase.from("sites").insert(payload as any);
       if (error) {
