@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Image, FileText, MapPin, MessageSquare, Download, Eye, X, FileSpreadsheet, File, Trash2, ArrowUpDown, SortAsc, RefreshCw, Pencil, Check } from "lucide-react";
+import { Image, FileText, MapPin, MessageSquare, Download, Eye, X, FileSpreadsheet, File, Trash2, ArrowUpDown, SortAsc, RefreshCw, Pencil, Check, LayoutGrid, List } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import SubmissionComments from "@/components/SubmissionComments";
@@ -55,6 +55,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
   const [editNoteText, setEditNoteText] = useState("");
   const [sortBy, setSortBy] = useState<"date" | "name">("date");
   const [sortAsc, setSortAsc] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "gallery">("list");
   const [replacingSub, setReplacingSub] = useState<any>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
@@ -242,6 +243,12 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
           </Button>
         )}
         <div className="ml-auto flex items-center gap-1">
+          <Button variant={viewMode === "gallery" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("gallery")} className="text-xs" title="Gallery view">
+            <LayoutGrid className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant={viewMode === "list" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("list")} className="text-xs" title="List view">
+            <List className="h-3.5 w-3.5" />
+          </Button>
           <Button variant={sortBy === "date" ? "secondary" : "ghost"} size="sm" onClick={() => handleSort("date")} className="text-xs">
             <ArrowUpDown className="mr-1 h-3 w-3" />
             Date {sortBy === "date" ? (sortAsc ? "↑" : "↓") : ""}
@@ -253,6 +260,37 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
         </div>
       </div>
 
+      {viewMode === "gallery" ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+          {sortedItems.filter((s) => (s.type === "photo" || (s.type === "document" && s.file_name && isImageFile(s.file_name))) && signedUrls[s.id]).map((sub) => {
+            const url = signedUrls[sub.id];
+            return (
+              <div key={sub.id} className="group relative rounded-lg border border-border overflow-hidden bg-card cursor-pointer" onClick={() => openLightbox(sub.id)}>
+                <div className="aspect-square">
+                  <img src={url} alt={sub.file_name || "Photo"} className="h-full w-full object-cover transition-transform group-hover:scale-105" />
+                </div>
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xs text-white truncate">{sub.file_name || "Photo"}</p>
+                  <p className="text-[10px] text-white/70">{new Date(sub.created_at).toLocaleDateString()} · {getEngineerName(sub.engineer_id)}</p>
+                </div>
+                {(isAdmin || sub.engineer_id === currentUserId) && (
+                  <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+                    <Button variant="secondary" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); window.open(url, "_blank"); }}>
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {sortedItems.filter((s) => !((s.type === "photo" || (s.type === "document" && s.file_name && isImageFile(s.file_name))) && signedUrls[s.id])).length > 0 && (
+            <div className="col-span-full text-xs text-muted-foreground pt-2">
+              + {sortedItems.filter((s) => !((s.type === "photo" || (s.type === "document" && s.file_name && isImageFile(s.file_name))) && signedUrls[s.id])).length} non-image submission(s) — switch to list view to see all.
+            </div>
+          )}
+        </div>
+      ) : (
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -404,6 +442,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
           </Table>
         </CardContent>
       </Card>
+      )}
 
       <Dialog open={!!previewSub} onOpenChange={(open) => !open && setPreviewSub(null)}>
         <DialogContent className="max-w-4xl h-[85vh] flex flex-col p-0">
