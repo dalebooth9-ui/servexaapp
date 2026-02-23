@@ -33,6 +33,21 @@ function extractPostcode(address: string | null): string {
   return match ? match[0].toUpperCase() : "";
 }
 
+interface JobPart {
+  id: string;
+  job_id: string;
+  name: string;
+  quantity: number;
+  notes: string | null;
+}
+
+interface SubmissionComment {
+  id: string;
+  content: string;
+  created_at: string;
+  submission_job_id?: string;
+}
+
 type WorksheetRow = {
   date: string;
   engineer: string;
@@ -41,16 +56,22 @@ type WorksheetRow = {
   postcode: string;
   jobDescription: string;
   scope: string;
-  comment: string;
+  materials: string;
+  comments: string;
+  notes: string;
 };
 
 function buildRows(
   schedule: ScheduleEntry[],
   jobs: Job[],
-  engineers: Engineer[]
+  engineers: Engineer[],
+  jobParts: JobPart[] = [],
+  submissionComments: SubmissionComment[] = []
 ): WorksheetRow[] {
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEng = (id: string) => engineers.find((e) => e.user_id === id);
+  const getPartsForJob = (jobId: string) => jobParts.filter((p) => p.job_id === jobId);
+  const getLatestComment = (jobId: string) => submissionComments.find((c) => c.submission_job_id === jobId);
 
   return [...schedule]
     .sort((a, b) => {
@@ -67,6 +88,11 @@ function buildRows(
       const scopeParts: string[] = [];
       if (job?.pressure_test_qty) scopeParts.push(`PT×${job.pressure_test_qty}`);
       if (job?.visual_qty) scopeParts.push(`Vis×${job.visual_qty}`);
+
+      const parts = job ? getPartsForJob(job.id) : [];
+      const materialsStr = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
+      const latestComment = job ? getLatestComment(job.id) : undefined;
+
       return {
         date: format(new Date(entry.schedule_date), "EEE dd/MM/yyyy"),
         engineer: eng?.full_name || "",
@@ -75,7 +101,9 @@ function buildRows(
         postcode: site?.postcode || extractPostcode(job?.address || null),
         jobDescription: job ? `${job.reference_number} - ${job.name}` : "",
         scope: scopeParts.join(", "),
-        comment: entry.notes || "",
+        materials: materialsStr,
+        comments: latestComment?.content || "",
+        notes: entry.notes || "",
       };
     });
 }
@@ -85,9 +113,11 @@ export function exportWorksheetPdf(
   weekStart: Date,
   schedule: ScheduleEntry[],
   jobs: Job[],
-  engineers: Engineer[]
+  engineers: Engineer[],
+  jobParts: JobPart[] = [],
+  submissionComments: SubmissionComment[] = []
 ) {
-  const rows = buildRows(schedule, jobs, engineers);
+  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments);
 
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
   const pageW = doc.internal.pageSize.getWidth();
@@ -113,14 +143,16 @@ export function exportWorksheetPdf(
   // ── Column definitions (match template proportions) ────────────────────────
   const usableW = pageW - margin * 2;
   const cols = [
-    { label: "DATE:",         key: "date",           w: usableW * 0.09 },
-    { label: "ENGINEER",      key: "engineer",        w: usableW * 0.11 },
-    { label: "COMPANY",       key: "company",         w: usableW * 0.12 },
-    { label: "SITE",          key: "site",            w: usableW * 0.19 },
-    { label: "POSTCODE",      key: "postcode",        w: usableW * 0.07 },
-    { label: "JOB DESCRIPTION", key: "jobDescription", w: usableW * 0.19 },
-    { label: "SCOPE",         key: "scope",           w: usableW * 0.10 },
-    { label: "COMMENT",       key: "comment",         w: usableW * 0.13 },
+    { label: "DATE:",           key: "date",           w: usableW * 0.08 },
+    { label: "ENGINEER",        key: "engineer",       w: usableW * 0.09 },
+    { label: "COMPANY",         key: "company",        w: usableW * 0.10 },
+    { label: "SITE",            key: "site",           w: usableW * 0.14 },
+    { label: "POSTCODE",        key: "postcode",       w: usableW * 0.06 },
+    { label: "JOB DESCRIPTION", key: "jobDescription", w: usableW * 0.14 },
+    { label: "SCOPE",           key: "scope",          w: usableW * 0.07 },
+    { label: "MATERIALS",       key: "materials",      w: usableW * 0.12 },
+    { label: "COMMENTS",        key: "comments",       w: usableW * 0.10 },
+    { label: "NOTES",           key: "notes",          w: usableW * 0.10 },
   ];
 
   // ── Header row ─────────────────────────────────────────────────────────────
@@ -176,15 +208,17 @@ export function exportWorksheetXlsx(
   weekStart: Date,
   schedule: ScheduleEntry[],
   jobs: Job[],
-  engineers: Engineer[]
+  engineers: Engineer[],
+  jobParts: JobPart[] = [],
+  submissionComments: SubmissionComment[] = []
 ) {
-  const rows = buildRows(schedule, jobs, engineers);
+  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments);
 
   const wsData: (string | number)[][] = [
     [`WEEK COMMENCING ${format(weekStart, "dd/MM/yyyy")}`],
     [],
-    ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "COMMENT"],
-    ...rows.map((r) => [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.comment]),
+    ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"],
+    ...rows.map((r) => [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.comments, r.notes]),
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -192,11 +226,11 @@ export function exportWorksheetXlsx(
   // Column widths
   ws["!cols"] = [
     { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 },
-    { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 24 },
+    { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 28 }, { wch: 28 }, { wch: 24 },
   ];
 
   // Merge title cell across all columns
-  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 9 } }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Weekly Planner");
