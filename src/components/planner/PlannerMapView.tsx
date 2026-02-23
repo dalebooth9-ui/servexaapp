@@ -1,6 +1,7 @@
-import { useEffect, useRef, useMemo, useState } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveEngineerLocations } from "@/hooks/useLiveEngineerLocations";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,7 +51,9 @@ export default function PlannerMapView({
   const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string }[]>([]);
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const mapsApiKeyRef = useRef<string | null>(null);
   const engineerLocations = useLiveEngineerLocations();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [optimising, setOptimising] = useState(false);
   const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number } | null>(null);
@@ -58,6 +61,7 @@ export default function PlannerMapView({
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
   const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
+  const [savingPin, setSavingPin] = useState<string | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
@@ -104,6 +108,54 @@ export default function PlannerMapView({
     setOptimising(false);
   };
 
+  // Save a static map pin image to a job's folder
+  const saveMapPinToJob = useCallback(async (jobId: string, address: string, lat: number, lng: number) => {
+    if (!user?.id || !mapsApiKeyRef.current) return;
+    setSavingPin(jobId);
+    try {
+      const apiKey = mapsApiKeyRef.current;
+      const staticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x400&scale=2&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
+      const res = await fetch(staticUrl);
+      if (!res.ok) throw new Error("Failed to fetch map image");
+      const blob = await res.blob();
+      const fileName = `map-pin-${Date.now()}.png`;
+      const filePath = `${jobId}/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, blob, { contentType: "image/png" });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
+      await supabase.from("submissions").insert({
+        job_id: jobId,
+        engineer_id: user.id,
+        type: "photo",
+        file_url: urlData.publicUrl,
+        file_name: fileName,
+        content: `Map pin — ${address}`,
+      });
+
+      toast({ title: "Map pin saved", description: "Location image added to job folder." });
+    } catch (err) {
+      console.error("Save map pin error:", err);
+      toast({ title: "Failed to save map pin", variant: "destructive" });
+    }
+    setSavingPin(null);
+  }, [user, toast]);
+
+  // Handle clicks on "Save Pin" buttons inside info windows (delegated)
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = (e.target as HTMLElement)?.closest("[data-save-pin]") as HTMLElement | null;
+      if (!target) return;
+      const { jobId, address, lat, lng } = target.dataset as any;
+      if (jobId && address && lat && lng) {
+        saveMapPinToJob(jobId, address, parseFloat(lat), parseFloat(lng));
+      }
+    };
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [saveMapPinToJob]);
+
   useEffect(() => {
     let cancelled = false;
     setMapLoading(true);
@@ -119,6 +171,7 @@ export default function PlannerMapView({
           }
           return;
         }
+        mapsApiKeyRef.current = data.apiKey;
 
         if (!(window as any).google?.maps) {
           const script = document.createElement("script");
@@ -168,12 +221,17 @@ export default function PlannerMapView({
               });
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address!)}`;
+              const posLat = pos.lat();
+              const posLng = pos.lng();
               const infoWindow = new google.maps.InfoWindow({
-                content: `<div style="font-family:system-ui;font-size:13px;max-width:250px">
+                content: `<div style="font-family:system-ui;font-size:13px;max-width:260px">
                   <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${job.reference_number}</a> — ${job.name}<br/>
                   <span style="color:#666">${(job as any).customers?.name || job.customer || ""}</span><br/>
                   <span style="color:#666">${engineerName}</span><br/>
-                  <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 8px;background:#2563eb;color:white;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">📍 Get Directions</a>
+                  <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap">
+                    <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#2563eb;color:white;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">📍 Directions</a>
+                    <button data-save-pin data-job-id="${job.id}" data-address="${job.address?.replace(/"/g, '&quot;')}" data-lat="${posLat}" data-lng="${posLng}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 8px;background:#16a34a;color:white;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:500" onmouseover="this.style.background='#15803d'" onmouseout="this.style.background='#16a34a'">📷 Save Pin</button>
+                  </div>
                 </div>`,
               });
 
