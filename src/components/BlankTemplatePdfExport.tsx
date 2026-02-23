@@ -369,27 +369,34 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
 
       const engineerList = (jobInfo?.engineers || []).join(", ");
 
+      const labelX = 20; // uniform label width for alignment
+      const lineSpacing = 5;
+      const cx = margin + halfW + 4;
+
       doc.setFontSize(8.5);
+      // Left column — Technician
       doc.setFont("helvetica", "bold");
       doc.text("Date:", margin, sigY + 3);
-      doc.setFont("helvetica", "normal");
-      doc.line(margin + 10, sigY + 4, margin + halfW, sigY + 4);
-      doc.setFont("helvetica", "bold");
-      doc.text("Technician:", margin, sigY + 8);
-      doc.setFont("helvetica", "normal");
-      if (engineerList) doc.text(engineerList, margin + 18, sigY + 8);
-      doc.line(margin + 18, sigY + 9, margin + halfW, sigY + 9);
-      doc.setFont("helvetica", "bold");
-      doc.text("Signature:", margin, sigY + 13);
-      doc.line(margin + 18, sigY + 14, margin + halfW, sigY + 14);
+      doc.line(margin + labelX, sigY + 4, margin + halfW, sigY + 4);
 
-      const cx = margin + halfW + 4;
+      doc.text("Technician:", margin, sigY + 3 + lineSpacing);
+      doc.setFont("helvetica", "normal");
+      if (engineerList) doc.text(engineerList, margin + labelX, sigY + 3 + lineSpacing);
+      doc.line(margin + labelX, sigY + 4 + lineSpacing, margin + halfW, sigY + 4 + lineSpacing);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Signature:", margin, sigY + 3 + lineSpacing * 2);
+      doc.line(margin + labelX, sigY + 4 + lineSpacing * 2, margin + halfW, sigY + 4 + lineSpacing * 2);
+
+      // Right column — Customer
       doc.text("Date:", cx, sigY + 3);
-      doc.line(cx + 10, sigY + 3, cx + halfW, sigY + 3);
-      doc.text("Customer:", cx, sigY + 7);
-      doc.line(cx + 18, sigY + 7, cx + halfW, sigY + 7);
-      doc.text("Signature:", cx, sigY + 11);
-      doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+      doc.line(cx + labelX, sigY + 4, cx + halfW, sigY + 4);
+
+      doc.text("Customer:", cx, sigY + 3 + lineSpacing);
+      doc.line(cx + labelX, sigY + 4 + lineSpacing, cx + halfW, sigY + 4 + lineSpacing);
+
+      doc.text("Signature:", cx, sigY + 3 + lineSpacing * 2);
+      doc.line(cx + labelX, sigY + 4 + lineSpacing * 2, cx + halfW, sigY + 4 + lineSpacing * 2);
 
       // --- Footer declaration ---
       const footerY = sigY + 15;
