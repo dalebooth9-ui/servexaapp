@@ -126,7 +126,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setDrawColor(33, 61, 99);
       doc.setLineWidth(0.5);
       doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
-      y = logoBottomY + 5;
+      doc.setTextColor(30, 30, 30);
+      y = logoBottomY + 7;
 
       // --- Customer details — prefer AI-extracted header, fall back to job data ---
       const referenceNumber = extractedHeader.po_ref || jobInfo?.reference_number || "";
