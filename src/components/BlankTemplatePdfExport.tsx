@@ -66,8 +66,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
       const footerText = branding.footer_text || defaultFooter;
 
-      // --- HEADER (centred, proper aspect ratio) ---
+      // --- HEADER: Logo centred, title below, white background ---
       const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
+      let logoBottomY = y;
       try {
         const logoImg = new Image();
         logoImg.crossOrigin = "anonymous";
@@ -84,7 +85,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
         const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
         doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
-        y += lh + 2;
+        logoBottomY = y + lh + 3;
       } catch {
         doc.setFontSize(12);
         doc.setFont("helvetica", "bold");
@@ -92,14 +93,22 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         doc.setFontSize(7);
         doc.setFont("helvetica", "normal");
         doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
-        y += 12;
+        logoBottomY = y + 12;
       }
 
-      // --- Title ---
-      doc.setFontSize(10);
+      // Title below logo
       doc.setFont("helvetica", "bold");
-      doc.text(template.name.toUpperCase(), pageWidth / 2, y, { align: "center" });
-      y += 5;
+      doc.setFontSize(12);
+      doc.setTextColor(33, 61, 99);
+      doc.text(template.name.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
+
+      // Separator line
+      doc.setDrawColor(33, 61, 99);
+      doc.setLineWidth(0.5);
+      doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
+
+      doc.setTextColor(30, 30, 30);
+      y = logoBottomY + 7;
 
       // --- Customer/Date fields — pre-fill from job info if available ---
       const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
