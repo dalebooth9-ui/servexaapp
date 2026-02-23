@@ -1,0 +1,2 @@
+ALTER TABLE public.jobs DROP CONSTRAINT IF EXISTS jobs_status_check;
+ALTER TABLE public.jobs ADD CONSTRAINT jobs_status_check CHECK (status = ANY (ARRAY['active'::text, 'scheduled'::text, 'in_progress'::text, 'awaiting_parts'::text, 'on_hold'::text, 'requires_revisit'::text, 'completed'::text, 'archived'::text]));
