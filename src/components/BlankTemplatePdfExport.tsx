@@ -207,36 +207,49 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
 
+      // Find riser location field value
+      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
+      const riserLocValue = riserField ? (autoVals[riserField.id] || "") : "";
+
+      const headerRowH = 6;
+      const totalHeaderRows = 3;
+      const detailH = headerRowH * totalHeaderRows;
+      doc.rect(margin, y, maxWidth, detailH);
+      doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
+      doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
+      doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
+
+      doc.setFontSize(8);
       // Row 1: Customer | Date
-      doc.rect(margin, y, maxWidth, detailRowH);
-      doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailRowH);
-      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("Customer:", margin + 1, y + 4);
       doc.setFont("helvetica", "normal");
-      if (customerName) doc.text(customerName, margin + 20, y + 4);
+      if (customerName) doc.text(doc.splitTextToSize(customerName, maxWidth * 0.5 - 22).slice(0, 1).join(""), margin + 19, y + 4);
       doc.setFont("helvetica", "bold");
       doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4);
       doc.setFont("helvetica", "normal");
       if (dateVal) doc.text(dateVal, margin + maxWidth * 0.5 + 14, y + 4);
-      y += detailRowH;
 
       // Row 2: Site | PO/REF
-      doc.rect(margin, y, maxWidth, detailRowH);
-      doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailRowH);
       doc.setFont("helvetica", "bold");
-      doc.text("Site:", margin + 1, y + 4);
+      doc.text("Site:", margin + 1, y + headerRowH + 4);
       doc.setFont("helvetica", "normal");
       const siteStr = [siteName, siteAddress, sitePostcode].filter(Boolean).join(", ");
       if (siteStr) {
-        const truncSite = doc.splitTextToSize(siteStr, maxWidth * 0.48 - 12).slice(0, 1).join("");
-        doc.text(truncSite, margin + 12, y + 4);
+        doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""), margin + 10, y + headerRowH + 4);
       }
       doc.setFont("helvetica", "bold");
-      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + 4);
+      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + headerRowH + 4);
       doc.setFont("helvetica", "normal");
-      if (refNumber) doc.text(refNumber, margin + maxWidth * 0.5 + 16, y + 4);
-      y += detailRowH + 2;
+      if (refNumber) doc.text(refNumber, margin + maxWidth * 0.5 + 16, y + headerRowH + 4);
+
+      // Row 3: Riser Location (full width)
+      doc.setFont("helvetica", "bold");
+      doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(riserLocValue, margin + 28, y + headerRowH * 2 + 4);
+
+      y += detailH + 2;
 
       // --- Sections and fields as blank table ---
       const sections = [...new Set(template.fields.map((f) => f.section || "General"))];
