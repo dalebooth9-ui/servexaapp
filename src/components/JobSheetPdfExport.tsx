@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 
 
 type TemplateField = {
@@ -87,11 +88,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       
 
       const branding = template.branding || {};
-      const isVisual = template.name.toLowerCase().includes("visual") || (template as any).category === "visual";
-      const defaultFooter = isVisual
-        ? "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015"
-        : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
-      const footerText = branding.footer_text || defaultFooter;
+      const footerText = getDefaultFooterText(template.name, branding);
 
       // Helper: find form value by label pattern
       const findFormVal = (...patterns: string[]): string => {
@@ -271,61 +268,27 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       // --- Signature blocks ---
       const sigY = Math.max(y + 2, pageHeight - footerSpace);
-      const halfW = maxWidth / 2 - 2;
       const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
       // Find engineer and customer signatures (treat admin as technician)
       const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
       const customerSig = signatures.find((s: any) => s.signer_role === "customer");
-      const sigImgH = 8;
-      const sigImgW = 25;
 
       // Resolve technician name: prefer form "Technician Name" field, then signature, then submittedBy
       const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
       const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
 
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Date: `, margin, sigY + 3);
-      doc.setFont("helvetica", "normal");
-      doc.text(dateStr, margin + 10, sigY + 3);
-      doc.setFont("helvetica", "bold");
-      doc.text("Technician:", margin, sigY + 7);
-      doc.setFont("helvetica", "normal");
-      doc.text(techName, margin + 20, sigY + 7);
-      if (engineerSig && sigImages[engineerSig.id]) {
-        doc.addImage(sigImages[engineerSig.id], "PNG", margin + 18, sigY + 8, sigImgW, sigImgH);
-      } else {
-        doc.text("Signature:", margin, sigY + 11);
-        doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
-      }
-
-      const cx = margin + halfW + 4;
-      doc.setFont("helvetica", "bold");
-      doc.text(`Date: `, cx, sigY + 3);
-      doc.setFont("helvetica", "normal");
-      doc.text(dateStr, cx + 10, sigY + 3);
-      doc.setFont("helvetica", "bold");
-      doc.text("Customer:", cx, sigY + 7);
-      doc.setFont("helvetica", "normal");
-      doc.text(customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "", cx + 18, sigY + 7);
-      if (customerSig && sigImages[customerSig.id]) {
-        doc.addImage(sigImages[customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
-      } else {
-        doc.text("Signature:", cx, sigY + 11);
-        doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
-      }
+      const footerY = renderPdfSignatures(doc, sigY, {
+        dateStr,
+        technicianName: techName,
+        customerName: jobInfo?.customers?.name || jobInfo?.customer || "",
+        sigImages,
+        engineerSig,
+        customerSig,
+      });
 
       // --- Footer declaration ---
-      const footerY = sigY + 15;
-      doc.setDrawColor(0);
-      doc.rect(margin, footerY, maxWidth, 9);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      const footerLines = footerText.split("\n");
-      footerLines.forEach((line, i) => {
-        doc.text(line.trim(), pageWidth / 2, footerY + 3 + i * 3.5, { align: "center" });
-      });
+      renderPdfFooter(doc, footerY, footerText);
 
 
       // Watermark on every page
