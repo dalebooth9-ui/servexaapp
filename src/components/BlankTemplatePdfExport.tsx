@@ -27,11 +27,21 @@ type Template = {
   };
 };
 
+type JobInfo = {
+  address: string | null;
+  customer: string | null;
+  customers?: { name: string } | null;
+  reference_number: string;
+  category?: string | null;
+  site?: { name: string; address: string | null; postcode: string | null } | null;
+};
+
 interface Props {
   template: Template;
+  jobInfo?: JobInfo | null;
 }
 
-export default function BlankTemplatePdfExport({ template }: Props) {
+export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
 
@@ -80,7 +90,15 @@ export default function BlankTemplatePdfExport({ template }: Props) {
       doc.text(template.name.toUpperCase(), pageWidth / 2, y, { align: "center" });
       y += 5;
 
-      // --- Customer/Date blank fields ---
+      // --- Customer/Date fields — pre-fill from job info if available ---
+      const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
+      const siteName = jobInfo?.site?.name || "";
+      const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
+      const sitePostcode = jobInfo?.site?.postcode || "";
+      const refNumber = jobInfo?.reference_number || "";
+      const dateVal = new Date().toLocaleDateString("en-GB");
+      const siteStr = [customerName, siteName, siteAddress, sitePostcode].filter(Boolean).join(", ");
+
       const detailH = 10;
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
@@ -91,8 +109,18 @@ export default function BlankTemplatePdfExport({ template }: Props) {
       doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
       doc.text("Customer/Site:", margin + 1, y + 3);
+      doc.setFont("helvetica", "normal");
+      if (siteStr) {
+        doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 20).slice(0, 1).join(""), margin + 22, y + 3);
+      }
+      doc.setFont("helvetica", "bold");
       doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 3);
+      doc.setFont("helvetica", "normal");
+      if (dateVal) doc.text(dateVal, margin + maxWidth * 0.5 + 14, y + 3);
+      doc.setFont("helvetica", "bold");
       doc.text("PO/REF:", margin + 1, y + 3 + detailH / 2);
+      doc.setFont("helvetica", "normal");
+      if (refNumber) doc.text(refNumber, margin + 16, y + 3 + detailH / 2);
       y += detailH + 2;
 
       // --- Sections and fields as blank table ---

@@ -548,7 +548,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     >
                       <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
                     </Button>
-                    <BlankTemplatePdfExport template={tpl} />
+                    <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
                     <ScanJobSheet
                       template={tpl}
                       jobId={jobId}
