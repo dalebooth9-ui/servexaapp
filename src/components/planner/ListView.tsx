@@ -80,7 +80,7 @@ export default function ListView({
   optimisedJobOrder?: string[];
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<"date" | "engineer" | "customer" | "postcode">("date");
+  const [sortBy, setSortBy] = useState<"date" | "customer" | "postcode">("date");
   const [sortAsc, setSortAsc] = useState(true);
   const [reassignTarget, setReassignTarget] = useState("");
 
@@ -93,14 +93,12 @@ export default function ListView({
     return idx >= 0 ? idx + 1 : null;
   };
 
-  const sorted = useMemo(() => {
-    const items = [...schedule];
-    items.sort((a, b) => {
+  // Sort entries within each group
+  const sortEntries = (items: ScheduleEntry[]) => {
+    return [...items].sort((a, b) => {
       let cmp = 0;
       if (sortBy === "date") cmp = a.schedule_date.localeCompare(b.schedule_date);
-      else if (sortBy === "engineer") {
-        cmp = (getEngineer(a.engineer_id)?.full_name || "").localeCompare(getEngineer(b.engineer_id)?.full_name || "");
-      } else if (sortBy === "customer") {
+      else if (sortBy === "customer") {
         cmp = ((getJob(a.job_id) as any)?.customers?.name || getJob(a.job_id)?.customer || "").localeCompare((getJob(b.job_id) as any)?.customers?.name || getJob(b.job_id)?.customer || "");
       } else {
         const pcA = getJob(a.job_id)?.site?.postcode || extractPostcode(getJob(a.job_id)?.address || null) || "";
@@ -109,7 +107,23 @@ export default function ListView({
       }
       return sortAsc ? cmp : -cmp;
     });
-    return items;
+  };
+
+  // Group by engineer, sorted alphabetically
+  const grouped = useMemo(() => {
+    const map = new Map<string, ScheduleEntry[]>();
+    for (const entry of schedule) {
+      const list = map.get(entry.engineer_id) || [];
+      list.push(entry);
+      map.set(entry.engineer_id, list);
+    }
+    return [...map.entries()]
+      .map(([engId, entries]) => ({
+        engineerId: engId,
+        engineerName: getEngineer(engId)?.full_name || "Unassigned",
+        entries: sortEntries(entries),
+      }))
+      .sort((a, b) => a.engineerName.localeCompare(b.engineerName));
   }, [schedule, sortBy, sortAsc, engineers, jobs]);
 
   const toggleSort = (field: typeof sortBy) => {
@@ -144,6 +158,8 @@ export default function ListView({
     await onBulkDelete(Array.from(selectedIds));
     setSelectedIds(new Set());
   };
+
+  const colCount = (isAdmin ? 2 : 0) + 8 + (optimisedJobOrder.length > 0 ? 1 : 0);
 
   return (
     <div>
@@ -185,9 +201,6 @@ export default function ListView({
                 <TableHead className="cursor-pointer" onClick={() => toggleSort("date")}>
                   <span className="flex items-center gap-1">Date <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
-                <TableHead className="cursor-pointer" onClick={() => toggleSort("engineer")}>
-                  <span className="flex items-center gap-1">Engineer <ArrowUpDown className="h-3 w-3" /></span>
-                </TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort("customer")}>
                   <span className="flex items-center gap-1">Customer <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
@@ -199,122 +212,134 @@ export default function ListView({
                 <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
                 {optimisedJobOrder.length > 0 && <TableHead className="w-12 text-center">Route #</TableHead>}
-                <TableHead>Materials</TableHead>
-                <TableHead>Comments</TableHead>
+                <TableHead className="min-w-[220px]">Materials</TableHead>
+                <TableHead className="min-w-[220px]">Comments</TableHead>
                 <TableHead>Notes</TableHead>
                 {isAdmin && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sorted.length === 0 ? (
+              {grouped.length === 0 ? (
                 <TableRow>
-                   <TableCell colSpan={(isAdmin ? 13 : 11) + (optimisedJobOrder.length > 0 ? 1 : 0)} className="py-12 text-center text-muted-foreground">
+                  <TableCell colSpan={colCount} className="py-12 text-center text-muted-foreground">
                     No entries for this period.
                   </TableCell>
                 </TableRow>
-              ) : sorted.map((entry) => {
-                const job = getJob(entry.job_id);
-                const eng = getEngineer(entry.engineer_id);
-                return (
-                  <TableRow key={entry.id} className={selectedIds.has(entry.id) ? "bg-primary/5" : ""}>
-                    {isAdmin && (
-                      <TableCell className="w-10 px-2">
-                        <Checkbox checked={selectedIds.has(entry.id)} onCheckedChange={() => toggleSelect(entry.id)} />
-                      </TableCell>
-                    )}
-                    <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.schedule_date), "EEE dd/MM")}</TableCell>
-                    <TableCell className="text-sm">{eng?.full_name || "—"}</TableCell>
-                    <TableCell className="text-sm">{(job as any)?.customers?.name || job?.customer || "—"}</TableCell>
-                    <TableCell className="text-sm max-w-[180px] truncate">{job?.site?.name || job?.address || "—"}</TableCell>
-                    <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>
-                    <TableCell>
-                      {job ? (
-                        <Link to={`/jobs/${job.id}`} className="hover:underline">
-                          <span className="font-mono text-xs font-medium text-primary">{job.reference_number}</span>
-                          <span className="ml-1 text-sm">{job.name}</span>
-                        </Link>
-                      ) : <span className="text-muted-foreground">Unknown</span>}
+              ) : grouped.map((group) => (
+                <>
+                  {/* Engineer group header */}
+                  <TableRow key={`header-${group.engineerId}`} className="bg-muted/70 hover:bg-muted/70">
+                    <TableCell colSpan={colCount} className="py-2 px-4">
+                      <span className="flex items-center gap-2">
+                        <Users className="h-4 w-4 text-muted-foreground" />
+                        <span className="font-semibold text-sm">{group.engineerName}</span>
+                        <Badge variant="secondary" className="text-[10px]">{group.entries.length} job{group.entries.length !== 1 ? "s" : ""}</Badge>
+                      </span>
                     </TableCell>
-                    <TableCell>
-                      {(job?.pressure_test_qty > 0 || job?.visual_qty > 0) ? (
-                        <div className="flex gap-1">
-                          {job.pressure_test_qty > 0 && <span className="inline-flex items-center rounded bg-primary/10 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>}
-                          {job.visual_qty > 0 && <span className="inline-flex items-center rounded bg-accent/20 text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>}
-                        </div>
-                      ) : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={job?.priority === "high" ? "destructive" : "secondary"} className="text-[10px]">
-                        {job?.priority || "—"}
-                      </Badge>
-                    </TableCell>
-                    {optimisedJobOrder.length > 0 && (
-                      <TableCell className="text-center">
-                        {job ? (() => {
-                          const order = getRouteOrder(job.id);
-                          if (!order) return <span className="text-muted-foreground">—</span>;
-                          return (
-                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
-                              {order}
-                            </span>
-                          );
-                        })() : <span className="text-muted-foreground">—</span>}
-                      </TableCell>
-                    )}
-                    <TableCell className="max-w-[160px]">
-                      {job ? (() => {
-                        const parts = getPartsForJob(job.id);
-                        if (parts.length === 0) return <span className="text-muted-foreground">—</span>;
-                        const summary = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
-                        return (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="flex items-center gap-1 text-xs truncate cursor-default">
-                                <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                <span className="truncate">{summary}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">
-                              <ul className="text-xs space-y-0.5">
-                                {parts.map((p) => (
-                                  <li key={p.id}>{p.name} ×{p.quantity}{p.notes ? ` — ${p.notes}` : ""}</li>
-                                ))}
-                              </ul>
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })() : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="max-w-[160px]">
-                      {job ? (() => {
-                        const comment = getLatestComment(job.id);
-                        if (!comment) return <span className="text-muted-foreground">—</span>;
-                        return (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="flex items-center gap-1 text-xs truncate cursor-default">
-                                <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                <span className="truncate">{comment.content}</span>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs text-xs">
-                              {comment.content}
-                            </TooltipContent>
-                          </Tooltip>
-                        );
-                      })() : <span className="text-muted-foreground">—</span>}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">{entry.notes || "—"}</TableCell>
-                    {isAdmin && (
-                      <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onRemove(entry.id)}>
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    )}
                   </TableRow>
-                );
-              })}
+                  {group.entries.map((entry) => {
+                    const job = getJob(entry.job_id);
+                    return (
+                      <TableRow key={entry.id} className={selectedIds.has(entry.id) ? "bg-primary/5" : ""}>
+                        {isAdmin && (
+                          <TableCell className="w-10 px-2">
+                            <Checkbox checked={selectedIds.has(entry.id)} onCheckedChange={() => toggleSelect(entry.id)} />
+                          </TableCell>
+                        )}
+                        <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.schedule_date), "EEE dd/MM")}</TableCell>
+                        <TableCell className="text-sm">{(job as any)?.customers?.name || job?.customer || "—"}</TableCell>
+                        <TableCell className="text-sm max-w-[180px] truncate">{job?.site?.name || job?.address || "—"}</TableCell>
+                        <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>
+                        <TableCell>
+                          {job ? (
+                            <Link to={`/jobs/${job.id}`} className="hover:underline">
+                              <span className="font-mono text-xs font-medium text-primary">{job.reference_number}</span>
+                              <span className="ml-1 text-sm">{job.name}</span>
+                            </Link>
+                          ) : <span className="text-muted-foreground">Unknown</span>}
+                        </TableCell>
+                        <TableCell>
+                          {(job?.pressure_test_qty > 0 || job?.visual_qty > 0) ? (
+                            <div className="flex gap-1">
+                              {job.pressure_test_qty > 0 && <span className="inline-flex items-center rounded bg-primary/10 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>}
+                              {job.visual_qty > 0 && <span className="inline-flex items-center rounded bg-accent/20 text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>}
+                            </div>
+                          ) : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={job?.priority === "high" ? "destructive" : "secondary"} className="text-[10px]">
+                            {job?.priority || "—"}
+                          </Badge>
+                        </TableCell>
+                        {optimisedJobOrder.length > 0 && (
+                          <TableCell className="text-center">
+                            {job ? (() => {
+                              const order = getRouteOrder(job.id);
+                              if (!order) return <span className="text-muted-foreground">—</span>;
+                              return (
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                                  {order}
+                                </span>
+                              );
+                            })() : <span className="text-muted-foreground">—</span>}
+                          </TableCell>
+                        )}
+                        <TableCell className="min-w-[220px]">
+                          {job ? (() => {
+                            const parts = getPartsForJob(job.id);
+                            if (parts.length === 0) return <span className="text-muted-foreground">—</span>;
+                            const summary = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-1 text-xs cursor-default">
+                                    <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                    <span className="line-clamp-2">{summary}</span>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs">
+                                  <ul className="text-xs space-y-0.5">
+                                    {parts.map((p) => (
+                                      <li key={p.id}>{p.name} ×{p.quantity}{p.notes ? ` — ${p.notes}` : ""}</li>
+                                    ))}
+                                  </ul>
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })() : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="min-w-[220px]">
+                          {job ? (() => {
+                            const comment = getLatestComment(job.id);
+                            if (!comment) return <span className="text-muted-foreground">—</span>;
+                            return (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="flex items-center gap-1 text-xs cursor-default">
+                                    <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                    <span className="line-clamp-2">{comment.content}</span>
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="max-w-xs text-xs">
+                                  {comment.content}
+                                </TooltipContent>
+                              </Tooltip>
+                            );
+                          })() : <span className="text-muted-foreground">—</span>}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">{entry.notes || "—"}</TableCell>
+                        {isAdmin && (
+                          <TableCell>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onRemove(entry.id)}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                    );
+                  })}
+                </>
+              ))}
             </TableBody>
           </Table>
         </CardContent>
