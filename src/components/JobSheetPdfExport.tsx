@@ -186,8 +186,25 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       // --- Sections and fields as compact table ---
       const sections = [...new Set(template.fields.map((f) => f.section || "General"))];
-      // Skip fields already shown in header (customer, date, PO, riser location)
-      const skipLabels = ["customer /site details", "customer/site details", "date", "po number", "riser location"];
+      // Skip fields already shown in header or excluded from PDF
+      const skipIds = new Set<string>();
+      template.fields.forEach((f) => {
+        const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+        if (
+          (label.includes("customer") && (label.includes("detail") || label === "customer" || label === "customer name" || label === "client")) ||
+          label === "date" || label === "inspection date" || label === "service date" || label === "visit date" ||
+          label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("order number") ||
+          (label.includes("site") && (label.includes("detail") || label.includes("info"))) ||
+          label === "site name" || label === "site" || label === "site address" || label === "address" ||
+          label.includes("postcode") || label.includes("post code") ||
+          label.includes("riser location") ||
+          label.includes("technician name") || label.includes("engineer") ||
+          label === "comments" || label.includes("comment") ||
+          label.includes("material")
+        ) {
+          skipIds.add(f.id);
+        }
+      });
 
       const colSplit = maxWidth * 0.68;
 
@@ -203,8 +220,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       for (const sec of sections) {
         const sf = template.fields.filter(
-          (f) => (f.section || "General") === sec &&
-            !skipLabels.some(sl => f.label.toLowerCase().includes(sl))
+          (f) => (f.section || "General") === sec && !skipIds.has(f.id)
         );
         if (sf.length === 0) continue;
         totalSectionHeaders++;
@@ -217,8 +233,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       for (const section of sections) {
         const sectionFields = template.fields.filter(
-          (f) => (f.section || "General") === section &&
-            !skipLabels.some(sl => f.label.toLowerCase().includes(sl))
+          (f) => (f.section || "General") === section && !skipIds.has(f.id)
         );
         if (sectionFields.length === 0) continue;
 
