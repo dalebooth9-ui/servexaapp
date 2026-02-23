@@ -126,7 +126,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       // Title below logo
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
+      doc.setFontSize(14);
       doc.setTextColor(33, 61, 99);
       doc.text(template.name.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
 
@@ -152,7 +152,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
       doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
       doc.text("Customer/Site:", margin + 1, y + 3);
       doc.setFont("helvetica", "normal");
@@ -227,14 +227,14 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
         doc.setDrawColor(0);
         doc.rect(margin, y, maxWidth, sectionHeaderH);
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text(section.toUpperCase(), margin + 1, y + 4.2);
-        doc.text("RESULT", margin + colSplit + 1, y + 4.2);
+        doc.text(section.toUpperCase(), margin + 1, y + 4.5);
+        doc.text("RESULT", margin + colSplit + 1, y + 4.5);
         y += sectionHeaderH;
 
         // Field rows
-        doc.setFontSize(7.5);
+        doc.setFontSize(8.5);
         for (const field of sectionFields) {
           doc.setDrawColor(180);
           doc.rect(margin, y, colSplit, rowH);
@@ -270,12 +270,12 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           // Inline note
           const noteVal = formData[`${field.id}_notes`];
           if (field.allow_notes && noteVal) {
-            doc.setFontSize(6);
+            doc.setFontSize(7);
             doc.setFont("helvetica", "italic");
             doc.setTextColor(100, 100, 100);
             doc.text(`Note: ${noteVal}`.substring(0, 80), margin + 2, y + rowH + 2.5);
             doc.setTextColor(0, 0, 0);
-            doc.setFontSize(7.5);
+            doc.setFontSize(8.5);
             doc.setFont("helvetica", "normal");
             y += 3;
           }
@@ -286,7 +286,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       }
 
       // --- Comments + Materials compact ---
-      doc.setFontSize(6);
+      doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
 
       if (commentsVal || materialsVal) {
@@ -312,7 +312,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const sigImgH = 8;
       const sigImgW = 25;
 
-      doc.setFontSize(6);
+      doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.text(`Date: `, margin, sigY + 3);
       doc.setFont("helvetica", "normal");
@@ -348,7 +348,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const footerY = sigY + 15;
       doc.setDrawColor(0);
       doc.rect(margin, footerY, maxWidth, 9);
-      doc.setFontSize(6);
+      doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       const footerLines = footerText.split("\n");
       footerLines.forEach((line, i) => {

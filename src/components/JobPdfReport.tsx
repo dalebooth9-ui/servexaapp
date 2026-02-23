@@ -34,7 +34,7 @@ function drawTableRow(
     doc.setFont("helvetica", col.bold ? "bold" : "normal");
     if (col.color) doc.setTextColor(...col.color);
     else doc.setTextColor(30, 30, 30);
-    const textY = y + rowHeight / 2 + 1;
+    const textY = y + rowHeight / 2 + 1.5;
     if (col.align === "right") {
       doc.text(col.text, xOffset + col.width - 2, textY, { align: "right" });
     } else if (col.align === "center") {
@@ -49,13 +49,13 @@ function drawTableRow(
 
 function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxWidth: number): number {
   doc.setFillColor(33, 61, 99);
-  doc.rect(margin, y, maxWidth, 8, "F");
+  doc.rect(margin, y, maxWidth, 9, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
+  doc.setFontSize(12);
   doc.setTextColor(255, 255, 255);
-  doc.text(title.toUpperCase(), margin + 3, y + 5.8);
+  doc.text(title.toUpperCase(), margin + 3, y + 6.5);
   doc.setTextColor(30, 30, 30);
-  return y + 8;
+  return y + 9;
 }
 
 // ── Main component ──────────────────────────────────────────────
@@ -137,7 +137,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 12;
       const maxWidth = pageWidth - margin * 2;
-      const rowH = 7;
+      const rowH = 8;
 
       const addPage = () => { doc.addPage(); y = 15; };
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
@@ -169,13 +169,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
       // Title below logo — dark text on white bg
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
+      doc.setFontSize(16);
       doc.setTextColor(33, 61, 99);
       doc.text("JOB REPORT", pageWidth / 2, logoBottomY, { align: "center" });
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(100, 100, 100);
-      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, logoBottomY + 5, { align: "center" });
+      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, logoBottomY + 6, { align: "center" });
 
       // Separator line
       doc.setDrawColor(33, 61, 99);
@@ -186,7 +186,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       y = logoBottomY + 13;
 
       // ── JOB DETAILS TABLE ──
-      doc.setFontSize(9);
+      doc.setFontSize(11);
       const detailRows: [string, string][] = [
         ["Job Name", job.name || "—"],
         ["Reference", job.reference_number || "—"],
@@ -354,12 +354,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
               // Inline note
               const noteVal = responses[`${field.id}_notes`];
               if (noteVal) {
-                doc.setFontSize(8);
+                doc.setFontSize(9);
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(100, 100, 100);
                 doc.text(`Note: ${noteVal}`.substring(0, 100), margin + 4, y + 3);
                 doc.setTextColor(30, 30, 30);
-                doc.setFontSize(9);
+                doc.setFontSize(11);
                 doc.setFont("helvetica", "normal");
                 y += 5;
               }
@@ -383,7 +383,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
             const lines = doc.splitTextToSize(r.summary, maxWidth - 4);
             lines.forEach((line: string) => {
               checkPage(5);
-              doc.setFontSize(9);
+              doc.setFontSize(11);
               doc.setFont("helvetica", "normal");
               doc.text(line, margin + 2, y + 4);
               y += 4;
@@ -425,7 +425,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
           const dataUrl = photoImages[p.id];
           if (dataUrl) {
             checkPage(60);
-            doc.setFontSize(8);
+            doc.setFontSize(10);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 100, 100);
             doc.text(`${p.file_name || "Photo"} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 3);
@@ -440,7 +440,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
             }
           } else {
             checkPage(rowH);
-            doc.setFontSize(9);
+            doc.setFontSize(11);
             doc.text(`• ${p.file_name} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 4);
             y += rowH;
           }
@@ -489,7 +489,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         checkPage(20);
         y += 4;
         doc.setDrawColor(0);
-        doc.setFontSize(9);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 30, 30);
 
@@ -515,7 +515,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150, 150, 150);
         doc.text(`${job.reference_number}  —  Page ${i} of ${pageCount}`, pageWidth / 2, 290, { align: "center" });
