@@ -367,14 +367,22 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const sigY = Math.max(y + 2, pageHeight - footerSpace);
       const halfW = maxWidth / 2 - 2;
 
+      const engineerList = (jobInfo?.engineers || []).join(", ");
+
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
       doc.text("Date:", margin, sigY + 3);
-      doc.line(margin + 10, sigY + 3, margin + halfW, sigY + 3);
-      doc.text("Technician:", margin, sigY + 7);
-      doc.line(margin + 18, sigY + 7, margin + halfW, sigY + 7);
-      doc.text("Signature:", margin, sigY + 11);
-      doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+      doc.setFont("helvetica", "normal");
+      doc.text(dateVal, margin + 10, sigY + 3);
+      doc.line(margin + 10, sigY + 4, margin + halfW, sigY + 4);
+      doc.setFont("helvetica", "bold");
+      doc.text("Technician:", margin, sigY + 8);
+      doc.setFont("helvetica", "normal");
+      if (engineerList) doc.text(engineerList, margin + 18, sigY + 8);
+      doc.line(margin + 18, sigY + 9, margin + halfW, sigY + 9);
+      doc.setFont("helvetica", "bold");
+      doc.text("Signature:", margin, sigY + 13);
+      doc.line(margin + 18, sigY + 14, margin + halfW, sigY + 14);
 
       const cx = margin + halfW + 4;
       doc.text("Date:", cx, sigY + 3);
