@@ -139,11 +139,24 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       y = logoBottomY + 7;
 
       // --- Customer details compact row ---
-      const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
+      // Helper: find form value by label pattern
+      const findFormVal = (...patterns: string[]): string => {
+        for (const f of template.fields) {
+          const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+          if (patterns.some(p => label.includes(p) || label === p)) {
+            const v = formData[f.id];
+            if (v) return String(v);
+          }
+        }
+        return "";
+      };
+
+      const customerName = findFormVal("customer detail", "customer name", "client") || jobInfo?.customers?.name || jobInfo?.customer || "";
+      const siteFormVal = findFormVal("site detail", "site info", "site name", "site address");
       const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
       const siteName = jobInfo?.site?.name || "";
-      const refNumber = jobInfo?.reference_number || "";
-      const dateVal = formData["date"] || formData["inspection_date"] || new Date().toLocaleDateString("en-GB");
+      const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
+      const dateVal = formData["date"] || formData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
 
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
@@ -173,7 +186,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.text(String(dateVal), margin + maxWidth * 0.5 + 14, y + 4);
 
       // Row 2: Site + PO/REF
-      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
+      const siteStr = siteFormVal || [siteName, siteAddress].filter(Boolean).join(", ");
       doc.setFont("helvetica", "bold");
       doc.text("Site:", margin + 1, y + headerRowH + 4);
       doc.setFont("helvetica", "normal");
