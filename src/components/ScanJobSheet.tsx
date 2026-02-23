@@ -75,6 +75,9 @@ export default function ScanJobSheet({ template, jobId, onExtracted }: Props) {
       doc.save(`scanned-sheet-${Date.now()}.pdf`);
 
       // Upload to storage and create submission record
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const pdfBlob = doc.output("blob");
       const fileName = `scanned-${template.name.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}.pdf`;
       const filePath = `${jobId}/${fileName}`;
@@ -88,17 +91,36 @@ export default function ScanJobSheet({ template, jobId, onExtracted }: Props) {
         toast({ title: "PDF downloaded locally", description: "Could not save to job submissions.", variant: "destructive" });
       } else {
         const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          await supabase.from("submissions").insert({
-            job_id: jobId,
-            engineer_id: user.id,
-            type: "document",
-            file_url: urlData.publicUrl,
-            file_name: fileName,
-          });
+        await supabase.from("submissions").insert({
+          job_id: jobId,
+          engineer_id: user.id,
+          type: "document",
+          file_url: urlData.publicUrl,
+          file_name: fileName,
+        });
+
+        // Also upload each original photo as an image submission
+        for (let i = 0; i < images.length; i++) {
+          const imgFile = images[i].file;
+          const ext = imgFile.name.split(".").pop() || "jpg";
+          const imgFileName = `scan-photo-${i + 1}-${Date.now()}.${ext}`;
+          const imgPath = `${jobId}/${imgFileName}`;
+          const { error: imgErr } = await supabase.storage
+            .from("submissions")
+            .upload(imgPath, imgFile, { contentType: imgFile.type });
+          if (!imgErr) {
+            const { data: imgUrl } = supabase.storage.from("submissions").getPublicUrl(imgPath);
+            await supabase.from("submissions").insert({
+              job_id: jobId,
+              engineer_id: user.id,
+              type: "photo",
+              file_url: imgUrl.publicUrl,
+              file_name: imgFileName,
+            });
+          }
         }
-        toast({ title: "PDF saved", description: `${images.length} page(s) converted and saved to job submissions.` });
+
+        toast({ title: "PDF & photos saved", description: `PDF + ${images.length} photo(s) saved to job submissions.` });
       }
     } catch (err: any) {
       toast({ title: "Error creating PDF", description: err.message, variant: "destructive" });
