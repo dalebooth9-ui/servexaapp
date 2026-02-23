@@ -155,43 +155,34 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
-      const rowH = 6;
-      const totalRows = 3;
-      const detailH = rowH * totalRows;
+      const detailH = 14;
       doc.rect(margin, y, maxWidth, detailH);
       doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
-      doc.line(margin, y + rowH, margin + maxWidth, y + rowH);
-      doc.line(margin, y + rowH * 2, margin + maxWidth, y + rowH * 2);
+      doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      doc.setFontSize(9);
-      // Row 1: CUSTOMER + DATE
+      doc.setFontSize(8);
+      // Top row: Customer/Site/Address + DATE
+      const siteStr = [customerName, siteName, siteAddress].filter(Boolean).join(", ");
       doc.setFont("helvetica", "bold");
-      doc.text("Customer:", margin + 1, y + 4);
+      doc.text("Customer/Site/Address:", margin + 1, y + 3.5);
       doc.setFont("helvetica", "normal");
-      doc.text(doc.splitTextToSize(customerName, maxWidth * 0.48 - 20).slice(0, 1).join(""), margin + 20, y + 4);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(dateStr, margin + maxWidth * 0.5 + 14, y + 4);
-
-      // Row 2: SITE + PO/REF
-      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
-      doc.setFont("helvetica", "bold");
-      doc.text("Site:", margin + 1, y + rowH + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 12).slice(0, 1).join(""), margin + 12, y + rowH + 4);
+      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 2).slice(0, 1).join(""), margin + 1, y + 3.5 + 3);
 
       doc.setFont("helvetica", "bold");
-      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + rowH + 4);
+      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4.5);
       doc.setFont("helvetica", "normal");
-      doc.text(referenceNumber, margin + maxWidth * 0.5 + 16, y + rowH + 4);
+      doc.text(dateStr, margin + maxWidth * 0.5 + 14, y + 4.5);
 
-      // Row 3: RISER LOC (full width or half)
+      // Bottom row: PO/REF + RISER LOC
       doc.setFont("helvetica", "bold");
-      doc.text("RISER LOC:", margin + 1, y + rowH * 2 + 4);
+      doc.text("PO/REF:", margin + 1, y + detailH / 2 + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(riserLocValue, margin + 22, y + rowH * 2 + 4);
+      doc.text(referenceNumber, margin + 16, y + detailH / 2 + 4);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("RISER LOC:", margin + maxWidth * 0.5 + 1, y + detailH / 2 + 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(riserLocValue, margin + maxWidth * 0.5 + 22, y + detailH / 2 + 4);
 
       y += detailH + 1;
 
