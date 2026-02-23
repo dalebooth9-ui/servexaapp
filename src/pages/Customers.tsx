@@ -38,7 +38,7 @@ export default function Customers() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -114,13 +114,28 @@ export default function Customers() {
     };
 
     if (editingId) {
+      const oldCustomer = customers.find((c) => c.id === editingId);
+      const oldPayload = oldCustomer ? {
+        name: oldCustomer.name,
+        address: oldCustomer.address,
+        phone: oldCustomer.phone,
+        email: oldCustomer.email,
+      } : null;
       const { error } = await supabase.from("customers").update(payload).eq("id", editingId);
       if (error) {
         toast({ title: "Failed to update customer", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Customer updated" });
         setDialogOpen(false);
         fetchCustomers();
+        editWithUndo({
+          label: "Customer updated",
+          onUndo: async () => {
+            if (oldPayload) {
+              await supabase.from("customers").update(oldPayload).eq("id", editingId);
+              fetchCustomers();
+            }
+          },
+        });
       }
     } else {
       const { error } = await supabase.from("customers").insert(payload);

@@ -94,7 +94,7 @@ const emptyAsset = {
 export default function Assets() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
   const { categories: assetCategories, refetch: refetchCategories } = useAssetCategories();
   const CATEGORIES = assetCategories.map((c) => c.slug);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -222,12 +222,31 @@ export default function Assets() {
     };
 
     if (editing) {
-      const { error } = await supabase.from("assets").update(payload).eq("id", editing.id);
+      const oldAsset = assets.find((a) => a.id === editing.id);
+      const oldPayload = oldAsset ? {
+        name: oldAsset.name, asset_tag: oldAsset.asset_tag, category: oldAsset.category,
+        make: oldAsset.make, model: oldAsset.model, serial_number: oldAsset.serial_number,
+        site_id: oldAsset.site_id, install_date: oldAsset.install_date,
+        warranty_expiry: oldAsset.warranty_expiry, status: oldAsset.status, notes: oldAsset.notes,
+      } : null;
+      const editId = editing.id;
+      const { error } = await supabase.from("assets").update(payload).eq("id", editId);
       if (error) {
         toast({ title: "Error", description: error.message, variant: "destructive" });
         return;
       }
-      toast({ title: "Asset updated" });
+      setDialogOpen(false);
+      fetchData();
+      editWithUndo({
+        label: "Asset updated",
+        onUndo: async () => {
+          if (oldPayload) {
+            await supabase.from("assets").update(oldPayload).eq("id", editId);
+            fetchData();
+          }
+        },
+      });
+      return;
     } else {
       const { error } = await supabase.from("assets").insert(payload as any);
       if (error) {

@@ -51,7 +51,7 @@ const emptyForm = {
 export default function Compliance() {
   const { userRole } = useAuth();
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
   const fileRef = useRef<HTMLInputElement>(null);
   const [records, setRecords] = useState<ComplianceRecord[]>([]);
   const [assets, setAssets] = useState<LookupOption[]>([]);
@@ -137,9 +137,30 @@ export default function Compliance() {
     };
 
     if (editing) {
-      const { error } = await supabase.from("compliance_records").update(payload).eq("id", editing.id);
+      const oldRec = records.find((r) => r.id === editing.id);
+      const oldPayload = oldRec ? {
+        title: oldRec.title, record_type: oldRec.record_type,
+        asset_id: oldRec.asset_id, site_id: oldRec.site_id,
+        issuer: oldRec.issuer, reference_number: oldRec.reference_number,
+        issue_date: oldRec.issue_date, expiry_date: oldRec.expiry_date,
+        status: oldRec.status, notes: oldRec.notes,
+        file_url: oldRec.file_url, file_name: oldRec.file_name,
+      } : null;
+      const editId = editing.id;
+      const { error } = await supabase.from("compliance_records").update(payload).eq("id", editId);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-      toast({ title: "Record updated" });
+      setDialogOpen(false);
+      fetchData();
+      editWithUndo({
+        label: "Record updated",
+        onUndo: async () => {
+          if (oldPayload) {
+            await supabase.from("compliance_records").update(oldPayload).eq("id", editId);
+            fetchData();
+          }
+        },
+      });
+      return;
     } else {
       const { error } = await supabase.from("compliance_records").insert(payload as any);
       if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }

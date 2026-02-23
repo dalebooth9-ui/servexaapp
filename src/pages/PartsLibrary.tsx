@@ -207,7 +207,7 @@ function SortableLibraryRow({
 export default function PartsLibrary() {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
   const navigate = useNavigate();
   const isAdmin = userRole === "admin";
 
@@ -349,19 +349,33 @@ export default function PartsLibrary() {
 
   const saveEdit = async () => {
     if (!editingId) return;
+    const oldPart = parts.find((p) => p.id === editingId);
+    const oldPayload = oldPart ? {
+      name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price,
+      supplier: oldPart.supplier, part_number: oldPart.part_number,
+    } : null;
+    const editId = editingId;
     const { error } = await supabase.from("parts_library").update({
       name: editForm.name.trim(),
       unit_cost: parseFloat(editForm.unit_cost) || 0,
       sell_price: parseFloat(editForm.sell_price) || 0,
       supplier: editForm.supplier.trim() || null,
       part_number: editForm.part_number.trim() || null,
-    } as any).eq("id", editingId);
+    } as any).eq("id", editId);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Part updated" });
       setEditingId(null);
       fetchParts();
+      editWithUndo({
+        label: "Part updated",
+        onUndo: async () => {
+          if (oldPayload) {
+            await supabase.from("parts_library").update(oldPayload as any).eq("id", editId);
+            fetchParts();
+          }
+        },
+      });
     }
   };
 

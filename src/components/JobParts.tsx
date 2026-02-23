@@ -222,7 +222,7 @@ function SortablePartRow({
 export default function JobParts({ jobId }: { jobId: string }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
-  const { deleteWithUndo } = useUndoAction();
+  const { deleteWithUndo, editWithUndo } = useUndoAction();
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
@@ -363,6 +363,11 @@ export default function JobParts({ jobId }: { jobId: string }) {
 
   const saveEdit = async () => {
     if (!editingId) return;
+    const oldPart = parts.find((p) => p.id === editingId);
+    const oldPayload = oldPart ? {
+      quantity: oldPart.quantity, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price || 0,
+    } : null;
+    const editId = editingId;
     const qty = parseFloat(editForm.quantity) || 0;
     const unitCost = parseFloat(editForm.unit_cost) || 0;
     const sellPrice = parseFloat(editForm.sell_price) || 0;
@@ -370,14 +375,22 @@ export default function JobParts({ jobId }: { jobId: string }) {
     const { error } = await supabase
       .from("job_parts" as any)
       .update({ quantity: qty, unit_cost: unitCost, sell_price: sellPrice } as any)
-      .eq("id", editingId);
+      .eq("id", editId);
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Part updated" });
       cancelEdit();
       fetchParts();
+      editWithUndo({
+        label: "Part updated",
+        onUndo: async () => {
+          if (oldPayload) {
+            await supabase.from("job_parts" as any).update(oldPayload as any).eq("id", editId);
+            fetchParts();
+          }
+        },
+      });
     }
   };
 
