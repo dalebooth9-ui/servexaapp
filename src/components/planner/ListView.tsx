@@ -29,6 +29,8 @@ interface Job {
   address: string | null;
   site_id: string | null;
   site?: { name: string; address: string | null; postcode: string | null } | null;
+  pressure_test_qty: number;
+  visual_qty: number;
 }
 
 function extractPostcode(address: string | null): string {
@@ -165,6 +167,7 @@ export default function ListView({
                   <span className="flex items-center gap-1">Postcode <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead>Job</TableHead>
+                <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Comment</TableHead>
                 {isAdmin && <TableHead className="w-10" />}
@@ -173,7 +176,7 @@ export default function ListView({
             <TableBody>
               {sorted.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 10 : 8} className="py-12 text-center text-muted-foreground">
+                  <TableCell colSpan={isAdmin ? 11 : 9} className="py-12 text-center text-muted-foreground">
                     No entries for this period.
                   </TableCell>
                 </TableRow>
@@ -199,6 +202,14 @@ export default function ListView({
                           <span className="ml-1 text-sm">{job.name}</span>
                         </Link>
                       ) : <span className="text-muted-foreground">Unknown</span>}
+                    </TableCell>
+                    <TableCell>
+                      {(job?.pressure_test_qty > 0 || job?.visual_qty > 0) ? (
+                        <div className="flex gap-1">
+                          {job.pressure_test_qty > 0 && <span className="inline-flex items-center rounded bg-primary/10 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>}
+                          {job.visual_qty > 0 && <span className="inline-flex items-center rounded bg-accent/20 text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>}
+                        </div>
+                      ) : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell>
                       <Badge variant={job?.priority === "high" ? "destructive" : "secondary"} className="text-[10px]">
