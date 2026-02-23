@@ -5,45 +5,30 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CalendarClock, Eye, Gauge } from "lucide-react";
+import { Eye, Gauge } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { addMonths, format } from "date-fns";
 
 interface ScheduleFollowUpJobsProps {
   sourceJob: any;
-  /** If provided, used as base date; otherwise fetched from last visit */
-  baseDate?: string;
-  /** Show as a dialog (for completion prompt) or inline buttons */
-  mode?: "inline" | "dialog";
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
+  mode?: "inline";
+  onCreated?: () => void;
 }
 
 type FollowUpType = "visual" | "pressure_test";
 
-export default function ScheduleFollowUpJobs({
-  sourceJob,
-  baseDate: baseDateProp,
-  mode = "inline",
-  open: controlledOpen,
-  onOpenChange,
-}: ScheduleFollowUpJobsProps) {
+export default function ScheduleFollowUpJobs({ sourceJob, onCreated }: ScheduleFollowUpJobsProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [followUpType, setFollowUpType] = useState<FollowUpType | null>(null);
+  const [followUpType, setFollowUpType] = useState<FollowUpType>("visual");
   const [loading, setLoading] = useState(false);
-  const [baseDate, setBaseDate] = useState<string>("");
-  const [scheduledDate, setScheduledDate] = useState<string>("");
-
-  const isOpen = mode === "dialog" ? (controlledOpen ?? false) : dialogOpen;
-  const setIsOpen = mode === "dialog" ? (onOpenChange ?? setDialogOpen) : setDialogOpen;
+  const [baseDate, setBaseDate] = useState("");
+  const [scheduledDate, setScheduledDate] = useState("");
 
   const resolveBaseDate = async (): Promise<string> => {
-    if (baseDateProp) return baseDateProp;
-    // Try to get last completed visit date
     const { data: visits } = await supabase
       .from("job_visits")
       .select("scheduled_date, completed_at")
@@ -52,11 +37,8 @@ export default function ScheduleFollowUpJobs({
       .limit(1);
     if (visits && visits.length > 0) {
       const v = visits[0];
-      return v.completed_at
-        ? v.completed_at.split("T")[0]
-        : v.scheduled_date;
+      return v.completed_at ? v.completed_at.split("T")[0] : v.scheduled_date;
     }
-    // Fallback to today
     return format(new Date(), "yyyy-MM-dd");
   };
 
@@ -66,11 +48,11 @@ export default function ScheduleFollowUpJobs({
     setBaseDate(resolved);
     const months = type === "visual" ? 6 : 12;
     setScheduledDate(format(addMonths(new Date(resolved), months), "yyyy-MM-dd"));
-    setIsOpen(true);
+    setDialogOpen(true);
   };
 
   const handleCreate = async () => {
-    if (!followUpType || !scheduledDate) return;
+    if (!scheduledDate) return;
     setLoading(true);
 
     const isVisual = followUpType === "visual";
@@ -101,7 +83,6 @@ export default function ScheduleFollowUpJobs({
     }
 
     if (newJob) {
-      // Clone engineer assignments
       const { data: assignments } = await supabase
         .from("job_assignments")
         .select("engineer_id")
@@ -112,7 +93,6 @@ export default function ScheduleFollowUpJobs({
         );
       }
 
-      // Create a visit on the scheduled date
       await supabase.from("job_visits").insert({
         job_id: newJob.id,
         scheduled_date: scheduledDate,
@@ -124,66 +104,17 @@ export default function ScheduleFollowUpJobs({
       title: "Follow-up job created",
       description: `${isVisual ? "Visual (6m)" : "Pressure Test (12m)"} scheduled for ${scheduledDate}`,
     });
-    setIsOpen(false);
+    setDialogOpen(false);
     setLoading(false);
+    onCreated?.();
     if (newJob) navigate(`/jobs/${newJob.id}`);
   };
 
   const monthsLabel = followUpType === "visual" ? "6 months" : "12 months";
   const typeLabel = followUpType === "visual" ? "Visual Inspection" : "Pressure Test";
 
-  const dialogContent = (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Schedule {typeLabel}</DialogTitle>
-      </DialogHeader>
-      <p className="text-sm text-muted-foreground mb-3">
-        Creates a new <strong>{typeLabel.toLowerCase()}</strong> job from{" "}
-        <strong>{sourceJob.reference_number}</strong>, scheduled {monthsLabel} from the last service date.
-      </p>
-      <div className="space-y-3">
-        <div>
-          <Label className="text-xs">Service Completion Date</Label>
-          <Input type="date" value={baseDate} onChange={(e) => {
-            setBaseDate(e.target.value);
-            const months = followUpType === "visual" ? 6 : 12;
-            if (e.target.value) {
-              setScheduledDate(format(addMonths(new Date(e.target.value), months), "yyyy-MM-dd"));
-            }
-          }} className="mt-1" />
-        </div>
-        <div>
-          <Label className="text-xs">Scheduled Date ({monthsLabel} later)</Label>
-          <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1" />
-        </div>
-      </div>
-      <Button className="w-full mt-2" disabled={loading || !scheduledDate} onClick={handleCreate}>
-        {loading ? "Creating..." : `Create ${typeLabel} Job`}
-      </Button>
-    </DialogContent>
-  );
-
-  if (mode === "dialog") {
-    return (
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">Schedule follow-up services from this completed job:</p>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleOpen("visual")}>
-              <Eye className="mr-1.5 h-3.5 w-3.5" /> Schedule Visual (6m)
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => handleOpen("pressure_test")}>
-              <Gauge className="mr-1.5 h-3.5 w-3.5" /> Schedule PT (12m)
-            </Button>
-          </div>
-        </div>
-        {dialogContent}
-      </Dialog>
-    );
-  }
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => handleOpen("visual")}>
           <Eye className="mr-1.5 h-3.5 w-3.5" /> Schedule Visual (6m)
@@ -192,7 +123,36 @@ export default function ScheduleFollowUpJobs({
           <Gauge className="mr-1.5 h-3.5 w-3.5" /> Schedule PT (12m)
         </Button>
       </div>
-      {dialogContent}
-    </Dialog>
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule {typeLabel}</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground mb-3">
+            Creates a new <strong>{typeLabel.toLowerCase()}</strong> job from{" "}
+            <strong>{sourceJob.reference_number}</strong>, scheduled {monthsLabel} from the last service date.
+          </p>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Service Completion Date</Label>
+              <Input type="date" value={baseDate} onChange={(e) => {
+                setBaseDate(e.target.value);
+                const months = followUpType === "visual" ? 6 : 12;
+                if (e.target.value) {
+                  setScheduledDate(format(addMonths(new Date(e.target.value), months), "yyyy-MM-dd"));
+                }
+              }} className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Scheduled Date ({monthsLabel} later)</Label>
+              <Input type="date" value={scheduledDate} onChange={(e) => setScheduledDate(e.target.value)} className="mt-1" />
+            </div>
+          </div>
+          <Button className="w-full mt-2" disabled={loading || !scheduledDate} onClick={handleCreate}>
+            {loading ? "Creating..." : `Create ${typeLabel} Job`}
+          </Button>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

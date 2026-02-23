@@ -299,7 +299,7 @@ export default function JobDetail() {
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
-              <ScheduleFollowUpJobs sourceJob={job} mode="inline" />
+              <ScheduleFollowUpJobs sourceJob={job} />
             )}
             <CreateInvoiceDialog
               jobId={id!}
@@ -439,14 +439,16 @@ export default function JobDetail() {
         </Collapsible>
       )}
 
-      {/* Follow-up scheduling dialog prompted on completion */}
+      {/* Follow-up scheduling prompt on completion */}
       <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Schedule Follow-Up Services</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground mb-3">
             Job <strong>{job.reference_number}</strong> has been completed. Would you like to schedule follow-up services?
           </p>
-          <ScheduleFollowUpJobs sourceJob={job} mode="dialog" open={followUpOpen} onOpenChange={setFollowUpOpen} />
+          <div className="flex flex-col gap-2">
+            <ScheduleFollowUpJobs sourceJob={job} onCreated={() => setFollowUpOpen(false)} />
+          </div>
           <Button variant="ghost" size="sm" className="w-full mt-1" onClick={() => setFollowUpOpen(false)}>
             Skip for now
           </Button>
