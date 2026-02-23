@@ -124,47 +124,52 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setDrawColor(33, 61, 99);
       doc.setLineWidth(0.5);
       doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
-      y = logoBottomY + 7;
+      y = logoBottomY + 5;
 
-      // Customer / Date row
+      // --- Customer details compact table (matching standard template layout) ---
       const referenceNumber = jobInfo?.reference_number || "";
       const customerName = jobInfo?.customer || "";
       const siteName = jobInfo?.site?.name || "";
       const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
       const dateStr = new Date().toLocaleDateString("en-GB");
 
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.2);
       doc.setTextColor(30, 30, 30);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Customer: `, margin, y);
-      doc.setFont("helvetica", "bold");
-      doc.text(customerName, margin + doc.getTextWidth("Customer: "), y);
-      doc.setFont("helvetica", "normal");
-      doc.text(`DATE: `, pageWidth - margin - doc.getTextWidth(`DATE: ${dateStr}`), y);
-      doc.setFont("helvetica", "bold");
-      doc.text(dateStr, pageWidth - margin - doc.getTextWidth(dateStr), y);
-      y += 4;
+      const detailH = 12;
+      doc.rect(margin, y, maxWidth, detailH);
+      doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
+      doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      // Site row
-      doc.setFont("helvetica", "normal");
-      doc.text(`Site: `, margin, y);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
-      doc.text(siteStr, margin + doc.getTextWidth("Site: "), y);
-      y += 4;
+      doc.text("Customer/Site:", margin + 1, y + 3);
+      doc.setFont("helvetica", "normal");
+      const siteStr = [customerName, siteName, siteAddress].filter(Boolean).join(", ");
+      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 22).slice(0, 1).join(""), margin + 22, y + 3);
 
-      // PO/REF row
-      doc.setFont("helvetica", "normal");
-      doc.text(`PO/REF: `, margin, y);
       doc.setFont("helvetica", "bold");
-      doc.text(referenceNumber, margin + doc.getTextWidth("PO/REF: "), y);
-      y += 2;
+      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 3);
+      doc.setFont("helvetica", "normal");
+      doc.text(dateStr, margin + maxWidth * 0.5 + 14, y + 3);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("PO/REF:", margin + 1, y + 3 + detailH / 2);
+      doc.setFont("helvetica", "normal");
+      doc.text(referenceNumber, margin + 16, y + 3 + detailH / 2);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("RISER LOC:", margin + maxWidth * 0.5 + 1, y + 3 + detailH / 2);
+      doc.setFont("helvetica", "normal");
+      doc.text("", margin + maxWidth * 0.5 + 22, y + 3 + detailH / 2);
+
+      y += detailH + 1;
 
       // Scanned note
       doc.setFontSize(7);
       doc.setFont("helvetica", "italic");
       doc.text("Scanned from handwritten sheet", pageWidth / 2, y + 3, { align: "center" });
-      y += 7;
+      y += 6;
 
       // --- SCANNED IMAGES ---
       for (let i = 0; i < images.length; i++) {
