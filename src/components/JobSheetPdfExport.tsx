@@ -93,53 +93,32 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
       const footerText = branding.footer_text || defaultFooter;
 
-      // --- HEADER: Logo or company text ---
-      const logoUrl = branding.logo_url;
-      if (logoUrl) {
-        try {
-          const logoImg = new Image();
-          logoImg.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            logoImg.onload = () => resolve();
-            logoImg.onerror = () => reject();
-            logoImg.src = logoUrl;
-          });
-          const logoWidth = 40;
-          const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
-          doc.addImage(logoImg, "JPEG", (pageWidth - logoWidth) / 2, y, logoWidth, Math.min(logoHeight, 14));
-          y += Math.min(logoHeight, 14) + 2;
-        } catch {
-          doc.setFontSize(12);
-          doc.setFont("helvetica", "bold");
-          doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
-          y += 12;
-        }
-      } else {
-        // Fallback: no logo uploaded, use default image
-        try {
-          const logoImg = new Image();
-          logoImg.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            logoImg.onload = () => resolve();
-            logoImg.onerror = () => reject();
-            logoImg.src = "/images/vivafire-logo.jpg";
-          });
-          const logoWidth = 40;
-          const logoHeight = (logoImg.naturalHeight / logoImg.naturalWidth) * logoWidth;
-          doc.addImage(logoImg, "JPEG", (pageWidth - logoWidth) / 2, y, logoWidth, Math.min(logoHeight, 14));
-          y += Math.min(logoHeight, 14) + 2;
-        } catch {
-          doc.setFontSize(12);
-          doc.setFont("helvetica", "bold");
-          doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
-          y += 12;
-        }
+      // --- HEADER: Logo or company text (centred, proper aspect ratio) ---
+      const logoUrl = branding.logo_url || "/images/vivafire-logo.jpg";
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject();
+          logoImg.src = logoUrl;
+        });
+        const logoMaxW = 50;
+        const logoMaxH = 18;
+        const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+        let lw = logoMaxH * aspect;
+        let lh = logoMaxH;
+        if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
+        doc.addImage(logoImg, "JPEG", (pageWidth - lw) / 2, y, lw, lh);
+        y += lh + 2;
+      } catch {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+        y += 12;
       }
 
       // --- Title ---
