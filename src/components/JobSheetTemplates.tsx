@@ -266,9 +266,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Date fields
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
         prefilled[f.id] = new Date().toISOString().split("T")[0];
-      // Category / scope / type of work
+      // Category / scope / type of work — auto-set from template name
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
-        prefilled[f.id] = jobInfo.category || "";
+        const tplName = template.name.toLowerCase();
+        if (tplName.includes("pressure test") || tplName.includes("pressure-test")) {
+          prefilled[f.id] = "Pressure Test";
+        } else if (tplName.includes("visual")) {
+          prefilled[f.id] = "Visual";
+        } else {
+          prefilled[f.id] = jobInfo.category || "";
+        }
       // Priority
       } else if (label === "priority" || label === "job priority") {
         prefilled[f.id] = jobInfo.priority || "";
@@ -285,16 +292,35 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     return prefilled;
   };
 
+  // Fields that are permanently set by the template and cannot be changed by the user
+  const getLockedFieldIds = (template: Template): Set<string> => {
+    const locked = new Set<string>();
+    const tplName = template.name.toLowerCase();
+    if (tplName.includes("pressure test") || tplName.includes("pressure-test") || tplName.includes("visual")) {
+      template.fields.forEach((f) => {
+        const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+        if (label.includes("scope") || label.includes("type of work") || label.includes("work type")) {
+          locked.add(f.id);
+        }
+      });
+    }
+    return locked;
+  };
+
+  const lockedFieldIds = activeTemplate ? getLockedFieldIds(activeTemplate) : new Set<string>();
+
   const handleStartForm = (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
+    const locked = getLockedFieldIds(template);
     if (existingResponse) {
       setActiveResponse(existingResponse);
-      // Merge: use saved values where they exist, auto-fill empty ones
       const saved = existingResponse.responses as Record<string, any>;
       const merged: Record<string, any> = { ...prefilled };
       Object.entries(saved).forEach(([key, val]) => {
+        // Locked fields always use prefilled value
+        if (locked.has(key)) return;
         if (val !== undefined && val !== null && val !== "") {
           merged[key] = val;
         }
@@ -422,7 +448,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           </div>
                           {/* Input cell */}
                           <div className="px-2 py-1.5 flex items-center">
-                            {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v))}
+                            {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id))}
                           </div>
                         </div>
                         {field.allow_notes && (
@@ -705,7 +731,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 function renderFormField(
   field: TemplateField,
   value: any,
-  onChange: (value: any) => void
+  onChange: (value: any) => void,
+  locked?: boolean
 ) {
   switch (field.type) {
     case "text":
@@ -792,8 +819,8 @@ function renderFormField(
       );
     case "select":
       return (
-        <Select value={value || ""} onValueChange={onChange}>
-          <SelectTrigger className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full">
+        <Select value={value || ""} onValueChange={onChange} disabled={locked}>
+          <SelectTrigger className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}>
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
