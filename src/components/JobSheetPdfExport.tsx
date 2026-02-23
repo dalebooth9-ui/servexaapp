@@ -195,7 +195,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           (label.includes("site") && (label.includes("detail") || label.includes("info"))) ||
           label === "site name" || label === "site" || label === "site address" || label === "address" ||
           label.includes("postcode") || label.includes("post code") ||
-          label.includes("riser location") ||
+          // riser location is now shown in template body, not skipped
           label.includes("technician name") || label.includes("engineer") ||
           label === "comments" || label.includes("comment") ||
           label.includes("material")
