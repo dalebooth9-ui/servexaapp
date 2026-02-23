@@ -40,11 +40,13 @@ export default function PlannerMapView({
   jobs,
   engineers,
   unallocatedJobs = [],
+  onRouteOptimised,
 }: {
   schedule: ScheduleEntry[];
   jobs: Job[];
   engineers: Engineer[];
   unallocatedJobs?: Job[];
+  onRouteOptimised?: (orderedJobIds: string[]) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -155,6 +157,11 @@ export default function PlannerMapView({
       if (error) throw error;
       setRouteResult(data);
       toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${data.total_duration_mins} mins` });
+
+      // Notify parent of optimised job order
+      if (data.optimised?.length >= 2) {
+        onRouteOptimised?.(data.optimised.map((wp: any) => wp.job_id));
+      }
 
       // Draw optimised route on map
       if (data.optimised?.length >= 2) {

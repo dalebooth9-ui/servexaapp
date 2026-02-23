@@ -66,6 +66,7 @@ export default function ListView({
   onBulkDelete,
   jobParts = [],
   submissionComments = [],
+  optimisedJobOrder = [],
 }: {
   schedule: ScheduleEntry[];
   engineers: Engineer[];
@@ -76,6 +77,7 @@ export default function ListView({
   onBulkDelete: (entryIds: string[]) => Promise<void>;
   jobParts?: JobPart[];
   submissionComments?: SubmissionComment[];
+  optimisedJobOrder?: string[];
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<"date" | "engineer" | "customer" | "postcode">("date");
@@ -86,6 +88,10 @@ export default function ListView({
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
   const getPartsForJob = (jobId: string) => jobParts.filter((p) => p.job_id === jobId);
   const getLatestComment = (jobId: string) => submissionComments.find((c) => c.submission_job_id === jobId);
+  const getRouteOrder = (jobId: string) => {
+    const idx = optimisedJobOrder.indexOf(jobId);
+    return idx >= 0 ? idx + 1 : null;
+  };
 
   const sorted = useMemo(() => {
     const items = [...schedule];
@@ -192,6 +198,7 @@ export default function ListView({
                 <TableHead>Job</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
+                {optimisedJobOrder.length > 0 && <TableHead className="w-12 text-center">Route #</TableHead>}
                 <TableHead>Materials</TableHead>
                 <TableHead>Comments</TableHead>
                 <TableHead>Notes</TableHead>
@@ -201,7 +208,7 @@ export default function ListView({
             <TableBody>
               {sorted.length === 0 ? (
                 <TableRow>
-                   <TableCell colSpan={isAdmin ? 13 : 11} className="py-12 text-center text-muted-foreground">
+                   <TableCell colSpan={(isAdmin ? 13 : 11) + (optimisedJobOrder.length > 0 ? 1 : 0)} className="py-12 text-center text-muted-foreground">
                     No entries for this period.
                   </TableCell>
                 </TableRow>
@@ -241,6 +248,19 @@ export default function ListView({
                         {job?.priority || "—"}
                       </Badge>
                     </TableCell>
+                    {optimisedJobOrder.length > 0 && (
+                      <TableCell className="text-center">
+                        {job ? (() => {
+                          const order = getRouteOrder(job.id);
+                          if (!order) return <span className="text-muted-foreground">—</span>;
+                          return (
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary text-primary-foreground text-xs font-bold">
+                              {order}
+                            </span>
+                          );
+                        })() : <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                    )}
                     <TableCell className="max-w-[160px]">
                       {job ? (() => {
                         const parts = getPartsForJob(job.id);
