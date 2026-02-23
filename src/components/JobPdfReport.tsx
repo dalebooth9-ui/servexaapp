@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
 interface Props {
   jobId: string;
@@ -500,6 +501,10 @@ export default function JobPdfReport({ jobId, job }: Props) {
         doc.setDrawColor(200, 200, 200);
         doc.line(margin, 286, pageWidth - margin, 286);
       }
+
+      // Add watermark to all pages
+      const watermark = await loadWatermarkImage();
+      if (watermark) addWatermarkToAllPages(doc, watermark);
 
       doc.save(`${job.reference_number}-report.pdf`);
       toast({ title: "PDF generated", description: `${job.reference_number}-report.pdf downloaded.` });
