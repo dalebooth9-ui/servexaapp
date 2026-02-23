@@ -27,7 +27,7 @@ export function addWatermarkToAllPages(doc: jsPDF, watermark: HTMLImageElement) 
   const wmH = pageHeight * 0.85;
   const wmW = (watermark.naturalWidth / watermark.naturalHeight) * wmH;
   const x = (pageWidth - wmW) / 2;
-  const yPos = (pageHeight - wmH) / 2;
+  const yPos = (pageHeight - wmH) / 2 + 12;
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
