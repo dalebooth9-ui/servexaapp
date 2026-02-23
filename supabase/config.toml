@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.parse-template-document]
 verify_jwt = false
+
+[functions.ocr-job-sheet]
+verify_jwt = false

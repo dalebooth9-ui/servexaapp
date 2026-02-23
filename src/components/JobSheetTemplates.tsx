@@ -20,6 +20,8 @@ import {
   FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
+import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
+import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
 
@@ -546,6 +548,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     >
                       <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
                     </Button>
+                    <BlankTemplatePdfExport template={tpl} />
+                    <ScanJobSheet
+                      template={tpl}
+                      jobId={jobId}
+                      onExtracted={(data) => {
+                        handleStartForm(tpl);
+                        setTimeout(() => setFormData((prev) => ({ ...prev, ...data })), 100);
+                      }}
+                    />
                     {userRole === "admin" && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleLock(tpl)} title={tpl.locked ? "Unlock template" : "Lock template"}>
                         {tpl.locked ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}
