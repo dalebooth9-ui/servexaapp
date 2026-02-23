@@ -52,6 +52,7 @@ export default function PlannerMapView({
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const mapsApiKeyRef = useRef<string | null>(null);
   const engineerLocations = useLiveEngineerLocations();
   const { user } = useAuth();
@@ -97,6 +98,9 @@ export default function PlannerMapView({
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
+    // Remove numbered step labels
+    routeNumberOverlaysRef.current.forEach((m) => { m.map = null; });
+    routeNumberOverlaysRef.current = [];
   }, []);
 
   // Render the optimised route as a polyline on the map
@@ -155,6 +159,34 @@ export default function PlannerMapView({
       // Draw optimised route on map
       if (data.optimised?.length >= 2) {
         await renderRouteOnMap(data.optimised);
+
+        // Add numbered step labels to markers
+        const map = mapInstanceRef.current;
+        if (map) {
+          const geocoder = new google.maps.Geocoder();
+          for (let i = 0; i < data.optimised.length; i++) {
+            const wp = data.optimised[i];
+            try {
+              const geoResult = await geocoder.geocode({ address: wp.address });
+              const pos = geoResult.results?.[0]?.geometry?.location;
+              if (!pos) continue;
+
+              const labelDiv = document.createElement("div");
+              labelDiv.textContent = String(i + 1);
+              labelDiv.style.cssText = "background:#2563eb;color:#fff;font-weight:700;font-size:13px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);pointer-events:none;";
+
+              const overlay = new google.maps.marker.AdvancedMarkerElement({
+                map,
+                position: pos,
+                content: labelDiv,
+                zIndex: 1000 + i,
+              });
+              routeNumberOverlaysRef.current.push(overlay);
+            } catch {
+              // skip
+            }
+          }
+        }
       }
     } catch {
       toast({ title: "Route optimisation failed", variant: "destructive" });
