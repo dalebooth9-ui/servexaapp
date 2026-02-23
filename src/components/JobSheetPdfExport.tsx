@@ -312,15 +312,18 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.setFont("helvetica", "bold");
 
       if (commentsVal || materialsVal) {
+        const commentTextWidth = maxWidth - 19;
         doc.text("Comments:", margin, y + 3);
         doc.setFont("helvetica", "normal");
-        doc.text(String(commentsVal).substring(0, 100) || "None", margin + 18, y + 3);
-        y += 4;
+        const wrappedComments = doc.splitTextToSize(String(commentsVal) || "None", commentTextWidth);
+        doc.text(wrappedComments, margin + 18, y + 3);
+        y += Math.max(4, wrappedComments.length * 3);
         doc.setFont("helvetica", "bold");
         doc.text("Materials:", margin, y + 3);
         doc.setFont("helvetica", "normal");
-        doc.text(String(materialsVal).substring(0, 100) || "None", margin + 18, y + 3);
-        y += 5;
+        const wrappedMaterials = doc.splitTextToSize(String(materialsVal) || "None", commentTextWidth);
+        doc.text(wrappedMaterials, margin + 18, y + 3);
+        y += Math.max(4, wrappedMaterials.length * 3) + 1;
       }
 
       // --- Signature blocks ---
