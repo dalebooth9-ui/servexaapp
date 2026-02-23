@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Bell, Save } from "lucide-react";
+import { Bell, Save, Send, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface ReminderConfig {
   enabled: boolean;
@@ -36,9 +37,51 @@ Viva Fire & Protection`,
 };
 
 export default function FollowUpReminderSettings() {
+  const { user } = useAuth();
   const [config, setConfig] = useState<ReminderConfig>(DEFAULT_CONFIG);
   const [saving, setSaving] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+
+  useEffect(() => {
+    if (user?.email) setTestEmail(user.email);
+  }, [user?.email]);
+
+  const handleSendTest = async () => {
+    if (!testEmail.trim()) {
+      toast.error("Enter an email address");
+      return;
+    }
+    setSendingTest(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-test-reminder`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: JSON.stringify({
+            to_email: testEmail.trim(),
+            email_subject: config.email_subject,
+            email_body: config.email_body,
+          }),
+        }
+      );
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Failed to send");
+      toast.success(`Test email sent to ${testEmail}`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to send test email");
+    } finally {
+      setSendingTest(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -124,6 +167,37 @@ export default function FollowUpReminderSettings() {
             ))}
           </div>
         </div>
+
+        {/* Send Test Email */}
+        <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
+          <Label className="text-sm font-medium">Send Test Email</Label>
+          <p className="text-xs text-muted-foreground">
+            Preview the email with sample data. Placeholders will be filled with example values.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              type="email"
+              placeholder="your@email.com"
+              value={testEmail}
+              onChange={(e) => setTestEmail(e.target.value)}
+              className="flex-1"
+              disabled={sendingTest}
+            />
+            <Button
+              variant="outline"
+              onClick={handleSendTest}
+              disabled={sendingTest || !testEmail.trim()}
+            >
+              {sendingTest ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {sendingTest ? "Sending..." : "Send Test"}
+            </Button>
+          </div>
+        </div>
+
         <Button onClick={handleSave} disabled={saving} className="w-full">
           <Save className="mr-1.5 h-3.5 w-3.5" /> {saving ? "Saving..." : "Save Reminder Settings"}
         </Button>
