@@ -123,7 +123,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // Pre-load company logo
       let logoDataUrl: string | null = null;
       try {
-        const logoResp = await fetch("/images/vivafire-logo.jpg");
+        const logoResp = await fetch("/images/vivafire-logo-new.jpg");
         const logoBlob = await logoResp.blob();
         logoDataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();

@@ -66,7 +66,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const footerText = branding.footer_text || defaultFooter;
 
       // --- HEADER (centred, proper aspect ratio) ---
-      const logoUrl = branding.logo_url || "/images/vivafire-logo.jpg";
+      const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
       try {
         const logoImg = new Image();
         logoImg.crossOrigin = "anonymous";
