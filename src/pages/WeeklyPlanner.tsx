@@ -89,6 +89,7 @@ export default function WeeklyPlanner() {
   const [jobParts, setJobParts] = useState<JobPart[]>([]);
   const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
 
@@ -488,11 +489,12 @@ export default function WeeklyPlanner() {
             onBulkDelete={handleBulkDelete}
             jobParts={jobParts}
             submissionComments={submissionComments}
+            optimisedJobOrder={optimisedJobOrder}
           />
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} />
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} />
         </TabsContent>
       </Tabs>
 
