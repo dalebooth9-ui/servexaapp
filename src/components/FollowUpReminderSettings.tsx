@@ -42,14 +42,18 @@ export default function FollowUpReminderSettings() {
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase
-        .from("app_settings" as any)
-        .select("value")
-        .eq("key", "followup_reminder")
-        .single();
-      if (data) {
-        const val = (data as any).value as ReminderConfig;
-        setConfig({ ...DEFAULT_CONFIG, ...val });
+      try {
+        const { data, error } = await supabase
+          .from("app_settings" as any)
+          .select("value")
+          .eq("key", "followup_reminder")
+          .single();
+        if (data && !error) {
+          const val = (data as any).value as ReminderConfig;
+          setConfig({ ...DEFAULT_CONFIG, ...val });
+        }
+      } catch (e) {
+        console.error("Failed to load reminder settings:", e);
       }
       setLoaded(true);
     })();
