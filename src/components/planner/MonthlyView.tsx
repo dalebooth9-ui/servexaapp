@@ -18,6 +18,8 @@ interface Job {
   reference_number: string;
   priority: string;
   customer: string | null;
+  pressure_test_qty: number;
+  visual_qty: number;
 }
 
 const PRIORITY_DOT: Record<string, string> = {
@@ -96,6 +98,12 @@ export default function MonthlyView({
                         <TooltipContent side="top" className="text-xs">
                           <p className="font-semibold">{job?.reference_number} — {job?.name}</p>
                           {job?.customer && <p className="text-muted-foreground">{job.customer}</p>}
+                          {(job?.pressure_test_qty > 0 || job?.visual_qty > 0) && (
+                            <div className="flex gap-1 mt-0.5">
+                              {job.pressure_test_qty > 0 && <span className="text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>}
+                              {job.visual_qty > 0 && <span className="text-[9px] font-semibold">Vis×{job.visual_qty}</span>}
+                            </div>
+                          )}
                         </TooltipContent>
                       </Tooltip>
                     );
