@@ -7,6 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, Trash2, Search, Upload, FileText, Loader2, Pencil, ArrowLeft, Library, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -206,6 +207,7 @@ function SortableLibraryRow({
 export default function PartsLibrary() {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const navigate = useNavigate();
   const isAdmin = userRole === "admin";
 
@@ -315,14 +317,21 @@ export default function PartsLibrary() {
 
   const handleDelete = async (ids: string[]) => {
     if (!ids.length) return;
-    const { error } = await supabase.from("parts_library").delete().in("id", ids);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      setParts((prev) => prev.filter((p) => !ids.includes(p.id)));
-      setSelected(new Set());
-      toast({ title: `${ids.length} part(s) removed` });
-    }
+    const deletedParts = parts.filter((p) => ids.includes(p.id));
+    setParts((prev) => prev.filter((p) => !ids.includes(p.id)));
+    setSelected(new Set());
+    deleteWithUndo({
+      key: `lib-${ids.join(",")}`,
+      label: `${ids.length} part(s) removed`,
+      onConfirm: async () => {
+        const { error } = await supabase.from("parts_library").delete().in("id", ids);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setParts((prev) => [...prev, ...deletedParts].sort((a, b) => a.sort_order - b.sort_order));
+        }
+      },
+      onUndo: () => setParts((prev) => [...prev, ...deletedParts].sort((a, b) => a.sort_order - b.sort_order)),
+    });
   };
 
   const startEdit = (part: LibraryPart) => {

@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -87,6 +88,7 @@ const emptySite = {
 export default function Sites() {
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -200,13 +202,21 @@ export default function Sites() {
       });
       return;
     }
-    const { error } = await supabase.from("sites").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-    toast({ title: "Site deleted" });
-    fetchSites();
+    const deletedSite = sites.find((s) => s.id === id);
+    if (!deletedSite) return;
+    setSites((prev) => prev.filter((s) => s.id !== id));
+    deleteWithUndo({
+      key: id,
+      label: "Site deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("sites").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setSites((prev) => [...prev, deletedSite]);
+        }
+      },
+      onUndo: () => setSites((prev) => [...prev, deletedSite]),
+    });
   };
 
   const counts = {

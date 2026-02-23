@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import { z } from "zod";
 import { saveMapPinForJob } from "@/lib/saveMapPin";
 import {
@@ -52,6 +53,7 @@ export default function Jobs() {
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const { uploadFilesAsSubmissions } = useFileUpload();
+  const { deleteWithUndo } = useUndoAction();
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -110,13 +112,21 @@ export default function Jobs() {
   useEffect(() => { fetchJobs(); }, [user]);
 
   const handleDeleteJob = async (jobId: string) => {
-    const { error } = await supabase.from("jobs").delete().eq("id", jobId);
-    if (error) {
-      toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
-    } else {
-      setJobs((prev) => prev.filter((j) => j.id !== jobId));
-      toast({ title: "Job deleted", description: "The job has been removed." });
-    }
+    const deletedJob = jobs.find((j) => j.id === jobId);
+    if (!deletedJob) return;
+    setJobs((prev) => prev.filter((j) => j.id !== jobId));
+    deleteWithUndo({
+      key: jobId,
+      label: "Job deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("jobs").delete().eq("id", jobId);
+        if (error) {
+          toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
+          setJobs((prev) => [...prev, deletedJob]);
+        }
+      },
+      onUndo: () => setJobs((prev) => [...prev, deletedJob]),
+    });
   };
 
   const handleSelectJob = (id: string, checked: boolean) => {
@@ -141,15 +151,22 @@ export default function Jobs() {
 
   const handleBulkDelete = async () => {
     const ids = Array.from(selectedJobIds);
-    const { error } = await supabase.from("jobs").delete().in("id", ids);
-    if (error) {
-      toast({ title: "Error", description: "Failed to delete jobs.", variant: "destructive" });
-    } else {
-      setJobs((prev) => prev.filter((j) => !selectedJobIds.has(j.id)));
-      toast({ title: "Deleted", description: `${ids.length} job(s) deleted.` });
-      setSelectedJobIds(new Set());
-    }
+    const deletedJobs = jobs.filter((j) => ids.includes(j.id));
+    setJobs((prev) => prev.filter((j) => !selectedJobIds.has(j.id)));
+    setSelectedJobIds(new Set());
     setBulkDeleteOpen(false);
+    deleteWithUndo({
+      key: `bulk-${ids.join(",")}`,
+      label: `${ids.length} job(s) deleted`,
+      onConfirm: async () => {
+        const { error } = await supabase.from("jobs").delete().in("id", ids);
+        if (error) {
+          toast({ title: "Error", description: "Failed to delete jobs.", variant: "destructive" });
+          setJobs((prev) => [...prev, ...deletedJobs]);
+        }
+      },
+      onUndo: () => setJobs((prev) => [...prev, ...deletedJobs]),
+    });
   };
 
   const handleJobFileDrop = (jobId: string, files: File[]) => {

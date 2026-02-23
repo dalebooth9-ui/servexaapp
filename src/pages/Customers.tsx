@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload, X, FileText, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
 
 type Customer = {
@@ -37,6 +38,7 @@ export default function Customers() {
   const navigate = useNavigate();
   const { userRole } = useAuth();
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -135,14 +137,23 @@ export default function Customers() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    const { error } = await supabase.from("customers").delete().eq("id", deleteId);
-    if (error) {
-      toast({ title: "Failed to delete customer", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Customer deleted" });
-      fetchCustomers();
-    }
+    const deletedCustomer = customers.find((c) => c.id === deleteId);
+    if (!deletedCustomer) { setDeleteId(null); return; }
+    setCustomers((prev) => prev.filter((c) => c.id !== deleteId));
+    const id = deleteId;
     setDeleteId(null);
+    deleteWithUndo({
+      key: id,
+      label: "Customer deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("customers").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Failed to delete customer", description: error.message, variant: "destructive" });
+          setCustomers((prev) => [...prev, deletedCustomer]);
+        }
+      },
+      onUndo: () => setCustomers((prev) => [...prev, deletedCustomer]),
+    });
   };
 
   const isAdmin = userRole === "admin";
@@ -165,17 +176,23 @@ export default function Customers() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    setBulkDeleting(true);
-    const { error } = await supabase.from("customers").delete().in("id", Array.from(selectedIds));
-    if (error) {
-      toast({ title: "Failed to delete customers", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: `Deleted ${selectedIds.size} customer(s)` });
-      setSelectedIds(new Set());
-      fetchCustomers();
-    }
-    setBulkDeleting(false);
+    const ids = Array.from(selectedIds);
+    const deletedCustomers = customers.filter((c) => ids.includes(c.id));
+    setCustomers((prev) => prev.filter((c) => !ids.includes(c.id)));
+    setSelectedIds(new Set());
     setBulkDeleteOpen(false);
+    deleteWithUndo({
+      key: `bulk-cust-${ids.join(",")}`,
+      label: `Deleted ${ids.length} customer(s)`,
+      onConfirm: async () => {
+        const { error } = await supabase.from("customers").delete().in("id", ids);
+        if (error) {
+          toast({ title: "Failed to delete customers", description: error.message, variant: "destructive" });
+          setCustomers((prev) => [...prev, ...deletedCustomers]);
+        }
+      },
+      onUndo: () => setCustomers((prev) => [...prev, ...deletedCustomers]),
+    });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

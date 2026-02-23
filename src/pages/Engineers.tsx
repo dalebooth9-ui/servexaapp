@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useUndoAction } from "@/hooks/useUndoAction";
 
 export default function Engineers() {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ export default function Engineers() {
   const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "" });
   const [adding, setAdding] = useState(false);
   const { toast } = useToast();
+  const { deleteWithUndo } = useUndoAction();
 
   const fetchEngineers = async () => {
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
@@ -71,18 +73,23 @@ export default function Engineers() {
   };
 
   const handleDeactivate = async (eng: any) => {
-    const { error } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", eng.user_id)
-      .eq("role", "engineer");
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to deactivate engineer.", variant: "destructive" });
-    } else {
-      toast({ title: "Deactivated", description: `${eng.full_name} is no longer an engineer.` });
-      fetchEngineers();
-    }
+    setEngineers((prev) => prev.filter((e) => e.id !== eng.id));
+    deleteWithUndo({
+      key: eng.user_id,
+      label: `${eng.full_name} deactivated`,
+      onConfirm: async () => {
+        const { error } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", eng.user_id)
+          .eq("role", "engineer");
+        if (error) {
+          toast({ title: "Error", description: "Failed to deactivate engineer.", variant: "destructive" });
+          fetchEngineers();
+        }
+      },
+      onUndo: () => fetchEngineers(),
+    });
   };
 
   const handleAddEngineer = async () => {
