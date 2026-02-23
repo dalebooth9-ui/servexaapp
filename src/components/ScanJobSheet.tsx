@@ -143,22 +143,18 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
       doc.setFontSize(9);
+      // Top row: CUSTOMER + DATE
       doc.setFont("helvetica", "bold");
-      doc.text("Customer/Site:", margin + 1, y + 3);
+      doc.text("Customer:", margin + 1, y + 3);
       doc.setFont("helvetica", "normal");
-      const siteStr = [customerName, siteName, siteAddress].filter(Boolean).join(", ");
-      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 22).slice(0, 1).join(""), margin + 22, y + 3);
+      doc.text(doc.splitTextToSize(customerName, maxWidth * 0.48 - 20).slice(0, 1).join(""), margin + 20, y + 3);
 
       doc.setFont("helvetica", "bold");
       doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 3);
       doc.setFont("helvetica", "normal");
       doc.text(dateStr, margin + maxWidth * 0.5 + 14, y + 3);
 
-      doc.setFont("helvetica", "bold");
-      doc.text("PO/REF:", margin + 1, y + 3 + detailH / 2);
-      doc.setFont("helvetica", "normal");
-      doc.text(referenceNumber, margin + 16, y + 3 + detailH / 2);
-
+      // Bottom row: SITE + PO/REF
       // Find riser location from existing responses or template fields
       let riserLocValue = "";
       const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
@@ -177,10 +173,16 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
+      const siteStr = [siteName, siteAddress, riserLocValue].filter(Boolean).join(", ");
       doc.setFont("helvetica", "bold");
-      doc.text("RISER LOC:", margin + maxWidth * 0.5 + 1, y + 3 + detailH / 2);
+      doc.text("Site:", margin + 1, y + 3 + detailH / 2);
       doc.setFont("helvetica", "normal");
-      doc.text(riserLocValue, margin + maxWidth * 0.5 + 22, y + 3 + detailH / 2);
+      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 12).slice(0, 1).join(""), margin + 12, y + 3 + detailH / 2);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + 3 + detailH / 2);
+      doc.setFont("helvetica", "normal");
+      doc.text(referenceNumber, margin + maxWidth * 0.5 + 16, y + 3 + detailH / 2);
 
       y += detailH + 1;
 
