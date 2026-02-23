@@ -32,7 +32,7 @@ export function addWatermarkToAllPages(doc: jsPDF, watermark: HTMLImageElement) 
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    const gState = (doc as any).GState({ opacity: 0.25 });
+    const gState = (doc as any).GState({ opacity: 0.35 });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
     doc.addImage(watermark, "JPEG", x, yPos, wmW, wmH);
