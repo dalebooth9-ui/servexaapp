@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 
 type TemplateField = {
   id: string;
@@ -140,11 +141,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const maxWidth = pageWidth - margin * 2;
 
       const branding = template.branding || {};
-      const isVisual = template.name.toLowerCase().includes("visual") || (template as any).category === "visual";
-      const defaultFooter = isVisual
-        ? "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015"
-        : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
-      const footerText = branding.footer_text || defaultFooter;
+      const footerText = getDefaultFooterText(template.name, branding);
 
       // Auto-populated values (mirrors online sheet logic)
       const autoVals = getAutoPopulatedValues(template, jobInfo);
@@ -339,11 +336,10 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         y += 1;
       }
 
-      // --- Signature & footer live at a fixed position from the bottom ---
+      // --- Signature & footer ---
       const sigY = pageHeight - footerSpace - 10;
-      const halfW = maxWidth / 2 - 2;
 
-      // --- Comments section (fills all free space between fields and signature) ---
+      // --- Comments section (fills space between fields and signature) ---
       const commentsH = Math.max(sigY - y - 2, 6);
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
@@ -353,46 +349,16 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
 
       const engineerList = (jobInfo?.engineers || []).join(", ");
 
-      const labelX = 20; // uniform label width for alignment
-      const lineSpacing = 5;
-      const cx = margin + halfW + 4;
-
-      doc.setFontSize(8.5);
-      // Left column — Technician
-      doc.setFont("helvetica", "bold");
-      doc.text("Date:", margin, sigY + 3);
-      doc.line(margin + labelX, sigY + 4, margin + halfW, sigY + 4);
-
-      doc.text("Technician:", margin, sigY + 3 + lineSpacing);
-      doc.setFont("helvetica", "normal");
-      if (engineerList) doc.text(engineerList, margin + labelX, sigY + 3 + lineSpacing);
-      doc.line(margin + labelX, sigY + 4 + lineSpacing, margin + halfW, sigY + 4 + lineSpacing);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("Signature:", margin, sigY + 3 + lineSpacing * 2);
-      doc.line(margin + labelX, sigY + 4 + lineSpacing * 2, margin + halfW, sigY + 4 + lineSpacing * 2);
-
-      // Right column — Customer
-      doc.text("Date:", cx, sigY + 3);
-      doc.line(cx + labelX, sigY + 4, cx + halfW, sigY + 4);
-
-      doc.text("Customer:", cx, sigY + 3 + lineSpacing);
-      doc.line(cx + labelX, sigY + 4 + lineSpacing, cx + halfW, sigY + 4 + lineSpacing);
-
-      doc.text("Signature:", cx, sigY + 3 + lineSpacing * 2);
-      doc.line(cx + labelX, sigY + 4 + lineSpacing * 2, cx + halfW, sigY + 4 + lineSpacing * 2);
+      const afterSig = renderPdfSignatures(doc, sigY, {
+        dateStr: "",
+        technicianName: engineerList,
+        customerName: "",
+      }, { blank: true });
 
       // --- Footer declaration pinned to bottom of page ---
       const footerH = 9;
       const footerY = pageHeight - margin - footerH;
-      doc.setDrawColor(0);
-      doc.rect(margin, footerY, maxWidth, footerH);
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "bold");
-      const footerLines = footerText.split("\n");
-      footerLines.forEach((line, i) => {
-        doc.text(line.trim(), pageWidth / 2, footerY + 3 + i * 3.5, { align: "center" });
-      });
+      renderPdfFooter(doc, footerY, footerText);
 
       // Watermark on every page
       const watermark = await loadWatermarkImage();

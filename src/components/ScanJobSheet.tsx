@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 
 type TemplateField = {
   id: string;
@@ -81,11 +82,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
 
       // --- BRANDED HEADER ---
       const branding = template.branding || {};
-      const isVisual = template.name.toLowerCase().includes("visual") || (template as any).category === "visual";
-      const defaultFooter = isVisual
-        ? "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015"
-        : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
-      const footerText = branding.footer_text || defaultFooter;
+      const footerText = getDefaultFooterText(template.name, branding);
 
       // Prefer AI-extracted header, fall back to job data
       const referenceNumber = extractedHeader.po_ref || jobInfo?.reference_number || "";
@@ -183,57 +180,22 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       }
 
       // --- SIGNATURE BLOCKS on last page ---
-      const halfW = maxWidth / 2 - 2;
       const dateStr2 = new Date().toLocaleDateString("en-GB");
       const sigY = pageHeight - 35;
-      const sigImgH = 8;
-      const sigImgW = 25;
 
-      doc.setFontSize(7);
-      doc.setTextColor(0, 0, 0);
-      doc.setFont("helvetica", "bold");
-      doc.text(`Date: `, margin, sigY + 3);
-      doc.setFont("helvetica", "normal");
-      doc.text(dateStr2, margin + 10, sigY + 3);
-      doc.setFont("helvetica", "bold");
-      doc.text("Technician:", margin, sigY + 7);
-      doc.setFont("helvetica", "normal");
       const techName = jobInfo?.engineers?.length ? jobInfo.engineers.join(", ") : (engineerSig?.signer_name || "");
-      doc.text(techName, margin + 20, sigY + 7);
-      if (engineerSig && sigImages[engineerSig.id]) {
-        doc.addImage(sigImages[engineerSig.id], "PNG", margin + 18, sigY + 8, sigImgW, sigImgH);
-      } else {
-        doc.text("Signature:", margin, sigY + 11);
-        doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
-      }
 
-      const cx = margin + halfW + 4;
-      doc.setFont("helvetica", "bold");
-      doc.text(`Date: `, cx, sigY + 3);
-      doc.setFont("helvetica", "normal");
-      doc.text(dateStr2, cx + 10, sigY + 3);
-      doc.setFont("helvetica", "bold");
-      doc.text("Customer:", cx, sigY + 7);
-      doc.setFont("helvetica", "normal");
-      doc.text(customerSig?.signer_name || customerName, cx + 18, sigY + 7);
-      if (customerSig && sigImages[customerSig.id]) {
-        doc.addImage(sigImages[customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
-      } else {
-        doc.text("Signature:", cx, sigY + 11);
-        doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
-      }
+      const footerStartY = renderPdfSignatures(doc, sigY, {
+        dateStr: dateStr2,
+        technicianName: techName,
+        customerName,
+        sigImages,
+        engineerSig,
+        customerSig,
+      });
 
       // --- FOOTER DECLARATION on last page ---
-      const footerY = sigY + 15;
-      doc.setDrawColor(0);
-      doc.rect(margin, footerY, maxWidth, 9);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0, 0, 0);
-      const footerLines = footerText.split("\n");
-      footerLines.forEach((line, idx) => {
-        doc.text(line.trim(), pageWidth / 2, footerY + 3 + idx * 3.5, { align: "center" });
-      });
+      renderPdfFooter(doc, footerStartY, footerText);
 
       // Watermark
       const watermark = await loadWatermarkImage();
