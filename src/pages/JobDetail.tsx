@@ -12,6 +12,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
 import WhatsAppReply from "@/components/WhatsAppReply";
@@ -23,6 +24,7 @@ import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
 import JobVisits from "@/components/JobVisits";
 import FaultCodeSelect from "@/components/FaultCodeSelect";
 import CloneJobDialog from "@/components/CloneJobDialog";
+import ScheduleFollowUpJobs from "@/components/ScheduleFollowUpJobs";
 import JobSheet from "@/components/JobSheet";
 import JobParts from "@/components/JobParts";
 import JobPdfReport from "@/components/JobPdfReport";
@@ -56,6 +58,7 @@ export default function JobDetail() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0 });
   const [editSaving, setEditSaving] = useState(false);
+  const [followUpOpen, setFollowUpOpen] = useState(false);
 
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => fetchData() });
 
@@ -136,6 +139,8 @@ export default function JobDetail() {
         }).then(({ error: notifyErr }) => {
           if (!notifyErr) toast({ title: "Customer notified", description: "Completion email sent." });
         });
+        // Prompt follow-up scheduling
+        setFollowUpOpen(true);
       }
     }
   };
@@ -293,6 +298,9 @@ export default function JobDetail() {
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
+            {(job.status === "completed" || job.status === "archived") && (
+              <ScheduleFollowUpJobs sourceJob={job} mode="inline" />
+            )}
             <CreateInvoiceDialog
               jobId={id!}
               customerName={custName || ""}
@@ -430,6 +438,20 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      {/* Follow-up scheduling dialog prompted on completion */}
+      <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Schedule Follow-Up Services</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground mb-3">
+            Job <strong>{job.reference_number}</strong> has been completed. Would you like to schedule follow-up services?
+          </p>
+          <ScheduleFollowUpJobs sourceJob={job} mode="dialog" open={followUpOpen} onOpenChange={setFollowUpOpen} />
+          <Button variant="ghost" size="sm" className="w-full mt-1" onClick={() => setFollowUpOpen(false)}>
+            Skip for now
+          </Button>
+        </DialogContent>
+      </Dialog>
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
