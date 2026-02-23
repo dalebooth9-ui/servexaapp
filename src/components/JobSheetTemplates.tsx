@@ -66,7 +66,15 @@ type JobInfo = {
   customer: string | null;
   reference_number: string;
   category?: string | null;
-  site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null } | null;
+  name?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  visual_qty?: number;
+  pressure_test_qty?: number;
+  customer_email?: string | null;
+  customer_phone?: string | null;
+  engineers?: string[];
+  site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null } | null;
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
@@ -89,7 +97,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("address, customer, reference_number, category, site_id, sites(name, address, postcode, contact_name, contact_phone)").eq("id", jobId).single(),
+      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -99,14 +107,36 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setTemplates(tpls);
     setResponses((respRes.data || []) as Response[]);
 
+    let engineerNames: string[] = [];
     if (jobRes.data) {
       const jd = jobRes.data as any;
+      // Fetch assigned engineers
+      const { data: assigns } = await supabase
+        .from("job_assignments")
+        .select("engineer_id")
+        .eq("job_id", jobId);
+      if (assigns && assigns.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("user_id, full_name")
+          .in("user_id", assigns.map((a: any) => a.engineer_id));
+        engineerNames = (profs || []).map((p: any) => p.full_name).filter(Boolean);
+      }
+
       setJobInfo({
+        name: jd.name,
         address: jd.address,
-        customer: jd.customer,
+        customer: jd.customers?.name || jd.customer,
+        customer_email: jd.customers?.email || null,
+        customer_phone: jd.customers?.phone || null,
         reference_number: jd.reference_number,
         category: jd.category,
-        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone } : null,
+        status: jd.status,
+        priority: jd.priority,
+        visual_qty: jd.visual_qty,
+        pressure_test_qty: jd.pressure_test_qty,
+        engineers: engineerNames,
+        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone, contact_email: jd.sites.contact_email } : null,
       });
     }
 
@@ -170,37 +200,86 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const prefilled: Record<string, any> = {};
     if (!jobInfo) return prefilled;
 
-    const jobAddress = jobInfo.address || "";
+    const jobAddress = jobInfo.address || jobInfo.site?.address || "";
     const siteName = jobInfo.site?.name || "";
     const customerName = jobInfo.customer || "";
-    const fullSiteDetails = [customerName, jobAddress].filter(Boolean).join("\n");
+    const sitePostcode = jobInfo.site?.postcode || "";
+    const siteContact = jobInfo.site?.contact_name || "";
+    const siteContactPhone = jobInfo.site?.contact_phone || "";
+    const siteContactEmail = jobInfo.site?.contact_email || "";
+    const engineerList = (jobInfo.engineers || []).join(", ");
 
     template.fields.forEach((f) => {
-      const label = f.label.toLowerCase();
-      // Auto-fill site details (site name + job address)
+      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+
+      // Site details (composite: name + address)
       if (
         (label.includes("site") && label.includes("detail")) ||
-        label === "site address" ||
-        label === "address"
+        (label.includes("site") && label.includes("info"))
       ) {
-        const siteInfo = [siteName, jobAddress].filter(Boolean).join("\n");
-        prefilled[f.id] = siteInfo || "";
-      // Auto-fill customer details
+        prefilled[f.id] = [siteName, jobAddress, sitePostcode].filter(Boolean).join("\n");
+      // Site name
+      } else if (label === "site name" || label === "site") {
+        prefilled[f.id] = siteName;
+      // Site address
+      } else if (label === "site address" || label === "address") {
+        prefilled[f.id] = [jobAddress, sitePostcode].filter(Boolean).join(", ");
+      // Postcode
+      } else if (label.includes("postcode") || label.includes("post code") || label.includes("zip")) {
+        prefilled[f.id] = sitePostcode;
+      // Site contact name
+      } else if (label.includes("site") && label.includes("contact") && label.includes("name")) {
+        prefilled[f.id] = siteContact;
+      } else if (label === "contact name" || label === "contact person") {
+        prefilled[f.id] = siteContact;
+      // Site contact phone
+      } else if ((label.includes("site") && label.includes("contact") && label.includes("phone")) || (label.includes("site") && label.includes("tel"))) {
+        prefilled[f.id] = siteContactPhone;
+      } else if (label === "contact phone" || label === "contact tel" || label === "contact number") {
+        prefilled[f.id] = siteContactPhone;
+      // Site contact email
+      } else if (label.includes("site") && label.includes("email")) {
+        prefilled[f.id] = siteContactEmail;
+      // Customer details (composite)
       } else if (
         (label.includes("customer") && label.includes("detail")) ||
-        (label.includes("customer") && label.includes("site"))
+        (label.includes("client") && label.includes("detail"))
       ) {
+        prefilled[f.id] = [customerName, jobInfo.customer_email, jobInfo.customer_phone].filter(Boolean).join("\n");
+      // Customer / client name
+      } else if (label === "customer name" || label === "client name" || label === "customer" || label === "client") {
         prefilled[f.id] = customerName;
-      } else if (label.includes("customer") && !label.includes("sign") && !label.includes("name")) {
+      } else if (label.includes("customer") && !label.includes("sign") && !label.includes("email") && !label.includes("phone")) {
         prefilled[f.id] = customerName;
-      } else if (label === "customer name" || label === "customer name:") {
-        prefilled[f.id] = customerName;
-      } else if (label.includes("po number") || label.includes("reference")) {
+      // Customer email
+      } else if ((label.includes("customer") || label.includes("client")) && label.includes("email")) {
+        prefilled[f.id] = jobInfo.customer_email || "";
+      // Customer phone
+      } else if ((label.includes("customer") || label.includes("client")) && (label.includes("phone") || label.includes("tel"))) {
+        prefilled[f.id] = jobInfo.customer_phone || "";
+      // Reference / PO number
+      } else if (label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("job number") || label.includes("order number")) {
         prefilled[f.id] = jobInfo.reference_number || "";
-      } else if (label === "date" || label === "date:" || label === "inspection date") {
+      // Job name / description
+      } else if (label === "job name" || label === "job title" || label === "job description" || label === "description of work" || label === "works description") {
+        prefilled[f.id] = jobInfo.name || "";
+      // Date fields
+      } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
         prefilled[f.id] = new Date().toISOString().split("T")[0];
-      } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
+      // Category / scope / type of work
+      } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
         prefilled[f.id] = jobInfo.category || "";
+      // Priority
+      } else if (label === "priority" || label === "job priority") {
+        prefilled[f.id] = jobInfo.priority || "";
+      // Engineer / technician
+      } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
+        prefilled[f.id] = engineerList;
+      // PT / Visual quantities
+      } else if (label.includes("pressure test") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
+        prefilled[f.id] = String(jobInfo.pressure_test_qty ?? 0);
+      } else if (label.includes("visual") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
+        prefilled[f.id] = String(jobInfo.visual_qty ?? 0);
       }
     });
     return prefilled;
