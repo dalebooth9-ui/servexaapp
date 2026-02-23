@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useLiveEngineerLocations } from "@/hooks/useLiveEngineerLocations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Route, Loader2, MapPin, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -30,6 +31,9 @@ const PRIORITY_PIN: Record<string, string> = {
   low: "#10b981",
 };
 
+// Distinct highlight colour when filtering by engineer
+const ENGINEER_HIGHLIGHT = "#8b5cf6";
+
 export default function PlannerMapView({
   schedule,
   jobs,
@@ -43,8 +47,9 @@ export default function PlannerMapView({
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string }[]>([]);
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const engineerLocations = useLiveEngineerLocations();
   const { toast } = useToast();
   const [optimising, setOptimising] = useState(false);
@@ -52,14 +57,20 @@ export default function PlannerMapView({
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
-  const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
 
+  // Collect engineers that actually have scheduled jobs in the current view
+  const activeEngineers = useMemo(() => {
+    const ids = new Set(schedule.map((s) => s.engineer_id));
+    return engineers.filter((e) => ids.has(e.user_id));
+  }, [schedule, engineers]);
+
   const scheduledJobs = useMemo(() => {
     const seen = new Set<string>();
-    const result: { job: Job; engineerName: string; date: string }[] = [];
+    const result: { job: Job; engineerName: string; engineerId: string; date: string }[] = [];
     for (const entry of schedule) {
       const job = getJob(entry.job_id);
       if (job?.address && !seen.has(job.id)) {
@@ -67,6 +78,7 @@ export default function PlannerMapView({
         result.push({
           job,
           engineerName: getEngineer(entry.engineer_id)?.full_name || "Unassigned",
+          engineerId: entry.engineer_id,
           date: entry.schedule_date,
         });
       }
@@ -133,7 +145,7 @@ export default function PlannerMapView({
         let hasMarkers = false;
 
         // Scheduled jobs — coloured by priority
-        for (const { job, engineerName } of scheduledJobs) {
+        for (const { job, engineerName, engineerId } of scheduledJobs) {
           try {
             const result = await geocoder.geocode({ address: job.address! });
             if (result.results[0]) {
@@ -166,7 +178,7 @@ export default function PlannerMapView({
               });
 
               marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
-              markersRef.current.push(marker);
+              markersRef.current.push({ marker, engineerId });
             }
           } catch {
             // Skip failed geocodes
@@ -237,6 +249,34 @@ export default function PlannerMapView({
     });
   }, [showUnallocated]);
 
+  // Apply engineer filter — highlight selected, dim others
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    for (const { marker, engineerId } of markersRef.current) {
+      const el = marker.content as HTMLElement | null;
+      if (!el) continue;
+
+      if (selectedEngineerId === "all") {
+        // Reset: restore original priority colours by removing any override
+        el.style.filter = "";
+        el.style.opacity = "1";
+        el.style.transform = "scale(1)";
+      } else if (engineerId === selectedEngineerId) {
+        // Highlighted: purple tint + larger scale
+        el.style.filter = `drop-shadow(0 0 6px ${ENGINEER_HIGHLIGHT})`;
+        el.style.opacity = "1";
+        el.style.transform = "scale(1.25)";
+      } else {
+        // Dimmed
+        el.style.filter = "";
+        el.style.opacity = "0.3";
+        el.style.transform = "scale(0.9)";
+      }
+    }
+  }, [selectedEngineerId]);
+
   // Update engineer live pins
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -304,9 +344,28 @@ export default function PlannerMapView({
             <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#f59e0b"}} /> Medium</span>
             <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#10b981"}} /> Low</span>
             <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
+            {selectedEngineerId !== "all" && (
+              <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background: ENGINEER_HIGHLIGHT}} /> Filtered</span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Engineer filter */}
+          {activeEngineers.length > 0 && (
+            <Select value={selectedEngineerId} onValueChange={setSelectedEngineerId}>
+              <SelectTrigger className="h-9 w-44 text-xs">
+                <SelectValue placeholder="All engineers" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All engineers</SelectItem>
+                {activeEngineers.map((eng) => (
+                  <SelectItem key={eng.user_id} value={eng.user_id}>
+                    {eng.full_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           <Button
             variant={showUnallocated ? "secondary" : "outline"}
             size="sm"
