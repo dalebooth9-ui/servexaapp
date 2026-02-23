@@ -283,9 +283,11 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
                       )}
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         {sub.type === "photo" && resolvedUrl ? (
-                          <img src={resolvedUrl} alt={sub.file_name || "Photo"} className="h-8 w-8 rounded object-cover cursor-pointer flex-shrink-0" onClick={() => openLightbox(sub.id)} />
+                          <img src={resolvedUrl} alt={sub.file_name || "Photo"} className="h-10 w-10 rounded object-cover cursor-pointer flex-shrink-0 border border-border" onClick={() => openLightbox(sub.id)} />
+                        ) : sub.type === "document" && sub.file_name && isImageFile(sub.file_name) && resolvedUrl ? (
+                          <img src={resolvedUrl} alt={sub.file_name} className="h-10 w-10 rounded object-cover cursor-pointer flex-shrink-0 border border-border" onClick={() => window.open(resolvedUrl, "_blank")} />
                         ) : (
                           getTypeIcon(sub)
                         )}
