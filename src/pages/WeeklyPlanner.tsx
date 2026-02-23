@@ -52,6 +52,22 @@ interface Job {
   visual_qty: number;
 }
 
+export interface JobPart {
+  id: string;
+  job_id: string;
+  name: string;
+  quantity: number;
+  notes: string | null;
+}
+
+export interface SubmissionComment {
+  id: string;
+  content: string;
+  created_at: string;
+  submission_id: string;
+  submission_job_id?: string;
+}
+
 function extractPostcode(address: string | null): string {
   if (!address) return "";
   const match = address.match(/[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}/i);
@@ -70,6 +86,8 @@ export default function WeeklyPlanner() {
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
+  const [jobParts, setJobParts] = useState<JobPart[]>([]);
+  const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
@@ -119,9 +137,29 @@ export default function WeeklyPlanner() {
       supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);
     setEngineers(engRes.data || []);
-    setJobs(((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null })));
+    const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
+    setJobs(fetchedJobs);
     setSites(sitesRes.data || []);
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
+
+    // Fetch parts and latest comments for scheduled jobs
+    const jobIds = fetchedJobs.map((j: any) => j.id);
+    if (jobIds.length > 0) {
+      const [partsRes, commentsRes] = await Promise.all([
+        supabase.from("job_parts").select("id, job_id, name, quantity, notes").in("job_id", jobIds),
+        supabase.from("submission_comments").select("id, content, created_at, submission_id, submissions!inner(job_id)").in("submissions.job_id", jobIds).order("created_at", { ascending: false }).limit(500),
+      ]);
+      setJobParts((partsRes.data as any[]) || []);
+      setSubmissionComments(
+        ((commentsRes.data as any[]) || []).map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          created_at: c.created_at,
+          submission_id: c.submission_id,
+          submission_job_id: c.submissions?.job_id,
+        }))
+      );
+    }
     setLoading(false);
   }, [rangeStart, rangeEnd]);
 
@@ -448,6 +486,8 @@ export default function WeeklyPlanner() {
             onRemove={handleRemove}
             onBulkReassign={handleBulkReassign}
             onBulkDelete={handleBulkDelete}
+            jobParts={jobParts}
+            submissionComments={submissionComments}
           />
         </TabsContent>
 

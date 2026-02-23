@@ -7,8 +7,25 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
-import { ArrowUpDown, Users, Trash2 } from "lucide-react";
+import { ArrowUpDown, Users, Trash2, Wrench, MessageSquare } from "lucide-react";
+
+interface JobPart {
+  id: string;
+  job_id: string;
+  name: string;
+  quantity: number;
+  notes: string | null;
+}
+
+interface SubmissionComment {
+  id: string;
+  content: string;
+  created_at: string;
+  submission_id: string;
+  submission_job_id?: string;
+}
 
 interface ScheduleEntry {
   id: string;
@@ -47,6 +64,8 @@ export default function ListView({
   onRemove,
   onBulkReassign,
   onBulkDelete,
+  jobParts = [],
+  submissionComments = [],
 }: {
   schedule: ScheduleEntry[];
   engineers: Engineer[];
@@ -55,6 +74,8 @@ export default function ListView({
   onRemove: (id: string) => Promise<void>;
   onBulkReassign: (entryIds: string[], newEngineerId: string) => Promise<void>;
   onBulkDelete: (entryIds: string[]) => Promise<void>;
+  jobParts?: JobPart[];
+  submissionComments?: SubmissionComment[];
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<"date" | "engineer" | "customer" | "postcode">("date");
@@ -63,6 +84,8 @@ export default function ListView({
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
+  const getPartsForJob = (jobId: string) => jobParts.filter((p) => p.job_id === jobId);
+  const getLatestComment = (jobId: string) => submissionComments.find((c) => c.submission_job_id === jobId);
 
   const sorted = useMemo(() => {
     const items = [...schedule];
@@ -169,14 +192,16 @@ export default function ListView({
                 <TableHead>Job</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
-                <TableHead>Comment</TableHead>
+                <TableHead>Materials</TableHead>
+                <TableHead>Comments</TableHead>
+                <TableHead>Notes</TableHead>
                 {isAdmin && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
             <TableBody>
               {sorted.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={isAdmin ? 11 : 9} className="py-12 text-center text-muted-foreground">
+                   <TableCell colSpan={isAdmin ? 13 : 11} className="py-12 text-center text-muted-foreground">
                     No entries for this period.
                   </TableCell>
                 </TableRow>
@@ -215,6 +240,49 @@ export default function ListView({
                       <Badge variant={job?.priority === "high" ? "destructive" : "secondary"} className="text-[10px]">
                         {job?.priority || "—"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="max-w-[160px]">
+                      {job ? (() => {
+                        const parts = getPartsForJob(job.id);
+                        if (parts.length === 0) return <span className="text-muted-foreground">—</span>;
+                        const summary = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex items-center gap-1 text-xs truncate cursor-default">
+                                <Wrench className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{summary}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs">
+                              <ul className="text-xs space-y-0.5">
+                                {parts.map((p) => (
+                                  <li key={p.id}>{p.name} ×{p.quantity}{p.notes ? ` — ${p.notes}` : ""}</li>
+                                ))}
+                              </ul>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })() : <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="max-w-[160px]">
+                      {job ? (() => {
+                        const comment = getLatestComment(job.id);
+                        if (!comment) return <span className="text-muted-foreground">—</span>;
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex items-center gap-1 text-xs truncate cursor-default">
+                                <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                <span className="truncate">{comment.content}</span>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="max-w-xs text-xs">
+                              {comment.content}
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })() : <span className="text-muted-foreground">—</span>}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">{entry.notes || "—"}</TableCell>
                     {isAdmin && (
