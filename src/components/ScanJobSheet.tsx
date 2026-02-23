@@ -191,9 +191,38 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
+      // --- SIGNATURE BLOCKS on last page ---
+      const halfW = maxWidth / 2 - 2;
+      const dateStr2 = new Date().toLocaleDateString("en-GB");
+      const sigY = pageHeight - 35;
+
+      doc.setFontSize(7);
+      doc.setTextColor(0, 0, 0);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Date: `, margin, sigY + 3);
+      doc.setFont("helvetica", "normal");
+      doc.text(dateStr2, margin + 10, sigY + 3);
+      doc.setFont("helvetica", "bold");
+      doc.text("Technician:", margin, sigY + 7);
+      doc.setFont("helvetica", "normal");
+      doc.text("", margin + 20, sigY + 7);
+      doc.text("Signature:", margin, sigY + 11);
+      doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+
+      const cx = margin + halfW + 4;
+      doc.setFont("helvetica", "bold");
+      doc.text(`Date: `, cx, sigY + 3);
+      doc.setFont("helvetica", "normal");
+      doc.text(dateStr2, cx + 10, sigY + 3);
+      doc.setFont("helvetica", "bold");
+      doc.text("Customer:", cx, sigY + 7);
+      doc.setFont("helvetica", "normal");
+      doc.text(customerName, cx + 18, sigY + 7);
+      doc.text("Signature:", cx, sigY + 11);
+      doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+
       // --- FOOTER DECLARATION on last page ---
-      const lastPageH = doc.internal.pageSize.getHeight();
-      const footerY = lastPageH - 15;
+      const footerY = sigY + 15;
       doc.setDrawColor(0);
       doc.rect(margin, footerY, maxWidth, 9);
       doc.setFontSize(7);
