@@ -152,31 +152,29 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
       doc.line(margin, y + detailH / 2, margin + maxWidth, y + detailH / 2);
 
-      doc.setFontSize(9);
+      doc.setFontSize(8);
+      // Top row: Customer + DATE
       doc.setFont("helvetica", "bold");
-      doc.text("Customer/Site:", margin + 1, y + 3);
+      doc.text("Customer:", margin + 1, y + 4);
       doc.setFont("helvetica", "normal");
-      const siteStr = [customerName, siteName, siteAddress].filter(Boolean).join(", ");
-      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.48 - 20).slice(0, 1).join(""), margin + 22, y + 3);
+      doc.text(doc.splitTextToSize(customerName, maxWidth * 0.5 - 22).slice(0, 1).join(""), margin + 19, y + 4);
 
       doc.setFont("helvetica", "bold");
-      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 3);
+      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(String(dateVal), margin + maxWidth * 0.5 + 14, y + 3);
+      doc.text(String(dateVal), margin + maxWidth * 0.5 + 14, y + 4);
+
+      // Bottom row: Site + PO/REF
+      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
+      doc.setFont("helvetica", "bold");
+      doc.text("Site:", margin + 1, y + detailH / 2 + 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""), margin + 10, y + detailH / 2 + 4);
 
       doc.setFont("helvetica", "bold");
-      doc.text("PO/REF:", margin + 1, y + 3 + detailH / 2);
+      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + detailH / 2 + 4);
       doc.setFont("helvetica", "normal");
-      doc.text(refNumber, margin + 16, y + 3 + detailH / 2);
-
-      // Find riser location field value
-      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-      if (riserField && formData[riserField.id]) {
-        doc.setFont("helvetica", "bold");
-        doc.text("RISER LOC:", margin + maxWidth * 0.5 + 1, y + 3 + detailH / 2);
-        doc.setFont("helvetica", "normal");
-        doc.text(String(formData[riserField.id]), margin + maxWidth * 0.5 + 22, y + 3 + detailH / 2);
-      }
+      doc.text(refNumber, margin + maxWidth * 0.5 + 16, y + detailH / 2 + 4);
 
       y += detailH + 2;
 
