@@ -4,10 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -49,16 +52,22 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
+  const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null }[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0 });
+  const [editSaving, setEditSaving] = useState(false);
 
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => fetchData() });
 
   const fetchData = async () => {
     if (!id) return;
-    const [jobRes, subsRes] = await Promise.all([
+    const [jobRes, subsRes, sitesRes] = await Promise.all([
       supabase.from("jobs").select("*, customers(id, name, email)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
+      supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);
     setJob(jobRes.data);
+    setSites(sitesRes.data || []);
     const subs = subsRes.data || [];
     setSubmissions(subs);
 
@@ -339,6 +348,89 @@ export default function JobDetail() {
         </div>
       )}
 
+      {/* Editable Job Details */}
+      {userRole === "admin" && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Job Details
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            {!editing ? (
+              <div className="rounded-lg border bg-card p-4 space-y-2">
+                <div className="flex items-start justify-between">
+                  <div className="space-y-1.5 text-sm">
+                    <div><span className="text-muted-foreground">Job Name:</span> <span className="font-medium">{job.name}</span></div>
+                    <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
+                    <div><span className="text-muted-foreground">Site:</span> <span className="font-medium">{sites.find((s) => s.id === job.site_id)?.name || "—"}</span></div>
+                    <div className="flex gap-4">
+                      <span><span className="text-muted-foreground">Pressure Test:</span> <span className="font-medium">{job.pressure_test_qty || 0}</span></span>
+                      <span><span className="text-muted-foreground">Visual:</span> <span className="font-medium">{job.visual_qty || 0}</span></span>
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0 }); setEditing(true); }}>
+                    <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border bg-card p-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Job Name</Label>
+                    <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Address</Label>
+                    <Input value={editForm.address} onChange={(e) => setEditForm({ ...editForm, address: e.target.value })} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Site</Label>
+                    <Select value={editForm.site_id || "none"} onValueChange={(v) => {
+                      const siteId = v === "none" ? "" : v;
+                      const site = sites.find((s) => s.id === siteId);
+                      setEditForm((f) => ({ ...f, site_id: siteId, ...(site?.address ? { address: site.address } : {}) }));
+                    }}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select site" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No site</SelectItem>
+                        {sites.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>{s.name}{s.postcode ? ` (${s.postcode})` : ""}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <Label className="text-xs">Pressure Test Qty</Label>
+                      <Input type="number" min={0} value={editForm.pressure_test_qty} onChange={(e) => setEditForm({ ...editForm, pressure_test_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs">Visual Qty</Label>
+                      <Input type="number" min={0} value={editForm.visual_qty} onChange={(e) => setEditForm({ ...editForm, visual_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button size="sm" disabled={editSaving || !editForm.name.trim()} onClick={async () => {
+                    setEditSaving(true);
+                    const { error } = await supabase.from("jobs").update({ name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, pressure_test_qty: editForm.pressure_test_qty, visual_qty: editForm.visual_qty } as any).eq("id", id!);
+                    if (error) { toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" }); }
+                    else { toast({ title: "Job details updated" }); setEditing(false); fetchData(); }
+                    setEditSaving(false);
+                  }}>
+                    <Save className="mr-1.5 h-3.5 w-3.5" /> {editSaving ? "Saving..." : "Save"}
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                    <X className="mr-1.5 h-3.5 w-3.5" /> Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer Assignments
@@ -411,8 +503,6 @@ export default function JobDetail() {
           </div>
         </CollapsibleContent>
       </Collapsible>
-
-
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Submissions ({filtered.length})
