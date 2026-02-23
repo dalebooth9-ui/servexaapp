@@ -113,9 +113,9 @@ function getAutoPopulatedValues(
     // Job name
     } else if (label === "job name" || label === "job title" || label === "job description") {
       vals[f.id] = jobInfo.name || "";
-    // Riser location
-    } else if (label.includes("riser location") || label.includes("location")) {
-      vals[f.id] = [siteAddress, sitePostcode].filter(Boolean).join(", ");
+    // Riser location — leave blank for manual entry
+    } else if (label.includes("riser location") || (label.includes("rise") && label.includes("location"))) {
+      // Do not auto-fill — riser location is specific and should be entered manually
     // Number of outlets
     } else if (label.includes("no of outlets") || label.includes("number of outlets")) {
       // Leave blank for manual entry
