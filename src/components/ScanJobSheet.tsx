@@ -28,14 +28,21 @@ type Template = {
   };
 };
 
+type JobInfo = {
+  reference_number?: string;
+  customer?: string | null;
+  address?: string | null;
+  site?: { name: string; address: string | null } | null;
+};
+
 interface Props {
   template: Template;
   jobId: string;
-  referenceNumber?: string;
+  jobInfo?: JobInfo | null;
   onExtracted: (data: Record<string, any>) => void;
 }
 
-export default function ScanJobSheet({ template, jobId, referenceNumber, onExtracted }: Props) {
+export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: Props) {
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [scanning, setScanningState] = useState(false);
@@ -117,17 +124,47 @@ export default function ScanJobSheet({ template, jobId, referenceNumber, onExtra
       doc.setDrawColor(33, 61, 99);
       doc.setLineWidth(0.5);
       doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
+      y = logoBottomY + 7;
+
+      // Customer / Date row
+      const referenceNumber = jobInfo?.reference_number || "";
+      const customerName = jobInfo?.customer || "";
+      const siteName = jobInfo?.site?.name || "";
+      const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
+      const dateStr = new Date().toLocaleDateString("en-GB");
+
       doc.setTextColor(30, 30, 30);
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      const dateStr = new Date().toLocaleDateString("en-GB");
-      const refStr = referenceNumber || "";
-      const headerInfo = [refStr && `Ref: ${refStr}`, `Date: ${dateStr}`].filter(Boolean).join("   |   ");
-      doc.text(headerInfo, pageWidth / 2, logoBottomY + 7, { align: "center" });
+      doc.text(`Customer: `, margin, y);
+      doc.setFont("helvetica", "bold");
+      doc.text(customerName, margin + doc.getTextWidth("Customer: "), y);
+      doc.setFont("helvetica", "normal");
+      doc.text(`DATE: `, pageWidth - margin - doc.getTextWidth(`DATE: ${dateStr}`), y);
+      doc.setFont("helvetica", "bold");
+      doc.text(dateStr, pageWidth - margin - doc.getTextWidth(dateStr), y);
+      y += 4;
+
+      // Site row
+      doc.setFont("helvetica", "normal");
+      doc.text(`Site: `, margin, y);
+      doc.setFont("helvetica", "bold");
+      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
+      doc.text(siteStr, margin + doc.getTextWidth("Site: "), y);
+      y += 4;
+
+      // PO/REF row
+      doc.setFont("helvetica", "normal");
+      doc.text(`PO/REF: `, margin, y);
+      doc.setFont("helvetica", "bold");
+      doc.text(referenceNumber, margin + doc.getTextWidth("PO/REF: "), y);
+      y += 2;
+
+      // Scanned note
       doc.setFontSize(7);
       doc.setFont("helvetica", "italic");
-      doc.text("Scanned from handwritten sheet", pageWidth / 2, logoBottomY + 11, { align: "center" });
-      y = logoBottomY + 15;
+      doc.text("Scanned from handwritten sheet", pageWidth / 2, y + 3, { align: "center" });
+      y += 7;
 
       // --- SCANNED IMAGES ---
       for (let i = 0; i < images.length; i++) {
