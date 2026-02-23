@@ -33,7 +33,14 @@ serve(async (req) => {
     const systemPrompt = `You are an expert OCR system that reads handwritten job sheet forms. You extract data from photos of filled-in inspection/service sheets and return structured JSON matching the template fields.
 
 Rules:
-- Return ONLY a JSON object with field IDs as keys and extracted values
+- Return ONLY a JSON object with two top-level keys: "header" and "fields"
+- "header" must contain these keys (use empty string if not found/readable):
+  - "customer": the customer or client name
+  - "site": the site name and/or address
+  - "date": the date on the form
+  - "po_ref": the PO number, reference number, or job reference
+  - "riser_location": the riser location if present
+- "fields" must be a JSON object with field IDs as keys and extracted values
 - For pass_fail fields, determine if the mark indicates "pass", "fail", or "n/a"
 - For checkbox fields, return true or false
 - For text/number fields, transcribe the handwritten text as accurately as possible
@@ -42,10 +49,12 @@ Rules:
 
     const userPrompt = `This is a photo of a filled-in "${template_name}" job sheet form.
 
-Extract the handwritten values for these fields:
+First, extract the header information (Customer, Site/Address, Date, PO/REF, Riser Location) from the top of the form.
+
+Then extract the handwritten values for these template fields:
 ${fieldList}
 
-Return a JSON object mapping field IDs to their handwritten values.`;
+Return a JSON object with "header" and "fields" keys.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -97,11 +106,11 @@ Return a JSON object mapping field IDs to their handwritten values.`;
     const content = result.choices?.[0]?.message?.content || "";
     
     // Parse JSON from the response (handle markdown code blocks)
-    let extracted: Record<string, any> = {};
+    let parsed: any = {};
     try {
       const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
       const jsonStr = (jsonMatch[1] || content).trim();
-      extracted = JSON.parse(jsonStr);
+      parsed = JSON.parse(jsonStr);
     } catch {
       console.error("Failed to parse AI response as JSON:", content);
       return new Response(JSON.stringify({ error: "Could not parse handwriting", raw: content }), {
@@ -110,7 +119,11 @@ Return a JSON object mapping field IDs to their handwritten values.`;
       });
     }
 
-    return new Response(JSON.stringify({ extracted }), {
+    // Support both old format (flat fields) and new format (header + fields)
+    const extracted = parsed.fields || parsed;
+    const header = parsed.header || {};
+
+    return new Response(JSON.stringify({ extracted, header }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
