@@ -335,59 +335,7 @@ export default function WeeklyPlanner() {
     toast({ title: "PDF exported" });
   };
 
-  // Blank worksheet PDF — empty grid for manual filling
-  const handleExportBlankPdf = () => {
-    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
-    const pageW = doc.internal.pageSize.getWidth();
-    const margin = 10;
-    let y = margin;
-
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text(`WEEKLY WORKSHEET — W/C ${format(weekStart, "dd/MM/yyyy")}`, margin, y + 5);
-    y += 14;
-
-    // Columns: Engineer | Mon-Sun (7 days)
-    const engColW = 35;
-    const dayColW = (pageW - margin * 2 - engColW) / 7;
-    const rowH = 18; // taller rows for writing
-
-    // Header row
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setFillColor(220, 220, 220);
-    doc.rect(margin, y, engColW, 8, "F");
-    doc.text("ENGINEER", margin + 2, y + 5.5);
-    weekDays.forEach((day, i) => {
-      doc.rect(margin + engColW + i * dayColW, y, dayColW, 8, "F");
-      doc.text(format(day, "EEE dd/MM"), margin + engColW + i * dayColW + 2, y + 5.5);
-    });
-    y += 8;
-
-    // One row per engineer with empty cells
-    doc.setFont("helvetica", "normal");
-    const displayEngineers = engineers.length > 0 ? engineers : [{ user_id: "", full_name: "" }];
-    // Add extra blank rows
-    const rows = [...displayEngineers.map(e => e.full_name), "", "", "", ""];
-    
-    rows.forEach((engName) => {
-      if (y + rowH > doc.internal.pageSize.getHeight() - margin) {
-        doc.addPage();
-        y = margin;
-      }
-      doc.setDrawColor(180);
-      doc.rect(margin, y, engColW, rowH);
-      doc.setFontSize(7);
-      doc.text(engName, margin + 2, y + 5);
-      weekDays.forEach((_, i) => {
-        doc.rect(margin + engColW + i * dayColW, y, dayColW, rowH);
-      });
-      y += rowH;
-    });
-
-    doc.save(`blank-worksheet-${format(weekStart, "yyyy-MM-dd")}.pdf`);
-    toast({ title: "Blank worksheet exported" });
-  };
+  // (blank worksheet removed — users print the completed planner instead)
 
   const isWeeklyNav = view === "grid" || view === "list" || view === "map";
 
@@ -438,10 +386,7 @@ export default function WeeklyPlanner() {
             </>
           )}
           <Button variant="outline" size="sm" onClick={handleExportPdf}>
-            <Printer className="mr-1.5 h-4 w-4" /> PDF
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportBlankPdf}>
-            <Printer className="mr-1.5 h-4 w-4" /> Blank Worksheet
+            <Printer className="mr-1.5 h-4 w-4" /> Print Planner
           </Button>
         </div>
       </div>
