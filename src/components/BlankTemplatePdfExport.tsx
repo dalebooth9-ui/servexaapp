@@ -355,17 +355,17 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         y += 1;
       }
 
-      // --- Comments section ---
+      // --- Signature & footer live at a fixed position from the bottom ---
+      const sigY = pageHeight - footerSpace - 10;
+      const halfW = maxWidth / 2 - 2;
+
+      // --- Comments section (fills all free space between fields and signature) ---
+      const commentsH = Math.max(sigY - y - 2, 6);
       doc.setFontSize(8.5);
       doc.setFont("helvetica", "bold");
       doc.text("Comments:", margin, y + 3);
       doc.setDrawColor(180);
-      doc.rect(margin, y + 4, maxWidth, 14);
-      y += 20;
-
-      // --- Signature blocks ---
-      const sigY = Math.max(y + 2, pageHeight - footerSpace - 10);
-      const halfW = maxWidth / 2 - 2;
+      doc.rect(margin, y + 4, maxWidth, commentsH - 4);
 
       const engineerList = (jobInfo?.engineers || []).join(", ");
 
@@ -373,7 +373,6 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       doc.setFont("helvetica", "bold");
       doc.text("Date:", margin, sigY + 3);
       doc.setFont("helvetica", "normal");
-      doc.text(dateVal, margin + 10, sigY + 3);
       doc.line(margin + 10, sigY + 4, margin + halfW, sigY + 4);
       doc.setFont("helvetica", "bold");
       doc.text("Technician:", margin, sigY + 8);
