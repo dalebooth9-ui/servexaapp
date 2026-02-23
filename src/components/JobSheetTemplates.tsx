@@ -618,6 +618,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <Pencil className="h-3 w-3 mr-1" /> Edit
                         </Button>
                       )}
+                      {resp.status === "submitted" && tpl && (
+                        <JobSheetPdfExport
+                          template={{ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }}
+                          formData={resp.responses as Record<string, any>}
+                          jobInfo={jobInfo}
+                          jobId={jobId}
+                          submittedBy={profiles[resp.submitted_by] || ""}
+                          submittedAt={resp.submitted_at}
+                        />
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
