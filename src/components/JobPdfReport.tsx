@@ -462,6 +462,22 @@ export default function JobPdfReport({ jobId, job }: Props) {
         }
       }
 
+      // ── DECLARATION FOOTER (dry riser pressure test) ──
+      const isDryRiser = (job.category || "").toLowerCase().includes("dry riser") ||
+        templates.some((t: any) => (t.name || "").toLowerCase().includes("dry riser") && sheetResponses.some((r: any) => r.template_id === t.id));
+      if (isDryRiser) {
+        checkPage(20);
+        y += 4;
+        doc.setDrawColor(0);
+        doc.rect(margin, y, maxWidth, 12);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 30, 30);
+        doc.text("We have, today, carried out a Hydraulic Pressure Test of 12 Bars", pageWidth / 2, y + 4.5, { align: "center" });
+        doc.text("for a period of 15 minutes to the requirements of BS 9990:2015", pageWidth / 2, y + 9, { align: "center" });
+        y += 14;
+      }
+
       // ── FOOTER on every page ──
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
