@@ -352,6 +352,16 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Job Sheets
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobSheet jobId={id!} job={job} />
+        </CollapsibleContent>
+      </Collapsible>
+
       {userRole === "admin" && (
         <div className="mb-6">
           <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
@@ -392,15 +402,6 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Job Sheets
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <JobSheet jobId={id!} job={job} />
-        </CollapsibleContent>
-      </Collapsible>
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
