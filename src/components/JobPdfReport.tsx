@@ -339,7 +339,8 @@ export default function JobPdfReport({ jobId, job }: Props) {
               } else if (field.type === "photo") {
                 displayVal = val ? "✓ Captured" : "—";
               } else if (val !== undefined && val !== null && val !== "") {
-                displayVal = String(val).substring(0, 60);
+                const raw = String(val).substring(0, 60);
+                displayVal = raw.charAt(0).toUpperCase() + raw.slice(1);
               }
 
               const labelText = doc.splitTextToSize(field.label, fieldLabelW - 4).slice(0, 1)[0];
