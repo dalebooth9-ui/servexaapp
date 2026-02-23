@@ -10,7 +10,8 @@ export async function loadWatermarkImage(): Promise<HTMLImageElement | null> {
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject();
-      img.src = "/images/viva-watermark.png";
+      // Add cache-busting to avoid stale cached versions
+      img.src = "/images/viva-watermark.png?v=2";
     });
     cachedWatermark = img;
     return img;
@@ -34,7 +35,7 @@ export function addWatermarkToAllPages(doc: jsPDF, watermark: HTMLImageElement) 
     const gState = (doc as any).GState({ opacity: 0.08 });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
-    doc.addImage(watermark, "PNG", x, yPos, wmW, wmH);
+    doc.addImage(watermark, "JPEG", x, yPos, wmW, wmH);
     doc.restoreGraphicsState();
   }
 }
