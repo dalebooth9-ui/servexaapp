@@ -135,50 +135,50 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === JOB DETAILS BOX ===
       doc.setFillColor(245, 247, 250);
       doc.roundedRect(margin, y, maxWidth, 32, 2, 2, "F");
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       const col1 = margin + 4;
       const col2 = margin + maxWidth / 2;
-      doc.text("Reference:", col1, y + 6);
-      doc.text("Job:", col1, y + 12);
-      doc.text("Customer:", col1, y + 18);
-      doc.text("Address:", col1, y + 24);
-      doc.text("Status:", col2, y + 6);
-      doc.text("Priority:", col2, y + 12);
-      doc.text("Engineers:", col2, y + 18);
-      doc.text("Date:", col2, y + 24);
+      doc.text("Reference:", col1, y + 7);
+      doc.text("Job:", col1, y + 14);
+      doc.text("Customer:", col1, y + 21);
+      doc.text("Address:", col1, y + 28);
+      doc.text("Status:", col2, y + 7);
+      doc.text("Priority:", col2, y + 14);
+      doc.text("Engineers:", col2, y + 21);
+      doc.text("Date:", col2, y + 28);
 
       doc.setFont("helvetica", "normal");
-      doc.text(job.reference_number || "", col1 + 22, y + 6);
-      doc.text(job.name || "", col1 + 10, y + 12);
-      doc.text(job.customers?.name || job.customer || "N/A", col1 + 22, y + 18);
+      doc.text(job.reference_number || "", col1 + 24, y + 7);
+      doc.text(job.name || "", col1 + 12, y + 14);
+      doc.text(job.customers?.name || job.customer || "N/A", col1 + 24, y + 21);
       const addrLines = doc.splitTextToSize(job.address || "N/A", maxWidth / 2 - 30);
-      doc.text(addrLines[0] || "", col1 + 18, y + 24);
-      doc.text(job.status || "", col2 + 14, y + 6);
-      doc.text(job.priority || "medium", col2 + 16, y + 12);
-      doc.text(engineerNames.join(", ") || "Unassigned", col2 + 22, y + 18);
-      doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col2 + 12, y + 24);
+      doc.text(addrLines[0] || "", col1 + 20, y + 28);
+      doc.text(job.status || "", col2 + 16, y + 7);
+      doc.text(job.priority || "medium", col2 + 18, y + 14);
+      doc.text(engineerNames.join(", ") || "Unassigned", col2 + 24, y + 21);
+      doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col2 + 14, y + 28);
       y += 38;
 
       // === EXECUTIVE SUMMARY (from field reports) ===
       if (reports.length > 0) {
         checkPage(25);
-        doc.setFontSize(12);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
         doc.text("Summary of Works", margin, y);
         doc.setTextColor(0, 0, 0);
-        y += 6;
-        doc.setFontSize(9);
+        y += 7;
+        doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         reports.forEach((r: any) => {
           checkPage(15);
           doc.setFont("helvetica", "bold");
-          doc.text(r.title || "Report", margin, y); y += 4;
+          doc.text(r.title || "Report", margin, y); y += 5;
           doc.setFont("helvetica", "normal");
           if (r.summary) {
             const lines = doc.splitTextToSize(r.summary, maxWidth);
-            lines.forEach((line: string) => { checkPage(5); doc.text(line, margin, y); y += 4; });
+            lines.forEach((line: string) => { checkPage(5); doc.text(line, margin, y); y += 5; });
           }
           y += 3;
         });
@@ -188,13 +188,13 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === VISITS ===
       if (visits.length > 0) {
         checkPage(20);
-        doc.setFontSize(12);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
         doc.text("Visit History", margin, y);
         doc.setTextColor(0, 0, 0);
-        y += 6;
-        doc.setFontSize(9);
+        y += 7;
+        doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         visits.forEach((v: any) => {
           checkPage(6);
@@ -208,23 +208,24 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === PARTS & MATERIALS ===
       if (parts.length > 0) {
         checkPage(20);
-        doc.setFontSize(12);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
         doc.text("Parts & Materials Used", margin, y);
         doc.setTextColor(0, 0, 0);
-        y += 6;
+        y += 7;
 
         // Table header
         doc.setFillColor(240, 240, 240);
-        doc.rect(margin, y - 3, maxWidth, 6, "F");
-        doc.setFontSize(8);
+        doc.rect(margin, y - 3, maxWidth, 7, "F");
+        doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        doc.text("Item", margin + 2, y);
-        doc.text("Qty", margin + 100, y);
-        doc.text("Unit Cost", margin + 115, y);
-        doc.text("Total", margin + 145, y);
-        y += 5;
+        doc.text("Item", margin + 2, y + 1);
+        doc.text("Qty", margin + 100, y + 1);
+        doc.text("Unit Cost", margin + 115, y + 1);
+        doc.text("Total", margin + 145, y + 1);
+        y += 6;
+        doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
         parts.forEach((p: any) => {
           checkPage(6);
@@ -243,12 +244,12 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === PHOTOS (Before/After) ===
       if (photoImages.length > 0) {
         checkPage(40);
-        doc.setFontSize(12);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
         doc.text(`Site Photos (${photoImages.length})`, margin, y);
         doc.setTextColor(0, 0, 0);
-        y += 6;
+        y += 7;
 
         const imgW = (maxWidth - 6) / 2;
         const imgH = 45;
@@ -259,7 +260,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
           try {
             doc.addImage(photo.img, "JPEG", xPos, y, imgW, imgH);
           } catch { /* skip bad image */ }
-          doc.setFontSize(7);
+          doc.setFontSize(8);
           doc.setFont("helvetica", "normal");
           doc.text(`${photo.name} — ${photo.date}`, xPos, y + imgH + 3);
           col++;
@@ -274,13 +275,13 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === RECOMMENDATIONS / FURTHER WORKS ===
       checkPage(25);
-      doc.setFontSize(12);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(30, 64, 175);
       doc.text("Recommendations & Further Works", margin, y);
       doc.setTextColor(0, 0, 0);
-      y += 6;
-      doc.setFontSize(9);
+      y += 7;
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
 
       // Pull recommendations from field reports or job result
@@ -309,16 +310,16 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       // === SIGNATURES ===
       if (signatures.length > 0) {
         checkPage(40);
-        doc.setFontSize(12);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
         doc.text("Sign-Off", margin, y);
         doc.setTextColor(0, 0, 0);
-        y += 6;
+        y += 7;
 
         for (const sig of signatures) {
           checkPage(35);
-          doc.setFontSize(9);
+          doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.text(`${sig.signer_name} (${sig.signer_role})`, margin, y);
           doc.setFont("helvetica", "normal");
@@ -340,7 +341,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       doc.setLineWidth(0.5);
       doc.line(margin, footerY, pageWidth - margin, footerY);
       doc.setTextColor(100, 100, 100);
-      doc.setFontSize(7);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.text("VivaFire — Wet & Dry Riser Specialists", margin, footerY + 4);
       doc.text("This report has been generated automatically from verified field data.", margin, footerY + 8);

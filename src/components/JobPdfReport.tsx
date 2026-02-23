@@ -51,9 +51,9 @@ function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxW
   doc.setFillColor(33, 61, 99);
   doc.rect(margin, y, maxWidth, 8, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(11);
   doc.setTextColor(255, 255, 255);
-  doc.text(title.toUpperCase(), margin + 3, y + 5.5);
+  doc.text(title.toUpperCase(), margin + 3, y + 5.8);
   doc.setTextColor(30, 30, 30);
   return y + 8;
 }
@@ -137,7 +137,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const pageWidth = doc.internal.pageSize.getWidth();
       const margin = 12;
       const maxWidth = pageWidth - margin * 2;
-      const rowH = 6;
+      const rowH = 7;
 
       const addPage = () => { doc.addPage(); y = 15; };
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
@@ -186,7 +186,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       y = logoBottomY + 13;
 
       // ── JOB DETAILS TABLE ──
-      doc.setFontSize(8);
+      doc.setFontSize(9);
       const detailRows: [string, string][] = [
         ["Job Name", job.name || "—"],
         ["Reference", job.reference_number || "—"],
@@ -354,12 +354,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
               // Inline note
               const noteVal = responses[`${field.id}_notes`];
               if (noteVal) {
-                doc.setFontSize(7);
+                doc.setFontSize(8);
                 doc.setFont("helvetica", "italic");
                 doc.setTextColor(100, 100, 100);
                 doc.text(`Note: ${noteVal}`.substring(0, 100), margin + 4, y + 3);
                 doc.setTextColor(30, 30, 30);
-                doc.setFontSize(8);
+                doc.setFontSize(9);
                 doc.setFont("helvetica", "normal");
                 y += 5;
               }
@@ -383,7 +383,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
             const lines = doc.splitTextToSize(r.summary, maxWidth - 4);
             lines.forEach((line: string) => {
               checkPage(5);
-              doc.setFontSize(8);
+              doc.setFontSize(9);
               doc.setFont("helvetica", "normal");
               doc.text(line, margin + 2, y + 4);
               y += 4;
@@ -425,7 +425,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
           const dataUrl = photoImages[p.id];
           if (dataUrl) {
             checkPage(60);
-            doc.setFontSize(7);
+            doc.setFontSize(8);
             doc.setFont("helvetica", "normal");
             doc.setTextColor(100, 100, 100);
             doc.text(`${p.file_name || "Photo"} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 3);
@@ -440,7 +440,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
             }
           } else {
             checkPage(rowH);
-            doc.setFontSize(8);
+            doc.setFontSize(9);
             doc.text(`• ${p.file_name} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 4);
             y += rowH;
           }
@@ -489,7 +489,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         checkPage(20);
         y += 4;
         doc.setDrawColor(0);
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 30, 30);
 
@@ -515,7 +515,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const pageCount = doc.getNumberOfPages();
       for (let i = 1; i <= pageCount; i++) {
         doc.setPage(i);
-        doc.setFontSize(7);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(150, 150, 150);
         doc.text(`${job.reference_number}  —  Page ${i} of ${pageCount}`, pageWidth / 2, 290, { align: "center" });
