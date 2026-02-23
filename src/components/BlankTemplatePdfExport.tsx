@@ -330,6 +330,17 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
             doc.rect(bx + 14, y + 1, 3, 3);
             doc.text("NO", bx + 18, y + 3.5);
             doc.setFontSize(8.5);
+          } else if (field.type === "select" && field.options && field.options.some(o => o.toLowerCase() === "yes") && field.options.some(o => o.toLowerCase() === "no")) {
+            // Render Yes/No/N/A tick boxes for select fields with those options
+            const bx = margin + colSplit + 2;
+            doc.setFontSize(6);
+            let ox = bx;
+            for (const opt of field.options) {
+              doc.rect(ox, y + 1, 3, 3);
+              doc.text(opt.toUpperCase(), ox + 4, y + 3.5);
+              ox += 4 + doc.getTextWidth(opt.toUpperCase()) + 3;
+            }
+            doc.setFontSize(8.5);
           } else if (autoVal) {
             // Print auto-populated value in the result cell
             doc.setFont("helvetica", "normal");
