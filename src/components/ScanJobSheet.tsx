@@ -6,6 +6,7 @@ import { Camera, FileDown, Loader2, ScanLine, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { renderPdfHeader } from "@/lib/pdfHeader";
 
 type TemplateField = {
   id: string;
@@ -78,67 +79,21 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const margin = 10;
       const maxWidth = pageWidth - margin * 2;
 
-      // --- BRANDED HEADER (no customer/site details) ---
+      // --- BRANDED HEADER ---
       const branding = template.branding || {};
-      const companyName = branding.company_name || "VIVAFIRE";
-      const companySubtitle = branding.company_subtitle || "Wet & Dry Riser Specialists";
-      const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
       const isVisual = template.name.toLowerCase().includes("visual") || (template as any).category === "visual";
       const defaultFooter = isVisual
         ? "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015"
         : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
       const footerText = branding.footer_text || defaultFooter;
 
-      let y = 8;
-      let logoBottomY = y;
-      try {
-        const logoImg = new Image();
-        logoImg.crossOrigin = "anonymous";
-        await new Promise<void>((resolve, reject) => {
-          logoImg.onload = () => resolve();
-          logoImg.onerror = () => reject();
-          logoImg.src = logoUrl;
-        });
-        const logoMaxW = 70;
-        const logoMaxH = 20;
-        const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
-        let lw = logoMaxH * aspect;
-        let lh = logoMaxH;
-        if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
-        const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
-        doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
-        logoBottomY = y + lh + 3;
-      } catch {
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
-        logoBottomY = y + 12;
-      }
-
-      // Title
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(14);
-      doc.setTextColor(33, 61, 99);
-      doc.text(template.name.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
-      doc.setDrawColor(33, 61, 99);
-      doc.setLineWidth(0.5);
-      doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
-      doc.setTextColor(30, 30, 30);
-      y = logoBottomY + 7;
-
-      // --- Customer details — prefer AI-extracted header, fall back to job data ---
+      // Prefer AI-extracted header, fall back to job data
       const referenceNumber = extractedHeader.po_ref || jobInfo?.reference_number || "";
       const customerName = extractedHeader.customer || jobInfo?.customer || "";
       const siteName = extractedHeader.site || jobInfo?.site?.name || "";
       const siteAddress = !extractedHeader.site ? (jobInfo?.site?.address || jobInfo?.address || "") : "";
       const dateStr = extractedHeader.date || new Date().toLocaleDateString("en-GB");
 
-      doc.setDrawColor(0);
-      doc.setLineWidth(0.2);
-      doc.setTextColor(30, 30, 30);
       // Find riser location — prefer extracted header, then existing responses
       let riserLocValue = extractedHeader.riser_location || "";
       if (!riserLocValue) {
@@ -159,45 +114,14 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
-      const headerRowH = 6;
-      const totalHeaderRows = 3;
-      const detailH = headerRowH * totalHeaderRows;
-      doc.rect(margin, y, maxWidth, detailH);
-      doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
-      doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
-      doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
-
-      doc.setFontSize(8);
-      // Row 1: Customer + DATE
-      doc.setFont("helvetica", "bold");
-      doc.text("Customer:", margin + 1, y + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(doc.splitTextToSize(customerName, maxWidth * 0.5 - 22).slice(0, 1).join(""), margin + 19, y + 4);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(dateStr, margin + maxWidth * 0.5 + 14, y + 4);
-
-      // Row 2: Site + PO/REF
-      const siteStr = [siteName, siteAddress].filter(Boolean).join(", ");
-      doc.setFont("helvetica", "bold");
-      doc.text("Site:", margin + 1, y + headerRowH + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""), margin + 10, y + headerRowH + 4);
-
-      doc.setFont("helvetica", "bold");
-      doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + headerRowH + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(referenceNumber, margin + maxWidth * 0.5 + 16, y + headerRowH + 4);
-
-      // Row 3: Riser Location
-      doc.setFont("helvetica", "bold");
-      doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
-      doc.setFont("helvetica", "normal");
-      doc.text(riserLocValue, margin + 28, y + headerRowH * 2 + 4);
-
-      y += detailH + 2;
+      let y = await renderPdfHeader(doc, template.name, branding, {
+        customerName,
+        siteName,
+        siteAddress,
+        refNumber: referenceNumber,
+        dateVal: dateStr,
+        riserLocation: riserLocValue,
+      });
 
       // Scanned note
       doc.setFontSize(7);

@@ -1,0 +1,137 @@
+import jsPDF from "jspdf";
+
+export interface PdfHeaderData {
+  customerName: string;
+  siteName: string;
+  siteAddress: string;
+  refNumber: string;
+  dateVal: string;
+  riserLocation: string;
+}
+
+export interface PdfBranding {
+  company_name?: string;
+  company_subtitle?: string;
+  logo_url?: string;
+  footer_text?: string;
+}
+
+/**
+ * Render the shared branded PDF header used by all three export types:
+ *  - Logo (centred)
+ *  - Template title
+ *  - Separator line
+ *  - 3-row detail grid (Customer/Date, Site/PO-REF, Riser Location)
+ *
+ * Returns the y position immediately after the header block.
+ */
+export async function renderPdfHeader(
+  doc: jsPDF,
+  templateName: string,
+  branding: PdfBranding,
+  data: PdfHeaderData
+): Promise<number> {
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 10;
+  const maxWidth = pageWidth - margin * 2;
+  let y = 8;
+
+  const companyName = branding.company_name || "VIVAFIRE";
+  const companySubtitle = branding.company_subtitle || "Wet & Dry Riser Specialists";
+  const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
+
+  // --- Logo ---
+  let logoBottomY = y;
+  try {
+    const logoImg = new Image();
+    logoImg.crossOrigin = "anonymous";
+    await new Promise<void>((resolve, reject) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = () => reject();
+      logoImg.src = logoUrl;
+    });
+    const logoMaxW = 70;
+    const logoMaxH = 20;
+    const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+    let lw = logoMaxH * aspect;
+    let lh = logoMaxH;
+    if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
+    const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
+    doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
+    logoBottomY = y + lh + 3;
+  } catch {
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+    logoBottomY = y + 12;
+  }
+
+  // --- Title ---
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
+  doc.setTextColor(33, 61, 99);
+  doc.text(templateName.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
+
+  // --- Separator ---
+  doc.setDrawColor(33, 61, 99);
+  doc.setLineWidth(0.5);
+  doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
+
+  doc.setTextColor(30, 30, 30);
+  y = logoBottomY + 7;
+
+  // --- 3-row detail grid ---
+  doc.setDrawColor(0);
+  doc.setLineWidth(0.2);
+
+  const headerRowH = 6;
+  const detailH = headerRowH * 3;
+  doc.rect(margin, y, maxWidth, detailH);
+  doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
+  doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
+  doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
+
+  doc.setFontSize(8);
+
+  // Row 1: Customer | DATE
+  doc.setFont("helvetica", "bold");
+  doc.text("Customer:", margin + 1, y + 4);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    doc.splitTextToSize(data.customerName, maxWidth * 0.5 - 22).slice(0, 1).join(""),
+    margin + 19,
+    y + 4
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4);
+  doc.setFont("helvetica", "normal");
+  doc.text(String(data.dateVal), margin + maxWidth * 0.5 + 14, y + 4);
+
+  // Row 2: Site | PO/REF
+  const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+  doc.setFont("helvetica", "bold");
+  doc.text("Site:", margin + 1, y + headerRowH + 4);
+  doc.setFont("helvetica", "normal");
+  doc.text(
+    doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""),
+    margin + 10,
+    y + headerRowH + 4
+  );
+
+  doc.setFont("helvetica", "bold");
+  doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + headerRowH + 4);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.refNumber, margin + maxWidth * 0.5 + 16, y + headerRowH + 4);
+
+  // Row 3: Riser Location (full width)
+  doc.setFont("helvetica", "bold");
+  doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.riserLocation, margin + 28, y + headerRowH * 2 + 4);
+
+  return y + detailH + 2;
+}
