@@ -257,6 +257,12 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           } else if (field.type === "checkbox") {
             displayVal = val ? "YES" : "NO";
             doc.text(displayVal, margin + colSplit + 1, y + 3);
+          } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o: string) => o.toLowerCase() === "yes"))) {
+            const strVal = String(val || "").toLowerCase();
+            displayVal = strVal === "yes" ? "YES" : strVal === "no" ? "NO" : strVal === "n/a" ? "N/A" : val ? String(val).toUpperCase() : "—";
+            if (strVal === "yes") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
+            else if (strVal === "no") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+            doc.text(displayVal, margin + colSplit + 1, y + 3);
           } else if (field.type === "photo") {
             displayVal = val ? "✓ Captured" : "—";
             doc.text(displayVal, margin + colSplit + 1, y + 3);
@@ -313,6 +319,10 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const sigImgH = 8;
       const sigImgW = 25;
 
+      // Resolve technician name: prefer form "Technician Name" field, then signature, then submittedBy
+      const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
+      const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
+
       doc.setFontSize(7);
       doc.setFont("helvetica", "bold");
       doc.text(`Date: `, margin, sigY + 3);
@@ -321,7 +331,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       doc.setFont("helvetica", "bold");
       doc.text("Technician:", margin, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(engineerSig?.signer_name || submittedBy || "", margin + 20, sigY + 7);
+      doc.text(techName, margin + 20, sigY + 7);
       if (engineerSig && sigImages[engineerSig.id]) {
         doc.addImage(sigImages[engineerSig.id], "PNG", margin + 18, sigY + 8, sigImgW, sigImgH);
       } else {
