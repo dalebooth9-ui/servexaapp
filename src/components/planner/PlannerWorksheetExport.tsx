@@ -18,6 +18,8 @@ interface Job {
   address: string | null;
   site?: { name: string; address: string | null; postcode: string | null } | null;
   customers?: { name: string } | null;
+  pressure_test_qty: number;
+  visual_qty: number;
 }
 
 interface Engineer {
@@ -38,6 +40,7 @@ type WorksheetRow = {
   site: string;
   postcode: string;
   jobDescription: string;
+  scope: string;
   comment: string;
 };
 
@@ -61,6 +64,9 @@ function buildRows(
       const job = getJob(entry.job_id);
       const eng = getEng(entry.engineer_id);
       const site = job?.site;
+      const scopeParts: string[] = [];
+      if (job?.pressure_test_qty) scopeParts.push(`PT×${job.pressure_test_qty}`);
+      if (job?.visual_qty) scopeParts.push(`Vis×${job.visual_qty}`);
       return {
         date: format(new Date(entry.schedule_date), "EEE dd/MM/yyyy"),
         engineer: eng?.full_name || "",
@@ -68,6 +74,7 @@ function buildRows(
         site: site?.name || site?.address || job?.address || "",
         postcode: site?.postcode || extractPostcode(job?.address || null),
         jobDescription: job ? `${job.reference_number} - ${job.name}` : "",
+        scope: scopeParts.join(", "),
         comment: entry.notes || "",
       };
     });
@@ -107,12 +114,13 @@ export function exportWorksheetPdf(
   const usableW = pageW - margin * 2;
   const cols = [
     { label: "DATE:",         key: "date",           w: usableW * 0.09 },
-    { label: "ENGINEER",      key: "engineer",        w: usableW * 0.12 },
-    { label: "COMPANY",       key: "company",         w: usableW * 0.13 },
-    { label: "SITE",          key: "site",            w: usableW * 0.22 },
-    { label: "POSTCODE",      key: "postcode",        w: usableW * 0.08 },
-    { label: "JOB DESCRIPTION", key: "jobDescription", w: usableW * 0.22 },
-    { label: "COMMENT",       key: "comment",         w: usableW * 0.14 },
+    { label: "ENGINEER",      key: "engineer",        w: usableW * 0.11 },
+    { label: "COMPANY",       key: "company",         w: usableW * 0.12 },
+    { label: "SITE",          key: "site",            w: usableW * 0.19 },
+    { label: "POSTCODE",      key: "postcode",        w: usableW * 0.07 },
+    { label: "JOB DESCRIPTION", key: "jobDescription", w: usableW * 0.19 },
+    { label: "SCOPE",         key: "scope",           w: usableW * 0.10 },
+    { label: "COMMENT",       key: "comment",         w: usableW * 0.13 },
   ];
 
   // ── Header row ─────────────────────────────────────────────────────────────
@@ -175,8 +183,8 @@ export function exportWorksheetXlsx(
   const wsData: (string | number)[][] = [
     [`WEEK COMMENCING ${format(weekStart, "dd/MM/yyyy")}`],
     [],
-    ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "COMMENT"],
-    ...rows.map((r) => [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.comment]),
+    ["DATE", "ENGINEER", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "COMMENT"],
+    ...rows.map((r) => [r.date, r.engineer, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.comment]),
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -184,11 +192,11 @@ export function exportWorksheetXlsx(
   // Column widths
   ws["!cols"] = [
     { wch: 16 }, { wch: 20 }, { wch: 22 }, { wch: 36 },
-    { wch: 12 }, { wch: 40 }, { wch: 24 },
+    { wch: 12 }, { wch: 40 }, { wch: 16 }, { wch: 24 },
   ];
 
   // Merge title cell across all columns
-  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } }];
+  ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }];
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Weekly Planner");
