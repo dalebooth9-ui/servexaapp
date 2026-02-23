@@ -31,10 +31,11 @@ type Template = {
 interface Props {
   template: Template;
   jobId: string;
+  referenceNumber?: string;
   onExtracted: (data: Record<string, any>) => void;
 }
 
-export default function ScanJobSheet({ template, jobId, onExtracted }: Props) {
+export default function ScanJobSheet({ template, jobId, referenceNumber, onExtracted }: Props) {
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [scanning, setScanningState] = useState(false);
@@ -117,10 +118,16 @@ export default function ScanJobSheet({ template, jobId, onExtracted }: Props) {
       doc.setLineWidth(0.5);
       doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
       doc.setTextColor(30, 30, 30);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const dateStr = new Date().toLocaleDateString("en-GB");
+      const refStr = referenceNumber || "";
+      const headerInfo = [refStr && `Ref: ${refStr}`, `Date: ${dateStr}`].filter(Boolean).join("   |   ");
+      doc.text(headerInfo, pageWidth / 2, logoBottomY + 7, { align: "center" });
       doc.setFontSize(7);
       doc.setFont("helvetica", "italic");
-      doc.text("Scanned from handwritten sheet", pageWidth / 2, logoBottomY + 7, { align: "center" });
-      y = logoBottomY + 11;
+      doc.text("Scanned from handwritten sheet", pageWidth / 2, logoBottomY + 11, { align: "center" });
+      y = logoBottomY + 15;
 
       // --- SCANNED IMAGES ---
       for (let i = 0; i < images.length; i++) {
