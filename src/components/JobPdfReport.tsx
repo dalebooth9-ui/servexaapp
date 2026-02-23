@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
-
+import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
 interface Props {
   jobId: string;
@@ -502,6 +502,10 @@ export default function JobPdfReport({ jobId, job }: Props) {
           y += 14;
         }
       }
+
+      // ── WATERMARK on every page ──
+      const watermark = await loadWatermarkImage();
+      if (watermark) addWatermarkToAllPages(doc, watermark);
 
       // ── FOOTER on every page ──
       const pageCount = doc.getNumberOfPages();

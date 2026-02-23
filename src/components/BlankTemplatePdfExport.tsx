@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
 
 type TemplateField = {
@@ -259,6 +260,10 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         doc.text(line.trim(), pageWidth / 2, footerY + 3 + i * 3.5, { align: "center" });
       });
 
+
+      // Watermark on every page
+      const watermark = await loadWatermarkImage();
+      if (watermark) addWatermarkToAllPages(doc, watermark);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
       doc.save(fileName);
