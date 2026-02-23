@@ -94,7 +94,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const footerText = branding.footer_text || defaultFooter;
 
       // --- HEADER: Logo or company text (centred, proper aspect ratio) ---
-      const logoUrl = branding.logo_url || "/images/vivafire-logo.jpg";
+      const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
       try {
         const logoImg = new Image();
         logoImg.crossOrigin = "anonymous";
