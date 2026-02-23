@@ -51,6 +51,8 @@ export default function PlannerMapView({
   const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number } | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [showUnallocated, setShowUnallocated] = useState(true);
+  const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
@@ -207,7 +209,7 @@ export default function PlannerMapView({
               });
 
               marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
-              markersRef.current.push(marker);
+              unallocatedMarkersRef.current.push(marker);
             }
           } catch {
             // Skip failed geocodes
@@ -226,6 +228,14 @@ export default function PlannerMapView({
     init();
     return () => { cancelled = true; };
   }, [scheduledJobs, unallocatedJobs]);
+
+  // Toggle unallocated marker visibility
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    unallocatedMarkersRef.current.forEach((m) => {
+      m.map = showUnallocated ? map : null;
+    });
+  }, [showUnallocated]);
 
   // Update engineer live pins
   useEffect(() => {
@@ -296,12 +306,22 @@ export default function PlannerMapView({
             <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
           </div>
         </div>
-        {scheduledJobs.length >= 2 && (
-          <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
-            {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
-            Optimise Route
+        <div className="flex items-center gap-2">
+          <Button
+            variant={showUnallocated ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowUnallocated((v) => !v)}
+          >
+            <MapPin className="mr-1.5 h-3.5 w-3.5" />
+            {showUnallocated ? "Hide Unallocated" : "Show Unallocated"}
           </Button>
-        )}
+          {scheduledJobs.length >= 2 && (
+            <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
+              {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
+              Optimise Route
+            </Button>
+          )}
+        </div>
       </div>
       <div className="relative">
         {mapLoading && !mapError && (
