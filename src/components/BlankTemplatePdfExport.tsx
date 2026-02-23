@@ -254,7 +254,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       });
 
       const colSplit = maxWidth * 0.68;
-      const sectionHeaderH = 6;
+      const sectionHeaderH = 5;
 
       // Count rows for dynamic sizing
       let totalFieldRows = 0;
@@ -273,7 +273,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
 
       const usedByHeaders = totalSectionHeaders * sectionHeaderH + totalSectionHeaders;
       const spaceForRows = availableH - usedByHeaders;
-      const rowH = Math.max(5, Math.min(8, spaceForRows / Math.max(totalFieldRows, 1)));
+      const rowH = Math.max(4, Math.min(6, spaceForRows / Math.max(totalFieldRows, 1)));
 
       for (const section of sections) {
         const sectionFields = template.fields.filter(
@@ -360,8 +360,8 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       doc.setFont("helvetica", "bold");
       doc.text("Comments:", margin, y + 3);
       doc.setDrawColor(180);
-      doc.rect(margin, y + 4, maxWidth, 8);
-      y += 14;
+      doc.rect(margin, y + 4, maxWidth, 14);
+      y += 20;
 
       // --- Signature blocks ---
       const sigY = Math.max(y + 2, pageHeight - footerSpace - 10);
