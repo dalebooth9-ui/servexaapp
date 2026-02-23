@@ -159,10 +159,28 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setFont("helvetica", "normal");
       doc.text(referenceNumber, margin + 16, y + 3 + detailH / 2);
 
+      // Find riser location from existing responses or template fields
+      let riserLocValue = "";
+      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
+      if (riserField) {
+        const { data: existingResp } = await supabase
+          .from("job_sheet_responses")
+          .select("responses")
+          .eq("job_id", jobId)
+          .eq("template_id", template.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (existingResp?.responses) {
+          const respData = existingResp.responses as Record<string, any>;
+          riserLocValue = respData[riserField.id] ? String(respData[riserField.id]) : "";
+        }
+      }
+
       doc.setFont("helvetica", "bold");
       doc.text("RISER LOC:", margin + maxWidth * 0.5 + 1, y + 3 + detailH / 2);
       doc.setFont("helvetica", "normal");
-      doc.text("", margin + maxWidth * 0.5 + 22, y + 3 + detailH / 2);
+      doc.text(riserLocValue, margin + maxWidth * 0.5 + 22, y + 3 + detailH / 2);
 
       y += detailH + 1;
 
