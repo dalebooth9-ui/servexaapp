@@ -252,9 +252,9 @@ export default function ListView({
                         <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>
                         <TableCell>
                           {job ? (
-                            <Link to={`/jobs/${job.id}`} className="hover:underline">
+                             <Link to={`/jobs/${job.id}`} className="hover:underline">
                               <span className="font-mono text-xs font-medium text-primary">{job.reference_number}</span>
-                              <span className="ml-1 text-sm">{job.name}</span>
+                              <span className="ml-1 text-sm">{[job.site?.name, job.name].filter(Boolean).join(" – ")}</span>
                             </Link>
                           ) : <span className="text-muted-foreground">Unknown</span>}
                         </TableCell>
