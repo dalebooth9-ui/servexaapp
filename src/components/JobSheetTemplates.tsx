@@ -288,12 +288,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleStartForm = (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
+    const prefilled = getAutoPopulatedData(template);
     if (existingResponse) {
       setActiveResponse(existingResponse);
-      setFormData(existingResponse.responses as Record<string, any>);
+      // Merge: use saved values where they exist, auto-fill empty ones
+      const saved = existingResponse.responses as Record<string, any>;
+      const merged: Record<string, any> = { ...prefilled };
+      Object.entries(saved).forEach(([key, val]) => {
+        if (val !== undefined && val !== null && val !== "") {
+          merged[key] = val;
+        }
+      });
+      setFormData(merged);
     } else {
       setActiveResponse(null);
-      const prefilled = getAutoPopulatedData(template);
       setFormData(prefilled);
     }
   };
