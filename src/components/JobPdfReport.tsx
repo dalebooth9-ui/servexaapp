@@ -142,12 +142,9 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const addPage = () => { doc.addPage(); y = 15; };
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
 
-      // ── HEADER ──
-      const headerH = 36;
-      doc.setFillColor(33, 61, 99);
-      doc.rect(0, 0, pageWidth, headerH, "F");
-
-      // Logo centred — preserve natural aspect ratio
+      // ── HEADER (white background, logo then title) ──
+      // Logo centred at top
+      let logoBottomY = 10;
       if (logoDataUrl) {
         try {
           const tmpImg = new Image();
@@ -164,22 +161,29 @@ export default function JobPdfReport({ jobId, job }: Props) {
           let logoH = logoMaxH;
           if (logoW > logoMaxW) { logoW = logoMaxW; logoH = logoW / aspect; }
           const logoX = (pageWidth - logoW) / 2;
-          const logoY = (headerH - logoH) / 2 - 3;
           const fmt = logoDataUrl.includes("image/png") ? "PNG" : "JPEG";
-          doc.addImage(tmpImg, fmt, logoX, logoY, logoW, logoH);
+          doc.addImage(tmpImg, fmt, logoX, 8, logoW, logoH);
+          logoBottomY = 8 + logoH + 3;
         } catch { /* skip logo */ }
       }
 
-      // Title text centred below logo
+      // Title below logo — dark text on white bg
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
-      doc.setTextColor(255, 255, 255);
-      doc.text("JOB REPORT", pageWidth / 2, headerH - 10, { align: "center" });
+      doc.setTextColor(33, 61, 99);
+      doc.text("JOB REPORT", pageWidth / 2, logoBottomY, { align: "center" });
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, headerH - 4, { align: "center" });
+      doc.setTextColor(100, 100, 100);
+      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, logoBottomY + 5, { align: "center" });
+
+      // Separator line
+      doc.setDrawColor(33, 61, 99);
+      doc.setLineWidth(0.5);
+      doc.line(margin, logoBottomY + 8, pageWidth - margin, logoBottomY + 8);
+
       doc.setTextColor(30, 30, 30);
-      y = headerH + 7;
+      y = logoBottomY + 13;
 
       // ── JOB DETAILS TABLE ──
       doc.setFontSize(8);
