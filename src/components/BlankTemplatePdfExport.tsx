@@ -58,7 +58,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const branding = template.branding || {};
       const companyName = branding.company_name || "VIVAFIRE";
       const companySubtitle = branding.company_subtitle || "Wet & Dry Riser Specialists";
-      const footerText = branding.footer_text || "We have, today, carried out a Hydraulic Pressure Test of 12 Bars\nfor a period of 15 minutes to the requirements of BS 9990:2015";
+      const footerText = branding.footer_text || "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
 
       // --- HEADER ---
       const logoUrl = branding.logo_url || "/images/vivafire-logo.jpg";

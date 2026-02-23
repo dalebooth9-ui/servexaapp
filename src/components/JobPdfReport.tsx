@@ -473,7 +473,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 30, 30);
-        doc.text("We have, today, carried out a Hydraulic Pressure Test of 12 Bars", pageWidth / 2, y + 4.5, { align: "center" });
+        doc.text("We have, today, carried out a Hydraulic Pressure Test to 12 Bar", pageWidth / 2, y + 4.5, { align: "center" });
         doc.text("for a period of 15 minutes to the requirements of BS 9990:2015", pageWidth / 2, y + 9, { align: "center" });
         y += 14;
       }
