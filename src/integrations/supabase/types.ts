@@ -1313,6 +1313,7 @@ export type Database = {
           name: string
           part_number: string | null
           sell_price: number
+          sort_order: number
           supplier: string | null
           unit_cost: number
           updated_at: string
@@ -1326,6 +1327,7 @@ export type Database = {
           name: string
           part_number?: string | null
           sell_price?: number
+          sort_order?: number
           supplier?: string | null
           unit_cost?: number
           updated_at?: string
@@ -1339,6 +1341,7 @@ export type Database = {
           name?: string
           part_number?: string | null
           sell_price?: number
+          sort_order?: number
           supplier?: string | null
           unit_cost?: number
           updated_at?: string

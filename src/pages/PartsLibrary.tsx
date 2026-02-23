@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Trash2, Search, Upload, FileText, Loader2, Pencil, ArrowLeft, Library } from "lucide-react";
+import { Plus, Trash2, Search, Upload, FileText, Loader2, Pencil, ArrowLeft, Library, GripVertical } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,6 +16,14 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  arrayMove, SortableContext, verticalListSortingStrategy, useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 interface LibraryPart {
   id: string;
@@ -27,6 +35,7 @@ interface LibraryPart {
   supplier: string | null;
   part_number: string | null;
   created_at: string;
+  sort_order: number;
 }
 
 interface ParsedLibraryPart {
@@ -38,6 +47,160 @@ interface ParsedLibraryPart {
   supplier: string;
   part_number: string;
   selected: boolean;
+}
+
+// Inline add row between parts
+function InlineAddRow({
+  isAdmin,
+  onAdd,
+  colSpan,
+}: {
+  isAdmin: boolean;
+  onAdd: (form: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string }) => Promise<void>;
+  colSpan: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+  const [adding, setAdding] = useState(false);
+
+  if (!open) {
+    return (
+      <tr>
+        <td colSpan={colSpan}>
+          <button
+            onClick={() => setOpen(true)}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary py-1 px-2 w-full"
+          >
+            <Plus className="h-3 w-3" /> Add part here
+          </button>
+        </td>
+      </tr>
+    );
+  }
+
+  const handleSubmit = async () => {
+    if (!form.name.trim()) return;
+    setAdding(true);
+    await onAdd(form);
+    setForm({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+    setOpen(false);
+    setAdding(false);
+  };
+
+  return (
+    <tr className="bg-muted/30">
+      <td colSpan={colSpan}>
+        <div className="flex flex-wrap gap-2 items-center py-1 px-2">
+          <Input placeholder="Part name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-8 text-sm flex-1 min-w-[120px]" autoFocus onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+          <Input placeholder="Part #" value={form.part_number} onChange={(e) => setForm({ ...form, part_number: e.target.value })} className="h-8 text-sm w-24" />
+          <Input type="number" placeholder="Cost £" min="0" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
+          {isAdmin && (
+            <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
+          )}
+          <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8 text-sm w-24" />
+          <Input placeholder="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="h-8 text-sm w-24" onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
+          <Button size="sm" className="h-8" onClick={handleSubmit} disabled={adding || !form.name.trim()}>
+            <Plus className="mr-1 h-3 w-3" /> Add
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8" onClick={() => setOpen(false)}>Cancel</Button>
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+// Sortable table row
+function SortableLibraryRow({
+  part, isAdmin, isEditing, editForm, setEditForm, startEdit, saveEdit, cancelEdit,
+  selected, toggleSelect, handleDelete,
+}: {
+  part: LibraryPart;
+  isAdmin: boolean;
+  isEditing: boolean;
+  editForm: { name: string; unit_cost: string; sell_price: string; supplier: string; part_number: string };
+  setEditForm: (f: any) => void;
+  startEdit: (p: LibraryPart) => void;
+  saveEdit: () => void;
+  cancelEdit: () => void;
+  selected: Set<string>;
+  toggleSelect: (id: string) => void;
+  handleDelete: (ids: string[]) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: part.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
+  const margin = part.sell_price > 0 ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100 : 0;
+
+  return (
+    <TableRow ref={setNodeRef} style={style} data-state={selected.has(part.id) ? "selected" : undefined}>
+      <TableCell className="w-8 cursor-grab" {...attributes} {...listeners}>
+        <GripVertical className="h-4 w-4 text-muted-foreground" />
+      </TableCell>
+      {isAdmin && (
+        <TableCell>
+          <Checkbox checked={selected.has(part.id)} onCheckedChange={() => toggleSelect(part.id)} />
+        </TableCell>
+      )}
+      <TableCell className="font-medium">
+        {isEditing ? (
+          <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-8 text-sm" />
+        ) : part.name}
+      </TableCell>
+      <TableCell className="text-muted-foreground text-sm">
+        {isEditing ? (
+          <Input value={editForm.part_number} onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })} className="h-8 text-sm w-28" />
+        ) : (part.part_number || "—")}
+      </TableCell>
+      <TableCell className="text-muted-foreground text-sm">
+        {isEditing ? (
+          <Input value={editForm.supplier} onChange={(e) => setEditForm({ ...editForm, supplier: e.target.value })} className="h-8 text-sm w-28" />
+        ) : (part.supplier || "—")}
+      </TableCell>
+      <TableCell className="text-sm">{part.category}</TableCell>
+      <TableCell className="text-right">
+        {isEditing ? (
+          <Input type="number" min="0" step="0.01" value={editForm.unit_cost} onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+        ) : <>£{Number(part.unit_cost).toFixed(2)}</>}
+      </TableCell>
+      {isAdmin && (
+        <TableCell className="text-right">
+          {isEditing ? (
+            <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
+          ) : <>£{Number(part.sell_price).toFixed(2)}</>}
+        </TableCell>
+      )}
+      {isAdmin && (
+        <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+          {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
+        </TableCell>
+      )}
+      <TableCell>
+        <div className="flex items-center gap-1 justify-end">
+          {isAdmin && (
+            isEditing ? (
+              <>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={saveEdit}>Save</Button>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={cancelEdit}>Cancel</Button>
+              </>
+            ) : (
+              <>
+                <button onClick={() => startEdit(part)} className="text-muted-foreground hover:text-primary">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button onClick={() => handleDelete([part.id])} className="text-muted-foreground hover:text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </>
+            )
+          )}
+        </div>
+      </TableCell>
+    </TableRow>
+  );
 }
 
 export default function PartsLibrary() {
@@ -67,11 +230,16 @@ export default function PartsLibrary() {
   const [parsedParts, setParsedParts] = useState<ParsedLibraryPart[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor),
+  );
+
   const fetchParts = async () => {
     const { data } = await supabase
       .from("parts_library")
       .select("*")
-      .order("name", { ascending: true });
+      .order("sort_order", { ascending: true });
     setParts((data as any) || []);
     setLoading(false);
   };
@@ -86,26 +254,62 @@ export default function PartsLibrary() {
       p.category.toLowerCase().includes(q);
   });
 
-  const handleAdd = async () => {
-    if (!form.name.trim() || !user) return;
-    setAdding(true);
+  const isSearching = search.trim().length > 0;
+
+  const handleAddAt = async (
+    formData: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string },
+    insertAfterIndex?: number,
+  ) => {
+    if (!formData.name.trim() || !user) return;
+    let newSortOrder: number;
+    if (insertAfterIndex !== undefined && insertAfterIndex >= 0 && parts.length > 0) {
+      const afterPart = parts[insertAfterIndex];
+      const nextPart = parts[insertAfterIndex + 1];
+      if (nextPart) {
+        newSortOrder = Math.floor((afterPart.sort_order + nextPart.sort_order) / 2);
+        if (newSortOrder === afterPart.sort_order) {
+          newSortOrder = afterPart.sort_order + 1;
+          const updates = parts.slice(insertAfterIndex + 1).map((p, i) => ({
+            id: p.id, sort_order: afterPart.sort_order + 2 + i,
+          }));
+          for (const u of updates) {
+            await supabase.from("parts_library").update({ sort_order: u.sort_order } as any).eq("id", u.id);
+          }
+        }
+      } else {
+        newSortOrder = afterPart.sort_order + 1;
+      }
+    } else {
+      newSortOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) + 1 : 0;
+    }
+
     const { error } = await supabase.from("parts_library").insert({
-      name: form.name.trim(),
-      description: form.description.trim() || null,
-      unit_cost: parseFloat(form.unit_cost) || 0,
-      sell_price: parseFloat(form.sell_price) || 0,
-      category: form.category.trim() || "general",
-      supplier: form.supplier.trim() || null,
-      part_number: form.part_number.trim() || null,
+      name: formData.name.trim(),
+      description: null,
+      unit_cost: parseFloat(formData.unit_cost) || 0,
+      sell_price: parseFloat(formData.sell_price) || 0,
+      category: formData.category.trim() || "general",
+      supplier: formData.supplier.trim() || null,
+      part_number: formData.part_number.trim() || null,
       created_by: user.id,
+      sort_order: newSortOrder,
     } as any);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } else {
-      setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
       fetchParts();
       toast({ title: "Part added to library" });
     }
+  };
+
+  const handleAdd = async () => {
+    if (!form.name.trim() || !user) return;
+    setAdding(true);
+    await handleAddAt({
+      name: form.name, unit_cost: form.unit_cost, sell_price: form.sell_price,
+      category: form.category, supplier: form.supplier, part_number: form.part_number,
+    });
+    setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
     setAdding(false);
   };
 
@@ -131,6 +335,8 @@ export default function PartsLibrary() {
       part_number: part.part_number || "",
     });
   };
+
+  const cancelEdit = () => setEditingId(null);
 
   const saveEdit = async () => {
     if (!editingId) return;
@@ -162,6 +368,25 @@ export default function PartsLibrary() {
     if (selected.size === filteredParts.length) setSelected(new Set());
     else setSelected(new Set(filteredParts.map((p) => p.id)));
   };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = parts.findIndex((p) => p.id === active.id);
+    const newIndex = parts.findIndex((p) => p.id === over.id);
+    const reordered = arrayMove(parts, oldIndex, newIndex);
+
+    setParts(reordered);
+
+    const updates = reordered.map((p, i) => ({ id: p.id, sort_order: i }));
+    for (const u of updates) {
+      await supabase.from("parts_library").update({ sort_order: u.sort_order } as any).eq("id", u.id);
+    }
+  };
+
+  // Column count for inline add row
+  const colCount = 7 + (isAdmin ? 3 : 0); // grip + checkbox(admin) + name + part# + supplier + category + cost + sell(admin) + margin(admin) + actions
 
   // Bulk import handlers
   const handleParse = async () => {
@@ -220,7 +445,8 @@ export default function PartsLibrary() {
       return;
     }
     setImporting(true);
-    const rows = items.map((p) => ({
+    const maxOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) : -1;
+    const rows = items.map((p, i) => ({
       name: p.name.trim(),
       description: p.description.trim() || null,
       unit_cost: p.unit_cost || 0,
@@ -229,6 +455,7 @@ export default function PartsLibrary() {
       supplier: p.supplier.trim() || null,
       part_number: p.part_number.trim() || null,
       created_by: user.id,
+      sort_order: maxOrder + 1 + i,
     }));
 
     const { error } = await supabase.from("parts_library").insert(rows as any);
@@ -329,95 +556,65 @@ export default function PartsLibrary() {
           <p className="text-sm">{parts.length === 0 ? "No parts in library yet. Add parts or bulk import." : "No matching parts found."}</p>
         </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              {isAdmin && (
-                <TableHead className="w-10">
-                  <Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} />
-                </TableHead>
-              )}
-              <TableHead>Part Name</TableHead>
-              <TableHead>Part #</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="text-right">Unit Cost</TableHead>
-              {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
-              {isAdmin && <TableHead className="text-right">Margin</TableHead>}
-              <TableHead className="w-20" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredParts.map((part) => {
-              const isEditing = editingId === part.id;
-              const margin = part.sell_price > 0 ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100 : 0;
-
-              return (
-                <TableRow key={part.id} data-state={selected.has(part.id) ? "selected" : undefined}>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={filteredParts.map((p) => p.id)} strategy={verticalListSortingStrategy} disabled={isSearching}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8" />
                   {isAdmin && (
-                    <TableCell>
-                      <Checkbox checked={selected.has(part.id)} onCheckedChange={() => toggleSelect(part.id)} />
-                    </TableCell>
+                    <TableHead className="w-10">
+                      <Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} />
+                    </TableHead>
                   )}
-                  <TableCell className="font-medium">
-                    {isEditing ? (
-                      <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-8 text-sm" />
-                    ) : part.name}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {isEditing ? (
-                      <Input value={editForm.part_number} onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })} className="h-8 text-sm w-28" />
-                    ) : (part.part_number || "—")}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {isEditing ? (
-                      <Input value={editForm.supplier} onChange={(e) => setEditForm({ ...editForm, supplier: e.target.value })} className="h-8 text-sm w-28" />
-                    ) : (part.supplier || "—")}
-                  </TableCell>
-                  <TableCell className="text-sm">{part.category}</TableCell>
-                  <TableCell className="text-right">
-                    {isEditing ? (
-                      <Input type="number" min="0" step="0.01" value={editForm.unit_cost} onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
-                    ) : <>£{Number(part.unit_cost).toFixed(2)}</>}
-                  </TableCell>
-                  {isAdmin && (
-                    <TableCell className="text-right">
-                      {isEditing ? (
-                        <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
-                      ) : <>£{Number(part.sell_price).toFixed(2)}</>}
-                    </TableCell>
-                  )}
-                  {isAdmin && (
-                    <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-                      {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <div className="flex items-center gap-1 justify-end">
-                      {isAdmin && (
-                        isEditing ? (
-                          <>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={saveEdit}>Save</Button>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setEditingId(null)}>Cancel</Button>
-                          </>
-                        ) : (
-                          <>
-                            <button onClick={() => startEdit(part)} className="text-muted-foreground hover:text-primary">
-                              <Pencil className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => handleDelete([part.id])} className="text-muted-foreground hover:text-destructive">
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </>
-                        )
-                      )}
-                    </div>
-                  </TableCell>
+                  <TableHead>Part Name</TableHead>
+                  <TableHead>Part #</TableHead>
+                  <TableHead>Supplier</TableHead>
+                  <TableHead>Category</TableHead>
+                  <TableHead className="text-right">Unit Cost</TableHead>
+                  {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
+                  {isAdmin && <TableHead className="text-right">Margin</TableHead>}
+                  <TableHead className="w-20" />
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+              </TableHeader>
+              <TableBody>
+                {!isSearching && (
+                  <InlineAddRow
+                    isAdmin={isAdmin}
+                    colSpan={colCount}
+                    onAdd={(f) => handleAddAt(f, -1)}
+                  />
+                )}
+                {filteredParts.map((part, idx) => (
+                  <>
+                    <SortableLibraryRow
+                      key={part.id}
+                      part={part}
+                      isAdmin={isAdmin}
+                      isEditing={editingId === part.id}
+                      editForm={editForm}
+                      setEditForm={setEditForm}
+                      startEdit={startEdit}
+                      saveEdit={saveEdit}
+                      cancelEdit={cancelEdit}
+                      selected={selected}
+                      toggleSelect={toggleSelect}
+                      handleDelete={handleDelete}
+                    />
+                    {!isSearching && (
+                      <InlineAddRow
+                        key={`add-${part.id}`}
+                        isAdmin={isAdmin}
+                        colSpan={colCount}
+                        onAdd={(f) => handleAddAt(f, idx)}
+                      />
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Bulk Import Dialog */}
