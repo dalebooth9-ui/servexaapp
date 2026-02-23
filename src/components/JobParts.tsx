@@ -160,13 +160,15 @@ export default function JobParts({ jobId }: { jobId: string }) {
         <div className="w-20">
           <Input type="number" placeholder="Qty" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} min="0" step="1" />
         </div>
-        <div className="w-24">
-          <Input type="number" placeholder="Unit £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
-        </div>
         {isAdmin && (
-          <div className="w-24">
-            <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
-          </div>
+          <>
+            <div className="w-24">
+              <Input type="number" placeholder="Unit £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
+            </div>
+            <div className="w-24">
+              <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
+            </div>
+          </>
         )}
         <div className="flex-1 min-w-[120px]">
           <Input placeholder="Notes (optional)" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
@@ -265,10 +267,10 @@ export default function JobParts({ jobId }: { jobId: string }) {
                 </TableHead>
                 <TableHead>Part / Material</TableHead>
                 <TableHead className="text-right w-20">Qty</TableHead>
-                <TableHead className="text-right w-24">Unit Cost</TableHead>
-                <TableHead className="text-right w-24">Total Cost</TableHead>
                 {isAdmin && (
                   <>
+                    <TableHead className="text-right w-24">Unit Cost</TableHead>
+                    <TableHead className="text-right w-24">Total Cost</TableHead>
                     <TableHead className="text-right w-24">Sell Price</TableHead>
                     <TableHead className="text-right w-24">Sell Total</TableHead>
                     <TableHead className="text-right w-24">Profit</TableHead>
@@ -306,30 +308,26 @@ export default function JobParts({ jobId }: { jobId: string }) {
                       ) : part.quantity}
                     </TableCell>
 
-                    {/* Unit Cost */}
-                    <TableCell className="text-right">
-                      {isEditing && isAdmin ? (
-                        <Input
-                          type="number" min="0" step="0.01"
-                          className="w-24 h-8 text-right text-sm"
-                          value={editForm.unit_cost}
-                          onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })}
-                        />
-                      ) : (
-                        <>£{Number(part.unit_cost).toFixed(2)}</>
-                      )}
-                    </TableCell>
-
-                    {/* Total Cost */}
-                    <TableCell className="text-right font-medium">
-                      £{Number(part.total_cost).toFixed(2)}
-                    </TableCell>
-
-                    {/* Admin-only: Sell Price, Sell Total, Profit */}
+                    {/* Admin-only pricing columns */}
                     {isAdmin && (
                       <>
                         <TableCell className="text-right">
-                          {isEditing && isAdmin ? (
+                          {isEditing ? (
+                            <Input
+                              type="number" min="0" step="0.01"
+                              className="w-24 h-8 text-right text-sm"
+                              value={editForm.unit_cost}
+                              onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })}
+                            />
+                          ) : (
+                            <>£{Number(part.unit_cost).toFixed(2)}</>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right font-medium">
+                          £{Number(part.total_cost).toFixed(2)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {isEditing ? (
                             <Input
                               type="number" min="0" step="0.01"
                               className="w-24 h-8 text-right text-sm"
@@ -380,21 +378,19 @@ export default function JobParts({ jobId }: { jobId: string }) {
             </TableBody>
           </Table>
 
-          {/* Totals row */}
-          <div className="flex justify-end gap-6 text-sm font-semibold">
-            <span>Cost: £{totalCost.toFixed(2)}</span>
-            {isAdmin && (
-              <>
-                <span>Sell: £{totalSellValue.toFixed(2)}</span>
-                <span className={totalProfit > 0 ? "text-green-600" : totalProfit < 0 ? "text-destructive" : ""}>
-                  Profit: £{totalProfit.toFixed(2)}
-                </span>
-                <span className={totalSellValue > 0 ? (totalProfit / totalSellValue * 100 > 0 ? "text-green-600" : "text-destructive") : "text-muted-foreground"}>
-                  Margin: {totalSellValue > 0 ? `${(totalProfit / totalSellValue * 100).toFixed(1)}%` : "—"}
-                </span>
-              </>
-            )}
-          </div>
+          {/* Totals row — admin only */}
+          {isAdmin && (
+            <div className="flex justify-end gap-6 text-sm font-semibold">
+              <span>Cost: £{totalCost.toFixed(2)}</span>
+              <span>Sell: £{totalSellValue.toFixed(2)}</span>
+              <span className={totalProfit > 0 ? "text-green-600" : totalProfit < 0 ? "text-destructive" : ""}>
+                Profit: £{totalProfit.toFixed(2)}
+              </span>
+              <span className={totalSellValue > 0 ? (totalProfit / totalSellValue * 100 > 0 ? "text-green-600" : "text-destructive") : "text-muted-foreground"}>
+                Margin: {totalSellValue > 0 ? `${(totalProfit / totalSellValue * 100).toFixed(1)}%` : "—"}
+              </span>
+            </div>
+          )}
         </>
       )}
       <ImportPartsDialog
