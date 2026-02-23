@@ -48,6 +48,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [scanning, setScanningState] = useState(false);
   const [convertingPdf, setConvertingPdf] = useState(false);
+  const [extractedHeader, setExtractedHeader] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -127,31 +128,33 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
       y = logoBottomY + 5;
 
-      // --- Customer details compact table (matching standard template layout) ---
-      const referenceNumber = jobInfo?.reference_number || "";
-      const customerName = jobInfo?.customer || "";
-      const siteName = jobInfo?.site?.name || "";
-      const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
-      const dateStr = new Date().toLocaleDateString("en-GB");
+      // --- Customer details — prefer AI-extracted header, fall back to job data ---
+      const referenceNumber = extractedHeader.po_ref || jobInfo?.reference_number || "";
+      const customerName = extractedHeader.customer || jobInfo?.customer || "";
+      const siteName = extractedHeader.site || jobInfo?.site?.name || "";
+      const siteAddress = !extractedHeader.site ? (jobInfo?.site?.address || jobInfo?.address || "") : "";
+      const dateStr = extractedHeader.date || new Date().toLocaleDateString("en-GB");
 
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
       doc.setTextColor(30, 30, 30);
-      // Find riser location from existing responses or template fields
-      let riserLocValue = "";
-      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-      if (riserField) {
-        const { data: existingResp } = await supabase
-          .from("job_sheet_responses")
-          .select("responses")
-          .eq("job_id", jobId)
-          .eq("template_id", template.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (existingResp?.responses) {
-          const respData = existingResp.responses as Record<string, any>;
-          riserLocValue = respData[riserField.id] ? String(respData[riserField.id]) : "";
+      // Find riser location — prefer extracted header, then existing responses
+      let riserLocValue = extractedHeader.riser_location || "";
+      if (!riserLocValue) {
+        const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
+        if (riserField) {
+          const { data: existingResp } = await supabase
+            .from("job_sheet_responses")
+            .select("responses")
+            .eq("job_id", jobId)
+            .eq("template_id", template.id)
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (existingResp?.responses) {
+            const respData = existingResp.responses as Record<string, any>;
+            riserLocValue = respData[riserField.id] ? String(respData[riserField.id]) : "";
+          }
         }
       }
 
@@ -403,8 +406,12 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       if (error) throw error;
 
       if (data?.extracted) {
+        // Store extracted header fields for PDF generation
+        if (data.header) {
+          setExtractedHeader(data.header);
+        }
         onExtracted(data.extracted);
-        toast({ title: "Fields extracted", description: "Handwritten data has been read and populated into the form." });
+        toast({ title: "Fields extracted", description: "Handwritten data has been read and populated into the form. Header fields captured for PDF." });
         setOpen(false);
         setImages([]);
       } else {
