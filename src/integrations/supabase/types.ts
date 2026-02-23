@@ -1150,6 +1150,7 @@ export type Database = {
           id: string
           job_type: string
           name: string
+          pressure_test_qty: number
           priority: string
           recurrence_end_date: string | null
           recurrence_interval: number | null
@@ -1160,6 +1161,7 @@ export type Database = {
           site_id: string | null
           status: string
           updated_at: string
+          visual_qty: number
         }
         Insert: {
           address?: string | null
@@ -1173,6 +1175,7 @@ export type Database = {
           id?: string
           job_type?: string
           name: string
+          pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
           recurrence_interval?: number | null
@@ -1183,6 +1186,7 @@ export type Database = {
           site_id?: string | null
           status?: string
           updated_at?: string
+          visual_qty?: number
         }
         Update: {
           address?: string | null
@@ -1196,6 +1200,7 @@ export type Database = {
           id?: string
           job_type?: string
           name?: string
+          pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
           recurrence_interval?: number | null
@@ -1206,6 +1211,7 @@ export type Database = {
           site_id?: string | null
           status?: string
           updated_at?: string
+          visual_qty?: number
         }
         Relationships: [
           {
