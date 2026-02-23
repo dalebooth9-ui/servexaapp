@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
@@ -328,6 +328,16 @@ export default function JobDetail() {
           </Badge>
         )}
       </div>
+
+      {job.status === "scheduled" && (
+        <div className="mb-6 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/10 px-4 py-3 text-sm text-primary">
+          <CalendarClock className="h-4 w-4 shrink-0" />
+          <span className="flex-1">This job is in the planner awaiting engineer assignment.</span>
+          <Link to="/planner" className="inline-flex items-center gap-1 font-medium underline-offset-2 hover:underline">
+            View Planner <ExternalLink className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+      )}
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
