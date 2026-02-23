@@ -24,18 +24,22 @@ export function addWatermarkToAllPages(doc: jsPDF, watermark: HTMLImageElement) 
   const pageCount = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  // Nearly full-page watermark centered
-  const wmW = pageWidth * 0.85;
+  // Moderate size so it doesn't overwhelm table/text content
+  const wmW = pageWidth * 0.55;
   const wmH = (watermark.naturalHeight / watermark.naturalWidth) * wmW;
   const x = (pageWidth - wmW) / 2;
   const yPos = (pageHeight - wmH) / 2;
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    const gState = (doc as any).GState({ opacity: 0.35 });
+    const gState = (doc as any).GState({ opacity: 0.12 });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
-    doc.addImage(watermark, "JPEG", x, yPos, wmW, wmH);
+    doc.addImage(watermark, "PNG", x, yPos, wmW, wmH);
     doc.restoreGraphicsState();
+    // Reset font state to avoid watermark GState leaking into other pages
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(8);
   }
 }
