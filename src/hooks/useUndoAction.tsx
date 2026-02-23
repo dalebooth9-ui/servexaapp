@@ -45,6 +45,7 @@ export function useUndoAction() {
 
       toast({
         title: label,
+        duration: 8000,
         action: (
           <ToastAction
             altText="Undo"
@@ -81,6 +82,7 @@ export function useUndoAction() {
     }) => {
       toast({
         title: label,
+        duration: 8000,
         action: (
           <ToastAction altText="Undo" onClick={() => onUndo()}>
             Undo
