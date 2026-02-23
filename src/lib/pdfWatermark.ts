@@ -10,7 +10,7 @@ export async function loadWatermarkImage(): Promise<HTMLImageElement | null> {
     await new Promise<void>((resolve, reject) => {
       img.onload = () => resolve();
       img.onerror = () => reject();
-      img.src = "/images/viva-watermark.png?v=3";
+      img.src = "/images/viva-watermark.png?v=4";
     });
     cachedWatermark = img;
     return img;
