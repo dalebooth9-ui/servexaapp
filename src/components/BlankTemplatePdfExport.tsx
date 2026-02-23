@@ -281,6 +281,57 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         );
         if (sectionFields.length === 0) continue;
 
+        // Render "Pressure Test Results" section as a single compact row
+        if (section.toLowerCase().includes("pressure test result")) {
+          const inlineH = rowH;
+          if (y + sectionHeaderH + inlineH > pageHeight - footerSpace) {
+            doc.addPage();
+            y = margin;
+          }
+          // Section header
+          doc.setFillColor(230, 230, 230);
+          doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
+          doc.setDrawColor(0);
+          doc.rect(margin, y, maxWidth, sectionHeaderH);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(section.toUpperCase(), margin + 1, y + 4.5);
+          y += sectionHeaderH;
+
+          // Draw single row with all fields inline
+          doc.setDrawColor(180);
+          doc.rect(margin, y, maxWidth, inlineH);
+          doc.setFontSize(7);
+          let ox = margin + 1;
+          for (const field of sectionFields) {
+            doc.setFont("helvetica", "bold");
+            doc.text(field.label, ox, y + 3.5);
+            ox += doc.getTextWidth(field.label) + 1;
+
+            if (field.type === "pass_fail") {
+              doc.setFont("helvetica", "normal");
+              doc.rect(ox, y + 1, 3, 3); doc.text("P", ox + 4, y + 3.5);
+              doc.rect(ox + 10, y + 1, 3, 3); doc.text("F", ox + 14, y + 3.5);
+              doc.rect(ox + 20, y + 1, 3, 3); doc.text("N/A", ox + 24, y + 3.5);
+              ox += 32;
+            } else if (field.type === "number") {
+              doc.line(ox, y + 3.5, ox + 10, y + 3.5);
+              ox += 12;
+            } else if (field.type === "select" && field.options) {
+              doc.setFont("helvetica", "normal");
+              for (const opt of field.options) {
+                doc.rect(ox, y + 1, 3, 3);
+                doc.text(opt, ox + 4, y + 3.5);
+                ox += 4 + doc.getTextWidth(opt) + 2;
+              }
+              ox += 2;
+            }
+            ox += 2;
+          }
+          y += inlineH + 1;
+          continue;
+        }
+
         // Check page overflow
         if (y + sectionHeaderH + sectionFields.length * rowH > pageHeight - footerSpace) {
           doc.addPage();
@@ -331,7 +382,6 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
             doc.text("NO", bx + 18, y + 3.5);
             doc.setFontSize(8.5);
           } else if (field.type === "select" && field.options && field.options.some(o => o.toLowerCase() === "yes") && field.options.some(o => o.toLowerCase() === "no")) {
-            // Render Yes/No/N/A tick boxes for select fields with those options
             const bx = margin + colSplit + 2;
             doc.setFontSize(6);
             let ox = bx;
@@ -342,7 +392,6 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
             }
             doc.setFontSize(8.5);
           } else if (autoVal) {
-            // Print auto-populated value in the result cell
             doc.setFont("helvetica", "normal");
             doc.setFontSize(8);
             const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
