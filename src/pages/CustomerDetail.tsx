@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { saveMapPinForJob } from "@/lib/saveMapPin";
 
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -431,6 +432,17 @@ export default function CustomerDetail() {
           responses: prefilled,
         } as any);
       }
+    }
+
+    // Auto-save map pin if customer has an address
+    if (customer.address?.trim()) {
+      saveMapPinForJob({
+        jobId: newJob.id,
+        address: customer.address.trim(),
+        refNumber: newJob.reference_number || "",
+        customerName: customer.name || "",
+        userId: user.id,
+      });
     }
 
     toast({ title: "Job created", description: `${newJob.reference_number} created with ${uploaded} file(s).` });
