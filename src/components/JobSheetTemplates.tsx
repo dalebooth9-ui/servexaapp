@@ -716,7 +716,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <ScanJobSheet
                       template={tpl}
                       jobId={jobId}
-                      referenceNumber={jobInfo?.reference_number}
+                      jobInfo={jobInfo}
                       onExtracted={(data) => {
                         handleStartForm(tpl);
                         setTimeout(() => setFormData((prev) => ({ ...prev, ...data })), 100);
