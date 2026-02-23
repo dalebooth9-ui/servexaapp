@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, FileDown, Loader2, ScanLine, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
+import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
 type TemplateField = {
   id: string;
@@ -19,6 +20,12 @@ type Template = {
   id: string;
   name: string;
   fields: TemplateField[];
+  branding?: {
+    company_name?: string;
+    company_subtitle?: string;
+    logo_url?: string;
+    footer_text?: string;
+  };
 };
 
 interface Props {
@@ -56,22 +63,107 @@ export default function ScanJobSheet({ template, jobId, onExtracted }: Props) {
     setConvertingPdf(true);
     try {
       const doc = new jsPDF();
-      for (let i = 0; i < images.length; i++) {
-        if (i > 0) doc.addPage();
-        const img = new Image();
-        img.src = images[i].preview;
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const maxWidth = pageWidth - margin * 2;
+
+      // --- BRANDED HEADER (no customer/site details) ---
+      const branding = template.branding || {};
+      const companyName = branding.company_name || "VIVAFIRE";
+      const companySubtitle = branding.company_subtitle || "Wet & Dry Riser Specialists";
+      const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
+      const isVisual = template.name.toLowerCase().includes("visual") || (template as any).category === "visual";
+      const defaultFooter = isVisual
+        ? "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015"
+        : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
+      const footerText = branding.footer_text || defaultFooter;
+
+      let y = 8;
+      let logoBottomY = y;
+      try {
+        const logoImg = new Image();
+        logoImg.crossOrigin = "anonymous";
+        await new Promise<void>((resolve, reject) => {
+          logoImg.onload = () => resolve();
+          logoImg.onerror = () => reject();
+          logoImg.src = logoUrl;
         });
-        const pageW = doc.internal.pageSize.getWidth();
-        const pageH = doc.internal.pageSize.getHeight();
-        const ratio = Math.min(pageW / img.naturalWidth, pageH / img.naturalHeight);
-        const w = img.naturalWidth * ratio;
-        const h = img.naturalHeight * ratio;
-        doc.addImage(img, "JPEG", (pageW - w) / 2, (pageH - h) / 2, w, h);
+        const logoMaxW = 70;
+        const logoMaxH = 20;
+        const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+        let lw = logoMaxH * aspect;
+        let lh = logoMaxH;
+        if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
+        const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
+        doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
+        logoBottomY = y + lh + 3;
+      } catch {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+        logoBottomY = y + 12;
       }
 
-      // Also save to local
+      // Title
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(33, 61, 99);
+      doc.text(template.name.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
+      doc.setDrawColor(33, 61, 99);
+      doc.setLineWidth(0.5);
+      doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
+      doc.setTextColor(30, 30, 30);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "italic");
+      doc.text("Scanned from handwritten sheet", pageWidth / 2, logoBottomY + 7, { align: "center" });
+      y = logoBottomY + 11;
+
+      // --- SCANNED IMAGES ---
+      for (let i = 0; i < images.length; i++) {
+        const img = new Image();
+        img.src = images[i].preview;
+        await new Promise<void>((resolve) => { img.onload = () => resolve(); });
+
+        const availH = pageHeight - y - 20; // leave space for footer on first page
+        const ratio = Math.min(maxWidth / img.naturalWidth, availH / img.naturalHeight);
+        const w = img.naturalWidth * ratio;
+        const h = img.naturalHeight * ratio;
+
+        if (i > 0) {
+          doc.addPage();
+          y = margin;
+          const fullPageH = pageHeight - margin * 2;
+          const fullRatio = Math.min(maxWidth / img.naturalWidth, fullPageH / img.naturalHeight);
+          const fw = img.naturalWidth * fullRatio;
+          const fh = img.naturalHeight * fullRatio;
+          doc.addImage(img, "JPEG", (pageWidth - fw) / 2, y, fw, fh);
+        } else {
+          doc.addImage(img, "JPEG", (pageWidth - w) / 2, y, w, h);
+          y += h + 2;
+        }
+      }
+
+      // --- FOOTER DECLARATION on last page ---
+      const lastPageH = doc.internal.pageSize.getHeight();
+      const footerY = lastPageH - 15;
+      doc.setDrawColor(0);
+      doc.rect(margin, footerY, maxWidth, 9);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      const footerLines = footerText.split("\n");
+      footerLines.forEach((line, idx) => {
+        doc.text(line.trim(), pageWidth / 2, footerY + 3 + idx * 3.5, { align: "center" });
+      });
+
+      // Watermark
+      const watermark = await loadWatermarkImage();
+      if (watermark) addWatermarkToAllPages(doc, watermark);
+
       doc.save(`scanned-sheet-${Date.now()}.pdf`);
 
       // Upload to storage and create submission record
