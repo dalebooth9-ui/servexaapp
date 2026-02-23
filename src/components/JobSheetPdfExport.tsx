@@ -261,7 +261,8 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
             displayVal = val ? "✓ Captured" : "—";
             doc.text(displayVal, margin + colSplit + 1, y + 3);
           } else {
-            displayVal = val ? String(val).substring(0, 50) : "—";
+            const raw = val ? String(val).substring(0, 50) : "—";
+            displayVal = raw.charAt(0).toUpperCase() + raw.slice(1);
             doc.text(displayVal, margin + colSplit + 1, y + 3);
           }
           doc.setTextColor(0, 0, 0);
