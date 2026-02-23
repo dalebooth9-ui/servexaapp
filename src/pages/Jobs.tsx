@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import TodaysDashboard from "@/components/TodaysDashboard";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -612,6 +613,7 @@ export default function Jobs() {
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
+      <TodaysDashboard />
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Jobs</h1>
         {isAdmin && (
