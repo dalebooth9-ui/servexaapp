@@ -248,6 +248,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           label.includes("customer") && (label.includes("detail") || label === "customer" || label === "customer name") ||
           label === "date" ||
           label.includes("po number") ||
+          label.includes("site detail") ||
           f.id === "comments" ||
           f.id === "materials_required" ||
           f.id === "technician_name"
