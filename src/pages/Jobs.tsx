@@ -41,6 +41,7 @@ const jobSchema = z.object({
 
 // Helper to get customer name from job object
 function getCustomerName(job: any): string | null {
+  if (!job) return null;
   return job.customers?.name || job.customer || null;
 }
 
