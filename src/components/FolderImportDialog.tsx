@@ -42,6 +42,7 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
   const { toast } = useToast();
   const [folders, setFolders] = useState<FolderEntry[]>([]);
   const [mode, setMode] = useState<ImportMode>("one-per-customer");
+  const [submitToPlanner, setSubmitToPlanner] = useState(false);
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [progressText, setProgressText] = useState("");
@@ -51,6 +52,7 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
     setFolders([]);
     setProgress(0);
     setProgressText("");
+    setSubmitToPlanner(false);
   };
 
   const processFiles = useCallback((fileList: FileList) => {
@@ -146,7 +148,7 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
     }
   };
 
-  const createJob = async (name: string, customerName: string | null, userId: string) => {
+  const createJob = async (name: string, customerName: string | null, customerId: string | null, userId: string, status: string) => {
     const refNumber = `IMP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
     const { data: job, error } = await supabase
       .from("jobs")
@@ -154,6 +156,8 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
         name,
         reference_number: refNumber,
         customer: customerName,
+        customer_id: customerId,
+        status,
         created_by: userId,
       } as any)
       .select("id")
@@ -161,15 +165,19 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
     return { job, error };
   };
 
-  const ensureCustomer = async (customerName: string) => {
+  const ensureCustomer = async (customerName: string): Promise<string | null> => {
     const { data: existing } = await supabase
       .from("customers")
       .select("id")
       .eq("name", customerName)
       .maybeSingle();
-    if (!existing) {
-      await supabase.from("customers").insert({ name: customerName });
-    }
+    if (existing) return existing.id;
+    const { data: created } = await supabase
+      .from("customers")
+      .insert({ name: customerName })
+      .select("id")
+      .single();
+    return created?.id ?? null;
   };
 
   const handleImport = async () => {
@@ -186,17 +194,20 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
     try {
       for (const folder of folders) {
         const customerName = folder.customerName === "Unassigned" ? null : folder.customerName;
+        let customerId: string | null = null;
 
         if (customerName) {
           setProgressText(`Creating customer: ${customerName}`);
-          await ensureCustomer(customerName);
+          customerId = await ensureCustomer(customerName);
         }
+
+        const jobStatus = submitToPlanner ? "scheduled" : "active";
 
         if (mode === "one-per-customer") {
           // All files (direct + subfolders) go into one job
           const jobName = customerName ? `${customerName} Import` : "Folder Import";
           setProgressText(`Creating job: ${jobName}`);
-          const { job, error } = await createJob(jobName, customerName, user.id);
+          const { job, error } = await createJob(jobName, customerName, customerId, user.id, jobStatus);
           if (error || !job) {
             toast({ title: "Error", description: `Failed to create job for ${customerName || "folder"}.`, variant: "destructive" });
             continue;
@@ -209,7 +220,7 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
           if (folder.files.length > 0) {
             const jobName = customerName ? `${customerName} — General` : "Folder Import";
             setProgressText(`Creating job: ${jobName}`);
-            const { job, error } = await createJob(jobName, customerName, user.id);
+            const { job, error } = await createJob(jobName, customerName, customerId, user.id, jobStatus);
             if (error || !job) {
               toast({ title: "Error", description: `Failed to create job.`, variant: "destructive" });
             } else {
@@ -220,7 +231,7 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
           for (const sub of folder.subfolders) {
             const jobName = customerName ? `${customerName} — ${sub.subfolderName}` : sub.subfolderName;
             setProgressText(`Creating job: ${jobName}`);
-            const { job, error } = await createJob(jobName, customerName, user.id);
+            const { job, error } = await createJob(jobName, customerName, customerId, user.id, jobStatus);
             if (error || !job) {
               toast({ title: "Error", description: `Failed to create job for ${sub.subfolderName}.`, variant: "destructive" });
               sub.files.forEach(() => onProgress());
@@ -408,7 +419,19 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
         )}
 
         {folders.length > 0 && !importing && (
-          <DialogFooter className="flex items-center justify-between">
+          <DialogFooter className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="submit-planner"
+                checked={submitToPlanner}
+                onChange={(e) => setSubmitToPlanner(e.target.checked)}
+                className="h-4 w-4 rounded border accent-primary"
+              />
+              <label htmlFor="submit-planner" className="text-sm cursor-pointer select-none">
+                Submit to Planner
+              </label>
+            </div>
             <p className="text-sm text-muted-foreground">
               {folders.length} customer(s) • {jobCount} job(s) • {totalFiles} file(s)
             </p>
