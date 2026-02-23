@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
@@ -63,6 +64,8 @@ function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxW
 export default function JobPdfReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
+  const { userRole } = useAuth();
+  const isAdmin = userRole === "admin";
 
   const generate = async () => {
     setGenerating(true);
@@ -263,38 +266,48 @@ export default function JobPdfReport({ jobId, job }: Props) {
       if (parts.length > 0) {
         checkPage(20);
         y = sectionTitle(doc, "Parts & Materials", y, margin, maxWidth);
-        const nameW = maxWidth * 0.35;
+        const nameW = isAdmin ? maxWidth * 0.35 : maxWidth * 0.55;
         const qtyW = maxWidth * 0.1;
-        const unitW = maxWidth * 0.2;
-        const totalW = maxWidth * 0.2;
-        const noteW = maxWidth * 0.15;
-        drawTableRow(doc, y, [
+        const unitW = isAdmin ? maxWidth * 0.2 : 0;
+        const totalW = isAdmin ? maxWidth * 0.2 : 0;
+        const noteW = isAdmin ? maxWidth * 0.15 : maxWidth * 0.35;
+
+        const headerCols: any[] = [
           { text: "Part Name", x: margin, width: nameW, bold: true },
           { text: "Qty", x: 0, width: qtyW, bold: true, align: "center" },
-          { text: "Unit Cost", x: 0, width: unitW, bold: true, align: "right" },
-          { text: "Total", x: 0, width: totalW, bold: true, align: "right" },
+          ...(isAdmin ? [
+            { text: "Unit Cost", x: 0, width: unitW, bold: true, align: "right" },
+            { text: "Total", x: 0, width: totalW, bold: true, align: "right" },
+          ] : []),
           { text: "Notes", x: 0, width: noteW, bold: true },
-        ], rowH, margin, maxWidth, [235, 240, 248]);
+        ];
+        drawTableRow(doc, y, headerCols, rowH, margin, maxWidth, [235, 240, 248]);
         y += rowH;
         parts.forEach((p: any) => {
           checkPage(rowH);
-          drawTableRow(doc, y, [
+          const rowCols: any[] = [
             { text: (p.name || "—").substring(0, 30), x: margin, width: nameW },
             { text: String(p.quantity), x: 0, width: qtyW, align: "center" },
-            { text: `£${Number(p.unit_cost).toFixed(2)}`, x: 0, width: unitW, align: "right" },
-            { text: `£${Number(p.total_cost).toFixed(2)}`, x: 0, width: totalW, align: "right" },
-            { text: (p.notes || "").substring(0, 15), x: 0, width: noteW },
-          ], rowH, margin, maxWidth);
+            ...(isAdmin ? [
+              { text: `£${Number(p.unit_cost).toFixed(2)}`, x: 0, width: unitW, align: "right" },
+              { text: `£${Number(p.total_cost).toFixed(2)}`, x: 0, width: totalW, align: "right" },
+            ] : []),
+            { text: (p.notes || "").substring(0, 20), x: 0, width: noteW },
+          ];
+          drawTableRow(doc, y, rowCols, rowH, margin, maxWidth);
           y += rowH;
         });
-        // Totals row
-        const totalParts = parts.reduce((s: number, p: any) => s + Number(p.total_cost || 0), 0);
-        drawTableRow(doc, y, [
-          { text: "", x: margin, width: nameW + qtyW + unitW },
-          { text: `£${totalParts.toFixed(2)}`, x: 0, width: totalW, bold: true, align: "right" },
-          { text: "", x: 0, width: noteW },
-        ], rowH, margin, maxWidth, [245, 248, 255]);
-        y += rowH + 6;
+        // Totals row — admin only
+        if (isAdmin) {
+          const totalParts = parts.reduce((s: number, p: any) => s + Number(p.total_cost || 0), 0);
+          drawTableRow(doc, y, [
+            { text: "", x: margin, width: nameW + qtyW + unitW },
+            { text: `£${totalParts.toFixed(2)}`, x: 0, width: totalW, bold: true, align: "right" },
+            { text: "", x: 0, width: noteW },
+          ], rowH, margin, maxWidth, [245, 248, 255]);
+          y += rowH;
+        }
+        y += 6;
       }
 
       // ── JOB SHEET RESPONSES ──
