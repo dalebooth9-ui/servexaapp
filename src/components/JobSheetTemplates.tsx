@@ -579,6 +579,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <p className="text-xs font-semibold text-muted-foreground mb-1.5">Completed Reports</p>
               {responses.map((resp) => {
                 const tpl = templates.find((t) => t.id === resp.template_id);
+                const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
                 return (
                   <div
                     key={resp.id}
@@ -607,6 +608,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           Continue
                         </Button>
                       )}
+                      {resp.status === "submitted" && canEdit && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 text-xs"
+                          onClick={() => tpl && handleStartForm(tpl, resp)}
+                        >
+                          <Pencil className="h-3 w-3 mr-1" /> Edit
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -632,18 +643,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   // Show template if it matches job category, or if neither has a category set
                   return tplCategory === jobCategory || (!tplCategory && !jobCategory);
                 });
-            // Also exclude templates that already have a response for this job
-            const templatesWithoutResponses = visibleTemplates.filter(
-              (tpl) => !responses.some((r) => r.template_id === tpl.id)
-            );
-
-            if (templatesWithoutResponses.length > 0) {
+            // Show all visible templates — allow multiple sheets per template
+            if (visibleTemplates.length > 0) {
               return (
                 <div>
                   {userRole === "admin" && (
                     <p className="text-xs font-semibold text-muted-foreground mb-1.5">Available Templates</p>
                   )}
-                  {templatesWithoutResponses.map((tpl) => (
+                  {visibleTemplates.map((tpl) => (
                 <div
                   key={tpl.id}
                   className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
