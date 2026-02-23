@@ -34,10 +34,12 @@ export default function PlannerMapView({
   schedule,
   jobs,
   engineers,
+  unallocatedJobs = [],
 }: {
   schedule: ScheduleEntry[];
   jobs: Job[];
   engineers: Engineer[];
+  unallocatedJobs?: Job[];
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -128,6 +130,7 @@ export default function PlannerMapView({
         const bounds = new google.maps.LatLngBounds();
         let hasMarkers = false;
 
+        // Scheduled jobs — coloured by priority
         for (const { job, engineerName } of scheduledJobs) {
           try {
             const result = await geocoder.geocode({ address: job.address! });
@@ -168,6 +171,49 @@ export default function PlannerMapView({
           }
         }
 
+        // Unallocated jobs — grey pins
+        const scheduledIds = new Set(scheduledJobs.map((s) => s.job.id));
+        for (const job of unallocatedJobs) {
+          if (!job.address || scheduledIds.has(job.id)) continue;
+          try {
+            const result = await geocoder.geocode({ address: job.address });
+            if (result.results[0]) {
+              const pos = result.results[0].geometry.location;
+              bounds.extend(pos);
+              hasMarkers = true;
+
+              const pin = new google.maps.marker.PinElement({
+                background: "#9ca3af",
+                borderColor: "#6b7280",
+                glyphColor: "white",
+                glyph: "?",
+              });
+
+              const marker = new google.maps.marker.AdvancedMarkerElement({
+                map,
+                position: pos,
+                title: `[Unallocated] ${job.reference_number} - ${job.name}`,
+                content: pin.element,
+              });
+
+              const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address)}`;
+              const infoWindow = new google.maps.InfoWindow({
+                content: `<div style="font-family:system-ui;font-size:13px;max-width:250px">
+                  <span style="display:inline-block;padding:1px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:11px;color:#6b7280;margin-bottom:4px">Unallocated</span><br/>
+                  <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${job.reference_number}</a> — ${job.name}<br/>
+                  <span style="color:#666">${(job as any).customers?.name || job.customer || ""}</span><br/>
+                  <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 8px;background:#6b7280;color:white;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#6b7280'">📍 Get Directions</a>
+                </div>`,
+              });
+
+              marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
+              markersRef.current.push(marker);
+            }
+          } catch {
+            // Skip failed geocodes
+          }
+        }
+
         if (hasMarkers) map.fitBounds(bounds);
         setMapLoading(false);
       } catch (err) {
@@ -179,7 +225,7 @@ export default function PlannerMapView({
 
     init();
     return () => { cancelled = true; };
-  }, [scheduledJobs]);
+  }, [scheduledJobs, unallocatedJobs]);
 
   // Update engineer live pins
   useEffect(() => {
@@ -218,18 +264,19 @@ export default function PlannerMapView({
     }
   }, [engineerLocations, engineers]);
 
-  if (scheduledJobs.length === 0 && engineerLocations.length === 0) {
+  const allJobsWithAddress = scheduledJobs.length + unallocatedJobs.filter((j) => j.address).length;
+  if (allJobsWithAddress === 0 && engineerLocations.length === 0) {
     return (
       <div className="flex h-[500px] items-center justify-center rounded-lg border bg-muted/30 text-muted-foreground">
-        No scheduled jobs with addresses to show on the map.
+        No jobs with addresses to show on the map.
       </div>
     );
   }
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {engineerLocations.length > 0 && (
             <Badge variant="secondary" className="text-xs gap-1">
               <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
@@ -241,6 +288,13 @@ export default function PlannerMapView({
               {routeResult.total_distance_km} km · {routeResult.total_duration_mins} mins
             </Badge>
           )}
+          {/* Legend */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground border rounded px-2 py-1">
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#f59e0b"}} /> Medium</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#10b981"}} /> Low</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
+          </div>
         </div>
         {scheduledJobs.length >= 2 && (
           <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
