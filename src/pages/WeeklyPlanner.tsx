@@ -475,7 +475,7 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="month" className="mt-4">
-          <MonthlyView currentDate={monthDate} schedule={filteredSchedule} jobs={jobs} />
+          <MonthlyView currentDate={monthDate} schedule={filteredSchedule} jobs={jobs} optimisedJobOrder={optimisedJobOrder} />
         </TabsContent>
 
         <TabsContent value="list" className="mt-4">
