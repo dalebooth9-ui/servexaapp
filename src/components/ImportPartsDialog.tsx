@@ -28,7 +28,8 @@ export default function ImportPartsDialog({
   jobId: string;
   onImported: () => void;
 }) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === "admin";
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -190,9 +191,9 @@ export default function ImportPartsDialog({
                       <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
                     </TableHead>
                     <TableHead>Part / Material</TableHead>
-                    <TableHead className="w-20 text-right">Qty</TableHead>
-                    <TableHead className="w-24 text-right">Unit £</TableHead>
-                    <TableHead>Notes</TableHead>
+                     <TableHead className="w-20 text-right">Qty</TableHead>
+                     {isAdmin && <TableHead className="w-24 text-right">Unit £</TableHead>}
+                     <TableHead>Notes</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -209,25 +210,27 @@ export default function ImportPartsDialog({
                           className="h-8 text-sm"
                         />
                       </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={part.quantity}
-                          onChange={(e) => updatePart(idx, "quantity", parseFloat(e.target.value) || 0)}
-                          className="h-8 text-sm text-right w-20"
-                          min="0"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="number"
-                          value={part.unit_cost}
-                          onChange={(e) => updatePart(idx, "unit_cost", parseFloat(e.target.value) || 0)}
-                          className="h-8 text-sm text-right w-24"
-                          min="0"
-                          step="0.01"
-                        />
-                      </TableCell>
+                       <TableCell>
+                         <Input
+                           type="number"
+                           value={part.quantity}
+                           onChange={(e) => updatePart(idx, "quantity", parseFloat(e.target.value) || 0)}
+                           className="h-8 text-sm text-right w-20"
+                           min="0"
+                         />
+                       </TableCell>
+                       {isAdmin && (
+                       <TableCell>
+                         <Input
+                           type="number"
+                           value={part.unit_cost}
+                           onChange={(e) => updatePart(idx, "unit_cost", parseFloat(e.target.value) || 0)}
+                           className="h-8 text-sm text-right w-24"
+                           min="0"
+                           step="0.01"
+                         />
+                       </TableCell>
+                       )}
                       <TableCell>
                         <Input
                           value={part.notes}
