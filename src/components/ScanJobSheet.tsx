@@ -215,10 +215,40 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
+      // --- Fetch job signatures ---
+      const { data: signatures } = await supabase
+        .from("job_signatures")
+        .select("id, signer_name, signer_role, file_path")
+        .eq("job_id", jobId);
+
+      const engineerSig = (signatures || []).find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
+      const customerSig = (signatures || []).find((s: any) => s.signer_role === "customer");
+
+      // Load signature images
+      const sigImages: Record<string, HTMLImageElement> = {};
+      for (const sig of [engineerSig, customerSig].filter(Boolean)) {
+        if (!sig) continue;
+        try {
+          const { data: urlData } = supabase.storage.from("signatures").getPublicUrl(sig.file_path);
+          if (urlData?.publicUrl) {
+            const sigImg = new Image();
+            sigImg.crossOrigin = "anonymous";
+            await new Promise<void>((resolve) => {
+              sigImg.onload = () => resolve();
+              sigImg.onerror = () => resolve();
+              sigImg.src = urlData.publicUrl;
+            });
+            if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
+          }
+        } catch { /* skip */ }
+      }
+
       // --- SIGNATURE BLOCKS on last page ---
       const halfW = maxWidth / 2 - 2;
       const dateStr2 = new Date().toLocaleDateString("en-GB");
       const sigY = pageHeight - 35;
+      const sigImgH = 8;
+      const sigImgW = 25;
 
       doc.setFontSize(7);
       doc.setTextColor(0, 0, 0);
@@ -229,10 +259,14 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setFont("helvetica", "bold");
       doc.text("Technician:", margin, sigY + 7);
       doc.setFont("helvetica", "normal");
-      const techName = jobInfo?.engineers?.length ? jobInfo.engineers.join(", ") : "";
+      const techName = jobInfo?.engineers?.length ? jobInfo.engineers.join(", ") : (engineerSig?.signer_name || "");
       doc.text(techName, margin + 20, sigY + 7);
-      doc.text("Signature:", margin, sigY + 11);
-      doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+      if (engineerSig && sigImages[engineerSig.id]) {
+        doc.addImage(sigImages[engineerSig.id], "PNG", margin + 18, sigY + 8, sigImgW, sigImgH);
+      } else {
+        doc.text("Signature:", margin, sigY + 11);
+        doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
+      }
 
       const cx = margin + halfW + 4;
       doc.setFont("helvetica", "bold");
@@ -242,9 +276,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       doc.setFont("helvetica", "bold");
       doc.text("Customer:", cx, sigY + 7);
       doc.setFont("helvetica", "normal");
-      doc.text(customerName, cx + 18, sigY + 7);
-      doc.text("Signature:", cx, sigY + 11);
-      doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+      doc.text(customerSig?.signer_name || customerName, cx + 18, sigY + 7);
+      if (customerSig && sigImages[customerSig.id]) {
+        doc.addImage(sigImages[customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
+      } else {
+        doc.text("Signature:", cx, sigY + 11);
+        doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+      }
 
       // --- FOOTER DECLARATION on last page ---
       const footerY = sigY + 15;
