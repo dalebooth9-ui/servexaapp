@@ -131,7 +131,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "FieldReport <admin@fieldreport.co.uk>",
+        from: "FieldReport <onboarding@resend.dev>",
         to: [customerEmail],
         subject,
         html: styledHtml,
