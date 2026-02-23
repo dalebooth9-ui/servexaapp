@@ -6,6 +6,20 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function applyTemplate(template: string, vars: Record<string, string>): string {
+  let result = template;
+  // Handle conditional blocks {{#key}}...{{/key}}
+  for (const [key, val] of Object.entries(vars)) {
+    const blockRegex = new RegExp(`\\{\\{#${key}\\}\\}(.+?)\\{\\{/${key}\\}\\}`, "gs");
+    result = result.replace(blockRegex, val ? "$1" : "");
+  }
+  // Replace simple placeholders
+  for (const [key, val] of Object.entries(vars)) {
+    result = result.replaceAll(`{{${key}}}`, val);
+  }
+  return result;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -17,6 +31,16 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey);
     const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 
+    // Load reminder settings
+    const { data: settingsRow } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "followup_reminder")
+      .single();
+
+    const settings = settingsRow?.value as { enabled?: boolean; email_subject?: string; email_body?: string } | null;
+    const emailEnabled = settings?.enabled !== false;
+
     const now = new Date();
     const oneMonthFromNow = new Date(now);
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
@@ -24,7 +48,6 @@ Deno.serve(async (req) => {
     const todayStr = now.toISOString().split("T")[0];
     const cutoffStr = oneMonthFromNow.toISOString().split("T")[0];
 
-    // Get upcoming visits in the 1-month window, include customer info
     const { data: visits, error: visitErr } = await supabase
       .from("job_visits")
       .select("id, scheduled_date, job_id, jobs!inner(id, name, reference_number, status, customer_id, customer, address, customers(name, email))")
@@ -34,36 +57,32 @@ Deno.serve(async (req) => {
 
     if (visitErr) throw visitErr;
 
-    // Filter to follow-up jobs only
     const followUpVisits = (visits || []).filter((v: any) => {
       const name = v.jobs?.name || "";
       return name.startsWith("6m Visual") || name.startsWith("12m Pressure Test");
     });
 
     if (followUpVisits.length === 0) {
-      return new Response(JSON.stringify({ message: "No follow-up reminders due", count: 0, emails: 0 }), {
+      return new Response(JSON.stringify({ message: "No follow-up reminders due", notifications: 0, emails: 0 }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Get all admin user IDs
     const { data: admins } = await supabase
       .from("user_roles")
       .select("user_id")
       .eq("role", "admin");
-
     const adminIds = (admins || []).map((a: any) => a.user_id);
 
     let created = 0;
     let emailsSent = 0;
 
     for (const visit of followUpVisits) {
-      const job = visit.jobs;
+      const job = visit.jobs as any;
       const jobId = job.id;
 
       if (job.status === "completed" || job.status === "archived") continue;
 
-      // Check if we already notified today for this job
       const { data: existing } = await supabase
         .from("notifications")
         .select("id")
@@ -81,7 +100,7 @@ Deno.serve(async (req) => {
       const isVisual = job.name.startsWith("6m Visual");
       const typeLabel = isVisual ? "Visual Inspection" : "Pressure Test";
 
-      // Create in-app notifications for admins
+      // In-app notifications for admins
       if (adminIds.length > 0) {
         const notifications = adminIds.map((uid: string) => ({
           user_id: uid,
@@ -93,80 +112,72 @@ Deno.serve(async (req) => {
         if (!insertErr) created += notifications.length;
       }
 
-      // Send email to customer if they have an email address
+      // Send customer email only if enabled in settings
+      if (!emailEnabled) continue;
+
       const customerEmail = job.customers?.email;
       const customerName = job.customers?.name || job.customer || "Customer";
       const siteAddress = job.address || "";
 
-      if (customerEmail) {
-        const scheduledDateFormatted = new Date(visit.scheduled_date).toLocaleDateString("en-GB", {
-          weekday: "long",
-          day: "numeric",
-          month: "long",
-          year: "numeric",
+      if (!customerEmail) continue;
+
+      const scheduledDateFormatted = new Date(visit.scheduled_date).toLocaleDateString("en-GB", {
+        weekday: "long", day: "numeric", month: "long", year: "numeric",
+      });
+
+      const vars: Record<string, string> = {
+        customer_name: customerName,
+        service_type: typeLabel,
+        service_type_lower: typeLabel.toLowerCase(),
+        reference: job.reference_number,
+        scheduled_date: scheduledDateFormatted,
+        address: siteAddress,
+      };
+
+      const subjectTemplate = settings?.email_subject || "Upcoming {{service_type}} – {{reference}}";
+      const bodyTemplate = settings?.email_body || "";
+
+      const subject = applyTemplate(subjectTemplate, vars);
+      const bodyText = applyTemplate(bodyTemplate, vars);
+      const bodyHtml = bodyText.replace(/\n/g, "<br/>");
+
+      try {
+        const { error: emailErr } = await resend.emails.send({
+          from: "Viva Fire & Protection <noreply@vivafire.co.uk>",
+          to: [customerEmail],
+          subject,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+              <div style="background-color: #dc2626; padding: 20px; text-align: center;">
+                <h1 style="color: #ffffff; margin: 0; font-size: 22px;">Viva Fire & Protection</h1>
+              </div>
+              <div style="padding: 30px 20px; background-color: #ffffff;">
+                ${bodyHtml}
+              </div>
+              <div style="background-color: #f3f4f6; padding: 15px 20px; text-align: center; font-size: 12px; color: #6b7280;">
+                <p style="margin: 0;">Viva Fire & Protection Ltd</p>
+              </div>
+            </div>
+          `,
         });
 
-        try {
-          const { error: emailErr } = await resend.emails.send({
-            from: "Viva Fire & Protection <noreply@vivafire.co.uk>",
-            to: [customerEmail],
-            subject: `Upcoming ${typeLabel} – ${job.reference_number}`,
-            html: `
-              <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-                  <h1 style="color: #ffffff; margin: 0; font-size: 22px;">Viva Fire & Protection</h1>
-                </div>
-                <div style="padding: 30px 20px; background-color: #ffffff;">
-                  <p>Dear ${customerName},</p>
-                  <p>This is a courtesy reminder that a <strong>${typeLabel.toLowerCase()}</strong> service is due at your premises.</p>
-                  <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-                    <tr>
-                      <td style="padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-weight: bold;">Service Type</td>
-                      <td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${typeLabel}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-weight: bold;">Reference</td>
-                      <td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${job.reference_number}</td>
-                    </tr>
-                    <tr>
-                      <td style="padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-weight: bold;">Scheduled Date</td>
-                      <td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${scheduledDateFormatted}</td>
-                    </tr>
-                    ${siteAddress ? `<tr>
-                      <td style="padding: 8px 12px; background: #f9fafb; border: 1px solid #e5e7eb; font-weight: bold;">Location</td>
-                      <td style="padding: 8px 12px; border: 1px solid #e5e7eb;">${siteAddress}</td>
-                    </tr>` : ""}
-                  </table>
-                  <p>Please could you confirm access arrangements for our engineer to attend on or around this date. If this date is not suitable, please let us know and we can arrange an alternative.</p>
-                  <p>If you have any questions, please don't hesitate to get in touch.</p>
-                  <p>Kind regards,<br/><strong>Viva Fire & Protection</strong></p>
-                </div>
-                <div style="background-color: #f3f4f6; padding: 15px 20px; text-align: center; font-size: 12px; color: #6b7280;">
-                  <p style="margin: 0;">Viva Fire & Protection Ltd</p>
-                </div>
-              </div>
-            `,
+        if (!emailErr) {
+          emailsSent++;
+          await supabase.from("customer_notification_log").insert({
+            customer_email: customerEmail,
+            job_id: jobId,
+            notification_type: "follow_up_reminder",
+            subject,
           });
-
-          if (!emailErr) {
-            emailsSent++;
-            // Log the customer notification
-            await supabase.from("customer_notification_log").insert({
-              customer_email: customerEmail,
-              job_id: jobId,
-              notification_type: "follow_up_reminder",
-              subject: `Upcoming ${typeLabel} – ${job.reference_number}`,
-            });
-          } else {
-            console.error(`Email failed for ${customerEmail}:`, emailErr);
-          }
-        } catch (emailCatchErr) {
-          console.error(`Email send error for ${customerEmail}:`, emailCatchErr);
+        } else {
+          console.error(`Email failed for ${customerEmail}:`, emailErr);
         }
+      } catch (emailCatchErr) {
+        console.error(`Email send error for ${customerEmail}:`, emailCatchErr);
       }
     }
 
-    return new Response(JSON.stringify({ message: "Reminders processed", notifications: created, emails: emailsSent }), {
+    return new Response(JSON.stringify({ message: "Reminders processed", notifications: created, emails: emailsSent, emailEnabled }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
