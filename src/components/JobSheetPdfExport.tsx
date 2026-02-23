@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 import jsPDF from "jspdf";
+import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
 
 type TemplateField = {
@@ -345,6 +346,10 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         doc.text(line.trim(), pageWidth / 2, footerY + 3 + i * 3.5, { align: "center" });
       });
 
+
+      // Watermark on every page
+      const watermark = await loadWatermarkImage();
+      if (watermark) addWatermarkToAllPages(doc, watermark);
 
       const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
       doc.save(fileName);
