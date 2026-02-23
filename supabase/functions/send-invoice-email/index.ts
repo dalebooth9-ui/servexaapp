@@ -87,7 +87,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "FieldReport <admin@fieldreport.co.uk>",
+        from: "FieldReport <onboarding@resend.dev>",
         to: [customerEmail],
         subject: `Invoice ${invoiceNumber} - £${Number(total).toFixed(2)}`,
         html: `
