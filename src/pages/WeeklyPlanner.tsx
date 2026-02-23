@@ -436,7 +436,7 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} />
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} />
         </TabsContent>
       </Tabs>
 
