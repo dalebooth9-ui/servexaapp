@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { format, isSameDay } from "date-fns";
+import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -80,6 +80,8 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
     data: { type: "unallocated", job },
   });
 
+  const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date());
+
   return (
     <div
       ref={setNodeRef}
@@ -87,14 +89,14 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
       {...listeners}
       className={cn(
         "rounded-md border-l-4 bg-card p-2 text-xs cursor-grab shadow-sm hover:shadow transition-shadow",
-        PRIORITY_BG[job.priority] || "border-l-muted",
+        isOverdue ? "border-l-destructive bg-destructive/10 ring-1 ring-destructive/30" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30"
       )}
     >
       <div className="flex items-center justify-between gap-1">
         <span className="font-mono font-medium text-primary">{job.reference_number}</span>
         {(job.due_date || job.created_at) && (
-          <span className={cn("text-[9px] font-mono", job.due_date ? "text-foreground font-semibold" : "text-muted-foreground")}>
+          <span className={cn("text-[9px] font-mono", isOverdue ? "text-destructive font-bold" : job.due_date ? "text-foreground font-semibold" : "text-muted-foreground")}>
             {job.due_date ? `Due ${format(new Date(job.due_date), "dd/MM/yy")}` : format(new Date(job.created_at!), "dd/MM/yy")}
           </span>
         )}
