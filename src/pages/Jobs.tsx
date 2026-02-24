@@ -326,10 +326,16 @@ export default function Jobs() {
       fetchJobs();
 
       if (createdJob) {
+        // Fetch templates for the job category, plus pressure_test/visual if quantities are set
+        const categoriesToFetch = new Set<string>();
+        categoriesToFetch.add(form.category);
+        if (form.pressure_test_qty > 0) categoriesToFetch.add("pressure_test");
+        if (form.visual_qty > 0) categoriesToFetch.add("visual");
+
         const { data: matchingTemplates } = await supabase
           .from("job_sheet_templates")
           .select("id, name, fields")
-          .eq("category", form.category);
+          .in("category", Array.from(categoriesToFetch));
         if (matchingTemplates && matchingTemplates.length > 0) {
           for (const tpl of matchingTemplates) {
             const tplName = (tpl.name || "").toLowerCase();
