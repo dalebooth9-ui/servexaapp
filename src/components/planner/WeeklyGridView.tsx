@@ -47,6 +47,7 @@ interface Job {
   pressure_test_qty: number;
   visual_qty: number;
   created_at?: string;
+  due_date?: string | null;
 }
 
 const PRIORITY_BG: Record<string, string> = {
@@ -92,8 +93,10 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
     >
       <div className="flex items-center justify-between gap-1">
         <span className="font-mono font-medium text-primary">{job.reference_number}</span>
-        {job.created_at && (
-          <span className="text-[9px] text-muted-foreground font-mono">{format(new Date(job.created_at), "dd/MM/yy")}</span>
+        {(job.due_date || job.created_at) && (
+          <span className={cn("text-[9px] font-mono", job.due_date ? "text-foreground font-semibold" : "text-muted-foreground")}>
+            {job.due_date ? `Due ${format(new Date(job.due_date), "dd/MM/yy")}` : format(new Date(job.created_at!), "dd/MM/yy")}
+          </span>
         )}
       </div>
       <div className="truncate text-foreground">{job.name}</div>
@@ -268,11 +271,13 @@ export default function WeeklyGridView({
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
-  // Group unallocated jobs by postcode area, sorted by created_at (soonest first)
+  // Group unallocated jobs by postcode area, sorted by due_date then created_at (soonest first)
   const groupedUnallocated = useMemo(() => {
-    const sorted = [...unallocatedJobs].sort(
-      (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-    );
+    const sorted = [...unallocatedJobs].sort((a, b) => {
+      const aDate = new Date(a.due_date || a.created_at || 0).getTime();
+      const bDate = new Date(b.due_date || b.created_at || 0).getTime();
+      return aDate - bDate;
+    });
     const groups: Record<string, Job[]> = {};
     for (const job of sorted) {
       const area = extractPostcodeArea(job);

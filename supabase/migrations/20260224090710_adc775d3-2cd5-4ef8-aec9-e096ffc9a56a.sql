@@ -1,0 +1,1 @@
+ALTER TABLE public.jobs ADD COLUMN due_date date NULL;
