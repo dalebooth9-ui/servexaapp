@@ -1,14 +1,15 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState as useReactState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
 import NotificationBell from "@/components/NotificationBell";
 import ClockInButton from "@/components/ClockInButton";
+import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -27,9 +28,23 @@ const navItems = [
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, userRole, profile, signOut } = useAuth();
-  useEngineerLocation(); // Start GPS tracking for engineers
+  useEngineerLocation();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "business_whatsapp_number")
+      .single()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
+          setWhatsappNumber(data.value);
+        }
+      });
+  }, []);
 
   const visibleNavItems = navItems.filter((item) => !item.adminOnly || userRole === "admin");
 
@@ -77,6 +92,17 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-sidebar-border p-4">
+          {whatsappNumber && (
+            <a
+              href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mb-3 flex items-center gap-2 rounded-lg bg-sidebar-accent px-3 py-2 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80"
+            >
+              <MessageCircle className="h-4 w-4 text-green-500" />
+              <span className="truncate">WhatsApp: {whatsappNumber}</span>
+            </a>
+          )}
           <div className="mb-3 text-xs">
             <p className="font-medium text-sidebar-accent-foreground">{profile?.full_name || user?.email}</p>
             <p className="text-sidebar-foreground/60 capitalize">{userRole || "user"}</p>
