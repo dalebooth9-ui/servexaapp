@@ -1,5 +1,80 @@
 import jsPDF from "jspdf";
 
+export interface AutoPopulateJobInfo {
+  address?: string | null;
+  customer?: string | null;
+  customers?: { name: string } | null;
+  reference_number?: string;
+  category?: string | null;
+  name?: string | null;
+  engineers?: string[];
+  site?: {
+    name: string;
+    address: string | null;
+    postcode?: string | null;
+  } | null;
+}
+
+/**
+ * Auto-populate field values for a PDF export based on job/site data,
+ * mirroring the online sheet logic.
+ */
+export function getAutoPopulatedValues(
+  templateName: string,
+  fields: PdfTemplateField[],
+  jobInfo: AutoPopulateJobInfo | null | undefined
+): Record<string, string> {
+  const vals: Record<string, string> = {};
+  if (!jobInfo) return vals;
+
+  const customerName = jobInfo.customers?.name || jobInfo.customer || "";
+  const siteName = jobInfo.site?.name || "";
+  const siteAddress = jobInfo.site?.address || jobInfo.address || "";
+  const sitePostcode = jobInfo.site?.postcode || "";
+  const engineerList = (jobInfo.engineers || []).join(", ");
+  const refNumber = jobInfo.reference_number || "";
+  const dateVal = new Date().toLocaleDateString("en-GB");
+
+  fields.forEach((f) => {
+    const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+
+    if ((label.includes("site") && label.includes("detail")) || (label.includes("site") && label.includes("info"))) {
+      vals[f.id] = [siteName, siteAddress, sitePostcode].filter(Boolean).join(", ");
+    } else if (label === "site name" || label === "site") {
+      vals[f.id] = siteName;
+    } else if (label === "site address" || label === "address") {
+      vals[f.id] = [siteAddress, sitePostcode].filter(Boolean).join(", ");
+    } else if (label.includes("postcode") || label.includes("post code")) {
+      vals[f.id] = sitePostcode;
+    } else if ((label.includes("customer") && label.includes("detail")) || (label.includes("client") && label.includes("detail"))) {
+      vals[f.id] = customerName;
+    } else if (label === "customer name" || label === "client name" || label === "customer" || label === "client") {
+      vals[f.id] = customerName;
+    } else if (label.includes("customer") && !label.includes("sign") && !label.includes("email") && !label.includes("phone")) {
+      vals[f.id] = customerName;
+    } else if (label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("order number")) {
+      vals[f.id] = refNumber;
+    } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date") {
+      vals[f.id] = dateVal;
+    } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
+      const tplName = templateName.toLowerCase();
+      if (tplName.includes("pressure test") || tplName.includes("pressure-test")) {
+        vals[f.id] = "Pressure Test";
+      } else if (tplName.includes("visual")) {
+        vals[f.id] = "Visual";
+      } else {
+        vals[f.id] = jobInfo.category || "";
+      }
+    } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
+      vals[f.id] = engineerList;
+    } else if (label === "job name" || label === "job title" || label === "job description") {
+      vals[f.id] = jobInfo.name || "";
+    }
+  });
+
+  return vals;
+}
+
 export type PdfTemplateField = {
   id: string;
   label: string;
