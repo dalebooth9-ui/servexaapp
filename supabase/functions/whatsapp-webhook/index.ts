@@ -37,7 +37,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const isValid = await validateTwilioSignature(req.url, params, signature, TWILIO_AUTH_TOKEN);
+    // Use the public-facing URL that Twilio signs against, not the internal req.url
+    const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+    const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
     if (!isValid) {
       console.error("Invalid Twilio signature");
       return new Response("<Response></Response>", {
