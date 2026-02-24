@@ -350,10 +350,13 @@ export default function Jobs() {
             const category = form.category || "";
 
             for (let copyIndex = 0; copyIndex < copies; copyIndex++) {
+              const riserLabel = copies > 1 ? `Riser ${copyIndex + 1}` : "";
               const prefilled: Record<string, any> = {};
               fields.forEach((f: any) => {
                 const label = (f.label || "").toLowerCase();
-                if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) {
+                if (label.includes("riser") && label.includes("location")) {
+                  prefilled[f.id] = riserLabel;
+                } else if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) {
                   prefilled[f.id] = customerName || "";
                 } else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") {
                   prefilled[f.id] = address;
