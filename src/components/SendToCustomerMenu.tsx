@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,7 +45,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [sheetResponses, setSheetResponses] = useState<any[]>([]);
   const [selectedSheets, setSelectedSheets] = useState<Set<string>>(new Set());
   const [sheetPdfs, setSheetPdfs] = useState<Record<string, { base64: string; fileName: string }>>({}); 
-  const [generatingSheets, setGeneratingSheets] = useState(false);
+  
 
   const buildSubjectAndMessage = (docs: Set<DocOption>) => {
     const parts: string[] = [];
@@ -111,60 +111,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     setLoadingInvoices(false);
   };
 
-  const generateSheetPdfs = async () => {
-    if (selectedSheets.size === 0) return;
-    setGeneratingSheets(true);
-    try {
-      const results: Record<string, { base64: string; fileName: string }> = {};
-      for (const sheetId of selectedSheets) {
-        if (sheetPdfs[sheetId]) {
-          results[sheetId] = sheetPdfs[sheetId];
-          continue;
-        }
-        const response = sheetResponses.find((r: any) => r.id === sheetId);
-        if (!response) continue;
-
-        // Fetch full response data
-        const { data: fullResponse } = await supabase
-          .from("job_sheet_responses")
-          .select("*")
-          .eq("id", sheetId)
-          .single();
-        if (!fullResponse) continue;
-
-        const template = response.job_sheet_templates as any;
-        const formData = (fullResponse.responses as Record<string, any>) || {};
-
-        const { base64, fileName } = await generateJobSheetPdf(
-          {
-            id: template.id,
-            name: template.name,
-            description: null,
-            fields: template.fields || [],
-            branding: template.branding || {},
-          },
-          formData,
-          {
-            address: job.address,
-            customer: job.customer,
-            customers: job.customers,
-            reference_number: job.reference_number,
-            site: job.sites,
-          },
-          jobId,
-          undefined,
-          fullResponse.submitted_at,
-        );
-        results[sheetId] = { base64, fileName };
-      }
-      setSheetPdfs((prev) => ({ ...prev, ...results }));
-      toast({ title: "Job sheets ready", description: `${Object.keys(results).length} PDF(s) generated.` });
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    } finally {
-      setGeneratingSheets(false);
-    }
-  };
+  // Job sheet PDFs are now auto-generated on send (no separate step needed)
 
   const handleSend = async () => {
     if (!email.trim()) {
@@ -184,12 +131,31 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         attachments.push({ filename: reportFileName || `${job.reference_number}-report.pdf`, content: reportBase64 });
       }
 
-      if (selectedDocs.has("jobsheets")) {
+      // Auto-generate job sheet PDFs on send
+      if (selectedDocs.has("jobsheets") && selectedSheets.size > 0) {
         for (const sheetId of selectedSheets) {
-          const pdf = sheetPdfs[sheetId];
-          if (pdf) {
-            attachments.push({ filename: pdf.fileName, content: pdf.base64 });
+          // Use cached PDF if already generated, otherwise generate now
+          if (sheetPdfs[sheetId]) {
+            attachments.push({ filename: sheetPdfs[sheetId].fileName, content: sheetPdfs[sheetId].base64 });
+            continue;
           }
+          const response = sheetResponses.find((r: any) => r.id === sheetId);
+          if (!response) continue;
+          const { data: fullResponse } = await supabase
+            .from("job_sheet_responses")
+            .select("*")
+            .eq("id", sheetId)
+            .single();
+          if (!fullResponse) continue;
+          const template = response.job_sheet_templates as any;
+          const formData = (fullResponse.responses as Record<string, any>) || {};
+          const { base64, fileName } = await generateJobSheetPdf(
+            { id: template.id, name: template.name, description: null, fields: template.fields || [], branding: template.branding || {} },
+            formData,
+            { address: job.address, customer: job.customer, customers: job.customers, reference_number: job.reference_number, site: job.sites },
+            jobId, undefined, fullResponse.submitted_at,
+          );
+          attachments.push({ filename: fileName, content: base64 });
         }
       }
 
@@ -224,7 +190,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const invoiceOptions = invoices.filter((i) => (i.document_type || "invoice") === "invoice");
   const quoteOptions = invoices.filter((i) => i.document_type === "quote");
 
-  const allSheetsReady = selectedSheets.size > 0 && [...selectedSheets].every((id) => sheetPdfs[id]);
+  // allSheetsReady removed — sheets auto-generate on send
 
   return (
     <>
@@ -353,39 +319,15 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                               <p className="text-sm font-medium truncate">{tpl?.name || "Job Sheet"}</p>
                               <p className="text-xs text-muted-foreground">Submitted {submittedDate}</p>
                             </div>
-                            {sheetPdfs[resp.id] && (
-                              <span className="text-xs font-medium text-primary shrink-0">✓ Ready</span>
-                            )}
                           </label>
                         );
                       })}
                     </div>
-                    <div className="flex items-center justify-between pt-1">
-                      {allSheetsReady ? (
-                        <span className="text-xs font-medium text-primary">✓ All selected sheets ready</span>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          {selectedSheets.size} selected
-                        </span>
-                      )}
-                      {selectedSheets.size > 0 && !allSheetsReady && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="gap-1"
-                          onClick={generateSheetPdfs}
-                          disabled={generatingSheets}
-                        >
-                          {generatingSheets ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <ClipboardCheck className="h-3 w-3" />
-                          )}
-                          {generatingSheets ? "Generating…" : "Generate PDFs"}
-                        </Button>
-                      )}
-                    </div>
+                    {selectedSheets.size > 0 && (
+                      <p className="text-xs text-muted-foreground pt-1">
+                        {selectedSheets.size} sheet{selectedSheets.size !== 1 ? "s" : ""} will be generated automatically on send
+                      </p>
+                    )}
                   </>
                 )}
               </div>
