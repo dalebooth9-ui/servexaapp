@@ -1,13 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -19,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, FileText, Receipt, ClipboardList, Loader2, Mail } from "lucide-react";
+import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
+import { generateJobSheetPdf } from "./JobSheetPdfExport";
 
 interface Props {
   jobId: string;
@@ -29,7 +23,7 @@ interface Props {
   customerEmail?: string;
 }
 
-type DocOption = "report" | "quote" | "invoice";
+type DocOption = "report" | "quote" | "invoice" | "jobsheets";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
@@ -47,11 +41,42 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [selectedInvoice, setSelectedInvoice] = useState("");
   const [loadingInvoices, setLoadingInvoices] = useState(false);
 
-  const toggleDoc = (doc: DocOption) => {
-    setSelectedDocs((prev) => {
+  // Job sheet responses
+  const [sheetResponses, setSheetResponses] = useState<any[]>([]);
+  const [selectedSheets, setSelectedSheets] = useState<Set<string>>(new Set());
+  const [sheetPdfs, setSheetPdfs] = useState<Record<string, { base64: string; fileName: string }>>({}); 
+  const [generatingSheets, setGeneratingSheets] = useState(false);
+
+  const buildSubjectAndMessage = (docs: Set<DocOption>) => {
+    const parts: string[] = [];
+    if (docs.has("report")) parts.push("Report");
+    if (docs.has("jobsheets")) parts.push("Job Sheets");
+    if (docs.has("quote")) parts.push("Quote");
+    if (docs.has("invoice")) parts.push("Invoice");
+    setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
+
+    const items: string[] = [];
+    if (docs.has("report")) items.push("the report");
+    if (docs.has("jobsheets")) items.push("the completed job sheets");
+    if (docs.has("quote")) items.push("our quote for further works");
+    if (docs.has("invoice")) items.push("your invoice");
+    const itemStr = items.length > 0 ? items.join(", ") : "the documents";
+    setMessage(`Dear ${job.customers?.name || job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
+  };
+
+  const handleDocToggleImmediate = (doc: DocOption) => {
+    const next = new Set(selectedDocs);
+    if (next.has(doc)) next.delete(doc);
+    else next.add(doc);
+    setSelectedDocs(next);
+    buildSubjectAndMessage(next);
+  };
+
+  const toggleSheet = (id: string) => {
+    setSelectedSheets((prev) => {
       const next = new Set(prev);
-      if (next.has(doc)) next.delete(doc);
-      else next.add(doc);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
@@ -61,68 +86,84 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     setReportBase64(null);
     setSelectedInvoice("");
     setSelectedDocs(new Set());
+    setSelectedSheets(new Set());
+    setSheetPdfs({});
     setDialogOpen(true);
 
-    // Pre-load invoices
+    // Pre-load invoices and sheet responses in parallel
     setLoadingInvoices(true);
-    const { data } = await supabase
-      .from("invoices")
-      .select("id, invoice_number, total, status, document_type")
-      .eq("job_id", jobId)
-      .order("created_at", { ascending: false });
-    setInvoices(data || []);
-    if (data && data.length > 0) setSelectedInvoice(data[0].id);
+    const [invRes, sheetsRes] = await Promise.all([
+      supabase
+        .from("invoices")
+        .select("id, invoice_number, total, status, document_type")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("job_sheet_responses")
+        .select("id, template_id, submitted_at, status, job_sheet_templates(id, name, fields, branding)")
+        .eq("job_id", jobId)
+        .eq("status", "submitted")
+        .order("submitted_at", { ascending: false }),
+    ]);
+    setInvoices(invRes.data || []);
+    if (invRes.data && invRes.data.length > 0) setSelectedInvoice(invRes.data[0].id);
+    setSheetResponses(sheetsRes.data || []);
     setLoadingInvoices(false);
   };
 
-  // Build subject line based on selections
-  const getAutoSubject = () => {
-    const parts: string[] = [];
-    if (selectedDocs.has("report")) parts.push("Report");
-    if (selectedDocs.has("quote")) parts.push("Quote");
-    if (selectedDocs.has("invoice")) parts.push("Invoice");
-    if (parts.length === 0) return `Documents — ${job.reference_number}`;
-    return `${parts.join(" & ")} — ${job.reference_number}`;
-  };
+  const generateSheetPdfs = async () => {
+    if (selectedSheets.size === 0) return;
+    setGeneratingSheets(true);
+    try {
+      const results: Record<string, { base64: string; fileName: string }> = {};
+      for (const sheetId of selectedSheets) {
+        if (sheetPdfs[sheetId]) {
+          results[sheetId] = sheetPdfs[sheetId];
+          continue;
+        }
+        const response = sheetResponses.find((r: any) => r.id === sheetId);
+        if (!response) continue;
 
-  const getAutoMessage = () => {
-    const items: string[] = [];
-    if (selectedDocs.has("report")) items.push("the report");
-    if (selectedDocs.has("quote")) items.push("our quote for further works");
-    if (selectedDocs.has("invoice")) items.push("your invoice");
-    const itemStr = items.length > 0 ? items.join(", ") : "the documents";
-    return `Dear ${job.customers?.name || job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`;
-  };
+        // Fetch full response data
+        const { data: fullResponse } = await supabase
+          .from("job_sheet_responses")
+          .select("*")
+          .eq("id", sheetId)
+          .single();
+        if (!fullResponse) continue;
 
-  // Update subject/message when selections change
-  const handleDocToggle = (doc: DocOption) => {
-    toggleDoc(doc);
-    // Defer to next tick so state is updated
-    setTimeout(() => {
-      setSubject(getAutoSubject());
-      setMessage(getAutoMessage());
-    }, 0);
-  };
+        const template = response.job_sheet_templates as any;
+        const formData = (fullResponse.responses as Record<string, any>) || {};
 
-  // We need a version that reads from the toggled set directly
-  const handleDocToggleImmediate = (doc: DocOption) => {
-    const next = new Set(selectedDocs);
-    if (next.has(doc)) next.delete(doc);
-    else next.add(doc);
-    setSelectedDocs(next);
-
-    const parts: string[] = [];
-    if (next.has("report")) parts.push("Report");
-    if (next.has("quote")) parts.push("Quote");
-    if (next.has("invoice")) parts.push("Invoice");
-    setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
-
-    const items: string[] = [];
-    if (next.has("report")) items.push("the report");
-    if (next.has("quote")) items.push("our quote for further works");
-    if (next.has("invoice")) items.push("your invoice");
-    const itemStr = items.length > 0 ? items.join(", ") : "the documents";
-    setMessage(`Dear ${job.customers?.name || job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
+        const { base64, fileName } = await generateJobSheetPdf(
+          {
+            id: template.id,
+            name: template.name,
+            description: null,
+            fields: template.fields || [],
+            branding: template.branding || {},
+          },
+          formData,
+          {
+            address: job.address,
+            customer: job.customer,
+            customers: job.customers,
+            reference_number: job.reference_number,
+            site: job.sites,
+          },
+          jobId,
+          undefined,
+          fullResponse.submitted_at,
+        );
+        results[sheetId] = { base64, fileName };
+      }
+      setSheetPdfs((prev) => ({ ...prev, ...results }));
+      toast({ title: "Job sheets ready", description: `${Object.keys(results).length} PDF(s) generated.` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingSheets(false);
+    }
   };
 
   const handleSend = async () => {
@@ -143,6 +184,15 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         attachments.push({ filename: reportFileName || `${job.reference_number}-report.pdf`, content: reportBase64 });
       }
 
+      if (selectedDocs.has("jobsheets")) {
+        for (const sheetId of selectedSheets) {
+          const pdf = sheetPdfs[sheetId];
+          if (pdf) {
+            attachments.push({ filename: pdf.fileName, content: pdf.base64 });
+          }
+        }
+      }
+
       const { error } = await supabase.functions.invoke("send-customer-email", {
         body: {
           customerEmail: email.trim(),
@@ -158,7 +208,10 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
 
       if (error) throw error;
 
-      const docNames = Array.from(selectedDocs).map((d) => d.charAt(0).toUpperCase() + d.slice(1));
+      const docNames = Array.from(selectedDocs).map((d) => {
+        if (d === "jobsheets") return "Job Sheets";
+        return d.charAt(0).toUpperCase() + d.slice(1);
+      });
       toast({ title: "Email sent", description: `${docNames.join(", ")} sent to ${email}.` });
       setDialogOpen(false);
     } catch (err: any) {
@@ -170,6 +223,8 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
 
   const invoiceOptions = invoices.filter((i) => (i.document_type || "invoice") === "invoice");
   const quoteOptions = invoices.filter((i) => i.document_type === "quote");
+
+  const allSheetsReady = selectedSheets.size > 0 && [...selectedSheets].every((id) => sheetPdfs[id]);
 
   return (
     <>
@@ -201,8 +256,22 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                   />
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-sm font-medium">Job Report</p>
+                    <p className="text-sm font-medium">Customer Report</p>
                     <p className="text-xs text-muted-foreground">Customer report PDF for this job</p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Checkbox
+                    checked={selectedDocs.has("jobsheets")}
+                    onCheckedChange={() => handleDocToggleImmediate("jobsheets")}
+                  />
+                  <ClipboardCheck className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Job Sheets</p>
+                    <p className="text-xs text-muted-foreground">
+                      Completed job sheet PDFs ({sheetResponses.length} submitted)
+                    </p>
                   </div>
                 </label>
 
@@ -253,6 +322,71 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                       </Button>
                     }
                   />
+                )}
+              </div>
+            )}
+
+            {/* Job sheet selection */}
+            {selectedDocs.has("jobsheets") && (
+              <div className="space-y-2">
+                <Label className="text-sm">Select Job Sheets to Attach</Label>
+                {sheetResponses.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No submitted job sheets for this job.</p>
+                ) : (
+                  <>
+                    <div className="space-y-1.5 max-h-36 overflow-y-auto">
+                      {sheetResponses.map((resp: any) => {
+                        const tpl = resp.job_sheet_templates;
+                        const submittedDate = resp.submitted_at
+                          ? new Date(resp.submitted_at).toLocaleDateString("en-GB")
+                          : "—";
+                        return (
+                          <label
+                            key={resp.id}
+                            className="flex items-center gap-3 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50 transition-colors"
+                          >
+                            <Checkbox
+                              checked={selectedSheets.has(resp.id)}
+                              onCheckedChange={() => toggleSheet(resp.id)}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{tpl?.name || "Job Sheet"}</p>
+                              <p className="text-xs text-muted-foreground">Submitted {submittedDate}</p>
+                            </div>
+                            {sheetPdfs[resp.id] && (
+                              <span className="text-xs font-medium text-primary shrink-0">✓ Ready</span>
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      {allSheetsReady ? (
+                        <span className="text-xs font-medium text-primary">✓ All selected sheets ready</span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          {selectedSheets.size} selected
+                        </span>
+                      )}
+                      {selectedSheets.size > 0 && !allSheetsReady && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="gap-1"
+                          onClick={generateSheetPdfs}
+                          disabled={generatingSheets}
+                        >
+                          {generatingSheets ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <ClipboardCheck className="h-3 w-3" />
+                          )}
+                          {generatingSheets ? "Generating…" : "Generate PDFs"}
+                        </Button>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             )}

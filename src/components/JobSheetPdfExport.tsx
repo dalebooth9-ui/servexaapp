@@ -46,160 +46,204 @@ interface Props {
   jobId: string;
   submittedBy?: string;
   submittedAt?: string | null;
+  onPdfGenerated?: (pdfBase64: string, fileName: string) => void;
+  trigger?: React.ReactNode;
 }
 
-export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt }: Props) {
+/**
+ * Generate a filled job sheet PDF and return it as { base64, fileName }.
+ * Extracted so it can be called from SendToCustomerMenu without mounting the component.
+ */
+export async function generateJobSheetPdf(
+  template: Template,
+  formData: Record<string, any>,
+  jobInfo: JobInfo | null,
+  jobId: string,
+  submittedBy?: string,
+  submittedAt?: string | null,
+): Promise<{ base64: string; fileName: string }> {
+  // Pre-fetch signatures for this job
+  const { data: sigData } = await supabase
+    .from("job_signatures")
+    .select("*")
+    .eq("job_id", jobId)
+    .order("created_at", { ascending: true });
+  const signatures = (sigData || []) as any[];
+  const sigImages: Record<string, HTMLImageElement> = {};
+  await Promise.all(signatures.map(async (sig) => {
+    try {
+      const { data } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
+      if (!data?.signedUrl) return;
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject();
+        img.src = data.signedUrl;
+      });
+      sigImages[sig.id] = img;
+    } catch { /* skip */ }
+  }));
+
+  const doc = new jsPDF();
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 10;
+  const maxWidth = pageWidth - margin * 2;
+
+  const branding = template.branding || {};
+  const footerText = getDefaultFooterText(template.name, branding);
+
+  // Helper: find form value by label pattern
+  const findFormVal = (...patterns: string[]): string => {
+    for (const f of template.fields) {
+      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+      if (patterns.some(p => label.includes(p) || label === p)) {
+        const v = formData[f.id];
+        if (v) return String(v);
+      }
+    }
+    return "";
+  };
+
+  const customerName = findFormVal("customer detail", "customer name", "client") || jobInfo?.customers?.name || jobInfo?.customer || "";
+  const siteFormVal = findFormVal("site detail", "site info", "site name", "site address");
+  const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
+  const siteName = jobInfo?.site?.name || "";
+  const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
+  const dateVal = formData["date"] || formData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
+  const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
+  const riserLocValue = riserField && formData[riserField.id] ? String(formData[riserField.id]) : "";
+
+  let y = await renderPdfHeader(doc, template.name, branding, {
+    customerName,
+    siteName: siteFormVal || siteName,
+    siteAddress: siteFormVal ? "" : siteAddress,
+    refNumber,
+    dateVal,
+    riserLocation: riserLocValue,
+  });
+
+  // --- Shared layout utilities ---
+  const footerSpace = 28;
+  const availableH = pageHeight - y - footerSpace;
+  const skipIds = buildSkipIds(template.fields);
+  const sections = getSections(template.fields);
+  const colSplit = maxWidth * 0.68;
+
+  const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
+  const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
+  const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
+  const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
+  const commentsH = (commentsVal || materialsVal) ? 9 : 0;
+
+  const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
+    extraSpaceUsed: commentsH,
+  });
+
+  for (const section of sections) {
+    const sectionFields = getSectionFields(template.fields, section, skipIds);
+    if (sectionFields.length === 0) continue;
+
+    y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
+
+    for (const field of sectionFields) {
+      y = renderFilledFieldRow(doc, field, formData[field.id], formData[`${field.id}_notes`], y, {
+        margin, maxWidth, colSplit, rowH: layout.rowH,
+      });
+    }
+    y += 1;
+  }
+
+  // --- Comments + Materials compact ---
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+
+  if (commentsVal || materialsVal) {
+    const commentTextWidth = maxWidth - 19;
+    doc.text("Comments:", margin, y + 3);
+    doc.setFont("helvetica", "normal");
+    const wrappedComments = doc.splitTextToSize(String(commentsVal) || "None", commentTextWidth);
+    doc.text(wrappedComments, margin + 18, y + 3);
+    y += Math.max(4, wrappedComments.length * 3);
+    doc.setFont("helvetica", "bold");
+    doc.text("Materials:", margin, y + 3);
+    doc.setFont("helvetica", "normal");
+    const wrappedMaterials = doc.splitTextToSize(String(materialsVal) || "None", commentTextWidth);
+    doc.text(wrappedMaterials, margin + 18, y + 3);
+    y += Math.max(4, wrappedMaterials.length * 3) + 1;
+  }
+
+  // --- Signature blocks ---
+  const sigY = Math.max(y + 2, pageHeight - footerSpace);
+  const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
+
+  const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
+  const customerSig = signatures.find((s: any) => s.signer_role === "customer");
+
+  const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
+  const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
+
+  const footerY = renderPdfSignatures(doc, sigY, {
+    dateStr,
+    technicianName: techName,
+    customerName: jobInfo?.customers?.name || jobInfo?.customer || "",
+    sigImages,
+    engineerSig,
+    customerSig,
+  });
+
+  renderPdfFooter(doc, footerY, footerText);
+
+  const watermark = await loadWatermarkImage();
+  if (watermark) addWatermarkToAllPages(doc, watermark);
+
+  const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
+  const base64 = doc.output("datauristring").split(",")[1];
+
+  return { base64, fileName };
+}
+
+export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
 
   const generate = async () => {
     setGenerating(true);
     try {
-      // Pre-fetch signatures for this job
-      const { data: sigData } = await supabase
-        .from("job_signatures")
-        .select("*")
-        .eq("job_id", jobId)
-        .order("created_at", { ascending: true });
-      const signatures = (sigData || []) as any[];
-      const sigImages: Record<string, HTMLImageElement> = {};
-      await Promise.all(signatures.map(async (sig) => {
-        try {
-          const { data } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
-          if (!data?.signedUrl) return;
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject();
-            img.src = data.signedUrl;
-          });
-          sigImages[sig.id] = img;
-        } catch { /* skip */ }
-      }));
+      const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt);
 
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxWidth = pageWidth - margin * 2;
-
-      const branding = template.branding || {};
-      const footerText = getDefaultFooterText(template.name, branding);
-
-      // Helper: find form value by label pattern
-      const findFormVal = (...patterns: string[]): string => {
-        for (const f of template.fields) {
-          const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
-          if (patterns.some(p => label.includes(p) || label === p)) {
-            const v = formData[f.id];
-            if (v) return String(v);
-          }
+      if (onPdfGenerated) {
+        onPdfGenerated(base64, fileName);
+      } else {
+        // Download the file
+        const doc = new jsPDF();
+        // Re-create from base64 for download
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
         }
-        return "";
-      };
-
-      const customerName = findFormVal("customer detail", "customer name", "client") || jobInfo?.customers?.name || jobInfo?.customer || "";
-      const siteFormVal = findFormVal("site detail", "site info", "site name", "site address");
-      const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
-      const siteName = jobInfo?.site?.name || "";
-      const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
-      const dateVal = formData["date"] || formData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
-      const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-      const riserLocValue = riserField && formData[riserField.id] ? String(formData[riserField.id]) : "";
-
-      let y = await renderPdfHeader(doc, template.name, branding, {
-        customerName,
-        siteName: siteFormVal || siteName,
-        siteAddress: siteFormVal ? "" : siteAddress,
-        refNumber,
-        dateVal,
-        riserLocation: riserLocValue,
-      });
-
-      // --- Shared layout utilities ---
-      const footerSpace = 28;
-      const availableH = pageHeight - y - footerSpace;
-      const skipIds = buildSkipIds(template.fields);
-      const sections = getSections(template.fields);
-      const colSplit = maxWidth * 0.68;
-
-      const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
-      const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
-      const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
-      const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
-      const commentsH = (commentsVal || materialsVal) ? 9 : 0;
-
-      const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
-        extraSpaceUsed: commentsH,
-      });
-
-      for (const section of sections) {
-        const sectionFields = getSectionFields(template.fields, section, skipIds);
-        if (sectionFields.length === 0) continue;
-
-        y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
-
-        for (const field of sectionFields) {
-          y = renderFilledFieldRow(doc, field, formData[field.id], formData[`${field.id}_notes`], y, {
-            margin, maxWidth, colSplit, rowH: layout.rowH,
-          });
-        }
-        y += 1;
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: "application/pdf" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        link.click();
+        URL.revokeObjectURL(url);
       }
-
-      // --- Comments + Materials compact ---
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "bold");
-
-      if (commentsVal || materialsVal) {
-        const commentTextWidth = maxWidth - 19;
-        doc.text("Comments:", margin, y + 3);
-        doc.setFont("helvetica", "normal");
-        const wrappedComments = doc.splitTextToSize(String(commentsVal) || "None", commentTextWidth);
-        doc.text(wrappedComments, margin + 18, y + 3);
-        y += Math.max(4, wrappedComments.length * 3);
-        doc.setFont("helvetica", "bold");
-        doc.text("Materials:", margin, y + 3);
-        doc.setFont("helvetica", "normal");
-        const wrappedMaterials = doc.splitTextToSize(String(materialsVal) || "None", commentTextWidth);
-        doc.text(wrappedMaterials, margin + 18, y + 3);
-        y += Math.max(4, wrappedMaterials.length * 3) + 1;
-      }
-
-      // --- Signature blocks ---
-      const sigY = Math.max(y + 2, pageHeight - footerSpace);
-      const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
-
-      const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
-      const customerSig = signatures.find((s: any) => s.signer_role === "customer");
-
-      const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
-      const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
-
-      const footerY = renderPdfSignatures(doc, sigY, {
-        dateStr,
-        technicianName: techName,
-        customerName: jobInfo?.customers?.name || jobInfo?.customer || "",
-        sigImages,
-        engineerSig,
-        customerSig,
-      });
-
-      renderPdfFooter(doc, footerY, footerText);
-
-      const watermark = await loadWatermarkImage();
-      if (watermark) addWatermarkToAllPages(doc, watermark);
-
-      const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
-      doc.save(fileName);
-      toast({ title: "PDF generated", description: `${fileName} downloaded.` });
+      toast({ title: "PDF generated", description: `${fileName} ${onPdfGenerated ? "attached" : "downloaded"}.` });
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
     }
   };
+
+  if (trigger) {
+    return <span onClick={generate} className="cursor-pointer">{trigger}</span>;
+  }
 
   return (
     <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
