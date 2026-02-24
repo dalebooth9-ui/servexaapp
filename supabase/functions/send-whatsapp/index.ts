@@ -38,14 +38,19 @@ Deno.serve(async (req) => {
 
     const userId = claimsData.claims.sub;
 
-    // Check admin role
+    // Check admin or engineer role
     const { data: isAdmin } = await supabase.rpc("has_role", {
       _user_id: userId,
       _role: "admin",
     });
 
-    if (!isAdmin) {
-      return new Response(JSON.stringify({ error: "Forbidden: admin only" }), {
+    const { data: isEngineer } = await supabase.rpc("has_role", {
+      _user_id: userId,
+      _role: "engineer",
+    });
+
+    if (!isAdmin && !isEngineer) {
+      return new Response(JSON.stringify({ error: "Forbidden: admin or engineer only" }), {
         status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
