@@ -8,23 +8,21 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
-
-
-type TemplateField = {
-  id: string;
-  label: string;
-  type: string;
-  required: boolean;
-  section: string;
-  options?: string[];
-  allow_notes?: boolean;
-};
+import {
+  PdfTemplateField,
+  buildSkipIds,
+  getSections,
+  getSectionFields,
+  computeSectionLayout,
+  renderSectionHeader,
+  renderFilledFieldRow,
+} from "@/lib/pdfBody";
 
 type Template = {
   id: string;
   name: string;
   description: string | null;
-  fields: TemplateField[];
+  fields: PdfTemplateField[];
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -85,7 +83,6 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 10;
       const maxWidth = pageWidth - margin * 2;
-      
 
       const branding = template.branding || {};
       const footerText = getDefaultFooterText(template.name, branding);
@@ -120,129 +117,33 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         riserLocation: riserLocValue,
       });
 
-      // --- Calculate available space for sections ---
-      const footerSpace = 28; // signatures + footer declaration
+      // --- Shared layout utilities ---
+      const footerSpace = 28;
       const availableH = pageHeight - y - footerSpace;
-
-      // --- Sections and fields as compact table ---
-      const sections = [...new Set(template.fields.map((f) => f.section || "General"))];
-      // Skip fields already shown in header or excluded from PDF
-      const skipIds = new Set<string>();
-      template.fields.forEach((f) => {
-        const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
-        if (
-          (label.includes("customer") && (label.includes("detail") || label === "customer" || label === "customer name" || label === "client")) ||
-          label === "date" || label === "inspection date" || label === "service date" || label === "visit date" ||
-          label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("order number") ||
-          (label.includes("site") && (label.includes("detail") || label.includes("info"))) ||
-          label === "site name" || label === "site" || label === "site address" || label === "address" ||
-          label.includes("postcode") || label.includes("post code") ||
-          label.includes("riser location") ||
-          label.includes("technician name") || label.includes("engineer") ||
-          label === "comments" || label.includes("comment") ||
-          label.includes("material")
-        ) {
-          skipIds.add(f.id);
-        }
-      });
-
+      const skipIds = buildSkipIds(template.fields);
+      const sections = getSections(template.fields);
       const colSplit = maxWidth * 0.68;
 
-      // Count total rows and section headers to dynamically size rows
-      let totalFieldRows = 0;
-      let totalSectionHeaders = 0;
-      const sectionHeaderH = 6;
       const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
       const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
       const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
       const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
       const commentsH = (commentsVal || materialsVal) ? 9 : 0;
 
-      for (const sec of sections) {
-        const sf = template.fields.filter(
-          (f) => (f.section || "General") === sec && !skipIds.has(f.id)
-        );
-        if (sf.length === 0) continue;
-        totalSectionHeaders++;
-        totalFieldRows += sf.length;
-      }
-
-      const usedByHeaders = totalSectionHeaders * sectionHeaderH + totalSectionHeaders; // +1 gap per section
-      const spaceForRows = availableH - usedByHeaders - commentsH;
-      const rowH = Math.max(4, Math.min(7, spaceForRows / Math.max(totalFieldRows, 1)));
+      const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
+        extraSpaceUsed: commentsH,
+      });
 
       for (const section of sections) {
-        const sectionFields = template.fields.filter(
-          (f) => (f.section || "General") === section && !skipIds.has(f.id)
-        );
+        const sectionFields = getSectionFields(template.fields, section, skipIds);
         if (sectionFields.length === 0) continue;
 
-        // Section header
-        doc.setFillColor(230, 230, 230);
-        doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-        doc.setDrawColor(0);
-        doc.rect(margin, y, maxWidth, sectionHeaderH);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.text(section.toUpperCase(), margin + 1, y + 4.5);
-        doc.text("RESULT", margin + colSplit + 1, y + 4.5);
-        y += sectionHeaderH;
+        y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
-        // Field rows
-        doc.setFontSize(8.5);
         for (const field of sectionFields) {
-          doc.setDrawColor(180);
-          doc.rect(margin, y, colSplit, rowH);
-          doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
-
-          // Label
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(0, 0, 0);
-          const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
-          doc.text(label, margin + 1, y + 3);
-
-          // Value
-          const val = formData[field.id];
-          let displayVal = "";
-          if (field.type === "pass_fail") {
-            displayVal = val === "pass" ? "PASS" : val === "fail" ? "FAIL" : val === "n/a" ? "N/A" : "—";
-            if (val === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-            else if (val === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-            doc.text(displayVal, margin + colSplit + 1, y + 3);
-          } else if (field.type === "checkbox") {
-            displayVal = val ? "YES" : "NO";
-            doc.text(displayVal, margin + colSplit + 1, y + 3);
-          } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o: string) => o.toLowerCase() === "yes"))) {
-            const strVal = String(val || "").toLowerCase();
-            displayVal = strVal === "yes" ? "YES" : strVal === "no" ? "NO" : strVal === "n/a" ? "N/A" : val ? String(val).toUpperCase() : "—";
-            if (strVal === "yes") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-            else if (strVal === "no") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-            doc.text(displayVal, margin + colSplit + 1, y + 3);
-          } else if (field.type === "photo") {
-            displayVal = val ? "✓ Captured" : "—";
-            doc.text(displayVal, margin + colSplit + 1, y + 3);
-          } else {
-            const raw = val ? String(val).substring(0, 50) : "—";
-            displayVal = raw.charAt(0).toUpperCase() + raw.slice(1);
-            doc.text(displayVal, margin + colSplit + 1, y + 3);
-          }
-          doc.setTextColor(0, 0, 0);
-          doc.setFont("helvetica", "normal");
-
-          // Inline note
-          const noteVal = formData[`${field.id}_notes`];
-          if (field.allow_notes && noteVal) {
-            doc.setFontSize(7);
-            doc.setFont("helvetica", "italic");
-            doc.setTextColor(100, 100, 100);
-            doc.text(`Note: ${noteVal}`.substring(0, 80), margin + 2, y + rowH + 2.5);
-            doc.setTextColor(0, 0, 0);
-            doc.setFontSize(8.5);
-            doc.setFont("helvetica", "normal");
-            y += 3;
-          }
-
-          y += rowH;
+          y = renderFilledFieldRow(doc, field, formData[field.id], formData[`${field.id}_notes`], y, {
+            margin, maxWidth, colSplit, rowH: layout.rowH,
+          });
         }
         y += 1;
       }
@@ -270,11 +171,9 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
       const sigY = Math.max(y + 2, pageHeight - footerSpace);
       const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
-      // Find engineer and customer signatures (treat admin as technician)
       const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
       const customerSig = signatures.find((s: any) => s.signer_role === "customer");
 
-      // Resolve technician name: prefer form "Technician Name" field, then signature, then submittedBy
       const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
       const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
 
@@ -287,11 +186,8 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         customerSig,
       });
 
-      // --- Footer declaration ---
       renderPdfFooter(doc, footerY, footerText);
 
-
-      // Watermark on every page
       const watermark = await loadWatermarkImage();
       if (watermark) addWatermarkToAllPages(doc, watermark);
 
