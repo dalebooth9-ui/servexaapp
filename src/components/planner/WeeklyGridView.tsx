@@ -46,6 +46,7 @@ interface Job {
   site?: { name: string; address: string | null; postcode: string | null } | null;
   pressure_test_qty: number;
   visual_qty: number;
+  created_at?: string;
 }
 
 const PRIORITY_BG: Record<string, string> = {
@@ -189,6 +190,22 @@ function DraggableScheduleCard({
   );
 }
 
+// Droppable unallocated sidebar
+function DroppableUnallocatedZone({ children }: { children: React.ReactNode }) {
+  const { setNodeRef, isOver } = useDroppable({ id: "unallocated-zone" });
+  return (
+    <div
+      ref={setNodeRef}
+      className={cn(
+        "rounded-lg border bg-muted/30 p-3 transition-colors",
+        isOver && "bg-destructive/10 border-destructive/40 ring-1 ring-destructive/30"
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 // Droppable cell in the grid
 function DroppableCell({
   id,
@@ -246,10 +263,13 @@ export default function WeeklyGridView({
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
-  // Group unallocated jobs by postcode area
+  // Group unallocated jobs by postcode area, sorted by created_at (soonest first)
   const groupedUnallocated = useMemo(() => {
+    const sorted = [...unallocatedJobs].sort(
+      (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
+    );
     const groups: Record<string, Job[]> = {};
-    for (const job of unallocatedJobs) {
+    for (const job of sorted) {
       const area = extractPostcodeArea(job);
       if (!groups[area]) groups[area] = [];
       groups[area].push(job);
@@ -272,6 +292,16 @@ export default function WeeklyGridView({
     if (!over) return;
 
     const targetId = over.id as string;
+
+    // Dropping onto the unallocated zone removes the schedule entry
+    if (targetId === "unallocated-zone") {
+      const data = active.data.current;
+      if (data?.type === "scheduled") {
+        await onRemove(data.entry.id);
+      }
+      return;
+    }
+
     // Parse target: "cell-{engineerId}-{date}"
     if (!targetId.startsWith("cell-")) return;
     const parts = targetId.replace("cell-", "").split("_");
@@ -299,7 +329,7 @@ export default function WeeklyGridView({
         {/* Unallocated sidebar */}
         {isAdmin && (
           <div className="w-[220px] shrink-0">
-            <div className="rounded-lg border bg-muted/30 p-3">
+          <DroppableUnallocatedZone>
               <h3 className="mb-2 text-sm font-semibold">Unallocated Jobs</h3>
               <ScrollArea className="h-[calc(100vh-300px)]">
                 {groupedUnallocated.length === 0 ? (
@@ -323,7 +353,7 @@ export default function WeeklyGridView({
                 )}
                 <ScrollBar orientation="vertical" />
               </ScrollArea>
-            </div>
+          </DroppableUnallocatedZone>
           </div>
         )}
 
