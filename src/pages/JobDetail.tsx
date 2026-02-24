@@ -88,7 +88,14 @@ export default function JobDetail() {
       setCustomerEmail(custData?.email || "");
     }
 
-    const engineerIds = [...new Set(subs.map((s: any) => s.engineer_id))];
+    // Collect engineer IDs from both submissions and job assignments
+    const submissionEngineerIds = subs.map((s: any) => s.engineer_id);
+    const { data: assignments } = await supabase
+      .from("job_assignments")
+      .select("engineer_id")
+      .eq("job_id", id);
+    const assignmentEngineerIds = (assignments || []).map((a: any) => a.engineer_id);
+    const engineerIds = [...new Set([...submissionEngineerIds, ...assignmentEngineerIds])];
     if (engineerIds.length > 0) {
       const { data: profiles } = await supabase
         .from("profiles")
