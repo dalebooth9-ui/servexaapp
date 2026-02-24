@@ -4,6 +4,9 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { renderPdfHeader, type PdfHeaderData, type PdfBranding } from "@/lib/pdfHeader";
+import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, type PdfSignatureData } from "@/lib/pdfFooter";
+import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 
 interface Props {
   jobId: string;
@@ -19,14 +22,14 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
   const generate = async () => {
     setGenerating(true);
     try {
-      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, sheetsRes] = await Promise.all([
+      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, watermark] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("field_reports").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_visits").select("*").eq("job_id", jobId).order("scheduled_date", { ascending: true }),
         supabase.from("job_parts").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
         supabase.from("job_signatures").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
-        supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).eq("status", "submitted"),
+        loadWatermarkImage(),
       ]);
 
       const submissions = subsRes.data || [];
@@ -43,10 +46,10 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
       }
 
-      // Pre-load photo images (before/after)
+      // Pre-load photo images
       const photos = submissions.filter((s: any) => s.type === "photo" && s.file_url);
       const photoImages: { img: HTMLImageElement; name: string; date: string }[] = [];
-      const maxPhotos = 8; // Limit photos in report
+      const maxPhotos = 8;
       for (const photo of photos.slice(0, maxPhotos)) {
         try {
           const path = extractStoragePath(photo.file_url);
@@ -82,87 +85,61 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       }));
 
       const doc = new jsPDF();
-      let y = 20;
       const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 15;
+      const margin = 10;
       const maxWidth = pageWidth - margin * 2;
 
-      const addPage = () => { doc.addPage(); y = 20; };
-      const checkPage = (needed: number) => { if (y + needed > 270) addPage(); };
+      const addPage = () => { doc.addPage(); };
+      const checkPage = (needed: number, currentY: number): number => {
+        if (currentY + needed > 270) { addPage(); return 20; }
+        return currentY;
+      };
 
-      // === BRANDED HEADER (white background, logo centred) ===
-      let logoImg: HTMLImageElement | null = null;
-      try {
-        logoImg = new Image();
-        logoImg.crossOrigin = "anonymous";
-        await new Promise<void>((resolve, reject) => {
-          logoImg!.onload = () => resolve();
-          logoImg!.onerror = () => reject();
-          logoImg!.src = "/images/vivafire-logo-new.jpg";
-        });
-      } catch { logoImg = null; }
+      // === SHARED HEADER ===
+      const customerName = job.customers?.name || job.customer || "N/A";
+      const siteName = job.sites?.name || "";
+      const siteAddress = job.sites?.address || job.address || "";
+      const refNumber = job.reference_number || "";
+      const dateVal = new Date().toLocaleDateString("en-GB");
 
-      let headerBottomY = 10;
-      if (logoImg) {
-        const logoMaxH = 20;
-        const logoMaxW = 70;
-        const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
-        let lw = logoMaxH * aspect;
-        let lh = logoMaxH;
-        if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
-        doc.addImage(logoImg, "JPEG", (pageWidth - lw) / 2, 8, lw, lh);
-        headerBottomY = 8 + lh + 3;
-      }
+      const branding: PdfBranding = {};
+      const headerData: PdfHeaderData = {
+        customerName,
+        siteName,
+        siteAddress,
+        refNumber,
+        dateVal,
+        riserLocation: "",
+      };
 
-      // Title below logo
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(33, 61, 99);
-      doc.text("CUSTOMER REPORT", pageWidth / 2, headerBottomY, { align: "center" });
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Generated: ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, headerBottomY + 6, { align: "center" });
-
-      // Separator line
-      doc.setDrawColor(33, 61, 99);
-      doc.setLineWidth(0.5);
-      doc.line(margin, headerBottomY + 8, pageWidth - margin, headerBottomY + 8);
-
-      doc.setTextColor(0, 0, 0);
-      y = headerBottomY + 13;
+      let y = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);
 
       // === JOB DETAILS BOX ===
+      y += 2;
       doc.setFillColor(245, 247, 250);
-      doc.roundedRect(margin, y, maxWidth, 36, 2, 2, "F");
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
+      doc.roundedRect(margin, y, maxWidth, 24, 2, 2, "F");
+      doc.setFontSize(9);
       const col1 = margin + 4;
       const col2 = margin + maxWidth / 2;
-      doc.text("Reference:", col1, y + 8);
-      doc.text("Job:", col1, y + 16);
-      doc.text("Customer:", col1, y + 24);
-      doc.text("Address:", col1, y + 32);
-      doc.text("Status:", col2, y + 8);
-      doc.text("Priority:", col2, y + 16);
-      doc.text("Engineers:", col2, y + 24);
-      doc.text("Date:", col2, y + 32);
+
+      doc.setFont("helvetica", "bold");
+      doc.text("Job:", col1, y + 7);
+      doc.text("Status:", col2, y + 7);
+      doc.text("Priority:", col1, y + 14);
+      doc.text("Engineers:", col2, y + 14);
+      doc.text("Created:", col1, y + 21);
 
       doc.setFont("helvetica", "normal");
-      doc.text(job.reference_number || "", col1 + 26, y + 8);
-      doc.text(job.name || "", col1 + 13, y + 16);
-      doc.text(job.customers?.name || job.customer || "N/A", col1 + 26, y + 24);
-      const addrLines = doc.splitTextToSize(job.address || "N/A", maxWidth / 2 - 32);
-      doc.text(addrLines[0] || "", col1 + 22, y + 32);
-      doc.text(job.status || "", col2 + 18, y + 8);
-      doc.text(job.priority || "medium", col2 + 20, y + 16);
-      doc.text(engineerNames.join(", ") || "Unassigned", col2 + 26, y + 24);
-      doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col2 + 16, y + 32);
-      y += 42;
+      doc.text(job.name || "", col1 + 13, y + 7);
+      doc.text(job.status || "", col2 + 18, y + 7);
+      doc.text(job.priority || "medium", col1 + 20, y + 14);
+      doc.text(engineerNames.join(", ") || "Unassigned", col2 + 26, y + 14);
+      doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col1 + 20, y + 21);
+      y += 28;
 
       // === EXECUTIVE SUMMARY (from field reports) ===
       if (reports.length > 0) {
-        checkPage(25);
+        y = checkPage(25, y);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
@@ -172,13 +149,13 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         reports.forEach((r: any) => {
-          checkPage(15);
+          y = checkPage(15, y);
           doc.setFont("helvetica", "bold");
           doc.text(r.title || "Report", margin, y); y += 6;
           doc.setFont("helvetica", "normal");
           if (r.summary) {
             const lines = doc.splitTextToSize(r.summary, maxWidth);
-            lines.forEach((line: string) => { checkPage(6); doc.text(line, margin, y); y += 5; });
+            lines.forEach((line: string) => { y = checkPage(6, y); doc.text(line, margin, y); y += 5; });
           }
           y += 3;
         });
@@ -187,7 +164,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === VISITS ===
       if (visits.length > 0) {
-        checkPage(20);
+        y = checkPage(20, y);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
@@ -197,7 +174,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         visits.forEach((v: any) => {
-          checkPage(7);
+          y = checkPage(7, y);
           const statusIcon = v.status === "completed" ? "✓" : v.status === "cancelled" ? "✗" : "○";
           doc.text(`${statusIcon}  ${v.scheduled_date} — ${v.status}${v.notes ? ` — ${v.notes}` : ""}`, margin, y);
           y += 6;
@@ -207,7 +184,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === PARTS & MATERIALS ===
       if (parts.length > 0) {
-        checkPage(20);
+        y = checkPage(20, y);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
@@ -215,7 +192,6 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setTextColor(0, 0, 0);
         y += 8;
 
-        // Table header
         doc.setFillColor(240, 240, 240);
         doc.rect(margin, y - 4, maxWidth, 8, "F");
         doc.setFontSize(10);
@@ -228,7 +204,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
         parts.forEach((p: any) => {
-          checkPage(7);
+          y = checkPage(7, y);
           doc.text(p.name, margin + 2, y);
           doc.text(String(p.quantity), margin + 100, y);
           doc.text(`£${Number(p.unit_cost).toFixed(2)}`, margin + 115, y);
@@ -241,9 +217,9 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         y += 8;
       }
 
-      // === PHOTOS (Before/After) ===
+      // === PHOTOS ===
       if (photoImages.length > 0) {
-        checkPage(40);
+        y = checkPage(40, y);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
@@ -255,7 +231,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         const imgH = 45;
         let col = 0;
         for (const photo of photoImages) {
-          if (col === 0) checkPage(imgH + 10);
+          if (col === 0) y = checkPage(imgH + 10, y);
           const xPos = margin + col * (imgW + 6);
           try {
             doc.addImage(photo.img, "JPEG", xPos, y, imgW, imgH);
@@ -273,8 +249,8 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         y += 4;
       }
 
-      // === RECOMMENDATIONS / FURTHER WORKS ===
-      checkPage(25);
+      // === RECOMMENDATIONS ===
+      y = checkPage(25, y);
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(30, 64, 175);
@@ -284,20 +260,18 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
 
-      // Pull recommendations from field reports or job result
       const hasRecommendations = job.result || reports.some((r: any) => r.content);
       if (job.result) {
         const resultLines = doc.splitTextToSize(`Result: ${job.result}`, maxWidth);
-        resultLines.forEach((line: string) => { checkPage(5); doc.text(line, margin, y); y += 4; });
+        resultLines.forEach((line: string) => { y = checkPage(5, y); doc.text(line, margin, y); y += 4; });
         y += 2;
       }
-      // Engineer notes as recommendations
       const notes = submissions.filter((s: any) => s.type === "note" && s.content);
       if (notes.length > 0) {
         notes.slice(0, 5).forEach((n: any) => {
-          checkPage(10);
+          y = checkPage(10, y);
           const lines = doc.splitTextToSize(`• ${n.content}`, maxWidth);
-          lines.forEach((line: string) => { checkPage(5); doc.text(line, margin, y); y += 4; });
+          lines.forEach((line: string) => { y = checkPage(5, y); doc.text(line, margin, y); y += 4; });
           y += 2;
         });
       }
@@ -307,46 +281,33 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       }
       y += 4;
 
-      // === SIGNATURES ===
+      // === SIGNATURES (shared utility) ===
       if (signatures.length > 0) {
-        checkPage(40);
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 64, 175);
-        doc.text("Sign-Off", margin, y);
-        doc.setTextColor(0, 0, 0);
-        y += 8;
+        y = checkPage(30, y);
 
-        for (const sig of signatures) {
-          checkPage(35);
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "bold");
-          doc.text(`${sig.signer_name} (${sig.signer_role})`, margin, y);
-          doc.setFont("helvetica", "normal");
-          doc.text(new Date(sig.created_at).toLocaleDateString("en-GB"), margin + 80, y);
-          y += 4;
-          if (sigImages[sig.id]) {
-            doc.addImage(sigImages[sig.id], "PNG", margin, y, 50, 16);
-            y += 20;
-          } else {
-            doc.line(margin, y + 2, margin + 60, y + 2);
-            y += 8;
-          }
-        }
+        const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || null;
+        const customerSig = signatures.find((s: any) => s.signer_role === "customer") || null;
+
+        const sigData: PdfSignatureData = {
+          dateStr: new Date(signatures[0]?.created_at || Date.now()).toLocaleDateString("en-GB"),
+          technicianName: engineerSig?.signer_name || engineerNames[0] || "",
+          customerName: customerSig?.signer_name || customerName,
+          sigImages,
+          engineerSig,
+          customerSig,
+        };
+        y = renderPdfSignatures(doc, y, sigData);
       }
 
-      // === FOOTER (clean line style) ===
-      const footerY = 280;
-      doc.setDrawColor(33, 61, 99);
-      doc.setLineWidth(0.5);
-      doc.line(margin, footerY, pageWidth - margin, footerY);
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.text("VivaFire — Wet & Dry Riser Specialists", margin, footerY + 4);
-      doc.text("This report has been generated automatically from verified field data.", margin, footerY + 8);
-      doc.text(`Report ref: ${job.reference_number} | ${new Date().toLocaleDateString("en-GB")}`, pageWidth - margin, footerY + 4, { align: "right" });
-      doc.setTextColor(0, 0, 0);
+      // === FOOTER (shared utility) ===
+      const footerText = getDefaultFooterText(job.name || "");
+      const footerY = doc.internal.pageSize.getHeight() - 18;
+      renderPdfFooter(doc, footerY, footerText);
+
+      // === WATERMARK ===
+      if (watermark) {
+        addWatermarkToAllPages(doc, watermark);
+      }
 
       const fileName = `${job.reference_number}-customer-report.pdf`;
 
