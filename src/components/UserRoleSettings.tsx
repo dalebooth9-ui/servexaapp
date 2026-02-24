@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Shield, ShieldCheck, Plus, Minus } from "lucide-react";
@@ -18,6 +19,7 @@ export default function UserRoleSettings() {
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
 
   const fetchUsers = async () => {
     const [profilesRes, rolesRes] = await Promise.all([
@@ -120,7 +122,13 @@ export default function UserRoleSettings() {
                           variant={isAdmin ? "destructive" : "outline"}
                           size="sm"
                           disabled={toggling === `${u.user_id}-admin`}
-                          onClick={() => toggleRole(u.user_id, "admin", isAdmin)}
+                          onClick={() => {
+                            if (isAdmin) {
+                              setConfirmRemove({ userId: u.user_id, name: u.full_name || "this user" });
+                            } else {
+                              toggleRole(u.user_id, "admin", false);
+                            }
+                          }}
                         >
                           {isAdmin ? <Minus className="mr-1 h-3 w-3" /> : <Plus className="mr-1 h-3 w-3" />}
                           Admin
@@ -143,6 +151,31 @@ export default function UserRoleSettings() {
           </TableBody>
         </Table>
       </CardContent>
+
+      <AlertDialog open={!!confirmRemove} onOpenChange={(open) => { if (!open) setConfirmRemove(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove Admin Role</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to remove admin access from <strong>{confirmRemove?.name}</strong>? They will no longer be able to manage jobs, engineers, or settings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (confirmRemove) {
+                  toggleRole(confirmRemove.userId, "admin", true);
+                  setConfirmRemove(null);
+                }
+              }}
+            >
+              Remove Admin
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
