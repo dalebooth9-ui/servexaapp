@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, forwardRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -51,22 +51,18 @@ interface ParsedLibraryPart {
 }
 
 // Inline add row between parts
-function InlineAddRow({
-  isAdmin,
-  onAdd,
-  colSpan,
-}: {
+const InlineAddRow = forwardRef<HTMLTableRowElement, {
   isAdmin: boolean;
   onAdd: (form: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string }) => Promise<void>;
   colSpan: number;
-}) {
+}>(function InlineAddRow({ isAdmin, onAdd, colSpan }, ref) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
   const [adding, setAdding] = useState(false);
 
   if (!open) {
     return (
-      <tr>
+      <tr ref={ref}>
         <td colSpan={colSpan}>
           <button
             onClick={() => setOpen(true)}
@@ -89,7 +85,7 @@ function InlineAddRow({
   };
 
   return (
-    <tr className="bg-muted/30">
+    <tr ref={ref} className="bg-muted/30">
       <td colSpan={colSpan}>
         <div className="flex flex-wrap gap-2 items-center py-1 px-2">
           <Input placeholder="Part name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-8 text-sm flex-1 min-w-[120px]" autoFocus onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
@@ -108,7 +104,7 @@ function InlineAddRow({
       </td>
     </tr>
   );
-}
+});
 
 // Sortable table row
 function SortableLibraryRow({
