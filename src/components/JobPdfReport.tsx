@@ -192,6 +192,8 @@ export default function JobPdfReport({ jobId, job }: Props) {
         ["Reference", job.reference_number || "—"],
         ["Customer", job.customers?.name || job.customer || "—"],
         ["Address", job.address || "—"],
+        ["Category", (job.category || "—").replace(/_/g, " ").toUpperCase()],
+        ["Job Type", (job.job_type || "—").replace(/_/g, " ").toUpperCase()],
         ["Status", (job.status || "—").toUpperCase()],
         ["Priority", (job.priority || "medium").toUpperCase()],
         ["Engineers", engineerNames.length > 0 ? engineerNames.join(", ") : "—"],
