@@ -90,7 +90,12 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
         isDragging && "opacity-30"
       )}
     >
-      <div className="font-mono font-medium text-primary">{job.reference_number}</div>
+      <div className="flex items-center justify-between gap-1">
+        <span className="font-mono font-medium text-primary">{job.reference_number}</span>
+        {job.created_at && (
+          <span className="text-[9px] text-muted-foreground font-mono">{format(new Date(job.created_at), "dd/MM/yy")}</span>
+        )}
+      </div>
       <div className="truncate text-foreground">{job.name}</div>
       {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground truncate">{(job as any).customers?.name || job.customer}</div>}
       {(job.site?.name || job.site?.postcode) && (
