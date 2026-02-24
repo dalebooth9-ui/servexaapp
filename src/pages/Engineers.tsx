@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Phone, Pencil, Plus, UserMinus, ArrowLeft } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -20,7 +21,7 @@ export default function Engineers() {
   const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "" });
+  const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "", send_reset_email: true });
   const [adding, setAdding] = useState(false);
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
@@ -118,9 +119,9 @@ export default function Engineers() {
     if (error || data?.error) {
       toast({ title: "Error", description: data?.error || "Failed to create engineer.", variant: "destructive" });
     } else {
-      toast({ title: "Engineer added", description: `${addForm.full_name} has been created.` });
+      toast({ title: "Engineer added", description: `${addForm.full_name} has been created.${data?.email_sent ? " Password reset email sent." : ""}` });
       setAddOpen(false);
-      setAddForm({ full_name: "", email: "", phone: "", whatsapp_number: "" });
+      setAddForm({ full_name: "", email: "", phone: "", whatsapp_number: "", send_reset_email: true });
       fetchEngineers();
     }
   };
@@ -257,6 +258,14 @@ export default function Engineers() {
             <div className="space-y-2">
               <Label htmlFor="add-wa">WhatsApp Number</Label>
               <Input id="add-wa" value={addForm.whatsapp_number} onChange={(e) => setAddForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="add-reset"
+                checked={addForm.send_reset_email}
+                onCheckedChange={(checked) => setAddForm((f) => ({ ...f, send_reset_email: !!checked }))}
+              />
+              <Label htmlFor="add-reset" className="text-sm font-normal">Send password setup email to engineer</Label>
             </div>
           </div>
           <DialogFooter>
