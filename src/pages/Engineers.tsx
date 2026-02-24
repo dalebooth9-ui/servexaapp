@@ -192,15 +192,32 @@ export default function Engineers() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          title="Send password reset email"
-                          disabled={resettingId === eng.id}
-                          onClick={() => handleSendReset(eng)}
-                        >
-                          <KeyRound className="h-4 w-4" />
-                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Send password reset email"
+                              disabled={resettingId === eng.id}
+                            >
+                              <KeyRound className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Send Password Reset</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This will send a password reset email to {eng.full_name}. Are you sure?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleSendReset(eng)}>
+                                Send Email
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(eng)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
