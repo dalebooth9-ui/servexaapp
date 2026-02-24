@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "npm:resend@4.0.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,7 +50,7 @@ serve(async (req) => {
       });
     }
 
-    const { email, full_name, phone, whatsapp_number } = await req.json();
+    const { email, full_name, phone, whatsapp_number, send_reset_email } = await req.json();
 
     if (!email || !full_name) {
       return new Response(
@@ -94,8 +95,66 @@ serve(async (req) => {
       role: "engineer",
     });
 
+    // Send password reset email if requested
+    let emailSent = false;
+    if (send_reset_email) {
+      try {
+        const { data: linkData, error: linkError } =
+          await supabaseAdmin.auth.admin.generateLink({
+            type: "recovery",
+            email,
+          });
+
+        if (linkError) {
+          console.error("Failed to generate recovery link:", linkError.message);
+        } else {
+          const resendApiKey = Deno.env.get("RESEND_API_KEY");
+          if (resendApiKey) {
+            const resend = new Resend(resendApiKey);
+            const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
+            
+            // Build the recovery URL using the token hash
+            const actionLink = linkData?.properties?.action_link || "";
+
+            const { error: emailError } = await resend.emails.send({
+              from: "VivaFire <noreply@vivafire.co.uk>",
+              to: [email],
+              subject: "Set up your VivaFire account password",
+              html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h1 style="color: #333; font-size: 24px;">Welcome to VivaFire, ${full_name}!</h1>
+                  <p style="color: #555; font-size: 16px; line-height: 1.5;">
+                    An account has been created for you. Please click the button below to set your password and get started.
+                  </p>
+                  <div style="text-align: center; margin: 32px 0;">
+                    <a href="${actionLink}" 
+                       style="background-color: #E53E3E; color: #ffffff; padding: 12px 32px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; display: inline-block;">
+                      Set Your Password
+                    </a>
+                  </div>
+                  <p style="color: #999; font-size: 14px; line-height: 1.5;">
+                    If you didn't expect this email, you can safely ignore it.
+                  </p>
+                </div>
+              `,
+            });
+
+            if (emailError) {
+              console.error("Failed to send reset email:", emailError);
+            } else {
+              emailSent = true;
+            }
+          } else {
+            console.error("RESEND_API_KEY not configured");
+          }
+        }
+      } catch (emailErr) {
+        console.error("Error sending reset email:", emailErr);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ success: true, user_id: userId }),
+      JSON.stringify({ success: true, user_id: userId, email_sent: emailSent }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
