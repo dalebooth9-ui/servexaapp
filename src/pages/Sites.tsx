@@ -430,6 +430,19 @@ export default function Sites() {
       {/* Tree */}
       <Card>
         <CardContent className="p-0">
+          {!loading && filteredRoots.length > 0 && userRole === "admin" && (
+            <div className="flex items-center gap-2 py-2 px-3 border-b border-border">
+              <input
+                type="checkbox"
+                checked={selected.size === sites.length && sites.length > 0}
+                onChange={toggleSelectAll}
+                className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
+              />
+              <span className="text-xs text-muted-foreground">
+                {selected.size > 0 ? `${selected.size} of ${sites.length} selected` : "Select all"}
+              </span>
+            </div>
+          )}
           {loading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
           ) : filteredRoots.length === 0 ? (
