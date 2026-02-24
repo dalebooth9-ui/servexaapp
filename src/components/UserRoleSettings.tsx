@@ -4,11 +4,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, ShieldCheck, Plus, Minus, Trash2 } from "lucide-react";
+import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
-import { AlertDialog as DeleteDialog, AlertDialogAction as DeleteAction, AlertDialogCancel as DeleteCancel, AlertDialogContent as DeleteContent, AlertDialogDescription as DeleteDesc, AlertDialogFooter as DeleteFoot, AlertDialogHeader as DeleteHead, AlertDialogTitle as DeleteTitle } from "@/components/ui/alert-dialog";
 
 type UserWithRoles = {
   id: string;
@@ -25,6 +28,9 @@ export default function UserRoleSettings() {
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ userId: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({ full_name: "", email: "", roles: { admin: false, engineer: false } });
+  const [adding, setAdding] = useState(false);
 
   const fetchUsers = async () => {
     const [profilesRes, rolesRes] = await Promise.all([
@@ -94,16 +100,48 @@ export default function UserRoleSettings() {
     }
   };
 
+  const handleAddUser = async () => {
+    if (!addForm.email || !addForm.full_name) {
+      toast.error("Name and email are required");
+      return;
+    }
+    const roles: string[] = [];
+    if (addForm.roles.admin) roles.push("admin");
+    if (addForm.roles.engineer) roles.push("engineer");
+
+    setAdding(true);
+    const { data, error } = await supabase.functions.invoke("create-user", {
+      body: { email: addForm.email, full_name: addForm.full_name, roles },
+    });
+    setAdding(false);
+
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to create user");
+    } else {
+      toast.success(`${addForm.full_name} has been created`);
+      setAddOpen(false);
+      setAddForm({ full_name: "", email: "", roles: { admin: false, engineer: false } });
+      fetchUsers();
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-accent" />
-          <CardTitle className="text-lg">User Roles</CardTitle>
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Shield className="h-5 w-5 text-accent" />
+              <CardTitle className="text-lg">User Roles</CardTitle>
+            </div>
+            <CardDescription className="mt-1">
+              Manage admin and engineer roles for all users.
+            </CardDescription>
+          </div>
+          <Button size="sm" onClick={() => setAddOpen(true)}>
+            <UserPlus className="mr-2 h-4 w-4" /> Add User
+          </Button>
         </div>
-        <CardDescription>
-          Manage admin and engineer roles for all users.
-        </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
@@ -185,6 +223,7 @@ export default function UserRoleSettings() {
         </Table>
       </CardContent>
 
+      {/* Remove admin confirmation */}
       <AlertDialog open={!!confirmRemove} onOpenChange={(open) => { if (!open) setConfirmRemove(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -210,17 +249,18 @@ export default function UserRoleSettings() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <DeleteDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
-        <DeleteContent>
-          <DeleteHead>
-            <DeleteTitle>Delete User</DeleteTitle>
-            <DeleteDesc>
+      {/* Delete user confirmation */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete User</AlertDialogTitle>
+            <AlertDialogDescription>
               Are you sure you want to permanently delete <strong>{confirmDelete?.name}</strong>? This will remove their account, profile, and all role assignments. This action cannot be undone.
-            </DeleteDesc>
-          </DeleteHead>
-          <DeleteFoot>
-            <DeleteCancel disabled={deleting}>Cancel</DeleteCancel>
-            <DeleteAction
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={deleting}
               onClick={(e) => {
@@ -229,10 +269,52 @@ export default function UserRoleSettings() {
               }}
             >
               {deleting ? "Deleting…" : "Delete User"}
-            </DeleteAction>
-          </DeleteFoot>
-        </DeleteContent>
-      </DeleteDialog>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Add user dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="add-user-name">Full Name *</Label>
+              <Input id="add-user-name" value={addForm.full_name} onChange={(e) => setAddForm((f) => ({ ...f, full_name: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="add-user-email">Email *</Label>
+              <Input id="add-user-email" type="email" value={addForm.email} onChange={(e) => setAddForm((f) => ({ ...f, email: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Roles</Label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={addForm.roles.admin}
+                    onCheckedChange={(checked) => setAddForm((f) => ({ ...f, roles: { ...f.roles, admin: !!checked } }))}
+                  />
+                  Admin
+                </label>
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={addForm.roles.engineer}
+                    onCheckedChange={(checked) => setAddForm((f) => ({ ...f, roles: { ...f.roles, engineer: !!checked } }))}
+                  />
+                  Engineer
+                </label>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddUser} disabled={adding}>{adding ? "Adding…" : "Add User"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
