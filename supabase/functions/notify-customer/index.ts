@@ -100,7 +100,11 @@ serve(async (req) => {
 
     if (!emailResp.ok) {
       const errText = await emailResp.text();
-      throw new Error(`Resend error: ${errText}`);
+      console.error("Resend send failed:", errText);
+      // Return gracefully instead of 500 so the app doesn't break
+      return new Response(JSON.stringify({ sent: false, reason: "Email delivery failed – domain may not be verified", detail: errText }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     // Log the notification
