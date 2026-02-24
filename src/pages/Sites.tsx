@@ -97,6 +97,52 @@ export default function Sites() {
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selected.size === sites.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(sites.map((s) => s.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    // Check if any selected site has children
+    const hasChildren = [...selected].some((id) => sites.some((s) => s.parent_id === id));
+    if (hasChildren) {
+      toast({
+        title: "Cannot delete",
+        description: "Some selected sites have children. Remove child sites first.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const count = selected.size;
+    const deletedSites = sites.filter((s) => selected.has(s.id));
+    setSites((prev) => prev.filter((s) => !selected.has(s.id)));
+    setSelected(new Set());
+    deleteWithUndo({
+      key: "bulk-delete",
+      label: `${count} site(s) deleted`,
+      onConfirm: async () => {
+        const { error } = await supabase.from("sites").delete().in("id", deletedSites.map((s) => s.id));
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setSites((prev) => [...prev, ...deletedSites]);
+        }
+      },
+      onUndo: () => setSites((prev) => [...prev, ...deletedSites]),
+    });
+  };
 
   const fetchSites = async () => {
     const { data, error } = await supabase
@@ -255,9 +301,18 @@ export default function Sites() {
     return (
       <div key={site.id}>
         <div
-          className="flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors"
+          className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors ${selected.has(site.id) ? "bg-primary/5" : ""}`}
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
         >
+          {userRole === "admin" && (
+            <input
+              type="checkbox"
+              checked={selected.has(site.id)}
+              onChange={() => toggleSelect(site.id)}
+              className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
+              onClick={(e) => e.stopPropagation()}
+            />
+          )}
           {children.length > 0 || childType ? (
             <button onClick={() => toggle(site.id)} className="shrink-0">
               {isExpanded ? (
@@ -328,6 +383,11 @@ export default function Sites() {
         </div>
         {userRole === "admin" && (
           <div className="flex gap-2">
+            {selected.size > 0 && (
+              <Button variant="destructive" onClick={handleBulkDelete}>
+                <Trash2 className="mr-2 h-4 w-4" /> Delete {selected.size} Selected
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setBulkOpen(true)}>
               <FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Import
             </Button>
