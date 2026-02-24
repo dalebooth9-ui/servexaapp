@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -16,6 +17,7 @@ type UserWithRoles = {
 };
 
 export default function UserRoleSettings() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserWithRoles[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
@@ -106,6 +108,7 @@ export default function UserRoleSettings() {
               users.map((u) => {
                 const isAdmin = u.roles.includes("admin");
                 const isEngineer = u.roles.includes("engineer");
+                const isSelf = u.user_id === user?.id;
                 return (
                   <TableRow key={u.id}>
                     <TableCell className="font-medium">{u.full_name || "—"}</TableCell>
@@ -121,7 +124,8 @@ export default function UserRoleSettings() {
                         <Button
                           variant={isAdmin ? "destructive" : "outline"}
                           size="sm"
-                          disabled={toggling === `${u.user_id}-admin`}
+                          disabled={toggling === `${u.user_id}-admin` || (isAdmin && isSelf)}
+                          title={isAdmin && isSelf ? "You cannot remove your own admin role" : undefined}
                           onClick={() => {
                             if (isAdmin) {
                               setConfirmRemove({ userId: u.user_id, name: u.full_name || "this user" });
