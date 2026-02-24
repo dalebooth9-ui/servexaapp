@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Pencil, Plus, UserMinus, ArrowLeft } from "lucide-react";
+import { Phone, Pencil, Plus, UserMinus, ArrowLeft, KeyRound } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,23 @@ export default function Engineers() {
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "", send_reset_email: true });
   const [adding, setAdding] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
+
+  const handleSendReset = async (eng: any) => {
+    setResettingId(eng.id);
+    const { data, error } = await supabase.functions.invoke("send-password-reset", {
+      body: { user_id: eng.user_id, full_name: eng.full_name },
+    });
+    setResettingId(null);
+
+    if (error || data?.error) {
+      toast({ title: "Error", description: data?.error || "Failed to send reset email.", variant: "destructive" });
+    } else {
+      toast({ title: "Email sent", description: `Password reset email sent to ${eng.full_name}.` });
+    }
+  };
 
   const fetchEngineers = async () => {
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
@@ -177,6 +192,15 @@ export default function Engineers() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Send password reset email"
+                          disabled={resettingId === eng.id}
+                          onClick={() => handleSendReset(eng)}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => openEdit(eng)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
