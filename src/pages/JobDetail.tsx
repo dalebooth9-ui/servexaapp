@@ -56,7 +56,7 @@ export default function JobDetail() {
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
   const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null }[]>([]);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0 });
+  const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, due_date: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
 
@@ -376,7 +376,7 @@ export default function JobDetail() {
                       <span><span className="text-muted-foreground">Visual:</span> <span className="font-medium">{job.visual_qty || 0}</span></span>
                     </div>
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0 }); setEditing(true); }}>
+                  <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, due_date: job.due_date || "" }); setEditing(true); }}>
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
                   </Button>
                 </div>
@@ -418,11 +418,15 @@ export default function JobDetail() {
                       <Input type="number" min={0} value={editForm.visual_qty} onChange={(e) => setEditForm({ ...editForm, visual_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
                     </div>
                   </div>
+                  <div>
+                    <Label className="text-xs">Due Date</Label>
+                    <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" disabled={editSaving || !editForm.name.trim()} onClick={async () => {
                     setEditSaving(true);
-                    const { error } = await supabase.from("jobs").update({ name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, pressure_test_qty: editForm.pressure_test_qty, visual_qty: editForm.visual_qty } as any).eq("id", id!);
+                    const { error } = await supabase.from("jobs").update({ name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, pressure_test_qty: editForm.pressure_test_qty, visual_qty: editForm.visual_qty, due_date: editForm.due_date || null } as any).eq("id", id!);
                     if (error) { toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" }); }
                     else { toast({ title: "Job details updated" }); setEditing(false); fetchData(); }
                     setEditSaving(false);
