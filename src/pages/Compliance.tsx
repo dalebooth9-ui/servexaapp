@@ -18,7 +18,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock,
+  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -63,7 +63,7 @@ export default function Compliance() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ComplianceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
 
   const fetchData = async () => {
     const [recRes, assetRes, siteRes] = await Promise.all([
@@ -99,7 +99,17 @@ export default function Compliance() {
     total: records.length,
   };
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setPendingFile(null); setDialogOpen(true); };
+  const parseFileList = (url: string | null, name: string | null): { urls: string[]; names: string[] } => {
+    if (!url) return { urls: [], names: [] };
+    try {
+      const urls = JSON.parse(url);
+      const names = JSON.parse(name || "[]");
+      if (Array.isArray(urls)) return { urls, names };
+    } catch {}
+    return { urls: [url], names: [name || "file"] };
+  };
+
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setPendingFiles([]); setDialogOpen(true); };
   const openEdit = (r: ComplianceRecord) => {
     setEditing(r);
     setForm({
@@ -109,23 +119,29 @@ export default function Compliance() {
       issue_date: r.issue_date || "", expiry_date: r.expiry_date || "",
       status: r.status, notes: r.notes || "",
     });
-    setPendingFile(null);
+    setPendingFiles([]);
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.title.trim()) { toast({ title: "Title required", variant: "destructive" }); return; }
 
-    let fileUrl = editing?.file_url || null;
-    let fileName = editing?.file_name || null;
+    // Gather existing files (for edit mode)
+    const existing = editing ? parseFileList(editing.file_url, editing.file_name) : { urls: [], names: [] };
+    const allUrls = [...existing.urls];
+    const allNames = [...existing.names];
 
-    if (pendingFile) {
-      const path = `compliance/${Date.now()}_${pendingFile.name}`;
-      const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, pendingFile);
-      if (upErr) { toast({ title: "Upload failed", description: upErr.message, variant: "destructive" }); return; }
-      fileUrl = path;
-      fileName = pendingFile.name;
+    // Upload new pending files
+    for (const file of pendingFiles) {
+      const path = `compliance/${Date.now()}_${file.name}`;
+      const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, file);
+      if (upErr) { toast({ title: "Upload failed", description: `${file.name}: ${upErr.message}`, variant: "destructive" }); continue; }
+      allUrls.push(path);
+      allNames.push(file.name);
     }
+
+    const fileUrl = allUrls.length > 0 ? JSON.stringify(allUrls) : null;
+    const fileName = allNames.length > 0 ? JSON.stringify(allNames) : null;
 
     const payload = {
       title: form.title.trim(), record_type: form.record_type,
@@ -190,8 +206,11 @@ export default function Compliance() {
 
   const handleDownload = async (r: ComplianceRecord) => {
     if (!r.file_url) return;
-    const { data } = await supabase.storage.from("asset-documents").createSignedUrl(r.file_url, 3600);
-    if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    const { urls, names } = parseFileList(r.file_url, r.file_name);
+    for (const url of urls) {
+      const { data } = await supabase.storage.from("asset-documents").createSignedUrl(url, 3600);
+      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+    }
   };
 
   return (
@@ -300,11 +319,15 @@ export default function Compliance() {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {r.file_url ? (
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(r)}>
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                        {r.file_url ? (() => {
+                          const { urls } = parseFileList(r.file_url, r.file_name);
+                          return (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(r)}>
+                              <Download className="h-3.5 w-3.5" />
+                              {urls.length > 1 && <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground rounded-full h-3.5 w-3.5 flex items-center justify-center">{urls.length}</span>}
+                            </Button>
+                          );
+                        })() : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
                       {userRole === "admin" && (
                         <TableCell>
@@ -393,11 +416,35 @@ export default function Compliance() {
               </div>
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">Attach Document</label>
-              <input ref={fileRef} type="file" onChange={(e) => setPendingFile(e.target.files?.[0] || null)} className="hidden" />
+              <label className="text-sm font-medium">Attach Documents</label>
+              <input ref={fileRef} type="file" multiple onChange={(e) => {
+                if (e.target.files) setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+                if (fileRef.current) fileRef.current.value = "";
+              }} className="hidden" />
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                <Upload className="mr-1.5 h-3.5 w-3.5" /> {pendingFile ? pendingFile.name : "Choose file"}
+                <Upload className="mr-1.5 h-3.5 w-3.5" /> Add files
               </Button>
+              {editing && (() => {
+                const { names } = parseFileList(editing.file_url, editing.file_name);
+                return names.length > 0 ? (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {names.map((n, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px]">{n}</Badge>
+                    ))}
+                  </div>
+                ) : null;
+              })()}
+              {pendingFiles.length > 0 && (
+                <div className="space-y-1 mt-1">
+                  {pendingFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <FileText className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                      <button onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))} className="text-destructive hover:underline text-[10px] shrink-0">Remove</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Notes</label>
