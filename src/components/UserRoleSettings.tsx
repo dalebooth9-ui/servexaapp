@@ -6,8 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, ShieldCheck, Plus, Minus } from "lucide-react";
+import { Shield, ShieldCheck, Plus, Minus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { AlertDialog as DeleteDialog, AlertDialogAction as DeleteAction, AlertDialogCancel as DeleteCancel, AlertDialogContent as DeleteContent, AlertDialogDescription as DeleteDesc, AlertDialogFooter as DeleteFoot, AlertDialogHeader as DeleteHead, AlertDialogTitle as DeleteTitle } from "@/components/ui/alert-dialog";
 
 type UserWithRoles = {
   id: string;
@@ -22,6 +23,8 @@ export default function UserRoleSettings() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ userId: string; name: string } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = async () => {
     const [profilesRes, rolesRes] = await Promise.all([
@@ -73,6 +76,22 @@ export default function UserRoleSettings() {
       }
     }
     setToggling(null);
+  };
+
+  const handleDeleteUser = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    const { data, error } = await supabase.functions.invoke("delete-user", {
+      body: { user_id: confirmDelete.userId },
+    });
+    setDeleting(false);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to delete user");
+    } else {
+      toast.success(`${confirmDelete.name} has been deleted`);
+      setConfirmDelete(null);
+      fetchUsers();
+    }
   };
 
   return (
@@ -146,6 +165,16 @@ export default function UserRoleSettings() {
                           {isEngineer ? <Minus className="mr-1 h-3 w-3" /> : <Plus className="mr-1 h-3 w-3" />}
                           Engineer
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          disabled={isSelf}
+                          title={isSelf ? "You cannot delete your own account" : "Delete user"}
+                          onClick={() => setConfirmDelete({ userId: u.user_id, name: u.full_name || "this user" })}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -180,6 +209,30 @@ export default function UserRoleSettings() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DeleteDialog open={!!confirmDelete} onOpenChange={(open) => { if (!open) setConfirmDelete(null); }}>
+        <DeleteContent>
+          <DeleteHead>
+            <DeleteTitle>Delete User</DeleteTitle>
+            <DeleteDesc>
+              Are you sure you want to permanently delete <strong>{confirmDelete?.name}</strong>? This will remove their account, profile, and all role assignments. This action cannot be undone.
+            </DeleteDesc>
+          </DeleteHead>
+          <DeleteFoot>
+            <DeleteCancel disabled={deleting}>Cancel</DeleteCancel>
+            <DeleteAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleting}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteUser();
+              }}
+            >
+              {deleting ? "Deleting…" : "Delete User"}
+            </DeleteAction>
+          </DeleteFoot>
+        </DeleteContent>
+      </DeleteDialog>
     </Card>
   );
 }
