@@ -197,6 +197,14 @@ export default function JobPdfReport({ jobId, job }: Props) {
         ["Engineers", engineerNames.length > 0 ? engineerNames.join(", ") : "—"],
       ];
 
+      // Append site details inline
+      if (site) {
+        if (site.postcode) detailRows.push(["Site Postcode", site.postcode]);
+        if (site.contact_name) detailRows.push(["Site Contact", site.contact_name]);
+        if (site.contact_phone) detailRows.push(["Contact Phone", site.contact_phone]);
+        if (site.contact_email) detailRows.push(["Contact Email", site.contact_email]);
+      }
+
       y = sectionTitle(doc, "Job Details", y, margin, maxWidth);
       const labelW = maxWidth * 0.3;
       const valW = maxWidth * 0.7;
