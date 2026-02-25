@@ -33,6 +33,7 @@ import SignatureCapture from "@/components/SignatureCapture";
 import CustomerSignOffLink from "@/components/CustomerSignOffLink";
 import SendToCustomerMenu from "@/components/SendToCustomerMenu";
 import SubmissionList from "@/components/jobs/SubmissionList";
+import EngineerCertificates from "@/components/jobs/EngineerCertificates";
 import AddNoteInput from "@/components/jobs/AddNoteInput";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
@@ -172,6 +173,7 @@ export default function JobDetail() {
   };
 
   const filtered = submissions.filter((s) => {
+    if (s.file_name?.startsWith("[Cert]")) return false;
     if (filters.type !== "all" && s.type !== filters.type) return false;
     if (filters.engineerId !== "all" && s.engineer_id !== filters.engineerId) return false;
     if (filters.dateFrom && new Date(s.created_at) < new Date(filters.dateFrom)) return false;
@@ -538,6 +540,16 @@ export default function JobDetail() {
           </div>
         </CollapsibleContent>
       </Collapsible>
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Engineer Certificates
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <EngineerCertificates jobId={id!} engineers={engineers} />
+        </CollapsibleContent>
+      </Collapsible>
+
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Submissions ({filtered.length})
