@@ -568,6 +568,7 @@ export default function Sites() {
                             <TableHead>Address</TableHead>
                             <TableHead>Postcode</TableHead>
                             <TableHead>Contact</TableHead>
+                            <TableHead className="w-8" />
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -575,7 +576,12 @@ export default function Sites() {
                             const config = TYPE_CONFIG[site.site_type];
                             const Icon = config?.icon || MapPin;
                             return (
-                              <TableRow key={site.id}>
+                              <TableRow
+                                key={site.id}
+                                className="cursor-pointer hover:bg-muted/60 transition-colors"
+                                onClick={() => openEdit(site)}
+                                title="Click to edit"
+                              >
                                 <TableCell className="font-medium">
                                   <div className="flex items-center gap-2">
                                     <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
@@ -595,6 +601,9 @@ export default function Sites() {
                                 </TableCell>
                                 <TableCell className="text-muted-foreground text-sm">
                                   {site.contact_name || "—"}
+                                </TableCell>
+                                <TableCell className="w-8 text-right">
+                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                 </TableCell>
                               </TableRow>
                             );
