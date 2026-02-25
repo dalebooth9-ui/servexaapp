@@ -313,10 +313,23 @@ export default function WeeklyGridView({
 
     const targetId = over.id as string;
 
+    // Engineer row reorder (sortable items have engineer user_id as id)
+    const activeData = active.data.current;
+    if (!activeData || (!activeData.type && engineers.some((e) => e.user_id === String(active.id)))) {
+      if (active.id !== over.id) {
+        const oldIndex = engineers.findIndex((e) => e.user_id === active.id);
+        const newIndex = engineers.findIndex((e) => e.user_id === over.id);
+        if (oldIndex !== -1 && newIndex !== -1) {
+          const reordered = arrayMove(engineers, oldIndex, newIndex);
+          onEngineerReorder(reordered.map((e) => e.user_id));
+        }
+      }
+      return;
+    }
+
     if (targetId === "unallocated-zone") {
-      const data = active.data.current;
-      if (data?.type === "scheduled") {
-        await onRemove(data.entry.id);
+      if (activeData?.type === "scheduled") {
+        await onRemove(activeData.entry.id);
       }
       return;
     }
@@ -327,22 +340,11 @@ export default function WeeklyGridView({
     const targetDate = parts[1];
     if (!targetEngineerId || !targetDate) return;
 
-    const data = active.data.current;
-    if (data?.type === "unallocated") {
-      await onAssign(data.job.id, targetEngineerId, targetDate);
-    } else if (data?.type === "scheduled") {
-      await onMove(data.entry.id, targetEngineerId, targetDate);
+    if (activeData?.type === "unallocated") {
+      await onAssign(activeData.job.id, targetEngineerId, targetDate);
+    } else if (activeData?.type === "scheduled") {
+      await onMove(activeData.entry.id, targetEngineerId, targetDate);
     }
-  };
-
-  const handleEngineerDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = engineers.findIndex((e) => e.user_id === active.id);
-    const newIndex = engineers.findIndex((e) => e.user_id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = arrayMove(engineers, oldIndex, newIndex);
-    onEngineerReorder(reordered.map((e) => e.user_id));
   };
 
   return (
@@ -407,28 +409,22 @@ export default function WeeklyGridView({
 
             {/* Engineer rows — sortable by admin */}
             <ScrollArea className="h-[calc(100vh-320px)]">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleEngineerDragEnd}
-              >
-                <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-1">
-                    {engineers.map((eng) => (
-                      <SortableEngineerRow
-                        key={eng.user_id}
-                        eng={eng}
-                        weekDays={weekDays}
-                        schedule={schedule}
-                        overId={overId}
-                        isAdmin={isAdmin}
-                        getJob={getJob}
-                        onRemove={onRemove}
-                      />
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
+              <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-1">
+                  {engineers.map((eng) => (
+                    <SortableEngineerRow
+                      key={eng.user_id}
+                      eng={eng}
+                      weekDays={weekDays}
+                      schedule={schedule}
+                      overId={overId}
+                      isAdmin={isAdmin}
+                      getJob={getJob}
+                      onRemove={onRemove}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
               <ScrollBar orientation="vertical" />
             </ScrollArea>
           </div>
