@@ -9,6 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import {
   Dialog,
   DialogContent,
@@ -43,6 +50,8 @@ import {
   Pencil,
   FileSpreadsheet,
   Trash2,
+  FolderOpen,
+  Users,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -85,6 +94,12 @@ const emptySite = {
   notes: "",
 };
 
+type CustomerFolder = {
+  id: string;
+  name: string;
+  sites: Site[];
+};
+
 export default function Sites() {
   const { userRole } = useAuth();
   const { toast } = useToast();
@@ -98,6 +113,8 @@ export default function Sites() {
   const [form, setForm] = useState(emptySite);
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [customerFolders, setCustomerFolders] = useState<CustomerFolder[]>([]);
+  const [foldersLoading, setFoldersLoading] = useState(true);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -156,8 +173,47 @@ export default function Sites() {
     setLoading(false);
   };
 
+  const fetchCustomerFolders = async () => {
+    setFoldersLoading(true);
+    // Fetch customers
+    const { data: customers } = await supabase.from("customers").select("id, name").order("name");
+    // Fetch jobs with site_id and customer_id to map customers → sites
+    const { data: jobs } = await supabase
+      .from("jobs")
+      .select("customer_id, site_id")
+      .not("customer_id", "is", null)
+      .not("site_id", "is", null);
+    // Fetch all sites for lookup
+    const { data: allSites } = await supabase.from("sites").select("*").order("name");
+
+    if (!customers || !allSites) { setFoldersLoading(false); return; }
+
+    const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
+    const customerSiteMap = new Map<string, Set<string>>();
+
+    for (const job of (jobs || [])) {
+      if (!job.customer_id || !job.site_id) continue;
+      if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
+      customerSiteMap.get(job.customer_id)!.add(job.site_id);
+    }
+
+    const folders: CustomerFolder[] = customers
+      .filter((c: any) => customerSiteMap.has(c.id))
+      .map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        sites: [...customerSiteMap.get(c.id)!]
+          .map((sid) => siteMap.get(sid))
+          .filter(Boolean) as Site[],
+      }));
+
+    setCustomerFolders(folders);
+    setFoldersLoading(false);
+  };
+
   useEffect(() => {
     fetchSites();
+    fetchCustomerFolders();
   }, []);
 
   const toggle = (id: string) => {
@@ -427,33 +483,131 @@ export default function Sites() {
         />
       </div>
 
-      {/* Tree */}
-      <Card>
-        <CardContent className="p-0">
-          {!loading && filteredRoots.length > 0 && userRole === "admin" && (
-            <div className="flex items-center gap-2 py-2 px-3 border-b border-border">
-              <input
-                type="checkbox"
-                checked={selected.size === sites.length && sites.length > 0}
-                onChange={toggleSelectAll}
-                className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
-              />
-              <span className="text-xs text-muted-foreground">
-                {selected.size > 0 ? `${selected.size} of ${sites.length} selected` : "Select all"}
-              </span>
-            </div>
-          )}
-          {loading ? (
+      <Tabs defaultValue="hierarchy">
+        <TabsList>
+          <TabsTrigger value="hierarchy">
+            <Globe className="mr-2 h-4 w-4" /> Hierarchy
+          </TabsTrigger>
+          <TabsTrigger value="by-customer">
+            <Users className="mr-2 h-4 w-4" /> By Customer
+          </TabsTrigger>
+        </TabsList>
+
+        {/* Hierarchy Tree Tab */}
+        <TabsContent value="hierarchy" className="mt-4">
+          <Card>
+            <CardContent className="p-0">
+              {!loading && filteredRoots.length > 0 && userRole === "admin" && (
+                <div className="flex items-center gap-2 py-2 px-3 border-b border-border">
+                  <input
+                    type="checkbox"
+                    checked={selected.size === sites.length && sites.length > 0}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {selected.size > 0 ? `${selected.size} of ${sites.length} selected` : "Select all"}
+                  </span>
+                </div>
+              )}
+              {loading ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
+              ) : filteredRoots.length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">
+                  {search ? "No sites match your search." : "No sites yet. Add a region to get started."}
+                </p>
+              ) : (
+                <div>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* By Customer Tab */}
+        <TabsContent value="by-customer" className="mt-4">
+          {foldersLoading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
-          ) : filteredRoots.length === 0 ? (
+          ) : customerFolders.length === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              {search ? "No sites match your search." : "No sites yet. Add a region to get started."}
+              No customer-site relationships found. Assign sites to jobs to see them here.
             </p>
           ) : (
-            <div>{filteredRoots.map((site) => renderTreeRow(site, 0))}</div>
+            <Accordion type="multiple" className="space-y-2">
+              {customerFolders
+                .filter((f) =>
+                  !search.trim() ||
+                  f.name.toLowerCase().includes(search.toLowerCase()) ||
+                  f.sites.some(
+                    (s) =>
+                      s.name.toLowerCase().includes(search.toLowerCase()) ||
+                      s.postcode?.toLowerCase().includes(search.toLowerCase()) ||
+                      s.address?.toLowerCase().includes(search.toLowerCase())
+                  )
+                )
+                .map((folder) => (
+                  <AccordionItem
+                    key={folder.id}
+                    value={folder.id}
+                    className="rounded-lg border bg-card"
+                  >
+                    <AccordionTrigger className="px-4 hover:no-underline">
+                      <div className="flex items-center gap-2">
+                        <FolderOpen className="h-4 w-4 text-primary" />
+                        <span className="font-semibold">{folder.name}</span>
+                        <Badge variant="secondary" className="ml-1 text-xs">
+                          {folder.sites.length} site{folder.sites.length !== 1 ? "s" : ""}
+                        </Badge>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="px-0 pb-0">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Name</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Address</TableHead>
+                            <TableHead>Postcode</TableHead>
+                            <TableHead>Contact</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {folder.sites.map((site) => {
+                            const config = TYPE_CONFIG[site.site_type];
+                            const Icon = config?.icon || MapPin;
+                            return (
+                              <TableRow key={site.id}>
+                                <TableCell className="font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
+                                    {site.name}
+                                  </div>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge variant="secondary" className="capitalize text-xs">
+                                    {site.site_type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {site.address || "—"}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {site.postcode || "—"}
+                                </TableCell>
+                                <TableCell className="text-muted-foreground text-sm">
+                                  {site.contact_name || "—"}
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                        </TableBody>
+                      </Table>
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+            </Accordion>
           )}
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
