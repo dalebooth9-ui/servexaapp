@@ -84,6 +84,9 @@ export default function WeeklyPlanner() {
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [monthDate, setMonthDate] = useState(new Date());
   const [engineers, setEngineers] = useState<Engineer[]>([]);
+  const [engineerOrder, setEngineerOrder] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("planner_engineer_order") || "[]"); } catch { return []; }
+  });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [jobParts, setJobParts] = useState<JobPart[]>([]);
@@ -184,6 +187,21 @@ export default function WeeklyPlanner() {
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
+
+  // Sorted engineers respecting saved order
+  const sortedEngineers = useMemo(() => {
+    if (engineerOrder.length === 0) return engineers;
+    const ordered = engineerOrder
+      .map((id) => engineers.find((e) => e.user_id === id))
+      .filter(Boolean) as Engineer[];
+    const remaining = engineers.filter((e) => !engineerOrder.includes(e.user_id));
+    return [...ordered, ...remaining];
+  }, [engineers, engineerOrder]);
+
+  const handleEngineerReorder = useCallback((newOrder: string[]) => {
+    setEngineerOrder(newOrder);
+    localStorage.setItem("planner_engineer_order", JSON.stringify(newOrder));
+  }, []);
 
   // Unallocated: active jobs with no schedule entry this period
   const unallocatedJobs = useMemo(() => {
@@ -469,7 +487,7 @@ export default function WeeklyPlanner() {
         <TabsContent value="grid" className="mt-4">
           <WeeklyGridView
             weekDays={weekDays}
-            engineers={engineers}
+            engineers={sortedEngineers}
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={unallocatedJobs}
@@ -477,6 +495,7 @@ export default function WeeklyPlanner() {
             onAssign={handleAssign}
             onMove={handleMove}
             onRemove={handleRemove}
+            onEngineerReorder={handleEngineerReorder}
           />
         </TabsContent>
 

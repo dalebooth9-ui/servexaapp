@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { X, GripVertical } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -18,6 +17,13 @@ import {
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
 
 interface ScheduleEntry {
@@ -255,6 +261,7 @@ export default function WeeklyGridView({
   onAssign,
   onMove,
   onRemove,
+  onEngineerReorder,
 }: {
   weekDays: Date[];
   engineers: Engineer[];
@@ -265,6 +272,7 @@ export default function WeeklyGridView({
   onAssign: (jobId: string, engineerId: string, date: string) => Promise<void>;
   onMove: (entryId: string, newEngineerId: string, newDate: string) => Promise<void>;
   onRemove: (entryId: string) => Promise<void>;
+  onEngineerReorder: (newOrder: string[]) => void;
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -305,7 +313,6 @@ export default function WeeklyGridView({
 
     const targetId = over.id as string;
 
-    // Dropping onto the unallocated zone removes the schedule entry
     if (targetId === "unallocated-zone") {
       const data = active.data.current;
       if (data?.type === "scheduled") {
@@ -314,7 +321,6 @@ export default function WeeklyGridView({
       return;
     }
 
-    // Parse target: "cell-{engineerId}-{date}"
     if (!targetId.startsWith("cell-")) return;
     const parts = targetId.replace("cell-", "").split("_");
     const targetEngineerId = parts[0];
@@ -329,6 +335,16 @@ export default function WeeklyGridView({
     }
   };
 
+  const handleEngineerDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = engineers.findIndex((e) => e.user_id === active.id);
+    const newIndex = engineers.findIndex((e) => e.user_id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = arrayMove(engineers, oldIndex, newIndex);
+    onEngineerReorder(reordered.map((e) => e.user_id));
+  };
+
   return (
     <DndContext
       sensors={sensors}
@@ -341,7 +357,7 @@ export default function WeeklyGridView({
         {/* Unallocated sidebar */}
         {isAdmin && (
           <div className="w-[220px] shrink-0">
-          <DroppableUnallocatedZone>
+            <DroppableUnallocatedZone>
               <h3 className="mb-2 text-sm font-semibold">Unallocated Jobs</h3>
               <ScrollArea className="h-[calc(100vh-300px)]">
                 {groupedUnallocated.length === 0 ? (
@@ -365,7 +381,7 @@ export default function WeeklyGridView({
                 )}
                 <ScrollBar orientation="vertical" />
               </ScrollArea>
-          </DroppableUnallocatedZone>
+            </DroppableUnallocatedZone>
           </div>
         )}
 
@@ -389,70 +405,30 @@ export default function WeeklyGridView({
               })}
             </div>
 
-            {/* Engineer rows */}
+            {/* Engineer rows — sortable by admin */}
             <ScrollArea className="h-[calc(100vh-320px)]">
-              <div className="space-y-1">
-                {engineers.map((eng) => (
-                  <div
-                    key={eng.user_id}
-                    className="grid gap-1"
-                    style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
-                  >
-                    <div className="flex items-center gap-2 px-2 text-sm font-medium truncate">
-                      <span className="truncate">{eng.full_name}</span>
-                      {(() => {
-                        const totalJobs = schedule.filter((s) => s.engineer_id === eng.user_id).length;
-                        const todayJobs = schedule.filter(
-                          (s) => s.engineer_id === eng.user_id && s.schedule_date === format(new Date(), "yyyy-MM-dd")
-                        ).length;
-                        const available = todayJobs === 0;
-                        return (
-                          <span
-                            className={cn(
-                              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-                              available
-                                ? "bg-green-500/20 text-green-700 dark:text-green-400"
-                                : todayJobs >= 3
-                                  ? "bg-destructive/20 text-destructive"
-                                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-                            )}
-                            title={`${totalJobs} jobs this period, ${todayJobs} today`}
-                          >
-                            {available ? "Free" : `${todayJobs} today`}
-                          </span>
-                        );
-                      })()}
-                    </div>
-                    {weekDays.map((d) => {
-                      const dateStr = format(d, "yyyy-MM-dd");
-                      const cellId = `cell-${eng.user_id}_${dateStr}`;
-                      const cellEntries = schedule.filter(
-                        (s) => s.engineer_id === eng.user_id && s.schedule_date === dateStr
-                      );
-                      const isToday = isSameDay(d, new Date());
-
-                      return (
-                        <DroppableCell
-                          key={cellId}
-                          id={cellId}
-                          isToday={isToday}
-                          isOver={overId === cellId}
-                        >
-                          {cellEntries.map((entry) => (
-                            <DraggableScheduleCard
-                              key={entry.id}
-                              entry={entry}
-                              job={getJob(entry.job_id)}
-                              isAdmin={isAdmin}
-                              onRemove={onRemove}
-                            />
-                          ))}
-                        </DroppableCell>
-                      );
-                    })}
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleEngineerDragEnd}
+              >
+                <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-1">
+                    {engineers.map((eng) => (
+                      <SortableEngineerRow
+                        key={eng.user_id}
+                        eng={eng}
+                        weekDays={weekDays}
+                        schedule={schedule}
+                        overId={overId}
+                        isAdmin={isAdmin}
+                        getJob={getJob}
+                        onRemove={onRemove}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
               <ScrollBar orientation="vertical" />
             </ScrollArea>
           </div>
@@ -475,5 +451,89 @@ export default function WeeklyGridView({
         )}
       </DragOverlay>
     </DndContext>
+  );
+}
+
+// Sortable engineer row
+function SortableEngineerRow({
+  eng,
+  weekDays,
+  schedule,
+  overId,
+  isAdmin,
+  getJob,
+  onRemove,
+}: {
+  eng: Engineer;
+  weekDays: Date[];
+  schedule: ScheduleEntry[];
+  overId: string | null;
+  isAdmin: boolean;
+  getJob: (id: string) => Job | undefined;
+  onRemove: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  const totalJobs = schedule.filter((s) => s.engineer_id === eng.user_id).length;
+  const todayJobs = schedule.filter(
+    (s) => s.engineer_id === eng.user_id && s.schedule_date === format(new Date(), "yyyy-MM-dd")
+  ).length;
+  const available = todayJobs === 0;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ ...style, gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
+      className="grid gap-1"
+    >
+      <div className="flex items-center gap-1 px-2 text-sm font-medium truncate">
+          {isAdmin && (
+            <span
+              {...attributes}
+              {...listeners}
+              className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
+              title="Drag to reorder"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+          )}
+          <span className="truncate">{eng.full_name}</span>
+          <span
+            className={cn(
+              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+              available
+                ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                : todayJobs >= 3
+                  ? "bg-destructive/20 text-destructive"
+                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+            )}
+            title={`${totalJobs} jobs this period, ${todayJobs} today`}
+          >
+            {available ? "Free" : `${todayJobs} today`}
+          </span>
+        </div>
+        {weekDays.map((d) => {
+          const dateStr = format(d, "yyyy-MM-dd");
+          const cellId = `cell-${eng.user_id}_${dateStr}`;
+          const cellEntries = schedule.filter(
+            (s) => s.engineer_id === eng.user_id && s.schedule_date === dateStr
+          );
+          const isToday = isSameDay(d, new Date());
+          return (
+            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId}>
+              {cellEntries.map((entry) => (
+                <DraggableScheduleCard
+                  key={entry.id}
+                  entry={entry}
+                  job={getJob(entry.job_id)}
+                  isAdmin={isAdmin}
+                  onRemove={onRemove}
+                />
+              ))}
+            </DroppableCell>
+          );
+        })}
+    </div>
   );
 }
