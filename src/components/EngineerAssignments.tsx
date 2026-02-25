@@ -69,19 +69,7 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
     setLoading(false);
 
     // Fetch engineer's docs and offer to attach
-    if (eng) {
-      setJustAssignedEng(eng);
-      setSelectedDocIds(new Set());
-      setDocsLoading(true);
-      setAttachDialogOpen(true);
-      const { data: docs } = await supabase
-        .from("engineer_documents" as any)
-        .select("id, title, document_type, file_url, file_name, expiry_date")
-        .eq("engineer_id", eng.user_id)
-        .order("created_at", { ascending: false });
-      setEngDocs((docs as unknown as EngDoc[]) || []);
-      setDocsLoading(false);
-    }
+    if (eng) openAttachDialog(eng);
   };
 
   const handleUnassign = async (assignmentId: string) => {
@@ -92,6 +80,20 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
       toast({ title: "Engineer unassigned" });
       fetchAssignments();
     }
+  };
+
+  const openAttachDialog = async (eng: Engineer) => {
+    setJustAssignedEng(eng);
+    setSelectedDocIds(new Set());
+    setDocsLoading(true);
+    setAttachDialogOpen(true);
+    const { data: docs } = await supabase
+      .from("engineer_documents" as any)
+      .select("id, title, document_type, file_url, file_name, expiry_date")
+      .eq("engineer_id", eng.user_id)
+      .order("created_at", { ascending: false });
+    setEngDocs((docs as unknown as EngDoc[]) || []);
+    setDocsLoading(false);
   };
 
   const handleAttachDocs = async () => {
@@ -138,6 +140,15 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
               {assignments.map((a) => (
                 <Badge key={a.id} variant="secondary" className="gap-1.5 py-1 pl-2.5 pr-1.5">
                   {a.profile?.full_name || "Unknown"}
+                  {userRole === "admin" && a.profile && (
+                    <button
+                      title="Attach certificates"
+                      onClick={() => openAttachDialog(a.profile!)}
+                      className="ml-0.5 rounded-full p-0.5 hover:bg-muted"
+                    >
+                      <Paperclip className="h-3 w-3" />
+                    </button>
+                  )}
                   {userRole === "admin" && (
                     <button onClick={() => handleUnassign(a.id)} className="ml-0.5 rounded-full p-0.5 hover:bg-muted">
                       <X className="h-3 w-3" />
@@ -221,7 +232,7 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
           )}
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Skip</Button>
+            <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleAttachDocs} disabled={attaching || selectedDocIds.size === 0}>
               {attaching ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Attaching…</> : `Attach ${selectedDocIds.size > 0 ? selectedDocIds.size : ""} Document${selectedDocIds.size !== 1 ? "s" : ""}`}
             </Button>
