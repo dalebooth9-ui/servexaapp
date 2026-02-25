@@ -59,6 +59,12 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("invoice")) parts.push("Invoice");
     setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
 
+    const customerName = job.customers?.name || job.customer || "Customer";
+    const siteAddress = job.sites?.name
+      ? `${job.sites.name}${job.address ? `, ${job.address}` : ""}`
+      : job.address || "";
+    const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+
     const items: string[] = [];
     if (docs.has("report")) items.push("the report");
     if (docs.has("rams")) items.push("the RAMS documents");
@@ -66,7 +72,12 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("quote")) items.push("our quote for further works");
     if (docs.has("invoice")) items.push("your invoice");
     const itemStr = items.length > 0 ? items.join(", ") : "the documents";
-    setMessage(`Dear ${job.customers?.name || job.customer || "Customer"},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
+
+    const ramsBlock = docs.has("rams")
+      ? `\n\nJob Reference: ${job.reference_number}\nJob: ${job.name}\nCustomer: ${customerName}${siteAddress ? `\nSite / Address: ${siteAddress}` : ""}\nDate: ${today}`
+      : "";
+
+    setMessage(`Dear ${customerName},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).${ramsBlock}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
   };
 
   const handleDocToggleImmediate = (doc: DocOption) => {
