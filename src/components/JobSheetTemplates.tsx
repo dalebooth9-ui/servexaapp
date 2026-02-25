@@ -573,6 +573,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     );
   }
 
+  // Find the most recent RAMS response (any status) for prominent export
+  const ramsTemplates = templates.filter((t) => (t as any).category === "rams");
+  const ramsResponses = responses
+    .filter((r) => ramsTemplates.some((t) => t.id === r.template_id))
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const latestRams = ramsResponses[0];
+  const latestRamsTpl = latestRams ? ramsTemplates.find((t) => t.id === latestRams.template_id) : null;
+
   // Main list view
   return (
     <>
@@ -582,11 +590,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             <CardTitle className="text-sm flex items-center gap-2">
               <FileText className="h-4 w-4" /> Job Sheet Templates
             </CardTitle>
-            {userRole === "admin" && (
-              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                <Plus className="h-3 w-3 mr-1" /> Import Template
-              </Button>
-            )}
+            <div className="flex gap-1.5 items-center">
+              {latestRams && latestRamsTpl && (
+                <JobSheetPdfExport
+                  template={{ ...latestRamsTpl, fields: latestRamsTpl.fields as any[], branding: (latestRamsTpl as any).branding as any }}
+                  formData={latestRams.responses as Record<string, any>}
+                  jobInfo={jobInfo}
+                  jobId={jobId}
+                  submittedBy={profiles[latestRams.submitted_by] || ""}
+                  submittedAt={latestRams.submitted_at}
+                  trigger={
+                    <Button variant="secondary" size="sm" className="h-7 text-xs gap-1">
+                      <FileText className="h-3.5 w-3.5" /> Export RAMS PDF
+                    </Button>
+                  }
+                />
+              )}
+              {userRole === "admin" && (
+                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                  <Plus className="h-3 w-3 mr-1" /> Import Template
+                </Button>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -635,7 +660,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <Pencil className="h-3 w-3 mr-1" /> Edit
                         </Button>
                       )}
-                      {resp.status === "submitted" && tpl && (
+                      {tpl && (
                         <JobSheetPdfExport
                           template={{ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }}
                           formData={resp.responses as Record<string, any>}
