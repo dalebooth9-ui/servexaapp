@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck } from "lucide-react";
+import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
@@ -23,7 +23,7 @@ interface Props {
   customerEmail?: string;
 }
 
-type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams";
+type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
@@ -50,10 +50,15 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [ramsSubmissions, setRamsSubmissions] = useState<{ id: string; file_name: string; file_url: string }[]>([]);
   const [selectedRams, setSelectedRams] = useState<Set<string>>(new Set());
 
+  // Engineer certificates
+  const [certSubmissions, setCertSubmissions] = useState<{ id: string; file_name: string; file_url: string; engineer_id: string }[]>([]);
+  const [selectedCerts, setSelectedCerts] = useState<Set<string>>(new Set());
+
   const buildSubjectAndMessage = (docs: Set<DocOption>) => {
     const parts: string[] = [];
     if (docs.has("report")) parts.push("Report");
     if (docs.has("rams")) parts.push("RAMS");
+    if (docs.has("certs")) parts.push("Engineer Certificates");
     if (docs.has("jobsheets")) parts.push("Job Sheets");
     if (docs.has("quote")) parts.push("Quote");
     if (docs.has("invoice")) parts.push("Invoice");
@@ -68,6 +73,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     const items: string[] = [];
     if (docs.has("report")) items.push("the report");
     if (docs.has("rams")) items.push("the RAMS documents");
+    if (docs.has("certs")) items.push("the engineer certificates");
     if (docs.has("jobsheets")) items.push("the completed job sheets");
     if (docs.has("quote")) items.push("our quote for further works");
     if (docs.has("invoice")) items.push("your invoice");
@@ -106,6 +112,15 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     });
   };
 
+  const toggleCert = (id: string) => {
+    setSelectedCerts((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const openDialog = async () => {
     setEmail(customerEmail || "");
     setReportBase64(null);
@@ -113,12 +128,13 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     setSelectedDocs(new Set());
     setSelectedSheets(new Set());
     setSelectedRams(new Set());
+    setSelectedCerts(new Set());
     setSheetPdfs({});
     setDialogOpen(true);
 
-    // Pre-load invoices, sheet responses, and RAMS submissions in parallel
+    // Pre-load invoices, sheet responses, RAMS submissions, and engineer certs in parallel
     setLoadingInvoices(true);
-    const [invRes, sheetsRes, ramsRes] = await Promise.all([
+    const [invRes, sheetsRes, ramsRes, certsRes] = await Promise.all([
       supabase
         .from("invoices")
         .select("id, invoice_number, total, status, document_type")
@@ -136,11 +152,20 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         .eq("job_id", jobId)
         .eq("type", "document")
         .order("created_at", { ascending: false }),
+      supabase
+        .from("submissions")
+        .select("id, file_name, file_url, engineer_id")
+        .eq("job_id", jobId)
+        .eq("type", "document")
+        .like("file_name", "[Cert]%")
+        .order("created_at", { ascending: false }),
     ]);
     setInvoices(invRes.data || []);
     if (invRes.data && invRes.data.length > 0) setSelectedInvoice(invRes.data[0].id);
     setSheetResponses(sheetsRes.data || []);
-    setRamsSubmissions((ramsRes.data || []).filter((s: any) => s.file_name && s.file_url));
+    // Exclude [Cert] files from RAMS list
+    setRamsSubmissions((ramsRes.data || []).filter((s: any) => s.file_name && s.file_url && !s.file_name.startsWith("[Cert]")));
+    setCertSubmissions((certsRes.data || []).filter((s: any) => s.file_name && s.file_url));
     setLoadingInvoices(false);
   };
 
@@ -182,6 +207,33 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
               reader.readAsDataURL(blob);
             });
             attachments.push({ filename: sub.file_name || "document.pdf", content: base64 });
+          } catch {}
+        }
+      }
+
+      // Attach selected engineer certificates
+      if (selectedDocs.has("certs") && selectedCerts.size > 0) {
+        for (const subId of selectedCerts) {
+          const sub = certSubmissions.find((s) => s.id === subId);
+          if (!sub) continue;
+          const urlMatch = sub.file_url.match(/\/object\/(?:public|sign)\/submissions\/(.+?)(?:\?|$)/);
+          const storagePath = urlMatch ? urlMatch[1] : null;
+          if (!storagePath) continue;
+          const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
+          if (!signed?.signedUrl) continue;
+          try {
+            const res = await fetch(signed.signedUrl);
+            const blob = await res.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+              reader.readAsDataURL(blob);
+            });
+            // Clean the display filename — strip "[Cert] " prefix and " — filename" suffix
+            const withoutPrefix = (sub.file_name || "").replace(/^\[Cert\]\s*/, "");
+            const sepIdx = withoutPrefix.lastIndexOf(" — ");
+            const cleanName = sepIdx > -1 ? withoutPrefix.slice(0, sepIdx) : withoutPrefix;
+            attachments.push({ filename: cleanName || sub.file_name || "certificate.pdf", content: base64 });
           } catch {}
         }
       }
@@ -312,6 +364,20 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
 
                 <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
                   <Checkbox
+                    checked={selectedDocs.has("certs")}
+                    onCheckedChange={() => handleDocToggleImmediate("certs")}
+                  />
+                  <Award className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Engineer Certificates</p>
+                    <p className="text-xs text-muted-foreground">
+                      Attached engineer certification documents ({certSubmissions.length} available)
+                    </p>
+                  </div>
+                </label>
+
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
+                  <Checkbox
                     checked={selectedDocs.has("quote")}
                     onCheckedChange={() => handleDocToggleImmediate("quote")}
                   />
@@ -383,6 +449,37 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                 )}
                 {selectedRams.size > 0 && (
                   <p className="text-xs text-muted-foreground">{selectedRams.size} document(s) will be attached</p>
+                )}
+              </div>
+            )}
+
+            {/* Engineer certificates selection */}
+            {selectedDocs.has("certs") && (
+              <div className="space-y-2">
+                <Label className="text-sm">Select Engineer Certificates to Attach</Label>
+                {certSubmissions.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No engineer certificates attached to this job yet. Attach them via the engineer assignment badges.</p>
+                ) : (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {certSubmissions.map((cert) => {
+                      const withoutPrefix = cert.file_name.replace(/^\[Cert\]\s*/, "");
+                      const sepIdx = withoutPrefix.lastIndexOf(" — ");
+                      const displayName = sepIdx > -1 ? withoutPrefix.slice(0, sepIdx) : withoutPrefix;
+                      return (
+                        <label key={cert.id} className="flex items-center gap-3 rounded-md border p-2.5 cursor-pointer hover:bg-muted/50 transition-colors">
+                          <Checkbox
+                            checked={selectedCerts.has(cert.id)}
+                            onCheckedChange={() => toggleCert(cert.id)}
+                          />
+                          <Award className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <p className="text-sm truncate">{displayName}</p>
+                        </label>
+                      );
+                    })}
+                  </div>
+                )}
+                {selectedCerts.size > 0 && (
+                  <p className="text-xs text-muted-foreground">{selectedCerts.size} certificate(s) will be attached</p>
                 )}
               </div>
             )}
