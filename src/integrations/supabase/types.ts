@@ -585,6 +585,51 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          engineer_id: string
+          expiry_date: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          notes: string | null
+          title: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          document_type?: string
+          engineer_id: string
+          expiry_date?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          notes?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          engineer_id?: string
+          expiry_date?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          notes?: string | null
+          title?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       engineer_locations: {
         Row: {
           accuracy: number | null
