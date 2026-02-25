@@ -70,6 +70,7 @@ type CustomerFolder = {
   phone?: string | null;
   address?: string | null;
   sites: Site[];
+  jobCountsBySite?: Record<string, number>;
 };
 
 // ── DnD helper components ───────────────────────────────────────────────────
@@ -226,10 +227,15 @@ export default function Sites() {
     if (!customers || !allSites) { setFoldersLoading(false); return; }
     const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
     const customerSiteMap = new Map<string, Set<string>>();
+    // Count all jobs (including real ones) per customer+site
+    const jobCountMap = new Map<string, Map<string, number>>();
     for (const job of (jobs || [])) {
       if (!job.customer_id || !job.site_id) continue;
       if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
       customerSiteMap.get(job.customer_id)!.add(job.site_id);
+      if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
+      const siteCount = jobCountMap.get(job.customer_id)!;
+      siteCount.set(job.site_id, (siteCount.get(job.site_id) || 0) + 1);
     }
     const folders: CustomerFolder[] = (customers as any[]).map((c) => ({
       id: c.id,
@@ -238,6 +244,7 @@ export default function Sites() {
       phone: c.phone,
       address: c.address,
       sites: [...(customerSiteMap.get(c.id) || [])].map((sid) => siteMap.get(sid)).filter(Boolean) as Site[],
+      jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
     }));
     setCustomerFolders(folders);
     setFoldersLoading(false);
@@ -536,6 +543,11 @@ export default function Sites() {
                                               <div className="flex items-center gap-2">
                                                 <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
                                                 {site.name}
+                                                {(folder.jobCountsBySite?.[site.id] ?? 0) > 0 && (
+                                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                                                    {folder.jobCountsBySite![site.id]} job{folder.jobCountsBySite![site.id] !== 1 ? "s" : ""}
+                                                  </Badge>
+                                                )}
                                               </div>
                                             </TableCell>
                                             <TableCell><Badge variant="secondary" className="capitalize text-xs">{site.site_type}</Badge></TableCell>
