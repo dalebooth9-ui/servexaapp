@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip,
+  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip, FolderOpen, X, Loader2,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -71,6 +71,13 @@ export default function Compliance() {
   const [jobSearch, setJobSearch] = useState("");
   const [attachingJobIds, setAttachingJobIds] = useState<Set<string>>(new Set());
   const [attaching, setAttaching] = useState(false);
+
+  // Bulk import state
+  const bulkFileRef = useRef<HTMLInputElement>(null);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; expiry_date: string }[]>([]);
+  const [bulkDragOver, setBulkDragOver] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
 
   const fetchData = async () => {
     const [recRes, assetRes, siteRes, jobRes] = await Promise.all([
@@ -293,6 +300,42 @@ export default function Compliance() {
     return j.name.toLowerCase().includes(q) || j.reference_number?.toLowerCase().includes(q) || j.customer?.toLowerCase().includes(q);
   });
 
+  const addBulkFiles = (files: File[]) => {
+    const entries = files.map((f) => ({
+      file: f,
+      title: f.name.replace(/\.[^/.]+$/, ""), // strip extension for default title
+      record_type: "certificate",
+      expiry_date: "",
+    }));
+    setBulkFiles((prev) => [...prev, ...entries]);
+  };
+
+  const handleBulkImport = async () => {
+    if (!bulkFiles.length || !user) return;
+    setBulkUploading(true);
+    let created = 0;
+    for (const item of bulkFiles) {
+      const path = `compliance/${Date.now()}_${item.file.name}`;
+      const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, item.file);
+      if (upErr) { toast({ title: "Upload failed", description: `${item.file.name}: ${upErr.message}`, variant: "destructive" }); continue; }
+      const { error: insErr } = await supabase.from("compliance_records").insert({
+        title: item.title.trim() || item.file.name,
+        record_type: item.record_type,
+        status: "valid",
+        file_url: JSON.stringify([path]),
+        file_name: JSON.stringify([item.file.name]),
+        expiry_date: item.expiry_date || null,
+        created_by: user.id,
+      } as any);
+      if (!insErr) created++;
+    }
+    setBulkUploading(false);
+    setBulkDialogOpen(false);
+    setBulkFiles([]);
+    fetchData();
+    toast({ title: "Bulk import complete", description: `${created} record(s) created.` });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -301,7 +344,12 @@ export default function Compliance() {
           <p className="text-sm text-muted-foreground">Track certificates, inspections, and regulatory compliance across your estate.</p>
         </div>
         {userRole === "admin" && (
-          <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add Record</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>
+              <FolderOpen className="mr-2 h-4 w-4" /> Bulk Import
+            </Button>
+            <Button onClick={openCreate}><Plus className="mr-2 h-4 w-4" /> Add Record</Button>
+          </div>
         )}
       </div>
 
@@ -600,6 +648,106 @@ export default function Compliance() {
               <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleAttachToJob} disabled={attachingJobIds.size === 0 || attaching}>
                 {attaching ? "Attaching..." : `Attach to ${attachingJobIds.size || ""} Job${attachingJobIds.size !== 1 ? "s" : ""}`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Import Dialog */}
+      <input
+        ref={bulkFileRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files) addBulkFiles(Array.from(e.target.files));
+          if (bulkFileRef.current) bulkFileRef.current.value = "";
+        }}
+      />
+      <Dialog open={bulkDialogOpen} onOpenChange={(o) => { setBulkDialogOpen(o); if (!o) setBulkFiles([]); }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" /> Bulk Import Documents
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2 flex-1 overflow-y-auto">
+            <div
+              className={`rounded-lg border-2 border-dashed p-8 text-center transition-colors cursor-pointer ${bulkDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/30 hover:border-primary/50"}`}
+              onDragOver={(e) => { e.preventDefault(); setBulkDragOver(true); }}
+              onDragLeave={() => setBulkDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setBulkDragOver(false);
+                const files = Array.from(e.dataTransfer.files).filter((f) => f.size > 0);
+                if (files.length) addBulkFiles(files);
+              }}
+              onClick={() => bulkFileRef.current?.click()}
+            >
+              <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              <p className="text-sm font-medium">Drop files here or click to browse</p>
+              <p className="text-xs text-muted-foreground mt-1">PDF, Word, Excel, images — up to 20MB each</p>
+            </div>
+
+            {bulkFiles.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{bulkFiles.length} file(s) to import</p>
+                <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
+                  {bulkFiles.map((item, i) => (
+                    <div key={i} className="rounded-md border bg-card p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground truncate">{item.file.name}</span>
+                        </div>
+                        <button
+                          onClick={() => setBulkFiles((prev) => prev.filter((_, j) => j !== i))}
+                          className="shrink-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-3 sm:col-span-1">
+                          <Input
+                            placeholder="Title"
+                            value={item.title}
+                            onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, title: e.target.value } : it))}
+                            className="h-7 text-xs"
+                          />
+                        </div>
+                        <Select
+                          value={item.record_type}
+                          onValueChange={(v) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, record_type: v } : it))}
+                        >
+                          <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {RECORD_TYPES.map((t) => <SelectItem key={t} value={t} className="text-xs">{t.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          type="date"
+                          placeholder="Expiry"
+                          value={item.expiry_date}
+                          onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, expiry_date: e.target.value } : it))}
+                          className="h-7 text-xs"
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex justify-between items-center pt-4 border-t mt-2 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => bulkFileRef.current?.click()}>
+              <Plus className="mr-1.5 h-3.5 w-3.5" /> Add more files
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => { setBulkDialogOpen(false); setBulkFiles([]); }}>Cancel</Button>
+              <Button onClick={handleBulkImport} disabled={bulkFiles.length === 0 || bulkUploading}>
+                {bulkUploading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Importing...</> : `Import ${bulkFiles.length || ""} Record${bulkFiles.length !== 1 ? "s" : ""}`}
               </Button>
             </div>
           </div>
