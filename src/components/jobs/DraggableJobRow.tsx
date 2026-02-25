@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { GripVertical, Trash2, ShieldCheck } from "lucide-react";
+import { GripVertical, Trash2, ShieldCheck, CalendarDays } from "lucide-react";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import WhatsAppQuickSend from "./WhatsAppQuickSend";
 
@@ -17,9 +17,10 @@ interface DraggableJobRowProps {
   selected?: boolean;
   onSelect?: (id: string, checked: boolean) => void;
   onFileDrop?: (jobId: string, files: File[]) => void;
+  onQuickSchedule?: (job: any) => void;
 }
 
-export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSelect, onFileDrop }: DraggableJobRowProps) {
+export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, selected, onSelect, onFileDrop, onQuickSchedule }: DraggableJobRowProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: job.id,
     data: { job },
@@ -116,7 +117,14 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
       <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
       {isAdmin && (
         <TableCell className="w-20 px-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <button
+              className="text-muted-foreground hover:text-primary transition-colors"
+              title="Schedule in planner"
+              onClick={() => onQuickSchedule?.(job)}
+            >
+              <CalendarDays className="h-4 w-4" />
+            </button>
             <WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} />
             <AlertDialog>
               <AlertDialogTrigger asChild>

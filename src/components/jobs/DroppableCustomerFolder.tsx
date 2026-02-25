@@ -22,6 +22,7 @@ interface DroppableCustomerFolderProps {
   onSelectAll?: (jobIds: string[], checked: boolean) => void;
   onJobFileDrop?: (jobId: string, files: File[]) => void;
   onFolderFileDrop?: (customerName: string, files: File[]) => void;
+  onQuickSchedule?: (job: any) => void;
 }
 
 export default function DroppableCustomerFolder({
@@ -38,6 +39,7 @@ export default function DroppableCustomerFolder({
   onSelectAll,
   onJobFileDrop,
   onFolderFileDrop,
+  onQuickSchedule,
 }: DroppableCustomerFolderProps) {
   const { setNodeRef } = useDroppable({
     id: `folder-${customerName}`,
@@ -147,7 +149,7 @@ export default function DroppableCustomerFolder({
               </TableRow>
             ) : (
               jobs.map((job: any) => (
-                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} selected={selectedIds?.has(job.id)} onSelect={onSelect} onFileDrop={onJobFileDrop} />
+                <DraggableJobRow key={job.id} job={job} statusColor={statusColor} isAdmin={isAdmin} onDelete={onDeleteJob} selected={selectedIds?.has(job.id)} onSelect={onSelect} onFileDrop={onJobFileDrop} onQuickSchedule={onQuickSchedule} />
               ))
             )}
           </TableBody>
