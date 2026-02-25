@@ -17,6 +17,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip,
 } from "lucide-react";
@@ -68,7 +69,7 @@ export default function Compliance() {
   const [attachingRecord, setAttachingRecord] = useState<ComplianceRecord | null>(null);
   const [jobs, setJobs] = useState<{ id: string; name: string; reference_number: string; customer: string | null }[]>([]);
   const [jobSearch, setJobSearch] = useState("");
-  const [attachingJobId, setAttachingJobId] = useState<string | null>(null);
+  const [attachingJobIds, setAttachingJobIds] = useState<Set<string>>(new Set());
   const [attaching, setAttaching] = useState(false);
 
   const fetchData = async () => {
@@ -223,13 +224,21 @@ export default function Compliance() {
 
   const openAttachDialog = (r: ComplianceRecord) => {
     setAttachingRecord(r);
-    setAttachingJobId(null);
+    setAttachingJobIds(new Set());
     setJobSearch("");
     setAttachDialogOpen(true);
   };
 
+  const toggleJobSelection = (jobId: string) => {
+    setAttachingJobIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId); else next.add(jobId);
+      return next;
+    });
+  };
+
   const handleAttachToJob = async () => {
-    if (!attachingRecord || !attachingJobId || !user) return;
+    if (!attachingRecord || attachingJobIds.size === 0 || !user) return;
     setAttaching(true);
     const { urls, names } = parseFileList(attachingRecord.file_url, attachingRecord.file_name);
 
@@ -240,40 +249,41 @@ export default function Compliance() {
     }
 
     let attachedCount = 0;
-    for (let i = 0; i < urls.length; i++) {
-      const storagePath = urls[i];
-      const fileName = names[i] || attachingRecord.title;
-      // Get a signed URL to copy the file via fetch, then re-upload to submissions bucket
-      const { data: signedData } = await supabase.storage.from("asset-documents").createSignedUrl(storagePath, 3600);
-      if (!signedData?.signedUrl) continue;
+    for (const jobId of Array.from(attachingJobIds)) {
+      for (let i = 0; i < urls.length; i++) {
+        const storagePath = urls[i];
+        const fileName = names[i] || attachingRecord.title;
+        const { data: signedData } = await supabase.storage.from("asset-documents").createSignedUrl(storagePath, 3600);
+        if (!signedData?.signedUrl) continue;
 
-      try {
-        const fileRes = await fetch(signedData.signedUrl);
-        const blob = await fileRes.blob();
-        const destPath = `${attachingJobId}/${Date.now()}-${fileName}`;
-        const { error: upErr } = await supabase.storage.from("submissions").upload(destPath, blob, { contentType: blob.type });
-        if (upErr) continue;
+        try {
+          const fileRes = await fetch(signedData.signedUrl);
+          const blob = await fileRes.blob();
+          const destPath = `${jobId}/${Date.now()}-${fileName}`;
+          const { error: upErr } = await supabase.storage.from("submissions").upload(destPath, blob, { contentType: blob.type });
+          if (upErr) continue;
 
-        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(destPath);
-        const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
-        const isImage = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext);
-        const { error: insErr } = await supabase.from("submissions").insert({
-          job_id: attachingJobId,
-          engineer_id: user.id,
-          type: isImage ? "photo" : "document",
-          file_url: urlData.publicUrl,
-          file_name: fileName,
-        });
-        if (!insErr) attachedCount++;
-      } catch {}
+          const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(destPath);
+          const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+          const isImage = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext);
+          const { error: insErr } = await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: user.id,
+            type: isImage ? "photo" : "document",
+            file_url: urlData.publicUrl,
+            file_name: fileName,
+          });
+          if (!insErr) attachedCount++;
+        } catch {}
+      }
     }
 
     setAttaching(false);
     setAttachDialogOpen(false);
     if (attachedCount > 0) {
-      toast({ title: "Documents attached", description: `${attachedCount} document(s) added to job folder.` });
+      toast({ title: "Documents attached", description: `${attachedCount} document(s) added to ${attachingJobIds.size} job(s).` });
     } else {
-      toast({ title: "Attach failed", description: "Could not attach documents to the job.", variant: "destructive" });
+      toast({ title: "Attach failed", description: "Could not attach documents to the jobs.", variant: "destructive" });
     }
   };
 
@@ -550,7 +560,12 @@ export default function Compliance() {
                 <p className="font-medium">{attachingRecord.title}</p>
                 {(() => {
                   const { names } = parseFileList(attachingRecord.file_url, attachingRecord.file_name);
-                  return <p className="text-xs text-muted-foreground mt-0.5">{names.length} document(s) will be attached</p>;
+                  return (
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {names.length} document(s) will be attached
+                      {attachingJobIds.size > 0 && <span className="text-primary font-medium"> · {attachingJobIds.size} job(s) selected</span>}
+                    </p>
+                  );
                 })()}
               </div>
             )}
@@ -570,18 +585,21 @@ export default function Compliance() {
                 <button
                   key={j.id}
                   type="button"
-                  onClick={() => setAttachingJobId(j.id)}
-                  className={`w-full text-left px-3 py-2.5 hover:bg-muted transition-colors ${attachingJobId === j.id ? "bg-primary/10 border-l-2 border-primary" : ""}`}
+                  onClick={() => toggleJobSelection(j.id)}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-muted transition-colors flex items-center gap-3 ${attachingJobIds.has(j.id) ? "bg-primary/10" : ""}`}
                 >
-                  <p className="text-sm font-medium">{j.name}</p>
-                  <p className="text-xs text-muted-foreground">{j.reference_number}{j.customer ? ` · ${j.customer}` : ""}</p>
+                  <Checkbox checked={attachingJobIds.has(j.id)} onCheckedChange={() => toggleJobSelection(j.id)} onClick={(e) => e.stopPropagation()} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium">{j.name}</p>
+                    <p className="text-xs text-muted-foreground">{j.reference_number}{j.customer ? ` · ${j.customer}` : ""}</p>
+                  </div>
                 </button>
               ))}
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleAttachToJob} disabled={!attachingJobId || attaching}>
-                {attaching ? "Attaching..." : "Attach Documents"}
+              <Button onClick={handleAttachToJob} disabled={attachingJobIds.size === 0 || attaching}>
+                {attaching ? "Attaching..." : `Attach to ${attachingJobIds.size || ""} Job${attachingJobIds.size !== 1 ? "s" : ""}`}
               </Button>
             </div>
           </div>
