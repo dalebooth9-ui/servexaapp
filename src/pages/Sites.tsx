@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
-  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical,
+  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -542,7 +542,33 @@ export default function Sites() {
                                             <TableCell className="text-muted-foreground text-sm">{site.address || "—"}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{site.postcode || "—"}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{site.contact_name || "—"}</TableCell>
-                                            <TableCell className="w-8 text-right"><Pencil className="h-3.5 w-3.5 text-muted-foreground" /></TableCell>
+                                            <TableCell className="w-16 text-right">
+                                              <div className="flex items-center justify-end gap-1">
+                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
+                                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                                </Button>
+                                                {userRole === "admin" && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7 text-destructive hover:text-destructive"
+                                                    title="Remove from customer"
+                                                    onClick={async (e) => {
+                                                      e.stopPropagation();
+                                                      try {
+                                                        await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", site.id);
+                                                        fetchCustomerFolders();
+                                                        toast({ title: "Site removed", description: `${site.name} unlinked from ${folder.name}.` });
+                                                      } catch (err: any) {
+                                                        toast({ title: "Error", description: err.message, variant: "destructive" });
+                                                      }
+                                                    }}
+                                                  >
+                                                    <X className="h-3.5 w-3.5" />
+                                                  </Button>
+                                                )}
+                                              </div>
+                                            </TableCell>
                                           </TableRow>
                                         );
                                       })}
