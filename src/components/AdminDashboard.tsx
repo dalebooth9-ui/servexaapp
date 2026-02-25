@@ -3,7 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2, AlertTriangle, UserCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
@@ -16,6 +17,7 @@ export default function AdminDashboard() {
   const [kpis, setKpis] = useState({ completedThisMonth: 0, revenue: 0, activeEngineers: 0, completionRate: 0 });
   const [weeklyData, setWeeklyData] = useState<{ name: string; completed: number; created: number }[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
+  const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; expiry_date: string; engineer_name: string; is_expired: boolean }[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const fileDragCounter = useRef(0);
@@ -87,6 +89,31 @@ export default function AdminDashboard() {
     };
 
     fetchStats();
+
+    // Fetch expiring/expired engineer certification documents
+    const fetchExpiringDocs = async () => {
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+      const { data: docs } = await supabase
+        .from("engineer_documents" as any)
+        .select("id, title, document_type, expiry_date, engineer_id")
+        .not("expiry_date", "is", null)
+        .lte("expiry_date", thirtyDaysFromNow.toISOString().split("T")[0])
+        .order("expiry_date", { ascending: true });
+
+      if (!docs || docs.length === 0) { setExpiringDocs([]); return; }
+      const engIds = [...new Set((docs as any[]).map((d) => d.engineer_id))];
+      const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
+      const nameMap: Record<string, string> = {};
+      (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
+      const today = new Date();
+      setExpiringDocs((docs as any[]).map((d) => ({
+        ...d,
+        engineer_name: nameMap[d.engineer_id] || "Unknown",
+        is_expired: new Date(d.expiry_date) < today,
+      })));
+    };
+    fetchExpiringDocs();
   }, [user]);
 
   const isAdmin = userRole === "admin";
@@ -215,6 +242,39 @@ export default function AdminDashboard() {
             <Upload className="mr-2 h-4 w-4" /> Upload Files
           </Button>
         </div>
+      )}
+
+      {isAdmin && expiringDocs.length > 0 && (
+        <Card className="mb-6 border-warning/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <AlertTriangle className="h-5 w-5 text-warning" />
+              Engineer Certification Alerts
+              <Badge variant="secondary" className="ml-auto">{expiringDocs.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {expiringDocs.map((doc) => (
+                <div key={doc.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
+                  <div className="flex items-center gap-3">
+                    <UserCheck className={`h-4 w-4 ${doc.is_expired ? "text-destructive" : "text-warning"}`} />
+                    <div>
+                      <p className="text-sm font-medium">{doc.engineer_name} — {doc.title}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{doc.document_type.replace(/_/g, " ")}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`text-sm font-medium ${doc.is_expired ? "text-destructive" : "text-warning"}`}>
+                      {doc.is_expired ? "Expired" : "Expires"} {new Date(doc.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    </span>
+                    <Link to="/engineers" className="ml-3 text-xs text-primary hover:underline">View</Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       <Card>
