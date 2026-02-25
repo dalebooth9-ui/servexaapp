@@ -97,6 +97,9 @@ const emptySite = {
 type CustomerFolder = {
   id: string;
   name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
   sites: Site[];
 };
 
@@ -175,8 +178,8 @@ export default function Sites() {
 
   const fetchCustomerFolders = async () => {
     setFoldersLoading(true);
-    // Fetch customers
-    const { data: customers } = await supabase.from("customers").select("id, name").order("name");
+    // Fetch ALL customers (not just those with site links)
+    const { data: customers } = await supabase.from("customers").select("id, name, email, phone, address").order("name");
     // Fetch jobs with site_id and customer_id to map customers → sites
     const { data: jobs } = await supabase
       .from("jobs")
@@ -197,14 +200,16 @@ export default function Sites() {
       customerSiteMap.get(job.customer_id)!.add(job.site_id);
     }
 
-    const folders: CustomerFolder[] = customers
-      .filter((c: any) => customerSiteMap.has(c.id))
-      .map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        sites: [...customerSiteMap.get(c.id)!]
-          .map((sid) => siteMap.get(sid))
-          .filter(Boolean) as Site[],
+    // Show ALL customers as folders, even those without sites
+    const folders: CustomerFolder[] = (customers as any[]).map((c) => ({
+      id: c.id,
+      name: c.name,
+      email: c.email,
+      phone: c.phone,
+      address: c.address,
+      sites: [...(customerSiteMap.get(c.id) || [])]
+        .map((sid) => siteMap.get(sid))
+        .filter(Boolean) as Site[],
       }));
 
     setCustomerFolders(folders);
@@ -551,15 +556,26 @@ export default function Sites() {
                     className="rounded-lg border bg-card"
                   >
                     <AccordionTrigger className="px-4 hover:no-underline">
-                      <div className="flex items-center gap-2">
-                        <FolderOpen className="h-4 w-4 text-primary" />
-                        <span className="font-semibold">{folder.name}</span>
-                        <Badge variant="secondary" className="ml-1 text-xs">
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+                        <span className="font-semibold truncate">{folder.name}</span>
+                        {folder.email && (
+                          <span className="hidden sm:inline text-xs text-muted-foreground truncate">{folder.email}</span>
+                        )}
+                        {folder.phone && (
+                          <span className="hidden md:inline text-xs text-muted-foreground shrink-0">{folder.phone}</span>
+                        )}
+                        <Badge variant="secondary" className="ml-auto mr-2 text-xs shrink-0">
                           {folder.sites.length} site{folder.sites.length !== 1 ? "s" : ""}
                         </Badge>
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-0 pb-0">
+                      {folder.sites.length === 0 ? (
+                        <p className="px-4 py-4 text-sm text-muted-foreground">
+                          No sites linked to this customer yet.
+                        </p>
+                      ) : (
                       <Table>
                         <TableHeader>
                           <TableRow>
@@ -610,6 +626,7 @@ export default function Sites() {
                           })}
                         </TableBody>
                       </Table>
+                      )}
                     </AccordionContent>
                   </AccordionItem>
                 ))}
