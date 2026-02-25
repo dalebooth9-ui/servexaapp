@@ -1,8 +1,9 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Camera, FileDown, Loader2, ScanLine, Upload } from "lucide-react";
+import { Camera, FileDown, Loader2, MessageSquare, ScanLine, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
@@ -45,14 +46,75 @@ interface Props {
   onExtracted: (data: Record<string, any>) => void;
 }
 
+type MessageImage = {
+  url: string;
+  caption: string;
+  selected: boolean;
+};
+
 export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: Props) {
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [scanning, setScanningState] = useState(false);
   const [convertingPdf, setConvertingPdf] = useState(false);
   const [extractedHeader, setExtractedHeader] = useState<Record<string, string>>({});
+  const [messageImages, setMessageImages] = useState<MessageImage[]>([]);
+  const [loadingMessageImages, setLoadingMessageImages] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const fetchMessageImages = async () => {
+    setLoadingMessageImages(true);
+    try {
+      const { data } = await supabase
+        .from("job_messages" as any)
+        .select("content, created_at")
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: false });
+      const imgs: MessageImage[] = [];
+      for (const msg of (data || []) as any[]) {
+        const match = msg.content?.match(/\[image:(https?:\/\/[^\]]+)\]/);
+        if (match) {
+          const caption = msg.content.replace(`[image:${match[1]}]`, "").trim();
+          imgs.push({ url: match[1], caption, selected: false });
+        }
+      }
+      setMessageImages(imgs);
+    } catch {
+      // ignore
+    }
+    setLoadingMessageImages(false);
+  };
+
+  const toggleMessageImage = (idx: number) => {
+    setMessageImages((prev) => prev.map((img, i) => i === idx ? { ...img, selected: !img.selected } : img));
+  };
+
+  const addSelectedMessageImages = async () => {
+    const selected = messageImages.filter((i) => i.selected);
+    if (selected.length === 0) return;
+    const remaining = 5 - images.length;
+    const toAdd = selected.slice(0, remaining);
+    const newImages: { file: File; preview: string }[] = [];
+    for (const img of toAdd) {
+      try {
+        const res = await fetch(img.url);
+        const blob = await res.blob();
+        const ext = img.url.split(".").pop()?.split("?")[0] || "jpg";
+        const file = new File([blob], `message-image.${ext}`, { type: blob.type || "image/jpeg" });
+        newImages.push({ file, preview: URL.createObjectURL(file) });
+      } catch {
+        toast({ title: "Could not load image", description: img.url, variant: "destructive" });
+      }
+    }
+    setImages((prev) => [...prev, ...newImages].slice(0, 5));
+    setMessageImages((prev) => prev.map((img) => ({ ...img, selected: false })));
+    toast({ title: `${newImages.length} image(s) added`, description: "Now use AI Read & Fill or Save as PDF." });
+  };
+
+  useEffect(() => {
+    if (open) fetchMessageImages();
+  }, [open]);
 
   const handleFiles = (files: FileList | null) => {
     if (!files) return;
@@ -317,6 +379,41 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     setScanningState(false);
   };
 
+  const imageGrid = (
+    <div className="space-y-3">
+      <div className="grid grid-cols-3 gap-2">
+        {images.map((img, i) => (
+          <div key={i} className="relative">
+            <img src={img.preview} alt={`Page ${i + 1}`} className="rounded border object-cover w-full aspect-[3/4]" />
+            <button
+              className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs"
+              onClick={() => removeImage(i)}
+            >×</button>
+          </div>
+        ))}
+        {images.length < 5 && (
+          <button
+            className="border-2 border-dashed border-border rounded-lg flex items-center justify-center aspect-[3/4] hover:bg-muted/50"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload className="h-5 w-5 text-muted-foreground" />
+          </button>
+        )}
+      </div>
+
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" className="flex-1" onClick={convertToPdf} disabled={convertingPdf}>
+          {convertingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <FileDown className="h-3.5 w-3.5 mr-1.5" />}
+          Save as PDF
+        </Button>
+        <Button size="sm" className="flex-1" onClick={handleOcrScan} disabled={scanning}>
+          {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <ScanLine className="h-3.5 w-3.5 mr-1.5" />}
+          {scanning ? "Reading..." : "AI Read & Fill"}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <>
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(true)} title="Scan handwritten sheet">
@@ -343,49 +440,85 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             onChange={(e) => handleFiles(e.target.files)}
           />
 
-          {images.length === 0 ? (
-            <div
-              className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => fileRef.current?.click()}
-            >
-              <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm font-medium">Take Photo or Upload Image</p>
-              <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG — up to 5 images</p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-3 gap-2">
-                {images.map((img, i) => (
-                  <div key={i} className="relative">
-                    <img src={img.preview} alt={`Page ${i + 1}`} className="rounded border object-cover w-full aspect-[3/4]" />
-                    <button
-                      className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-xs"
-                      onClick={() => removeImage(i)}
-                    >×</button>
-                  </div>
-                ))}
-                {images.length < 5 && (
-                  <button
-                    className="border-2 border-dashed border-border rounded-lg flex items-center justify-center aspect-[3/4] hover:bg-muted/50"
-                    onClick={() => fileRef.current?.click()}
-                  >
-                    <Upload className="h-5 w-5 text-muted-foreground" />
-                  </button>
+          <Tabs defaultValue="upload">
+            <TabsList className="w-full">
+              <TabsTrigger value="upload" className="flex-1 text-xs">
+                <Camera className="h-3.5 w-3.5 mr-1.5" /> Upload / Camera
+              </TabsTrigger>
+              <TabsTrigger value="messages" className="flex-1 text-xs">
+                <MessageSquare className="h-3.5 w-3.5 mr-1.5" /> From Messages
+                {messageImages.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 leading-none">
+                    {messageImages.length}
+                  </span>
                 )}
-              </div>
+              </TabsTrigger>
+            </TabsList>
 
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={convertToPdf} disabled={convertingPdf}>
-                  {convertingPdf ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <FileDown className="h-3.5 w-3.5 mr-1.5" />}
-                  Save as PDF
-                </Button>
-                <Button size="sm" className="flex-1" onClick={handleOcrScan} disabled={scanning}>
-                  {scanning ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" /> : <ScanLine className="h-3.5 w-3.5 mr-1.5" />}
-                  {scanning ? "Reading..." : "AI Read & Fill"}
-                </Button>
-              </div>
-            </div>
-          )}
+            <TabsContent value="upload" className="mt-3">
+              {images.length === 0 ? (
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">Take Photo or Upload Image</p>
+                  <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG — up to 5 images</p>
+                </div>
+              ) : imageGrid}
+            </TabsContent>
+
+            <TabsContent value="messages" className="mt-3">
+              {loadingMessageImages ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                </div>
+              ) : messageImages.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-border p-8 text-center">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                  <p className="text-sm font-medium">No images in messages</p>
+                  <p className="text-xs text-muted-foreground mt-1">Send images in the Job Messages section first.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground">Select images to add to the scanner (up to {5 - images.length} more).</p>
+                  <div className="grid grid-cols-3 gap-2 max-h-56 overflow-y-auto">
+                    {messageImages.map((img, i) => (
+                      <button
+                        key={i}
+                        onClick={() => toggleMessageImage(i)}
+                        className={`relative rounded border-2 overflow-hidden aspect-[3/4] transition-colors ${img.selected ? "border-primary" : "border-transparent"}`}
+                      >
+                        <img src={img.url} alt={`Message image ${i + 1}`} className="object-cover w-full h-full" />
+                        {img.selected && (
+                          <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                            <div className="rounded-full bg-primary text-primary-foreground h-6 w-6 flex items-center justify-center text-xs font-bold">✓</div>
+                          </div>
+                        )}
+                        {img.caption && (
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate">{img.caption}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    size="sm"
+                    className="w-full"
+                    disabled={!messageImages.some((i) => i.selected) || images.length >= 5}
+                    onClick={addSelectedMessageImages}
+                  >
+                    Add Selected to Scanner
+                  </Button>
+                  {images.length > 0 && (
+                    <div className="pt-2 border-t border-border">
+                      <p className="text-xs font-medium mb-2">{images.length} image(s) ready:</p>
+                      {imageGrid}
+                    </div>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
     </>
