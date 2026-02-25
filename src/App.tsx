@@ -24,6 +24,8 @@ import InvoiceDetail from "@/pages/InvoiceDetail";
 import PartsLibrary from "@/pages/PartsLibrary";
 import Install from "@/pages/Install";
 import CustomerSignOff from "@/pages/CustomerSignOff";
+import CustomerPortal from "@/pages/CustomerPortal";
+import EngineerReport from "@/pages/EngineerReport";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -78,6 +80,8 @@ const App = () => (
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
             <Route path="/install" element={<Install />} />
             <Route path="/sign-off" element={<CustomerSignOff />} />
+            <Route path="/portal" element={<CustomerPortal />} />
+            <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

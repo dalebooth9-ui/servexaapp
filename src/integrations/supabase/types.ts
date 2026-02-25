@@ -505,6 +505,44 @@ export type Database = {
           },
         ]
       }
+      customer_portal_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_email: string
+          customer_id: string
+          expires_at: string
+          id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_email: string
+          customer_id: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_email?: string
+          customer_id?: string
+          expires_at?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_portal_tokens_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_sign_off_tokens: {
         Row: {
           created_at: string
@@ -933,6 +971,41 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      job_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          job_id: string
+          read_by: string[]
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          job_id: string
+          read_by?: string[]
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          job_id?: string
+          read_by?: string[]
+          sender_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_messages_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_parts: {
         Row: {
