@@ -160,7 +160,10 @@ export function computeSectionLayout(
     const sf = getSectionFields(fields, sec, skipIds);
     if (sf.length === 0) continue;
     totalSectionHeaders++;
-    totalFieldRows += sf.length;
+    // Signature fields need at least 10mm height — count them as 2 rows each
+    for (const f of sf) {
+      totalFieldRows += f.type === "signature" ? 2 : 1;
+    }
   }
 
   const usedByHeaders = totalSectionHeaders * sectionHeaderH + totalSectionHeaders;
@@ -222,7 +225,8 @@ export function renderFilledFieldRow(
   const margin = opts.margin ?? 10;
   const maxWidth = opts.maxWidth ?? (doc.internal.pageSize.getWidth() - margin * 2);
   const colSplit = opts.colSplit ?? maxWidth * 0.68;
-  const rowH = opts.rowH;
+  // Signature fields get double-height rows so the image renders clearly
+  const rowH = field.type === "signature" ? Math.max(opts.rowH * 2, 10) : opts.rowH;
 
   doc.setDrawColor(180);
   doc.rect(margin, y, colSplit, rowH);
@@ -251,6 +255,18 @@ export function renderFilledFieldRow(
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {
     doc.text(value ? "✓ Captured" : "—", margin + colSplit + 1, y + 3);
+  } else if (field.type === "signature") {
+    if (value && typeof value === "string" && value.startsWith("data:image")) {
+      try {
+        const sigH = Math.min(rowH - 1, 8);
+        const sigW = sigH * 3; // ~3:1 aspect ratio for signature canvas
+        doc.addImage(value, "PNG", margin + colSplit + 1, y + 0.5, sigW, sigH);
+      } catch {
+        doc.text("✓ Signed", margin + colSplit + 1, y + 3);
+      }
+    } else {
+      doc.text("—", margin + colSplit + 1, y + 3);
+    }
   } else {
     const raw = value ? String(value).substring(0, 50) : "—";
     doc.text(raw.charAt(0).toUpperCase() + raw.slice(1), margin + colSplit + 1, y + 3);
