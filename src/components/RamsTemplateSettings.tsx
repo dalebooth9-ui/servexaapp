@@ -65,7 +65,7 @@ export default function RamsTemplateSettings() {
   const FIELD_TYPE_LABELS: Record<string, string> = {
     text: "Short Text", number: "Number", date: "Date",
     checkbox: "Checkbox", pass_fail: "Pass/Fail", select: "Dropdown",
-    textarea: "Long Text", photo: "Photo",
+    textarea: "Long Text", photo: "Photo", signature: "Signature",
   };
 
   return (
