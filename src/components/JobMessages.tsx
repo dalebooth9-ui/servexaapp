@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { MessageSquare, Send, Paperclip, X } from "lucide-react";
+import { MessageSquare, Send, Paperclip, X, FileText } from "lucide-react";
+import { isImageFile } from "@/lib/fileUtils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -28,7 +29,7 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
   const [content, setContent] = useState("");
   const [sending, setSending] = useState(false);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
-  const [attachPreview, setAttachPreview] = useState<{ file: File; url: string } | null>(null);
+  const [attachPreview, setAttachPreview] = useState<{ file: File; url: string | null } | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -93,7 +94,7 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
     if ((!content.trim() && !attachPreview) || !user) return;
     setSending(true);
 
-    let imageUrl: string | undefined;
+    let attachTag: string | undefined;
 
     if (attachPreview) {
       const filePath = `${jobId}/${Date.now()}-${attachPreview.file.name}`;
@@ -106,11 +107,14 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
         return;
       }
       const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
-      imageUrl = urlData.publicUrl;
+      const isImg = attachPreview.file.type.startsWith("image/");
+      attachTag = isImg
+        ? `[image:${urlData.publicUrl}]`
+        : `[doc:${attachPreview.file.name}|${urlData.publicUrl}]`;
     }
 
-    const messageContent = imageUrl
-      ? (content.trim() ? `${content.trim()}\n[image:${imageUrl}]` : `[image:${imageUrl}]`)
+    const messageContent = attachTag
+      ? (content.trim() ? `${content.trim()}\n${attachTag}` : attachTag)
       : content.trim();
 
     await supabase.from("job_messages" as any).insert({
@@ -128,11 +132,18 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      toast({ title: "Images only", description: "Please select an image file.", variant: "destructive" });
+    const ALLOWED = ["image/jpeg","image/png","image/webp","image/gif","application/pdf",
+      "application/msword","application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"];
+    if (!ALLOWED.includes(file.type)) {
+      toast({ title: "Unsupported file", description: "Please attach an image, PDF, Word or Excel file.", variant: "destructive" });
       return;
     }
-    const url = URL.createObjectURL(file);
+    if (file.size > 20 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 20 MB.", variant: "destructive" });
+      return;
+    }
+    const url = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
     setAttachPreview({ file, url });
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -150,6 +161,25 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
             className="max-w-[200px] rounded-lg cursor-pointer"
             onClick={() => window.open(imgUrl, "_blank")}
           />
+          {caption && <p className="text-sm">{caption}</p>}
+        </div>
+      );
+    }
+    const docMatch = text.match(/\[doc:([^\|]+)\|([^\]]+)\]/);
+    if (docMatch) {
+      const [, fileName, fileUrl] = docMatch;
+      const caption = text.replace(`[doc:${fileName}|${fileUrl}]`, "").trim();
+      return (
+        <div className="space-y-1">
+          <a
+            href={fileUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-current/20 bg-black/10 px-3 py-2 text-sm hover:bg-black/20"
+          >
+            <FileText className="h-4 w-4 shrink-0" />
+            <span className="truncate max-w-[160px]">{fileName}</span>
+          </a>
           {caption && <p className="text-sm">{caption}</p>}
         </div>
       );
@@ -195,7 +225,14 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
         </div>
         {attachPreview && (
           <div className="relative inline-block mb-1">
-            <img src={attachPreview.url} alt="preview" className="h-20 rounded-lg object-cover" />
+            {attachPreview.url ? (
+              <img src={attachPreview.url} alt="preview" className="h-20 rounded-lg object-cover" />
+            ) : (
+              <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm">
+                <FileText className="h-5 w-5 text-primary shrink-0" />
+                <span className="max-w-[180px] truncate">{attachPreview.file.name}</span>
+              </div>
+            )}
             <button
               onClick={() => setAttachPreview(null)}
               className="absolute -right-2 -top-2 rounded-full bg-destructive p-0.5 text-destructive-foreground"
@@ -205,7 +242,7 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
           </div>
         )}
         <div className="flex gap-2">
-          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+          <input ref={fileInputRef} type="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" className="hidden" onChange={handleFileChange} />
           <Button size="icon" variant="outline" className="self-end shrink-0" onClick={() => fileInputRef.current?.click()}>
             <Paperclip className="h-4 w-4" />
           </Button>
