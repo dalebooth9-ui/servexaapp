@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -34,6 +34,8 @@ import { getStatusColor, getFileExtension, IMAGE_EXTENSIONS, isImageFile } from 
 import { useFileUpload } from "@/hooks/useFileUpload";
 import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
 import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
+import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
@@ -75,6 +77,15 @@ export default function Jobs() {
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkStatusValue, setBulkStatusValue] = useState("");
+  const [bulkPriorityValue, setBulkPriorityValue] = useState("");
+  const [bulkEngineerValue, setBulkEngineerValue] = useState("");
+  const [engineers, setEngineers] = useState<{ user_id: string; full_name: string }[]>([]);
+  const [jobTemplates, setJobTemplates] = useState<any[]>([]);
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [quickScheduleJob, setQuickScheduleJob] = useState<any>(null);
+  const [quickScheduleOpen, setQuickScheduleOpen] = useState(false);
   const [fileDragging, setFileDragging] = useState(false);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
@@ -97,6 +108,21 @@ export default function Jobs() {
       setCustomers(data || []);
     };
     fetchCustomers();
+
+    // Fetch engineers for bulk assign
+    supabase.from("profiles").select("user_id, full_name").then(({ data: profiles }) => {
+      supabase.from("user_roles").select("user_id").eq("role", "engineer").then(({ data: roles }) => {
+        const engIds = new Set((roles || []).map((r) => r.user_id));
+        setEngineers((profiles || []).filter((p) => engIds.has(p.user_id)));
+      });
+    });
+
+    // Fetch job templates
+    const fetchTemplates = async () => {
+      const { data } = await supabase.from("job_templates" as any).select("*").order("name");
+      setJobTemplates(data || []);
+    };
+    fetchTemplates();
   }, []);
 
   const isAdmin = userRole === "admin";
@@ -168,6 +194,77 @@ export default function Jobs() {
       },
       onUndo: () => setJobs((prev) => [...prev, ...deletedJobs]),
     });
+  };
+
+  const handleBulkStatusChange = async (status: string) => {
+    const ids = Array.from(selectedJobIds);
+    const { error } = await supabase.from("jobs").update({ status } as any).in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update status.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.map((j) => ids.includes(j.id) ? { ...j, status } : j));
+      toast({ title: `${ids.length} job(s) updated`, description: `Status set to "${status.replace(/_/g, " ")}"` });
+      setSelectedJobIds(new Set());
+    }
+  };
+
+  const handleBulkPriorityChange = async (priority: string) => {
+    const ids = Array.from(selectedJobIds);
+    const { error } = await supabase.from("jobs").update({ priority } as any).in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update priority.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.map((j) => ids.includes(j.id) ? { ...j, priority } : j));
+      toast({ title: `${ids.length} job(s) updated`, description: `Priority set to "${priority}"` });
+      setSelectedJobIds(new Set());
+    }
+  };
+
+  const handleBulkAssignEngineer = async (engineerId: string) => {
+    const ids = Array.from(selectedJobIds);
+    for (const jobId of ids) {
+      const { data: existing } = await supabase.from("job_assignments").select("id").eq("job_id", jobId).eq("engineer_id", engineerId).maybeSingle();
+      if (!existing) {
+        await supabase.from("job_assignments").insert({ job_id: jobId, engineer_id: engineerId });
+      }
+    }
+    const eng = engineers.find((e) => e.user_id === engineerId);
+    toast({ title: `${ids.length} job(s) assigned`, description: `Assigned to ${eng?.full_name}` });
+    setSelectedJobIds(new Set());
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!templateName.trim() || !user) return;
+    const { error } = await supabase.from("job_templates" as any).insert({
+      name: templateName.trim(),
+      category: form.category,
+      priority: form.priority,
+      pressure_test_qty: form.pressure_test_qty,
+      visual_qty: form.visual_qty,
+      address: form.address || null,
+      created_by: user.id,
+    });
+    if (error) {
+      toast({ title: "Error", description: "Failed to save template.", variant: "destructive" });
+    } else {
+      toast({ title: "Template saved", description: `"${templateName.trim()}" saved for quick use.` });
+      setSaveTemplateOpen(false);
+      setTemplateName("");
+      const { data } = await supabase.from("job_templates" as any).select("*").order("name");
+      setJobTemplates(data || []);
+    }
+  };
+
+  const handleLoadTemplate = (tpl: any) => {
+    setForm((prev) => ({
+      ...prev,
+      category: tpl.category || "general",
+      priority: tpl.priority || "medium",
+      pressure_test_qty: tpl.pressure_test_qty || 0,
+      visual_qty: tpl.visual_qty || 0,
+      address: tpl.address || prev.address,
+    }));
+    toast({ title: "Template loaded", description: `"${tpl.name}" applied to form.` });
   };
 
   const handleJobFileDrop = (jobId: string, files: File[]) => {
@@ -740,8 +837,26 @@ export default function Jobs() {
               <DialogTrigger asChild>
                 <Button><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
-            <DialogContent>
-              <DialogHeader><DialogTitle>Create New Job</DialogTitle></DialogHeader>
+            <DialogContent className="max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <div className="flex items-center justify-between">
+                  <DialogTitle>Create New Job</DialogTitle>
+                  {jobTemplates.length > 0 && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" type="button">
+                          <BookTemplate className="mr-1 h-3.5 w-3.5" /> Templates <ChevronDown className="ml-1 h-3 w-3" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        {jobTemplates.map((tpl) => (
+                          <DropdownMenuItem key={tpl.id} onClick={() => handleLoadTemplate(tpl)}>{tpl.name}</DropdownMenuItem>
+                        ))}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
                 <div className="space-y-2">
                   <Label>Job Name</Label>
@@ -829,11 +944,19 @@ export default function Jobs() {
                   <Button
                     type="button"
                     variant="secondary"
-                    className="flex-1"
                     disabled={loading}
                     onClick={(e) => handleCreate(e as any, "scheduled")}
                   >
-                    {loading ? "Creating..." : "Save & Submit to Planner"}
+                    {loading ? "..." : "Submit to Planner"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    title="Save as template"
+                    onClick={() => setSaveTemplateOpen(true)}
+                  >
+                    <Save className="h-4 w-4" />
                   </Button>
                 </div>
               </form>
@@ -891,13 +1014,45 @@ export default function Jobs() {
       </div>
 
       {isAdmin && selectedJobIds.size > 0 && (
-        <div className="mb-4 flex items-center gap-3 rounded-lg border bg-muted/50 px-4 py-3">
-          <span className="text-sm font-medium">{selectedJobIds.size} job(s) selected</span>
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3">
+          <span className="text-sm font-medium mr-1">{selectedJobIds.size} selected</span>
           <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds(new Set())}>Clear</Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">Status <ChevronDown className="ml-1 h-3 w-3" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {["active","in_progress","scheduled","awaiting_parts","on_hold","requires_revisit","completed","archived"].map((s) => (
+                <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(s)}>{s.replace(/_/g, " ")}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">Priority <ChevronDown className="ml-1 h-3 w-3" /></Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              {["high","medium","low"].map((p) => (
+                <DropdownMenuItem key={p} onClick={() => handleBulkPriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {engineers.length > 0 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">Assign Engineer <ChevronDown className="ml-1 h-3 w-3" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                {engineers.map((e) => (
+                  <DropdownMenuItem key={e.user_id} onClick={() => handleBulkAssignEngineer(e.user_id)}>{e.full_name}</DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" size="sm">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete Selected
+                <Trash2 className="mr-2 h-4 w-4" /> Delete
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -947,6 +1102,7 @@ export default function Jobs() {
                 onSelectAll={handleSelectAll}
                 onJobFileDrop={handleJobFileDrop}
                 onFolderFileDrop={handleFolderFileDrop}
+                onQuickSchedule={(job) => { setQuickScheduleJob(job); setQuickScheduleOpen(true); }}
               />
             ))}
           </Accordion>
@@ -1123,6 +1279,34 @@ export default function Jobs() {
           <span className="text-sm font-medium">Uploading files...</span>
         </div>
       )}
+
+      {/* Quick Schedule Dialog */}
+      <QuickScheduleDialog
+        job={quickScheduleJob}
+        open={quickScheduleOpen}
+        onOpenChange={setQuickScheduleOpen}
+        onScheduled={fetchJobs}
+      />
+
+      {/* Save as Template Dialog */}
+      <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Save className="h-4 w-4" /> Save as Template</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">Save the current job settings (category, priority, quantities) as a reusable template.</p>
+          <div className="space-y-2">
+            <Label>Template Name</Label>
+            <Input
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g. Annual Fire Inspection"
+              autoFocus
+            />
+          </div>
+          <Button className="w-full" disabled={!templateName.trim()} onClick={handleSaveTemplate}>
+            Save Template
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1156,6 +1156,48 @@ export type Database = {
           },
         ]
       }
+      job_templates: {
+        Row: {
+          address: string | null
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          name: string
+          pressure_test_qty: number
+          priority: string
+          updated_at: string
+          visual_qty: number
+        }
+        Insert: {
+          address?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          pressure_test_qty?: number
+          priority?: string
+          updated_at?: string
+          visual_qty?: number
+        }
+        Update: {
+          address?: string | null
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          pressure_test_qty?: number
+          priority?: string
+          updated_at?: string
+          visual_qty?: number
+        }
+        Relationships: []
+      }
       job_visits: {
         Row: {
           completed_at: string | null
