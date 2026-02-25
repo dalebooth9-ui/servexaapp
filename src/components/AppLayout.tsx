@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -22,6 +22,7 @@ const navItems = [
   { to: "/compliance", label: "Compliance", icon: Shield },
   { to: "/audits", label: "Audits", icon: ClipboardCheck },
   { to: "/planner", label: "Planner", icon: CalendarDays },
+  { to: "/reports/engineers", label: "Performance", icon: BarChart2, adminOnly: true },
   { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
 ];
@@ -99,7 +100,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
               rel="noopener noreferrer"
               className="mb-3 flex items-center gap-2 rounded-lg bg-sidebar-accent px-3 py-2 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80"
             >
-              <MessageCircle className="h-4 w-4 text-green-500" />
+              <MessageCircle className="h-4 w-4 text-accent" />
               <span className="truncate">WhatsApp: {whatsappNumber}</span>
             </a>
           )}

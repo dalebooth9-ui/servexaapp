@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
 import WhatsAppReply from "@/components/WhatsAppReply";
+import JobMessages from "@/components/JobMessages";
 import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
 import LocationMap from "@/components/LocationMap";
 import FieldReports from "@/components/FieldReports";
@@ -478,6 +479,7 @@ export default function JobDetail() {
             <EngineerAssignments jobId={id!} />
             <WhatsAppReply jobId={id!} engineers={engineers} />
           </div>
+          <JobMessages jobId={id!} />
         </CollapsibleContent>
       </Collapsible>
 
