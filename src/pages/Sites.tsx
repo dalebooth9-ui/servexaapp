@@ -477,19 +477,7 @@ export default function Sites() {
           ) : (
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
               <div className="flex gap-4">
-                {/* Left: draggable sites palette */}
-                <div className="w-56 shrink-0 space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">All Sites</p>
-                  <p className="text-xs text-muted-foreground px-1">Drag onto a customer folder to link</p>
-                  <div className="space-y-1.5">
-                    {sites
-                      .filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()) || s.postcode?.toLowerCase().includes(search.toLowerCase()))
-                      .map((s) => <DraggableSiteChip key={s.id} site={s} typeConfig={TYPE_CONFIG} />)}
-                    {sites.length === 0 && <p className="text-xs text-muted-foreground py-4 text-center">No sites yet.</p>}
-                  </div>
-                </div>
-
-                {/* Right: droppable customer folders */}
+                {/* Customer folders */}
                 <div className="flex-1 min-w-0 space-y-2">
                   {customerFolders.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">No customers found.</p>
