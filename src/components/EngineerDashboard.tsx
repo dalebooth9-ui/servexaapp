@@ -6,9 +6,10 @@ import { useTimeClock } from "@/hooks/useTimeClock";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   MapPin, Navigation, Clock, Briefcase, Loader2, LogIn, LogOut,
-  Camera, FileText, MessageCircle, CheckCircle2, AlertTriangle
+  Camera, FileText, MessageCircle, CheckCircle2, AlertTriangle, MessageSquare, Send, ChevronDown, ChevronUp, X
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -56,6 +57,18 @@ function formatElapsed(mins: number) {
   return h > 0 ? `${h}h ${m}m` : `${m}m`;
 }
 
+type JobMessage = {
+  id: string;
+  content: string;
+  sender_id: string;
+  sender_name?: string;
+  created_at: string;
+  job_id: string;
+  job_name?: string;
+  job_reference?: string;
+  read_by: string[];
+};
+
 export default function EngineerDashboard() {
   const { user, profile } = useAuth();
   const { isClockedIn, loading: clockLoading, acting, clockIn, clockOut, elapsedMinutes, currentPos } = useTimeClock();
@@ -65,6 +78,12 @@ export default function EngineerDashboard() {
   const [elapsed, setElapsed] = useState(elapsedMinutes);
   const [todayStats, setTodayStats] = useState({ submissions: 0, completed: 0 });
   const [whatsappNumber, setWhatsappNumber] = useState<string | null>(null);
+  const [recentMessages, setRecentMessages] = useState<JobMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [threadMessages, setThreadMessages] = useState<Record<string, JobMessage[]>>({});
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [sendingReply, setSendingReply] = useState<string | null>(null);
 
   // Elapsed timer
   useEffect(() => {
@@ -151,6 +170,112 @@ export default function EngineerDashboard() {
         }
       });
   }, []);
+
+  // Fetch recent messages across assigned jobs
+  useEffect(() => {
+    if (!user) return;
+    const fetchMessages = async () => {
+      setMessagesLoading(true);
+      // Get all assigned job IDs
+      const { data: assignments } = await supabase
+        .from("job_assignments")
+        .select("job_id")
+        .eq("engineer_id", user.id);
+      const allJobIds = (assignments || []).map((a: any) => a.job_id);
+      if (allJobIds.length === 0) { setMessagesLoading(false); return; }
+
+      // Fetch recent messages
+      const { data: msgs } = await supabase
+        .from("job_messages" as any)
+        .select("id, content, sender_id, created_at, job_id, read_by")
+        .in("job_id", allJobIds)
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (!msgs) { setMessagesLoading(false); return; }
+
+      // Fetch job names
+      const { data: jobsData } = await supabase
+        .from("jobs")
+        .select("id, name, reference_number")
+        .in("id", allJobIds);
+      const jobMap: Record<string, { name: string; ref: string }> = {};
+      (jobsData || []).forEach((j: any) => { jobMap[j.id] = { name: j.name, ref: j.reference_number }; });
+
+      // Fetch sender names
+      const senderIds = [...new Set((msgs as any[]).map((m: any) => m.sender_id))];
+      const { data: profs } = await supabase
+        .from("profiles")
+        .select("user_id, full_name")
+        .in("user_id", senderIds);
+      const profMap: Record<string, string> = {};
+      (profs || []).forEach((p: any) => { profMap[p.user_id] = p.full_name; });
+
+      const mapped: JobMessage[] = (msgs as any[]).map((m: any) => ({
+        id: m.id,
+        content: m.content,
+        sender_id: m.sender_id,
+        sender_name: profMap[m.sender_id] || "Unknown",
+        created_at: m.created_at,
+        job_id: m.job_id,
+        job_name: jobMap[m.job_id]?.name,
+        job_reference: jobMap[m.job_id]?.ref,
+        read_by: m.read_by || [],
+      }));
+      setRecentMessages(mapped);
+      setMessagesLoading(false);
+    };
+    fetchMessages();
+  }, [user]);
+
+  const sendReply = async (jobId: string) => {
+    const text = replyText[jobId]?.trim();
+    if (!text || !user) return;
+    setSendingReply(jobId);
+    await supabase.from("job_messages" as any).insert({
+      job_id: jobId,
+      sender_id: user.id,
+      content: text,
+      read_by: [user.id],
+    } as any);
+    setReplyText((prev) => ({ ...prev, [jobId]: "" }));
+    // Refresh thread
+    const { data } = await supabase
+      .from("job_messages" as any)
+      .select("id, content, sender_id, created_at, job_id, read_by")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: true });
+    if (data) {
+      setThreadMessages((prev) => ({ ...prev, [jobId]: (data as any[]).map((m: any) => ({ ...m, sender_name: m.sender_id === user.id ? (profile?.full_name || "Me") : recentMessages.find(r => r.sender_id === m.sender_id)?.sender_name || "Unknown" })) }));
+    }
+    setSendingReply(null);
+  };
+
+  const openThread = async (jobId: string) => {
+    if (expandedJobId === jobId) { setExpandedJobId(null); return; }
+    setExpandedJobId(jobId);
+    if (threadMessages[jobId]) return;
+    const { data } = await supabase
+      .from("job_messages" as any)
+      .select("id, content, sender_id, created_at, job_id, read_by")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: true });
+    if (data && user) {
+      const senderIds = [...new Set((data as any[]).map((m: any) => m.sender_id))];
+      const { data: profs } = await supabase.from("profiles").select("user_id, full_name").in("user_id", senderIds);
+      const pm: Record<string, string> = {};
+      (profs || []).forEach((p: any) => { pm[p.user_id] = p.full_name; });
+      setThreadMessages((prev) => ({
+        ...prev,
+        [jobId]: (data as any[]).map((m: any) => ({ ...m, sender_name: pm[m.sender_id] || "Unknown" })),
+      }));
+      // Mark all as read
+      for (const m of (data as any[]).filter((m: any) => !m.read_by?.includes(user.id))) {
+        await supabase.from("job_messages" as any).update({ read_by: [...(m.read_by || []), user.id] } as any).eq("id", m.id);
+      }
+      setRecentMessages((prev) => prev.map((msg) => msg.job_id === jobId ? { ...msg, read_by: [...msg.read_by, user.id] } : msg));
+    }
+  };
 
   // Geocode addresses
   useEffect(() => {
@@ -377,11 +502,138 @@ export default function EngineerDashboard() {
                           <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
                         ) : null}
                       </div>
-                    </div>
+                     </div>
                   </CardContent>
                 </Card>
               </Link>
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* Job Messages Section */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <h2 className="text-base font-semibold">Messages</h2>
+          {recentMessages.filter((m) => !m.read_by.includes(user?.id || "")).length > 0 && (
+            <Badge variant="destructive" className="text-xs">
+              {recentMessages.filter((m) => !m.read_by.includes(user?.id || "")).length} unread
+            </Badge>
+          )}
+        </div>
+
+        {messagesLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        ) : recentMessages.length === 0 ? (
+          <Card>
+            <CardContent className="py-6 text-center text-muted-foreground text-sm">
+              No messages yet.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-2">
+            {/* Group by job */}
+            {Array.from(new Map(recentMessages.map((m) => [m.job_id, m])).values()).map((latest) => {
+              const jobId = latest.job_id;
+              const jobMsgs = recentMessages.filter((m) => m.job_id === jobId);
+              const unread = jobMsgs.filter((m) => !m.read_by.includes(user?.id || "") && m.sender_id !== user?.id).length;
+              const isExpanded = expandedJobId === jobId;
+              const thread = threadMessages[jobId] || [];
+
+              return (
+                <Card key={jobId} className={unread > 0 ? "border-primary/30" : ""}>
+                  <CardContent className="p-0">
+                    {/* Job header row - tap to expand */}
+                    <button
+                      className="w-full flex items-center gap-3 p-3 text-left hover:bg-muted/50 transition-colors rounded-lg"
+                      onClick={() => openThread(jobId)}
+                    >
+                      <MessageSquare className={`h-4 w-4 shrink-0 ${unread > 0 ? "text-primary" : "text-muted-foreground"}`} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-muted-foreground">{latest.job_reference}</span>
+                          {unread > 0 && (
+                            <Badge variant="destructive" className="text-[10px] px-1.5 py-0">{unread} new</Badge>
+                          )}
+                        </div>
+                        <p className="text-sm font-medium truncate">{latest.job_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {latest.sender_id === user?.id ? "You" : latest.sender_name}: {latest.content.replace(/\[image:[^\]]+\]/, "📷 Image").replace(/\[doc:[^\|]+\|[^\]]+\]/, "📄 Document")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <span className="text-[10px] text-muted-foreground">
+                          {new Date(latest.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                        </span>
+                        {isExpanded ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                      </div>
+                    </button>
+
+                    {/* Expanded thread */}
+                    {isExpanded && (
+                      <div className="border-t border-border px-3 pb-3 pt-2 space-y-3">
+                        <div className="flex flex-col gap-2 max-h-52 overflow-y-auto pr-1">
+                          {thread.map((msg) => {
+                            const isMine = msg.sender_id === user?.id;
+                            const imgMatch = msg.content.match(/\[image:(https?:\/\/[^\]]+)\]/);
+                            const caption = imgMatch ? msg.content.replace(`[image:${imgMatch[1]}]`, "").trim() : null;
+                            return (
+                              <div key={msg.id} className={`flex flex-col gap-0.5 ${isMine ? "items-end" : "items-start"}`}>
+                                <div className={`max-w-[85%] rounded-xl px-3 py-2 ${isMine ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
+                                  {imgMatch ? (
+                                    <div className="space-y-1">
+                                      <img
+                                        src={imgMatch[1]}
+                                        alt="attachment"
+                                        className="max-w-[160px] rounded-lg cursor-pointer"
+                                        onClick={() => window.open(imgMatch[1], "_blank")}
+                                      />
+                                      {caption && <p className="text-xs">{caption}</p>}
+                                    </div>
+                                  ) : (
+                                    <p className="text-sm">{msg.content}</p>
+                                  )}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground">
+                                  {!isMine && <span className="font-medium">{msg.sender_name} · </span>}
+                                  {new Date(msg.created_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                        {/* Reply input */}
+                        <div className="flex gap-2">
+                          <Textarea
+                            value={replyText[jobId] || ""}
+                            onChange={(e) => setReplyText((prev) => ({ ...prev, [jobId]: e.target.value }))}
+                            placeholder="Reply..."
+                            rows={1}
+                            className="resize-none text-sm"
+                            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendReply(jobId); } }}
+                          />
+                          <Button
+                            size="icon"
+                            className="shrink-0 self-end"
+                            disabled={!replyText[jobId]?.trim() || sendingReply === jobId}
+                            onClick={() => sendReply(jobId)}
+                          >
+                            {sendingReply === jobId ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                        <Link to={`/jobs/${jobId}`} className="block">
+                          <Button variant="ghost" size="sm" className="w-full text-xs h-7">
+                            View Full Job →
+                          </Button>
+                        </Link>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
