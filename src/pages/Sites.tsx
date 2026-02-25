@@ -52,6 +52,8 @@ import {
   Trash2,
   FolderOpen,
   Users,
+  LinkIcon,
+  X,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -118,6 +120,10 @@ export default function Sites() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customerFolders, setCustomerFolders] = useState<CustomerFolder[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(true);
+  const [assignSiteOpen, setAssignSiteOpen] = useState(false);
+  const [assignCustomer, setAssignCustomer] = useState<CustomerFolder | null>(null);
+  const [assignSelectedSites, setAssignSelectedSites] = useState<Set<string>>(new Set());
+  const [assignSaving, setAssignSaving] = useState(false);
 
   const toggleSelect = (id: string) => {
     setSelected((prev) => {
@@ -214,6 +220,37 @@ export default function Sites() {
 
     setCustomerFolders(folders);
     setFoldersLoading(false);
+  };
+
+  const openAssignSite = (folder: CustomerFolder) => {
+    setAssignCustomer(folder);
+    setAssignSelectedSites(new Set());
+    setAssignSiteOpen(true);
+  };
+
+  const handleAssignSites = async () => {
+    if (!assignCustomer || assignSelectedSites.size === 0) return;
+    setAssignSaving(true);
+    try {
+      // Create a placeholder job per site to link customer ↔ site
+      const inserts = [...assignSelectedSites].map((siteId) => ({
+        name: `Site link — ${assignCustomer.name}`,
+        customer_id: assignCustomer.id,
+        site_id: siteId,
+        status: "active",
+        category: "general",
+        priority: "medium",
+      }));
+      const { error } = await supabase.from("jobs").insert(inserts as any);
+      if (error) throw error;
+      toast({ title: "Sites assigned", description: `${assignSelectedSites.size} site(s) linked to ${assignCustomer.name}.` });
+      setAssignSiteOpen(false);
+      fetchCustomerFolders();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setAssignSaving(false);
+    }
   };
 
   useEffect(() => {
@@ -568,6 +605,16 @@ export default function Sites() {
                         <Badge variant="secondary" className="ml-auto mr-2 text-xs shrink-0">
                           {folder.sites.length} site{folder.sites.length !== 1 ? "s" : ""}
                         </Badge>
+                        {userRole === "admin" && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mr-2 h-7 text-xs shrink-0"
+                            onClick={(e) => { e.stopPropagation(); openAssignSite(folder); }}
+                          >
+                            <LinkIcon className="mr-1 h-3 w-3" /> Assign Site
+                          </Button>
+                        )}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent className="px-0 pb-0">
@@ -728,6 +775,66 @@ export default function Sites() {
       </Dialog>
 
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
+
+      {/* Assign Site to Customer Dialog */}
+      <Dialog open={assignSiteOpen} onOpenChange={(o) => { if (!o) setAssignSiteOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Assign Sites to {assignCustomer?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <p className="text-sm text-muted-foreground">
+              Select sites to link to this customer. Already-linked sites are hidden.
+            </p>
+            <div className="max-h-72 overflow-y-auto space-y-1 rounded-md border p-2">
+              {sites
+                .filter((s) => !assignCustomer?.sites.some((cs) => cs.id === s.id))
+                .map((s) => {
+                  const config = TYPE_CONFIG[s.site_type];
+                  const Icon = config?.icon || MapPin;
+                  const checked = assignSelectedSites.has(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className="flex items-center gap-3 rounded-md px-2 py-2 cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          setAssignSelectedSites((prev) => {
+                            const next = new Set(prev);
+                            checked ? next.delete(s.id) : next.add(s.id);
+                            return next;
+                          });
+                        }}
+                        className="h-4 w-4 accent-primary"
+                      />
+                      <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium truncate">{s.name}</span>
+                        {s.postcode && <span className="ml-2 text-xs text-muted-foreground">{s.postcode}</span>}
+                      </div>
+                      <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{s.site_type}</Badge>
+                    </label>
+                  );
+                })}
+              {sites.filter((s) => !assignCustomer?.sites.some((cs) => cs.id === s.id)).length === 0 && (
+                <p className="py-4 text-center text-sm text-muted-foreground">All sites already linked.</p>
+              )}
+            </div>
+            <div className="flex justify-between items-center pt-2">
+              <span className="text-sm text-muted-foreground">{assignSelectedSites.size} selected</span>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setAssignSiteOpen(false)}>Cancel</Button>
+                <Button onClick={handleAssignSites} disabled={assignSelectedSites.size === 0 || assignSaving}>
+                  {assignSaving ? "Saving…" : <><LinkIcon className="mr-2 h-4 w-4" />Assign</>}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
