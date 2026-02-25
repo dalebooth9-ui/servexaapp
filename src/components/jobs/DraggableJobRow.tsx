@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Trash2, ShieldCheck } from "lucide-react";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import WhatsAppQuickSend from "./WhatsAppQuickSend";
 
@@ -81,7 +81,16 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           {job.reference_number}
         </Link>
       </TableCell>
-      <TableCell className="font-medium">{job.name}</TableCell>
+      <TableCell className="font-medium">
+        <div className="flex items-center gap-1.5">
+          {job.name}
+          {(job.submissions || []).some((s: any) => s.type === "document") && (
+            <span title="Has compliance / RAMS documents attached">
+              <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+            </span>
+          )}
+        </div>
+      </TableCell>
       <TableCell>
         <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
           {job.priority || "medium"}
