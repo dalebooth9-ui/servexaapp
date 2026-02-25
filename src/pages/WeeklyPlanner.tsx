@@ -131,13 +131,19 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [engRes, jobsRes, schedRes, sitesRes] = await Promise.all([
-      supabase.from("profiles").select("user_id, full_name, user_roles!inner(role)").eq("user_roles.role", "engineer"),
+    const [engRolesRes, jobsRes, schedRes, sitesRes] = await Promise.all([
+      supabase.from("user_roles").select("user_id").eq("role", "engineer"),
       supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled"]),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);
-    setEngineers(engRes.data || []);
+    const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
+    if (engineerIds.length > 0) {
+      const { data: profilesData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
+      setEngineers(profilesData || []);
+    } else {
+      setEngineers([]);
+    }
     const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
     setJobs(fetchedJobs);
     setSites(sitesRes.data || []);
