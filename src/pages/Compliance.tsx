@@ -18,7 +18,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import {
-  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText,
+  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -49,7 +49,7 @@ const emptyForm = {
 };
 
 export default function Compliance() {
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,16 +64,24 @@ export default function Compliance() {
   const [editing, setEditing] = useState<ComplianceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [attachDialogOpen, setAttachDialogOpen] = useState(false);
+  const [attachingRecord, setAttachingRecord] = useState<ComplianceRecord | null>(null);
+  const [jobs, setJobs] = useState<{ id: string; name: string; reference_number: string; customer: string | null }[]>([]);
+  const [jobSearch, setJobSearch] = useState("");
+  const [attachingJobId, setAttachingJobId] = useState<string | null>(null);
+  const [attaching, setAttaching] = useState(false);
 
   const fetchData = async () => {
-    const [recRes, assetRes, siteRes] = await Promise.all([
+    const [recRes, assetRes, siteRes, jobRes] = await Promise.all([
       supabase.from("compliance_records").select("*").order("expiry_date", { ascending: true }),
       supabase.from("assets").select("id, name").order("name"),
       supabase.from("sites").select("id, name").order("name"),
+      supabase.from("jobs").select("id, name, reference_number, customer").order("name"),
     ]);
     setRecords((recRes.data as ComplianceRecord[]) || []);
     setAssets((assetRes.data as LookupOption[]) || []);
     setSites((siteRes.data as LookupOption[]) || []);
+    setJobs((jobRes.data as any[]) || []);
     setLoading(false);
   };
 
@@ -213,6 +221,68 @@ export default function Compliance() {
     }
   };
 
+  const openAttachDialog = (r: ComplianceRecord) => {
+    setAttachingRecord(r);
+    setAttachingJobId(null);
+    setJobSearch("");
+    setAttachDialogOpen(true);
+  };
+
+  const handleAttachToJob = async () => {
+    if (!attachingRecord || !attachingJobId || !user) return;
+    setAttaching(true);
+    const { urls, names } = parseFileList(attachingRecord.file_url, attachingRecord.file_name);
+
+    if (urls.length === 0) {
+      toast({ title: "No documents", description: "This compliance record has no attached documents.", variant: "destructive" });
+      setAttaching(false);
+      return;
+    }
+
+    let attachedCount = 0;
+    for (let i = 0; i < urls.length; i++) {
+      const storagePath = urls[i];
+      const fileName = names[i] || attachingRecord.title;
+      // Get a signed URL to copy the file via fetch, then re-upload to submissions bucket
+      const { data: signedData } = await supabase.storage.from("asset-documents").createSignedUrl(storagePath, 3600);
+      if (!signedData?.signedUrl) continue;
+
+      try {
+        const fileRes = await fetch(signedData.signedUrl);
+        const blob = await fileRes.blob();
+        const destPath = `${attachingJobId}/${Date.now()}-${fileName}`;
+        const { error: upErr } = await supabase.storage.from("submissions").upload(destPath, blob, { contentType: blob.type });
+        if (upErr) continue;
+
+        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(destPath);
+        const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+        const isImage = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext);
+        const { error: insErr } = await supabase.from("submissions").insert({
+          job_id: attachingJobId,
+          engineer_id: user.id,
+          type: isImage ? "photo" : "document",
+          file_url: urlData.publicUrl,
+          file_name: fileName,
+        });
+        if (!insErr) attachedCount++;
+      } catch {}
+    }
+
+    setAttaching(false);
+    setAttachDialogOpen(false);
+    if (attachedCount > 0) {
+      toast({ title: "Documents attached", description: `${attachedCount} document(s) added to job folder.` });
+    } else {
+      toast({ title: "Attach failed", description: "Could not attach documents to the job.", variant: "destructive" });
+    }
+  };
+
+  const filteredJobs = jobs.filter((j) => {
+    if (!jobSearch.trim()) return true;
+    const q = jobSearch.toLowerCase();
+    return j.name.toLowerCase().includes(q) || j.reference_number?.toLowerCase().includes(q) || j.customer?.toLowerCase().includes(q);
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -289,7 +359,8 @@ export default function Compliance() {
                   <TableHead>Expiry</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Doc</TableHead>
-                  {userRole === "admin" && <TableHead className="w-20" />}
+                  <TableHead className="w-8" />
+                   {userRole === "admin" && <TableHead className="w-20" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -328,6 +399,13 @@ export default function Compliance() {
                             </Button>
                           );
                         })() : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
+                        {r.file_url && (
+                          <Button variant="ghost" size="icon" className="h-7 w-7" title="Attach to job" onClick={() => openAttachDialog(r)}>
+                            <Paperclip className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </TableCell>
                       {userRole === "admin" && (
                         <TableCell>
@@ -453,6 +531,58 @@ export default function Compliance() {
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button onClick={handleSave}>{editing ? "Update" : "Create"}</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Attach to Job Dialog */}
+      <Dialog open={attachDialogOpen} onOpenChange={setAttachDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-4 w-4" /> Attach to Job
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            {attachingRecord && (
+              <div className="rounded-md bg-muted px-3 py-2 text-sm">
+                <p className="font-medium">{attachingRecord.title}</p>
+                {(() => {
+                  const { names } = parseFileList(attachingRecord.file_url, attachingRecord.file_name);
+                  return <p className="text-xs text-muted-foreground mt-0.5">{names.length} document(s) will be attached</p>;
+                })()}
+              </div>
+            )}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search jobs..."
+                value={jobSearch}
+                onChange={(e) => setJobSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="max-h-60 overflow-y-auto rounded-md border divide-y">
+              {filteredJobs.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">No jobs found</p>
+              ) : filteredJobs.map((j) => (
+                <button
+                  key={j.id}
+                  type="button"
+                  onClick={() => setAttachingJobId(j.id)}
+                  className={`w-full text-left px-3 py-2.5 hover:bg-muted transition-colors ${attachingJobId === j.id ? "bg-primary/10 border-l-2 border-primary" : ""}`}
+                >
+                  <p className="text-sm font-medium">{j.name}</p>
+                  <p className="text-xs text-muted-foreground">{j.reference_number}{j.customer ? ` · ${j.customer}` : ""}</p>
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setAttachDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAttachToJob} disabled={!attachingJobId || attaching}>
+                {attaching ? "Attaching..." : "Attach Documents"}
+              </Button>
             </div>
           </div>
         </DialogContent>
