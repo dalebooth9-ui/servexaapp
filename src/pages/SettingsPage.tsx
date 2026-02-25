@@ -12,6 +12,7 @@ import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
+import JobTemplateSettings from "@/components/JobTemplateSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
@@ -99,6 +100,7 @@ export default function SettingsPage() {
         <FollowUpReminderSettings />
         <JobCategorySettings />
         <AssetCategorySettings />
+        <JobTemplateSettings />
         <RamsTemplateSettings />
         <XeroSettings />
       </div>
