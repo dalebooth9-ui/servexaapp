@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import XeroSettings from "@/components/XeroSettings";
+import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
@@ -98,6 +99,7 @@ export default function SettingsPage() {
         <FollowUpReminderSettings />
         <JobCategorySettings />
         <AssetCategorySettings />
+        <RamsTemplateSettings />
         <XeroSettings />
       </div>
     </div>
