@@ -387,6 +387,92 @@ export default function Jobs() {
           }
         }
 
+        // Auto-attach RAMS template + document for dry riser jobs
+        const isDryRiserJob = (form.pressure_test_qty > 0 || form.visual_qty > 0);
+        if (isDryRiserJob) {
+          const today = new Date().toLocaleDateString("en-GB");
+          const jobDisplayName = parsed.data.name || "";
+          const refNum = createdJob.reference_number || "";
+
+          // 1. Create a RAMS job sheet response draft pre-filled with job details
+          const { data: ramsTpl } = await supabase
+            .from("job_sheet_templates")
+            .select("id")
+            .eq("category", "rams")
+            .limit(1)
+            .maybeSingle();
+
+          if (ramsTpl) {
+            await supabase.from("job_sheet_responses").insert({
+              job_id: createdJob.id,
+              template_id: ramsTpl.id,
+              submitted_by: user!.id,
+              status: "draft",
+              responses: {
+                rams_contract_job_name: jobDisplayName + (refNum ? ` (${refNum})` : ""),
+                rams_date_prepared: today,
+                rams_client: customerName || "",
+                rams_assessment_date: today,
+                rams_attendance_date: today,
+                rams_review_date: today,
+                rams_12_monthly: "Yes",
+              },
+            } as any);
+          }
+
+          // 2. Auto-attach the RAMS Word document from compliance records
+          const { data: ramsRecord } = await supabase
+            .from("compliance_records")
+            .select("id, file_url, file_name, title")
+            .ilike("title", "%rams%")
+            .not("file_url", "is", null)
+            .limit(1)
+            .maybeSingle();
+
+          if (ramsRecord) {
+            try {
+              const { urls, names } = (() => {
+                const url = ramsRecord.file_url;
+                const name = ramsRecord.file_name;
+                if (!url) return { urls: [], names: [] };
+                try {
+                  const parsedUrls = JSON.parse(url);
+                  const parsedNames = JSON.parse(name || "[]");
+                  if (Array.isArray(parsedUrls)) return { urls: parsedUrls, names: parsedNames };
+                } catch {}
+                return { urls: [url], names: [name || ramsRecord.title] };
+              })();
+
+              for (let i = 0; i < urls.length; i++) {
+                const storagePath = urls[i];
+                const fileName = names[i] || ramsRecord.title;
+                const { data: signedData } = await supabase.storage
+                  .from("asset-documents")
+                  .createSignedUrl(storagePath, 3600);
+                if (!signedData?.signedUrl) continue;
+
+                const fileRes = await fetch(signedData.signedUrl);
+                const blob = await fileRes.blob();
+                const destPath = `${createdJob.id}/${Date.now()}-${fileName}`;
+                const { error: upErr } = await supabase.storage
+                  .from("submissions")
+                  .upload(destPath, blob, { contentType: blob.type });
+                if (upErr) continue;
+
+                await supabase.from("submissions").insert({
+                  job_id: createdJob.id,
+                  engineer_id: user!.id,
+                  type: "document",
+                  file_url: destPath,
+                  file_name: fileName,
+                } as any);
+              }
+            } catch (err) {
+              if (import.meta.env.DEV) console.warn("RAMS auto-attach failed:", err);
+            }
+          }
+        }
+
         if (form.customer_id) {
           supabase.functions.invoke("notify-customer", {
             body: { job_id: createdJob.id, notification_type: "job_booked" },
