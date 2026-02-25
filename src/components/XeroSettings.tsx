@@ -20,6 +20,7 @@ export default function XeroSettings() {
   const [disconnecting, setDisconnecting] = useState(false);
   const [importingContacts, setImportingContacts] = useState(false);
   const [syncingPayments, setSyncingPayments] = useState(false);
+  const [pullingInvoices, setPullingInvoices] = useState(false);
 
   const checkStatus = async () => {
     setLoading(true);
@@ -127,6 +128,22 @@ export default function XeroSettings() {
     }
   };
 
+  const handlePullInvoices = async () => {
+    setPullingInvoices(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("xero-sync", {
+        body: { action: "pull_invoices" },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      toast.success(`Pulled from Xero: ${data.created} new, ${data.updated} updated (${data.total} total)`);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to pull invoices");
+    } finally {
+      setPullingInvoices(false);
+    }
+  };
+
   const handleSyncPayments = async () => {
     setSyncingPayments(true);
     try {
@@ -189,6 +206,10 @@ export default function XeroSettings() {
               <Button variant="outline" size="sm" onClick={handleSyncPayments} disabled={syncingPayments}>
                 {syncingPayments ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1.5 h-4 w-4" />}
                 Sync Payment Status
+              </Button>
+              <Button variant="outline" size="sm" onClick={handlePullInvoices} disabled={pullingInvoices} className="sm:col-span-2">
+                {pullingInvoices ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
+                Pull Unpaid Invoices from Xero
               </Button>
             </div>
 

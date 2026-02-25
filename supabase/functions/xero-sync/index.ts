@@ -329,6 +329,105 @@ Deno.serve(async (req) => {
       });
     }
 
+    // ========== PULL UNPAID INVOICES FROM XERO ==========
+    if (action === "pull_invoices") {
+      // Fetch all AUTHORISED (unpaid) invoices from Xero
+      const xeroRes = await fetch(
+        `${XERO_API_URL}/Invoices?Statuses=AUTHORISED,SUBMITTED&Type=ACCREC`,
+        { headers: xeroHeaders }
+      );
+
+      if (!xeroRes.ok) {
+        const errText = await xeroRes.text();
+        console.error("Failed to fetch Xero invoices:", errText);
+        return new Response(JSON.stringify({ error: "Failed to fetch invoices from Xero" }), {
+          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const xeroData = await xeroRes.json();
+      const xeroInvoices = xeroData.Invoices || [];
+
+      let created = 0;
+      let updated = 0;
+
+      for (const xi of xeroInvoices) {
+        if (!xi.InvoiceID) continue;
+
+        // Map Xero status to local status
+        let localStatus = "sent";
+        if (xi.Status === "PAID") localStatus = "paid";
+        else if (xi.Status === "VOIDED") localStatus = "cancelled";
+        else if (xi.AmountDue > 0 && xi.DueDateString && new Date(xi.DueDateString) < new Date()) {
+          localStatus = "overdue";
+        }
+
+        // Check if we already have this invoice
+        const { data: existing } = await serviceClient
+          .from("invoices")
+          .select("id, status")
+          .eq("xero_invoice_id", xi.InvoiceID)
+          .maybeSingle();
+
+        if (existing) {
+          // Update status if changed
+          if (existing.status !== localStatus) {
+            const upd: any = { status: localStatus, xero_synced_at: new Date().toISOString() };
+            if (localStatus === "paid") upd.paid_at = new Date().toISOString();
+            await serviceClient.from("invoices").update(upd).eq("id", existing.id);
+            updated++;
+          }
+        } else {
+          // Create new local invoice from Xero data
+          const contactName = xi.Contact?.Name || "Unknown";
+          const contactEmail = xi.Contact?.EmailAddress || null;
+          const lineItems = xi.LineItems || [];
+          const subtotal = Number(xi.SubTotal) || 0;
+          const taxAmount = Number(xi.TotalTax) || 0;
+          const total = Number(xi.Total) || 0;
+
+          const { data: newInv, error: insertErr } = await serviceClient
+            .from("invoices")
+            .insert({
+              invoice_number: xi.InvoiceNumber || `XERO-${xi.InvoiceID.slice(0, 8)}`,
+              customer_name: contactName,
+              customer_email: contactEmail,
+              status: localStatus,
+              document_type: "invoice",
+              subtotal,
+              tax_amount: taxAmount,
+              tax_rate: subtotal > 0 ? Math.round((taxAmount / subtotal) * 100) : 0,
+              total,
+              due_date: xi.DueDateString || null,
+              xero_invoice_id: xi.InvoiceID,
+              xero_synced_at: new Date().toISOString(),
+              created_by: user.id,
+              notes: xi.Reference || null,
+            })
+            .select("id")
+            .single();
+
+          if (!insertErr && newInv && lineItems.length > 0) {
+            const lineItemRows = lineItems.map((li: any, idx: number) => ({
+              invoice_id: newInv.id,
+              description: li.Description || "",
+              quantity: Number(li.Quantity) || 1,
+              unit_price: Number(li.UnitAmount) || 0,
+              amount: Number(li.LineAmount) || 0,
+              sort_order: idx,
+            }));
+            await serviceClient.from("invoice_line_items").insert(lineItemRows);
+          }
+
+          if (!insertErr) created++;
+        }
+      }
+
+      return new Response(JSON.stringify({ success: true, created, updated, total: xeroInvoices.length }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ========== SYNC PAYMENT STATUS FROM XERO ==========
     if (action === "sync_payments") {
       // Get all invoices that have been synced to Xero
