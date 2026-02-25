@@ -51,7 +51,7 @@ export default function Engineers() {
   const [uploadingDoc, setUploadingDoc] = useState(false);
   const [addDocOpen, setAddDocOpen] = useState(false);
   const [docForm, setDocForm] = useState({ title: "", document_type: "certificate", expiry_date: "", notes: "" });
-  const [pendingDocFile, setPendingDocFile] = useState<File | null>(null);
+  const [pendingDocFiles, setPendingDocFiles] = useState<File[]>([]);
   const docFileRef = useRef<HTMLInputElement>(null);
 
   const handleSendReset = async (eng: any) => {
@@ -142,35 +142,37 @@ export default function Engineers() {
   };
 
   const handleAddDoc = async () => {
-    if (!pendingDocFile || !docForm.title) {
-      toast({ title: "Error", description: "Title and file are required.", variant: "destructive" }); return;
+    if (pendingDocFiles.length === 0) {
+      toast({ title: "Error", description: "Please select at least one file.", variant: "destructive" }); return;
     }
     setUploadingDoc(true);
-    const filePath = `${docsEng.user_id}/${Date.now()}-${pendingDocFile.name}`;
-    const { error: uploadError } = await supabase.storage.from("engineer-documents").upload(filePath, pendingDocFile);
-    if (uploadError) {
-      toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
-      setUploadingDoc(false); return;
+    let uploaded = 0;
+    for (const file of pendingDocFiles) {
+      const filePath = `${docsEng.user_id}/${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage.from("engineer-documents").upload(filePath, file);
+      if (uploadError) {
+        toast({ title: "Upload failed", description: `${file.name}: ${uploadError.message}`, variant: "destructive" });
+        continue;
+      }
+      const { error: insertError } = await supabase.from("engineer_documents" as any).insert({
+        engineer_id: docsEng.user_id,
+        uploaded_by: user?.id,
+        file_name: file.name,
+        file_url: filePath,
+        file_size: file.size,
+        title: docForm.title || file.name.replace(/\.[^.]+$/, ""),
+        document_type: docForm.document_type,
+        expiry_date: docForm.expiry_date || null,
+        notes: docForm.notes || null,
+      });
+      if (!insertError) uploaded++;
     }
-    const { error: insertError } = await supabase.from("engineer_documents" as any).insert({
-      engineer_id: docsEng.user_id,
-      uploaded_by: user?.id,
-      file_name: pendingDocFile.name,
-      file_url: filePath,
-      file_size: pendingDocFile.size,
-      title: docForm.title,
-      document_type: docForm.document_type,
-      expiry_date: docForm.expiry_date || null,
-      notes: docForm.notes || null,
-    });
     setUploadingDoc(false);
-    if (insertError) {
-      toast({ title: "Error", description: "Failed to save document record.", variant: "destructive" });
-    } else {
-      toast({ title: "Document added" });
+    if (uploaded > 0) {
+      toast({ title: `${uploaded} document${uploaded > 1 ? "s" : ""} added` });
       setAddDocOpen(false);
       setDocForm({ title: "", document_type: "certificate", expiry_date: "", notes: "" });
-      setPendingDocFile(null);
+      setPendingDocFiles([]);
       openDocs(docsEng);
     }
   };
@@ -429,12 +431,12 @@ export default function Engineers() {
       </Dialog>
 
       {/* Add Document Dialog */}
-      <Dialog open={addDocOpen} onOpenChange={(open) => { if (!open) { setAddDocOpen(false); setPendingDocFile(null); } }}>
+      <Dialog open={addDocOpen} onOpenChange={(open) => { if (!open) { setAddDocOpen(false); setPendingDocFiles([]); } }}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add Certification Document</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add Certification Documents</DialogTitle></DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Title *</Label>
+              <Label>Title <span className="text-muted-foreground text-xs">(optional — defaults to filename)</span></Label>
               <Input value={docForm.title} onChange={(e) => setDocForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Gas Safe Certificate" />
             </div>
             <div className="space-y-2">
@@ -453,19 +455,26 @@ export default function Engineers() {
               <Input type="date" value={docForm.expiry_date} onChange={(e) => setDocForm((f) => ({ ...f, expiry_date: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>File *</Label>
-              <input ref={docFileRef} type="file" className="hidden" onChange={(e) => setPendingDocFile(e.target.files?.[0] || null)} />
-              {pendingDocFile ? (
-                <div className="flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm">
-                  <FileText className="h-4 w-4 text-muted-foreground" />
-                  <span className="flex-1 truncate">{pendingDocFile.name}</span>
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPendingDocFile(null)}>
-                    <X className="h-3 w-3" />
+              <Label>Files *</Label>
+              <input ref={docFileRef} type="file" multiple className="hidden" onChange={(e) => setPendingDocFiles(Array.from(e.target.files || []))} />
+              {pendingDocFiles.length > 0 ? (
+                <div className="space-y-1.5 rounded-md border border-border p-2">
+                  {pendingDocFiles.map((f, i) => (
+                    <div key={i} className="flex items-center gap-2 text-sm">
+                      <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span className="flex-1 truncate">{f.name}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPendingDocFiles((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button variant="ghost" size="sm" className="mt-1 w-full text-xs" onClick={() => docFileRef.current?.click()}>
+                    <Plus className="mr-1 h-3 w-3" /> Add more files
                   </Button>
                 </div>
               ) : (
                 <Button variant="outline" className="w-full" onClick={() => docFileRef.current?.click()}>
-                  <Upload className="mr-2 h-4 w-4" /> Choose File
+                  <Upload className="mr-2 h-4 w-4" /> Choose Files
                 </Button>
               )}
             </div>
@@ -475,9 +484,9 @@ export default function Engineers() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setAddDocOpen(false); setPendingDocFile(null); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setAddDocOpen(false); setPendingDocFiles([]); }}>Cancel</Button>
             <Button onClick={handleAddDoc} disabled={uploadingDoc}>
-              {uploadingDoc ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading…</> : "Save Document"}
+              {uploadingDoc ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading…</> : `Save ${pendingDocFiles.length > 1 ? `${pendingDocFiles.length} Documents` : "Document"}`}
             </Button>
           </DialogFooter>
         </DialogContent>
