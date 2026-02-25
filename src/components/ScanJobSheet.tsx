@@ -330,7 +330,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             </DialogTitle>
           </DialogHeader>
           <p className="text-xs text-muted-foreground">
-            Take a photo of your filled-in <strong>{template.name}</strong> sheet. You can convert it to PDF or use AI to read the handwriting and populate the digital form.
+            Take a photo of your filled-in job sheet. You can convert it to PDF or use AI to read the handwriting and populate the digital form.
           </p>
 
           <input
