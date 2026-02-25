@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -534,22 +534,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <div className="px-3 py-2 border-r border-border">
                             <span className="text-xs text-muted-foreground leading-tight">{field.label}</span>
                           </div>
-                          <div className="px-3 py-2">
-                            {field.type === "photo" ? (
-                              formData[field.id] ? (
-                                <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
-                              ) : (
-                                <span className="text-xs text-muted-foreground">—</span>
-                              )
-                            ) : (
-                              <span className="text-xs font-medium whitespace-pre-wrap">
-                                {field.type === "checkbox"
-                                  ? (formData[field.id] ? "✓ Yes" : "✗ No")
-                                  : field.type === "pass_fail"
-                                  ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
-                                  : (formData[field.id] || "—")}
-                              </span>
-                            )}
+                           <div className="px-3 py-2">
+                             {field.type === "photo" ? (
+                               formData[field.id] ? (
+                                 <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
+                               ) : (
+                                 <span className="text-xs text-muted-foreground">—</span>
+                               )
+                             ) : field.type === "signature" ? (
+                               formData[field.id] ? (
+                                 <img src={formData[field.id]} alt="Signature" className="max-h-[60px] border rounded bg-background" />
+                               ) : (
+                                 <span className="text-xs text-muted-foreground">—</span>
+                               )
+                             ) : (
+                               <span className="text-xs font-medium whitespace-pre-wrap">
+                                 {field.type === "checkbox"
+                                   ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                                   : field.type === "pass_fail"
+                                   ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
+                                   : (formData[field.id] || "—")}
+                               </span>
+                             )}
                           </div>
                         </div>
                         {field.allow_notes && formData[`${field.id}_notes`] && (
@@ -884,6 +890,8 @@ function renderFormField(
       );
     case "photo":
       return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
+    case "signature":
+      return <SignatureField value={value} onChange={onChange} />;
     default:
       return (
         <Input
@@ -893,6 +901,121 @@ function renderFormField(
         />
       );
   }
+}
+
+function SignatureField({ value, onChange }: { value: any; onChange: (v: any) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [hasSig, setHasSig] = useState(!!value);
+  const lastPos = useRef<{ x: number; y: number } | null>(null);
+
+  // Restore existing signature on mount
+  useEffect(() => {
+    if (value && canvasRef.current) {
+      const img = new Image();
+      img.onload = () => {
+        const ctx = canvasRef.current?.getContext("2d");
+        if (ctx && canvasRef.current) {
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height);
+          ctx.drawImage(img, 0, 0);
+          setHasSig(true);
+        }
+      };
+      img.src = value;
+    }
+  }, []);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    if ("touches" in e) {
+      return {
+        x: (e.touches[0].clientX - rect.left) * scaleX,
+        y: (e.touches[0].clientY - rect.top) * scaleY,
+      };
+    }
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    setDrawing(true);
+    lastPos.current = getPos(e, canvas);
+  };
+
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx || !lastPos.current) return;
+    const pos = getPos(e, canvas);
+    ctx.beginPath();
+    ctx.moveTo(lastPos.current.x, lastPos.current.y);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.strokeStyle = "#000";
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.stroke();
+    lastPos.current = pos;
+    setHasSig(true);
+  };
+
+  const endDraw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setDrawing(false);
+    lastPos.current = null;
+    // Save as data URL
+    const dataUrl = canvasRef.current?.toDataURL("image/png") || null;
+    if (hasSig || dataUrl) onChange(dataUrl);
+  };
+
+  const clear = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    setHasSig(false);
+    onChange(null);
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="relative border border-border rounded bg-background">
+        <canvas
+          ref={canvasRef}
+          width={300}
+          height={80}
+          className="w-full touch-none cursor-crosshair rounded"
+          style={{ display: "block" }}
+          onMouseDown={startDraw}
+          onMouseMove={draw}
+          onMouseUp={endDraw}
+          onMouseLeave={endDraw}
+          onTouchStart={startDraw}
+          onTouchMove={draw}
+          onTouchEnd={endDraw}
+        />
+        {!hasSig && (
+          <span className="absolute inset-0 flex items-center justify-center text-[10px] text-muted-foreground pointer-events-none">
+            Sign here
+          </span>
+        )}
+      </div>
+      {hasSig && (
+        <Button type="button" variant="ghost" size="sm" className="h-5 text-[10px] self-start text-muted-foreground" onClick={clear}>
+          Clear
+        </Button>
+      )}
+    </div>
+  );
 }
 
 function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: any) => void; fieldId: string }) {
