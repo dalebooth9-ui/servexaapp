@@ -293,7 +293,7 @@ export default function Sites() {
   const fetchCustomerFolders = async () => {
     setFoldersLoading(true);
     const { data: customers } = await supabase.from("customers").select("id, name, email, phone, address").order("name");
-    const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null);
+    const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id, name").not("customer_id", "is", null).not("site_id", "is", null);
     const { data: allSites } = await supabase.from("sites").select("*").order("name");
     if (!customers || !allSites) { setFoldersLoading(false); return; }
     const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
@@ -303,9 +303,13 @@ export default function Sites() {
       if (!job.customer_id || !job.site_id) continue;
       if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
       customerSiteMap.get(job.customer_id)!.add(job.site_id);
-      if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
-      const siteCount = jobCountMap.get(job.customer_id)!;
-      siteCount.set(job.site_id, (siteCount.get(job.site_id) || 0) + 1);
+      // Don't count "Site link —" placeholder jobs in the job count badge
+      const isPlaceholder = (job.name as string)?.startsWith("Site link —");
+      if (!isPlaceholder) {
+        if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
+        const siteCount = jobCountMap.get(job.customer_id)!;
+        siteCount.set(job.site_id, (siteCount.get(job.site_id) || 0) + 1);
+      }
     }
     const folders: CustomerFolder[] = (customers as any[]).map((c) => {
       const linkedSiteIds = [...(customerSiteMap.get(c.id) || [])];
@@ -635,7 +639,11 @@ export default function Sites() {
                                   {folder.email && <span className="hidden sm:inline text-xs text-muted-foreground truncate">{folder.email}</span>}
                                   {folder.phone && <span className="hidden md:inline text-xs text-muted-foreground shrink-0">{folder.phone}</span>}
                                   <Badge variant="secondary" className="ml-auto mr-2 text-xs shrink-0">
-                                    {folder.sites.length} site{folder.sites.length !== 1 ? "s" : ""}
+                                    {(() => {
+                                      const parents = folder.sites.filter((s) => !s.parent_id || !folder.sites.some((p) => p.id === s.parent_id));
+                                      const childCount = folder.sites.length - parents.length;
+                                      return `${parents.length} site${parents.length !== 1 ? "s" : ""}${childCount > 0 ? ` · ${childCount} system${childCount !== 1 ? "s" : ""}` : ""}`;
+                                    })()}
                                   </Badge>
                                   {userRole === "admin" && (
                                     <Button variant="outline" size="sm" className="mr-2 h-7 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); openAssignSite(folder); }}>
