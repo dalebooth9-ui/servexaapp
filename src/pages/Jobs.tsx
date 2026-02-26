@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -101,6 +101,7 @@ export default function Jobs() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -823,19 +824,28 @@ export default function Jobs() {
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
       <TodaysDashboard />
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Jobs</h1>
         {isAdmin && (
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setFolderImportOpen(true)}>
-              <FolderOpen className="mr-2 h-4 w-4" /> Import Folder
-            </Button>
-            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" /> Import CSV
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <MoreHorizontal className="mr-1.5 h-4 w-4" /> More
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setFolderImportOpen(true)}>
+                  <FolderOpen className="mr-2 h-4 w-4" /> Import Folder
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setBulkImportOpen(true)}>
+                  <Upload className="mr-2 h-4 w-4" /> Import CSV
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
-                <Button><Plus className="mr-2 h-4 w-4" /> New Job</Button>
+                <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto">
               <DialogHeader>
@@ -973,45 +983,67 @@ export default function Jobs() {
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search jobs..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
-            <SelectItem value="on_hold">On Hold</SelectItem>
-            <SelectItem value="requires_revisit">Requires Revisit</SelectItem>
-            <SelectItem value="scheduled">Scheduled</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-[130px]">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All priorities</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Category" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {categories.map((c) => (
-              <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <Button
+          variant={showFilters || statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all" ? "secondary" : "outline"}
+          size="icon"
+          onClick={() => setShowFilters((v) => !v)}
+          title="Toggle filters"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
+        {(statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all") && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs text-muted-foreground"
+            onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}
+          >
+            Clear
+          </Button>
+        )}
       </div>
+      {showFilters && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="in_progress">In Progress</SelectItem>
+              <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
+              <SelectItem value="on_hold">On Hold</SelectItem>
+              <SelectItem value="requires_revisit">Requires Revisit</SelectItem>
+              <SelectItem value="scheduled">Scheduled</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All priorities</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="w-[150px]">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((c) => (
+                <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {isAdmin && selectedJobIds.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3">
