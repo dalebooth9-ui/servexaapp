@@ -448,7 +448,9 @@ export default function Sites() {
     const allIds = [id, ...descendantIds];
     const deletedSites = sites.filter((s) => allIds.includes(s.id));
     if (!deletedSites.length) return;
+    // Optimistically remove from both hierarchy and customer folder views
     setSites((prev) => prev.filter((s) => !allIds.includes(s.id)));
+    setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: f.sites.filter((s) => !allIds.includes(s.id)) })));
     deleteWithUndo({
       key: id,
       label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
@@ -461,9 +463,13 @@ export default function Sites() {
         if (error) {
           toast({ title: "Error", description: error.message, variant: "destructive" });
           setSites((prev) => [...prev, ...deletedSites]);
+          setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
         }
       },
-      onUndo: () => setSites((prev) => [...prev, ...deletedSites]),
+      onUndo: () => {
+        setSites((prev) => [...prev, ...deletedSites]);
+        setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
+      },
     });
   };
 
@@ -712,31 +718,7 @@ export default function Sites() {
                                           )}
                                           {userRole === "admin" && isChild && (
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
-                                              onClick={async (e) => {
-                                                e.stopPropagation();
-                                                const hasZones = sites.some((z) => z.parent_id === site.id);
-                                                if (hasZones) { toast({ title: "Cannot delete", description: "Remove child zones first.", variant: "destructive" }); return; }
-                                                const deletedSite = site;
-                                                // Optimistically remove from UI
-                                                setCustomerFolders((prev) => prev.map((f) => f.id !== folder.id ? f : { ...f, sites: f.sites.filter((s) => s.id !== deletedSite.id) }));
-                                                setSites((prev) => prev.filter((s) => s.id !== deletedSite.id));
-                                                deleteWithUndo({
-                                                  key: deletedSite.id,
-                                                  label: `${deletedSite.name} deleted`,
-                                                  onConfirm: async () => {
-                                                    const { error } = await supabase.from("sites").delete().eq("id", deletedSite.id);
-                                                    if (error) {
-                                                      toast({ title: "Error", description: error.message, variant: "destructive" });
-                                                      setCustomerFolders((prev) => prev.map((f) => f.id !== folder.id ? f : { ...f, sites: [...f.sites, deletedSite] }));
-                                                      setSites((prev) => [...prev, deletedSite]);
-                                                    }
-                                                  },
-                                                  onUndo: () => {
-                                                    setCustomerFolders((prev) => prev.map((f) => f.id !== folder.id ? f : { ...f, sites: [...f.sites, deletedSite] }));
-                                                    setSites((prev) => [...prev, deletedSite]);
-                                                  },
-                                                });
-                                              }}
+                                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
                                             >
                                               <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
