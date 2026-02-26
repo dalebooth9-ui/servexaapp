@@ -6,9 +6,52 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileText, Loader2, Upload, ChevronLeft, ChevronRight, Layers } from "lucide-react";
+import { FileText, Loader2, Upload, ChevronLeft, ChevronRight, Layers, UserCheck, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
+// ── Fuzzy matching ────────────────────────────────────────────────────────────
+function normalise(s: string) {
+  return s
+    .toLowerCase()
+    .replace(/\b(ltd|limited|plc|inc|co|the|and|&)\b/g, "")
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function similarity(a: string, b: string): number {
+  const na = normalise(a);
+  const nb = normalise(b);
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.9;
+  // Bigram overlap
+  const bigrams = (s: string) => {
+    const arr: string[] = [];
+    for (let i = 0; i < s.length - 1; i++) arr.push(s.slice(i, i + 2));
+    return new Set(arr);
+  };
+  const ba = bigrams(na);
+  const bb = bigrams(nb);
+  let common = 0;
+  ba.forEach((g) => { if (bb.has(g)) common++; });
+  return (2 * common) / (ba.size + bb.size) || 0;
+}
+
+interface ExistingCustomer { id: string; name: string }
+
+// Returns closest match above threshold (0.6), or null
+function bestMatch(name: string, customers: ExistingCustomer[]): ExistingCustomer | null {
+  let best: ExistingCustomer | null = null;
+  let bestScore = 0.6; // minimum threshold
+  for (const c of customers) {
+    const score = similarity(name, c.name);
+    if (score > bestScore) { bestScore = score; best = c; }
+  }
+  return best;
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 interface ExtractedSystem {
   system_name: string;
   outlets_count: number | null;
@@ -26,11 +69,15 @@ interface ExtractedSite {
   systems: ExtractedSystem[];
 }
 
+// Per-site customer resolution: "new" | existing customer id
+type CustomerResolution = { mode: "new" } | { mode: "existing"; customerId: string; customerName: string };
+
 interface Props {
   onSiteCreated: () => void;
   disabled?: boolean;
 }
 
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props) {
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -39,6 +86,9 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
   const [sites, setSites] = useState<ExtractedSite[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [allCustomers, setAllCustomers] = useState<ExistingCustomer[]>([]);
+  // Map from site index → customer resolution chosen by the user
+  const [resolutions, setResolutions] = useState<CustomerResolution[]>([]);
 
   const toSite = (record: any): ExtractedSite => {
     let systems: ExtractedSystem[] = [];
@@ -50,7 +100,6 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
         notes: s.notes || "",
       }));
     } else {
-      // Legacy flat format fallback
       systems = [{
         system_name: "Main System",
         outlets_count: record.outlets_count != null ? Number(record.outlets_count) : null,
@@ -85,20 +134,46 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
         binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
       }
       const base64 = btoa(binary);
-      const { data, error: fnError } = await supabase.functions.invoke("parse-import-generic", {
-        body: { file_base64: base64, file_name: file.name, entity_type: "site_document" },
-      });
-      if (fnError || data?.error) {
-        toast({ title: "AI extraction failed", description: fnError?.message || data?.error, variant: "destructive" });
+
+      const [{ data: fnData, error: fnError }, { data: customers }] = await Promise.all([
+        supabase.functions.invoke("parse-import-generic", {
+          body: { file_base64: base64, file_name: file.name, entity_type: "site_document" },
+        }),
+        supabase.from("customers").select("id, name").order("name"),
+      ]);
+
+      if (fnError || fnData?.error) {
+        toast({ title: "AI extraction failed", description: fnError?.message || fnData?.error, variant: "destructive" });
         return;
       }
-      let records = data.records;
+
+      const existingCustomers: ExistingCustomer[] = customers || [];
+      setAllCustomers(existingCustomers);
+
+      let records = fnData.records;
       if (!Array.isArray(records)) records = records ? [records] : [];
       if (records.length === 0) {
         toast({ title: "Nothing found", description: "The AI couldn't extract site details from this document.", variant: "destructive" });
         return;
       }
-      setSites(records.map(toSite));
+
+      const parsed: ExtractedSite[] = records.map(toSite);
+
+      // Auto-resolve resolutions: exact match → existing, fuzzy match → suggest existing (user can confirm/change), no match → new
+      const defaultResolutions: CustomerResolution[] = parsed.map((s) => {
+        const extractedName = s.customer_name.trim();
+        if (!extractedName) return { mode: "new" };
+        // Exact match (case-insensitive)
+        const exact = existingCustomers.find((c) => c.name.toLowerCase() === extractedName.toLowerCase());
+        if (exact) return { mode: "existing", customerId: exact.id, customerName: exact.name };
+        // Fuzzy match — still pre-select it but mark as suggestion (user sees the banner and can change)
+        const fuzzy = bestMatch(extractedName, existingCustomers);
+        if (fuzzy) return { mode: "existing", customerId: fuzzy.id, customerName: fuzzy.name };
+        return { mode: "new" };
+      });
+
+      setSites(parsed);
+      setResolutions(defaultResolutions);
       setCurrentIndex(0);
     } finally {
       setParsing(false);
@@ -122,11 +197,12 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
   const updateSystem = (sysIndex: number, key: keyof ExtractedSystem, value: string | number | null) => {
     setSites((prev) => prev.map((s, i) => {
       if (i !== currentIndex) return s;
-      return {
-        ...s,
-        systems: s.systems.map((sys, j) => j === sysIndex ? { ...sys, [key]: value } : sys),
-      };
+      return { ...s, systems: s.systems.map((sys, j) => j === sysIndex ? { ...sys, [key]: value } : sys) };
     }));
+  };
+
+  const setResolution = (idx: number, res: CustomerResolution) => {
+    setResolutions((prev) => prev.map((r, i) => i === idx ? res : r));
   };
 
   const handleSaveAll = async () => {
@@ -143,9 +219,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
 
       if (sitesToCreate.length === 0) {
         toast({ title: "All duplicates", description: `All ${skipped} site${skipped > 1 ? "s" : ""} already exist and were skipped.`, variant: "destructive" });
-        setSites([]);
-        onSiteCreated();
-        return;
+        setSites([]); onSiteCreated(); return;
       }
 
       // Insert parent sites
@@ -166,7 +240,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
 
       const parentIdMap = new Map(createdParents.map((s: any) => [s.name.toLowerCase(), s.id]));
 
-      // Insert child system records where there are multiple systems
+      // Insert child system records
       const childRows: any[] = [];
       for (const s of sitesToCreate) {
         const parentName = (s.site_name.trim() || s.customer_name.trim() || "Unnamed Site").toLowerCase();
@@ -175,44 +249,38 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
         if (s.systems.length > 1) {
           for (const sys of s.systems) {
             childRows.push({
-              name: sys.system_name,
-              parent_id: parentId,
-              site_type: "building" as const,
-              outlets_count: sys.outlets_count ?? null,
-              riser_location: sys.riser_location.trim() || null,
-              notes: sys.notes.trim() || null,
+              name: sys.system_name, parent_id: parentId, site_type: "building" as const,
+              outlets_count: sys.outlets_count ?? null, riser_location: sys.riser_location.trim() || null, notes: sys.notes.trim() || null,
             });
           }
         } else if (s.systems.length === 1) {
-          // Single system — store outlets/riser on the parent itself
           const sys = s.systems[0];
-          await supabase.from("sites").update({
-            outlets_count: sys.outlets_count ?? null,
-            riser_location: sys.riser_location.trim() || null,
-          }).eq("id", parentId);
+          await supabase.from("sites").update({ outlets_count: sys.outlets_count ?? null, riser_location: sys.riser_location.trim() || null }).eq("id", parentId);
         }
       }
+      if (childRows.length > 0) await supabase.from("sites").insert(childRows as any);
 
-      if (childRows.length > 0) {
-        await supabase.from("sites").insert(childRows as any);
-      }
+      // Resolve customers using confirmed resolutions
+      const customerIdMap = new Map<string, string>(); // extracted name (lower) → customer id
+      const newCustomerNames: string[] = [];
 
-      // Resolve / create customers
-      const customerNames = [...new Set(sitesToCreate.map((s) => s.customer_name.trim()).filter(Boolean))];
-      const customerIdMap = new Map<string, string>();
-
-      if (customerNames.length > 0) {
-        const { data: existingCustomers } = await supabase.from("customers").select("id, name").in("name", customerNames);
-        for (const c of existingCustomers || []) customerIdMap.set(c.name.toLowerCase(), c.id);
-
-        const missing = customerNames.filter((n) => !customerIdMap.has(n.toLowerCase()));
-        if (missing.length > 0) {
-          const { data: newCustomers } = await supabase.from("customers").insert(missing.map((name) => ({ name }))).select("id, name");
-          for (const c of newCustomers || []) customerIdMap.set(c.name.toLowerCase(), c.id);
+      sitesToCreate.forEach((s, idx) => {
+        const origIdx = sites.indexOf(s);
+        const res = resolutions[origIdx] ?? { mode: "new" };
+        if (res.mode === "existing") {
+          customerIdMap.set(s.customer_name.trim().toLowerCase(), res.customerId);
+        } else {
+          const name = s.customer_name.trim();
+          if (name && !customerIdMap.has(name.toLowerCase())) newCustomerNames.push(name);
         }
+      });
+
+      if (newCustomerNames.length > 0) {
+        const { data: newCustomers } = await supabase.from("customers").insert([...new Set(newCustomerNames)].map((name) => ({ name }))).select("id, name");
+        for (const c of newCustomers || []) customerIdMap.set(c.name.toLowerCase(), c.id);
       }
 
-      // Create link jobs (parent site ↔ customer)
+      // Create link jobs
       const linkJobs = sitesToCreate
         .map((s) => {
           const siteName = (s.site_name.trim() || s.customer_name.trim() || "Unnamed Site").toLowerCase();
@@ -229,16 +297,25 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
       const systemsNote = totalSystems > sitesToCreate.length ? ` (${totalSystems} systems across ${createdParents.length} site${createdParents.length > 1 ? "s" : ""})` : "";
       const skipMsg = skipped > 0 ? `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped.` : undefined;
       toast({ title: `${createdParents.length} site${createdParents.length > 1 ? "s" : ""} created${systemsNote}`, description: skipMsg });
-      setSites([]);
-      onSiteCreated();
+      setSites([]); onSiteCreated();
     } finally {
       setSaving(false);
     }
   };
 
   const form = sites[currentIndex] ?? null;
+  const currentResolution = resolutions[currentIndex];
   const isOpen = sites.length > 0;
   const totalSystems = sites.reduce((sum, s) => sum + s.systems.length, 0);
+
+  // Determine if this site's customer name was fuzzy-matched (i.e. extracted name ≠ resolved name)
+  const extractedCustomerName = form?.customer_name.trim() ?? "";
+  const isFuzzyMatch =
+    currentResolution?.mode === "existing" &&
+    currentResolution.customerName.toLowerCase() !== extractedCustomerName.toLowerCase();
+  const isExactMatch =
+    currentResolution?.mode === "existing" &&
+    currentResolution.customerName.toLowerCase() === extractedCustomerName.toLowerCase();
 
   return (
     <>
@@ -303,10 +380,57 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
 
           {form && (
             <div className="space-y-4 py-2">
-              {/* Site-level fields */}
+              {/* ── Customer resolution panel ── */}
+              <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+                <div className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-sm font-medium">Customer</span>
+                  {isExactMatch && <Badge variant="secondary" className="text-xs">matched</Badge>}
+                  {isFuzzyMatch && (
+                    <Badge variant="outline" className="text-xs gap-1 border-warning text-warning">
+                      <AlertCircle className="h-3 w-3" /> similar name found
+                    </Badge>
+                  )}
+                  {currentResolution?.mode === "new" && (
+                    <Badge variant="outline" className="text-xs">will be created</Badge>
+                  )}
+                </div>
+
+                {isFuzzyMatch && (
+                  <p className="text-xs text-muted-foreground">
+                    Document says <span className="font-medium text-foreground">"{extractedCustomerName}"</span> — closest match is <span className="font-medium text-foreground">"{currentResolution.customerName}"</span>. Confirm below or choose another.
+                  </p>
+                )}
+
+                <Select
+                  value={currentResolution?.mode === "existing" ? currentResolution.customerId : "__new__"}
+                  onValueChange={(val) => {
+                    if (val === "__new__") {
+                      setResolution(currentIndex, { mode: "new" });
+                    } else {
+                      const c = allCustomers.find((x) => x.id === val);
+                      if (c) setResolution(currentIndex, { mode: "existing", customerId: c.id, customerName: c.name });
+                    }
+                  }}
+                >
+                  <SelectTrigger className="h-8 text-sm">
+                    <SelectValue placeholder="Select customer…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__new__">
+                      <span className="text-muted-foreground">Create new: "{extractedCustomerName || "Unnamed"}"</span>
+                    </SelectItem>
+                    {allCustomers.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* ── Site fields ── */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label>Customer Name</Label>
+                  <Label>Customer Name (from doc)</Label>
                   <Input value={form.customer_name} onChange={(e) => updateSite("customer_name", e.target.value)} placeholder="Customer name" />
                 </div>
                 <div className="space-y-1">
@@ -329,7 +453,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
                 </div>
               </div>
 
-              {/* Systems */}
+              {/* ── Systems ── */}
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Layers className="h-4 w-4 text-muted-foreground" />
@@ -345,33 +469,17 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
                     {form.systems.length > 1 && (
                       <div className="space-y-1">
                         <Label className="text-xs">System Label</Label>
-                        <Input
-                          value={sys.system_name}
-                          onChange={(e) => updateSystem(i, "system_name", e.target.value)}
-                          placeholder="e.g. System 1"
-                          className="h-8 text-sm"
-                        />
+                        <Input value={sys.system_name} onChange={(e) => updateSystem(i, "system_name", e.target.value)} placeholder="e.g. System 1" className="h-8 text-sm" />
                       </div>
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
                         <Label className="text-xs">Outlets</Label>
-                        <Input
-                          type="number"
-                          value={sys.outlets_count ?? ""}
-                          onChange={(e) => updateSystem(i, "outlets_count", e.target.value ? Number(e.target.value) : null)}
-                          placeholder="e.g. 12"
-                          className="h-8 text-sm"
-                        />
+                        <Input type="number" value={sys.outlets_count ?? ""} onChange={(e) => updateSystem(i, "outlets_count", e.target.value ? Number(e.target.value) : null)} placeholder="e.g. 12" className="h-8 text-sm" />
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Riser Location</Label>
-                        <Input
-                          value={sys.riser_location}
-                          onChange={(e) => updateSystem(i, "riser_location", e.target.value)}
-                          placeholder="e.g. Floor 2 east"
-                          className="h-8 text-sm"
-                        />
+                        <Input value={sys.riser_location} onChange={(e) => updateSystem(i, "riser_location", e.target.value)} placeholder="e.g. Floor 2 east" className="h-8 text-sm" />
                       </div>
                     </div>
                     {sys.notes && (
