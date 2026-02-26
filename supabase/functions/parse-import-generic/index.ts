@@ -13,15 +13,15 @@ Rules: name is required. Use empty string for missing fields. Return ONLY the JS
 Rules: name is required. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
   sites: `Extract all site/location/premises/building records. Return a JSON array with fields: name, address, postcode, site_type, contact_name, contact_phone, contact_email.
 Rules: name is required. site_type must be one of: region, site, building, zone (default site). Use empty string for missing fields. Return ONLY the JSON array.`,
-  site_document: `You are extracting site survey information from a document. Extract the following fields and return a single JSON object (not an array):
+  site_document: `You are extracting site survey information from a document. This document describes ONE single system/site. Do NOT aggregate or sum values from multiple systems. Extract the following fields for THIS system only and return a single JSON object (not an array):
 - customer_name: the name of the customer or company
-- site_address: the full site address
-- outlets_count: the total number of outlets (integer, or null if not found)
-- riser_location: description of where the riser is located (or null if not found)
-- site_name: a suitable name for this site (derive from customer name + address if not explicit)
+- site_address: the full site address for this system
+- outlets_count: the number of outlets for THIS specific system only (integer, or null if not found). Do NOT add up counts from other systems.
+- riser_location: the riser location for THIS specific system (or null if not found)
+- site_name: a suitable name for this site/system (derive from customer name + address or system label if not explicit)
 - postcode: postcode/zip code if present (or empty string)
 - contact_name: contact person name if present (or empty string)
-- notes: any other relevant site notes
+- notes: any other relevant site notes for this system
 Return ONLY the JSON object, no markdown.`,
 };
 

@@ -36,6 +36,8 @@ type Site = {
   contact_phone: string | null;
   contact_email: string | null;
   notes: string | null;
+  outlets_count: number | null;
+  riser_location: string | null;
   created_at: string;
 };
 
@@ -524,6 +526,8 @@ export default function Sites() {
                                         <TableHead>Address</TableHead>
                                         <TableHead>Postcode</TableHead>
                                         <TableHead>Contact</TableHead>
+                                        <TableHead>Outlets</TableHead>
+                                        <TableHead>Riser Location</TableHead>
                                         <TableHead className="w-8" />
                                       </TableRow>
                                     </TableHeader>
@@ -548,6 +552,8 @@ export default function Sites() {
                                             <TableCell className="text-muted-foreground text-sm">{site.address || "—"}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{site.postcode || "—"}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">{site.contact_name || "—"}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm">{site.outlets_count != null ? site.outlets_count : "—"}</TableCell>
+                                            <TableCell className="text-muted-foreground text-sm max-w-[160px] truncate">{(site as any).riser_location || "—"}</TableCell>
                                             <TableCell className="w-16 text-right">
                                               <div className="flex items-center justify-end gap-1">
                                                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
