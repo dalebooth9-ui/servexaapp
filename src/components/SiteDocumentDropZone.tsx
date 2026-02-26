@@ -97,21 +97,38 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      const rows = sites.map((s) => ({
-        name: s.site_name.trim() || s.customer_name.trim() || "Unnamed Site",
-        address: s.site_address.trim() || null,
-        postcode: s.postcode.trim() || null,
-        site_type: "site" as const,
-        contact_name: s.contact_name.trim() || null,
-        outlets_count: s.outlets_count ?? null,
-        riser_location: s.riser_location.trim() || null,
-        notes: s.notes.trim() || null,
-      }));
-      const { error } = await supabase.from("sites").insert(rows as any);
+      const names = sites.map((s) => (s.site_name.trim() || s.customer_name.trim() || "Unnamed Site"));
+      const { data: existing } = await supabase.from("sites").select("name").in("name", names);
+      const existingNames = new Set((existing || []).map((r: any) => r.name.trim().toLowerCase()));
+
+      const newRows = sites
+        .map((s) => ({
+          name: s.site_name.trim() || s.customer_name.trim() || "Unnamed Site",
+          address: s.site_address.trim() || null,
+          postcode: s.postcode.trim() || null,
+          site_type: "site" as const,
+          contact_name: s.contact_name.trim() || null,
+          outlets_count: s.outlets_count ?? null,
+          riser_location: s.riser_location.trim() || null,
+          notes: s.notes.trim() || null,
+        }))
+        .filter((r) => !existingNames.has(r.name.trim().toLowerCase()));
+
+      const skipped = sites.length - newRows.length;
+
+      if (newRows.length === 0) {
+        toast({ title: "All duplicates", description: `All ${skipped} site${skipped > 1 ? "s" : ""} already exist and were skipped.`, variant: "destructive" });
+        setSites([]);
+        onSiteCreated();
+        return;
+      }
+
+      const { error } = await supabase.from("sites").insert(newRows as any);
       if (error) {
         toast({ title: "Save failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: `${rows.length} site${rows.length > 1 ? "s" : ""} created`, description: rows.map((r) => r.name).join(", ") });
+        const msg = skipped > 0 ? `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped.` : undefined;
+        toast({ title: `${newRows.length} site${newRows.length > 1 ? "s" : ""} created`, description: msg });
         setSites([]);
         onSiteCreated();
       }
