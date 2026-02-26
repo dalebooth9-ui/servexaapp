@@ -9,10 +9,20 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { image_base64, mime_type, template_name, fields } = await req.json();
-    
-    if (!image_base64 || !fields) {
-      return new Response(JSON.stringify({ error: "Missing image or fields" }), {
+    const body = await req.json();
+
+    // Support both legacy single-image and new multi-image format
+    let images: { image_base64: string; mime_type?: string }[] = [];
+    if (body.images && Array.isArray(body.images)) {
+      images = body.images;
+    } else if (body.image_base64) {
+      images = [{ image_base64: body.image_base64, mime_type: body.mime_type }];
+    }
+
+    const { template_name, fields } = body;
+
+    if (images.length === 0 || !fields) {
+      return new Response(JSON.stringify({ error: "Missing image(s) or fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -47,7 +57,7 @@ Rules:
 - If a field appears blank or unreadable, omit it from the response
 - Do not include any explanation, only the JSON object`;
 
-    const userPrompt = `This is a photo of a filled-in "${template_name}" job sheet form.
+    const userPrompt = `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet form. Each image may show different pages or sections of the same sheet.
 
 First, extract the header information (Customer, Site/Address, Date, PO/REF, Riser Location) from the top of the form.
 
@@ -55,6 +65,15 @@ Then extract the handwritten values for these template fields:
 ${fieldList}
 
 Return a JSON object with "header" and "fields" keys.`;
+
+    // Build content parts — one text prompt followed by all images
+    const userContentParts: any[] = [{ type: "text", text: userPrompt }];
+    for (const img of images) {
+      userContentParts.push({
+        type: "image_url",
+        image_url: { url: `data:${img.mime_type || "image/jpeg"};base64,${img.image_base64}` },
+      });
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -66,16 +85,7 @@ Return a JSON object with "header" and "fields" keys.`;
         model: "google/gemini-2.5-flash",
         messages: [
           { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: userPrompt },
-              {
-                type: "image_url",
-                image_url: { url: `data:${mime_type || "image/jpeg"};base64,${image_base64}` },
-              },
-            ],
-          },
+          { role: "user", content: userContentParts },
         ],
       }),
     });
