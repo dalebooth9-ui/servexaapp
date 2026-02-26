@@ -133,6 +133,15 @@ export default function Sites() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [activeDragSite, setActiveDragSite] = useState<Site | null>(null);
+  const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
+
+  const toggleSiteCollapse = (siteId: string) => {
+    setCollapsedSites((prev) => {
+      const next = new Set(prev);
+      next.has(siteId) ? next.delete(siteId) : next.add(siteId);
+      return next;
+    });
+  };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -555,7 +564,6 @@ export default function Sites() {
                                 ) : (
                                   <div className="divide-y divide-border/50">
                                     {(() => {
-                                      // Separate parent sites from child (building/zone) sites
                                       const parentSites = folder.sites.filter((s) => !s.parent_id || !folder.sites.some((p) => p.id === s.parent_id));
                                       const childrenBySite = new Map<string, Site[]>();
                                       for (const s of folder.sites) {
@@ -570,14 +578,34 @@ export default function Sites() {
                                         const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
                                         const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
                                         const riser = (site as any).riser_location;
+                                        const children = childrenBySite.get(site.id) || [];
+                                        const hasChildren = children.length > 0;
+                                        const isCollapsed = collapsedSites.has(site.id);
                                         return (
                                           <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"}`} onClick={() => openEdit(site)} title="Click to edit">
-                                            {isChild && <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />}
+                                            {isChild
+                                              ? <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />
+                                              : hasChildren
+                                                ? <button
+                                                    type="button"
+                                                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                                                    onClick={(e) => { e.stopPropagation(); toggleSiteCollapse(site.id); }}
+                                                    title={isCollapsed ? "Show systems" : "Hide systems"}
+                                                  >
+                                                    {isCollapsed
+                                                      ? <ChevronRight className="h-4 w-4" />
+                                                      : <ChevronDown className="h-4 w-4" />}
+                                                  </button>
+                                                : <div className="w-4 shrink-0" />
+                                            }
                                             <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
                                             <div className="flex-1 min-w-0">
                                               <div className="flex items-center gap-2 flex-wrap">
                                                 <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
                                                 {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
+                                                {hasChildren && !isChild && (
+                                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} system{children.length !== 1 ? "s" : ""}</Badge>
+                                                )}
                                                 {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
                                                 {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
                                                 {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
@@ -614,12 +642,16 @@ export default function Sites() {
                                           </div>
                                         );
                                       };
-                                      return parentSites.map((site) => (
-                                        <div key={site.id}>
-                                          {renderSiteRow(site, false)}
-                                          {(childrenBySite.get(site.id) || []).map((child) => renderSiteRow(child, true))}
-                                        </div>
-                                      ));
+                                      return parentSites.map((site) => {
+                                        const children = childrenBySite.get(site.id) || [];
+                                        const isCollapsed = collapsedSites.has(site.id);
+                                        return (
+                                          <div key={site.id}>
+                                            {renderSiteRow(site, false)}
+                                            {!isCollapsed && children.map((child) => renderSiteRow(child, true))}
+                                          </div>
+                                        );
+                                      });
                                     })()}
                                   </div>
                                 )}
