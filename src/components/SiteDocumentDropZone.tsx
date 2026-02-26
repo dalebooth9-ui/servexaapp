@@ -41,8 +41,14 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
     }
     setParsing(true);
     try {
-      const buf = await file.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+    const buf = await file.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      let binary = "";
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+      }
+      const base64 = btoa(binary);
       const { data, error: fnError } = await supabase.functions.invoke("parse-import-generic", {
         body: { file_base64: base64, file_name: file.name, entity_type: "site_document" },
       });
