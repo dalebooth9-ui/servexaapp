@@ -101,37 +101,90 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
       const { data: existing } = await supabase.from("sites").select("name").in("name", names);
       const existingNames = new Set((existing || []).map((r: any) => r.name.trim().toLowerCase()));
 
-      const newRows = sites
-        .map((s) => ({
-          name: s.site_name.trim() || s.customer_name.trim() || "Unnamed Site",
-          address: s.site_address.trim() || null,
-          postcode: s.postcode.trim() || null,
-          site_type: "site" as const,
-          contact_name: s.contact_name.trim() || null,
-          outlets_count: s.outlets_count ?? null,
-          riser_location: s.riser_location.trim() || null,
-          notes: s.notes.trim() || null,
-        }))
-        .filter((r) => !existingNames.has(r.name.trim().toLowerCase()));
+      const sitesToCreate = sites.filter(
+        (s) => !existingNames.has((s.site_name.trim() || s.customer_name.trim() || "Unnamed Site").toLowerCase())
+      );
+      const skipped = sites.length - sitesToCreate.length;
 
-      const skipped = sites.length - newRows.length;
-
-      if (newRows.length === 0) {
+      if (sitesToCreate.length === 0) {
         toast({ title: "All duplicates", description: `All ${skipped} site${skipped > 1 ? "s" : ""} already exist and were skipped.`, variant: "destructive" });
         setSites([]);
         onSiteCreated();
         return;
       }
 
-      const { error } = await supabase.from("sites").insert(newRows as any);
-      if (error) {
-        toast({ title: "Save failed", description: error.message, variant: "destructive" });
-      } else {
-        const msg = skipped > 0 ? `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped.` : undefined;
-        toast({ title: `${newRows.length} site${newRows.length > 1 ? "s" : ""} created`, description: msg });
-        setSites([]);
-        onSiteCreated();
+      // Insert sites and get back their IDs
+      const newRows = sitesToCreate.map((s) => ({
+        name: s.site_name.trim() || s.customer_name.trim() || "Unnamed Site",
+        address: s.site_address.trim() || null,
+        postcode: s.postcode.trim() || null,
+        site_type: "site" as const,
+        contact_name: s.contact_name.trim() || null,
+        outlets_count: s.outlets_count ?? null,
+        riser_location: s.riser_location.trim() || null,
+        notes: s.notes.trim() || null,
+      }));
+
+      const { data: createdSites, error } = await supabase.from("sites").insert(newRows as any).select("id, name");
+      if (error || !createdSites) {
+        toast({ title: "Save failed", description: error?.message, variant: "destructive" });
+        return;
       }
+
+      // Resolve customers by name (find existing or create new)
+      const customerNames = [...new Set(sitesToCreate.map((s) => s.customer_name.trim()).filter(Boolean))];
+      const customerIdMap = new Map<string, string>();
+
+      if (customerNames.length > 0) {
+        const { data: existingCustomers } = await supabase
+          .from("customers")
+          .select("id, name")
+          .in("name", customerNames);
+
+        for (const c of existingCustomers || []) {
+          customerIdMap.set(c.name.toLowerCase(), c.id);
+        }
+
+        // Create any customers that don't exist yet
+        const missing = customerNames.filter((n) => !customerIdMap.has(n.toLowerCase()));
+        if (missing.length > 0) {
+          const { data: newCustomers } = await supabase
+            .from("customers")
+            .insert(missing.map((name) => ({ name })))
+            .select("id, name");
+          for (const c of newCustomers || []) {
+            customerIdMap.set(c.name.toLowerCase(), c.id);
+          }
+        }
+      }
+
+      // Create link jobs to associate each site with its customer
+      const siteNameToId = new Map(createdSites.map((s: any) => [s.name.toLowerCase(), s.id]));
+      const linkJobs = sitesToCreate
+        .map((s) => {
+          const siteName = s.site_name.trim() || s.customer_name.trim() || "Unnamed Site";
+          const siteId = siteNameToId.get(siteName.toLowerCase());
+          const customerId = customerIdMap.get(s.customer_name.trim().toLowerCase());
+          if (!siteId || !customerId) return null;
+          return {
+            name: `Site link — ${s.customer_name.trim()}`,
+            customer_id: customerId,
+            site_id: siteId,
+            status: "active" as const,
+            priority: "medium" as const,
+            category: "general",
+          };
+        })
+        .filter(Boolean);
+
+      if (linkJobs.length > 0) {
+        await supabase.from("jobs").insert(linkJobs as any);
+      }
+
+      const msg = skipped > 0 ? `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped.` : undefined;
+      toast({ title: `${createdSites.length} site${createdSites.length > 1 ? "s" : ""} created`, description: msg });
+      setSites([]);
+      onSiteCreated();
     } finally {
       setSaving(false);
     }
