@@ -21,6 +21,12 @@ serve(async (req) => {
 
     const { template_name, fields } = body;
 
+    // Filter out any non-image payloads (e.g. accidentally encoded JSON error responses)
+    images = images.filter((img) => {
+      const mime = img.mime_type || "image/jpeg";
+      return mime.startsWith("image/");
+    });
+
     if (images.length === 0 || !fields) {
       return new Response(JSON.stringify({ error: "Missing image(s) or fields" }), {
         status: 400,
