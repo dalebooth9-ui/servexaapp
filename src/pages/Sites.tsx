@@ -489,12 +489,27 @@ export default function Sites() {
     zone: sites.filter((s) => s.site_type === "zone").length,
   };
 
+  const getSiteBreadcrumb = (s: Site): string[] => {
+    const parts: string[] = [s.name];
+    let current = s;
+    while (current.parent_id) {
+      const parent = sites.find((p) => p.id === current.parent_id);
+      if (!parent) break;
+      parts.unshift(parent.name);
+      current = parent;
+    }
+    return parts;
+  };
+
   const renderTreeRow = (site: Site, depth: number): React.ReactNode => {
     const children = getChildren(site.id);
     const isExpanded = expanded.has(site.id);
     const config = TYPE_CONFIG[site.site_type];
     const Icon = config?.icon || MapPin;
     const childType = CHILD_TYPES[site.site_type];
+    const isSearching = !!search.trim();
+    const breadcrumb = isSearching ? getSiteBreadcrumb(site) : [];
+    const showBreadcrumb = breadcrumb.length > 1;
     return (
       <div key={site.id}>
         <div className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors ${selected.has(site.id) ? "bg-primary/5" : ""}`} style={{ paddingLeft: `${depth * 24 + 12}px` }}>
@@ -507,7 +522,20 @@ export default function Sites() {
             </button>
           ) : <div className="w-4" />}
           <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
-          <span className="font-medium text-sm flex-1 min-w-0 truncate">{site.name}</span>
+          <div className="flex-1 min-w-0">
+            {showBreadcrumb && (
+              <p className="text-[11px] text-muted-foreground/70 truncate flex items-center gap-0.5 leading-tight mb-0.5">
+                {breadcrumb.slice(0, -1).map((part, i) => (
+                  <span key={i} className="flex items-center gap-0.5">
+                    {i > 0 && <ChevronRight className="h-2.5 w-2.5 shrink-0" />}
+                    <span>{part}</span>
+                  </span>
+                ))}
+                <ChevronRight className="h-2.5 w-2.5 shrink-0" />
+              </p>
+            )}
+            <span className="font-medium text-sm truncate block">{site.name}</span>
+          </div>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
           {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
           {userRole === "admin" && (
