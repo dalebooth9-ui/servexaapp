@@ -6,7 +6,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Trash2, Loader2, FileText } from "lucide-react";
+import { Upload, FileSpreadsheet, Trash2, Loader2, AlertTriangle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import * as XLSX from "xlsx";
 
 interface ParsedSite {
@@ -17,6 +18,7 @@ interface ParsedSite {
   contact_name: string;
   contact_phone: string;
   contact_email: string;
+  isDuplicate?: boolean;
 }
 
 interface Props {
@@ -108,6 +110,20 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
     setStep("input");
   };
 
+  const checkDuplicates = async (sites: ParsedSite[]): Promise<ParsedSite[]> => {
+    const names = sites.map((s) => s.name.trim().toLowerCase());
+    const { data: existing } = await supabase.from("sites").select("name").in("name", sites.map((s) => s.name.trim()));
+    const existingNames = new Set((existing || []).map((s: any) => s.name.trim().toLowerCase()));
+    // Also flag within-batch duplicates
+    const seenInBatch = new Set<string>();
+    return sites.map((s) => {
+      const key = s.name.trim().toLowerCase();
+      const isDuplicate = existingNames.has(key) || seenInBatch.has(key);
+      seenInBatch.add(key);
+      return { ...s, isDuplicate };
+    });
+  };
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -120,7 +136,7 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
         toast({ title: "No sites found", description: "Check your file has a header row with Name and Address columns.", variant: "destructive" });
         return;
       }
-      setParsed(sites);
+      setParsed(await checkDuplicates(sites));
       setStep("preview");
     } else if (ext === "xlsx" || ext === "xls") {
       const buf = await file.arrayBuffer();
@@ -130,7 +146,7 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
         toast({ title: "No sites found", description: "Check your file has a header row with Name and Address columns.", variant: "destructive" });
         return;
       }
-      setParsed(sites);
+      setParsed(await checkDuplicates(sites));
       setStep("preview");
     } else if (ext === "pdf" || ext === "doc" || ext === "docx") {
       setImporting(true);
@@ -155,7 +171,7 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
           if (records.length === 0) {
             toast({ title: "No sites found", description: "The AI couldn't find any site records in this document.", variant: "destructive" });
           } else {
-            setParsed(records);
+            setParsed(await checkDuplicates(records));
             setStep("preview");
           }
         }
@@ -168,13 +184,13 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
     if (fileRef.current) fileRef.current.value = "";
   };
 
-  const handleParse = () => {
+  const handleParse = async () => {
     const sites = parseRowsFromText(pasteText);
     if (sites.length === 0) {
       toast({ title: "No sites found", description: "Paste data with headers: Name, Address, Postcode (comma or tab separated).", variant: "destructive" });
       return;
     }
-    setParsed(sites);
+    setParsed(await checkDuplicates(sites));
     setStep("preview");
   };
 
@@ -187,10 +203,14 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
   };
 
   const handleImport = async () => {
-    if (parsed.length === 0) return;
+    const toImport = parsed.filter((s) => !s.isDuplicate);
+    if (toImport.length === 0) {
+      toast({ title: "Nothing to import", description: "All sites are duplicates. Remove them or they will be skipped.", variant: "destructive" });
+      return;
+    }
     setImporting(true);
 
-    const payload = parsed.map((s) => ({
+    const payload = toImport.map((s) => ({
       name: s.name.trim(),
       address: s.address.trim() || null,
       postcode: s.postcode.trim() || null,
@@ -204,7 +224,8 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
     if (error) {
       toast({ title: "Import failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Sites imported", description: `${data?.length || parsed.length} sites added.` });
+      const skipped = parsed.length - toImport.length;
+      toast({ title: "Sites imported", description: `${data?.length || toImport.length} sites added${skipped > 0 ? `, ${skipped} duplicate(s) skipped` : ""}.` });
       onImported();
       onOpenChange(false);
       reset();
@@ -253,8 +274,16 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
         )}
 
         {step === "preview" && (
-          <div className="space-y-4 pt-2">
-            <p className="text-sm text-muted-foreground">{parsed.length} site(s) ready to import. Review and edit before importing.</p>
+        <div className="space-y-4 pt-2">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">{parsed.length} site(s) ready to import. Review and edit before importing.</p>
+              {parsed.some((s) => s.isDuplicate) && (
+                <span className="flex items-center gap-1 text-xs text-muted-foreground font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5 text-destructive" />
+                  {parsed.filter((s) => s.isDuplicate).length} duplicate(s) will be skipped
+                </span>
+              )}
+            </div>
             <div className="max-h-[400px] overflow-auto rounded border">
               <Table>
                 <TableHeader>
@@ -268,8 +297,22 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
                 </TableHeader>
                 <TableBody>
                   {parsed.map((site, idx) => (
-                    <TableRow key={idx}>
-                      <TableCell className="font-medium text-sm">{site.name}</TableCell>
+                    <TableRow key={idx} className={site.isDuplicate ? "opacity-60" : ""}>
+                      <TableCell className="font-medium text-sm">
+                        <TooltipProvider>
+                          <div className="flex items-center gap-1.5">
+                            {site.isDuplicate && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" />
+                                </TooltipTrigger>
+                                <TooltipContent>Duplicate — will be skipped</TooltipContent>
+                              </Tooltip>
+                            )}
+                            <span className={site.isDuplicate ? "text-muted-foreground line-through" : ""}>{site.name}</span>
+                          </div>
+                        </TooltipProvider>
+                      </TableCell>
                       <TableCell className="text-sm text-muted-foreground">{site.address || "—"}</TableCell>
                       <TableCell className="text-sm font-mono">{site.postcode || "—"}</TableCell>
                       <TableCell>
