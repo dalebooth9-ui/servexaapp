@@ -13,17 +13,26 @@ Rules: name is required. Use empty string for missing fields. Return ONLY the JS
 Rules: name is required. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
   sites: `Extract all site/location/premises/building records. Return a JSON array with fields: name, address, postcode, site_type, contact_name, contact_phone, contact_email.
 Rules: name is required. site_type must be one of: region, site, building, zone (default site). Use empty string for missing fields. Return ONLY the JSON array.`,
-  site_document: `You are extracting site survey information from a document. The document may describe ONE or MULTIPLE distinct systems/sites (e.g. separate pages or sections for different addresses or system labels). Extract EACH system as a separate entry. Return a JSON array where each element is one system/site with these fields:
-- customer_name: the name of the customer or company
-- site_address: the full site address for this specific system
-- outlets_count: the number of outlets for THIS specific system only (integer, or null if not found). Do NOT add up counts from other systems.
-- riser_location: the riser location for THIS specific system (or null if not found)
-- site_name: a suitable name for this site/system (derive from customer name + address or system label if not explicit)
-- postcode: postcode/zip code if present (or empty string)
-- contact_name: contact person name if present (or empty string)
-- notes: any other relevant site notes for this system
-If there is only one system, still return a JSON array with one element.
-Return ONLY the JSON array, no markdown.`,
+  site_document: `You are extracting site survey information from a fire suppression / sprinkler system document. A document may describe ONE physical site/building that contains MULTIPLE systems (e.g. System 1, System 2, System 3 — different risers or zones within the same address). Alternatively, the document may describe multiple entirely separate sites at different addresses.
+
+Return a JSON array where EACH ELEMENT represents ONE PHYSICAL SITE/LOCATION. Each element has:
+- customer_name: the name of the customer or company (string)
+- site_name: the name of the site/building (string, derive from customer name + address if not explicit)
+- site_address: the full address of this site (string)
+- postcode: postcode/zip code (string, or empty)
+- contact_name: contact person for this site (string, or empty)
+- notes: any general notes for this site (string, or empty)
+- systems: an array of systems/zones at THIS site. Each system has:
+  - system_name: label for this system (e.g. "System 1", "Zone A", "Sprinkler System") — if there is only one system, use "Main System"
+  - outlets_count: number of outlets/heads for THIS system only (integer or null). Do NOT sum counts across systems.
+  - riser_location: the riser/valve location for THIS system (string or null)
+  - notes: any notes specific to this system (string or empty)
+
+Rules:
+- If all systems share the same address → ONE site entry with multiple systems in the systems array.
+- If systems are at different addresses → separate site entries, each with their own systems array.
+- Always return a JSON array (even for a single site).
+- Return ONLY the JSON array, no markdown, no explanation.`,
 };
 
 serve(async (req) => {
