@@ -885,20 +885,27 @@ export default function Sites() {
                 </div>
 
                 {/* Draggable site chips panel */}
-                <div className="w-56 shrink-0 space-y-2">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">Drag to link</p>
-                  <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
-                    {sites
-                      .filter((s) => !s.parent_id)
-                      .filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()))
-                      .map((site) => (
-                        <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} />
-                      ))}
-                    {sites.filter((s) => !s.parent_id).length === 0 && (
-                      <p className="text-xs text-muted-foreground px-1">No sites yet.</p>
-                    )}
-                  </div>
-                </div>
+                {(() => {
+                  const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
+                  const unlinkedSites = sites
+                    .filter((s) => !s.parent_id)
+                    .filter((s) => !linkedSiteIds.has(s.id))
+                    .filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()));
+                  return (
+                    <div className="w-56 shrink-0 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">Drag to link</p>
+                      <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
+                        {unlinkedSites.length === 0 ? (
+                          <p className="text-xs text-muted-foreground px-1">All sites are linked.</p>
+                        ) : (
+                          unlinkedSites.map((site) => (
+                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} />
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
 
               <DragOverlay>
