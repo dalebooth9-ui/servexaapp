@@ -159,16 +159,12 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
 
       const parsed: ExtractedSite[] = records.map(toSite);
 
-      // Auto-resolve resolutions: exact match → existing, fuzzy match → suggest existing (user can confirm/change), no match → new
+      // Auto-resolve resolutions: exact match (case-insensitive) → existing, otherwise new
       const defaultResolutions: CustomerResolution[] = parsed.map((s) => {
         const extractedName = s.customer_name.trim();
         if (!extractedName) return { mode: "new" };
-        // Exact match (case-insensitive)
         const exact = existingCustomers.find((c) => c.name.toLowerCase() === extractedName.toLowerCase());
         if (exact) return { mode: "existing", customerId: exact.id, customerName: exact.name };
-        // Fuzzy match — still pre-select it but mark as suggestion (user sees the banner and can change)
-        const fuzzy = bestMatch(extractedName, existingCustomers);
-        if (fuzzy) return { mode: "existing", customerId: fuzzy.id, customerName: fuzzy.name };
         return { mode: "new" };
       });
 
