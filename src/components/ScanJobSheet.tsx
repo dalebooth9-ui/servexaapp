@@ -319,22 +319,17 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     setConvertingPdf(false);
   };
 
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+      reader.readAsDataURL(file);
+    });
+
   const handleOcrScan = async () => {
     if (images.length === 0) return;
     setScanningState(true);
     try {
-      // Convert first image to base64
-      const file = images[0].file;
-      const base64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          const result = reader.result as string;
-          resolve(result.split(",")[1]); // strip data:image/...;base64,
-        };
-        reader.readAsDataURL(file);
-      });
-
-      // Build field descriptions for the AI
       const fieldDescriptions = template.fields.map((f) => ({
         id: f.id,
         label: f.label,
@@ -343,10 +338,17 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         options: f.options,
       }));
 
+      // Convert all images to base64 in parallel
+      const imagePayloads = await Promise.all(
+        images.map(async (img) => ({
+          image_base64: await toBase64(img.file),
+          mime_type: img.file.type,
+        }))
+      );
+
       const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
         body: {
-          image_base64: base64,
-          mime_type: file.type,
+          images: imagePayloads,
           template_name: template.name,
           fields: fieldDescriptions,
         },
@@ -355,12 +357,12 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       if (error) throw error;
 
       if (data?.extracted) {
-        // Store extracted header fields for PDF generation
-        if (data.header) {
-          setExtractedHeader(data.header);
-        }
+        if (data.header) setExtractedHeader(data.header);
         onExtracted(data.extracted);
-        toast({ title: "Fields extracted", description: "Handwritten data has been read and populated into the form. Header fields captured for PDF." });
+        toast({
+          title: "Fields extracted",
+          description: `Handwritten data read from ${images.length} image(s) and populated into the form.`,
+        });
         setOpen(false);
         setImages([]);
       } else {
