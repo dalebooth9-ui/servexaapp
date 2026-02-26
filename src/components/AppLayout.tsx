@@ -3,15 +3,30 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
 import NotificationBell from "@/components/NotificationBell";
 import ClockInButton from "@/components/ClockInButton";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
-const navItems = [
+const DEFAULT_NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/customers", label: "Customers", icon: Building2 },
@@ -27,12 +42,59 @@ const navItems = [
   { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
 ];
 
+const STORAGE_KEY = "nav-order";
+
+function loadNavOrder(): string[] | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function SortableNavItem({ item, isActive, onClick }: {
+  item: typeof DEFAULT_NAV_ITEMS[number];
+  isActive: boolean;
+  onClick: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  return (
+    <div ref={setNodeRef} style={style} className="flex items-center gap-1 group">
+      <button
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-40 hover:!opacity-80 transition-opacity text-sidebar-foreground"
+        tabIndex={-1}
+      >
+        <GripVertical className="h-3.5 w-3.5" />
+      </button>
+      <Link
+        to={item.to}
+        onClick={onClick}
+        className={cn(
+          "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+          isActive
+            ? "bg-sidebar-accent text-sidebar-primary"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}
+      >
+        <item.icon className="h-4.5 w-4.5" />
+        {item.label}
+      </Link>
+    </div>
+  );
+}
+
 export default function AppLayout({ children }: { children: ReactNode }) {
   const { user, userRole, profile, signOut } = useAuth();
   useEngineerLocation();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
+  const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
     supabase
@@ -47,7 +109,26 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       });
   }, []);
 
-  const visibleNavItems = navItems.filter((item) => !item.adminOnly || userRole === "admin");
+  const orderedItems = navOrder
+    .map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to))
+    .filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
+
+  // Append any new items not in saved order
+  const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
+  const allOrderedItems = [...orderedItems, ...extraItems];
+
+  const visibleNavItems = allOrderedItems.filter((item) => !item.adminOnly || userRole === "admin");
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = navOrder.indexOf(active.id as string);
+    const newIndex = navOrder.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const newOrder = arrayMove(navOrder, oldIndex, newIndex);
+    setNavOrder(newOrder);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -70,26 +151,22 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {visibleNavItems.map((item) => {
-            const isActive = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                onClick={() => setMobileOpen(false)}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon className="h-4.5 w-4.5" />
-                {item.label}
-              </Link>
-            );
-          })}
+        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 py-4">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={visibleNavItems.map((i) => i.to)} strategy={verticalListSortingStrategy}>
+              {visibleNavItems.map((item) => {
+                const isActive = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
+                return (
+                  <SortableNavItem
+                    key={item.to}
+                    item={item}
+                    isActive={isActive}
+                    onClick={() => setMobileOpen(false)}
+                  />
+                );
+              })}
+            </SortableContext>
+          </DndContext>
         </nav>
 
         <div className="border-t border-sidebar-border p-4">
