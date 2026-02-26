@@ -64,6 +64,8 @@ const emptySite = {
   contact_phone: "",
   contact_email: "",
   notes: "",
+  outlets_count: "" as string,
+  riser_location: "",
 };
 
 type CustomerFolder = {
@@ -315,6 +317,8 @@ export default function Sites() {
       address: site.address || "", postcode: site.postcode || "",
       contact_name: site.contact_name || "", contact_phone: site.contact_phone || "",
       contact_email: site.contact_email || "", notes: site.notes || "",
+      outlets_count: site.outlets_count != null ? String(site.outlets_count) : "",
+      riser_location: (site as any).riser_location || "",
     });
     setDialogOpen(true);
   };
@@ -326,6 +330,8 @@ export default function Sites() {
       address: form.address || null, postcode: form.postcode || null,
       contact_name: form.contact_name || null, contact_phone: form.contact_phone || null,
       contact_email: form.contact_email || null, notes: form.notes || null,
+      outlets_count: form.outlets_count !== "" ? Number(form.outlets_count) : null,
+      riser_location: form.riser_location || null,
     };
     if (editing) {
       const oldSite = sites.find((s) => s.id === editing.id);
@@ -661,6 +667,16 @@ export default function Sites() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Email</label>
                 <Input value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Number of Outlets</label>
+                <Input type="number" min={0} value={(form as any).outlets_count} onChange={(e) => setForm((f) => ({ ...f, outlets_count: e.target.value }))} placeholder="e.g. 12" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Riser Location</label>
+                <Input value={(form as any).riser_location} onChange={(e) => setForm((f) => ({ ...f, riser_location: e.target.value }))} placeholder="e.g. Floor 2, east stairwell" />
               </div>
             </div>
             <div className="space-y-1.5">
