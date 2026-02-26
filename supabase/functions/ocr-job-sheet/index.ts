@@ -75,22 +75,30 @@ Return a JSON object with "header" and "fields" keys.`;
       });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContentParts },
-        ],
-      }),
-    });
+    const models = ["google/gemini-2.5-flash", "openai/gpt-5-mini"];
+    let response: Response | null = null;
+    for (const model of models) {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContentParts },
+          ],
+        }),
+      });
+      if (response.ok) break;
+      const status = response.status;
+      if (status === 429 || status === 402) break; // don't retry rate/payment errors
+      console.warn(`Model ${model} failed with ${status}, trying next...`);
+    }
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const status = response.status;
       if (status === 429) {
         return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
