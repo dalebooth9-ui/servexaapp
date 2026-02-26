@@ -233,7 +233,6 @@ export default function Sites() {
     if (!customers || !allSites) { setFoldersLoading(false); return; }
     const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
     const customerSiteMap = new Map<string, Set<string>>();
-    // Count all jobs (including real ones) per customer+site
     const jobCountMap = new Map<string, Map<string, number>>();
     for (const job of (jobs || [])) {
       if (!job.customer_id || !job.site_id) continue;
@@ -243,15 +242,25 @@ export default function Sites() {
       const siteCount = jobCountMap.get(job.customer_id)!;
       siteCount.set(job.site_id, (siteCount.get(job.site_id) || 0) + 1);
     }
-    const folders: CustomerFolder[] = (customers as any[]).map((c) => ({
-      id: c.id,
-      name: c.name,
-      email: c.email,
-      phone: c.phone,
-      address: c.address,
-      sites: [...(customerSiteMap.get(c.id) || [])].map((sid) => siteMap.get(sid)).filter(Boolean) as Site[],
-      jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
-    }));
+    const folders: CustomerFolder[] = (customers as any[]).map((c) => {
+      const linkedSiteIds = [...(customerSiteMap.get(c.id) || [])];
+      const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
+      // Include child sites (building/zone) whose parent is a linked site, even if not directly linked
+      const linkedSiteIdSet = new Set(linkedSiteIds);
+      const extraChildren = (allSites as Site[]).filter(
+        (s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id)
+      );
+      const allSitesForFolder = [...linkedSites, ...extraChildren];
+      return {
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        address: c.address,
+        sites: allSitesForFolder,
+        jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
+      };
+    });
     setCustomerFolders(folders);
     setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
     setFoldersLoading(false);
@@ -545,54 +554,73 @@ export default function Sites() {
                                   </div>
                                 ) : (
                                   <div className="divide-y divide-border/50">
-                                    {folder.sites.map((site) => {
-                                      const config = TYPE_CONFIG[site.site_type];
-                                      const Icon = config?.icon || MapPin;
-                                      const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
-                                      const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
-                                      const riser = (site as any).riser_location;
-                                      return (
-                                        <div key={site.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group" onClick={() => openEdit(site)} title="Click to edit">
-                                          <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
-                                          <div className="flex-1 min-w-0">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                              <span className="font-medium text-sm">{site.name}</span>
-                                              {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
-                                              {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
-                                              {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
+                                    {(() => {
+                                      // Separate parent sites from child (building/zone) sites
+                                      const parentSites = folder.sites.filter((s) => !s.parent_id || !folder.sites.some((p) => p.id === s.parent_id));
+                                      const childrenBySite = new Map<string, Site[]>();
+                                      for (const s of folder.sites) {
+                                        if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
+                                          if (!childrenBySite.has(s.parent_id)) childrenBySite.set(s.parent_id, []);
+                                          childrenBySite.get(s.parent_id)!.push(s);
+                                        }
+                                      }
+                                      const renderSiteRow = (site: Site, isChild = false) => {
+                                        const config = TYPE_CONFIG[site.site_type];
+                                        const Icon = config?.icon || MapPin;
+                                        const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
+                                        const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
+                                        const riser = (site as any).riser_location;
+                                        return (
+                                          <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"}`} onClick={() => openEdit(site)} title="Click to edit">
+                                            {isChild && <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />}
+                                            <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="flex items-center gap-2 flex-wrap">
+                                                <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
+                                                {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
+                                                {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
+                                                {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
+                                                {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
+                                              </div>
+                                              {(addressLine || site.contact_name) && (
+                                                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                                  {[addressLine, site.contact_name].filter(Boolean).join(" · ")}
+                                                </p>
+                                              )}
                                             </div>
-                                            {(addressLine || site.contact_name) && (
-                                              <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                                {[addressLine, site.contact_name].filter(Boolean).join(" · ")}
-                                              </p>
-                                            )}
-                                          </div>
-                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
-                                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                            </Button>
-                                            {userRole === "admin" && (
-                                              <Button
-                                                variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                                                title="Remove from customer"
-                                                onClick={async (e) => {
-                                                  e.stopPropagation();
-                                                  try {
-                                                    await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", site.id);
-                                                    fetchCustomerFolders();
-                                                    toast({ title: "Site removed", description: `${site.name} unlinked from ${folder.name}.` });
-                                                  } catch (err: any) {
-                                                    toast({ title: "Error", description: err.message, variant: "destructive" });
-                                                  }
-                                                }}
-                                              >
-                                                <X className="h-3.5 w-3.5" />
+                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
+                                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                               </Button>
-                                            )}
+                                              {userRole === "admin" && !isChild && (
+                                                <Button
+                                                  variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                                                  title="Remove from customer"
+                                                  onClick={async (e) => {
+                                                    e.stopPropagation();
+                                                    try {
+                                                      await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", site.id);
+                                                      fetchCustomerFolders();
+                                                      toast({ title: "Site removed", description: `${site.name} unlinked from ${folder.name}.` });
+                                                    } catch (err: any) {
+                                                      toast({ title: "Error", description: err.message, variant: "destructive" });
+                                                    }
+                                                  }}
+                                                >
+                                                  <X className="h-3.5 w-3.5" />
+                                                </Button>
+                                              )}
+                                            </div>
                                           </div>
+                                        );
+                                      };
+                                      return parentSites.map((site) => (
+                                        <div key={site.id}>
+                                          {renderSiteRow(site, false)}
+                                          {(childrenBySite.get(site.id) || []).map((child) => renderSiteRow(child, true))}
                                         </div>
-                                      );
-                                    })}
+                                      ));
+                                    })()}
                                   </div>
                                 )}
                               </AccordionContent>
