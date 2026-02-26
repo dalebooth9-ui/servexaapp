@@ -21,14 +21,13 @@ Return a JSON array where EACH ELEMENT represents ONE PHYSICAL SITE/LOCATION. Ea
 - site_address: the full address of this site (string)
 - postcode: postcode/zip code (string, or empty)
 - contact_name: contact person for this site (string, or empty)
-- notes: any general notes for this site (string, or empty)
 - systems: an array of systems/zones at THIS site. Each system has:
   - system_name: label for this system (e.g. "System 1", "Zone A", "Sprinkler System") — if there is only one system, use "Main System"
   - outlets_count: number of outlets/heads for THIS system only (integer or null). Do NOT sum counts across systems.
   - riser_location: the riser/valve location for THIS system (string or null)
-  - notes: any notes specific to this system (string or empty)
 
 Rules:
+- Do NOT extract comments, remarks, survey notes, or any free-text annotation fields.
 - If all systems share the same address → ONE site entry with multiple systems in the systems array.
 - If systems are at different addresses → separate site entries, each with their own systems array.
 - Always return a JSON array (even for a single site).
