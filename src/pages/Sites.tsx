@@ -172,7 +172,7 @@ export default function Sites() {
       }
       setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
       // Refresh without resetting accordion state
-      const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null);
+      const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id, name").not("customer_id", "is", null).not("site_id", "is", null);
       const { data: allSites } = await supabase.from("sites").select("*").order("name");
       if (!jobs || !allSites) return;
       const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
@@ -182,9 +182,12 @@ export default function Sites() {
         if (!job.customer_id || !job.site_id) continue;
         if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
         customerSiteMap.get(job.customer_id)!.add(job.site_id);
-        if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
-        const sc = jobCountMap.get(job.customer_id)!;
-        sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
+        const isPlaceholder = (job.name as string)?.startsWith("Site link —");
+        if (!isPlaceholder) {
+          if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
+          const sc = jobCountMap.get(job.customer_id)!;
+          sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
+        }
       }
       setCustomerFolders((prev) => prev.map((f) => {
         const linkedSiteIds = [...(customerSiteMap.get(f.id) || [])];
@@ -225,7 +228,9 @@ export default function Sites() {
     if (!site) return;
     const folder = customerFolders.find((f) => f.id === customerId);
     if (!folder) return;
-    if (folder.sites.some((s) => s.id === site.id)) {
+    // Check both displayed sites and child sites (whose parent is linked)
+    const allLinkedIds = new Set(folder.sites.map((s) => s.id));
+    if (allLinkedIds.has(site.id)) {
       toast({ title: "Already linked", description: `${site.name} is already in ${folder.name}.` });
       return;
     }
