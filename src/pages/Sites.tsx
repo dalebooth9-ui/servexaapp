@@ -676,11 +676,42 @@ export default function Sites() {
                                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
                                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                           </Button>
-                                          {userRole === "admin" && !isChild && (
+                                        {userRole === "admin" && !isChild && (
                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
                                               onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
                                             >
                                               <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                          )}
+                                          {userRole === "admin" && isChild && (
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
+                                              onClick={async (e) => {
+                                                e.stopPropagation();
+                                                const hasZones = sites.some((z) => z.parent_id === site.id);
+                                                if (hasZones) { toast({ title: "Cannot delete", description: "Remove child zones first.", variant: "destructive" }); return; }
+                                                const deletedSite = site;
+                                                // Optimistically remove from UI
+                                                setCustomerFolders((prev) => prev.map((f) => f.id !== folder.id ? f : { ...f, sites: f.sites.filter((s) => s.id !== deletedSite.id) }));
+                                                setSites((prev) => prev.filter((s) => s.id !== deletedSite.id));
+                                                deleteWithUndo({
+                                                  key: deletedSite.id,
+                                                  label: `${deletedSite.name} deleted`,
+                                                  onConfirm: async () => {
+                                                    const { error } = await supabase.from("sites").delete().eq("id", deletedSite.id);
+                                                    if (error) {
+                                                      toast({ title: "Error", description: error.message, variant: "destructive" });
+                                                      setCustomerFolders((prev) => prev.map((f) => f.id !== folder.id ? f : { ...f, sites: [...f.sites, deletedSite] }));
+                                                      setSites((prev) => [...prev, deletedSite]);
+                                                    }
+                                                  },
+                                                  onUndo: () => {
+                                                    setCustomerFolders((prev) => prev.map((f) => f.id !== folder.id ? f : { ...f, sites: [...f.sites, deletedSite] }));
+                                                    setSites((prev) => [...prev, deletedSite]);
+                                                  },
+                                                });
+                                              }}
+                                            >
+                                              <Trash2 className="h-3.5 w-3.5" />
                                             </Button>
                                           )}
                                         </div>
