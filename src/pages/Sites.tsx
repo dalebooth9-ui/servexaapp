@@ -675,49 +675,73 @@ export default function Sites() {
                                       childrenBySite.get(s.parent_id)!.push(s);
                                     }
                                   }
-                                  const renderSiteRow = (site: Site, isChild = false) => {
-                                    const config = TYPE_CONFIG[site.site_type];
-                                    const Icon = config?.icon || MapPin;
-                                    const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
-                                    const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
-                                    const riser = (site as any).riser_location;
-                                    const children = childrenBySite.get(site.id) || [];
-                                    const hasChildren = children.length > 0;
-                                    const isCollapsed = collapsedSites.has(site.id);
-                                    const isSelected = !isChild && folderSelected.has(site.id);
-                                    return (
-                                      <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""}`} onClick={() => openEdit(site)} title="Click to edit">
-                                        {userRole === "admin" && !isChild && (
-                                          <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
-                                            onClick={(e) => e.stopPropagation()}
-                                            onChange={() => toggleFolderSiteSelect(folder.id, site.id)}
-                                          />
-                                        )}
-                                        {isChild
-                                          ? <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />
-                                          : hasChildren
-                                            ? <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" onClick={(e) => { e.stopPropagation(); toggleSiteCollapse(site.id); }} title={isCollapsed ? "Show systems" : "Hide systems"}>
-                                                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                                              </button>
-                                            : <div className="w-4 shrink-0" />
-                                        }
-                                        <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="flex items-center gap-2 flex-wrap">
-                                            <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
-                                            {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
-                                            {hasChildren && !isChild && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} system{children.length !== 1 ? "s" : ""}</Badge>}
-                                            {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
-                                            {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
-                                            {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
-                                          </div>
-                                          {(addressLine || site.contact_name) && (
-                                            <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
-                                          )}
-                                        </div>
+                   const getBreadcrumb = (s: Site): string[] => {
+                                       const parts: string[] = [s.name];
+                                       let current = s;
+                                       while (current.parent_id) {
+                                         const parent = sites.find((p) => p.id === current.parent_id);
+                                         if (!parent) break;
+                                         parts.unshift(parent.name);
+                                         current = parent;
+                                       }
+                                       return parts;
+                                     };
+                                   const renderSiteRow = (site: Site, isChild = false) => {
+                                     const config = TYPE_CONFIG[site.site_type];
+                                     const Icon = config?.icon || MapPin;
+                                     const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
+                                     const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
+                                     const riser = (site as any).riser_location;
+                                     const children = childrenBySite.get(site.id) || [];
+                                     const hasChildren = children.length > 0;
+                                     const isCollapsed = collapsedSites.has(site.id);
+                                     const isSelected = !isChild && folderSelected.has(site.id);
+                                     const breadcrumb = getBreadcrumb(site);
+                                     const showBreadcrumb = breadcrumb.length > 1;
+                                     return (
+                                       <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""}`} onClick={() => openEdit(site)} title="Click to edit">
+                                         {userRole === "admin" && !isChild && (
+                                           <input
+                                             type="checkbox"
+                                             checked={isSelected}
+                                             className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
+                                             onClick={(e) => e.stopPropagation()}
+                                             onChange={() => toggleFolderSiteSelect(folder.id, site.id)}
+                                           />
+                                         )}
+                                         {isChild
+                                           ? <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />
+                                           : hasChildren
+                                             ? <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" onClick={(e) => { e.stopPropagation(); toggleSiteCollapse(site.id); }} title={isCollapsed ? "Show systems" : "Hide systems"}>
+                                                 {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                               </button>
+                                             : <div className="w-4 shrink-0" />
+                                         }
+                                         <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
+                                         <div className="flex-1 min-w-0">
+                                           <div className="flex items-center gap-2 flex-wrap">
+                                             <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
+                                             {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
+                                             {hasChildren && !isChild && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} system{children.length !== 1 ? "s" : ""}</Badge>}
+                                             {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
+                                             {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
+                                             {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
+                                           </div>
+                                           {showBreadcrumb && (
+                                             <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 flex items-center gap-0.5">
+                                               {breadcrumb.slice(0, -1).map((part, i) => (
+                                                 <span key={i} className="flex items-center gap-0.5">
+                                                   {i > 0 && <ChevronRight className="h-2.5 w-2.5 shrink-0" />}
+                                                   <span>{part}</span>
+                                                 </span>
+                                               ))}
+                                               <ChevronRight className="h-2.5 w-2.5 shrink-0" />
+                                             </p>
+                                           )}
+                                           {(addressLine || site.contact_name) && (
+                                             <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
+                                           )}
+                                         </div>
                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
                                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
                                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
