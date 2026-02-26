@@ -98,13 +98,30 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     const newImages: { file: File; preview: string }[] = [];
     for (const img of toAdd) {
       try {
-        const res = await fetch(img.url);
+        // Extract the storage path from the URL to create a signed URL for private buckets
+        let fetchUrl = img.url;
+        const storageMatch = img.url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
+        if (storageMatch) {
+          const fullPath = storageMatch[1]; // e.g. "submissions/jobid/filename.jpg"
+          const slashIdx = fullPath.indexOf("/");
+          if (slashIdx !== -1) {
+            const bucket = fullPath.slice(0, slashIdx);
+            const filePath = fullPath.slice(slashIdx + 1);
+            const { data: signedData } = await supabase.storage
+              .from(bucket)
+              .createSignedUrl(filePath, 60);
+            if (signedData?.signedUrl) fetchUrl = signedData.signedUrl;
+          }
+        }
+        const res = await fetch(fetchUrl);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
+        if (!blob.type.startsWith("image/")) throw new Error("Not an image");
         const ext = img.url.split(".").pop()?.split("?")[0] || "jpg";
-        const file = new File([blob], `message-image.${ext}`, { type: blob.type || "image/jpeg" });
+        const file = new File([blob], `message-image.${ext}`, { type: blob.type });
         newImages.push({ file, preview: URL.createObjectURL(file) });
-      } catch {
-        toast({ title: "Could not load image", description: img.url, variant: "destructive" });
+      } catch (e: any) {
+        toast({ title: "Could not load image", description: e.message || img.url, variant: "destructive" });
       }
     }
     setImages((prev) => [...prev, ...newImages].slice(0, 5));
