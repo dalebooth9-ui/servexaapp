@@ -135,6 +135,7 @@ export default function Sites() {
   const [activeDragSite, setActiveDragSite] = useState<Site | null>(null);
   const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const toggleSiteCollapse = (siteId: string) => {
     setCollapsedSites((prev) => {
@@ -427,16 +428,42 @@ export default function Sites() {
     fetchSites();
   };
 
-  const handleDelete = async (id: string) => {
+  // Recursively collect all descendant IDs
+  const getAllDescendantIds = (id: string): string[] => {
     const children = getChildren(id);
-    if (children.length > 0) { toast({ title: "Cannot delete", description: "Remove child sites first.", variant: "destructive" }); return; }
-    const deletedSite = sites.find((s) => s.id === id);
-    if (!deletedSite) return;
-    setSites((prev) => prev.filter((s) => s.id !== id));
+    return children.flatMap((c) => [c.id, ...getAllDescendantIds(c.id)]);
+  };
+
+  const handleDelete = (id: string) => {
+    const children = getChildren(id);
+    if (children.length > 0) {
+      // Has children — ask for confirmation before cascading
+      setConfirmDeleteId(id);
+    } else {
+      executeSiteDelete(id, []);
+    }
+  };
+
+  const executeSiteDelete = (id: string, descendantIds: string[]) => {
+    const allIds = [id, ...descendantIds];
+    const deletedSites = sites.filter((s) => allIds.includes(s.id));
+    if (!deletedSites.length) return;
+    setSites((prev) => prev.filter((s) => !allIds.includes(s.id)));
     deleteWithUndo({
-      key: id, label: "Site deleted",
-      onConfirm: async () => { const { error } = await supabase.from("sites").delete().eq("id", id); if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setSites((prev) => [...prev, deletedSite]); } },
-      onUndo: () => setSites((prev) => [...prev, deletedSite]),
+      key: id,
+      label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
+      onConfirm: async () => {
+        // Delete deepest descendants first to avoid FK constraint issues
+        for (const did of [...descendantIds].reverse()) {
+          await supabase.from("sites").delete().eq("id", did);
+        }
+        const { error } = await supabase.from("sites").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setSites((prev) => [...prev, ...deletedSites]);
+        }
+      },
+      onUndo: () => setSites((prev) => [...prev, ...deletedSites]),
     });
   };
 
@@ -895,6 +922,30 @@ export default function Sites() {
       </Dialog>
 
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
+
+      {/* Cascade delete confirmation dialog */}
+      {confirmDeleteId && (() => {
+        const site = sites.find((s) => s.id === confirmDeleteId);
+        const descendantIds = getAllDescendantIds(confirmDeleteId);
+        return (
+          <Dialog open onOpenChange={(open) => { if (!open) setConfirmDeleteId(null); }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Delete "{site?.name}"?</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                This will also permanently delete <span className="font-semibold text-foreground">{descendantIds.length} child record{descendantIds.length !== 1 ? "s" : ""}</span> (zones / sub-sites). This action can be undone within 8 seconds.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => { setConfirmDeleteId(null); executeSiteDelete(confirmDeleteId, descendantIds); }}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete all
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
     </div>
   );
 }
