@@ -125,6 +125,7 @@ export default function Sites() {
   const [bulkOpen, setBulkOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customerFolders, setCustomerFolders] = useState<CustomerFolder[]>([]);
+  const [openFolders, setOpenFolders] = useState<string[]>([]);
   const [foldersLoading, setFoldersLoading] = useState(true);
   const [assignSiteOpen, setAssignSiteOpen] = useState(false);
   const [assignCustomer, setAssignCustomer] = useState<CustomerFolder | null>(null);
@@ -252,6 +253,7 @@ export default function Sites() {
       jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
     }));
     setCustomerFolders(folders);
+    setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
     setFoldersLoading(false);
   };
 
@@ -486,6 +488,24 @@ export default function Sites() {
 
         {/* By Customer Tab */}
         <TabsContent value="by-customer" className="mt-4">
+          {!foldersLoading && customerFolders.length > 0 && (
+            <div className="flex justify-end mb-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-xs text-muted-foreground h-7"
+                onClick={() =>
+                  setOpenFolders(
+                    openFolders.length === customerFolders.length
+                      ? []
+                      : customerFolders.map((f) => f.id)
+                  )
+                }
+              >
+                {openFolders.length === customerFolders.length ? "Collapse all" : "Expand all"}
+              </Button>
+            </div>
+          )}
           {foldersLoading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
           ) : (
@@ -496,7 +516,7 @@ export default function Sites() {
                   {customerFolders.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">No customers found.</p>
                   ) : (
-                    <Accordion type="multiple" className="space-y-2">
+                    <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-2">
                       {customerFolders
                         .filter((f) => !search.trim() || f.name.toLowerCase().includes(search.toLowerCase()) || f.sites.some((s) => s.name.toLowerCase().includes(search.toLowerCase())))
                         .map((folder) => (
