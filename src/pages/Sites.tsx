@@ -625,7 +625,7 @@ export default function Sites() {
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
           ) : (
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
-              <div className="flex gap-4">
+              <div className="flex gap-4 items-start">
                 {/* Customer folders */}
                 <div className="flex-1 min-w-0 space-y-2">
                   {customerFolders.length === 0 ? (
@@ -782,6 +782,22 @@ export default function Sites() {
                         ))}
                     </Accordion>
                   )}
+                </div>
+
+                {/* Draggable site chips panel */}
+                <div className="w-56 shrink-0 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">Drag to link</p>
+                  <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
+                    {sites
+                      .filter((s) => !s.parent_id)
+                      .filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()))
+                      .map((site) => (
+                        <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} />
+                      ))}
+                    {sites.filter((s) => !s.parent_id).length === 0 && (
+                      <p className="text-xs text-muted-foreground px-1">No sites yet.</p>
+                    )}
+                  </div>
                 </div>
               </div>
 
