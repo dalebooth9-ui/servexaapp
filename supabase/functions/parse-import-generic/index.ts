@@ -13,16 +13,17 @@ Rules: name is required. Use empty string for missing fields. Return ONLY the JS
 Rules: name is required. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
   sites: `Extract all site/location/premises/building records. Return a JSON array with fields: name, address, postcode, site_type, contact_name, contact_phone, contact_email.
 Rules: name is required. site_type must be one of: region, site, building, zone (default site). Use empty string for missing fields. Return ONLY the JSON array.`,
-  site_document: `You are extracting site survey information from a document. This document describes ONE single system/site. Do NOT aggregate or sum values from multiple systems. Extract the following fields for THIS system only and return a single JSON object (not an array):
+  site_document: `You are extracting site survey information from a document. The document may describe ONE or MULTIPLE distinct systems/sites (e.g. separate pages or sections for different addresses or system labels). Extract EACH system as a separate entry. Return a JSON array where each element is one system/site with these fields:
 - customer_name: the name of the customer or company
-- site_address: the full site address for this system
+- site_address: the full site address for this specific system
 - outlets_count: the number of outlets for THIS specific system only (integer, or null if not found). Do NOT add up counts from other systems.
 - riser_location: the riser location for THIS specific system (or null if not found)
 - site_name: a suitable name for this site/system (derive from customer name + address or system label if not explicit)
 - postcode: postcode/zip code if present (or empty string)
 - contact_name: contact person name if present (or empty string)
 - notes: any other relevant site notes for this system
-Return ONLY the JSON object, no markdown.`,
+If there is only one system, still return a JSON array with one element.
+Return ONLY the JSON array, no markdown.`,
 };
 
 serve(async (req) => {

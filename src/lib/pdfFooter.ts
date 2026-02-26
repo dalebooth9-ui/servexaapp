@@ -135,8 +135,5 @@ export function renderPdfFooter(
  */
 export function getDefaultFooterText(templateName: string, branding?: { footer_text?: string }): string {
   if (branding?.footer_text) return branding.footer_text;
-  const isVisual = templateName.toLowerCase().includes("visual");
-  return isVisual
-    ? "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015"
-    : "We have, today, carried out a Hydraulic Pressure Test to 12 Bar\nfor a period of 15 minutes to the requirements of BS 9990:2015";
+  return "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015";
 }
