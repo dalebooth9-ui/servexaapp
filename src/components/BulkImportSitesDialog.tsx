@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Trash2, Loader2 } from "lucide-react";
+import { Upload, FileSpreadsheet, Trash2, Loader2, FileText } from "lucide-react";
 import * as XLSX from "xlsx";
 
 interface ParsedSite {
@@ -132,8 +132,38 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
       }
       setParsed(sites);
       setStep("preview");
+    } else if (ext === "pdf" || ext === "doc" || ext === "docx") {
+      setImporting(true);
+      try {
+        const buf = await file.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        const { data, error: fnError } = await supabase.functions.invoke("parse-import-generic", {
+          body: { file_base64: base64, file_name: file.name, entity_type: "sites" },
+        });
+        if (fnError || data?.error) {
+          toast({ title: "AI parsing failed", description: fnError?.message || data?.error, variant: "destructive" });
+        } else {
+          const records: ParsedSite[] = (data.records || []).map((r: any) => ({
+            name: r.name || "",
+            address: r.address || "",
+            postcode: r.postcode || "",
+            site_type: ["region", "site", "building", "zone"].includes(r.site_type) ? r.site_type : "site",
+            contact_name: r.contact_name || "",
+            contact_phone: r.contact_phone || "",
+            contact_email: r.contact_email || "",
+          })).filter((s: ParsedSite) => s.name.trim());
+          if (records.length === 0) {
+            toast({ title: "No sites found", description: "The AI couldn't find any site records in this document.", variant: "destructive" });
+          } else {
+            setParsed(records);
+            setStep("preview");
+          }
+        }
+      } finally {
+        setImporting(false);
+      }
     } else {
-      toast({ title: "Unsupported file", description: "Use CSV, TSV, XLS or XLSX.", variant: "destructive" });
+      toast({ title: "Unsupported file", description: "Use CSV, TSV, XLS, XLSX, PDF, DOC or DOCX.", variant: "destructive" });
     }
     if (fileRef.current) fileRef.current.value = "";
   };
@@ -188,7 +218,7 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
         <DialogHeader>
           <DialogTitle>Bulk Import Sites</DialogTitle>
           <DialogDescription>
-            Upload a CSV/Excel file or paste data. Required column: <strong>Name</strong>. Optional: Address, Postcode, Type, Contact Name, Phone, Email.
+            Upload a CSV, Excel, PDF or Word file, or paste data. AI will extract sites from documents automatically. Required: <strong>Name</strong>. Optional: Address, Postcode, Type, Contact Name, Phone, Email.
           </DialogDescription>
         </DialogHeader>
 
@@ -196,9 +226,9 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
           <div className="space-y-4 pt-2">
             {/* File upload */}
             <div>
-              <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls" className="hidden" onChange={handleFile} />
-              <Button variant="outline" className="w-full gap-2" onClick={() => fileRef.current?.click()}>
-                <FileSpreadsheet className="h-4 w-4" /> Upload CSV / Excel File
+              <input ref={fileRef} type="file" accept=".csv,.tsv,.txt,.xlsx,.xls,.pdf,.doc,.docx" className="hidden" onChange={handleFile} />
+              <Button variant="outline" className="w-full gap-2" onClick={() => fileRef.current?.click()} disabled={importing}>
+                {importing ? <><Loader2 className="h-4 w-4 animate-spin" /> Parsing with AI...</> : <><FileSpreadsheet className="h-4 w-4" /> Upload CSV / Excel / PDF / Word</>}
               </Button>
             </div>
 

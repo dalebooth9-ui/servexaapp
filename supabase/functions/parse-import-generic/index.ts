@@ -11,6 +11,8 @@ const ENTITY_PROMPTS: Record<string, string> = {
 Rules: name is required. Use empty string for missing fields. Return ONLY the JSON array.`,
   assets: `Extract all asset/equipment/inventory records. Return a JSON array with fields: name, asset_tag, category, make, model, serial_number, status.
 Rules: name is required. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
+  sites: `Extract all site/location/premises/building records. Return a JSON array with fields: name, address, postcode, site_type, contact_name, contact_phone, contact_email.
+Rules: name is required. site_type must be one of: region, site, building, zone (default site). Use empty string for missing fields. Return ONLY the JSON array.`,
 };
 
 serve(async (req) => {
