@@ -893,7 +893,10 @@ export default function Sites() {
                     .filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()));
                   return (
                     <div className="w-56 shrink-0 space-y-2">
-                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1">Drag to link</p>
+                      <div className="flex items-center gap-2 px-1">
+                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex-1">Drag to link</p>
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{unlinkedSites.length} unlinked</Badge>
+                      </div>
                       <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
                         {unlinkedSites.length === 0 ? (
                           <p className="text-xs text-muted-foreground px-1">All sites are linked.</p>
