@@ -15,6 +15,7 @@ import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload,
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
+import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
 
 type Customer = {
   id: string;
@@ -51,6 +52,7 @@ export default function Customers() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
   const folderDropRef = useRef<CustomerFolderDropHandle | null>(null);
@@ -329,6 +331,9 @@ export default function Customers() {
             <Button variant="outline" onClick={() => setFolderImportOpen(true)}>
               <FolderOpen className="mr-2 h-4 w-4" /> Import Folder
             </Button>
+            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Bulk Import
+            </Button>
             <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" /> Add Customer
             </Button>
@@ -555,6 +560,12 @@ export default function Customers() {
         ref={folderDropRef}
         open={folderImportOpen}
         onOpenChange={setFolderImportOpen}
+        onImported={fetchCustomers}
+      />
+
+      <BulkImportCustomersDialog
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
         onImported={fetchCustomers}
       />
     </div>
