@@ -134,6 +134,7 @@ export default function Sites() {
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [activeDragSite, setActiveDragSite] = useState<Site | null>(null);
   const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
+  const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
 
   const toggleSiteCollapse = (siteId: string) => {
     setCollapsedSites((prev) => {
@@ -141,6 +142,60 @@ export default function Sites() {
       next.has(siteId) ? next.delete(siteId) : next.add(siteId);
       return next;
     });
+  };
+
+  const toggleFolderSiteSelect = (folderId: string, siteId: string) => {
+    setSelectedFolderSites((prev) => {
+      const next = new Map(prev);
+      const set = new Set(next.get(folderId) || []);
+      set.has(siteId) ? set.delete(siteId) : set.add(siteId);
+      next.set(folderId, set);
+      return next;
+    });
+  };
+
+  const toggleSelectAllFolderSites = (folderId: string, siteIds: string[]) => {
+    setSelectedFolderSites((prev) => {
+      const next = new Map(prev);
+      const current = next.get(folderId) || new Set<string>();
+      const allSelected = siteIds.every((id) => current.has(id));
+      next.set(folderId, allSelected ? new Set() : new Set(siteIds));
+      return next;
+    });
+  };
+
+  const handleBulkUnlinkSites = async (folder: CustomerFolder, siteIds: string[]) => {
+    try {
+      for (const siteId of siteIds) {
+        await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", siteId);
+      }
+      setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
+      // Refresh without resetting accordion state
+      const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null);
+      const { data: allSites } = await supabase.from("sites").select("*").order("name");
+      if (!jobs || !allSites) return;
+      const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
+      const customerSiteMap = new Map<string, Set<string>>();
+      const jobCountMap = new Map<string, Map<string, number>>();
+      for (const job of jobs) {
+        if (!job.customer_id || !job.site_id) continue;
+        if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
+        customerSiteMap.get(job.customer_id)!.add(job.site_id);
+        if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
+        const sc = jobCountMap.get(job.customer_id)!;
+        sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
+      }
+      setCustomerFolders((prev) => prev.map((f) => {
+        const linkedSiteIds = [...(customerSiteMap.get(f.id) || [])];
+        const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
+        const linkedSiteIdSet = new Set(linkedSiteIds);
+        const extraChildren = (allSites as Site[]).filter((s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id));
+        return { ...f, sites: [...linkedSites, ...extraChildren], jobCountsBySite: Object.fromEntries(jobCountMap.get(f.id) || new Map()) };
+      }));
+      toast({ title: "Sites removed", description: `${siteIds.length} site(s) unlinked from ${folder.name}.` });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
   };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -561,88 +616,101 @@ export default function Sites() {
                                   <div className={`px-4 py-6 text-center rounded-b-lg border-t border-dashed transition-colors ${dragOverFolderId === folder.id ? "bg-primary/5 border-primary/40 text-primary" : "border-muted-foreground/30 text-muted-foreground"}`}>
                                     <p className="text-sm">Drop a site here to link it</p>
                                   </div>
-                                ) : (
-                                  <div className="divide-y divide-border/50">
-                                    {(() => {
-                                      const parentSites = folder.sites.filter((s) => !s.parent_id || !folder.sites.some((p) => p.id === s.parent_id));
-                                      const childrenBySite = new Map<string, Site[]>();
-                                      for (const s of folder.sites) {
-                                        if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
-                                          if (!childrenBySite.has(s.parent_id)) childrenBySite.set(s.parent_id, []);
-                                          childrenBySite.get(s.parent_id)!.push(s);
+                                ) : (() => {
+                                  const folderSelected = selectedFolderSites.get(folder.id) || new Set<string>();
+                                  const parentSites = folder.sites.filter((s) => !s.parent_id || !folder.sites.some((p) => p.id === s.parent_id));
+                                  const parentSiteIds = parentSites.map((s) => s.id);
+                                  const allParentsSelected = parentSiteIds.length > 0 && parentSiteIds.every((id) => folderSelected.has(id));
+                                  const someParentsSelected = parentSiteIds.some((id) => folderSelected.has(id));
+                                  const childrenBySite = new Map<string, Site[]>();
+                                  for (const s of folder.sites) {
+                                    if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
+                                      if (!childrenBySite.has(s.parent_id)) childrenBySite.set(s.parent_id, []);
+                                      childrenBySite.get(s.parent_id)!.push(s);
+                                    }
+                                  }
+                                  const renderSiteRow = (site: Site, isChild = false) => {
+                                    const config = TYPE_CONFIG[site.site_type];
+                                    const Icon = config?.icon || MapPin;
+                                    const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
+                                    const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
+                                    const riser = (site as any).riser_location;
+                                    const children = childrenBySite.get(site.id) || [];
+                                    const hasChildren = children.length > 0;
+                                    const isCollapsed = collapsedSites.has(site.id);
+                                    const isSelected = !isChild && folderSelected.has(site.id);
+                                    return (
+                                      <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""}`} onClick={() => openEdit(site)} title="Click to edit">
+                                        {userRole === "admin" && !isChild && (
+                                          <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={() => toggleFolderSiteSelect(folder.id, site.id)}
+                                          />
+                                        )}
+                                        {isChild
+                                          ? <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />
+                                          : hasChildren
+                                            ? <button type="button" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors" onClick={(e) => { e.stopPropagation(); toggleSiteCollapse(site.id); }} title={isCollapsed ? "Show systems" : "Hide systems"}>
+                                                {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                                              </button>
+                                            : <div className="w-4 shrink-0" />
                                         }
-                                      }
-                                      const renderSiteRow = (site: Site, isChild = false) => {
-                                        const config = TYPE_CONFIG[site.site_type];
-                                        const Icon = config?.icon || MapPin;
-                                        const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
-                                        const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
-                                        const riser = (site as any).riser_location;
-                                        const children = childrenBySite.get(site.id) || [];
-                                        const hasChildren = children.length > 0;
-                                        const isCollapsed = collapsedSites.has(site.id);
-                                        return (
-                                          <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"}`} onClick={() => openEdit(site)} title="Click to edit">
-                                            {isChild
-                                              ? <div className="w-3 h-px bg-border/60 shrink-0 -ml-1" />
-                                              : hasChildren
-                                                ? <button
-                                                    type="button"
-                                                    className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-                                                    onClick={(e) => { e.stopPropagation(); toggleSiteCollapse(site.id); }}
-                                                    title={isCollapsed ? "Show systems" : "Hide systems"}
-                                                  >
-                                                    {isCollapsed
-                                                      ? <ChevronRight className="h-4 w-4" />
-                                                      : <ChevronDown className="h-4 w-4" />}
-                                                  </button>
-                                                : <div className="w-4 shrink-0" />
-                                            }
-                                            <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
-                                            <div className="flex-1 min-w-0">
-                                              <div className="flex items-center gap-2 flex-wrap">
-                                                <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
-                                                {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
-                                                {hasChildren && !isChild && (
-                                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} system{children.length !== 1 ? "s" : ""}</Badge>
-                                                )}
-                                                {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
-                                                {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
-                                                {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
-                                              </div>
-                                              {(addressLine || site.contact_name) && (
-                                                <p className="text-xs text-muted-foreground truncate mt-0.5">
-                                                  {[addressLine, site.contact_name].filter(Boolean).join(" · ")}
-                                                </p>
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
-                                                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                              </Button>
-                                              {userRole === "admin" && !isChild && (
-                                                <Button
-                                                  variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
-                                                  title="Remove from customer"
-                                                  onClick={async (e) => {
-                                                    e.stopPropagation();
-                                                    try {
-                                                      await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", site.id);
-                                                      fetchCustomerFolders();
-                                                      toast({ title: "Site removed", description: `${site.name} unlinked from ${folder.name}.` });
-                                                    } catch (err: any) {
-                                                      toast({ title: "Error", description: err.message, variant: "destructive" });
-                                                    }
-                                                  }}
-                                                >
-                                                  <X className="h-3.5 w-3.5" />
-                                                </Button>
-                                              )}
-                                            </div>
+                                        <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="flex items-center gap-2 flex-wrap">
+                                            <span className={`font-medium text-sm ${isChild ? "text-muted-foreground" : ""}`}>{site.name}</span>
+                                            {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
+                                            {hasChildren && !isChild && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} system{children.length !== 1 ? "s" : ""}</Badge>}
+                                            {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
+                                            {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
+                                            {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
                                           </div>
-                                        );
-                                      };
-                                      return parentSites.map((site) => {
+                                          {(addressLine || site.contact_name) && (
+                                            <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
+                                          )}
+                                        </div>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
+                                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                          </Button>
+                                          {userRole === "admin" && !isChild && (
+                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
+                                              onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
+                                            >
+                                              <X className="h-3.5 w-3.5" />
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  };
+                                  return (
+                                    <div className="divide-y divide-border/50">
+                                      {userRole === "admin" && (
+                                        <div className="flex items-center gap-3 px-4 py-2 bg-muted/30 border-b border-border/50">
+                                          <input
+                                            type="checkbox"
+                                            checked={allParentsSelected}
+                                            ref={(el) => { if (el) el.indeterminate = !allParentsSelected && someParentsSelected; }}
+                                            className="h-4 w-4 rounded border-input accent-primary cursor-pointer"
+                                            onChange={() => toggleSelectAllFolderSites(folder.id, parentSiteIds)}
+                                          />
+                                          {folderSelected.size > 0 ? (
+                                            <Button variant="destructive" size="sm" className="h-6 text-xs px-2"
+                                              onClick={() => handleBulkUnlinkSites(folder, [...folderSelected])}
+                                            >
+                                              <Trash2 className="h-3 w-3 mr-1" />
+                                              Remove {folderSelected.size} selected
+                                            </Button>
+                                          ) : (
+                                            <span className="text-xs text-muted-foreground">Select to bulk remove</span>
+                                          )}
+                                        </div>
+                                      )}
+                                      {parentSites.map((site) => {
                                         const children = childrenBySite.get(site.id) || [];
                                         const isCollapsed = collapsedSites.has(site.id);
                                         return (
@@ -651,10 +719,10 @@ export default function Sites() {
                                             {!isCollapsed && children.map((child) => renderSiteRow(child, true))}
                                           </div>
                                         );
-                                      });
-                                    })()}
-                                  </div>
-                                )}
+                                      })}
+                                    </div>
+                                  );
+                                })()}
                               </AccordionContent>
                             </AccordionItem>
                           </DroppableCustomerFolder>
