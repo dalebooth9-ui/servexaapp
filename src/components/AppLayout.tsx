@@ -151,7 +151,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto space-y-0.5 px-3 py-4">
+        <nav className="flex-1 min-h-0 overflow-y-auto space-y-0.5 px-3 py-2">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleNavItems.map((i) => i.to)} strategy={verticalListSortingStrategy}>
               {visibleNavItems.map((item) => {
@@ -169,25 +169,27 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </DndContext>
         </nav>
 
-        <div className="border-t border-sidebar-border p-4">
+        <div className="shrink-0 border-t border-sidebar-border px-3 py-2">
           {whatsappNumber && (
             <a
               href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="mb-3 flex items-center gap-2 rounded-lg bg-sidebar-accent px-3 py-2 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80"
+              className="mb-1.5 flex items-center gap-2 rounded-lg bg-sidebar-accent px-2 py-1.5 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80"
             >
-              <MessageCircle className="h-4 w-4 text-accent" />
-              <span className="truncate">WhatsApp: {whatsappNumber}</span>
+              <MessageCircle className="h-3.5 w-3.5 shrink-0 text-accent" />
+              <span className="truncate">{whatsappNumber}</span>
             </a>
           )}
-          <div className="mb-3 text-xs">
-            <p className="font-medium text-sidebar-accent-foreground">{profile?.full_name || user?.email}</p>
-            <p className="text-sidebar-foreground/60 capitalize">{userRole || "user"}</p>
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0 text-xs">
+              <p className="truncate font-medium text-sidebar-accent-foreground">{profile?.full_name || user?.email}</p>
+              <p className="text-sidebar-foreground/60 capitalize">{userRole || "user"}</p>
+            </div>
+            <Button variant="ghost" size="icon" onClick={signOut} className="h-7 w-7 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" title="Sign Out">
+              <LogOut className="h-3.5 w-3.5" />
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={signOut} className="w-full justify-start text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground">
-            <LogOut className="mr-2 h-4 w-4" /> Sign Out
-          </Button>
         </div>
       </aside>
 
