@@ -99,24 +99,31 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     for (const img of toAdd) {
       try {
         // Extract the storage path from the URL to create a signed URL for private buckets
-        let fetchUrl = img.url;
-        const storageMatch = img.url.match(/\/storage\/v1\/object\/(?:public|sign)\/([^?]+)/);
+        let fetchUrl: string | null = null;
+        const storageMatch = img.url.match(/\/storage\/v1\/object\/(?:public|sign(?:ed)?)\/([^?]+)/);
         if (storageMatch) {
-          const fullPath = storageMatch[1]; // e.g. "submissions/jobid/filename.jpg"
+          const fullPath = decodeURIComponent(storageMatch[1]);
           const slashIdx = fullPath.indexOf("/");
           if (slashIdx !== -1) {
             const bucket = fullPath.slice(0, slashIdx);
             const filePath = fullPath.slice(slashIdx + 1);
-            const { data: signedData } = await supabase.storage
+            const { data: signedData, error: signedError } = await supabase.storage
               .from(bucket)
-              .createSignedUrl(filePath, 60);
-            if (signedData?.signedUrl) fetchUrl = signedData.signedUrl;
+              .createSignedUrl(filePath, 120);
+            if (signedError || !signedData?.signedUrl) {
+              throw new Error(`Could not get access to image: ${signedError?.message || "unknown"}`);
+            }
+            fetchUrl = signedData.signedUrl;
           }
+        } else {
+          // Not a storage URL, use directly
+          fetchUrl = img.url;
         }
+        if (!fetchUrl) throw new Error("Could not resolve image URL");
         const res = await fetch(fetchUrl);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        if (!res.ok) throw new Error(`Image fetch failed: HTTP ${res.status}`);
         const blob = await res.blob();
-        if (!blob.type.startsWith("image/")) throw new Error("Not an image");
+        if (!blob.type.startsWith("image/")) throw new Error(`Expected an image but got: ${blob.type}`);
         const ext = img.url.split(".").pop()?.split("?")[0] || "jpg";
         const file = new File([blob], `message-image.${ext}`, { type: blob.type });
         newImages.push({ file, preview: URL.createObjectURL(file) });
