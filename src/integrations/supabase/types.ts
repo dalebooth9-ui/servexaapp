@@ -1611,8 +1611,10 @@ export type Database = {
           id: string
           name: string
           notes: string | null
+          outlets_count: number | null
           parent_id: string | null
           postcode: string | null
+          riser_location: string | null
           site_type: string
           updated_at: string
         }
@@ -1626,8 +1628,10 @@ export type Database = {
           id?: string
           name: string
           notes?: string | null
+          outlets_count?: number | null
           parent_id?: string | null
           postcode?: string | null
+          riser_location?: string | null
           site_type?: string
           updated_at?: string
         }
@@ -1641,8 +1645,10 @@ export type Database = {
           id?: string
           name?: string
           notes?: string | null
+          outlets_count?: number | null
           parent_id?: string | null
           postcode?: string | null
+          riser_location?: string | null
           site_type?: string
           updated_at?: string
         }

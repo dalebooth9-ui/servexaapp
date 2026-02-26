@@ -22,6 +22,7 @@ import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
   Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X,
 } from "lucide-react";
+import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
 import { format } from "date-fns";
 
 type Site = {
@@ -451,6 +452,11 @@ export default function Sites() {
 
         {/* Hierarchy Tab */}
         <TabsContent value="hierarchy" className="mt-4">
+          {userRole === "admin" && (
+            <div className="mb-4">
+              <SiteDocumentDropZone onSiteCreated={fetchSites} />
+            </div>
+          )}
           <Card>
             <CardContent className="p-0">
               {!loading && filteredRoots.length > 0 && userRole === "admin" && (

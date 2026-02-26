@@ -13,6 +13,16 @@ Rules: name is required. Use empty string for missing fields. Return ONLY the JS
 Rules: name is required. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
   sites: `Extract all site/location/premises/building records. Return a JSON array with fields: name, address, postcode, site_type, contact_name, contact_phone, contact_email.
 Rules: name is required. site_type must be one of: region, site, building, zone (default site). Use empty string for missing fields. Return ONLY the JSON array.`,
+  site_document: `You are extracting site survey information from a document. Extract the following fields and return a single JSON object (not an array):
+- customer_name: the name of the customer or company
+- site_address: the full site address
+- outlets_count: the total number of outlets (integer, or null if not found)
+- riser_location: description of where the riser is located (or null if not found)
+- site_name: a suitable name for this site (derive from customer name + address if not explicit)
+- postcode: postcode/zip code if present (or empty string)
+- contact_name: contact person name if present (or empty string)
+- notes: any other relevant site notes
+Return ONLY the JSON object, no markdown.`,
 };
 
 serve(async (req) => {
@@ -111,7 +121,8 @@ serve(async (req) => {
       return new Response(JSON.stringify({ error: "Could not extract structured data from document" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    if (!Array.isArray(records)) records = [records];
+    // site_document returns a single object; others return arrays
+    if (entity_type !== "site_document" && !Array.isArray(records)) records = [records];
 
     return new Response(JSON.stringify({ records }), { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
