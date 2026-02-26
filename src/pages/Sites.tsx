@@ -524,74 +524,56 @@ export default function Sites() {
                                     <p className="text-sm">Drop a site here to link it</p>
                                   </div>
                                 ) : (
-                                  <Table>
-                                    <TableHeader>
-                                      <TableRow>
-                                        <TableHead>Name</TableHead>
-                                        <TableHead>Type</TableHead>
-                                        <TableHead>Address</TableHead>
-                                        <TableHead>Postcode</TableHead>
-                                        <TableHead>Contact</TableHead>
-                                        <TableHead>Outlets</TableHead>
-                                        <TableHead>Riser Location</TableHead>
-                                        <TableHead className="w-8" />
-                                      </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                      {folder.sites.map((site) => {
-                                        const config = TYPE_CONFIG[site.site_type];
-                                        const Icon = config?.icon || MapPin;
-                                        return (
-                                          <TableRow key={site.id} className="cursor-pointer hover:bg-muted/60 transition-colors" onClick={() => openEdit(site)} title="Click to edit">
-                                            <TableCell className="font-medium">
-                                              <div className="flex items-center gap-2">
-                                                <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
-                                                {site.name}
-                                                {(folder.jobCountsBySite?.[site.id] ?? 0) > 0 && (
-                                                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                                                    {folder.jobCountsBySite![site.id]} job{folder.jobCountsBySite![site.id] !== 1 ? "s" : ""}
-                                                  </Badge>
-                                                )}
-                                              </div>
-                                            </TableCell>
-                                            <TableCell><Badge variant="secondary" className="capitalize text-xs">{site.site_type}</Badge></TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">{site.address || "—"}</TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">{site.postcode || "—"}</TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">{site.contact_name || "—"}</TableCell>
-                                            <TableCell className="text-muted-foreground text-sm">{site.outlets_count != null ? site.outlets_count : "—"}</TableCell>
-                                            <TableCell className="text-muted-foreground text-sm max-w-[160px] truncate">{(site as any).riser_location || "—"}</TableCell>
-                                            <TableCell className="w-16 text-right">
-                                              <div className="flex items-center justify-end gap-1">
-                                                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
-                                                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                                </Button>
-                                                {userRole === "admin" && (
-                                                  <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    className="h-7 w-7 text-destructive hover:text-destructive"
-                                                    title="Remove from customer"
-                                                    onClick={async (e) => {
-                                                      e.stopPropagation();
-                                                      try {
-                                                        await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", site.id);
-                                                        fetchCustomerFolders();
-                                                        toast({ title: "Site removed", description: `${site.name} unlinked from ${folder.name}.` });
-                                                      } catch (err: any) {
-                                                        toast({ title: "Error", description: err.message, variant: "destructive" });
-                                                      }
-                                                    }}
-                                                  >
-                                                    <X className="h-3.5 w-3.5" />
-                                                  </Button>
-                                                )}
-                                              </div>
-                                            </TableCell>
-                                          </TableRow>
-                                        );
-                                      })}
-                                    </TableBody>
-                                  </Table>
+                                  <div className="divide-y divide-border/50">
+                                    {folder.sites.map((site) => {
+                                      const config = TYPE_CONFIG[site.site_type];
+                                      const Icon = config?.icon || MapPin;
+                                      const jobCount = folder.jobCountsBySite?.[site.id] ?? 0;
+                                      const addressLine = [site.address, site.postcode].filter(Boolean).join(", ");
+                                      const riser = (site as any).riser_location;
+                                      return (
+                                        <div key={site.id} className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group" onClick={() => openEdit(site)} title="Click to edit">
+                                          <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
+                                          <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                              <span className="font-medium text-sm">{site.name}</span>
+                                              {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
+                                              {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
+                                              {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
+                                            </div>
+                                            {(addressLine || site.contact_name) && (
+                                              <p className="text-xs text-muted-foreground truncate mt-0.5">
+                                                {[addressLine, site.contact_name].filter(Boolean).join(" · ")}
+                                              </p>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
+                                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                            </Button>
+                                            {userRole === "admin" && (
+                                              <Button
+                                                variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive"
+                                                title="Remove from customer"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation();
+                                                  try {
+                                                    await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", site.id);
+                                                    fetchCustomerFolders();
+                                                    toast({ title: "Site removed", description: `${site.name} unlinked from ${folder.name}.` });
+                                                  } catch (err: any) {
+                                                    toast({ title: "Error", description: err.message, variant: "destructive" });
+                                                  }
+                                                }}
+                                              >
+                                                <X className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
                                 )}
                               </AccordionContent>
                             </AccordionItem>
