@@ -152,22 +152,63 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
       setImporting(true);
       try {
         const buf = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.length; i += chunkSize) binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+        const base64 = btoa(binary);
+
         const { data, error: fnError } = await supabase.functions.invoke("parse-import-generic", {
-          body: { file_base64: base64, file_name: file.name, entity_type: "sites" },
+          body: { file_base64: base64, file_name: file.name, entity_type: "site_document" },
         });
         if (fnError || data?.error) {
           toast({ title: "AI parsing failed", description: fnError?.message || data?.error, variant: "destructive" });
         } else {
-          const records: ParsedSite[] = (data.records || []).map((r: any) => ({
-            name: r.name || "",
-            address: r.address || "",
-            postcode: r.postcode || "",
-            site_type: ["region", "site", "building", "zone"].includes(r.site_type) ? r.site_type : "site",
-            contact_name: r.contact_name || "",
-            contact_phone: r.contact_phone || "",
-            contact_email: r.contact_email || "",
-          })).filter((s: ParsedSite) => s.name.trim());
+          // site_document returns sites with nested systems — flatten into ParsedSite rows
+          const rawRecords: any[] = Array.isArray(data.records) ? data.records : data.records ? [data.records] : [];
+          const records: ParsedSite[] = [];
+
+          for (const site of rawRecords) {
+            const systems: any[] = Array.isArray(site.systems) && site.systems.length > 0 ? site.systems : [{ system_name: "Main System" }];
+            const siteName = (site.site_name || site.customer_name || "").trim();
+            if (!siteName) continue;
+
+            if (systems.length === 1) {
+              // Single system → one flat site record
+              records.push({
+                name: siteName,
+                address: site.site_address || "",
+                postcode: site.postcode || "",
+                site_type: "site",
+                contact_name: site.contact_name || "",
+                contact_phone: "",
+                contact_email: "",
+              });
+            } else {
+              // Multiple systems → parent site + child building per system
+              records.push({
+                name: siteName,
+                address: site.site_address || "",
+                postcode: site.postcode || "",
+                site_type: "site",
+                contact_name: site.contact_name || "",
+                contact_phone: "",
+                contact_email: "",
+              });
+              for (const sys of systems) {
+                records.push({
+                  name: `${siteName} — ${sys.system_name || "System"}`,
+                  address: site.site_address || "",
+                  postcode: site.postcode || "",
+                  site_type: "building",
+                  contact_name: "",
+                  contact_phone: "",
+                  contact_email: "",
+                });
+              }
+            }
+          }
+
           if (records.length === 0) {
             toast({ title: "No sites found", description: "The AI couldn't find any site records in this document.", variant: "destructive" });
           } else {
