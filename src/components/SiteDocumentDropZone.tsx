@@ -135,11 +135,12 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
       }
       const base64 = btoa(binary);
 
-      const [{ data: fnData, error: fnError }, { data: customers }] = await Promise.all([
+      const [{ data: fnData, error: fnError }, { data: customers }, { data: existingSites }] = await Promise.all([
         supabase.functions.invoke("parse-import-generic", {
           body: { file_base64: base64, file_name: file.name, entity_type: "site_document" },
         }),
         supabase.from("customers").select("id, name").order("name"),
+        supabase.from("sites").select("name"),
       ]);
 
       if (fnError || fnData?.error) {
@@ -150,6 +151,9 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
       const existingCustomers: ExistingCustomer[] = customers || [];
       setAllCustomers(existingCustomers);
 
+      // Build a set of existing site names for duplicate detection
+      const existingSiteNames = new Set((existingSites || []).map((s: any) => s.name.trim().toLowerCase()));
+
       let records = fnData.records;
       if (!Array.isArray(records)) records = records ? [records] : [];
       if (records.length === 0) {
@@ -157,7 +161,27 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
         return;
       }
 
-      const parsed: ExtractedSite[] = records.map(toSite);
+      const allParsed: ExtractedSite[] = records.map(toSite);
+
+      // Deduplicate: remove sites that already exist in the DB or appear multiple times in this batch
+      const seenInBatch = new Set<string>();
+      const parsed = allParsed.filter((s) => {
+        const key = (s.site_name.trim() || s.customer_name.trim()).toLowerCase();
+        if (!key) return false;
+        if (existingSiteNames.has(key) || seenInBatch.has(key)) return false;
+        seenInBatch.add(key);
+        return true;
+      });
+
+      const skippedCount = allParsed.length - parsed.length;
+      if (skippedCount > 0) {
+        toast({ title: `${skippedCount} duplicate${skippedCount > 1 ? "s" : ""} skipped`, description: `${skippedCount} site${skippedCount > 1 ? "s" : ""} already exist and won't be re-imported.` });
+      }
+
+      if (parsed.length === 0) {
+        toast({ title: "All duplicates", description: "All extracted sites already exist in the database.", variant: "destructive" });
+        return;
+      }
 
       // Auto-resolve resolutions: exact match (case-insensitive) → existing, otherwise new
       const defaultResolutions: CustomerResolution[] = parsed.map((s) => {
@@ -236,17 +260,21 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
 
       const parentIdMap = new Map(createdParents.map((s: any) => [s.name.toLowerCase(), s.id]));
 
-      // Insert child system records
+      // Insert child system records (deduplicate by name+parent)
       const childRows: any[] = [];
+      const seenChildNames = new Set<string>();
       for (const s of sitesToCreate) {
         const parentName = (s.site_name.trim() || s.customer_name.trim() || "Unnamed Site").toLowerCase();
         const parentId = parentIdMap.get(parentName);
         if (!parentId) continue;
         if (s.systems.length > 1) {
           for (const sys of s.systems) {
+            const childKey = `${parentId}::${sys.system_name.toLowerCase()}`;
+            if (seenChildNames.has(childKey)) continue;
+            seenChildNames.add(childKey);
             childRows.push({
               name: sys.system_name, parent_id: parentId, site_type: "building" as const,
-              outlets_count: sys.outlets_count ?? null, riser_location: sys.riser_location.trim() || null, notes: sys.notes.trim() || null,
+              outlets_count: sys.outlets_count ?? null, riser_location: sys.riser_location.trim() || null,
             });
           }
         } else if (s.systems.length === 1) {
