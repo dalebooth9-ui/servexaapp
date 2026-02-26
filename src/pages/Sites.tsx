@@ -136,6 +136,31 @@ export default function Sites() {
   const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState("hierarchy");
+
+  // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
+  const navigateToSite = (siteId: string) => {
+    setActiveTab("hierarchy");
+    setSearch("");
+    // Collect all ancestor IDs
+    const ancestors: string[] = [];
+    let current = sites.find((s) => s.id === siteId);
+    while (current?.parent_id) {
+      ancestors.push(current.parent_id);
+      current = sites.find((s) => s.id === current!.parent_id);
+    }
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      ancestors.forEach((id) => next.add(id));
+      return next;
+    });
+    setHighlightedSiteId(siteId);
+    setTimeout(() => {
+      document.getElementById(`site-row-${siteId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 80);
+    setTimeout(() => setHighlightedSiteId(null), 1800);
+  };
 
   const toggleSiteCollapse = (siteId: string) => {
     setCollapsedSites((prev) => {
@@ -508,11 +533,20 @@ export default function Sites() {
     const Icon = config?.icon || MapPin;
     const childType = CHILD_TYPES[site.site_type];
     const isSearching = !!search.trim();
-    const breadcrumb = isSearching ? getSiteBreadcrumb(site) : [];
-    const showBreadcrumb = breadcrumb.length > 1;
+    // Build breadcrumb with IDs so we can navigate on click
+    const breadcrumbWithIds: { name: string; id: string }[] = [];
+    if (isSearching) {
+      let current: Site | undefined = site;
+      while (current) {
+        breadcrumbWithIds.unshift({ name: current.name, id: current.id });
+        current = current.parent_id ? sites.find((p) => p.id === current!.parent_id) : undefined;
+      }
+    }
+    const showBreadcrumb = breadcrumbWithIds.length > 1;
+    const isHighlighted = highlightedSiteId === site.id;
     return (
-      <div key={site.id}>
-        <div className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors ${selected.has(site.id) ? "bg-primary/5" : ""}`} style={{ paddingLeft: `${depth * 24 + 12}px` }}>
+      <div key={site.id} id={`site-row-${site.id}`}>
+        <div className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`} style={{ paddingLeft: `${depth * 24 + 12}px` }}>
           {userRole === "admin" && (
             <input type="checkbox" checked={selected.has(site.id)} onChange={() => toggleSelect(site.id)} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" onClick={(e) => e.stopPropagation()} />
           )}
@@ -525,10 +559,17 @@ export default function Sites() {
           <div className="flex-1 min-w-0">
             {showBreadcrumb && (
               <p className="text-[11px] text-muted-foreground/70 truncate flex items-center gap-0.5 leading-tight mb-0.5">
-                {breadcrumb.slice(0, -1).map((part, i) => (
-                  <span key={i} className="flex items-center gap-0.5">
+                {breadcrumbWithIds.slice(0, -1).map((crumb, i) => (
+                  <span key={crumb.id} className="flex items-center gap-0.5">
                     {i > 0 && <ChevronRight className="h-2.5 w-2.5 shrink-0" />}
-                    <span>{part}</span>
+                    <button
+                      type="button"
+                      className="hover:text-primary hover:underline transition-colors cursor-pointer"
+                      onClick={(e) => { e.stopPropagation(); navigateToSite(crumb.id); }}
+                      title={`Go to ${crumb.name}`}
+                    >
+                      {crumb.name}
+                    </button>
                   </span>
                 ))}
                 <ChevronRight className="h-2.5 w-2.5 shrink-0" />
@@ -597,7 +638,7 @@ export default function Sites() {
         <Input placeholder="Search sites..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
       </div>
 
-      <Tabs defaultValue="hierarchy">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="hierarchy"><Globe className="mr-2 h-4 w-4" /> Hierarchy</TabsTrigger>
           <TabsTrigger value="by-customer"><Users className="mr-2 h-4 w-4" /> By Customer</TabsTrigger>
@@ -703,13 +744,13 @@ export default function Sites() {
                                       childrenBySite.get(s.parent_id)!.push(s);
                                     }
                                   }
-                   const getBreadcrumb = (s: Site): string[] => {
-                                       const parts: string[] = [s.name];
+                   const getBreadcrumb = (s: Site): { name: string; id: string }[] => {
+                                       const parts: { name: string; id: string }[] = [{ name: s.name, id: s.id }];
                                        let current = s;
                                        while (current.parent_id) {
                                          const parent = sites.find((p) => p.id === current.parent_id);
                                          if (!parent) break;
-                                         parts.unshift(parent.name);
+                                         parts.unshift({ name: parent.name, id: parent.id });
                                          current = parent;
                                        }
                                        return parts;
@@ -757,10 +798,17 @@ export default function Sites() {
                                            </div>
                                            {showBreadcrumb && (
                                              <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 flex items-center gap-0.5">
-                                               {breadcrumb.slice(0, -1).map((part, i) => (
-                                                 <span key={i} className="flex items-center gap-0.5">
+                                               {breadcrumb.slice(0, -1).map((crumb, i) => (
+                                                 <span key={crumb.id} className="flex items-center gap-0.5">
                                                    {i > 0 && <ChevronRight className="h-2.5 w-2.5 shrink-0" />}
-                                                   <span>{part}</span>
+                                                   <button
+                                                     type="button"
+                                                     className="hover:text-primary hover:underline transition-colors cursor-pointer"
+                                                     onClick={(e) => { e.stopPropagation(); navigateToSite(crumb.id); }}
+                                                     title={`Go to ${crumb.name}`}
+                                                   >
+                                                     {crumb.name}
+                                                   </button>
                                                  </span>
                                                ))}
                                                <ChevronRight className="h-2.5 w-2.5 shrink-0" />
