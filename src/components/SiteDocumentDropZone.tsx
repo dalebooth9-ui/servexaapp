@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { FileText, Loader2, Upload, X } from "lucide-react";
+import { FileText, Loader2, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface ExtractedSite {
   customer_name: string;
@@ -29,9 +29,20 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
   const fileRef = useRef<HTMLInputElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [parsing, setParsing] = useState(false);
-  const [extracted, setExtracted] = useState<ExtractedSite | null>(null);
+  const [sites, setSites] = useState<ExtractedSite[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState<ExtractedSite | null>(null);
+
+  const toSite = (record: any): ExtractedSite => ({
+    customer_name: record.customer_name || "",
+    site_name: record.site_name || record.customer_name || "",
+    site_address: record.site_address || "",
+    postcode: record.postcode || "",
+    outlets_count: record.outlets_count != null ? Number(record.outlets_count) : null,
+    riser_location: record.riser_location || "",
+    contact_name: record.contact_name || "",
+    notes: record.notes || "",
+  });
 
   const processFile = async (file: File) => {
     const ext = file.name.split(".").pop()?.toLowerCase();
@@ -41,7 +52,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
     }
     setParsing(true);
     try {
-    const buf = await file.arrayBuffer();
+      const buf = await file.arrayBuffer();
       const bytes = new Uint8Array(buf);
       let binary = "";
       const chunkSize = 8192;
@@ -56,25 +67,14 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
         toast({ title: "AI extraction failed", description: fnError?.message || data?.error, variant: "destructive" });
         return;
       }
-      // site_document returns a single object (not array)
-      let record = data.records;
-      if (Array.isArray(record)) record = record[0];
-      if (!record) {
+      let records = data.records;
+      if (!Array.isArray(records)) records = records ? [records] : [];
+      if (records.length === 0) {
         toast({ title: "Nothing found", description: "The AI couldn't extract site details from this document.", variant: "destructive" });
         return;
       }
-      const site: ExtractedSite = {
-        customer_name: record.customer_name || "",
-        site_name: record.site_name || record.customer_name || "",
-        site_address: record.site_address || "",
-        postcode: record.postcode || "",
-        outlets_count: record.outlets_count != null ? Number(record.outlets_count) : null,
-        riser_location: record.riser_location || "",
-        contact_name: record.contact_name || "",
-        notes: record.notes || "",
-      };
-      setExtracted(site);
-      setForm({ ...site });
+      setSites(records.map(toSite));
+      setCurrentIndex(0);
     } finally {
       setParsing(false);
     }
@@ -90,26 +90,29 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
   const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragging(true); };
   const handleDragLeave = () => setIsDragging(false);
 
-  const handleSave = async () => {
-    if (!form) return;
+  const update = (key: keyof ExtractedSite, value: string | number | null) => {
+    setSites((prev) => prev.map((s, i) => i === currentIndex ? { ...s, [key]: value } : s));
+  };
+
+  const handleSaveAll = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase.from("sites").insert({
-        name: form.site_name.trim() || form.customer_name.trim() || "Unnamed Site",
-        address: form.site_address.trim() || null,
-        postcode: form.postcode.trim() || null,
-        site_type: "site",
-        contact_name: form.contact_name.trim() || null,
-        outlets_count: form.outlets_count ?? null,
-        riser_location: form.riser_location.trim() || null,
-        notes: form.notes.trim() || null,
-      } as any);
+      const rows = sites.map((s) => ({
+        name: s.site_name.trim() || s.customer_name.trim() || "Unnamed Site",
+        address: s.site_address.trim() || null,
+        postcode: s.postcode.trim() || null,
+        site_type: "site" as const,
+        contact_name: s.contact_name.trim() || null,
+        outlets_count: s.outlets_count ?? null,
+        riser_location: s.riser_location.trim() || null,
+        notes: s.notes.trim() || null,
+      }));
+      const { error } = await supabase.from("sites").insert(rows as any);
       if (error) {
         toast({ title: "Save failed", description: error.message, variant: "destructive" });
       } else {
-        toast({ title: "Site created", description: `"${form.site_name || form.customer_name}" has been added.` });
-        setForm(null);
-        setExtracted(null);
+        toast({ title: `${rows.length} site${rows.length > 1 ? "s" : ""} created`, description: rows.map((r) => r.name).join(", ") });
+        setSites([]);
         onSiteCreated();
       }
     } finally {
@@ -117,8 +120,8 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
     }
   };
 
-  const update = (key: keyof ExtractedSite, value: string | number | null) =>
-    setForm((prev) => prev ? { ...prev, [key]: value } : prev);
+  const form = sites[currentIndex] ?? null;
+  const isOpen = sites.length > 0;
 
   return (
     <>
@@ -149,7 +152,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
           <>
             <FileText className="h-8 w-8 text-muted-foreground" />
             <p className="text-sm font-medium">Drop a PDF or Word document here</p>
-            <p className="text-xs text-muted-foreground">AI will extract customer name, site address, outlets & riser location</p>
+            <p className="text-xs text-muted-foreground">AI will extract each system's address, outlets & riser location</p>
             <Button variant="outline" size="sm" className="mt-1 pointer-events-none gap-2">
               <Upload className="h-3.5 w-3.5" /> Browse file
             </Button>
@@ -158,12 +161,30 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
       </div>
 
       {/* Review dialog */}
-      <Dialog open={!!form} onOpenChange={(v) => { if (!v) { setForm(null); setExtracted(null); } }}>
+      <Dialog open={isOpen} onOpenChange={(v) => { if (!v) setSites([]); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Review Extracted Site Details</DialogTitle>
-            <DialogDescription>AI extracted the following details. Review and edit before saving.</DialogDescription>
+            <DialogDescription>
+              {sites.length > 1
+                ? `${sites.length} systems found. Review each before saving.`
+                : "AI extracted the following details. Review and edit before saving."}
+            </DialogDescription>
           </DialogHeader>
+
+          {/* Pagination if multiple systems */}
+          {sites.length > 1 && (
+            <div className="flex items-center justify-between text-sm text-muted-foreground border rounded-md px-3 py-1.5">
+              <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === 0} onClick={() => setCurrentIndex((i) => i - 1)}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span>System {currentIndex + 1} of {sites.length}</span>
+              <Button variant="ghost" size="icon" className="h-6 w-6" disabled={currentIndex === sites.length - 1} onClick={() => setCurrentIndex((i) => i + 1)}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+
           {form && (
             <div className="space-y-3 py-2">
               <div className="grid grid-cols-2 gap-3">
@@ -212,9 +233,9 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setForm(null); setExtracted(null); }}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving} className="gap-2">
-              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : "Create Site"}
+            <Button variant="outline" onClick={() => setSites([])}>Cancel</Button>
+            <Button onClick={handleSaveAll} disabled={saving} className="gap-2">
+              {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</> : `Create ${sites.length} Site${sites.length > 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
