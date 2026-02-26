@@ -42,7 +42,9 @@ import {
   AlertTriangle,
   XCircle,
   Settings2,
+  Upload,
 } from "lucide-react";
+import BulkImportAssetsDialog from "@/components/BulkImportAssetsDialog";
 import {
   Collapsible,
   CollapsibleContent,
@@ -103,6 +105,7 @@ export default function Assets() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [form, setForm] = useState(emptyAsset);
@@ -294,9 +297,14 @@ export default function Assets() {
           </p>
         </div>
         {userRole === "admin" && (
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" /> Add Asset
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" /> Bulk Import
+            </Button>
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" /> Add Asset
+            </Button>
+          </div>
         )}
       </div>
 
@@ -598,6 +606,12 @@ export default function Assets() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <BulkImportAssetsDialog
+        open={bulkImportOpen}
+        onOpenChange={setBulkImportOpen}
+        onImported={fetchData}
+      />
     </div>
   );
 }
