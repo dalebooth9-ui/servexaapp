@@ -98,7 +98,7 @@ export default function CustomerDetail() {
   const [jobDropForm, setJobDropForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const [jobDropSaving, setJobDropSaving] = useState(false);
   const [manualJobDialogOpen, setManualJobDialogOpen] = useState(false);
-  const [manualJobForm, setManualJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "" });
+  const [manualJobForm, setManualJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "", address: "" });
   const [manualJobSaving, setManualJobSaving] = useState(false);
   const [jobRowDropTarget, setJobRowDropTarget] = useState<string | null>(null);
   const [jobRowUploading, setJobRowUploading] = useState<string | null>(null);
@@ -494,7 +494,7 @@ export default function CustomerDetail() {
       ...(manualJobForm.reference_number.trim() ? { reference_number: manualJobForm.reference_number.trim() } : {}),
       customer: customer.name,
       customer_id: id,
-      address: customer.address || null,
+      address: manualJobForm.address.trim() || customer.address || null,
       priority: manualJobForm.priority,
       category: manualJobForm.category,
       ...(manualJobForm.site_id ? { site_id: manualJobForm.site_id } : {}),
@@ -523,7 +523,7 @@ export default function CustomerDetail() {
 
     toast({ title: "Job created", description: `${newJob.reference_number} created.` });
     setManualJobDialogOpen(false);
-    setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "" });
+    setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "", address: "" });
     setManualJobSaving(false);
     await fetchJobs(customer.name);
     navigate(`/jobs/${newJob.id}`);
@@ -908,7 +908,7 @@ export default function CustomerDetail() {
       >
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-lg font-semibold">Jobs ({jobs.length})</h2>
-          <Button size="sm" onClick={() => { setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "" }); setManualJobDialogOpen(true); }}>
+          <Button size="sm" onClick={() => { setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "", address: "" }); setManualJobDialogOpen(true); }}>
             <Plus className="mr-1.5 h-4 w-4" /> New Job
           </Button>
         </div>
@@ -1015,7 +1015,13 @@ export default function CustomerDetail() {
                   const site = linkedSites.find((s) => s.id === v);
                   const prevSite = linkedSites.find((s) => s.id === manualJobForm.site_id);
                   const nameIsDefault = !manualJobForm.name || manualJobForm.name === prevSite?.name;
-                  setManualJobForm({ ...manualJobForm, site_id: v, name: nameIsDefault && site ? site.name : manualJobForm.name });
+                  const addrIsDefault = !manualJobForm.address || manualJobForm.address === (prevSite?.address || "");
+                  setManualJobForm({
+                    ...manualJobForm,
+                    site_id: v,
+                    name: nameIsDefault && site ? site.name : manualJobForm.name,
+                    address: addrIsDefault ? (site?.address || "") : manualJobForm.address,
+                  });
                 }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a site (optional)" />
@@ -1034,6 +1040,10 @@ export default function CustomerDetail() {
                 </Select>
               </div>
             )}
+            <div className="space-y-2">
+              <Label>Address</Label>
+              <Input value={manualJobForm.address} onChange={(e) => setManualJobForm({ ...manualJobForm, address: e.target.value })} placeholder={customer?.address || "e.g. 123 Main Street"} />
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Priority</Label>
