@@ -131,19 +131,19 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
 }
 
 const RISK_FONT_SIZE = 7;
-// pt → mm: 7pt * 0.352778 = 2.47mm glyph height; add generous leading
-const RISK_LINE_H = RISK_FONT_SIZE * 0.352778 + 1.8;
-const RISK_PAD_H = 1.8; // horizontal inner padding mm
-const RISK_PAD_V = 2.2; // vertical inner padding above first baseline mm
+// 7pt in mm ≈ 2.47mm; add 1.5mm leading for comfortable line spacing
+const RISK_LINE_H = 4.0; // fixed mm per line — predictable across all cells
+const RISK_PAD_H = 1.5; // horizontal inner padding mm
+const RISK_PAD_V = 1.5; // vertical inner padding mm
 
-/** Split text for a cell, using the correct font weight so metrics match render. */
+/** Split text for a cell using correct font weight so line-count matches render. */
 function splitCell(doc: jsPDF, text: string, cw: number, bold = false): string[] {
   doc.setFont("helvetica", bold ? "bold" : "normal");
   doc.setFontSize(RISK_FONT_SIZE);
   return doc.splitTextToSize(text || "", cw - RISK_PAD_H * 2);
 }
 
-/** Calculate how tall a cell needs to be for its text to fit. */
+/** Calculate minimum cell height for text to fit without clipping. */
 function cellHeight(doc: jsPDF, text: string, cw: number, bold = false): number {
   const lines = splitCell(doc, text, cw, bold);
   return lines.length * RISK_LINE_H + RISK_PAD_V * 2;
@@ -170,22 +170,22 @@ function drawCell(
     doc.setTextColor(...(opts.textColor ?? [0, 0, 0] as [number,number,number]));
     const lines = splitCell(doc, text, cw, opts.bold);
     const textX = opts.center ? cx + cw / 2 : cx + RISK_PAD_H;
-    // baseline of first line sits RISK_PAD_V below top of cell + ascender (~70% of line height)
-    const textY = cy + RISK_PAD_V + RISK_LINE_H * 0.72;
+    // Place baseline of first line: pad from top + ~75% of line height for ascender
+    const textY = cy + RISK_PAD_V + RISK_LINE_H * 0.75;
     doc.text(lines, textX, textY, opts.center ? { align: "center" } : {});
   }
 }
 
 /** Risk table data row – auto-height. Pre-R (index 5) and Post-R (index 9) are colour-coded. */
 function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH: number, bold = false): number {
-  // Determine row height using the correct font weight for accurate line-splitting
+  // Determine row height from the tallest cell
   let rowH = RISK_LINE_H + RISK_PAD_V * 2;
   for (let i = 0; i < cols.length; i++) {
     const h = cellHeight(doc, cols[i], widths[i], bold);
     if (h > rowH) rowH = h;
   }
-  // Enforce a sensible minimum so single-digit cells don't collapse
-  rowH = Math.max(rowH, RISK_LINE_H * 1.5 + RISK_PAD_V * 2);
+  // Minimum: one line + padding
+  rowH = Math.max(rowH, RISK_LINE_H + RISK_PAD_V * 2);
 
   const NAVY: [number,number,number] = [33, 61, 99];
   const WHITE: [number,number,number] = [255, 255, 255];
@@ -692,10 +692,9 @@ export async function generateRamsPdf(
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  // 11-column table: Activity | Hazard | Risks | Pre-L | Pre-S | Pre-R | Control Measures | Post-L | Post-S | Post-R | Comments
-  // L/S cols only ever hold 1-digit numbers so 7mm each is ample; freed space goes to text columns
-  // Widths: 26+22+34 + 7+7+9 + 48 + 7+7+9 + 6 = 182 = CONTENT_W
-  const rC = [26, 22, 34, 7, 7, 9, 48, 7, 7, 9, 6];
+  // Column widths summing to CONTENT_W (182mm):
+  // Activity(28) Hazard(24) Risks(32) PreL(7) PreS(7) PreR(9) Controls(46) PostL(7) PostS(7) PostR(9) Comments(6) = 182
+  const rC = [28, 24, 32, 7, 7, 9, 46, 7, 7, 9, 6];
   y = riskTableHeader(doc, rC, y);
 
   // Page 6 rows — [Activity, Hazard, Risks, PreL, PreS, PreR, Controls, PostL, PostS, PostR, Comments]
