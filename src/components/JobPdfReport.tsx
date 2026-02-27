@@ -212,12 +212,19 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
       // ── JOB DETAILS TABLE ──
       doc.setFontSize(11);
+      const serviceScope = [
+        job.pressure_test_qty > 0 ? `Pressure Test x${job.pressure_test_qty}` : null,
+        job.visual_qty > 0 ? `Visual x${job.visual_qty}` : null,
+        (job as any).other_qty > 0 ? `${(job as any).other_service_type || "Other"} x${(job as any).other_qty}` : null,
+      ].filter(Boolean).join("  |  ");
+
       const detailRows: [string, string][] = [
         ["Job Name", job.name || "—"],
         ["Reference", job.reference_number || "—"],
         ["Customer", job.customers?.name || job.customer || "—"],
         ["Address", job.address || "—"],
         ["Category", (job.category || "—").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())],
+        ...(serviceScope ? [["Service Scope", serviceScope] as [string, string]] : []),
         ["Job Type", (job.job_type || "—").replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase())],
         ["Status", (job.status || "—").toUpperCase()],
         ["Priority", (job.priority || "medium").toUpperCase()],

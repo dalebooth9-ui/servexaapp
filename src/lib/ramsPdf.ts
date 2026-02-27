@@ -10,6 +10,10 @@ interface RamsJobInfo {
   customers?: { name: string } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
+  pressure_test_qty?: number;
+  visual_qty?: number;
+  other_qty?: number;
+  other_service_type?: string | null;
 }
 
 /* ─────────────────────────────────────────────────────────── helpers ── */
@@ -315,6 +319,15 @@ export async function generateRamsPdf(
   labelValue(doc, "Operation / Task:", "Pressure testing Pipework and associated fittings.", ML + 3, y + 7);
   labelValue(doc, "Contract / Job Name:", contractName, ML + 3, y + 14);
   labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, y + 21);
+  // Service scope line
+  const scopeParts = [
+    (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
+    (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
+    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
+  ].filter(Boolean).join("  |  ");
+  if (scopeParts) {
+    labelValue(doc, "Service Scope:", scopeParts, ML + 3, y + 28);
+  }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";

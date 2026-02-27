@@ -36,6 +36,10 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string } | null;
   reference_number: string;
+  pressure_test_qty?: number;
+  visual_qty?: number;
+  other_qty?: number;
+  other_service_type?: string | null;
   site?: { name: string; address: string | null } | null;
 };
 
@@ -124,6 +128,23 @@ export async function generateJobSheetPdf(
     dateVal,
     riserLocation: riserLocValue,
   });
+
+  // --- Service scope line (PT / Visual / Other) ---
+  const scopeParts = [
+    (jobInfo?.pressure_test_qty ?? 0) > 0 ? `PT x${jobInfo!.pressure_test_qty}` : null,
+    (jobInfo?.visual_qty ?? 0) > 0 ? `Vis x${jobInfo!.visual_qty}` : null,
+    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
+  ].filter(Boolean).join("  |  ");
+  if (scopeParts) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(33, 61, 99);
+    doc.text(`Service Scope: `, margin, y + 3.5);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(0, 0, 0);
+    doc.text(scopeParts, margin + doc.getTextWidth("Service Scope: "), y + 3.5);
+    y += 6;
+  }
 
   // --- Shared layout utilities ---
   const footerSpace = 28;
