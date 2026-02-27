@@ -596,6 +596,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <RamsPdfExport
                   formData={latestRams.responses as Record<string, any>}
                   jobInfo={jobInfo}
+                  jobId={jobId}
                   trigger={
                     <Button variant="secondary" size="sm" className="h-7 text-xs gap-1">
                       <FileText className="h-3.5 w-3.5" /> Export RAMS PDF
@@ -661,6 +662,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         <RamsPdfExport
                           formData={resp.responses as Record<string, any>}
                           jobInfo={jobInfo}
+                          jobId={jobId}
                           trigger={<Button variant="outline" size="sm" className="h-6 text-xs"><FileText className="h-3 w-3 mr-1" />PDF</Button>}
                         />
                       ) : tpl ? (

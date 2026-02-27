@@ -126,14 +126,15 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   return y + 21;
 }
 
-/** Risk table row – with optional colour coding based on last column rating value */
-function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: number, bold = false): number {
+/** Risk table row – with optional colour coding based on a specific rating column index */
+function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: number, bold = false, ratingColIndex = -1): number {
   let x = ML;
   doc.setFontSize(7.5);
 
-  // Colour code by rating (last column) if not header row
+  // Colour code by rating column if not header row
   if (!bold) {
-    const ratingRaw = cols[cols.length - 1];
+    const colIdx = ratingColIndex >= 0 ? ratingColIndex : cols.length - 1;
+    const ratingRaw = cols[colIdx];
     const rating = parseInt(ratingRaw, 10);
     if (!isNaN(rating)) {
       let fillR = 255, fillG = 255, fillB = 255;
@@ -202,7 +203,8 @@ function signatureRow(
 
 export async function generateRamsPdf(
   formData: RamsFormData,
-  jobInfo: RamsJobInfo | null
+  jobInfo: RamsJobInfo | null,
+  assignedEngineers?: { name: string; sig: string; date: string }[]
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
@@ -225,12 +227,17 @@ export async function generateRamsPdf(
   const clientName = formData["rams_client"] || jobInfo?.customers?.name || jobInfo?.customer || "";
   const attendanceDate = formData["rams_attendance_date"] || "";
 
-  const operatives: { name: string; sig: string; date: string }[] = [];
-  for (let i = 1; i <= 8; i++) {
-    const n = formData[`rams_op${i}_name`] || "";
-    const s = formData[`rams_op${i}_sig`] || "";
-    const d = formData[`rams_op${i}_date`] || "";
-    if (n || s || d) operatives.push({ name: n, sig: s, date: d });
+  // Build operatives list: prefer assigned engineers, then fall back to form data
+  let operatives: { name: string; sig: string; date: string }[] = [];
+  if (assignedEngineers && assignedEngineers.length > 0) {
+    operatives = assignedEngineers;
+  } else {
+    for (let i = 1; i <= 8; i++) {
+      const n = formData[`rams_op${i}_name`] || "";
+      const s = formData[`rams_op${i}_sig`] || "";
+      const d = formData[`rams_op${i}_date`] || "";
+      if (n || s || d) operatives.push({ name: n, sig: s, date: d });
+    }
   }
 
   /* ───────────────────────────────────────────── PAGE 1 – Cover ───── */
@@ -539,12 +546,12 @@ export async function generateRamsPdf(
 
   const rCols2 = [40, 40, 55, 14, 17, 16];
   y = riskRow(doc, ["Activity", "Hazard", "Risks", "Rating", "Post Ctrl", "Comments"], rCols2, y, 7, true);
-  y = riskRow(doc, ["All tasks", "Noise from running portable fire engine.", "Damage to hearing, deafness, tinnitus.", "2", "***", "Lower 80dB(A), Upper 85dB(A), Limit 87dB(A)."], rCols2, y, 18);
-  y = riskRow(doc, ["All tasks", "Incompetence/poor housekeeping", "Various including slips/trips/falls", "5", "", "Good housekeeping keeps safe sites. Never walk on by if you see materials in walkway."], rCols2, y, 18);
-  y = riskRow(doc, ["All tasks", "Handling materials/tools with sharp edges", "Cuts/lacerations to hands and body and potential back injuries", "14", "", "Always read method statement and never deviate from safe system of work."], rCols2, y, 18);
-  y = riskRow(doc, ["All tasks", "Moving plant/traffic/pedestrians", "Colliding with tower", "14", "", "All operatives to keep up to date with site changes regarding pedestrian routes."], rCols2, y, 18);
-  y = riskRow(doc, ["All tasks", "Working adjacent other trades", "Contact with/being struck by electrical operations, manual handling, vehicle movements, working at height etc", "10", "", "Particular attention must be paid to noise, dust, delivery schedules, common PPE standards etc."], rCols2, y, 18);
-  y = riskRow(doc, ["Human Factors", "Inappropriate behaviour", "Activity exceeds capability", "4", "", "All working personnel to embrace change and are encouraged to re-assess."], rCols2, y, 14);
+  y = riskRow(doc, ["All tasks", "Noise from running portable fire engine.", "Damage to hearing, deafness, tinnitus.", "2", "***", "Lower 80dB(A), Upper 85dB(A), Limit 87dB(A)."], rCols2, y, 18, false, 3);
+  y = riskRow(doc, ["All tasks", "Incompetence/poor housekeeping", "Various including slips/trips/falls", "5", "", "Good housekeeping keeps safe sites. Never walk on by if you see materials in walkway."], rCols2, y, 18, false, 3);
+  y = riskRow(doc, ["All tasks", "Handling materials/tools with sharp edges", "Cuts/lacerations to hands and body and potential back injuries", "14", "", "Always read method statement and never deviate from safe system of work."], rCols2, y, 18, false, 3);
+  y = riskRow(doc, ["All tasks", "Moving plant/traffic/pedestrians", "Colliding with tower", "14", "", "All operatives to keep up to date with site changes regarding pedestrian routes."], rCols2, y, 18, false, 3);
+  y = riskRow(doc, ["All tasks", "Working adjacent other trades", "Contact with/being struck by electrical operations, manual handling, vehicle movements, working at height etc", "10", "", "Particular attention must be paid to noise, dust, delivery schedules, common PPE standards etc."], rCols2, y, 18, false, 3);
+  y = riskRow(doc, ["Human Factors", "Inappropriate behaviour", "Activity exceeds capability", "4", "", "All working personnel to embrace change and are encouraged to re-assess."], rCols2, y, 14, false, 3);
   pageFooter(doc, 7, 10);
 
   /* ───────────────────────────────────────────── PAGE 8 – Risk Table 3 ── */
