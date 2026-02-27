@@ -587,14 +587,20 @@ export default function Sites() {
     const isHighlighted = highlightedSiteId === site.id;
     return (
       <div key={site.id} id={`site-row-${site.id}`}>
-        <div className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`} style={{ paddingLeft: `${depth * 24 + 12}px` }}>
+        <div
+          className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors cursor-pointer ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`}
+          style={{ paddingLeft: `${depth * 24 + 12}px` }}
+          onClick={() => { if (children.length > 0) toggle(site.id); }}
+        >
           {userRole === "admin" && (
             <input type="checkbox" checked={selected.has(site.id)} onChange={() => toggleSelect(site.id)} className="h-4 w-4 shrink-0 rounded border-input accent-primary cursor-pointer" onClick={(e) => e.stopPropagation()} />
           )}
-          {children.length > 0 || childType ? (
-            <button onClick={() => toggle(site.id)} className="shrink-0">
+          {children.length > 0 ? (
+            <button type="button" onClick={(e) => { e.stopPropagation(); toggle(site.id); }} className="shrink-0">
               {isExpanded ? <ChevronDown className="h-4 w-4 text-muted-foreground" /> : <ChevronRight className="h-4 w-4 text-muted-foreground" />}
             </button>
+          ) : childType ? (
+            <div className="w-4 shrink-0"><ChevronRight className="h-4 w-4 text-muted-foreground/30" /></div>
           ) : <div className="w-4" />}
           <Icon className={`h-4 w-4 shrink-0 ${config?.color || ""}`} />
           <div className="flex-1 min-w-0">
@@ -630,8 +636,8 @@ export default function Sites() {
                   <Plus className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(site)}><Pencil className="h-3.5 w-3.5" /></Button>
-              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDelete(site.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }}><Pencil className="h-3.5 w-3.5" /></Button>
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={(e) => { e.stopPropagation(); handleDelete(site.id); }}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           )}
         </div>
