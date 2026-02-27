@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import PoImportDialog from "@/components/PoImportDialog";
 import TodaysDashboard from "@/components/TodaysDashboard";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -94,6 +95,10 @@ export default function Jobs() {
   const [fileDropCustomerId, setFileDropCustomerId] = useState("");
   const [fileDropCustomerName, setFileDropCustomerName] = useState("");
   const [fileDropPendingFiles, setFileDropPendingFiles] = useState<File[]>([]);
+  const [poImportOpen, setPoImportOpen] = useState(false);
+  const [poImportFile, setPoImportFile] = useState<File | null>(null);
+  const poDropRef = useRef<HTMLDivElement | null>(null);
+  const poDragCounter = useRef(0);
   const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
@@ -798,10 +803,22 @@ export default function Jobs() {
     setFileDragging(false);
     fileDragCounter.current = 0;
     const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      setFolderImportOpen(true);
-      setTimeout(() => folderImportRef.current?.processFiles(files), 100);
+    if (files.length === 0) return;
+
+    // If a single PDF/Word file is dropped, offer PO import
+    if (files.length === 1) {
+      const f = files[0];
+      const ext = f.name.slice(f.name.lastIndexOf(".")).toLowerCase();
+      if ([".pdf", ".doc", ".docx"].includes(ext)) {
+        setPoImportFile(f);
+        setPoImportOpen(true);
+        return;
+      }
     }
+
+    // Otherwise fall back to folder/bulk import
+    setFolderImportOpen(true);
+    setTimeout(() => folderImportRef.current?.processFiles(files), 100);
   };
 
   return (
@@ -816,7 +833,8 @@ export default function Jobs() {
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
           <div className="flex flex-col items-center gap-2 text-primary">
             <FolderOpen className="h-10 w-10" />
-            <p className="font-medium">Drop folder to import jobs</p>
+            <p className="font-semibold">Drop a PDF / Word file to create a job from PO</p>
+            <p className="text-sm opacity-75">Or drop multiple files to import a folder</p>
           </div>
         </div>
       )}
@@ -1318,6 +1336,14 @@ export default function Jobs() {
         open={quickScheduleOpen}
         onOpenChange={setQuickScheduleOpen}
         onScheduled={fetchJobs}
+      />
+
+      {/* PO Import Dialog */}
+      <PoImportDialog
+        open={poImportOpen}
+        onOpenChange={setPoImportOpen}
+        file={poImportFile}
+        onJobCreated={fetchJobs}
       />
 
       {/* Save as Template Dialog */}
