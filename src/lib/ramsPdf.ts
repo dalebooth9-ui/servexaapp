@@ -131,9 +131,9 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
 }
 
 const RISK_FONT_SIZE = 7;
-const RISK_LINE_H = RISK_FONT_SIZE * 0.352778 + 1.2; // line height in mm
-const RISK_PAD_H = 1.8; // horizontal inner padding
-const RISK_PAD_V = 2.0; // vertical inner padding
+const RISK_LINE_H = RISK_FONT_SIZE * 0.352778 + 1.4; // line height in mm
+const RISK_PAD_H = 2.2; // horizontal inner padding
+const RISK_PAD_V = 2.5; // vertical inner padding
 
 /** Draw a single cell: optional fill, border, wrapped text. Returns split lines. */
 function drawCell(
@@ -398,32 +398,51 @@ export async function generateRamsPdf(
   hr(doc, y, 60);
   y += 8;
 
-  // Key details box
+  // Key details box – rows are laid out sequentially to avoid overlap
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
-  const detailBoxH = 50;
-  doc.rect(ML, y, CONTENT_W, detailBoxH);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
-  labelValue(doc, "Operation / Task:", "Pressure testing Pipework and associated fittings.", ML + 3, y + 7);
-  labelValue(doc, "Contract / Job Name:", contractName, ML + 3, y + 14);
-  labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, y + 21);
-  // Service scope line
+
+  // Build service scope string
   const scopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
     (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
   ].filter(Boolean).join("  |  ");
-  if (scopeParts) {
-    labelValue(doc, "Service Scope:", scopeParts, ML + 3, y + 28);
-  }
-  doc.setFont("helvetica", "normal");
+
+  // Review note (wraps to multiple lines)
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";
   const reviewLines = doc.splitTextToSize(reviewText, CONTENT_W - 6);
-  doc.text(reviewLines, ML + 3, y + 29);
-  labelValue(doc, "Method Statement Written by:", "Martin Whatmough", ML + 3, y + 40);
-  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, y + 47);
+
+  // Calculate total box height from content rows
+  const rowGap = 7;
+  let rows = 4; // Operation, Contract, Date, Review
+  if (scopeParts) rows += 1;
+  rows += 2; // Written by, Approved by
+  const reviewExtra = (reviewLines.length - 1) * (8.5 * 0.352778 + 1.2);
+  const detailBoxH = rows * rowGap + reviewExtra + 6;
+
+  const boxY = y;
+  doc.rect(ML, boxY, CONTENT_W, detailBoxH);
+
+  doc.setFontSize(9);
+  let ry = boxY + 7;
+  labelValue(doc, "Operation / Task:", "Pressure testing Pipework and associated fittings.", ML + 3, ry); ry += rowGap;
+  labelValue(doc, "Contract / Job Name:", contractName, ML + 3, ry); ry += rowGap;
+  labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry); ry += rowGap;
+  if (scopeParts) {
+    labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry); ry += rowGap;
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.text(reviewLines, ML + 3, ry);
+  ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
+  doc.setFontSize(9);
+  labelValue(doc, "Method Statement Written by:", "Martin Whatmough", ML + 3, ry); ry += rowGap;
+  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, ry);
+
   y += detailBoxH + 8;
 
   y = await sectionH1(doc, y, logoImg, "1 Introduction");
