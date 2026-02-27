@@ -5,6 +5,9 @@ import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 interface Props {
   jobId: string;
@@ -62,9 +65,12 @@ function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxW
 
 export default function JobPdfReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [includeCerts, setIncludeCerts] = useState(true);
   const { toast } = useToast();
 
   const generate = async () => {
+    setDialogOpen(false);
     setGenerating(true);
     try {
       const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, siteRes, sheetRespRes, templatesRes] = await Promise.all([
@@ -100,6 +106,19 @@ export default function JobPdfReport({ jobId, job }: Props) {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
         (profiles || []).forEach((p) => { engineerProfileMap[p.user_id] = p.full_name || "Unknown"; });
+      }
+
+      // Fetch engineer certificates if toggle is on
+      let certs: any[] = [];
+      if (includeCerts) {
+        const { data: certData } = await supabase
+          .from("submissions")
+          .select("id, file_name, engineer_id, created_at, file_url")
+          .eq("job_id", jobId)
+          .eq("type", "document")
+          .like("file_name", "[Cert]%")
+          .order("created_at", { ascending: true });
+        certs = (certData || []) as any[];
       }
 
 
@@ -294,6 +313,42 @@ export default function JobPdfReport({ jobId, job }: Props) {
             { text: (p.notes || "").substring(0, 30), x: 0, width: noteW },
           ], rowH, margin, maxWidth);
           y += rowH;
+        });
+        y += 6;
+      }
+
+      // ── ENGINEER CERTIFICATES ──
+      if (certs.length > 0) {
+        checkPage(20);
+        y = sectionTitle(doc, "Engineer Certificates", y, margin, maxWidth);
+
+        const certNameW = maxWidth * 0.55;
+        const certEngW = maxWidth * 0.25;
+        const certDateW = maxWidth * 0.2;
+
+        drawTableRow(doc, y, [
+          { text: "Certificate / Document", x: margin, width: certNameW, bold: true },
+          { text: "Engineer", x: 0, width: certEngW, bold: true },
+          { text: "Attached", x: 0, width: certDateW, bold: true, align: "center" },
+        ], rowH, margin, maxWidth, [235, 240, 248]);
+        y += rowH;
+
+        let certRowIdx = 0;
+        certs.forEach((c: any) => {
+          checkPage(rowH);
+          const withoutPrefix = (c.file_name || "").replace(/^\[Cert\]\s*/, "");
+          const sepIdx = withoutPrefix.lastIndexOf(" — ");
+          const certTitle = sepIdx > -1 ? withoutPrefix.slice(0, sepIdx) : withoutPrefix;
+          const engName = engineerProfileMap[c.engineer_id] || "Unknown";
+          const dateStr = new Date(c.created_at).toLocaleDateString("en-GB");
+          const rowBg: [number, number, number] | undefined = certRowIdx % 2 === 0 ? [248, 249, 252] : undefined;
+          drawTableRow(doc, y, [
+            { text: certTitle.substring(0, 50), x: margin, width: certNameW },
+            { text: engName.substring(0, 30), x: 0, width: certEngW },
+            { text: dateStr, x: 0, width: certDateW, align: "center" },
+          ], rowH, margin, maxWidth, rowBg);
+          y += rowH;
+          certRowIdx++;
         });
         y += 6;
       }
@@ -530,10 +585,39 @@ export default function JobPdfReport({ jobId, job }: Props) {
   };
 
   return (
-    <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
-      {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileDown className="mr-1.5 h-4 w-4" />}
-      {generating ? "Generating..." : "Export PDF Report"}
-    </Button>
+    <>
+      <Button variant="outline" size="sm" onClick={() => setDialogOpen(true)} disabled={generating}>
+        {generating ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <FileDown className="mr-1.5 h-4 w-4" />}
+        {generating ? "Generating..." : "Export PDF Report"}
+      </Button>
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Export PDF Report</DialogTitle>
+          </DialogHeader>
+          <div className="py-2 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="include-certs" className="text-sm font-medium">Include Engineer Certificates</Label>
+                <p className="text-xs text-muted-foreground mt-0.5">Attach the certificates table to the report</p>
+              </div>
+              <Switch
+                id="include-certs"
+                checked={includeCerts}
+                onCheckedChange={setIncludeCerts}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button onClick={generate} disabled={generating}>
+              {generating ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Generating...</> : <><FileDown className="mr-1.5 h-4 w-4" /> Generate PDF</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
