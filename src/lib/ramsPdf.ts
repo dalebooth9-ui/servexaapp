@@ -136,12 +136,12 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: 
     const colIdx = ratingColIndex >= 0 ? ratingColIndex : cols.length - 1;
     const ratingRaw = cols[colIdx];
     const rating = parseInt(ratingRaw, 10);
-    if (!isNaN(rating)) {
+      if (!isNaN(rating)) {
       let fillR = 255, fillG = 255, fillB = 255;
-      if (rating >= 15) { fillR = 255; fillG = 180; fillB = 180; }       // High – red tint
-      else if (rating >= 8) { fillR = 255; fillG = 220; fillB = 160; }   // Medium – amber tint
-      else if (rating >= 4) { fillR = 255; fillG = 245; fillB = 180; }   // Low-medium – yellow tint
-      else { fillR = 210; fillG = 240; fillB = 210; }                     // Low – green tint
+      if (rating >= 15) { fillR = 255; fillG = 80; fillB = 80; }         // High – RED
+      else if (rating >= 8) { fillR = 255; fillG = 165; fillB = 0; }     // Medium – AMBER
+      else if (rating >= 4) { fillR = 255; fillG = 230; fillB = 0; }     // Low-medium – YELLOW
+      else { fillR = 0; fillG = 180; fillB = 0; }                        // Low – GREEN
       doc.setFillColor(fillR, fillG, fillB);
       doc.rect(ML, y, widths.reduce((a, b) => a + b, 0), rowH, "F");
     }
@@ -152,8 +152,9 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: 
     doc.setTextColor(255, 255, 255);
   }
 
+  doc.setTextColor(0, 0, 0);
   for (let i = 0; i < cols.length; i++) {
-    doc.setDrawColor(150);
+    doc.setDrawColor(80);
     doc.rect(x, y, widths[i], rowH);
     doc.setFont("helvetica", bold ? "bold" : "normal");
     const lines = doc.splitTextToSize(cols[i], widths[i] - 2);
