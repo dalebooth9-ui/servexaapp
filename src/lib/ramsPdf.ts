@@ -168,6 +168,43 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: 
   return y + rowH;
 }
 
+/** Render a colour key legend for the risk rating rows */
+function riskColorLegend(doc: jsPDF, y: number): number {
+  const legendItems: { label: string; r: number; g: number; b: number }[] = [
+    { label: "High Risk (≥15)",        r: 255, g: 80,  b: 80  },
+    { label: "Medium Risk (8–14)",     r: 255, g: 165, b: 0   },
+    { label: "Low-Medium Risk (4–7)",  r: 255, g: 230, b: 0   },
+    { label: "Low Risk (<4)",          r: 0,   g: 180, b: 0   },
+  ];
+  const boxW = 8;
+  const boxH = 4;
+  const gap = 2;
+  const itemW = 44;
+  const totalW = legendItems.length * itemW;
+  let x = (PAGE_W - totalW) / 2;
+
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  doc.setTextColor(60, 60, 60);
+  doc.text("Risk Rating Key:", x - 2, y + 3);
+  x += 22;
+
+  for (const item of legendItems) {
+    doc.setFillColor(item.r, item.g, item.b);
+    doc.setDrawColor(80);
+    doc.setLineWidth(0.2);
+    doc.rect(x, y, boxW, boxH, "FD");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(item.label, x + boxW + gap, y + 3);
+    x += itemW;
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return y + boxH + 2;
+}
+
 /** Signature line: name, sig image or blank line, date */
 function signatureRow(
   doc: jsPDF,
@@ -561,6 +598,7 @@ export async function generateRamsPdf(
     "Whilst lone working is not envisaged to take place, if this should occur however prior to doing so, an individual activity related risk assessment must be carried out."
   ], rC, y, 28, false, 3);
 
+  riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 6, 10);
 
   /* ───────────────────────────────────────────── PAGE 7 – Risk Table 2 ── */
@@ -609,6 +647,7 @@ export async function generateRamsPdf(
     "Good housekeeping helps keep safe sites. Never walk on by if you see materials or tools in your walkway, if it is safe to move do so."
   ], rC, y, 22, false, 3);
 
+  riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 7, 10);
 
   /* ───────────────────────────────────────────── PAGE 8 – Risk Table 3 ── */
@@ -657,6 +696,7 @@ export async function generateRamsPdf(
     ""
   ], rC, y, 26, false, 3);
 
+  riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 8, 10);
 
   /* ───────────────────────────────────────────── PAGE 9 – Risk Table 4 (Human Factors + Manual Handling) ── */
@@ -736,6 +776,7 @@ export async function generateRamsPdf(
   y = para(doc, "1=Highly Unlikely, 2=Unlikely, 3=Possible, 4=Probable, 5=Common, 6=Regular, 7=Continuous", ML, y, CONTENT_W, 8); y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Severity Ratings:", ML, y); y += 4;
   y = para(doc, "1=Trivial, 2=Minor, 3=Under '7-day' Injury, 4=Over '7-day' Reportable Injury, 5=Major Injury, 6=Fatality (1 person), 7=Multiple Fatality (2+ persons)", ML, y, CONTENT_W, 8);
+  riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 9, 10);
 
   /* ───────────────────────────────────────────── PAGE 10 – Sign Off ── */
