@@ -67,6 +67,9 @@ export default function JobPdfReport({ jobId, job }: Props) {
   const [generating, setGenerating] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [includeCerts, setIncludeCerts] = useState(true);
+  const [includePhotos, setIncludePhotos] = useState(true);
+  const [includeFieldReports, setIncludeFieldReports] = useState(true);
+  const [includeJobSheets, setIncludeJobSheets] = useState(true);
   const { toast } = useToast();
 
   const generate = async () => {
@@ -122,8 +125,8 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
 
-      // Pre-load photos
-      const photos = submissions.filter((s: any) => s.type === "photo" && s.file_url);
+      // Pre-load photos (only if toggle is on)
+      const photos = includePhotos ? submissions.filter((s: any) => s.type === "photo" && s.file_url) : [];
       const photoImages: Record<string, string> = {};
       await Promise.all(photos.map(async (p: any) => {
         try {
@@ -354,7 +357,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
       // ── JOB SHEET RESPONSES ──
-      if (sheetResponses.length > 0) {
+      if (includeJobSheets && sheetResponses.length > 0) {
         for (const resp of sheetResponses) {
           const tpl = templateMap[resp.template_id];
           if (!tpl) continue;
@@ -427,7 +430,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
       // ── FIELD REPORTS ──
-      if (reports.length > 0) {
+      if (includeFieldReports && reports.length > 0) {
         checkPage(20);
         y = sectionTitle(doc, "Field Reports", y, margin, maxWidth);
         reports.forEach((r: any) => {
@@ -597,17 +600,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
             <DialogTitle>Export PDF Report</DialogTitle>
           </DialogHeader>
           <div className="py-2 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label htmlFor="include-certs" className="text-sm font-medium">Include Engineer Certificates</Label>
-                <p className="text-xs text-muted-foreground mt-0.5">Attach the certificates table to the report</p>
+            {[
+              { id: "include-photos", label: "Include Photos", desc: "Embed submitted photos in the report", checked: includePhotos, onChange: setIncludePhotos },
+              { id: "include-field-reports", label: "Include Field Reports", desc: "Append field report summaries", checked: includeFieldReports, onChange: setIncludeFieldReports },
+              { id: "include-job-sheets", label: "Include Job Sheet Responses", desc: "Include submitted job sheet form data", checked: includeJobSheets, onChange: setIncludeJobSheets },
+              { id: "include-certs", label: "Include Engineer Certificates", desc: "Attach the certificates table to the report", checked: includeCerts, onChange: setIncludeCerts },
+            ].map(({ id, label, desc, checked, onChange }) => (
+              <div key={id} className="flex items-center justify-between gap-4">
+                <div>
+                  <Label htmlFor={id} className="text-sm font-medium">{label}</Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">{desc}</p>
+                </div>
+                <Switch id={id} checked={checked} onCheckedChange={onChange} />
               </div>
-              <Switch
-                id="include-certs"
-                checked={includeCerts}
-                onCheckedChange={setIncludeCerts}
-              />
-            </div>
+            ))}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
