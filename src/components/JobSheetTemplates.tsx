@@ -72,6 +72,8 @@ type JobInfo = {
   status?: string | null;
   visual_qty?: number;
   pressure_test_qty?: number;
+  other_qty?: number;
+  other_service_type?: string | null;
   customer_email?: string | null;
   customer_phone?: string | null;
   engineers?: string[];
@@ -98,7 +100,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)").eq("id", jobId).single(),
+      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -136,6 +138,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         priority: jd.priority,
         visual_qty: jd.visual_qty,
         pressure_test_qty: jd.pressure_test_qty,
+        other_qty: jd.other_qty ?? 0,
+        other_service_type: jd.other_service_type ?? null,
         engineers: engineerNames,
         site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone, contact_email: jd.sites.contact_email } : null,
       });
