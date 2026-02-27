@@ -126,17 +126,41 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   return y + 21;
 }
 
-/** Risk table row */
+/** Risk table row – with optional colour coding based on last column rating value */
 function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: number, bold = false): number {
   let x = ML;
   doc.setFontSize(7.5);
+
+  // Colour code by rating (last column) if not header row
+  if (!bold) {
+    const ratingRaw = cols[cols.length - 1];
+    const rating = parseInt(ratingRaw, 10);
+    if (!isNaN(rating)) {
+      let fillR = 255, fillG = 255, fillB = 255;
+      if (rating >= 15) { fillR = 255; fillG = 180; fillB = 180; }       // High – red tint
+      else if (rating >= 8) { fillR = 255; fillG = 220; fillB = 160; }   // Medium – amber tint
+      else if (rating >= 4) { fillR = 255; fillG = 245; fillB = 180; }   // Low-medium – yellow tint
+      else { fillR = 210; fillG = 240; fillB = 210; }                     // Low – green tint
+      doc.setFillColor(fillR, fillG, fillB);
+      doc.rect(ML, y, widths.reduce((a, b) => a + b, 0), rowH, "F");
+    }
+  } else {
+    // Header row – blue-grey background
+    doc.setFillColor(33, 61, 99);
+    doc.rect(ML, y, widths.reduce((a, b) => a + b, 0), rowH, "F");
+    doc.setTextColor(255, 255, 255);
+  }
+
   for (let i = 0; i < cols.length; i++) {
+    doc.setDrawColor(150);
     doc.rect(x, y, widths[i], rowH);
     doc.setFont("helvetica", bold ? "bold" : "normal");
     const lines = doc.splitTextToSize(cols[i], widths[i] - 2);
     doc.text(lines, x + 1, y + 3);
     x += widths[i];
   }
+
+  if (bold) doc.setTextColor(0, 0, 0);
   return y + rowH;
 }
 
@@ -476,8 +500,12 @@ export async function generateRamsPdf(
   /* ───────────────────────────────────────────── PAGE 6 – Risk Table 1 ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
+  y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  doc.text("VIVA FIRE – RISK ASSESSMENT FOR PRESSURE TESTING PIPEWORK AND ASSOCIATED FITTINGS", ML, y);
+  const riskTitle = "VIVA FIRE – RISK ASSESSMENT FOR PRESSURE TESTING PIPEWORK AND ASSOCIATED FITTINGS";
+  const riskTitleLines6 = doc.splitTextToSize(riskTitle, CONTENT_W);
+  doc.text(riskTitleLines6, ML, y);
+  y += riskTitleLines6.length * 4.5;
   y += 5;
   y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
   labelValue(doc, "Operation/Task Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 60); y += 5;
@@ -500,13 +528,11 @@ export async function generateRamsPdf(
   /* ───────────────────────────────────────────── PAGE 7 – Risk Table 2 ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
+  y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  doc.text("VIVA FIRE – RISK ASSESSMENT FOR PRESSURE TESTING PIPEWORK AND ASSOCIATED FITTINGS", ML, y);
-  y += 5;
-  y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
-  labelValue(doc, "Operation/Task Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 60); y += 5;
-  labelValue(doc, "Employees at Risk:", "DEVON DUNKERLEY, CALVIN WHITTAKER, MARK ROBERTS, WAYNE SMITH, JAMES OGG", ML, y, 36); y += 5;
-  labelValue(doc, "Other nearby contractors:", "VIVA Fire Protection Ltd", ML, y, 46); y += 4;
+  const riskTitleLines7 = doc.splitTextToSize(riskTitle, CONTENT_W);
+  doc.text(riskTitleLines7, ML, y);
+  y += riskTitleLines7.length * 4.5;
   labelValue(doc, "Assessor Name & Date:", "Dale Booth", ML, y, 40); y += 4;
   labelValue(doc, "Review Date:", "(12 MONTHLY)", ML, y, 26); y += 4;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 52); y += 6;
@@ -524,9 +550,11 @@ export async function generateRamsPdf(
   /* ───────────────────────────────────────────── PAGE 8 – Risk Table 3 ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
+  y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  doc.text("VIVA FIRE – RISK ASSESSMENT FOR PRESSURE TESTING PIPEWORK AND ASSOCIATED FITTINGS", ML, y);
-  y += 5;
+  const riskTitleLines8 = doc.splitTextToSize(riskTitle, CONTENT_W);
+  doc.text(riskTitleLines8, ML, y);
+  y += riskTitleLines8.length * 4.5;
   y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
   labelValue(doc, "Operation/Task Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 60); y += 5;
   labelValue(doc, "Employees at Risk:", "DEVON DUNKERLEY, CALVIN WHITTAKER, MARK ROBERTS, WAYNE SMITH, JAMES OGG", ML, y, 36); y += 5;
@@ -548,9 +576,11 @@ export async function generateRamsPdf(
   /* ───────────────────────────────────────────── PAGE 9 – Assessment Details ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
+  y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  doc.text("VIVA FIRE – RISK ASSESSMENT FOR PRESSURE TESTING PIPEWORK AND ASSOCIATED FITTINGS", ML, y);
-  y += 5;
+  const riskTitleLines9 = doc.splitTextToSize(riskTitle, CONTENT_W);
+  doc.text(riskTitleLines9, ML, y);
+  y += riskTitleLines9.length * 4.5;
   y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
   labelValue(doc, "Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 28); y += 5;
   labelValue(doc, "Employees at Risk:", "DEVON DUNKERLEY, CALVIN WHITTAKER, MARK ROBERTS, WAYNE SMITH, JAMES OGG", ML, y, 36); y += 5;
