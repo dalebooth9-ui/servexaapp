@@ -96,7 +96,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const fetchData = async () => {
     const [tplRes, respRes, jobRes] = await Promise.all([
-      supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
+      supabase.from("job_sheet_templates").select("*").neq("category", "rams").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
       supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)").eq("id", jobId).single(),
     ]);
