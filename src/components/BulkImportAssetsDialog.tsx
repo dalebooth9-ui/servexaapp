@@ -151,11 +151,30 @@ export default function BulkImportAssetsDialog({ open, onOpenChange, onImported 
       try { all.push(...await handleFile(file)); }
       catch (err: any) { errors.push(`${file.name}: ${err.message}`); }
     }
-    if (all.length === 0 && errors.length > 0) setError(errors.join("; "));
-    else if (all.length === 0) setError("No valid asset rows found. Ensure your file has a 'Name' column.");
-    else { setParsed(all); if (errors.length) setError(errors.join("; ")); }
+
+    if (all.length === 0 && errors.length > 0) { setError(errors.join("; ")); setLoading(false); return; }
+    if (all.length === 0) { setError("No valid asset rows found. Ensure your file has a 'Name' column."); setLoading(false); return; }
+
+    // Fetch existing assets for duplicate detection (by name, case-insensitive)
+    const { data: existing } = await supabase.from("assets").select("name");
+    const existingNames = new Set((existing || []).map((a: any) => a.name.trim().toLowerCase()));
+
+    const seenInBatch = new Set<string>();
+    const deduped = all.filter((a) => {
+      const key = a.name.trim().toLowerCase();
+      if (!key || existingNames.has(key) || seenInBatch.has(key)) return false;
+      seenInBatch.add(key);
+      return true;
+    });
+
+    const skipped = all.length - deduped.length;
+    if (skipped > 0) toast({ title: `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped`, description: `${skipped} asset${skipped > 1 ? "s" : ""} already exist and won't be re-imported.` });
+    if (deduped.length === 0) { setError("All extracted assets already exist in the database."); setLoading(false); return; }
+
+    setParsed(deduped);
+    if (errors.length) setError(errors.join("; "));
     setLoading(false);
-  }, [handleFile]);
+  }, [handleFile, toast]);
 
   const updateRow = (idx: number, field: keyof ParsedAsset, value: string) =>
     setParsed((prev) => prev.map((a, i) => i === idx ? { ...a, [field]: value } : a));
