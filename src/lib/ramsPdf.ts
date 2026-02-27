@@ -154,34 +154,35 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH:
     doc.rect(ML, y, totalW, rowH, "F");
     doc.setTextColor(255, 255, 255);
   } else {
-    // Determine row colour from the Pre-Rating column
-    const colIdx = ratingColIndex >= 0 ? ratingColIndex : cols.length - 1;
-    const ratingRaw = cols[colIdx] || "";
-    const nums = ratingRaw.match(/\d+/g);
-    // Use the largest number found (the product, e.g. 25 in "4 5 25" or "4*5**\n=25")
-    let rating = NaN;
-    if (nums) {
-      const parsed = nums.map(n => parseInt(n, 10));
-      rating = Math.max(...parsed);
-    }
-
-    if (!isNaN(rating)) {
-      let fillR = 255, fillG = 255, fillB = 255;
-      if (rating >= 15)      { fillR = 255; fillG = 80;  fillB = 80;  }  // High – RED
-      else if (rating >= 8)  { fillR = 255; fillG = 165; fillB = 0;   }  // Medium – AMBER
-      else if (rating >= 4)  { fillR = 255; fillG = 230; fillB = 0;   }  // Low-medium – YELLOW
-      else                   { fillR = 0;   fillG = 180; fillB = 0;   }  // Low – GREEN
-      doc.setFillColor(fillR, fillG, fillB);
-      doc.rect(ML, y, totalW, rowH, "F");
-    }
     doc.setTextColor(0, 0, 0);
   }
 
   // Draw cell borders and text
+  // Rating columns to colour: Pre-Rating = index 3, Post-Rating = index 5
+  const ratingCols = new Set([3, 5]);
+
   let x = ML;
   for (let i = 0; i < cols.length; i++) {
     doc.setDrawColor(80);
     doc.setLineWidth(0.2);
+
+    // Colour only rating columns (not header)
+    if (!bold && ratingCols.has(i)) {
+      const ratingRaw = cols[i] || "";
+      const nums = ratingRaw.match(/\d+/g);
+      let rating = NaN;
+      if (nums) rating = Math.max(...nums.map(n => parseInt(n, 10)));
+      if (!isNaN(rating)) {
+        let fillR = 255, fillG = 255, fillB = 255;
+        if (rating >= 15)      { fillR = 255; fillG = 80;  fillB = 80;  }
+        else if (rating >= 8)  { fillR = 255; fillG = 165; fillB = 0;   }
+        else if (rating >= 4)  { fillR = 255; fillG = 230; fillB = 0;   }
+        else                   { fillR = 0;   fillG = 180; fillB = 0;   }
+        doc.setFillColor(fillR, fillG, fillB);
+        doc.rect(x, y, widths[i], rowH, "F");
+      }
+    }
+
     doc.rect(x, y, widths[i], rowH);
     doc.setFont("helvetica", bold ? "bold" : "normal");
     doc.setFontSize(FONT_SIZE);
