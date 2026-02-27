@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { Progress } from "@/components/ui/progress";
@@ -53,6 +53,21 @@ type CustomerDocument = {
   created_at: string;
 };
 
+type LinkedSite = {
+  id: string;
+  name: string;
+  site_type: string;
+  address: string | null;
+  postcode: string | null;
+};
+
+const SITE_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+  region: { label: "Region", icon: Globe, color: "text-blue-500" },
+  site: { label: "Site", icon: MapPin, color: "text-green-500" },
+  building: { label: "Building", icon: Building, color: "text-amber-500" },
+  zone: { label: "Zone", icon: Layers, color: "text-purple-500" },
+};
+
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -73,6 +88,7 @@ export default function CustomerDetail() {
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [docSortBy, setDocSortBy] = useState<"date" | "name">("date");
   const [docSortAsc, setDocSortAsc] = useState(false);
+  const [linkedSites, setLinkedSites] = useState<LinkedSite[]>([]);
 
   // Job creation from dropped files
   const [jobDropDragging, setJobDropDragging] = useState(false);
@@ -143,6 +159,17 @@ export default function CustomerDetail() {
     setDocuments((data as CustomerDocument[]) || []);
   }, [id]);
 
+  const fetchLinkedSites = useCallback(async () => {
+    if (!id) return;
+    const { data } = await supabase
+      .from("customer_sites" as any)
+      .select("site_id, sites(id, name, site_type, address, postcode)")
+      .eq("customer_id", id)
+      .order("created_at", { ascending: true });
+    const sites = ((data as any[]) || []).map((r: any) => r.sites).filter(Boolean) as LinkedSite[];
+    setLinkedSites(sites);
+  }, [id]);
+
   const fetchJobs = useCallback(async (customerName: string) => {
     const { data } = await supabase
       .from("jobs")
@@ -166,10 +193,11 @@ export default function CustomerDetail() {
         await fetchJobs(cust.name);
       }
       await fetchDocuments();
+      await fetchLinkedSites();
       setLoading(false);
     };
     fetchData();
-  }, [id, fetchJobs, fetchDocuments]);
+  }, [id, fetchJobs, fetchDocuments, fetchLinkedSites]);
 
   const handleFileUpload = async (files: FileList) => {
     if (!user || !id) return;
@@ -758,6 +786,51 @@ export default function CustomerDetail() {
             )}
           </CardContent>
         </Card>
+      </div>
+
+      {/* Linked Sites Section */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Linked Sites ({linkedSites.length})</h2>
+          <Button variant="outline" size="sm" asChild>
+            <Link to="/sites">
+              <ExternalLink className="mr-2 h-3.5 w-3.5" />
+              Manage in Sites
+            </Link>
+          </Button>
+        </div>
+        {linkedSites.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground text-sm">
+              No sites linked to this customer yet. Go to <Link to="/sites" className="text-primary underline">Sites → By Customer</Link> to link sites.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {linkedSites.map((site) => {
+              const cfg = SITE_TYPE_CONFIG[site.site_type] || SITE_TYPE_CONFIG.site;
+              const Icon = cfg.icon;
+              return (
+                <Card key={site.id} className="hover:border-primary/50 transition-colors">
+                  <CardContent className="p-3 flex items-start gap-3">
+                    <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
+                      <Icon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{site.name}</p>
+                      {(site.address || site.postcode) && (
+                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                          {[site.address, site.postcode].filter(Boolean).join(", ")}
+                        </p>
+                      )}
+                      <Badge variant="secondary" className="text-[10px] capitalize mt-1">{cfg.label}</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Jobs Section */}
