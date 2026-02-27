@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Printer, Loader2 } from "lucide-react";
+import { Printer, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -48,6 +48,7 @@ interface Props {
   submittedAt?: string | null;
   onPdfGenerated?: (pdfBase64: string, fileName: string) => void;
   trigger?: React.ReactNode;
+  mode?: "preview" | "download";
 }
 
 /**
@@ -204,11 +205,11 @@ export async function generateJobSheetPdf(
   return { base64, fileName };
 }
 
-export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger }: Props) {
+export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview" }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
 
-  const generate = async () => {
+  const generate = async (forceMode?: "preview" | "download") => {
     setGenerating(true);
     try {
       const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt);
@@ -217,15 +218,24 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         onPdfGenerated(base64, fileName);
         toast({ title: "PDF generated", description: `${fileName} attached.` });
       } else {
-        // Open in new tab for preview
         const byteCharacters = atob(base64);
         const byteArray = new Uint8Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
         const blob = new Blob([byteArray], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
-        window.open(url, "_blank");
-        setTimeout(() => URL.revokeObjectURL(url), 10000);
-        toast({ title: "PDF opened", description: fileName });
+        const effectiveMode = forceMode ?? mode;
+        if (effectiveMode === "download") {
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = fileName;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+          toast({ title: "PDF downloaded", description: fileName });
+        } else {
+          window.open(url, "_blank");
+          setTimeout(() => URL.revokeObjectURL(url), 10000);
+          toast({ title: "PDF opened", description: fileName });
+        }
       }
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
@@ -235,13 +245,17 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
   };
 
   if (trigger) {
-    return <span onClick={generate} className="cursor-pointer">{trigger}</span>;
+    return <span onClick={() => generate()} className="cursor-pointer">{generating ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : trigger}</span>;
   }
 
   return (
-    <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
-      {generating ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Printer className="mr-1.5 h-3.5 w-3.5" />}
-      {generating ? "Generating..." : "Print"}
-    </Button>
+    <div className="flex gap-1">
+      <Button variant="outline" size="sm" onClick={() => generate("preview")} disabled={generating} title="Preview PDF">
+        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+      </Button>
+      <Button variant="outline" size="sm" onClick={() => generate("download")} disabled={generating} title="Download PDF">
+        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      </Button>
+    </div>
   );
 }
