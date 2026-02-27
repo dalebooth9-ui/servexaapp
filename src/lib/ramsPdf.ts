@@ -508,105 +508,211 @@ export async function generateRamsPdf(
   /* ───────────────────────────────────────────── PAGE 6 – Risk Table 1 ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
-  y += 3;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  const riskTitle = "VIVA FIRE – RISK ASSESSMENT FOR PRESSURE TESTING PIPEWORK AND ASSOCIATED FITTINGS";
-  const riskTitleLines6 = doc.splitTextToSize(riskTitle, CONTENT_W);
-  doc.text(riskTitleLines6, ML, y);
-  y += riskTitleLines6.length * 4.5;
-  y += 5;
-  y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
-  labelValue(doc, "Operation/Task Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 60); y += 5;
-  labelValue(doc, "Employees at Risk:", "DEVON DUNKERLEY, CALVIN WHITTAKER, MARK ROBERTS, WAYNE SMITH, JAMES OGG", ML, y, 36); y += 5;
-  labelValue(doc, "Other nearby contractors:", "VIVA Fire Protection Ltd Wet and Dry Riser Specialist", ML, y, 46); y += 5;
-  labelValue(doc, "Assessor Name & Date:", "Dale Booth", ML, y, 40); y += 4;
-  labelValue(doc, "Review Date:", "(12 MONTHLY)", ML, y, 26); y += 4;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 52); y += 6;
+  y += 2;
 
-  const rCols1 = [50, 50, 70, 12];
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Rating"], rCols1, y, 7, true);
-  y = riskRow(doc, ["Pressure pipework testing", "Burst pipework", "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.", "10"], rCols1, y, 22);
-  y = riskRow(doc, ["Main BCW from riser to clusters", "High pressure water 16bar", "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.", "10"], rCols1, y, 22);
-  y = riskRow(doc, ["All tasks", "Lone Working", "Potential to suffer injury and be isolated/left unaided with injuries", "10"], rCols1, y, 10);
-  y = riskRow(doc, ["All tasks", "Incompetence/Wrong use of tool/defective tool", "Eye Injury/Lacerations to hands/Various", "4"], rCols1, y, 10);
-  y += 3;
-  y = para(doc, "If tools have to be withdrawn, they must be labelled and quarantined.", ML, y, CONTENT_W);
+  const riskTitle = "Risk Assessment for Pressure testing Pipework and associated fittings";
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
+  doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
+
+  // Info block
+  const infoColW = CONTENT_W / 2;
+  doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
+  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
+  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+
+  // 7-column table: Activity | Hazard | Risks | Pre-Rating | Control Measures | Post-Rating | Comments
+  // Column widths summing to CONTENT_W=182
+  const rC = [28, 28, 40, 12, 46, 12, 16];
+  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true);
+
+  y = riskRow(doc, [
+    "Pressure pipework testing",
+    "Burst pipework",
+    "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.",
+    "1*2**\n1×2",
+    "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
+    "2 5 10",
+    ""
+  ], rC, y, 28);
+
+  y = riskRow(doc, [
+    "Main BCW from riser to clusters 16bar",
+    "Operatives being injured by flying materials and fixings",
+    "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.",
+    "4 5 25",
+    "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
+    "2 5 10",
+    ""
+  ], rC, y, 28);
+
+  y = riskRow(doc, [
+    "All tasks",
+    "Lone Working",
+    "Potential to suffer injury and be isolated/left unaided with injuries",
+    "5 6 30",
+    "Employees to work in pairs where possible. There will be no lone working for work at higher levels. Given the size of the working site, there may be occasions when an operative is left alone when another operative goes for material/tools etc. If this occurs the operative left working will be told not to carry out any high risk activity until his work partner returns.",
+    "2 5 10",
+    "Whilst lone working is not envisaged to take place, if this should occur however prior to doing so, an individual activity related risk assessment must be carried out."
+  ], rC, y, 28);
+
   pageFooter(doc, 6, 10);
 
   /* ───────────────────────────────────────────── PAGE 7 – Risk Table 2 ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
-  y += 3;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  const riskTitleLines7 = doc.splitTextToSize(riskTitle, CONTENT_W);
-  doc.text(riskTitleLines7, ML, y);
-  y += riskTitleLines7.length * 4.5;
-  labelValue(doc, "Assessor Name & Date:", "Dale Booth", ML, y, 40); y += 4;
-  labelValue(doc, "Review Date:", "(12 MONTHLY)", ML, y, 26); y += 4;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 52); y += 6;
+  y += 2;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
+  doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
+  doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
+  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
+  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  const rCols2 = [40, 40, 55, 14, 17, 16];
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Rating", "Post Ctrl", "Comments"], rCols2, y, 7, true);
-  y = riskRow(doc, ["All tasks", "Noise from running portable fire engine.", "Damage to hearing, deafness, tinnitus.", "2", "***", "Lower 80dB(A), Upper 85dB(A), Limit 87dB(A)."], rCols2, y, 18, false, 3);
-  y = riskRow(doc, ["All tasks", "Incompetence/poor housekeeping", "Various including slips/trips/falls", "5", "", "Good housekeeping keeps safe sites. Never walk on by if you see materials in walkway."], rCols2, y, 18, false, 3);
-  y = riskRow(doc, ["All tasks", "Handling materials/tools with sharp edges", "Cuts/lacerations to hands and body and potential back injuries", "14", "", "Always read method statement and never deviate from safe system of work."], rCols2, y, 18, false, 3);
-  y = riskRow(doc, ["All tasks", "Moving plant/traffic/pedestrians", "Colliding with tower", "14", "", "All operatives to keep up to date with site changes regarding pedestrian routes."], rCols2, y, 18, false, 3);
-  y = riskRow(doc, ["All tasks", "Working adjacent other trades", "Contact with/being struck by electrical operations, manual handling, vehicle movements, working at height etc", "10", "", "Particular attention must be paid to noise, dust, delivery schedules, common PPE standards etc."], rCols2, y, 18, false, 3);
-  y = riskRow(doc, ["Human Factors", "Inappropriate behaviour", "Activity exceeds capability", "4", "", "All working personnel to embrace change and are encouraged to re-assess."], rCols2, y, 14, false, 3);
+  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true);
+
+  y = riskRow(doc, [
+    "All tasks",
+    "Incompetence/Wrong use of tool/defective tool",
+    "Eye Injury/Lacerations to hands/Various",
+    "1*2**\n1×2",
+    "Tools must be visually inspected prior to use, tools must be fit for the purpose, tools must be entered on the PUWER register.",
+    "1*2**\n1×2",
+    "Correct PPE must be worn: Safety goggles and Gloves. Power tools must be PAT tested, and used in conjunction with a HAV assessment."
+  ], rC, y, 22);
+
+  y = riskRow(doc, [
+    "Noise emitted from work activities, such as running the portable fire engine.",
+    "Noise",
+    "Damage to hearing, deafness, tinnitus.",
+    "5 4 20",
+    "Noise shall be reduced to lowest level possible. All operatives must wear hearing defenders for operating the engine and if any associated contractors are working nearby that are generating any significant noise.",
+    "2 3 6",
+    "Lower exposure action value is 80dB(A) LEPd). Upper 85dB(A) LEPd). Limit 87dB(A) LEPd. Any significant noises must be reported to principal contractor immediately."
+  ], rC, y, 22);
+
+  y = riskRow(doc, [
+    "All tasks",
+    "Incompetence/poor housekeeping",
+    "Various including slips/trips/falls",
+    "4 6 24",
+    "All site personnel to be competent to perform the tasks they are asked to do. Compliance with Site/Managers' Rules. Skills/competencies as per Company Health & Safety Policy.",
+    "1 5 5",
+    "Good housekeeping helps keep safe sites. Never walk on by if you see materials or tools in your walkway, if it is safe to move do so."
+  ], rC, y, 22);
+
   pageFooter(doc, 7, 10);
 
   /* ───────────────────────────────────────────── PAGE 8 – Risk Table 3 ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
-  y += 3;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  const riskTitleLines8 = doc.splitTextToSize(riskTitle, CONTENT_W);
-  doc.text(riskTitleLines8, ML, y);
-  y += riskTitleLines8.length * 4.5;
-  y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
-  labelValue(doc, "Operation/Task Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 60); y += 5;
-  labelValue(doc, "Employees at Risk:", "DEVON DUNKERLEY, CALVIN WHITTAKER, MARK ROBERTS, WAYNE SMITH, JAMES OGG", ML, y, 36); y += 5;
-  labelValue(doc, "Assessor Name & Date:", "Dale Booth", ML, y, 40); y += 4;
-  labelValue(doc, "Review Date:", "(12 MONTHLY)", ML, y, 26); y += 4;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 52); y += 6;
+  y += 2;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
+  doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
+  doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
+  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
+  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  const rCols3 = [50, 55, 55, 22];
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Risk Ratings"], rCols3, y, 7, true);
-  y = riskRow(doc, ["Manual handling / Ergonomic operations", "Moving, pulling, pushing of tools, equipment and materials", "Musculoskeletal disorders and other injuries", "5"], rCols3, y, 16);
-  y += 3;
-  y = para(doc, "Additional information can be found on Handling Assessment Charts (MAC) on the HSE website www.hse.gov.uk/msd.", ML, y, CONTENT_W);
-  y += 3;
-  y = para(doc,
-    "Lack of competency of personnel. Inappropriate equipment for personnel, over familiarisation and complacency with working methods and tasks. Young workers being overconfident and lacking the correct perception of hazard and risk, along with older more experienced workers not embracing change regarding safe systems/methodology of work.",
-    ML, y, CONTENT_W);
+  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true);
+
+  y = riskRow(doc, [
+    "All tasks",
+    "Handling materials/tools with sharp edges",
+    "Cuts/lacerations to hands and body and potential back injuries",
+    "5*7**\n1×2",
+    "All operatives to wear the necessary PPE whilst handling materials or tools with sharp edges. Always read method statement and never deviate from safe system of work. Supervisor to inspect work areas to ensure safe working environment. Attention should also be paid to other contractors leaving sharp edges or materials inadequately protected. Deploy good manual handling.",
+    "2*7**\n1×2",
+    ""
+  ], rC, y, 26);
+
+  y = riskRow(doc, [
+    "All tasks",
+    "Moving plant/traffic/pedestrians",
+    "Collision with plant/vehicles. Struck by moving materials.",
+    "5*7**\n1×2",
+    "Traffic/pedestrian routes to be clearly defined and followed. Short cuts must never be taken. Vehicles/plant should all have Banksmen on site. Never load/unload vehicles unless trained to do so. Operatives to have had full site induction. All site rules to be followed at all times.",
+    "2*7**\n1×2",
+    "All operatives to keep up to date with site changes regarding pedestrian routes."
+  ], rC, y, 26);
+
+  y = riskRow(doc, [
+    "All tasks",
+    "Working adjacent other trades",
+    "Contact with/being struck by electrical operations, manual handling, vehicle movements, working at height etc.",
+    "5*7**\n1×2",
+    "Close liaison with other contractors. Daily project briefs between contractors. Particular attention must be paid to noise, dust, delivery schedules, common PPE standards. Co-ordination of activities to ensure the safety of all persons. Control of jointly managed access routes. Adherence to Site Rules. Site Inductions.",
+    "2*5**\n1×2",
+    ""
+  ], rC, y, 26);
+
   pageFooter(doc, 8, 10);
 
-  /* ───────────────────────────────────────────── PAGE 9 – Assessment Details ── */
+  /* ───────────────────────────────────────────── PAGE 9 – Risk Table 4 (Human Factors + Manual Handling) ── */
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
-  y += 3;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9);
-  const riskTitleLines9 = doc.splitTextToSize(riskTitle, CONTENT_W);
-  doc.text(riskTitleLines9, ML, y);
-  y += riskTitleLines9.length * 4.5;
-  y = para(doc, "DALE BOOTH, MARTIN WHATMOUGH, DANIEL HALL, THOMAS VERNON", ML, y, CONTENT_W, 8); y += 2;
-  labelValue(doc, "Location/Area:", "Dry Riser Pressure Testing / Stair Cores", ML, y, 28); y += 5;
-  labelValue(doc, "Employees at Risk:", "DEVON DUNKERLEY, CALVIN WHITTAKER, MARK ROBERTS, WAYNE SMITH, JAMES OGG", ML, y, 36); y += 5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 22); y += 4;
-  labelValue(doc, "Review Date:", "(12 MONTHLY)   Key Responsible Personnel: Dale Booth", ML, y, 26); y += 6;
+  y += 2;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
+  doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
+  doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
+  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
+  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
+  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true);
+
+  y = riskRow(doc, [
+    "Human Factors: Capabilities and Behavioural Safety",
+    "Inappropriate behaviour",
+    "Activity may exceed capability of personnel.",
+    "1*2**\n1×2",
+    "Site induction for management team to reinforce safe site behaviour/conduct. Competent Supervisor (SSSTS) to be highly visible, observing behaviour and activities undertaken by personnel and identify and control higher risk operations as appropriate to individual physical and psychological capability.",
+    "2 2 4",
+    "All working personnel to embrace change and are encouraged to re-evaluate working practices as per IOSH behavioural safety training."
+  ], rC, y, 24);
+
+  y = riskRow(doc, [
+    "Activity exceeds capability of personnel",
+    "Lack of competency",
+    "Inappropriate equipment for personnel, over familiarisation and complacency. Young workers lacking correct perception of hazard and risk; older workers not embracing change regarding safe systems of work.",
+    "3 5 15",
+    "Daily inspections by foremen. Method systems of working established and reconciled with programme to minimise conflict of activities. Always clear your own mess up, and if a contractor has left you a messy work area report it. All PPE provided shall be of appropriate size and fitting for the individual.",
+    "2 2 4",
+    "Prior to commencement of work on site all employees to have CSCS Cards, trade specific training, IOSH working safely (Behavioural Safety Module)."
+  ], rC, y, 28);
+
+  y = riskRow(doc, [
+    "Manual handling / Ergonomic operations",
+    "Moving, pulling, pushing of tools, equipment and materials",
+    "Musculoskeletal disorders and other injuries.",
+    "1*2**\n1×2",
+    "All operatives must have manual handling training and deploy good manual handling techniques at all times. Never lift beyond personal capability. If a mechanical aid is required, a suitable lifting plan should be put together. Consider: task, load shape/size/weight, individual capabilities, and environment. Appropriate PPE to be worn including gloves and kneepads.",
+    "2 5 10",
+    "Additional information can be found on Handling Assessment Charts (MAC) on the HSE website www.hse.gov.uk/msd."
+  ], rC, y, 28);
+
+  y += 4;
   y = para(doc,
-    "The person signing this assessment must check the information above to ensure it is relevant to this operation on this site. Additionally, any additional controls measures deemed necessary must be included.",
-    ML, y, CONTENT_W);
-  y += 3;
-  y = para(doc, "Target Post-Control Rating = 10. Some Pre-Control ratings may be less than 10 but further controls are still to be considered.", ML, y, CONTENT_W);
+    "Tasks and activities will be undertaken in accordance with ergonomic principles and individual characteristics such as age, strength, personality traits e.g. maturity. Higher complex tasks shall be proportionately led by, and distributed to, more experienced operatives.",
+    ML, y, CONTENT_W, 8);
   y += 5;
 
-  // Variable fields (filled from form data)
+  // Assessment detail fields
   doc.setDrawColor(180); doc.setLineWidth(0.3);
   const fieldRowH = 8;
   const labelColW = 55;
-
   const detailFields: [string, string][] = [
     ["Assessment Date:", datePrepared],
     ["Review Date:", "12 monthly"],
@@ -623,13 +729,7 @@ export async function generateRamsPdf(
     doc.text(val, ML + labelColW + 2, y + 5);
     y += fieldRowH;
   }
-  y += 5;
-
-  // Approved
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Approved:", ML, y); y += 4;
-  y = para(doc, "Dale Booth (Signature) D. Booth          Issue No: 001", ML, y, CONTENT_W); y += 5;
-
-  // Exposure/Severity key
+  y += 4;
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Exposure Ratings:", ML, y); y += 4;
   y = para(doc, "1=Highly Unlikely, 2=Unlikely, 3=Possible, 4=Probable, 5=Common, 6=Regular, 7=Continuous", ML, y, CONTENT_W, 8); y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Severity Ratings:", ML, y); y += 4;
