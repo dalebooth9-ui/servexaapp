@@ -131,11 +131,25 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
 }
 
 const RISK_FONT_SIZE = 7;
-const RISK_LINE_H = RISK_FONT_SIZE * 0.352778 + 1.4; // line height in mm
-const RISK_PAD_H = 2.2; // horizontal inner padding
-const RISK_PAD_V = 2.5; // vertical inner padding
+// pt → mm: 7pt * 0.352778 = 2.47mm glyph height; add generous leading
+const RISK_LINE_H = RISK_FONT_SIZE * 0.352778 + 1.8;
+const RISK_PAD_H = 1.8; // horizontal inner padding mm
+const RISK_PAD_V = 2.2; // vertical inner padding above first baseline mm
 
-/** Draw a single cell: optional fill, border, wrapped text. Returns split lines. */
+/** Split text for a cell, using the correct font weight so metrics match render. */
+function splitCell(doc: jsPDF, text: string, cw: number, bold = false): string[] {
+  doc.setFont("helvetica", bold ? "bold" : "normal");
+  doc.setFontSize(RISK_FONT_SIZE);
+  return doc.splitTextToSize(text || "", cw - RISK_PAD_H * 2);
+}
+
+/** Calculate how tall a cell needs to be for its text to fit. */
+function cellHeight(doc: jsPDF, text: string, cw: number, bold = false): number {
+  const lines = splitCell(doc, text, cw, bold);
+  return lines.length * RISK_LINE_H + RISK_PAD_V * 2;
+}
+
+/** Draw a single cell: optional fill, border, wrapped text. */
 function drawCell(
   doc: jsPDF,
   text: string,
@@ -153,31 +167,25 @@ function drawCell(
   doc.setLineWidth(0.2);
   doc.rect(cx, cy, cw, ch);
   if (text) {
-    const tc = opts.textColor ?? [0,0,0];
-    doc.setTextColor(...tc);
-    doc.setFont("helvetica", opts.bold ? "bold" : "normal");
-    doc.setFontSize(RISK_FONT_SIZE);
-    const lines = doc.splitTextToSize(text, cw - RISK_PAD_H * 2);
+    doc.setTextColor(...(opts.textColor ?? [0, 0, 0] as [number,number,number]));
+    const lines = splitCell(doc, text, cw, opts.bold);
     const textX = opts.center ? cx + cw / 2 : cx + RISK_PAD_H;
-    doc.text(lines, textX, cy + RISK_PAD_V + RISK_LINE_H * 0.8, opts.center ? { align: "center" } : {});
+    // baseline of first line sits RISK_PAD_V below top of cell + ascender (~70% of line height)
+    const textY = cy + RISK_PAD_V + RISK_LINE_H * 0.72;
+    doc.text(lines, textX, textY, opts.center ? { align: "center" } : {});
   }
-}
-
-/** Calculate how tall a cell needs to be for its text to fit. */
-function cellHeight(doc: jsPDF, text: string, cw: number): number {
-  doc.setFontSize(RISK_FONT_SIZE);
-  const lines = doc.splitTextToSize(text || "", cw - RISK_PAD_H * 2);
-  return lines.length * RISK_LINE_H + RISK_PAD_V * 2;
 }
 
 /** Risk table data row – auto-height. Pre-R (index 5) and Post-R (index 9) are colour-coded. */
 function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH: number, bold = false): number {
-  // Determine row height from tallest cell
+  // Determine row height using the correct font weight for accurate line-splitting
   let rowH = RISK_LINE_H + RISK_PAD_V * 2;
   for (let i = 0; i < cols.length; i++) {
-    const h = cellHeight(doc, cols[i], widths[i]);
+    const h = cellHeight(doc, cols[i], widths[i], bold);
     if (h > rowH) rowH = h;
   }
+  // Enforce a sensible minimum so single-digit cells don't collapse
+  rowH = Math.max(rowH, RISK_LINE_H * 1.5 + RISK_PAD_V * 2);
 
   const NAVY: [number,number,number] = [33, 61, 99];
   const WHITE: [number,number,number] = [255, 255, 255];
@@ -685,8 +693,9 @@ export async function generateRamsPdf(
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
   // 11-column table: Activity | Hazard | Risks | Pre-L | Pre-S | Pre-R | Control Measures | Post-L | Post-S | Post-R | Comments
-  // Column widths: [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14] = 182 = CONTENT_W
-  const rC = [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14];
+  // L/S cols only ever hold 1-digit numbers so 7mm each is ample; freed space goes to text columns
+  // Widths: 26+22+34 + 7+7+9 + 48 + 7+7+9 + 6 = 182 = CONTENT_W
+  const rC = [26, 22, 34, 7, 7, 9, 48, 7, 7, 9, 6];
   y = riskTableHeader(doc, rC, y);
 
   // Page 6 rows — [Activity, Hazard, Risks, PreL, PreS, PreR, Controls, PostL, PostS, PostR, Comments]
