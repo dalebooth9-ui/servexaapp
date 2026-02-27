@@ -1132,12 +1132,12 @@ export default function Sites() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Customer</label>
-              <Select value={createJobCustomerId} onValueChange={setCreateJobCustomerId}>
+              <Select value={createJobCustomerId} onValueChange={(val) => setCreateJobCustomerId(val === "none" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select customer (optional)" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No customer</SelectItem>
+                  <SelectItem value="none">No customer</SelectItem>
                   {allCustomers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                 </SelectContent>
               </Select>
