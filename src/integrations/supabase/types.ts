@@ -1280,6 +1280,8 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          other_qty: number
+          other_service_type: string | null
           pressure_test_qty: number
           priority: string
           updated_at: string
@@ -1293,6 +1295,8 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          other_qty?: number
+          other_service_type?: string | null
           pressure_test_qty?: number
           priority?: string
           updated_at?: string
@@ -1306,6 +1310,8 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          other_qty?: number
+          other_service_type?: string | null
           pressure_test_qty?: number
           priority?: string
           updated_at?: string
@@ -1374,6 +1380,8 @@ export type Database = {
           id: string
           job_type: string
           name: string
+          other_qty: number
+          other_service_type: string | null
           pressure_test_qty: number
           priority: string
           recurrence_end_date: string | null
@@ -1400,6 +1408,8 @@ export type Database = {
           id?: string
           job_type?: string
           name: string
+          other_qty?: number
+          other_service_type?: string | null
           pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
@@ -1426,6 +1436,8 @@ export type Database = {
           id?: string
           job_type?: string
           name?: string
+          other_qty?: number
+          other_service_type?: string | null
           pressure_test_qty?: number
           priority?: string
           recurrence_end_date?: string | null
