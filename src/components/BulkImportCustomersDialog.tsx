@@ -131,11 +131,30 @@ export default function BulkImportCustomersDialog({ open, onOpenChange, onImport
       try { all.push(...await handleFile(file)); }
       catch (err: any) { errors.push(`${file.name}: ${err.message}`); }
     }
-    if (all.length === 0 && errors.length > 0) setError(errors.join("; "));
-    else if (all.length === 0) setError("No valid customer rows found. Ensure your file has a 'Name' column.");
-    else { setParsed(all); if (errors.length) setError(errors.join("; ")); }
+
+    if (all.length === 0 && errors.length > 0) { setError(errors.join("; ")); setLoading(false); return; }
+    if (all.length === 0) { setError("No valid customer rows found. Ensure your file has a 'Name' column."); setLoading(false); return; }
+
+    // Fetch existing customer names for duplicate detection
+    const { data: existing } = await supabase.from("customers").select("name");
+    const existingNames = new Set((existing || []).map((c: any) => c.name.trim().toLowerCase()));
+
+    const seenInBatch = new Set<string>();
+    const deduped = all.filter((c) => {
+      const key = c.name.trim().toLowerCase();
+      if (!key || existingNames.has(key) || seenInBatch.has(key)) return false;
+      seenInBatch.add(key);
+      return true;
+    });
+
+    const skipped = all.length - deduped.length;
+    if (skipped > 0) toast({ title: `${skipped} duplicate${skipped > 1 ? "s" : ""} skipped`, description: `${skipped} customer${skipped > 1 ? "s" : ""} already exist and won't be re-imported.` });
+    if (deduped.length === 0) { setError("All extracted customers already exist in the database."); setLoading(false); return; }
+
+    setParsed(deduped);
+    if (errors.length) setError(errors.join("; "));
     setLoading(false);
-  }, [handleFile]);
+  }, [handleFile, toast]);
 
   const updateRow = (idx: number, field: keyof ParsedCustomer, value: string) =>
     setParsed((prev) => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
