@@ -1200,6 +1200,7 @@ export type Database = {
           description: string | null
           fields: Json
           id: string
+          job_category: string | null
           locked: boolean
           name: string
           updated_at: string
@@ -1212,6 +1213,7 @@ export type Database = {
           description?: string | null
           fields?: Json
           id?: string
+          job_category?: string | null
           locked?: boolean
           name: string
           updated_at?: string
@@ -1224,6 +1226,7 @@ export type Database = {
           description?: string | null
           fields?: Json
           id?: string
+          job_category?: string | null
           locked?: boolean
           name?: string
           updated_at?: string
