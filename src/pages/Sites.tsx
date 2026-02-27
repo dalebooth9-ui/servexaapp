@@ -151,8 +151,12 @@ export default function Sites() {
 
   const openCreateJob = (site: Site, customerId?: string) => {
     setCreateJobSite(site);
-    setCreateJobCustomerId(customerId || "");
-    setCreateJobForm({ name: "", priority: "medium", category: "general" });
+    // Auto-detect customer from folder if not explicitly provided
+    const resolvedCustomerId = customerId
+      || customerFolders.find((f) => f.sites.some((s) => s.id === site.id))?.id
+      || "";
+    setCreateJobCustomerId(resolvedCustomerId);
+    setCreateJobForm({ name: site.name, priority: "medium", category: "general" });
     setCreateJobDialogOpen(true);
   };
 
