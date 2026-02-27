@@ -402,6 +402,20 @@ export default function Sites() {
     });
     setCustomerFolders(folders);
     setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
+    // Auto-collapse parent sites that have more than 2 child buildings
+    const autoCollapsed = new Set<string>();
+    for (const folder of folders) {
+      const childCountBySite = new Map<string, number>();
+      for (const s of folder.sites) {
+        if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
+          childCountBySite.set(s.parent_id, (childCountBySite.get(s.parent_id) || 0) + 1);
+        }
+      }
+      for (const [siteId, count] of childCountBySite.entries()) {
+        if (count > 2) autoCollapsed.add(siteId);
+      }
+    }
+    setCollapsedSites(autoCollapsed);
     setFoldersLoading(false);
   };
 
