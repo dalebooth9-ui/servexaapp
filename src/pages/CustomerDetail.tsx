@@ -1011,7 +1011,12 @@ export default function CustomerDetail() {
             {linkedSites.length > 0 && (
               <div className="space-y-2">
                 <Label>Site</Label>
-                <Select value={manualJobForm.site_id} onValueChange={(v) => setManualJobForm({ ...manualJobForm, site_id: v })}>
+                <Select value={manualJobForm.site_id} onValueChange={(v) => {
+                  const site = linkedSites.find((s) => s.id === v);
+                  const prevSite = linkedSites.find((s) => s.id === manualJobForm.site_id);
+                  const nameIsDefault = !manualJobForm.name || manualJobForm.name === prevSite?.name;
+                  setManualJobForm({ ...manualJobForm, site_id: v, name: nameIsDefault && site ? site.name : manualJobForm.name });
+                }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a site (optional)" />
                   </SelectTrigger>
