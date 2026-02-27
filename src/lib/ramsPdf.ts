@@ -135,7 +135,7 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: 
   if (!bold) {
     const colIdx = ratingColIndex >= 0 ? ratingColIndex : cols.length - 1;
     const ratingRaw = cols[colIdx] || "";
-    // Extract the last number in the string — handles "4 5 25", "3 5 15", "1*2**\n1×2", "10" etc.
+    // Extract the last number in the string — handles "4 5 25", "3 5 15", "1*2**\n1x2", "10" etc.
     const nums = ratingRaw.match(/\d+/g);
     const rating = nums ? parseInt(nums[nums.length - 1], 10) : NaN;
     if (!isNaN(rating)) {
@@ -572,7 +572,7 @@ export async function generateRamsPdf(
     "Pressure pipework testing",
     "Burst pipework",
     "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.",
-    "1*2**\n1×2",
+    "1*2**\n1x2",
     "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
     "2 5 10",
     ""
@@ -621,9 +621,9 @@ export async function generateRamsPdf(
     "All tasks",
     "Incompetence/Wrong use of tool/defective tool",
     "Eye Injury/Lacerations to hands/Various",
-    "1*2**\n1×2",
+    "1*2**\n1x2",
     "Tools must be visually inspected prior to use, tools must be fit for the purpose, tools must be entered on the PUWER register.",
-    "1*2**\n1×2",
+    "1*2**\n1x2",
     "Correct PPE must be worn: Safety goggles and Gloves. Power tools must be PAT tested, and used in conjunction with a HAV assessment."
   ], rC, y, 22, false, 3);
 
@@ -670,9 +670,9 @@ export async function generateRamsPdf(
     "All tasks",
     "Handling materials/tools with sharp edges",
     "Cuts/lacerations to hands and body and potential back injuries",
-    "5*7**\n1×2",
+    "5*7**\n1x2",
     "All operatives to wear the necessary PPE whilst handling materials or tools with sharp edges. Always read method statement and never deviate from safe system of work. Supervisor to inspect work areas to ensure safe working environment. Attention should also be paid to other contractors leaving sharp edges or materials inadequately protected. Deploy good manual handling.",
-    "2*7**\n1×2",
+    "2*7**\n1x2",
     ""
   ], rC, y, 26, false, 3);
 
@@ -680,9 +680,9 @@ export async function generateRamsPdf(
     "All tasks",
     "Moving plant/traffic/pedestrians",
     "Collision with plant/vehicles. Struck by moving materials.",
-    "5*7**\n1×2",
+    "5*7**\n1x2",
     "Traffic/pedestrian routes to be clearly defined and followed. Short cuts must never be taken. Vehicles/plant should all have Banksmen on site. Never load/unload vehicles unless trained to do so. Operatives to have had full site induction. All site rules to be followed at all times.",
-    "2*7**\n1×2",
+    "2*7**\n1x2",
     "All operatives to keep up to date with site changes regarding pedestrian routes."
   ], rC, y, 26, false, 3);
 
@@ -690,9 +690,9 @@ export async function generateRamsPdf(
     "All tasks",
     "Working adjacent other trades",
     "Contact with/being struck by electrical operations, manual handling, vehicle movements, working at height etc.",
-    "5*7**\n1×2",
+    "5*7**\n1x2",
     "Close liaison with other contractors. Daily project briefs between contractors. Particular attention must be paid to noise, dust, delivery schedules, common PPE standards. Co-ordination of activities to ensure the safety of all persons. Control of jointly managed access routes. Adherence to Site Rules. Site Inductions.",
-    "2*5**\n1×2",
+    "2*5**\n1x2",
     ""
   ], rC, y, 26, false, 3);
 
@@ -719,7 +719,7 @@ export async function generateRamsPdf(
     "Human Factors: Capabilities and Behavioural Safety",
     "Inappropriate behaviour",
     "Activity may exceed capability of personnel.",
-    "1*2**\n1×2",
+    "1*2**\n1x2",
     "Site induction for management team to reinforce safe site behaviour/conduct. Competent Supervisor (SSSTS) to be highly visible, observing behaviour and activities undertaken by personnel and identify and control higher risk operations as appropriate to individual physical and psychological capability.",
     "2 2 4",
     "All working personnel to embrace change and are encouraged to re-evaluate working practices as per IOSH behavioural safety training."
@@ -739,7 +739,7 @@ export async function generateRamsPdf(
     "Manual handling / Ergonomic operations",
     "Moving, pulling, pushing of tools, equipment and materials",
     "Musculoskeletal disorders and other injuries.",
-    "1*2**\n1×2",
+    "1*2**\n1x2",
     "All operatives must have manual handling training and deploy good manual handling techniques at all times. Never lift beyond personal capability. If a mechanical aid is required, a suitable lifting plan should be put together. Consider: task, load shape/size/weight, individual capabilities, and environment. Appropriate PPE to be worn including gloves and kneepads.",
     "2 5 10",
     "Additional information can be found on Handling Assessment Charts (MAC) on the HSE website www.hse.gov.uk/msd."
