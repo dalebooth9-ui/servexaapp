@@ -78,6 +78,7 @@ export default function CustomerPortal() {
         .from("jobs")
         .select("id, name, reference_number, status, priority, address, due_date, created_at")
         .eq("customer_id", customerId)
+        .not("name", "like", "Site link —%")
         .order("created_at", { ascending: false });
 
       const jobList = (jobData || []) as Job[];
