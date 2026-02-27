@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -140,7 +140,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     if (open) fetchMessageImages();
   }, [open]);
 
-  const handleFiles = (files: FileList | null) => {
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragCounterRef = useRef(0);
+
+  const handleFiles = (files: FileList | File[] | null) => {
     if (!files) return;
     const newImages = Array.from(files)
       .filter((f) => f.type.startsWith("image/"))
@@ -148,6 +151,73 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       .map((file) => ({ file, preview: URL.createObjectURL(file) }));
     setImages((prev) => [...prev, ...newImages].slice(0, 5));
   };
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter((f) => f.type.startsWith("image/"));
+    const pdfFiles = files.filter((f) => f.type === "application/pdf");
+
+    // Add image files directly
+    if (imageFiles.length > 0) {
+      handleFiles(imageFiles);
+    }
+
+    // For PDFs, render first page as an image using canvas
+    for (const pdf of pdfFiles) {
+      if (images.length >= 5) break;
+      try {
+        const arrayBuffer = await pdf.arrayBuffer();
+        // Dynamically import pdfjs-dist if available, otherwise show toast
+        // Use pdfjsLib from CDN via window object
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let pdfjsLib: any = (window as any).pdfjsLib;
+        if (!pdfjsLib) {
+          // Dynamically load pdf.js from CDN
+          await new Promise<void>((res, rej) => {
+            const script = document.createElement("script");
+            script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+            script.onload = () => res();
+            script.onerror = () => rej(new Error("Failed to load PDF.js"));
+            document.head.appendChild(script);
+          });
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          pdfjsLib = (window as any).pdfjsLib;
+        }
+        if (!pdfjsLib) {
+          toast({ title: "PDF not supported", description: "Drop image files (JPG/PNG) instead.", variant: "destructive" });
+          continue;
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        const numPages = Math.min(pdfDoc.numPages, 5 - images.length);
+        for (let p = 1; p <= numPages; p++) {
+          const page = await pdfDoc.getPage(p);
+          const viewport = page.getViewport({ scale: 2 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d")!;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          await new Promise<void>((resolve) => {
+            canvas.toBlob((blob) => {
+              if (blob) {
+                const file = new File([blob], `${pdf.name}-page${p}.jpg`, { type: "image/jpeg" });
+                setImages((prev) => [...prev, { file, preview: URL.createObjectURL(file) }].slice(0, 5));
+              }
+              resolve();
+            }, "image/jpeg", 0.92);
+          });
+        }
+      } catch (err: any) {
+        toast({ title: "Could not read PDF", description: "Try dropping an image file (JPG/PNG) instead.", variant: "destructive" });
+      }
+    }
+  }, [images.length, toast]);
 
   const removeImage = (idx: number) => {
     setImages((prev) => {
@@ -484,14 +554,28 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             <TabsContent value="upload" className="mt-3">
               {images.length === 0 ? (
                 <div
-                  className="border-2 border-dashed border-border rounded-lg p-8 text-center cursor-pointer hover:bg-muted/50 transition-colors"
+                  className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${isDragOver ? "border-primary bg-primary/5 text-primary" : "border-border hover:bg-muted/50"}`}
                   onClick={() => fileRef.current?.click()}
+                  onDragEnter={(e) => { e.preventDefault(); dragCounterRef.current++; setIsDragOver(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); dragCounterRef.current--; if (dragCounterRef.current === 0) setIsDragOver(false); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
                 >
                   <Camera className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-sm font-medium">Take Photo or Upload Image</p>
-                  <p className="text-xs text-muted-foreground mt-1">Supports JPG, PNG — up to 5 images</p>
+                  <p className="text-sm font-medium">{isDragOver ? "Drop files here" : "Take Photo or Upload Image"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">Drag & drop images or PDFs here, or click to browse — up to 5 pages</p>
                 </div>
-              ) : imageGrid}
+              ) : (
+                <div
+                  onDragEnter={(e) => { e.preventDefault(); dragCounterRef.current++; setIsDragOver(true); }}
+                  onDragLeave={(e) => { e.preventDefault(); dragCounterRef.current--; if (dragCounterRef.current === 0) setIsDragOver(false); }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDrop}
+                  className={`rounded-lg transition-colors ${isDragOver ? "ring-2 ring-primary ring-offset-1 bg-primary/5" : ""}`}
+                >
+                  {imageGrid}
+                </div>
+              )}
             </TabsContent>
 
             <TabsContent value="messages" className="mt-3">
