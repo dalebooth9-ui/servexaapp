@@ -97,6 +97,9 @@ export default function CustomerDetail() {
   const [jobDropDialogOpen, setJobDropDialogOpen] = useState(false);
   const [jobDropForm, setJobDropForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
   const [jobDropSaving, setJobDropSaving] = useState(false);
+  const [manualJobDialogOpen, setManualJobDialogOpen] = useState(false);
+  const [manualJobForm, setManualJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "" });
+  const [manualJobSaving, setManualJobSaving] = useState(false);
   const [jobRowDropTarget, setJobRowDropTarget] = useState<string | null>(null);
   const [jobRowUploading, setJobRowUploading] = useState<string | null>(null);
 
@@ -482,6 +485,50 @@ export default function CustomerDetail() {
     await fetchJobs(customer.name);
   };
 
+  const handleCreateManualJob = async () => {
+    if (!manualJobForm.name.trim() || !user || !customer) return;
+    setManualJobSaving(true);
+
+    const { data: newJob, error: jobError } = await supabase.from("jobs").insert({
+      name: manualJobForm.name.trim(),
+      ...(manualJobForm.reference_number.trim() ? { reference_number: manualJobForm.reference_number.trim() } : {}),
+      customer: customer.name,
+      customer_id: id,
+      address: customer.address || null,
+      priority: manualJobForm.priority,
+      category: manualJobForm.category,
+      ...(manualJobForm.site_id ? { site_id: manualJobForm.site_id } : {}),
+      created_by: user.id,
+    } as any).select().single();
+
+    if (jobError || !newJob) {
+      const msg = jobError?.code === "23505" ? "A job with that reference number already exists." : "Failed to create job.";
+      toast({ title: "Error", description: msg, variant: "destructive" });
+      setManualJobSaving(false);
+      return;
+    }
+
+    // Auto-save map pin if a site has an address, or fall back to customer address
+    const selectedSite = linkedSites.find((s) => s.id === manualJobForm.site_id);
+    const addressForPin = selectedSite?.address || customer.address;
+    if (addressForPin?.trim()) {
+      saveMapPinForJob({
+        jobId: newJob.id,
+        address: addressForPin.trim(),
+        refNumber: newJob.reference_number || "",
+        customerName: customer.name || "",
+        userId: user.id,
+      });
+    }
+
+    toast({ title: "Job created", description: `${newJob.reference_number} created.` });
+    setManualJobDialogOpen(false);
+    setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "" });
+    setManualJobSaving(false);
+    await fetchJobs(customer.name);
+    navigate(`/jobs/${newJob.id}`);
+  };
+
   const handleDropOnExistingJob = async (jobId: string, files: FileList) => {
     if (!user) return;
     const validFiles = Array.from(files).filter((f) => {
@@ -859,7 +906,12 @@ export default function CustomerDetail() {
           if (e.dataTransfer.files && e.dataTransfer.files.length > 0) handleJobDropFiles(e.dataTransfer.files);
         }}
       >
-        <h2 className="text-lg font-semibold mb-3">Jobs ({jobs.length})</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">Jobs ({jobs.length})</h2>
+          <Button size="sm" onClick={() => { setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "" }); setManualJobDialogOpen(true); }}>
+            <Plus className="mr-1.5 h-4 w-4" /> New Job
+          </Button>
+        </div>
 
         {jobDropDragging && (
           <div className="mb-4 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-primary bg-primary/5 p-8 text-center transition-colors">
@@ -940,6 +992,74 @@ export default function CustomerDetail() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Manual Create Job Dialog */}
+      <Dialog open={manualJobDialogOpen} onOpenChange={setManualJobDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Job</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Job Name *</Label>
+              <Input value={manualJobForm.name} onChange={(e) => setManualJobForm({ ...manualJobForm, name: e.target.value })} placeholder="e.g. Annual Inspection" />
+            </div>
+            <div className="space-y-2">
+              <Label>Reference Number</Label>
+              <Input value={manualJobForm.reference_number} onChange={(e) => setManualJobForm({ ...manualJobForm, reference_number: e.target.value })} placeholder="Auto-generated if blank" />
+            </div>
+            {linkedSites.length > 0 && (
+              <div className="space-y-2">
+                <Label>Site</Label>
+                <Select value={manualJobForm.site_id} onValueChange={(v) => setManualJobForm({ ...manualJobForm, site_id: v })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a site (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No site</SelectItem>
+                    {linkedSites.map((site) => {
+                      const cfg = SITE_TYPE_CONFIG[site.site_type] || SITE_TYPE_CONFIG.site;
+                      return (
+                        <SelectItem key={site.id} value={site.id}>
+                          {site.name}{site.address ? ` — ${site.address}` : ""}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Priority</Label>
+                <Select value={manualJobForm.priority} onValueChange={(v) => setManualJobForm({ ...manualJobForm, priority: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={manualJobForm.category} onValueChange={(v) => setManualJobForm({ ...manualJobForm, category: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    {categories.map((c) => (
+                      <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Customer: <strong>{customer.name}</strong></p>
+            <Button onClick={handleCreateManualJob} className="w-full" disabled={!manualJobForm.name.trim() || manualJobSaving}>
+              {manualJobSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating...</> : "Create Job"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Create Job from Drop Dialog */}
       <Dialog open={jobDropDialogOpen} onOpenChange={setJobDropDialogOpen}>
