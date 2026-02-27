@@ -718,11 +718,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             const visibleTemplates = userRole === "admin"
               ? templates
               : templates.filter((tpl) => {
-                  const tplCategory = (tpl as any).category;
-                  // Show template if it matches job category, or if neither has a category set
-                  return tplCategory === jobCategory || (!tplCategory && !jobCategory);
+                  const tplJobCategory = (tpl as any).job_category;
+                  // Show template if it has no job_category restriction, or it matches the job's category
+                  return !tplJobCategory || tplJobCategory === jobCategory;
                 });
-            // Show all visible templates — allow multiple sheets per template
+            // Admins see all templates; show a badge indicating job category restriction
             if (visibleTemplates.length > 0) {
               return (
                 <div>
@@ -734,9 +734,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   key={tpl.id}
                   className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
                 >
-                  <div>
+                   <div>
                     <span className="text-sm font-medium">{tpl.name}</span>
                     <span className="text-xs text-muted-foreground ml-2">{tpl.fields.length} fields</span>
+                    {userRole === "admin" && (tpl as any).job_category && (
+                      <Badge variant="outline" className="ml-2 text-xs h-4">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
+                    )}
+                    {userRole === "admin" && !(tpl as any).job_category && (
+                      <Badge variant="secondary" className="ml-2 text-xs h-4 opacity-50">all jobs</Badge>
+                    )}
                   </div>
                     <div className="flex gap-1">
                     <Button

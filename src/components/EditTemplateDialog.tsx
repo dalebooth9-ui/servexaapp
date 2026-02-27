@@ -146,6 +146,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [templateName, setTemplateName] = useState("");
   const [templateDesc, setTemplateDesc] = useState("");
   const [templateCategory, setTemplateCategory] = useState<string>("");
+  const [jobCategory, setJobCategory] = useState<string>("");
   const [jobCategories, setJobCategories] = useState<{ slug: string; name: string }[]>([]);
   const [fields, setFields] = useState<TemplateField[]>([]);
   const [companyName, setCompanyName] = useState("");
@@ -168,6 +169,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setTemplateName(template.name);
     setTemplateDesc(template.description || "");
     setTemplateCategory(template.category || "");
+    setJobCategory((template as any).job_category || "");
     setFields(template.fields.map(f => ({ ...f })));
     const b = template.branding || {};
     setCompanyName(b.company_name || "");
@@ -260,6 +262,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       name: templateName.trim(),
       description: templateDesc.trim() || null,
       category: templateCategory || null,
+      job_category: jobCategory || null,
       fields: fields as any,
       branding: branding as any,
     } as any).eq("id", template.id);
@@ -282,7 +285,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         </DialogHeader>
 
         <div className="flex flex-col flex-1 min-h-0 gap-3">
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Template Name</Label>
               <Input
@@ -299,14 +302,30 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                 placeholder="Brief description"
               />
             </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Job Category <span className="text-muted-foreground text-xs font-normal">(auto-attach)</span></Label>
+              <Label>Template Type <span className="text-muted-foreground text-xs font-normal">(category)</span></Label>
               <Select value={templateCategory || "none"} onValueChange={(v) => setTemplateCategory(v === "none" ? "" : v)}>
                 <SelectTrigger>
                   <SelectValue placeholder="None" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">None</SelectItem>
+                  {jobCategories.map((c) => (
+                    <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Applies to Job Category <span className="text-muted-foreground text-xs font-normal">(leave blank = all jobs)</span></Label>
+              <Select value={jobCategory || "all"} onValueChange={(v) => setJobCategory(v === "all" ? "" : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All job types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All job types</SelectItem>
                   {jobCategories.map((c) => (
                     <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
                   ))}

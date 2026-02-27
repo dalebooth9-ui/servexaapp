@@ -1,0 +1,1 @@
+ALTER TABLE public.job_sheet_templates ADD COLUMN IF NOT EXISTS job_category text DEFAULT NULL;
