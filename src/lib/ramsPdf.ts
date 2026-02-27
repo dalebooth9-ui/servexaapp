@@ -130,61 +130,75 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   return y + 21;
 }
 
-/** Risk table row – auto-height. Colour applied to Pre-R (col 5) and Post-R (col 9) only. */
+const RISK_FONT_SIZE = 7;
+const RISK_LINE_H = RISK_FONT_SIZE * 0.352778 + 1.2; // line height in mm
+const RISK_PAD_H = 1.8; // horizontal inner padding
+const RISK_PAD_V = 2.0; // vertical inner padding
+
+/** Draw a single cell: optional fill, border, wrapped text. Returns split lines. */
+function drawCell(
+  doc: jsPDF,
+  text: string,
+  cx: number,
+  cy: number,
+  cw: number,
+  ch: number,
+  opts: { fill?: [number,number,number]; textColor?: [number,number,number]; bold?: boolean; center?: boolean } = {}
+): void {
+  if (opts.fill) {
+    doc.setFillColor(...opts.fill);
+    doc.rect(cx, cy, cw, ch, "F");
+  }
+  doc.setDrawColor(80);
+  doc.setLineWidth(0.2);
+  doc.rect(cx, cy, cw, ch);
+  if (text) {
+    const tc = opts.textColor ?? [0,0,0];
+    doc.setTextColor(...tc);
+    doc.setFont("helvetica", opts.bold ? "bold" : "normal");
+    doc.setFontSize(RISK_FONT_SIZE);
+    const lines = doc.splitTextToSize(text, cw - RISK_PAD_H * 2);
+    const textX = opts.center ? cx + cw / 2 : cx + RISK_PAD_H;
+    doc.text(lines, textX, cy + RISK_PAD_V + RISK_LINE_H * 0.8, opts.center ? { align: "center" } : {});
+  }
+}
+
+/** Calculate how tall a cell needs to be for its text to fit. */
+function cellHeight(doc: jsPDF, text: string, cw: number): number {
+  doc.setFontSize(RISK_FONT_SIZE);
+  const lines = doc.splitTextToSize(text || "", cw - RISK_PAD_H * 2);
+  return lines.length * RISK_LINE_H + RISK_PAD_V * 2;
+}
+
+/** Risk table data row – auto-height. Pre-R (index 5) and Post-R (index 9) are colour-coded. */
 function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH: number, bold = false): number {
-  const FONT_SIZE = 7;
-  const LINE_H = FONT_SIZE * 0.352778 + 1.1;
-  const PAD_V = 2.5;
-
-  doc.setFontSize(FONT_SIZE);
-
-  // Calculate dynamic row height from tallest cell
-  let maxLines = 1;
+  // Determine row height from tallest cell
+  let rowH = RISK_LINE_H + RISK_PAD_V * 2;
   for (let i = 0; i < cols.length; i++) {
-    const lines = doc.splitTextToSize(cols[i], widths[i] - 2.5);
-    if (lines.length > maxLines) maxLines = lines.length;
-  }
-  const rowH = maxLines * LINE_H + PAD_V * 2;
-
-  const totalW = widths.reduce((a, b) => a + b, 0);
-
-  if (bold) {
-    doc.setFillColor(33, 61, 99);
-    doc.rect(ML, y, totalW, rowH, "F");
-    doc.setTextColor(255, 255, 255);
-  } else {
-    doc.setTextColor(0, 0, 0);
+    const h = cellHeight(doc, cols[i], widths[i]);
+    if (h > rowH) rowH = h;
   }
 
-  // Pre-R is index 5, Post-R is index 9
+  const NAVY: [number,number,number] = [33, 61, 99];
+  const WHITE: [number,number,number] = [255, 255, 255];
   const ratingCols = new Set([5, 9]);
 
   let x = ML;
   for (let i = 0; i < cols.length; i++) {
-    doc.setDrawColor(80);
-    doc.setLineWidth(0.2);
+    let fill: [number,number,number] | undefined = bold ? NAVY : undefined;
+    const textColor: [number,number,number] = bold ? WHITE : [0,0,0];
 
     if (!bold && ratingCols.has(i)) {
-      const ratingRaw = cols[i] || "";
-      const nums = ratingRaw.match(/\d+/g);
-      let rating = NaN;
-      if (nums) rating = parseInt(nums[0], 10);
-      if (!isNaN(rating)) {
-        let fillR = 255, fillG = 255, fillB = 255;
-        if (rating >= 15)      { fillR = 255; fillG = 80;  fillB = 80;  }
-        else if (rating >= 8)  { fillR = 255; fillG = 165; fillB = 0;   }
-        else if (rating >= 4)  { fillR = 255; fillG = 230; fillB = 0;   }
-        else                   { fillR = 0;   fillG = 180; fillB = 0;   }
-        doc.setFillColor(fillR, fillG, fillB);
-        doc.rect(x, y, widths[i], rowH, "F");
+      const num = parseInt((cols[i] || "").trim(), 10);
+      if (!isNaN(num)) {
+        if      (num >= 15) fill = [255, 80, 80];
+        else if (num >= 8)  fill = [255, 165, 0];
+        else if (num >= 4)  fill = [255, 230, 0];
+        else                fill = [0, 180, 0];
       }
     }
 
-    doc.rect(x, y, widths[i], rowH);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setFontSize(FONT_SIZE);
-    const lines = doc.splitTextToSize(cols[i], widths[i] - 2.5);
-    doc.text(lines, x + 1.5, y + PAD_V + LINE_H * 0.75);
+    drawCell(doc, cols[i], x, y, widths[i], rowH, { fill, textColor, bold, center: ratingCols.has(i) });
     x += widths[i];
   }
 
@@ -193,76 +207,55 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH:
 }
 
 /**
- * Render the two-row merged header for the risk table.
- * Row 1: Activity | Hazard | Risks | Pre Control Risk Rating (span L,S,R) | Control Measures | Post Control Risk Rating (span L,S,R) | Comments
- * Row 2: (continued) | L | S | R | (continued) | L | S | R | (continued)
+ * Two-row merged header for the risk table.
+ * Row 1: Activity | Hazard | Risks/Persons | [Pre Control Risk Rating] | Control Measures | [Post Control Risk Rating] | Comments
+ * Row 2: (spans)  | (spans)| (spans)       | L | S | R                 | (spans)          | L | S | R                  | (spans)
+ * widths: [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14]
  */
 function riskTableHeader(doc: jsPDF, widths: number[], y: number): number {
-  const FONT_SIZE = 7;
-  const LINE_H = FONT_SIZE * 0.352778 + 1.1;
-  const PAD_V = 2.5;
-  const row1H = LINE_H * 2 + PAD_V * 2;
-  const row2H = LINE_H + PAD_V * 2;
+  const NAVY: [number,number,number] = [33, 61, 99];
+  const WHITE: [number,number,number] = [255, 255, 255];
 
-  const totalW = widths.reduce((a, b) => a + b, 0);
-  doc.setFillColor(33, 61, 99);
-  doc.rect(ML, y, totalW, row1H + row2H, "F");
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(FONT_SIZE);
-  doc.setDrawColor(80);
-  doc.setLineWidth(0.2);
+  // Row 1 height: enough for 2-line labels
+  const row1H = RISK_LINE_H * 2 + RISK_PAD_V * 2;
+  // Row 2 height: single line
+  const row2H = RISK_LINE_H + RISK_PAD_V * 2;
 
-  // Row 1 merged cell positions
-  // widths: [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14]
-  // Indices: 0=Activity, 1=Hazard, 2=Risks, 3=PreL, 4=PreS, 5=PreR, 6=Control, 7=PostL, 8=PostS, 9=PostR, 10=Comments
-  const preStart = widths.slice(0, 3).reduce((a, b) => a + b, 0); // x offset for Pre group
+  // Pre group spans cols 3,4,5 — Post group spans cols 7,8,9
+  const x0 = ML;
+  const x1 = x0 + widths[0];
+  const x2 = x1 + widths[1];
+  const x3 = x2 + widths[2];  // pre start
+  const x4 = x3 + widths[3];
+  const x5 = x4 + widths[4];
+  const x6 = x5 + widths[5];  // control start
+  const x7 = x6 + widths[6];  // post start
+  const x8 = x7 + widths[7];
+  const x9 = x8 + widths[8];
+  const x10 = x9 + widths[9]; // comments start
+
   const preW = widths[3] + widths[4] + widths[5];
-  const ctrlStart = preStart + preW;
-  const postStart = ctrlStart + widths[6];
   const postW = widths[7] + widths[8] + widths[9];
 
-  // Draw row1 cells
-  const row1Cells: { label: string; x: number; w: number }[] = [
-    { label: "Activity",                 x: ML,              w: widths[0] },
-    { label: "Hazard",                   x: ML + widths[0],  w: widths[1] },
-    { label: "Risks / Persons at Risk",  x: ML + widths[0] + widths[1], w: widths[2] },
-    { label: "Pre Control\nRisk Rating", x: ML + preStart,   w: preW },
-    { label: "Control Measures",         x: ML + ctrlStart,  w: widths[6] },
-    { label: "Post Control\nRisk Rating",x: ML + postStart,  w: postW },
-    { label: "Comments",                 x: ML + postStart + postW, w: widths[10] },
-  ];
-  for (const cell of row1Cells) {
-    doc.rect(cell.x, y, cell.w, row1H);
-    const lines = doc.splitTextToSize(cell.label, cell.w - 2);
-    doc.text(lines, cell.x + 1.5, y + PAD_V + LINE_H * 0.75, { baseline: "top" });
-  }
+  // — Row 1 cells —
+  // Spanning cells draw full row1H + row2H height (they span both rows)
+  const spanH = row1H + row2H;
+  drawCell(doc, "Activity",                x0, y, widths[0], spanH, { fill: NAVY, textColor: WHITE, bold: true });
+  drawCell(doc, "Hazard",                  x1, y, widths[1], spanH, { fill: NAVY, textColor: WHITE, bold: true });
+  drawCell(doc, "Risks / Persons at Risk", x2, y, widths[2], spanH, { fill: NAVY, textColor: WHITE, bold: true });
+  drawCell(doc, "Pre Control\nRisk Rating",x3, y, preW,      row1H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "Control Measures",        x6, y, widths[6], spanH, { fill: NAVY, textColor: WHITE, bold: true });
+  drawCell(doc, "Post Control\nRisk Rating",x7, y, postW,    row1H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "Comments",                x10, y, widths[10], spanH, { fill: NAVY, textColor: WHITE, bold: true });
 
-  // Draw row2 sub-columns under Pre and Post groups
+  // — Row 2 sub-columns (L, S, R under Pre and Post) —
   const row2y = y + row1H;
-  const subCols: { label: string; x: number; w: number }[] = [
-    { label: "L", x: ML + preStart,                  w: widths[3] },
-    { label: "S", x: ML + preStart + widths[3],       w: widths[4] },
-    { label: "R", x: ML + preStart + widths[3] + widths[4], w: widths[5] },
-    { label: "L", x: ML + postStart,                  w: widths[7] },
-    { label: "S", x: ML + postStart + widths[7],       w: widths[8] },
-    { label: "R", x: ML + postStart + widths[7] + widths[8], w: widths[9] },
-  ];
-  // Also extend the row1 spanning cells downwards for non-sub-column cells
-  const row2Ext: { x: number; w: number }[] = [
-    { x: ML,              w: widths[0] },
-    { x: ML + widths[0],  w: widths[1] },
-    { x: ML + widths[0] + widths[1], w: widths[2] },
-    { x: ML + ctrlStart,  w: widths[6] },
-    { x: ML + postStart + postW, w: widths[10] },
-  ];
-  for (const cell of row2Ext) {
-    doc.rect(cell.x, row2y, cell.w, row2H);
-  }
-  for (const cell of subCols) {
-    doc.rect(cell.x, row2y, cell.w, row2H);
-    doc.text(cell.label, cell.x + cell.w / 2, row2y + PAD_V + LINE_H * 0.75, { align: "center" });
-  }
+  drawCell(doc, "L", x3, row2y, widths[3], row2H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "S", x4, row2y, widths[4], row2H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "R", x5, row2y, widths[5], row2H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "L", x7, row2y, widths[7], row2H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "S", x8, row2y, widths[8], row2H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
+  drawCell(doc, "R", x9, row2y, widths[9], row2H, { fill: NAVY, textColor: WHITE, bold: true, center: true });
 
   doc.setTextColor(0, 0, 0);
   return row2y + row2H;
