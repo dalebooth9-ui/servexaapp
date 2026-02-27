@@ -215,25 +215,18 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
 
       if (onPdfGenerated) {
         onPdfGenerated(base64, fileName);
+        toast({ title: "PDF generated", description: `${fileName} attached.` });
       } else {
-        // Download the file
-        const doc = new jsPDF();
-        // Re-create from base64 for download
+        // Open in new tab for preview
         const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
+        const byteArray = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
         const blob = new Blob([byteArray], { type: "application/pdf" });
         const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        link.click();
-        URL.revokeObjectURL(url);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+        toast({ title: "PDF opened", description: fileName });
       }
-      toast({ title: "PDF generated", description: `${fileName} ${onPdfGenerated ? "attached" : "downloaded"}.` });
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {

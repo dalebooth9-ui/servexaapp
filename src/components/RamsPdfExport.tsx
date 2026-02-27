@@ -71,12 +71,9 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger }: Pro
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
       const blob = new Blob([byteArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      URL.revokeObjectURL(url);
-      toast({ title: "RAMS PDF downloaded", description: fileName });
+      window.open(url, "_blank");
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
+      toast({ title: "RAMS PDF opened", description: fileName });
     } catch (err: any) {
       toast({ title: "Error generating RAMS PDF", description: err.message, variant: "destructive" });
     } finally {
