@@ -61,7 +61,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, due_date: "" });
+  const [form, setForm] = useState({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
   const [loading, setLoading] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
@@ -247,6 +247,8 @@ export default function Jobs() {
       priority: form.priority,
       pressure_test_qty: form.pressure_test_qty,
       visual_qty: form.visual_qty,
+      other_qty: form.other_qty,
+      other_service_type: form.other_service_type || null,
       address: form.address || null,
       created_by: user.id,
     });
@@ -268,6 +270,8 @@ export default function Jobs() {
       priority: tpl.priority || "medium",
       pressure_test_qty: tpl.pressure_test_qty || 0,
       visual_qty: tpl.visual_qty || 0,
+      other_qty: (tpl as any).other_qty || 0,
+      other_service_type: (tpl as any).other_service_type || "",
       address: tpl.address || prev.address,
     }));
     toast({ title: "Template loaded", description: `"${tpl.name}" applied to form.` });
@@ -415,6 +419,8 @@ export default function Jobs() {
       created_by: user?.id,
       pressure_test_qty: form.pressure_test_qty || 0,
       visual_qty: form.visual_qty || 0,
+      other_qty: form.other_qty || 0,
+      other_service_type: form.other_service_type || null,
       due_date: form.due_date || null,
     } as any).select("id, reference_number").single();
     if (error) {
@@ -425,7 +431,7 @@ export default function Jobs() {
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
-      setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, due_date: "" });
+      setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
       setDialogOpen(false);
       fetchJobs();
 
@@ -959,6 +965,22 @@ export default function Jobs() {
                         className="h-8 w-20"
                       />
                     </div>
+                  </div>
+                  <div className="flex items-center gap-2 mt-2">
+                    <Label className="whitespace-nowrap text-xs font-normal">Other</Label>
+                    <Input
+                      placeholder="Service type e.g. Wet Riser"
+                      value={form.other_service_type}
+                      onChange={(e) => setForm({ ...form, other_service_type: e.target.value })}
+                      className="h-8 flex-1"
+                    />
+                    <Input
+                      type="number"
+                      min={0}
+                      value={form.other_qty}
+                      onChange={(e) => setForm({ ...form, other_qty: Math.max(0, parseInt(e.target.value) || 0) })}
+                      className="h-8 w-20"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
