@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
-  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X,
+  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2,
 } from "lucide-react";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
 import { format } from "date-fns";
@@ -115,6 +116,7 @@ export default function Sites() {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
+  const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -138,6 +140,40 @@ export default function Sites() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("hierarchy");
+
+  // Create job from site
+  const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
+  const [createJobSite, setCreateJobSite] = useState<Site | null>(null);
+  const [createJobCustomerId, setCreateJobCustomerId] = useState<string>("");
+  const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general" });
+  const [createJobSaving, setCreateJobSaving] = useState(false);
+  const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
+
+  const openCreateJob = (site: Site, customerId?: string) => {
+    setCreateJobSite(site);
+    setCreateJobCustomerId(customerId || "");
+    setCreateJobForm({ name: "", priority: "medium", category: "general" });
+    setCreateJobDialogOpen(true);
+  };
+
+  const handleCreateJob = async () => {
+    if (!createJobForm.name.trim() || !createJobSite) return;
+    setCreateJobSaving(true);
+    const { data, error } = await supabase.from("jobs").insert({
+      name: createJobForm.name.trim(),
+      priority: createJobForm.priority,
+      category: createJobForm.category,
+      site_id: createJobSite.id,
+      address: createJobSite.address || null,
+      customer_id: createJobCustomerId || null,
+      status: "active",
+    } as any).select("id").single();
+    setCreateJobSaving(false);
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Job created", description: `${createJobForm.name} linked to ${createJobSite.name}.` });
+    setCreateJobDialogOpen(false);
+    navigate(`/jobs/${data.id}`);
+  };
 
   // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
   const navigateToSite = (siteId: string) => {
@@ -398,6 +434,7 @@ export default function Sites() {
   useEffect(() => {
     fetchSites();
     fetchCustomerFolders();
+    supabase.from("customers").select("id, name").order("name").then(({ data }) => setAllCustomers(data || []));
   }, []);
 
   const toggle = (id: string) => {
@@ -581,6 +618,9 @@ export default function Sites() {
           {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
           {userRole === "admin" && (
             <div className="flex items-center gap-1 shrink-0 ml-2">
+              <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" onClick={(e) => { e.stopPropagation(); openCreateJob(site); }} title="Create job for this site">
+                <Briefcase className="h-3.5 w-3.5" />
+              </Button>
               {childType && (
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openCreate(site.id, childType); }} title={`Add ${childType}`}>
                   <Plus className="h-3.5 w-3.5" />
@@ -818,25 +858,30 @@ export default function Sites() {
                                              <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
                                            )}
                                          </div>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
-                                            <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                          </Button>
-                                        {userRole === "admin" && !isChild && (
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
-                                              onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
-                                            >
-                                              <X className="h-3.5 w-3.5" />
-                                            </Button>
-                                          )}
-                                          {userRole === "admin" && isChild && (
-                                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
-                                              onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
-                                            >
-                                              <Trash2 className="h-3.5 w-3.5" />
-                                            </Button>
-                                          )}
-                                        </div>
+                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                           {userRole === "admin" && (
+                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" title="Create job" onClick={(e) => { e.stopPropagation(); openCreateJob(site, folder.id); }}>
+                                               <Briefcase className="h-3.5 w-3.5" />
+                                             </Button>
+                                           )}
+                                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
+                                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                                           </Button>
+                                         {userRole === "admin" && !isChild && (
+                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
+                                               onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
+                                             >
+                                               <X className="h-3.5 w-3.5" />
+                                             </Button>
+                                           )}
+                                           {userRole === "admin" && isChild && (
+                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
+                                               onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
+                                             >
+                                               <Trash2 className="h-3.5 w-3.5" />
+                                             </Button>
+                                           )}
+                                         </div>
                                       </div>
                                     );
                                   };
@@ -1067,6 +1112,72 @@ export default function Sites() {
           </Dialog>
         );
       })()}
+
+      {/* Create Job from Site dialog */}
+      <Dialog open={createJobDialogOpen} onOpenChange={(o) => { if (!o) setCreateJobDialogOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Job Name *</label>
+              <Input
+                placeholder="e.g. Annual Inspection"
+                value={createJobForm.name}
+                onChange={(e) => setCreateJobForm((f) => ({ ...f, name: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === "Enter") handleCreateJob(); }}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Customer</label>
+              <Select value={createJobCustomerId} onValueChange={setCreateJobCustomerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select customer (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No customer</SelectItem>
+                  {allCustomers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Priority</label>
+                <Select value={createJobForm.priority} onValueChange={(v) => setCreateJobForm((f) => ({ ...f, priority: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="high">High</SelectItem>
+                    <SelectItem value="medium">Medium</SelectItem>
+                    <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category</label>
+                <Select value={createJobForm.category} onValueChange={(v) => setCreateJobForm((f) => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="maintenance">Maintenance</SelectItem>
+                    <SelectItem value="inspection">Inspection</SelectItem>
+                    <SelectItem value="installation">Installation</SelectItem>
+                    <SelectItem value="repair">Repair</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateJob} disabled={createJobSaving || !createJobForm.name.trim()}>
+              {createJobSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Briefcase className="mr-2 h-4 w-4" />}
+              Create Job
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
