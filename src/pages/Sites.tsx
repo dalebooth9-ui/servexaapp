@@ -622,7 +622,14 @@ export default function Sites() {
                 <ChevronRight className="h-2.5 w-2.5 shrink-0" />
               </p>
             )}
-            <span className="font-medium text-sm truncate block">{site.name}</span>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="font-medium text-sm truncate">{site.name}</span>
+              {children.length > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 shrink-0 bg-muted text-muted-foreground">
+                  {children.length} {childType || "building"}{children.length !== 1 ? "s" : ""}
+                </Badge>
+              )}
+            </div>
           </div>
           <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
           {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
