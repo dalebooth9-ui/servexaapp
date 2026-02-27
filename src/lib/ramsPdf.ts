@@ -134,14 +134,16 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, rowH: 
   // Colour code by rating column if not header row
   if (!bold) {
     const colIdx = ratingColIndex >= 0 ? ratingColIndex : cols.length - 1;
-    const ratingRaw = cols[colIdx];
-    const rating = parseInt(ratingRaw, 10);
-      if (!isNaN(rating)) {
+    const ratingRaw = cols[colIdx] || "";
+    // Extract the last number in the string — handles "4 5 25", "3 5 15", "1*2**\n1×2", "10" etc.
+    const nums = ratingRaw.match(/\d+/g);
+    const rating = nums ? parseInt(nums[nums.length - 1], 10) : NaN;
+    if (!isNaN(rating)) {
       let fillR = 255, fillG = 255, fillB = 255;
-      if (rating >= 15) { fillR = 255; fillG = 80; fillB = 80; }         // High – RED
-      else if (rating >= 8) { fillR = 255; fillG = 165; fillB = 0; }     // Medium – AMBER
-      else if (rating >= 4) { fillR = 255; fillG = 230; fillB = 0; }     // Low-medium – YELLOW
-      else { fillR = 0; fillG = 180; fillB = 0; }                        // Low – GREEN
+      if (rating >= 15) { fillR = 255; fillG = 80;  fillB = 80; }       // High – RED
+      else if (rating >= 8) { fillR = 255; fillG = 165; fillB = 0; }    // Medium – AMBER
+      else if (rating >= 4) { fillR = 255; fillG = 230; fillB = 0; }    // Low-medium – YELLOW
+      else { fillR = 0; fillG = 180; fillB = 0; }                       // Low – GREEN
       doc.setFillColor(fillR, fillG, fillB);
       doc.rect(ML, y, widths.reduce((a, b) => a + b, 0), rowH, "F");
     }
@@ -537,7 +539,7 @@ export async function generateRamsPdf(
     "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
     "2 5 10",
     ""
-  ], rC, y, 28);
+  ], rC, y, 28, false, 3);
 
   y = riskRow(doc, [
     "Main BCW from riser to clusters 16bar",
@@ -547,7 +549,7 @@ export async function generateRamsPdf(
     "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
     "2 5 10",
     ""
-  ], rC, y, 28);
+  ], rC, y, 28, false, 3);
 
   y = riskRow(doc, [
     "All tasks",
@@ -557,7 +559,7 @@ export async function generateRamsPdf(
     "Employees to work in pairs where possible. There will be no lone working for work at higher levels. Given the size of the working site, there may be occasions when an operative is left alone when another operative goes for material/tools etc. If this occurs the operative left working will be told not to carry out any high risk activity until his work partner returns.",
     "2 5 10",
     "Whilst lone working is not envisaged to take place, if this should occur however prior to doing so, an individual activity related risk assessment must be carried out."
-  ], rC, y, 28);
+  ], rC, y, 28, false, 3);
 
   pageFooter(doc, 6, 10);
 
@@ -585,7 +587,7 @@ export async function generateRamsPdf(
     "Tools must be visually inspected prior to use, tools must be fit for the purpose, tools must be entered on the PUWER register.",
     "1*2**\n1×2",
     "Correct PPE must be worn: Safety goggles and Gloves. Power tools must be PAT tested, and used in conjunction with a HAV assessment."
-  ], rC, y, 22);
+  ], rC, y, 22, false, 3);
 
   y = riskRow(doc, [
     "Noise emitted from work activities, such as running the portable fire engine.",
@@ -595,7 +597,7 @@ export async function generateRamsPdf(
     "Noise shall be reduced to lowest level possible. All operatives must wear hearing defenders for operating the engine and if any associated contractors are working nearby that are generating any significant noise.",
     "2 3 6",
     "Lower exposure action value is 80dB(A) LEPd). Upper 85dB(A) LEPd). Limit 87dB(A) LEPd. Any significant noises must be reported to principal contractor immediately."
-  ], rC, y, 22);
+  ], rC, y, 22, false, 3);
 
   y = riskRow(doc, [
     "All tasks",
@@ -605,7 +607,7 @@ export async function generateRamsPdf(
     "All site personnel to be competent to perform the tasks they are asked to do. Compliance with Site/Managers' Rules. Skills/competencies as per Company Health & Safety Policy.",
     "1 5 5",
     "Good housekeeping helps keep safe sites. Never walk on by if you see materials or tools in your walkway, if it is safe to move do so."
-  ], rC, y, 22);
+  ], rC, y, 22, false, 3);
 
   pageFooter(doc, 7, 10);
 
@@ -633,7 +635,7 @@ export async function generateRamsPdf(
     "All operatives to wear the necessary PPE whilst handling materials or tools with sharp edges. Always read method statement and never deviate from safe system of work. Supervisor to inspect work areas to ensure safe working environment. Attention should also be paid to other contractors leaving sharp edges or materials inadequately protected. Deploy good manual handling.",
     "2*7**\n1×2",
     ""
-  ], rC, y, 26);
+  ], rC, y, 26, false, 3);
 
   y = riskRow(doc, [
     "All tasks",
@@ -643,7 +645,7 @@ export async function generateRamsPdf(
     "Traffic/pedestrian routes to be clearly defined and followed. Short cuts must never be taken. Vehicles/plant should all have Banksmen on site. Never load/unload vehicles unless trained to do so. Operatives to have had full site induction. All site rules to be followed at all times.",
     "2*7**\n1×2",
     "All operatives to keep up to date with site changes regarding pedestrian routes."
-  ], rC, y, 26);
+  ], rC, y, 26, false, 3);
 
   y = riskRow(doc, [
     "All tasks",
@@ -653,7 +655,7 @@ export async function generateRamsPdf(
     "Close liaison with other contractors. Daily project briefs between contractors. Particular attention must be paid to noise, dust, delivery schedules, common PPE standards. Co-ordination of activities to ensure the safety of all persons. Control of jointly managed access routes. Adherence to Site Rules. Site Inductions.",
     "2*5**\n1×2",
     ""
-  ], rC, y, 26);
+  ], rC, y, 26, false, 3);
 
   pageFooter(doc, 8, 10);
 
@@ -681,7 +683,7 @@ export async function generateRamsPdf(
     "Site induction for management team to reinforce safe site behaviour/conduct. Competent Supervisor (SSSTS) to be highly visible, observing behaviour and activities undertaken by personnel and identify and control higher risk operations as appropriate to individual physical and psychological capability.",
     "2 2 4",
     "All working personnel to embrace change and are encouraged to re-evaluate working practices as per IOSH behavioural safety training."
-  ], rC, y, 24);
+  ], rC, y, 24, false, 3);
 
   y = riskRow(doc, [
     "Activity exceeds capability of personnel",
@@ -691,7 +693,7 @@ export async function generateRamsPdf(
     "Daily inspections by foremen. Method systems of working established and reconciled with programme to minimise conflict of activities. Always clear your own mess up, and if a contractor has left you a messy work area report it. All PPE provided shall be of appropriate size and fitting for the individual.",
     "2 2 4",
     "Prior to commencement of work on site all employees to have CSCS Cards, trade specific training, IOSH working safely (Behavioural Safety Module)."
-  ], rC, y, 28);
+  ], rC, y, 28, false, 3);
 
   y = riskRow(doc, [
     "Manual handling / Ergonomic operations",
@@ -701,7 +703,7 @@ export async function generateRamsPdf(
     "All operatives must have manual handling training and deploy good manual handling techniques at all times. Never lift beyond personal capability. If a mechanical aid is required, a suitable lifting plan should be put together. Consider: task, load shape/size/weight, individual capabilities, and environment. Appropriate PPE to be worn including gloves and kneepads.",
     "2 5 10",
     "Additional information can be found on Handling Assessment Charts (MAC) on the HSE website www.hse.gov.uk/msd."
-  ], rC, y, 28);
+  ], rC, y, 28, false, 3);
 
   y += 4;
   y = para(doc,
