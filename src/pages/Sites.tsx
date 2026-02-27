@@ -233,34 +233,10 @@ export default function Sites() {
   const handleBulkUnlinkSites = async (folder: CustomerFolder, siteIds: string[]) => {
     try {
       for (const siteId of siteIds) {
-        await supabase.from("jobs").delete().eq("customer_id", folder.id).eq("site_id", siteId);
+        await supabase.from("customer_sites" as any).delete().eq("customer_id", folder.id).eq("site_id", siteId);
       }
       setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
-      // Refresh without resetting accordion state
-      const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id, name").not("customer_id", "is", null).not("site_id", "is", null);
-      const { data: allSites } = await supabase.from("sites").select("*").order("name");
-      if (!jobs || !allSites) return;
-      const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
-      const customerSiteMap = new Map<string, Set<string>>();
-      const jobCountMap = new Map<string, Map<string, number>>();
-      for (const job of jobs) {
-        if (!job.customer_id || !job.site_id) continue;
-        if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
-        customerSiteMap.get(job.customer_id)!.add(job.site_id);
-        const isPlaceholder = (job.name as string)?.startsWith("Site link —");
-        if (!isPlaceholder) {
-          if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
-          const sc = jobCountMap.get(job.customer_id)!;
-          sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
-        }
-      }
-      setCustomerFolders((prev) => prev.map((f) => {
-        const linkedSiteIds = [...(customerSiteMap.get(f.id) || [])];
-        const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
-        const linkedSiteIdSet = new Set(linkedSiteIds);
-        const extraChildren = (allSites as Site[]).filter((s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id));
-        return { ...f, sites: [...linkedSites, ...extraChildren], jobCountsBySite: Object.fromEntries(jobCountMap.get(f.id) || new Map()) };
-      }));
+      fetchCustomerFolders();
       toast({ title: "Sites removed", description: `${siteIds.length} site(s) unlinked from ${folder.name}.` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -300,14 +276,10 @@ export default function Sites() {
       return;
     }
     try {
-      const { error } = await supabase.from("jobs").insert({
-        name: `Site link — ${folder.name}`,
+      const { error } = await supabase.from("customer_sites" as any).insert({
         customer_id: customerId,
         site_id: site.id,
-        status: "active",
-        category: "general",
-        priority: "medium",
-      } as any);
+      });
       if (error) throw error;
       toast({ title: "Site assigned", description: `${site.name} linked to ${folder.name}.` });
       fetchCustomerFolders();
@@ -362,29 +334,30 @@ export default function Sites() {
 
   const fetchCustomerFolders = async () => {
     setFoldersLoading(true);
-    const { data: customers } = await supabase.from("customers").select("id, name, email, phone, address").order("name");
-    const { data: jobs } = await supabase.from("jobs").select("customer_id, site_id, name").not("customer_id", "is", null).not("site_id", "is", null);
-    const { data: allSites } = await supabase.from("sites").select("*").order("name");
+    const [{ data: customers }, { data: customerSiteLinks }, { data: allSites }, { data: jobsBySite }] = await Promise.all([
+      supabase.from("customers").select("id, name, email, phone, address").order("name"),
+      supabase.from("customer_sites" as any).select("customer_id, site_id"),
+      supabase.from("sites").select("*").order("name"),
+      supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null),
+    ]);
     if (!customers || !allSites) { setFoldersLoading(false); return; }
     const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
     const customerSiteMap = new Map<string, Set<string>>();
+    for (const link of (customerSiteLinks as any[] || [])) {
+      if (!link.customer_id || !link.site_id) continue;
+      if (!customerSiteMap.has(link.customer_id)) customerSiteMap.set(link.customer_id, new Set());
+      customerSiteMap.get(link.customer_id)!.add(link.site_id);
+    }
     const jobCountMap = new Map<string, Map<string, number>>();
-    for (const job of (jobs || [])) {
+    for (const job of (jobsBySite as any[] || [])) {
       if (!job.customer_id || !job.site_id) continue;
-      if (!customerSiteMap.has(job.customer_id)) customerSiteMap.set(job.customer_id, new Set());
-      customerSiteMap.get(job.customer_id)!.add(job.site_id);
-      // Don't count "Site link —" placeholder jobs in the job count badge
-      const isPlaceholder = (job.name as string)?.startsWith("Site link —");
-      if (!isPlaceholder) {
-        if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
-        const siteCount = jobCountMap.get(job.customer_id)!;
-        siteCount.set(job.site_id, (siteCount.get(job.site_id) || 0) + 1);
-      }
+      if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
+      const sc = jobCountMap.get(job.customer_id)!;
+      sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
     }
     const folders: CustomerFolder[] = (customers as any[]).map((c) => {
       const linkedSiteIds = [...(customerSiteMap.get(c.id) || [])];
       const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
-      // Include child sites (building/zone) whose parent is a linked site, even if not directly linked
       const linkedSiteIdSet = new Set(linkedSiteIds);
       const extraChildren = (allSites as Site[]).filter(
         (s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id)
@@ -402,7 +375,6 @@ export default function Sites() {
     });
     setCustomerFolders(folders);
     setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
-    // Auto-collapse parent sites that have more than 2 child buildings
     const autoCollapsed = new Set<string>();
     for (const folder of folders) {
       const childCountBySite = new Map<string, number>();
@@ -430,14 +402,10 @@ export default function Sites() {
     setAssignSaving(true);
     try {
       const inserts = [...assignSelectedSites].map((siteId) => ({
-        name: `Site link — ${assignCustomer.name}`,
         customer_id: assignCustomer.id,
         site_id: siteId,
-        status: "active",
-        category: "general",
-        priority: "medium",
       }));
-      const { error } = await supabase.from("jobs").insert(inserts as any);
+      const { error } = await supabase.from("customer_sites" as any).insert(inserts);
       if (error) throw error;
       toast({ title: "Sites assigned", description: `${assignSelectedSites.size} site(s) linked to ${assignCustomer.name}.` });
       setAssignSiteOpen(false);

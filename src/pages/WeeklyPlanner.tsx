@@ -136,7 +136,7 @@ export default function WeeklyPlanner() {
     setLoading(true);
     const [engRolesRes, jobsRes, schedRes, sitesRes] = await Promise.all([
       supabase.from("user_roles").select("user_id").eq("role", "engineer"),
-      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled"]).not("name", "like", "Site link —%"),
+      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled"]),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);

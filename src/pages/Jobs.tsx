@@ -133,7 +133,7 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const { data } = await supabase.from("jobs").select("*, submissions(id, type), customers(id, name, email)").not("name", "like", "Site link —%").order("created_at", { ascending: false });
+    const { data } = await supabase.from("jobs").select("*, submissions(id, type), customers(id, name, email)").order("created_at", { ascending: false });
     setJobs(data || []);
   };
 
