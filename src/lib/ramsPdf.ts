@@ -130,8 +130,8 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   return y + 21;
 }
 
-/** Risk table row – auto-height, full-row colour based on Pre-Rating (col index 3) */
-function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH: number, bold = false, ratingColIndex = 3): number {
+/** Risk table row – auto-height. Colour applied to Pre-R (col 5) and Post-R (col 9) only. */
+function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH: number, bold = false): number {
   const FONT_SIZE = 7;
   const LINE_H = FONT_SIZE * 0.352778 + 1.1;
   const PAD_V = 2.5;
@@ -149,7 +149,6 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH:
   const totalW = widths.reduce((a, b) => a + b, 0);
 
   if (bold) {
-    // Header row – navy background, white text
     doc.setFillColor(33, 61, 99);
     doc.rect(ML, y, totalW, rowH, "F");
     doc.setTextColor(255, 255, 255);
@@ -157,21 +156,19 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH:
     doc.setTextColor(0, 0, 0);
   }
 
-  // Draw cell borders and text
-  // Rating columns to colour: Pre-Rating = index 3, Post-Rating = index 5
-  const ratingCols = new Set([3, 5]);
+  // Pre-R is index 5, Post-R is index 9
+  const ratingCols = new Set([5, 9]);
 
   let x = ML;
   for (let i = 0; i < cols.length; i++) {
     doc.setDrawColor(80);
     doc.setLineWidth(0.2);
 
-    // Colour only rating columns (not header)
     if (!bold && ratingCols.has(i)) {
       const ratingRaw = cols[i] || "";
       const nums = ratingRaw.match(/\d+/g);
       let rating = NaN;
-      if (nums) rating = Math.max(...nums.map(n => parseInt(n, 10)));
+      if (nums) rating = parseInt(nums[0], 10);
       if (!isNaN(rating)) {
         let fillR = 255, fillG = 255, fillB = 255;
         if (rating >= 15)      { fillR = 255; fillG = 80;  fillB = 80;  }
@@ -193,6 +190,82 @@ function riskRow(doc: jsPDF, cols: string[], widths: number[], y: number, _rowH:
 
   doc.setTextColor(0, 0, 0);
   return y + rowH;
+}
+
+/**
+ * Render the two-row merged header for the risk table.
+ * Row 1: Activity | Hazard | Risks | Pre Control Risk Rating (span L,S,R) | Control Measures | Post Control Risk Rating (span L,S,R) | Comments
+ * Row 2: (continued) | L | S | R | (continued) | L | S | R | (continued)
+ */
+function riskTableHeader(doc: jsPDF, widths: number[], y: number): number {
+  const FONT_SIZE = 7;
+  const LINE_H = FONT_SIZE * 0.352778 + 1.1;
+  const PAD_V = 2.5;
+  const row1H = LINE_H * 2 + PAD_V * 2;
+  const row2H = LINE_H + PAD_V * 2;
+
+  const totalW = widths.reduce((a, b) => a + b, 0);
+  doc.setFillColor(33, 61, 99);
+  doc.rect(ML, y, totalW, row1H + row2H, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(FONT_SIZE);
+  doc.setDrawColor(80);
+  doc.setLineWidth(0.2);
+
+  // Row 1 merged cell positions
+  // widths: [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14]
+  // Indices: 0=Activity, 1=Hazard, 2=Risks, 3=PreL, 4=PreS, 5=PreR, 6=Control, 7=PostL, 8=PostS, 9=PostR, 10=Comments
+  const preStart = widths.slice(0, 3).reduce((a, b) => a + b, 0); // x offset for Pre group
+  const preW = widths[3] + widths[4] + widths[5];
+  const ctrlStart = preStart + preW;
+  const postStart = ctrlStart + widths[6];
+  const postW = widths[7] + widths[8] + widths[9];
+
+  // Draw row1 cells
+  const row1Cells: { label: string; x: number; w: number }[] = [
+    { label: "Activity",                 x: ML,              w: widths[0] },
+    { label: "Hazard",                   x: ML + widths[0],  w: widths[1] },
+    { label: "Risks / Persons at Risk",  x: ML + widths[0] + widths[1], w: widths[2] },
+    { label: "Pre Control\nRisk Rating", x: ML + preStart,   w: preW },
+    { label: "Control Measures",         x: ML + ctrlStart,  w: widths[6] },
+    { label: "Post Control\nRisk Rating",x: ML + postStart,  w: postW },
+    { label: "Comments",                 x: ML + postStart + postW, w: widths[10] },
+  ];
+  for (const cell of row1Cells) {
+    doc.rect(cell.x, y, cell.w, row1H);
+    const lines = doc.splitTextToSize(cell.label, cell.w - 2);
+    doc.text(lines, cell.x + 1.5, y + PAD_V + LINE_H * 0.75, { baseline: "top" });
+  }
+
+  // Draw row2 sub-columns under Pre and Post groups
+  const row2y = y + row1H;
+  const subCols: { label: string; x: number; w: number }[] = [
+    { label: "L", x: ML + preStart,                  w: widths[3] },
+    { label: "S", x: ML + preStart + widths[3],       w: widths[4] },
+    { label: "R", x: ML + preStart + widths[3] + widths[4], w: widths[5] },
+    { label: "L", x: ML + postStart,                  w: widths[7] },
+    { label: "S", x: ML + postStart + widths[7],       w: widths[8] },
+    { label: "R", x: ML + postStart + widths[7] + widths[8], w: widths[9] },
+  ];
+  // Also extend the row1 spanning cells downwards for non-sub-column cells
+  const row2Ext: { x: number; w: number }[] = [
+    { x: ML,              w: widths[0] },
+    { x: ML + widths[0],  w: widths[1] },
+    { x: ML + widths[0] + widths[1], w: widths[2] },
+    { x: ML + ctrlStart,  w: widths[6] },
+    { x: ML + postStart + postW, w: widths[10] },
+  ];
+  for (const cell of row2Ext) {
+    doc.rect(cell.x, row2y, cell.w, row2H);
+  }
+  for (const cell of subCols) {
+    doc.rect(cell.x, row2y, cell.w, row2H);
+    doc.text(cell.label, cell.x + cell.w / 2, row2y + PAD_V + LINE_H * 0.75, { align: "center" });
+  }
+
+  doc.setTextColor(0, 0, 0);
+  return row2y + row2H;
 }
 
 /** Render a colour key legend for the risk rating rows */
@@ -599,40 +672,41 @@ export async function generateRamsPdf(
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  // 7-column table: Activity | Hazard | Risks | Pre-Rating | Control Measures | Post-Rating | Comments
-  // Column widths summing to CONTENT_W=182
-  const rC = [26, 24, 38, 14, 50, 14, 16];
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true, 3);
+  // 11-column table: Activity | Hazard | Risks | Pre-L | Pre-S | Pre-R | Control Measures | Post-L | Post-S | Post-R | Comments
+  // Column widths: [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14] = 182 = CONTENT_W
+  const rC = [22, 20, 30, 8, 8, 10, 44, 8, 8, 10, 14];
+  y = riskTableHeader(doc, rC, y);
 
+  // Page 6 rows — [Activity, Hazard, Risks, PreL, PreS, PreR, Controls, PostL, PostS, PostR, Comments]
   y = riskRow(doc, [
     "Pressure pipework testing",
     "Burst pipework",
-    "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.",
-    "2",
-    "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
-    "10",
+    "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards from exposure to water and associated particles.",
+    "1","2","2",
+    "Only trained and competent operative to use pressure test gauge - gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
+    "2","5","10",
     ""
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "Main BCW from riser to clusters 16bar",
     "Operatives being injured by flying materials and fixings",
-    "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards arising from exposure to water and other associated particles.",
-    "25",
-    "Only trained and competent operative to use pressure test gauge – gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
-    "10",
+    "Operatives being injured by flying materials and fixings. Operatives or bystanders being injured by pressure from water burst. Abrasive particles causing eye injuries. Health hazards from exposure to water and associated particles.",
+    "5","5","25",
+    "Only trained and competent operative to use pressure test gauge - gauge to be calibrated and cert checked. HES site supervisor to witness test procedure and HES operative to check all pipework connections and joints before test.",
+    "2","5","10",
     ""
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "All tasks",
     "Lone Working",
     "Potential to suffer injury and be isolated/left unaided with injuries",
-    "30",
-    "Employees to work in pairs where possible. There will be no lone working for work at higher levels. Given the size of the working site, there may be occasions when an operative is left alone when another operative goes for material/tools etc. If this occurs the operative left working will be told not to carry out any high risk activity until his work partner returns.",
-    "10",
-    "Whilst lone working is not envisaged to take place, if this should occur however prior to doing so, an individual activity related risk assessment must be carried out."
-  ], rC, y, 0, false, 3);
+    "5","6","30",
+    "Employees to work in pairs where possible. There will be no lone working for work at higher levels. If an operative is left alone they will not carry out any high risk activity until their work partner returns.",
+    "2","5","10",
+    "Whilst lone working is not envisaged, if this should occur an individual activity related risk assessment must be carried out."
+  ], rC, y, 0, false);
 
   riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 6, 10);
@@ -651,37 +725,37 @@ export async function generateRamsPdf(
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true, 3);
+  y = riskTableHeader(doc, rC, y);
 
   y = riskRow(doc, [
     "All tasks",
     "Incompetence/Wrong use of tool/defective tool",
     "Eye Injury/Lacerations to hands/Various",
-    "2",
+    "1","2","2",
     "Tools must be visually inspected prior to use, tools must be fit for the purpose, tools must be entered on the PUWER register.",
-    "2",
+    "1","2","2",
     "Correct PPE must be worn: Safety goggles and Gloves. Power tools must be PAT tested, and used in conjunction with a HAV assessment."
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "Noise emitted from work activities, such as running the portable fire engine.",
     "Noise",
     "Damage to hearing, deafness, tinnitus.",
-    "20",
+    "4","5","20",
     "Noise shall be reduced to lowest level possible. All operatives must wear hearing defenders for operating the engine and if any associated contractors are working nearby that are generating any significant noise.",
-    "6",
-    "Lower exposure action value is 80dB(A) LEPd). Upper 85dB(A) LEPd). Limit 87dB(A) LEPd. Any significant noises must be reported to principal contractor immediately."
-  ], rC, y, 0, false, 3);
+    "2","3","6",
+    "Lower exposure action value is 80dB(A) LEPd. Upper 85dB(A) LEPd. Limit 87dB(A) LEPd. Any significant noises must be reported to principal contractor immediately."
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "All tasks",
     "Incompetence/poor housekeeping",
     "Various including slips/trips/falls",
-    "24",
+    "4","6","24",
     "All site personnel to be competent to perform the tasks they are asked to do. Compliance with Site/Managers' Rules. Skills/competencies as per Company Health & Safety Policy.",
-    "5",
+    "1","5","5",
     "Good housekeeping helps keep safe sites. Never walk on by if you see materials or tools in your walkway, if it is safe to move do so."
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 7, 10);
@@ -700,37 +774,37 @@ export async function generateRamsPdf(
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true, 3);
+  y = riskTableHeader(doc, rC, y);
 
   y = riskRow(doc, [
     "All tasks",
     "Handling materials/tools with sharp edges",
     "Cuts/lacerations to hands and body and potential back injuries",
-    "35",
-    "All operatives to wear the necessary PPE whilst handling materials or tools with sharp edges. Always read method statement and never deviate from safe system of work. Supervisor to inspect work areas to ensure safe working environment. Attention should also be paid to other contractors leaving sharp edges or materials inadequately protected. Deploy good manual handling.",
-    "14",
+    "5","7","35",
+    "All operatives to wear necessary PPE whilst handling materials or tools with sharp edges. Always read method statement and never deviate from safe system of work. Supervisor to inspect work areas. Attention should be paid to contractors leaving sharp edges or materials inadequately protected. Deploy good manual handling.",
+    "2","7","14",
     ""
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "All tasks",
     "Moving plant/traffic/pedestrians",
     "Collision with plant/vehicles. Struck by moving materials.",
-    "35",
+    "5","7","35",
     "Traffic/pedestrian routes to be clearly defined and followed. Short cuts must never be taken. Vehicles/plant should all have Banksmen on site. Never load/unload vehicles unless trained to do so. Operatives to have had full site induction. All site rules to be followed at all times.",
-    "14",
+    "2","7","14",
     "All operatives to keep up to date with site changes regarding pedestrian routes."
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "All tasks",
     "Working adjacent other trades",
     "Contact with/being struck by electrical operations, manual handling, vehicle movements, working at height etc.",
-    "35",
+    "5","7","35",
     "Close liaison with other contractors. Daily project briefs between contractors. Particular attention must be paid to noise, dust, delivery schedules, common PPE standards. Co-ordination of activities to ensure the safety of all persons. Control of jointly managed access routes. Adherence to Site Rules. Site Inductions.",
-    "10",
+    "2","5","10",
     ""
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   riskColorLegend(doc, PAGE_H - 18);
   pageFooter(doc, 8, 10);
@@ -749,37 +823,37 @@ export async function generateRamsPdf(
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
-  y = riskRow(doc, ["Activity", "Hazard", "Risks", "Pre\nRating", "Control Measures", "Post\nRating", "Comments"], rC, y, 9, true, 3);
+  y = riskTableHeader(doc, rC, y);
 
   y = riskRow(doc, [
     "Human Factors: Capabilities and Behavioural Safety",
     "Inappropriate behaviour",
     "Activity may exceed capability of personnel.",
-    "2",
+    "1","2","2",
     "Site induction for management team to reinforce safe site behaviour/conduct. Competent Supervisor (SSSTS) to be highly visible, observing behaviour and activities undertaken by personnel and identify and control higher risk operations as appropriate to individual physical and psychological capability.",
-    "4",
+    "2","2","4",
     "All working personnel to embrace change and are encouraged to re-evaluate working practices as per IOSH behavioural safety training."
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "Activity exceeds capability of personnel",
     "Lack of competency",
     "Inappropriate equipment for personnel, over familiarisation and complacency. Young workers lacking correct perception of hazard and risk; older workers not embracing change regarding safe systems of work.",
-    "15",
+    "3","5","15",
     "Daily inspections by foremen. Method systems of working established and reconciled with programme to minimise conflict of activities. Always clear your own mess up, and if a contractor has left you a messy work area report it. All PPE provided shall be of appropriate size and fitting for the individual.",
-    "4",
+    "2","2","4",
     "Prior to commencement of work on site all employees to have CSCS Cards, trade specific training, IOSH working safely (Behavioural Safety Module)."
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y = riskRow(doc, [
     "Manual handling / Ergonomic operations",
     "Moving, pulling, pushing of tools, equipment and materials",
     "Musculoskeletal disorders and other injuries.",
-    "2",
+    "1","2","2",
     "All operatives must have manual handling training and deploy good manual handling techniques at all times. Never lift beyond personal capability. If a mechanical aid is required, a suitable lifting plan should be put together. Consider: task, load shape/size/weight, individual capabilities, and environment. Appropriate PPE to be worn including gloves and kneepads.",
-    "10",
+    "2","5","10",
     "Additional information can be found on Handling Assessment Charts (MAC) on the HSE website www.hse.gov.uk/msd."
-  ], rC, y, 0, false, 3);
+  ], rC, y, 0, false);
 
   y += 4;
   y = para(doc,
