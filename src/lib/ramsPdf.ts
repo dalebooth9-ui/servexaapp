@@ -130,11 +130,11 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
   return y + 21;
 }
 
-const RISK_FONT_SIZE = 7;
-// 7pt in mm ≈ 2.47mm; add 1.5mm leading for comfortable line spacing
-const RISK_LINE_H = 4.0; // fixed mm per line — predictable across all cells
-const RISK_PAD_H = 1.5; // horizontal inner padding mm
-const RISK_PAD_V = 1.5; // vertical inner padding mm
+const RISK_FONT_SIZE = 6.5;
+// 6.5pt in mm ≈ 2.29mm; add 1.6mm leading
+const RISK_LINE_H = 3.9; // fixed mm per line
+const RISK_PAD_H = 1.2; // horizontal inner padding mm
+const RISK_PAD_V = 1.2; // vertical inner padding mm
 
 /** Split text for a cell using correct font weight so line-count matches render. */
 function splitCell(doc: jsPDF, text: string, cw: number, bold = false): string[] {
@@ -693,8 +693,8 @@ export async function generateRamsPdf(
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
 
   // Column widths summing to CONTENT_W (182mm):
-  // Activity(28) Hazard(24) Risks(32) PreL(7) PreS(7) PreR(9) Controls(46) PostL(7) PostS(7) PostR(9) Comments(6) = 182
-  const rC = [28, 24, 32, 7, 7, 9, 46, 7, 7, 9, 6];
+  // Activity(22) Hazard(20) Risks(28) PreL(6) PreS(6) PreR(8) Controls(42) PostL(6) PostS(6) PostR(8) Comments(30) = 182
+  const rC = [22, 20, 28, 6, 6, 8, 42, 6, 6, 8, 30];
   y = riskTableHeader(doc, rC, y);
 
   // Page 6 rows — [Activity, Hazard, Risks, PreL, PreS, PreR, Controls, PostL, PostS, PostR, Comments]
