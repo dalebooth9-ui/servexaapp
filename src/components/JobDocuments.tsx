@@ -124,15 +124,19 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       };
 
       const operatives = engineers.map((e) => ({ name: e.name, sig: "", date: "" }));
-      // Open window before await to avoid popup blocker
-      const previewWindow = window.open("", "_blank");
       const { base64, fileName } = await generateRamsPdf({}, jobInfo, operatives);
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
       const blob = new Blob([byteArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      if (previewWindow) { previewWindow.location.href = url; } else { window.open(url, "_blank"); }
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 30000);
       toast({ title: "RAMS PDF opened", description: fileName });
     } catch (e) {
