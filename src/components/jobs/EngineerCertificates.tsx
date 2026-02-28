@@ -122,7 +122,15 @@ export default function EngineerCertificates({ jobId, engineers = [] }: Engineer
                               variant="ghost"
                               size="sm"
                               className="h-7 gap-1 text-xs"
-                              onClick={() => window.open(signedUrl, "_blank")}
+                              onClick={() => {
+                                const a = document.createElement("a");
+                                a.href = signedUrl;
+                                a.target = "_blank";
+                                a.rel = "noopener noreferrer";
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                              }}
                             >
                               <Download className="h-3.5 w-3.5" /> View
                             </Button>
