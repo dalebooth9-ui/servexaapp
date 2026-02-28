@@ -24,6 +24,7 @@ import {
   Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2,
 } from "lucide-react";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
+import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 
 type Site = {
@@ -116,6 +117,7 @@ export default function Sites() {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
+  const { categories: jobCategories } = useJobCategories();
   const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
@@ -156,7 +158,7 @@ export default function Sites() {
       || customerFolders.find((f) => f.sites.some((s) => s.id === site.id))?.id
       || "";
     setCreateJobCustomerId(resolvedCustomerId);
-    setCreateJobForm({ name: site.name, priority: "medium", category: "general" });
+    setCreateJobForm({ name: site.name, priority: "medium", category: jobCategories[0]?.slug || "general" });
     setCreateJobDialogOpen(true);
   };
 
@@ -1158,11 +1160,14 @@ export default function Sites() {
                 <Select value={createJobForm.category} onValueChange={(v) => setCreateJobForm((f) => ({ ...f, category: v }))}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="general">General</SelectItem>
-                    <SelectItem value="maintenance">Maintenance</SelectItem>
-                    <SelectItem value="inspection">Inspection</SelectItem>
-                    <SelectItem value="installation">Installation</SelectItem>
-                    <SelectItem value="repair">Repair</SelectItem>
+                    {jobCategories.length > 0
+                      ? jobCategories.map((c) => <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>)
+                      : <>
+                          <SelectItem value="general">General</SelectItem>
+                          <SelectItem value="maintenance">Maintenance</SelectItem>
+                          <SelectItem value="inspection">Inspection</SelectItem>
+                        </>
+                    }
                   </SelectContent>
                 </Select>
               </div>
