@@ -13,6 +13,7 @@ import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
+import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
@@ -101,6 +102,7 @@ export default function SettingsPage() {
         <JobCategorySettings />
         <AssetCategorySettings />
         <JobTemplateSettings />
+        <CategoryDocumentTemplateSettings />
         <RamsTemplateSettings />
         <XeroSettings />
       </div>

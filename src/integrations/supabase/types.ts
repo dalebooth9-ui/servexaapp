@@ -360,6 +360,51 @@ export type Database = {
           },
         ]
       }
+      category_document_templates: {
+        Row: {
+          category_slug: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_type: string
+          enabled: boolean
+          file_name: string | null
+          file_url: string | null
+          id: string
+          label: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category_slug: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_type: string
+          enabled?: boolean
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category_slug?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_type?: string
+          enabled?: boolean
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          label?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       compliance_records: {
         Row: {
           asset_id: string | null
@@ -1010,6 +1055,60 @@ export type Database = {
           sort_order?: number
         }
         Relationships: []
+      }
+      job_documents: {
+        Row: {
+          category_template_id: string | null
+          created_at: string
+          created_by: string | null
+          document_type: string
+          file_name: string | null
+          file_url: string | null
+          id: string
+          job_id: string
+          label: string
+          source: string
+        }
+        Insert: {
+          category_template_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          job_id: string
+          label?: string
+          source?: string
+        }
+        Update: {
+          category_template_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          file_name?: string | null
+          file_url?: string | null
+          id?: string
+          job_id?: string
+          label?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_documents_category_template_id_fkey"
+            columns: ["category_template_id"]
+            isOneToOne: false
+            referencedRelation: "category_document_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_documents_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_messages: {
         Row: {
