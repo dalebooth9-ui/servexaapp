@@ -233,8 +233,6 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
   const generate = async (forceMode?: "preview" | "download") => {
     setGenerating(true);
     const effectiveMode = forceMode ?? mode;
-    // Open window immediately before async work to avoid popup blocker
-    const previewWindow = (effectiveMode === "preview" && !onPdfGenerated) ? window.open("", "_blank") : null;
     try {
       const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt);
 
@@ -257,17 +255,18 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           setTimeout(() => URL.revokeObjectURL(url), 1000);
           toast({ title: "PDF downloaded", description: fileName });
         } else {
-          if (previewWindow) {
-            previewWindow.location.href = url;
-          } else {
-            window.open(url, "_blank");
-          }
+          const a = document.createElement("a");
+          a.href = url;
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
           setTimeout(() => URL.revokeObjectURL(url), 30000);
           toast({ title: "PDF opened", description: fileName });
         }
       }
     } catch (err: any) {
-      if (previewWindow) previewWindow.close();
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
