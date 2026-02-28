@@ -367,6 +367,9 @@ export async function generateRamsPdf(
   const datePrepared = formData["rams_assessment_date"] || new Date().toLocaleDateString("en-GB");
   const clientName = formData["rams_client"] || jobInfo?.customers?.name || jobInfo?.customer || "";
   const attendanceDate = formData["rams_attendance_date"] || "";
+  const siteLocation = jobInfo?.site?.name
+    ? `${jobInfo.site.name}${jobInfo.site.address ? ", " + jobInfo.site.address : ""}`
+    : jobInfo?.address || "All areas / locations";
 
   // Build operatives list: prefer assigned engineers, then fall back to form data
   let operatives: { name: string; sig: string; date: string }[] = [];
@@ -380,6 +383,11 @@ export async function generateRamsPdf(
       if (n || s || d) operatives.push({ name: n, sig: s, date: d });
     }
   }
+
+  // Build engineer name string for risk table info blocks
+  const engineerNames = operatives.length > 0
+    ? operatives.map((o) => o.name).filter(Boolean).join(", ")
+    : "Viva Fire Operatives";
 
   /* ───────────────────────────────────────────── PAGE 1 – Cover ───── */
   let y = 20;
@@ -426,8 +434,11 @@ export async function generateRamsPdf(
 
   // Calculate total box height from content rows
   const rowGap = 7;
-  let rows = 4; // Operation, Contract, Date, Review
+  let rows = 4; // Operation, Contract, Client, Date
+  if (clientName) rows += 0; // already counted above
+  if (siteLocation && siteLocation !== "All areas / locations") rows += 1;
   if (scopeParts) rows += 1;
+  if (engineerNames && engineerNames !== "Viva Fire Operatives") rows += 1;
   rows += 2; // Written by, Approved by
   const reviewExtra = (reviewLines.length - 1) * (8.5 * 0.352778 + 1.2);
   const detailBoxH = rows * rowGap + reviewExtra + 6;
@@ -438,10 +449,17 @@ export async function generateRamsPdf(
   doc.setFontSize(9);
   let ry = boxY + 7;
   labelValue(doc, "Operation / Task:", "Pressure testing Pipework and associated fittings.", ML + 3, ry); ry += rowGap;
-  labelValue(doc, "Contract / Job Name:", contractName, ML + 3, ry); ry += rowGap;
+  labelValue(doc, "Contract / Job Name:", contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : ""), ML + 3, ry); ry += rowGap;
+  labelValue(doc, "Client:", clientName, ML + 3, ry); ry += rowGap;
+  if (siteLocation && siteLocation !== "All areas / locations") {
+    labelValue(doc, "Site / Location:", siteLocation, ML + 3, ry); ry += rowGap;
+  }
   labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry); ry += rowGap;
   if (scopeParts) {
     labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry); ry += rowGap;
+  }
+  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+    labelValue(doc, "Assigned Engineers:", engineerNames, ML + 3, ry); ry += rowGap;
   }
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
@@ -686,8 +704,8 @@ export async function generateRamsPdf(
   const infoColW = CONTENT_W / 2;
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
-  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -739,8 +757,8 @@ export async function generateRamsPdf(
   doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
-  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -788,8 +806,8 @@ export async function generateRamsPdf(
   doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
-  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -837,8 +855,8 @@ export async function generateRamsPdf(
   doc.text(riskTitle, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0,0,0); y += 6;
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
-  labelValue(doc, "Employees at Risk:", "Daniel Hall, Tom Vernon, Calvin Whittaker, Devon Dunkerley", ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", "All areas / locations", ML, y, 26); y += 4.5;
+  labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
