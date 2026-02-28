@@ -56,7 +56,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   // Auto-attach documents from category templates when the component mounts
   useEffect(() => {
     if (!job?.category || !user || userRole !== "admin") return;
-    if (job?.status === "completed") return;
+    if (job?.status === "completed" || job?.status === "cancelled") return;
     autoAttachCategoryDocuments();
   }, [job?.category]);
 
