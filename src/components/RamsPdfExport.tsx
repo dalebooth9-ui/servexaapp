@@ -59,31 +59,28 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
 
       const effectiveMode = forceMode ?? mode;
 
-      // Open window immediately (before await) to avoid popup blocker
-      const previewWindow = effectiveMode === "preview" ? window.open("", "_blank") : null;
-
       const { base64, fileName } = await generateRamsPdf(formData, jobInfo, assignedEngineers);
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
       const blob = new Blob([byteArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
 
       if (effectiveMode === "download") {
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "RAMS PDF downloaded", description: fileName });
       } else {
-        if (previewWindow) {
-          previewWindow.location.href = url;
-        } else {
-          window.open(url, "_blank");
-        }
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 30000);
         toast({ title: "RAMS PDF opened", description: fileName });
       }
