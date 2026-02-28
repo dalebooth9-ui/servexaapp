@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Gauge } from "lucide-react";
+import { Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { addMonths, format } from "date-fns";
@@ -118,9 +118,6 @@ export default function ScheduleFollowUpJobs({ sourceJob, onCreated }: ScheduleF
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => handleOpen("visual")}>
           <Eye className="mr-1.5 h-3.5 w-3.5" /> Schedule Visual (6m)
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => handleOpen("pressure_test")}>
-          <Gauge className="mr-1.5 h-3.5 w-3.5" /> Schedule PT (12m)
         </Button>
       </div>
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
