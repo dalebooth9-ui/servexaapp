@@ -225,7 +225,15 @@ export default function Compliance() {
     const { urls, names } = parseFileList(r.file_url, r.file_name);
     for (const url of urls) {
       const { data } = await supabase.storage.from("asset-documents").createSignedUrl(url, 3600);
-      if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+      if (data?.signedUrl) {
+        const a = document.createElement("a");
+        a.href = data.signedUrl;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
     }
   };
 

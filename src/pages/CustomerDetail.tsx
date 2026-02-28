@@ -754,7 +754,15 @@ export default function CustomerDetail() {
                             ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
                             : doc.file_url;
                           const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
-                          if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                          if (data?.signedUrl) {
+                            const a = document.createElement("a");
+                            a.href = data.signedUrl;
+                            a.target = "_blank";
+                            a.rel = "noopener noreferrer";
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                          }
                         }}
                       >
                         <TableCell className="w-10 px-2">
@@ -782,7 +790,15 @@ export default function CustomerDetail() {
                                 ? decodeURIComponent(doc.file_url.split("/object/public/submissions/")[1])
                                 : doc.file_url;
                               const { data } = await supabase.storage.from("submissions").createSignedUrl(storagePath, 3600);
-                              if (data?.signedUrl) window.open(data.signedUrl, "_blank");
+                              if (data?.signedUrl) {
+                                const a = document.createElement("a");
+                                a.href = data.signedUrl;
+                                a.target = "_blank";
+                                a.rel = "noopener noreferrer";
+                                document.body.appendChild(a);
+                                a.click();
+                                document.body.removeChild(a);
+                              }
                             }}>
                               <Download className="h-4 w-4" />
                             </Button>
