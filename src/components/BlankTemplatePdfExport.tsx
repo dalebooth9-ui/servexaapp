@@ -190,8 +190,21 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       if (watermark) addWatermarkToAllPages(doc, watermark);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
-      doc.save(fileName);
-      toast({ title: "Blank template exported", description: `${fileName} downloaded.` });
+      const base64 = doc.output("datauristring").split(",")[1];
+      const byteCharacters = atob(base64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.target = "_blank";
+      a.rel = "noopener noreferrer";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      toast({ title: "Blank template opened", description: fileName });
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
