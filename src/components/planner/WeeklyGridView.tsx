@@ -181,6 +181,15 @@ function DraggableScheduleCard({
             )}
           </div>
           <div className="truncate text-foreground">{job.name}</div>
+          {job.due_date && (() => {
+            const isOverdue = isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date());
+            const dueToday = isSameDay(parseISO(job.due_date), new Date());
+            return (
+              <div className={cn("text-[9px] font-mono font-semibold", isOverdue ? "text-destructive" : dueToday ? "text-amber-500" : "text-muted-foreground")}>
+                Due {format(parseISO(job.due_date), "dd/MM/yy")}
+              </div>
+            );
+          })()}
           {(job.site?.name || job.site?.postcode) && (
             <div className="truncate text-muted-foreground text-[10px]">
               📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
