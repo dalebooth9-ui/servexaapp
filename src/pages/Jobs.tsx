@@ -861,8 +861,10 @@ export default function Jobs() {
               <form onSubmit={handleCreate} className="space-y-4">
                 {/* Drag-drop AI extraction zone */}
                 <div
+                  onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
                   onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => { e.stopPropagation(); handleDialogFileDrop(e); }}
+                  onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => { e.preventDefault(); e.stopPropagation(); handleDialogFileDrop(e); }}
                   className="flex items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-default"
                 >
                   {dialogParsingFile ? (
