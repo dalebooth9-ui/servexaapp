@@ -351,7 +351,7 @@ function DocRow({
         t.name?.toLowerCase() === doc.label?.toLowerCase() ||
         doc.label?.toLowerCase().includes(t.name?.toLowerCase()) ||
         t.name?.toLowerCase().includes(doc.label?.toLowerCase())
-      ) || Object.values(blankTemplates)[0]
+      ) ?? null
     : null;
 
   return (
