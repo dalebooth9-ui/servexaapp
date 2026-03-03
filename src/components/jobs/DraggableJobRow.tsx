@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { GripVertical, Trash2, ShieldCheck, CalendarDays } from "lucide-react";
+import { GripVertical, Trash2, ShieldCheck, CalendarDays, AlertCircle } from "lucide-react";
+import { format, isPast, isToday, parseISO } from "date-fns";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import WhatsAppQuickSend from "./WhatsAppQuickSend";
 
@@ -126,12 +127,25 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
       </TableCell>
       <TableCell>
         {job.result === "pass" ? (
-          <Badge className="bg-green-600 text-white text-[10px] uppercase">Pass</Badge>
+          <Badge className="bg-green-600/90 text-white text-[10px] uppercase">Pass</Badge>
         ) : job.result === "fail" ? (
           <Badge variant="destructive" className="text-[10px] uppercase">Fail</Badge>
         ) : (
           <span className="text-xs text-muted-foreground">—</span>
         )}
+      </TableCell>
+      <TableCell>
+        {job.due_date ? (() => {
+          const d = parseISO(job.due_date);
+          const overdue = isPast(d) && !isToday(d) && job.status !== "completed";
+          const dueToday = isToday(d);
+          return (
+            <span className={`text-xs flex items-center gap-1 ${overdue ? "text-destructive font-medium" : dueToday ? "text-amber-500 font-medium" : "text-muted-foreground"}`}>
+              {(overdue || dueToday) && <AlertCircle className="h-3 w-3 shrink-0" />}
+              {format(d, "dd MMM yyyy")}
+            </span>
+          );
+        })() : <span className="text-xs text-muted-foreground">—</span>}
       </TableCell>
       <TableCell className="text-right">{job.submissions?.length || 0}</TableCell>
       {isAdmin && (
