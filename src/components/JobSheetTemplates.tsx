@@ -919,27 +919,20 @@ function renderFormField(
       const isYesNo = opts.length <= 3 && opts.some(o => o.toLowerCase() === "yes") && opts.some(o => o.toLowerCase() === "no");
       if (isYesNo) {
         return (
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-3">
             {opts.map((opt) => {
               const isSelected = value === opt;
-              const isYes = opt.toLowerCase() === "yes";
-              const isNo = opt.toLowerCase() === "no";
               return (
                 <button
                   key={opt}
                   type="button"
                   disabled={locked}
                   onClick={() => onChange(isSelected ? "" : opt)}
-                  className={`px-3 py-1 rounded text-xs font-semibold border transition-colors ${
-                    isSelected
-                      ? isYes
-                        ? "bg-green-600 text-white border-green-600"
-                        : isNo
-                        ? "bg-destructive text-destructive-foreground border-destructive"
-                        : "bg-primary text-primary-foreground border-primary"
-                      : "bg-background text-foreground border-border hover:bg-muted"
-                  }`}
+                  className="flex items-center gap-1.5 text-xs font-medium text-foreground"
                 >
+                  <span className={`inline-flex items-center justify-center w-4 h-4 border-2 rounded-sm transition-colors ${isSelected ? "border-primary bg-primary" : "border-border bg-background"}`}>
+                    {isSelected && <svg className="w-3 h-3 text-primary-foreground" viewBox="0 0 12 12" fill="none"><polyline points="1.5,6 4.5,9.5 10.5,2.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </span>
                   {opt}
                 </button>
               );
