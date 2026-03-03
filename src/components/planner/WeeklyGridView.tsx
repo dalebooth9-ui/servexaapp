@@ -3,7 +3,7 @@ import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { X, GripVertical } from "lucide-react";
+import { X, GripVertical, AlertTriangle } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -89,6 +89,7 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
   });
 
   const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date());
+  const isDueToday = job.due_date && isSameDay(parseISO(job.due_date), new Date());
 
   return (
     <div
@@ -97,17 +98,25 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
       {...listeners}
       className={cn(
         "rounded-md border-l-4 bg-card p-2 text-xs cursor-grab shadow-sm hover:shadow transition-shadow",
-        isOverdue ? "border-l-destructive bg-destructive/10 ring-1 ring-destructive/30" : PRIORITY_BG[job.priority] || "border-l-muted",
+        isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30"
       )}
     >
       <div className="flex items-center justify-between gap-1">
         <span className="font-mono font-medium text-primary">{job.reference_number}</span>
-        {(job.due_date || job.created_at) && (
-          <span className={cn("text-[9px] font-mono", isOverdue ? "text-destructive font-bold" : job.due_date ? "text-foreground font-semibold" : "text-muted-foreground")}>
-            {job.due_date ? `Due ${format(new Date(job.due_date), "dd/MM/yy")}` : format(new Date(job.created_at!), "dd/MM/yy")}
+        {isOverdue ? (
+          <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground">
+            <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
           </span>
-        )}
+        ) : isDueToday ? (
+          <span className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+            DUE TODAY
+          </span>
+        ) : job.due_date ? (
+          <span className="text-[9px] font-mono text-muted-foreground">
+            Due {format(new Date(job.due_date), "dd/MM/yy")}
+          </span>
+        ) : null}
       </div>
       <div className="truncate text-foreground">{job.name}</div>
       {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground truncate">{(job as any).customers?.name || job.customer}</div>}
