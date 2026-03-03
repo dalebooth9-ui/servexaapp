@@ -110,20 +110,21 @@ serve(async (req) => {
           {
             role: "system",
             content: `You extract purchase order details from documents. Return a SINGLE JSON object (not an array) with these exact fields:
-- customer_name: the name of the client / company placing the order
+- customer_name: the name of the client / company who issued the order (look for "Bill To", "Client", "Company", "Ordered By", "Issued To", or the company letterhead)
 - contact_name: contact person name if present, else ""
-- address: site or delivery address
-- po_number: purchase order number or reference number
-- job_description: brief description of the work or goods ordered
+- address: the site/delivery/work address (look for "Deliver To", "Site Address", "Work Location", "Ship To", NOT the issuing company address)
+- po_number: purchase order number or reference number (look for "PO#", "PO Number", "Order No", "Reference", "Ref No")
+- job_description: full description of the work or goods ordered — include as much detail as possible
 - due_date: required completion or delivery date in YYYY-MM-DD format, or "" if not found
-- priority: "high", "medium", or "low" based on urgency language in the document (default "medium")
-- total_value: numeric value of the PO if present, else null
-- currency: currency code if present (e.g. "GBP"), else ""
-- notes: any other important instructions or notes
+- priority: "high", "medium", or "low" based on urgency language such as "urgent", "ASAP", "priority" (default "medium")
+- total_value: numeric value of the PO if present (strip currency symbols), else null
+- currency: currency code (e.g. "GBP", "USD", "EUR") detected from symbols £/$€ or explicit text, else ""
+- notes: any other important instructions, special requirements, or notes
 
 Rules:
+- Extract ALL available information — do not leave fields empty if the information exists anywhere in the document
 - Return ONLY the JSON object, no markdown, no explanation
-- If a field is not found, use empty string "" or null for numeric fields`,
+- If a field is truly not found, use empty string "" or null for numeric fields`,
           },
           {
             role: "user",

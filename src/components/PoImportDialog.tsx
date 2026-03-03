@@ -61,15 +61,20 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
     });
   }, []);
 
-  // Parse the file when dialog opens with a file
+  // Parse the file when dialog opens with a file — wait for customers to load first
   useEffect(() => {
     if (!open || !file) return;
     setExtracted(null);
     setParseError(null);
-    parseFile(file);
+    // Ensure customers are loaded before parsing so we can match them
+    supabase.from("customers").select("id, name").order("name").then(({ data }) => {
+      const loaded = data || [];
+      setCustomers(loaded);
+      parseFile(file, loaded);
+    });
   }, [open, file]);
 
-  const parseFile = async (f: File) => {
+  const parseFile = async (f: File, customerList?: { id: string; name: string }[]) => {
     setParsing(true);
     setParseError(null);
     try {
@@ -83,8 +88,9 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
       const ext: ExtractedPO = data?.data || {};
       setExtracted(ext);
 
-      // Try to match customer by name
-      const matchedCustomer = customers.find(
+      // Try to match customer by name using the freshly loaded list (avoids race condition)
+      const list = customerList ?? customers;
+      const matchedCustomer = list.find(
         (c) => c.name.toLowerCase() === (ext.customer_name || "").toLowerCase()
       );
 
