@@ -322,7 +322,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     if (existingResponse) {
       setActiveResponse(existingResponse);
       const saved = existingResponse.responses as Record<string, any>;
-      const merged: Record<string, any> = { ...prefilled };
+      // Only use locked (auto-populated) fields as base; don't pre-fill non-locked fields
+      const merged: Record<string, any> = {};
+      Object.entries(prefilled).forEach(([key, val]) => {
+        if (locked.has(key)) merged[key] = val;
+      });
       Object.entries(saved).forEach(([key, val]) => {
         // Locked fields always use prefilled value
         if (locked.has(key)) return;
