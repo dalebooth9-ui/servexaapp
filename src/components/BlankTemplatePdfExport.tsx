@@ -58,7 +58,21 @@ interface Props {
   jobInfo?: JobInfo | null;
 }
 
-// getAutoPopulatedValues is now imported from @/lib/pdfBody
+/** How many blank sheets to generate based on template name + job quantities */
+function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined): number {
+  if (!jobInfo) return 1;
+  const n = templateName.toLowerCase();
+  if (
+    n.includes("pressure test") || n.includes("dry riser") ||
+    n.includes("wet riser") || n.includes("sprinkler") || n.includes("hydrant")
+  ) {
+    return Math.max(jobInfo.pressure_test_qty || 1, 1);
+  }
+  if (n.includes("visual")) {
+    return Math.max(jobInfo.visual_qty || 1, 1);
+  }
+  return 1;
+}
 
 export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   const [generating, setGenerating] = useState(false);
@@ -67,131 +81,141 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   const generate = async () => {
     setGenerating(true);
     try {
-      const doc = new jsPDF();
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxWidth = pageWidth - margin * 2;
-
+      const systemQty = getSystemQty(template.name, jobInfo);
       const branding = template.branding || {};
       const footerText = getDefaultFooterText(template.name, branding);
       const autoVals = getAutoPopulatedValues(template.name, template.fields, jobInfo);
 
       const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
       const siteName = jobInfo?.site?.name || "";
-      const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
+      const siteAddress = [
+        jobInfo?.site?.address || jobInfo?.address || "",
+        jobInfo?.site?.postcode || "",
+      ].filter(Boolean).join(", ");
       const refNumber = jobInfo?.reference_number || "";
       const dateVal = new Date().toLocaleDateString("en-GB");
       const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
       const riserLocValue = riserField ? (autoVals[riserField.id] || "") : "";
+      const engineerList = (jobInfo?.engineers || []).join(", ");
 
-      let y = await renderPdfHeader(doc, template.name, branding, {
-        customerName,
-        siteName,
-        siteAddress,
-        refNumber,
-        dateVal,
-        riserLocation: riserLocValue,
-      });
+      const doc = new jsPDF();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 10;
+      const maxWidth = pageWidth - margin * 2;
 
-      // --- Shared layout utilities ---
-      const skipIds = buildSkipIds(template.fields);
-      const sections = getSections(template.fields);
-      const colSplit = maxWidth * 0.68;
-      const footerSpace = 28;
-      const availableH = pageHeight - y - footerSpace;
+      for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
+        // Add a new page for every sheet after the first
+        if (sysIdx > 0) doc.addPage();
 
-      const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
-        sectionHeaderH: 5,
-        maxRowH: 6,
-      });
+        const sheetTitle = systemQty > 1
+          ? `${template.name} — System ${sysIdx + 1} of ${systemQty}`
+          : template.name;
 
-      for (const section of sections) {
-        const sectionFields = getSectionFields(template.fields, section, skipIds);
-        if (sectionFields.length === 0) continue;
+        let y = await renderPdfHeader(doc, sheetTitle, branding, {
+          customerName,
+          siteName,
+          siteAddress,
+          refNumber,
+          dateVal,
+          riserLocation: riserLocValue,
+        });
 
-        // Render "Pressure Test Results" section as a single compact row
-        if (section.toLowerCase().includes("pressure test result")) {
-          const inlineH = layout.rowH;
-          if (y + layout.sectionHeaderH + inlineH > pageHeight - footerSpace) {
-            doc.addPage();
-            y = margin;
-          }
-          y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false });
+        const skipIds = buildSkipIds(template.fields);
+        const sections = getSections(template.fields);
+        const colSplit = maxWidth * 0.68;
+        const footerSpace = 28;
+        const availableH = pageHeight - y - footerSpace;
 
-          doc.setDrawColor(180);
-          doc.rect(margin, y, maxWidth, inlineH);
-          doc.setFontSize(7);
-          let ox = margin + 1;
-          for (const field of sectionFields) {
-            doc.setFont("helvetica", "bold");
-            doc.text(field.label, ox, y + 3.5);
-            ox += doc.getTextWidth(field.label) + 1;
-            if (field.type === "pass_fail") {
-              doc.setFont("helvetica", "normal");
-              doc.rect(ox, y + 1, 3, 3); doc.text("P", ox + 4, y + 3.5);
-              doc.rect(ox + 10, y + 1, 3, 3); doc.text("F", ox + 14, y + 3.5);
-              doc.rect(ox + 20, y + 1, 3, 3); doc.text("N/A", ox + 24, y + 3.5);
-              ox += 32;
-            } else if (field.type === "number") {
-              doc.line(ox, y + 3.5, ox + 10, y + 3.5);
-              ox += 12;
-            } else if (field.type === "select" && field.options) {
-              doc.setFont("helvetica", "normal");
-              for (const opt of field.options) {
-                doc.rect(ox, y + 1, 3, 3);
-                doc.text(opt, ox + 4, y + 3.5);
-                ox += 4 + doc.getTextWidth(opt) + 2;
+        const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
+          sectionHeaderH: 5,
+          maxRowH: 6,
+        });
+
+        for (const section of sections) {
+          const sectionFields = getSectionFields(template.fields, section, skipIds);
+          if (sectionFields.length === 0) continue;
+
+          // Render "Pressure Test Results" as a single compact inline row
+          if (section.toLowerCase().includes("pressure test result")) {
+            const inlineH = layout.rowH;
+            if (y + layout.sectionHeaderH + inlineH > pageHeight - footerSpace) {
+              doc.addPage();
+              y = margin;
+            }
+            y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false });
+            doc.setDrawColor(180);
+            doc.rect(margin, y, maxWidth, inlineH);
+            doc.setFontSize(7);
+            let ox = margin + 1;
+            for (const field of sectionFields) {
+              doc.setFont("helvetica", "bold");
+              doc.text(field.label, ox, y + 3.5);
+              ox += doc.getTextWidth(field.label) + 1;
+              if (field.type === "pass_fail") {
+                doc.setFont("helvetica", "normal");
+                doc.rect(ox, y + 1, 3, 3); doc.text("P", ox + 4, y + 3.5);
+                doc.rect(ox + 10, y + 1, 3, 3); doc.text("F", ox + 14, y + 3.5);
+                doc.rect(ox + 20, y + 1, 3, 3); doc.text("N/A", ox + 24, y + 3.5);
+                ox += 32;
+              } else if (field.type === "number") {
+                doc.line(ox, y + 3.5, ox + 10, y + 3.5);
+                ox += 12;
+              } else if (field.type === "select" && field.options) {
+                doc.setFont("helvetica", "normal");
+                for (const opt of field.options) {
+                  doc.rect(ox, y + 1, 3, 3);
+                  doc.text(opt, ox + 4, y + 3.5);
+                  ox += 4 + doc.getTextWidth(opt) + 2;
+                }
+                ox += 2;
               }
               ox += 2;
             }
-            ox += 2;
+            y += inlineH + 1;
+            continue;
           }
-          y += inlineH + 1;
-          continue;
+
+          // Page overflow check
+          if (y + layout.sectionHeaderH + sectionFields.length * layout.rowH > pageHeight - footerSpace) {
+            doc.addPage();
+            y = margin;
+          }
+
+          y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
+
+          for (const field of sectionFields) {
+            y = renderBlankFieldRow(doc, field, autoVals[field.id], y, {
+              margin, maxWidth, colSplit, rowH: layout.rowH,
+            });
+          }
+          y += 1;
         }
 
-        // Check page overflow
-        if (y + layout.sectionHeaderH + sectionFields.length * layout.rowH > pageHeight - footerSpace) {
-          doc.addPage();
-          y = margin;
-        }
+        // Comments box
+        const sigY = pageHeight - footerSpace - 10;
+        const commentsH = Math.max(sigY - y - 2, 6);
+        doc.setFontSize(8.5);
+        doc.setFont("helvetica", "bold");
+        doc.text("Comments:", margin, y + 3);
+        doc.setDrawColor(180);
+        doc.rect(margin, y + 4, maxWidth, commentsH - 4);
 
-        y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
+        renderPdfSignatures(doc, sigY, {
+          dateStr: "",
+          technicianName: engineerList,
+          customerName: "",
+        }, { blank: true });
 
-        for (const field of sectionFields) {
-          y = renderBlankFieldRow(doc, field, autoVals[field.id], y, {
-            margin, maxWidth, colSplit, rowH: layout.rowH,
-          });
-        }
-        y += 1;
+        const footerH = 9;
+        const footerY = pageHeight - margin - footerH;
+        renderPdfFooter(doc, footerY, footerText);
       }
-
-      // --- Comments section ---
-      const sigY = pageHeight - footerSpace - 10;
-      const commentsH = Math.max(sigY - y - 2, 6);
-      doc.setFontSize(8.5);
-      doc.setFont("helvetica", "bold");
-      doc.text("Comments:", margin, y + 3);
-      doc.setDrawColor(180);
-      doc.rect(margin, y + 4, maxWidth, commentsH - 4);
-
-      const engineerList = (jobInfo?.engineers || []).join(", ");
-
-      renderPdfSignatures(doc, sigY, {
-        dateStr: "",
-        technicianName: engineerList,
-        customerName: "",
-      }, { blank: true });
-
-      const footerH = 9;
-      const footerY = pageHeight - margin - footerH;
-      renderPdfFooter(doc, footerY, footerText);
 
       const watermark = await loadWatermarkImage();
       if (watermark) addWatermarkToAllPages(doc, watermark);
 
-      const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
+      const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
       const base64 = doc.output("datauristring").split(",")[1];
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
@@ -206,7 +230,10 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 30000);
-      toast({ title: "Blank template opened", description: fileName });
+      toast({
+        title: "Blank template opened",
+        description: systemQty > 1 ? `${systemQty} systems included` : fileName,
+      });
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
