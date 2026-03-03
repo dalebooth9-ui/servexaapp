@@ -146,13 +146,30 @@ export default function Sites() {
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
   const [createJobSite, setCreateJobSite] = useState<Site | null>(null);
+  const [createJobSelectedSiteId, setCreateJobSelectedSiteId] = useState<string>("");
   const [createJobCustomerId, setCreateJobCustomerId] = useState<string>("");
   const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general" });
   const [createJobSaving, setCreateJobSaving] = useState(false);
   const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
 
+  // Get a site and all its descendants (recursively)
+  const getSiteAndDescendants = (rootId: string): Site[] => {
+    const result: Site[] = [];
+    const queue = [rootId];
+    while (queue.length > 0) {
+      const id = queue.shift()!;
+      const site = sites.find((s) => s.id === id);
+      if (site) {
+        result.push(site);
+        sites.filter((s) => s.parent_id === id).forEach((s) => queue.push(s.id));
+      }
+    }
+    return result;
+  };
+
   const openCreateJob = (site: Site, customerId?: string) => {
     setCreateJobSite(site);
+    setCreateJobSelectedSiteId(site.id);
     // Auto-detect customer from folder if not explicitly provided
     const resolvedCustomerId = customerId
       || customerFolders.find((f) => f.sites.some((s) => s.id === site.id))?.id
@@ -164,19 +181,20 @@ export default function Sites() {
 
   const handleCreateJob = async () => {
     if (!createJobForm.name.trim() || !createJobSite) return;
+    const selectedSite = sites.find((s) => s.id === createJobSelectedSiteId) || createJobSite;
     setCreateJobSaving(true);
     const { data, error } = await supabase.from("jobs").insert({
       name: createJobForm.name.trim(),
       priority: createJobForm.priority,
       category: createJobForm.category,
-      site_id: createJobSite.id,
-      address: createJobSite.address || null,
+      site_id: selectedSite.id,
+      address: selectedSite.address || null,
       customer_id: createJobCustomerId || null,
       status: "active",
     } as any).select("id").single();
     setCreateJobSaving(false);
     if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Job created", description: `${createJobForm.name} linked to ${createJobSite.name}.` });
+    toast({ title: "Job created", description: `${createJobForm.name} linked to ${selectedSite.name}.` });
     setCreateJobDialogOpen(false);
     navigate(`/jobs/${data.id}`);
   };
@@ -1121,6 +1139,46 @@ export default function Sites() {
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            {/* Site selector — show the root site + all descendants */}
+            {createJobSite && (() => {
+              const siteOptions = getSiteAndDescendants(createJobSite.id);
+              if (siteOptions.length <= 1) return null;
+              return (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Site / Building</label>
+                  <Select value={createJobSelectedSiteId} onValueChange={(v) => {
+                    setCreateJobSelectedSiteId(v);
+                    const s = sites.find((x) => x.id === v);
+                    if (s) setCreateJobForm((f) => ({ ...f, name: s.name }));
+                  }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {siteOptions.map((s) => {
+                        const depth = (() => {
+                          let d = 0; let cur: Site | undefined = s;
+                          while (cur?.parent_id && cur.parent_id !== createJobSite.parent_id) {
+                            d++; cur = sites.find((x) => x.id === cur!.parent_id);
+                            if (cur?.id === createJobSite.id) break;
+                          }
+                          return d;
+                        })();
+                        const Ic = TYPE_CONFIG[s.site_type]?.icon || MapPin;
+                        return (
+                          <SelectItem key={s.id} value={s.id}>
+                            <span className="flex items-center gap-1.5">
+                              <span style={{ marginLeft: depth * 12 }} />
+                              <Ic className={`h-3.5 w-3.5 shrink-0 ${TYPE_CONFIG[s.site_type]?.color || ""}`} />
+                              {s.name}
+                              {s.postcode && <span className="text-muted-foreground text-xs ml-1">({s.postcode})</span>}
+                            </span>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              );
+            })()}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Job Name *</label>
               <Input
