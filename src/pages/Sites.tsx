@@ -1280,18 +1280,26 @@ export default function Sites() {
                 </Select>
               </div>
             </div>
-            {(createJobForm.pressure_test_qty > 0 || createJobForm.visual_qty > 0) && (
-              <div className="rounded-md bg-muted/50 border px-3 py-2 flex gap-4 text-sm">
-                <span className="text-muted-foreground">Auto-calculated from buildings:</span>
-                {createJobForm.pressure_test_qty > 0 && (
-                  <span className="font-medium">PT: <span className="text-primary">{createJobForm.pressure_test_qty}</span></span>
-                )}
-                {createJobForm.visual_qty > 0 && (
-                  <span className="font-medium">Vis: <span className="text-primary">{createJobForm.visual_qty}</span></span>
-                )}
-                {createJobForm.other_qty > 0 && createJobForm.other_service_type && (
-                  <span className="font-medium">{createJobForm.other_service_type}: <span className="text-primary">{createJobForm.other_qty}</span></span>
-                )}
+            {(createJobForm.pressure_test_qty > 0 || createJobForm.visual_qty > 0 || (createJobForm.other_qty > 0 && createJobForm.other_service_type)) && (
+              <div className="rounded-md bg-muted/50 border px-3 py-2 space-y-1.5">
+                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">⚡ Auto-calculated from buildings</p>
+                <div className="flex flex-wrap gap-2">
+                  {createJobForm.pressure_test_qty > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
+                      Pressure Test <span className="font-bold">&times; {createJobForm.pressure_test_qty}</span>
+                    </span>
+                  )}
+                  {createJobForm.visual_qty > 0 && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                      Visual Inspection <span className="font-bold">&times; {createJobForm.visual_qty}</span>
+                    </span>
+                  )}
+                  {createJobForm.other_qty > 0 && createJobForm.other_service_type && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-accent border border-border px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                      {createJobForm.other_service_type} <span className="font-bold">&times; {createJobForm.other_qty}</span>
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             <div className="grid grid-cols-2 gap-3">
