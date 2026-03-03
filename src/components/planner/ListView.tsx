@@ -330,7 +330,18 @@ export default function ListView({
                             );
                           })() : <span className="text-muted-foreground">—</span>}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">{entry.notes || "—"}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground max-w-[200px]">
+                          {entry.notes ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="line-clamp-2 cursor-default">{entry.notes}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">
+                                {entry.notes}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : <span>—</span>}
+                        </TableCell>
                         {isAdmin && (
                           <TableCell>
                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => onRemove(entry.id)}>
