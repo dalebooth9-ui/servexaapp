@@ -65,10 +65,10 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
       const blob = new Blob([byteArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
 
       if (effectiveMode === "download") {
+        const a = document.createElement("a");
+        a.href = url;
         a.download = fileName;
         document.body.appendChild(a);
         a.click();
@@ -76,11 +76,7 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "RAMS PDF downloaded", description: fileName });
       } else {
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        window.open(url, "_blank");
         setTimeout(() => URL.revokeObjectURL(url), 30000);
         toast({ title: "RAMS PDF opened", description: fileName });
       }
