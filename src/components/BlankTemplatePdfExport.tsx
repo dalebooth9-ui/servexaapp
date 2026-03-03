@@ -58,6 +58,13 @@ interface Props {
 
 // getAutoPopulatedValues is now imported from @/lib/pdfBody
 
+// Derive the static PDF filename from the template name
+function getStaticPdfUrl(templateName: string): string | null {
+  const slug = templateName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+  const url = `https://geyrqplwjzwdiaeqaeul.supabase.co/storage/v1/object/public/templates/blank-${slug}.pdf`;
+  return url;
+}
+
 export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
@@ -65,6 +72,21 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   const generate = async () => {
     setGenerating(true);
     try {
+      // Try to serve the static uploaded PDF first
+      const staticUrl = getStaticPdfUrl(template.name);
+      if (staticUrl) {
+        try {
+          const res = await fetch(staticUrl, { method: "HEAD" });
+          if (res.ok) {
+            window.open(staticUrl, "_blank", "noopener,noreferrer");
+            toast({ title: "Blank template opened", description: template.name });
+            setGenerating(false);
+            return;
+          }
+        } catch {
+          // fall through to dynamic generation
+        }
+      }
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
