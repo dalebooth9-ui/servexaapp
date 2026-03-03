@@ -660,11 +660,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Existing responses */}
-          {responses.length > 0 && (
+          {/* Existing responses — exclude RAMS (handled separately) */}
+          {responses.filter((r) => {
+            const tpl = templates.find((t) => t.id === r.template_id);
+            return (tpl as any)?.category !== "rams";
+          }).length > 0 && (
             <div className="mb-3">
               <p className="text-xs font-semibold text-muted-foreground mb-1.5">Completed Reports</p>
-              {responses.map((resp) => {
+              {responses.filter((r) => {
+                const tpl = templates.find((t) => t.id === r.template_id);
+                return (tpl as any)?.category !== "rams";
+              }).map((resp) => {
                 const tpl = templates.find((t) => t.id === resp.template_id);
                 const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
                 return (
@@ -759,12 +765,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           )}
 
-          {/* Available templates — engineers only see templates matching the job category */}
+          {/* Available templates — engineers only see templates matching the job category; RAMS hidden from this list */}
           {(() => {
             const jobCategory = jobInfo?.category || "";
+            const nonRamsTemplates = templates.filter((tpl) => (tpl as any).category !== "rams");
             const visibleTemplates = userRole === "admin"
-              ? templates
-              : templates.filter((tpl) => {
+              ? nonRamsTemplates
+              : nonRamsTemplates.filter((tpl) => {
                   const tplJobCategory = (tpl as any).job_category;
                   // Show template if it has no job_category restriction, or it matches the job's category
                   return !tplJobCategory || tplJobCategory === jobCategory;
