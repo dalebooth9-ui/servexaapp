@@ -217,6 +217,7 @@ export default function ListView({
                   <span className="flex items-center gap-1">Postcode <ArrowUpDown className="h-3 w-3" /></span>
                 </TableHead>
                 <TableHead>Job</TableHead>
+                <TableHead className="min-w-[180px]">Schedule Notes</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead className="cursor-pointer" onClick={() => toggleSort("due_date")}>
@@ -225,7 +226,6 @@ export default function ListView({
                 {optimisedJobOrder.length > 0 && <TableHead className="w-12 text-center">Route #</TableHead>}
                 <TableHead className="min-w-[220px]">Materials</TableHead>
                 <TableHead className="min-w-[220px]">Comments</TableHead>
-                <TableHead>Notes</TableHead>
                 {isAdmin && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
@@ -268,6 +268,18 @@ export default function ListView({
                               <span className="ml-1 text-sm">{[job.site?.name, job.name].filter(Boolean).join(" – ")}</span>
                             </Link>
                           ) : <span className="text-muted-foreground">Unknown</span>}
+                        </TableCell>
+                        <TableCell className="min-w-[180px] text-sm">
+                          {entry.notes ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="line-clamp-2 cursor-default text-foreground">{entry.notes}</span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">
+                                {entry.notes}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         <TableCell>
                           {(job?.pressure_test_qty > 0 || job?.visual_qty > 0 || (job?.other_qty > 0 && job?.other_service_type)) ? (
@@ -350,18 +362,6 @@ export default function ListView({
                               </Tooltip>
                             );
                           })() : <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground max-w-[200px]">
-                          {entry.notes ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="line-clamp-2 cursor-default">{entry.notes}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">
-                                {entry.notes}
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : <span>—</span>}
                         </TableCell>
                         {isAdmin && (
                           <TableCell>
