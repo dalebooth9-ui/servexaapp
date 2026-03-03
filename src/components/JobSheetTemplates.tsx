@@ -684,6 +684,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => tpl && handleStartForm(tpl, resp)}>
                         Continue
                       </Button>
+                      {tpl && <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />}
                       {canEdit && (
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
