@@ -16,6 +16,7 @@ import {
   renderBlankFieldRow,
   getAutoPopulatedValues,
 } from "@/lib/pdfBody";
+import { useJobCategories } from "@/hooks/useJobCategories";
 
 type Template = {
   id: string;
@@ -77,6 +78,7 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
+  const { categories: jobCategories } = useJobCategories();
 
   const generate = async () => {
     setGenerating(true);
@@ -84,7 +86,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const systemQty = getSystemQty(template.name, jobInfo);
       const branding = template.branding || {};
       const footerText = getDefaultFooterText(template.name, branding);
-      const autoVals = getAutoPopulatedValues(template.name, template.fields, jobInfo);
+      const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
+        || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+      const autoVals = getAutoPopulatedValues(template.name, template.fields, jobInfo ? { ...jobInfo, categoryName } : jobInfo);
 
       const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
       const siteName = jobInfo?.site?.name || "";
