@@ -440,14 +440,26 @@ export async function generateRamsPdf(
   const contractVal = contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : "");
   const contractLines = doc.splitTextToSize(contractVal, CONTENT_W - 3 - 52);
   ry += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
+  // Customer row (if present)
+  const customerVal = jobInfo?.customers?.name || jobInfo?.customer || "";
+  if (customerVal) ry += rowGap;
   ry += rowGap; // Client
+  // Address row (if present)
+  const addressVal = jobInfo?.site?.address || jobInfo?.address || "";
+  if (addressVal) {
+    const addrLines = doc.splitTextToSize(addressVal, CONTENT_W - 3 - 52);
+    ry += Math.max(rowGap, addrLines.length * (9 * 0.352778 + 1.2));
+  }
   if (siteLocation && siteLocation !== "All areas / locations") {
     const siteLines = doc.splitTextToSize(siteLocation, CONTENT_W - 55);
     ry += Math.max(rowGap, siteLines.length * (9 * 0.352778 + 1.2));
   }
   ry += rowGap; // Date Prepared
   if (scopeParts) ry += rowGap; // Service Scope
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") ry += rowGap; // Assigned Engineers
+  if (engineerNames && engineerNames !== "Viva Fire Operatives") {
+    const engLines = doc.splitTextToSize(engineerNames, CONTENT_W - 3 - 52);
+    ry += Math.max(rowGap, engLines.length * (9 * 0.352778 + 1.2));
+  }
   ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2; // Review text
   ry += rowGap; // Written by
   ry += rowGap; // Approved by
@@ -467,7 +479,20 @@ export async function generateRamsPdf(
   doc.setFont("helvetica", "normal");
   doc.text(contractLines, ML + 3 + 52, ry2);
   ry2 += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
+  // Customer (if present)
+  if (customerVal) {
+    labelValue(doc, "Customer:", customerVal, ML + 3, ry2); ry2 += rowGap;
+  }
   labelValue(doc, "Client:", clientName, ML + 3, ry2); ry2 += rowGap;
+  // Address (if present)
+  if (addressVal) {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text("Address:", ML + 3, ry2);
+    doc.setFont("helvetica", "normal");
+    const addrLines = doc.splitTextToSize(addressVal, CONTENT_W - 3 - 52);
+    doc.text(addrLines, ML + 3 + 52, ry2);
+    ry2 += Math.max(rowGap, addrLines.length * (9 * 0.352778 + 1.2));
+  }
   if (siteLocation && siteLocation !== "All areas / locations") {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9);
     doc.text("Site / Location:", ML + 3, ry2);
@@ -481,7 +506,12 @@ export async function generateRamsPdf(
     labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry2); ry2 += rowGap;
   }
   if (engineerNames && engineerNames !== "Viva Fire Operatives") {
-    labelValue(doc, "Assigned Engineers:", engineerNames, ML + 3, ry2); ry2 += rowGap;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text("Assigned Engineers:", ML + 3, ry2);
+    doc.setFont("helvetica", "normal");
+    const engLines = doc.splitTextToSize(engineerNames, CONTENT_W - 3 - 52);
+    doc.text(engLines, ML + 3 + 52, ry2);
+    ry2 += Math.max(rowGap, engLines.length * (9 * 0.352778 + 1.2));
   }
   doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
   doc.text(reviewLines, ML + 3, ry2);
