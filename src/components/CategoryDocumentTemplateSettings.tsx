@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, Shield } from "lucide-react";
+import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 
 type DocTemplate = {
@@ -228,7 +228,13 @@ export default function CategoryDocumentTemplateSettings() {
                     </p>
                     <div className="space-y-2">
                       {list.map((t) => (
-                        <div key={t.id} className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5">
+                        <div
+                          key={t.id}
+                          className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
+                          onClick={() => {
+                            if (t.file_url) window.open(t.file_url, "_blank", "noopener,noreferrer");
+                          }}
+                        >
                           <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium truncate">{t.label}</p>
@@ -239,28 +245,41 @@ export default function CategoryDocumentTemplateSettings() {
                               )}
                             </div>
                           </div>
+                          {t.file_url && t.document_type === "uploaded_file" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0 text-muted-foreground"
+                              onClick={(e) => { e.stopPropagation(); window.open(t.file_url!, "_blank", "noopener,noreferrer"); }}
+                              title="View file"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
                           {t.document_type === "uploaded_file" && (
                             <Button
                               variant="outline"
                               size="sm"
                               className="h-7 text-xs px-2 gap-1 shrink-0"
-                              onClick={() => handleUploadFile(t.id)}
+                              onClick={(e) => { e.stopPropagation(); handleUploadFile(t.id); }}
                               disabled={uploadingFor === t.id}
                             >
                               {uploadingFor === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
                               {t.file_name ? "Replace" : "Upload"}
                             </Button>
                           )}
-                          <Switch
-                            checked={t.enabled}
-                            onCheckedChange={(v) => handleToggle(t.id, v)}
-                            disabled={saving === t.id}
-                          />
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Switch
+                              checked={t.enabled}
+                              onCheckedChange={(v) => handleToggle(t.id, v)}
+                              disabled={saving === t.id}
+                            />
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={() => handleDelete(t.id)}
+                            onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
