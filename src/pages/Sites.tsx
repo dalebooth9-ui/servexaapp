@@ -189,28 +189,22 @@ export default function Sites() {
 
   const handleCreateJob = async () => {
     if (!createJobForm.name.trim() || !createJobSite) return;
+    const selectedSite = sites.find((s) => s.id === createJobSelectedSiteId) || createJobSite;
     setCreateJobSaving(true);
-    const selectedIds = Array.from(createJobSelectedSiteIds);
-    const sitesToCreate = selectedIds.length > 0 ? selectedIds : [createJobSite.id];
-    let lastJobId: string | null = null;
-    for (const siteId of sitesToCreate) {
-      const s = sites.find((x) => x.id === siteId) || createJobSite;
-      const { data, error } = await supabase.from("jobs").insert({
-        name: createJobForm.name.trim(),
-        priority: createJobForm.priority,
-        category: createJobForm.category,
-        site_id: s.id,
-        address: s.address || null,
-        customer_id: createJobCustomerId || null,
-        status: "active",
-      } as any).select("id").single();
-      if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setCreateJobSaving(false); return; }
-      lastJobId = data.id;
-    }
+    const { data, error } = await supabase.from("jobs").insert({
+      name: createJobForm.name.trim(),
+      priority: createJobForm.priority,
+      category: createJobForm.category,
+      site_id: selectedSite.id,
+      address: selectedSite.address || null,
+      customer_id: createJobCustomerId || null,
+      status: "active",
+    } as any).select("id").single();
     setCreateJobSaving(false);
-    toast({ title: "Job(s) created", description: `${sitesToCreate.length} job(s) created for ${createJobForm.name}.` });
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Job created", description: `${createJobForm.name} linked to ${selectedSite.name}.` });
     setCreateJobDialogOpen(false);
-    if (lastJobId) navigate(`/jobs/${lastJobId}`);
+    navigate(`/jobs/${data.id}`);
   };
 
   // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
@@ -1153,7 +1147,7 @@ export default function Sites() {
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Site / Building selector — checkboxes, all pre-selected */}
+            {/* Site / Building selector — single selection, full tree */}
             {createJobSite && (() => {
               const treeItems: { site: Site; depth: number }[] = [];
               const addWithChildren = (siteId: string, depth: number) => {
@@ -1163,46 +1157,30 @@ export default function Sites() {
                 sites.filter((x) => x.parent_id === siteId).forEach((c) => addWithChildren(c.id, depth + 1));
               };
               addWithChildren(createJobSite.id, 0);
-
-              const toggleSite = (id: string) => {
-                setCreateJobSelectedSiteIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(id)) { next.delete(id); } else { next.add(id); }
-                  return next;
-                });
-              };
-
+              if (treeItems.length <= 1) return null;
               return (
                 <div className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium">Create a job for each ({createJobSelectedSiteIds.size} selected)</label>
-                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => {
-                      const allIds = treeItems.map((t) => t.site.id);
-                      setCreateJobSelectedSiteIds((prev) => prev.size === allIds.length ? new Set() : new Set(allIds));
-                    }}>
-                      {createJobSelectedSiteIds.size === treeItems.length ? "Deselect all" : "Select all"}
-                    </button>
-                  </div>
+                  <label className="text-sm font-medium">Site / Building</label>
                   <div className="rounded-md border divide-y divide-border max-h-56 overflow-y-auto">
                     {treeItems.map(({ site: s, depth }) => {
                       const Ic = TYPE_CONFIG[s.site_type]?.icon || MapPin;
-                      const isChecked = createJobSelectedSiteIds.has(s.id);
+                      const isSelected = createJobSelectedSiteId === s.id;
                       return (
-                        <label
+                        <button
                           key={s.id}
-                          className={`w-full flex items-center gap-2 py-2 pr-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors ${isChecked ? "bg-primary/10" : ""}`}
+                          type="button"
+                          className={`w-full flex items-center gap-2 py-2 pr-3 text-sm text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 font-medium" : ""}`}
                           style={{ paddingLeft: `${12 + depth * 16}px` }}
+                          onClick={() => {
+                            setCreateJobSelectedSiteId(s.id);
+                            setCreateJobForm((f) => ({ ...f, name: s.name }));
+                          }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleSite(s.id)}
-                            className="accent-primary h-3.5 w-3.5 shrink-0"
-                          />
                           <Ic className={`h-3.5 w-3.5 shrink-0 ${TYPE_CONFIG[s.site_type]?.color || ""}`} />
                           <span className="flex-1 truncate">{s.name}</span>
                           {s.postcode && <span className="text-xs text-muted-foreground">{s.postcode}</span>}
-                        </label>
+                          {isSelected && <span className="text-primary text-xs font-semibold">✓</span>}
+                        </button>
                       );
                     })}
                   </div>
