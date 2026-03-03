@@ -48,22 +48,19 @@ export default function CustomerPortal() {
     if (!token) { setError("No access token provided."); setLoading(false); return; }
 
     const load = async () => {
-      // Verify token
-      const { data: tokenData, error: tokenErr } = await supabase
-        .from("customer_portal_tokens" as any)
-        .select("*")
-        .eq("token", token)
-        .gt("expires_at", new Date().toISOString())
-        .maybeSingle();
+      // Verify token via edge function (uses service role — avoids public RLS exposure)
+      const { data: validateData, error: fnErr } = await supabase.functions.invoke(
+        "customer-portal-validate",
+        { body: { token } }
+      );
 
-      if (tokenErr || !tokenData) {
+      if (fnErr || !validateData?.valid) {
         setError("This link is invalid or has expired. Please contact us for a new link.");
         setLoading(false);
         return;
       }
 
-      const td = tokenData as any;
-      const customerId = td.customer_id;
+      const customerId = validateData.customer_id;
 
       // Fetch customer
       const { data: customer } = await supabase
