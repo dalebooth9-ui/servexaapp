@@ -91,6 +91,25 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
             </span>
           )}
         </div>
+        {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {job.pressure_test_qty > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                PT <span className="font-bold">×{job.pressure_test_qty}</span>
+              </span>
+            )}
+            {job.visual_qty > 0 && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-secondary border border-border px-1.5 py-0.5 text-[10px] font-medium text-secondary-foreground">
+                Vis <span className="font-bold">×{job.visual_qty}</span>
+              </span>
+            )}
+            {job.other_qty > 0 && job.other_service_type && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-accent border border-border px-1.5 py-0.5 text-[10px] font-medium text-accent-foreground">
+                {job.other_service_type} <span className="font-bold">×{job.other_qty}</span>
+              </span>
+            )}
+          </div>
+        )}
       </TableCell>
       <TableCell>
         <Badge variant={job.priority === "high" ? "destructive" : "secondary"} className="text-[10px] uppercase">
