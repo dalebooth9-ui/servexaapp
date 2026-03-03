@@ -229,6 +229,25 @@ export default function Audits() {
     });
   };
 
+  // --- Delete audit ---
+  const deleteAudit = (id: string) => {
+    const deleted = audits.find((a) => a.id === id);
+    if (!deleted) return;
+    setAudits((prev) => prev.filter((a) => a.id !== id));
+    deleteWithUndo({
+      key: id,
+      label: "Audit deleted",
+      onConfirm: async () => {
+        const { error } = await supabase.from("audits").delete().eq("id", id);
+        if (error) {
+          toast({ title: "Error", description: error.message, variant: "destructive" });
+          setAudits((prev) => [deleted, ...prev]);
+        }
+      },
+      onUndo: () => setAudits((prev) => [deleted, ...prev]),
+    });
+  };
+
   // --- Start audit ---
   const startAudit = async () => {
     if (!selectedTemplate || !user) return;
@@ -460,11 +479,18 @@ export default function Audits() {
                           {format(new Date(a.created_at), "dd MMM yy")}
                         </TableCell>
                         <TableCell>
-                          {a.status === "in_progress" && (
-                            <Button variant="ghost" size="sm" onClick={() => openConduct(a)}>
-                              <Play className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+                          <div className="flex gap-1">
+                            {a.status === "in_progress" && (
+                              <Button variant="ghost" size="sm" onClick={() => openConduct(a)}>
+                                <Play className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                            {userRole === "admin" && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => deleteAudit(a.id)}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
