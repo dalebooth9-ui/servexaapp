@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, isPast, isSameDay, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,8 @@ interface Job {
   visual_qty: number;
   other_qty: number;
   other_service_type: string | null;
+  due_date?: string | null;
+  status?: string;
 }
 
 function extractPostcode(address: string | null): string {
@@ -161,7 +163,7 @@ export default function ListView({
     setSelectedIds(new Set());
   };
 
-  const colCount = (isAdmin ? 2 : 0) + 8 + (optimisedJobOrder.length > 0 ? 1 : 0);
+  const colCount = (isAdmin ? 2 : 0) + 9 + (optimisedJobOrder.length > 0 ? 1 : 0);
 
   return (
     <div>
@@ -213,6 +215,7 @@ export default function ListView({
                 <TableHead>Job</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
+                <TableHead>Due Date</TableHead>
                 {optimisedJobOrder.length > 0 && <TableHead className="w-12 text-center">Route #</TableHead>}
                 <TableHead className="min-w-[220px]">Materials</TableHead>
                 <TableHead className="min-w-[220px]">Comments</TableHead>
@@ -273,6 +276,18 @@ export default function ListView({
                           <Badge variant={job?.priority === "high" ? "destructive" : "secondary"} className="text-[10px]">
                             {job?.priority || "—"}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">
+                          {job?.due_date ? (() => {
+                            const d = parseISO(job.due_date);
+                            const overdue = isPast(startOfDay(d)) && !isSameDay(d, new Date()) && job.status !== "completed";
+                            const dueToday = isSameDay(d, new Date());
+                            return (
+                              <span className={overdue ? "text-destructive font-medium" : dueToday ? "text-amber-500 font-medium" : "text-muted-foreground"}>
+                                {format(d, "dd MMM yyyy")}
+                              </span>
+                            );
+                          })() : <span className="text-muted-foreground">—</span>}
                         </TableCell>
                         {optimisedJobOrder.length > 0 && (
                           <TableCell className="text-center">
