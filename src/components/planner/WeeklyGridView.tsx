@@ -307,20 +307,36 @@ export default function WeeklyGridView({
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
-  // Group unallocated jobs by postcode area, sorted by due_date then created_at (soonest first)
+  // Group unallocated jobs: overdue first (sorted by due_date asc), then by postcode area
   const groupedUnallocated = useMemo(() => {
-    const sorted = [...unallocatedJobs].sort((a, b) => {
+    const now = startOfDay(new Date());
+    const overdue: Job[] = [];
+    const rest: Job[] = [];
+    for (const job of unallocatedJobs) {
+      if (job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date())) {
+        overdue.push(job);
+      } else {
+        rest.push(job);
+      }
+    }
+    // Sort overdue by due_date ascending (most overdue first)
+    overdue.sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
+    // Group rest by postcode area, sorted by due_date then created_at
+    rest.sort((a, b) => {
       const aDate = new Date(a.due_date || a.created_at || 0).getTime();
       const bDate = new Date(b.due_date || b.created_at || 0).getTime();
       return aDate - bDate;
     });
     const groups: Record<string, Job[]> = {};
-    for (const job of sorted) {
+    for (const job of rest) {
       const area = extractPostcodeArea(job);
       if (!groups[area]) groups[area] = [];
       groups[area].push(job);
     }
-    return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+    const areaGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+    return overdue.length > 0
+      ? [["⚠ Overdue", overdue] as [string, Job[]], ...areaGroups]
+      : areaGroups;
   }, [unallocatedJobs]);
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -392,19 +408,28 @@ export default function WeeklyGridView({
                   <p className="text-xs text-muted-foreground py-4 text-center">All jobs allocated</p>
                 ) : (
                   <div className="space-y-3 pr-2">
-                    {groupedUnallocated.map(([area, areaJobs]) => (
-                      <div key={area}>
-                        <div className="mb-1 flex items-center gap-1.5">
-                          <Badge variant="outline" className="text-[10px] font-mono">{area}</Badge>
-                          <span className="text-[10px] text-muted-foreground">{areaJobs.length}</span>
+                    {groupedUnallocated.map(([area, areaJobs]) => {
+                      const isOverdueGroup = area === "⚠ Overdue";
+                      return (
+                        <div key={area}>
+                          <div className="mb-1 flex items-center gap-1.5">
+                            {isOverdueGroup ? (
+                              <Badge variant="destructive" className="text-[10px] font-semibold flex items-center gap-1">
+                                <AlertTriangle className="h-2.5 w-2.5" /> Overdue
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] font-mono">{area}</Badge>
+                            )}
+                            <span className="text-[10px] text-muted-foreground">{areaJobs.length}</span>
+                          </div>
+                          <div className="space-y-1">
+                            {areaJobs.map((job) => (
+                              <DraggableUnallocatedJob key={job.id} job={job} />
+                            ))}
+                          </div>
                         </div>
-                        <div className="space-y-1">
-                          {areaJobs.map((job) => (
-                            <DraggableUnallocatedJob key={job.id} job={job} />
-                          ))}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
                 <ScrollBar orientation="vertical" />
