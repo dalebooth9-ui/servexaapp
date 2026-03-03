@@ -114,7 +114,7 @@ function DroppableCustomerFolder({ folder, children, isOver }: { folder: Custome
 // ────────────────────────────────────────────────────────────────────────────
 
 export default function Sites() {
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
   const { categories: jobCategories } = useJobCategories();
@@ -149,7 +149,7 @@ export default function Sites() {
   const [createJobSelectedSiteId, setCreateJobSelectedSiteId] = useState<string>("");
   const [createJobSelectedSiteIds, setCreateJobSelectedSiteIds] = useState<Set<string>>(new Set());
   const [createJobCustomerId, setCreateJobCustomerId] = useState<string>("");
-  const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "" });
+  const [createJobForm, setCreateJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
   const [createJobSaving, setCreateJobSaving] = useState(false);
   const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
 
@@ -194,38 +194,85 @@ export default function Sites() {
     const isVis = slug.includes("visual") || slug.includes("inspect");
     setCreateJobForm({
       name: site.name,
+      reference_number: "",
       priority: "medium",
       category: defaultCategory,
       pressure_test_qty: isPT || (!isPT && !isVis) ? buildingCount : 0,
       visual_qty: isVis || (!isPT && !isVis) ? buildingCount : 0,
       other_qty: 0,
       other_service_type: "",
+      due_date: "",
     });
     setCreateJobDialogOpen(true);
   };
 
-  const handleCreateJob = async () => {
+  const handleCreateJob = async (statusOverride?: string) => {
     if (!createJobForm.name.trim() || !createJobSite) return;
     const selectedSite = sites.find((s) => s.id === createJobSelectedSiteId) || createJobSite;
+    const selectedCustomer = allCustomers.find((c) => c.id === createJobCustomerId);
     setCreateJobSaving(true);
     const { data, error } = await supabase.from("jobs").insert({
       name: createJobForm.name.trim(),
+      ...(createJobForm.reference_number.trim() ? { reference_number: createJobForm.reference_number.trim() } : {}),
       priority: createJobForm.priority,
       category: createJobForm.category,
       site_id: selectedSite.id,
       address: selectedSite.address || null,
       customer_id: createJobCustomerId || null,
+      customer: selectedCustomer?.name || null,
       pressure_test_qty: createJobForm.pressure_test_qty,
       visual_qty: createJobForm.visual_qty,
       other_qty: createJobForm.other_qty,
       other_service_type: createJobForm.other_service_type || null,
-      status: "active",
-    } as any).select("id").single();
+      due_date: createJobForm.due_date || null,
+      status: statusOverride || "active",
+      created_by: user?.id,
+    } as any).select("id, reference_number").single();
+    if (error) {
+      setCreateJobSaving(false);
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+    // Auto-create job sheet drafts (same logic as Jobs page)
+    if (data) {
+      const categoriesToFetch = new Set<string>();
+      categoriesToFetch.add(createJobForm.category);
+      if (createJobForm.pressure_test_qty > 0) categoriesToFetch.add("pressure_test");
+      if (createJobForm.visual_qty > 0) categoriesToFetch.add("visual");
+      const { data: matchingTemplates } = await supabase
+        .from("job_sheet_templates")
+        .select("id, name, fields")
+        .in("category", Array.from(categoriesToFetch));
+      if (matchingTemplates && matchingTemplates.length > 0) {
+        const customerName = selectedCustomer?.name || "";
+        const address = selectedSite.address || "";
+        for (const tpl of matchingTemplates) {
+          const tplName = (tpl.name || "").toLowerCase();
+          let copies = 1;
+          if (tplName.includes("pressure") && createJobForm.pressure_test_qty > 0) copies = createJobForm.pressure_test_qty;
+          else if (tplName.includes("visual") && createJobForm.visual_qty > 0) copies = createJobForm.visual_qty;
+          else if (tplName.includes("pressure") && createJobForm.pressure_test_qty === 0) continue;
+          else if (tplName.includes("visual") && createJobForm.visual_qty === 0) continue;
+          const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
+          for (let i = 0; i < copies; i++) {
+            const prefilled: Record<string, any> = {};
+            fields.forEach((f: any) => {
+              const label = (f.label || "").toLowerCase();
+              if (label.includes("riser") && label.includes("location")) prefilled[f.id] = copies > 1 ? `Riser ${i + 1}` : "";
+              else if (label.includes("customer") && (label.includes("detail") || label.includes("name") || label.includes("site"))) prefilled[f.id] = customerName;
+              else if ((label.includes("site") && label.includes("detail")) || label === "site address" || label === "address") prefilled[f.id] = address;
+              else if (label.includes("po number") || label.includes("reference")) prefilled[f.id] = data.reference_number || "";
+              else if (label === "date" || label === "inspection date") prefilled[f.id] = new Date().toISOString().split("T")[0];
+            });
+            await supabase.from("job_sheet_responses").insert({ job_id: data.id, template_id: tpl.id, submitted_by: user!.id, status: "draft", responses: prefilled } as any);
+          }
+        }
+      }
+    }
     setCreateJobSaving(false);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Job created", description: `${createJobForm.name} linked to ${selectedSite.name}.` });
+    toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created", description: `${createJobForm.name} linked to ${selectedSite.name}.` });
     setCreateJobDialogOpen(false);
-    navigate(`/jobs/${data.id}`);
+    navigate(`/jobs/${data!.id}`);
   };
 
   // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
@@ -1214,8 +1261,15 @@ export default function Sites() {
                 placeholder="e.g. Annual Inspection"
                 value={createJobForm.name}
                 onChange={(e) => setCreateJobForm((f) => ({ ...f, name: e.target.value }))}
-                onKeyDown={(e) => { if (e.key === "Enter") handleCreateJob(); }}
                 autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Reference Number <span className="text-muted-foreground text-xs font-normal">(auto-generated if blank)</span></label>
+              <Input
+                placeholder="Auto: VFP-00001"
+                value={createJobForm.reference_number}
+                onChange={(e) => setCreateJobForm((f) => ({ ...f, reference_number: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -1321,12 +1375,27 @@ export default function Sites() {
               </div>
             </div>
           </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateJob} disabled={createJobSaving || !createJobForm.name.trim()}>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
+            <Input type="date" value={createJobForm.due_date} onChange={(e) => setCreateJobForm((f) => ({ ...f, due_date: e.target.value }))} />
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button
+              className="flex-1"
+              onClick={() => handleCreateJob()}
+              disabled={createJobSaving || !createJobForm.name.trim()}
+            >
               {createJobSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Briefcase className="mr-2 h-4 w-4" />}
               Create Job
             </Button>
+            <Button
+              variant="secondary"
+              onClick={() => handleCreateJob("scheduled")}
+              disabled={createJobSaving || !createJobForm.name.trim()}
+            >
+              Submit to Planner
+            </Button>
+            <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
           </div>
         </DialogContent>
       </Dialog>
