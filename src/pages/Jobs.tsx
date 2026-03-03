@@ -500,6 +500,7 @@ export default function Jobs() {
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
       setDialogOpen(false);
       setDialogParsedFile(null);
+      setLoading(false);
       fetchJobs();
 
       if (createdJob) {
@@ -582,7 +583,6 @@ export default function Jobs() {
         }
       }
     }
-    setLoading(false);
   };
 
   const handleDragStart = (event: DragStartEvent) => {
