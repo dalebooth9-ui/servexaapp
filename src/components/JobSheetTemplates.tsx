@@ -318,14 +318,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
-    const locked = getLockedFieldIds(template);
+    // Determine which field IDs are auto-populated from job data
+    const autoPopulatedIds = new Set(Object.keys(prefilled));
     if (existingResponse) {
       setActiveResponse(existingResponse);
       const saved = existingResponse.responses as Record<string, any>;
       const merged: Record<string, any> = { ...prefilled };
       Object.entries(saved).forEach(([key, val]) => {
-        // Locked fields always use prefilled value
-        if (locked.has(key)) return;
+        // Always use fresh job data for auto-populated fields (never stale saved values)
+        if (autoPopulatedIds.has(key)) return;
         if (val !== undefined && val !== null && val !== "") {
           merged[key] = val;
         }
