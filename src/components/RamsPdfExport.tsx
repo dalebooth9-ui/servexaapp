@@ -33,16 +33,18 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
         if (assigns && assigns.length > 0) {
           const engineerIds = assigns.map((a) => a.engineer_id);
           const [{ data: profs }, { data: sigs }] = await Promise.all([
-            supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds),
+            supabase.from("profiles").select("user_id, full_name, signature_data").in("user_id", engineerIds),
             supabase.from("job_signatures").select("signer_id, file_path").eq("job_id", jobId).in("signer_id", engineerIds),
           ]);
-          const profMap = new Map((profs || []).map((p) => [p.user_id, p.full_name]));
+          const profMap = new Map((profs || []).map((p) => [p.user_id, p as any]));
           const sigMap = new Map((sigs || []).map((s) => [s.signer_id, s.file_path]));
           for (const assign of assigns) {
-            const name = profMap.get(assign.engineer_id) || "";
+            const prof = profMap.get(assign.engineer_id);
+            const name = prof?.full_name || "";
             let sigData = "";
             const sigPath = sigMap.get(assign.engineer_id);
             if (sigPath) {
+              // Prefer job-specific signature
               const { data: blob } = await supabase.storage.from("signatures").download(sigPath);
               if (blob) {
                 const arrayBuffer = await blob.arrayBuffer();
@@ -51,6 +53,9 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
                 bytes.forEach((b) => (binary += String.fromCharCode(b)));
                 sigData = `data:image/png;base64,${btoa(binary)}`;
               }
+            } else if (prof?.signature_data) {
+              // Fall back to profile signature
+              sigData = prof.signature_data;
             }
             assignedEngineers.push({ name, sig: sigData, date: new Date().toLocaleDateString("en-GB") });
           }

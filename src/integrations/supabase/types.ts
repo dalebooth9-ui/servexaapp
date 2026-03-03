@@ -1729,6 +1729,7 @@ export type Database = {
           full_name: string
           id: string
           phone: string | null
+          signature_data: string | null
           updated_at: string
           user_id: string
           whatsapp_number: string | null
@@ -1738,6 +1739,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          signature_data?: string | null
           updated_at?: string
           user_id: string
           whatsapp_number?: string | null
@@ -1747,6 +1749,7 @@ export type Database = {
           full_name?: string
           id?: string
           phone?: string | null
+          signature_data?: string | null
           updated_at?: string
           user_id?: string
           whatsapp_number?: string | null
