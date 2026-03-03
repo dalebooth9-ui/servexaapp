@@ -914,19 +914,54 @@ function renderFormField(
           </Button>
         </div>
       );
-    case "select":
+    case "select": {
+      const opts = field.options || [];
+      const isYesNo = opts.length <= 3 && opts.some(o => o.toLowerCase() === "yes") && opts.some(o => o.toLowerCase() === "no");
+      if (isYesNo) {
+        return (
+          <div className="flex gap-1.5 flex-wrap">
+            {opts.map((opt) => {
+              const isSelected = value === opt;
+              const isYes = opt.toLowerCase() === "yes";
+              const isNo = opt.toLowerCase() === "no";
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => onChange(isSelected ? "" : opt)}
+                  className={`px-3 py-1 rounded text-xs font-semibold border transition-colors ${
+                    isSelected
+                      ? isYes
+                        ? "bg-green-600 text-white border-green-600"
+                        : isNo
+                        ? "bg-destructive text-destructive-foreground border-destructive"
+                        : "bg-primary text-primary-foreground border-primary"
+                      : "bg-background text-foreground border-border hover:bg-muted"
+                  }`}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        );
+      }
       return (
         <Select value={value || ""} onValueChange={onChange} disabled={locked}>
-          <SelectTrigger className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}>
+          <SelectTrigger
+            className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
+          >
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
-            {(field.options || []).map((opt) => (
+            {opts.map((opt) => (
               <SelectItem key={opt} value={opt}>{opt}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       );
+    }
     case "photo":
       return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
     case "signature":
