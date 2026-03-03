@@ -6,6 +6,7 @@ export interface AutoPopulateJobInfo {
   customers?: { name: string } | null;
   reference_number?: string;
   category?: string | null;
+  categoryName?: string | null;
   name?: string | null;
   priority?: string | null;
   engineers?: string[];
@@ -74,14 +75,9 @@ export function getAutoPopulatedValues(
     } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date") {
       vals[f.id] = dateVal;
     } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
-      const tplName = templateName.toLowerCase();
-      if (tplName.includes("pressure test") || tplName.includes("pressure-test")) {
-        vals[f.id] = "Pressure Test";
-      } else if (tplName.includes("visual")) {
-        vals[f.id] = "Visual";
-      } else {
-        vals[f.id] = jobInfo.category || "";
-      }
+      const categoryName = jobInfo.categoryName
+        || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+      vals[f.id] = categoryName;
     } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
       vals[f.id] = engineerList;
     } else if (label === "job name" || label === "job title" || label === "job description") {
