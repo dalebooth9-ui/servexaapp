@@ -52,6 +52,8 @@ interface Job {
   visual_qty: number;
   other_qty: number;
   other_service_type: string | null;
+  due_date?: string | null;
+  created_at?: string;
 }
 
 export interface JobPart {
