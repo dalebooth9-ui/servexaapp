@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Printer, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useJobCategories } from "@/hooks/useJobCategories";
 
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
@@ -36,6 +37,7 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string } | null;
   reference_number: string;
+  category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
   other_qty?: number;
@@ -53,6 +55,7 @@ interface Props {
   onPdfGenerated?: (pdfBase64: string, fileName: string) => void;
   trigger?: React.ReactNode;
   mode?: "preview" | "download";
+  categoryName?: string;
 }
 
 /**
@@ -66,7 +69,18 @@ export async function generateJobSheetPdf(
   jobId: string,
   submittedBy?: string,
   submittedAt?: string | null,
+  categoryName?: string,
 ): Promise<{ base64: string; fileName: string }> {
+  // Resolve scope/category fields in formData using the human-readable category name
+  const resolvedFormData = { ...formData };
+  if (categoryName) {
+    template.fields.forEach((f) => {
+      const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+      if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
+        resolvedFormData[f.id] = categoryName;
+      }
+    });
+  }
   // Pre-fetch signatures for this job
   const { data: sigData } = await supabase
     .from("job_signatures")
@@ -155,8 +169,8 @@ export async function generateJobSheetPdf(
 
   const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
   const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
-  const commentsVal = commentsField ? formData[commentsField.id] || "" : "";
-  const materialsVal = materialsField ? formData[materialsField.id] || "" : "";
+  const commentsVal = commentsField ? resolvedFormData[commentsField.id] || "" : "";
+  const materialsVal = materialsField ? resolvedFormData[materialsField.id] || "" : "";
   const commentsH = (commentsVal || materialsVal) ? 9 : 0;
 
   const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
@@ -170,7 +184,7 @@ export async function generateJobSheetPdf(
     y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
     for (const field of sectionFields) {
-      y = renderFilledFieldRow(doc, field, formData[field.id], formData[`${field.id}_notes`], y, {
+      y = renderFilledFieldRow(doc, field, resolvedFormData[field.id], resolvedFormData[`${field.id}_notes`], y, {
         margin, maxWidth, colSplit, rowH: layout.rowH,
       });
     }
@@ -226,15 +240,19 @@ export async function generateJobSheetPdf(
   return { base64, fileName };
 }
 
-export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview" }: Props) {
+export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview", categoryName: categoryNameProp }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
+  const { categories: jobCategories } = useJobCategories();
 
   const generate = async (forceMode?: "preview" | "download") => {
     setGenerating(true);
     const effectiveMode = forceMode ?? mode;
     try {
-      const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt);
+      const resolvedCategoryName = categoryNameProp
+        || jobCategories.find(c => c.slug === (jobInfo as any)?.category)?.name
+        || ((jobInfo as any)?.category ? (jobInfo as any).category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : "");
+      const { base64, fileName } = await generateJobSheetPdf(template, formData, jobInfo, jobId, submittedBy, submittedAt, resolvedCategoryName);
 
       if (onPdfGenerated) {
         onPdfGenerated(base64, fileName);
