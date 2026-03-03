@@ -465,7 +465,6 @@ export async function generateRamsPdf(
   // Customer row (if present)
   const customerVal = jobInfo?.customers?.name || jobInfo?.customer || "";
   if (customerVal) ry += rowGap;
-  ry += rowGap; // Client
   // Address row (if present)
   const addressVal = jobInfo?.site?.address || jobInfo?.address || "";
   if (addressVal) {
@@ -505,7 +504,7 @@ export async function generateRamsPdf(
   if (customerVal) {
     labelValue(doc, "Customer:", customerVal, ML + 3, ry2); ry2 += rowGap;
   }
-  labelValue(doc, "Client:", clientName, ML + 3, ry2); ry2 += rowGap;
+  
   // Address (if present)
   if (addressVal) {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9);
