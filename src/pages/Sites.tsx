@@ -149,7 +149,7 @@ export default function Sites() {
   const [createJobSelectedSiteId, setCreateJobSelectedSiteId] = useState<string>("");
   const [createJobSelectedSiteIds, setCreateJobSelectedSiteIds] = useState<Set<string>>(new Set());
   const [createJobCustomerId, setCreateJobCustomerId] = useState<string>("");
-  const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general" });
+  const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0 });
   const [createJobSaving, setCreateJobSaving] = useState(false);
   const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
 
@@ -183,7 +183,7 @@ export default function Sites() {
       || customerFolders.find((f) => f.sites.some((s) => s.id === site.id))?.id
       || "";
     setCreateJobCustomerId(resolvedCustomerId);
-    setCreateJobForm({ name: site.name, priority: "medium", category: jobCategories[0]?.slug || "general" });
+    setCreateJobForm({ name: site.name, priority: "medium", category: jobCategories[0]?.slug || "general", pressure_test_qty: 0, visual_qty: 0 });
     setCreateJobDialogOpen(true);
   };
 
@@ -198,6 +198,8 @@ export default function Sites() {
       site_id: selectedSite.id,
       address: selectedSite.address || null,
       customer_id: createJobCustomerId || null,
+      pressure_test_qty: createJobForm.pressure_test_qty,
+      visual_qty: createJobForm.visual_qty,
       status: "active",
     } as any).select("id").single();
     setCreateJobSaving(false);
@@ -1236,8 +1238,26 @@ export default function Sites() {
                     }
                   </SelectContent>
                 </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Pressure Tests (PT)</label>
+                <Input
+                  type="number" min={0}
+                  value={createJobForm.pressure_test_qty}
+                  onChange={(e) => setCreateJobForm((f) => ({ ...f, pressure_test_qty: Math.max(0, parseInt(e.target.value) || 0) }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Visual (Vis)</label>
+                <Input
+                  type="number" min={0}
+                  value={createJobForm.visual_qty}
+                  onChange={(e) => setCreateJobForm((f) => ({ ...f, visual_qty: Math.max(0, parseInt(e.target.value) || 0) }))}
+                />
               </div>
             </div>
+          </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
