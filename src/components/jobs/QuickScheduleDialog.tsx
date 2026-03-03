@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +23,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
   const [engineers, setEngineers] = useState<{ user_id: string; full_name: string }[]>([]);
   const [engineerId, setEngineerId] = useState("");
   const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split("T")[0]);
+  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -61,6 +63,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
       job_id: job.id,
       engineer_id: engineerId,
       schedule_date: scheduleDate,
+      notes: notes.trim() || null,
       created_by: user.id,
     } as any);
 
@@ -72,6 +75,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
       toast({ title: "Error", description: "Failed to schedule job.", variant: "destructive" });
     } else {
       toast({ title: "Job scheduled", description: `${job.reference_number} added to planner.` });
+      setNotes("");
       onOpenChange(false);
       onScheduled?.();
     }
@@ -107,7 +111,17 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           </div>
           <div className="space-y-2">
             <Label>Date</Label>
-            <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
+          <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
+          </div>
+          <div className="space-y-2">
+            <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
+            <Textarea
+              placeholder="e.g. Ring John before arriving"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              rows={2}
+              className="resize-none"
+            />
           </div>
           <Button type="submit" className="w-full" disabled={loading || !engineerId}>
             {loading ? "Scheduling..." : "Add to Planner"}
