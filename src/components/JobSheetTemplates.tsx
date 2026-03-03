@@ -25,6 +25,7 @@ import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
 import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
+import RamsPdfExport from "./RamsPdfExport";
 
 type TemplateField = {
   id: string;
@@ -646,6 +647,31 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           </div>
         </CardHeader>
         <CardContent>
+          {/* RAMS section — auto-filled export */}
+          {ramsTemplates.length > 0 && (
+            <div className="mb-4 pb-3 border-b border-border/60">
+              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
+                <FileText className="h-3 w-3" /> RAMS – Risk Assessment & Method Statement
+              </p>
+              <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{ramsTemplates[0]?.name || "RAMS"}</span>
+                  <Badge variant="secondary" className="text-[10px]">Auto-filled</Badge>
+                  {latestRams && (
+                    <Badge variant="outline" className="text-[10px]">
+                      {latestRams.status === "submitted" ? "Completed" : "Draft"}
+                    </Badge>
+                  )}
+                </div>
+                <RamsPdfExport
+                  formData={latestRams ? (latestRams.responses as any) : {}}
+                  jobInfo={jobInfo}
+                  jobId={jobId}
+                  mode="preview"
+                />
+              </div>
+            </div>
+          )}
           {/* Draft responses — exclude RAMS */}
           {responses.filter((r) => {
             const tpl = templates.find((t) => t.id === r.template_id);
