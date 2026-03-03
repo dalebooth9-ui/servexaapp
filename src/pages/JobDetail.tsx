@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useJobCategories } from "@/hooks/useJobCategories";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,7 @@ export default function JobDetail() {
   const navigate = useNavigate();
   const { userRole, user } = useAuth();
   const { toast } = useToast();
+  const { categories: jobCategories } = useJobCategories();
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
@@ -214,6 +216,8 @@ export default function JobDetail() {
 
   const fileCount = filtered.filter((s) => s.file_url).length;
   const custName = getCustomerName(job);
+  const categoryDisplayName = jobCategories.find((c: any) => c.slug === job.category)?.name
+    || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null);
 
   return (
     <div>
@@ -250,6 +254,11 @@ export default function JobDetail() {
             {custName && <> • {custName}</>}
             {job.address && <> • {job.address}</>}
           </p>
+          {categoryDisplayName && (
+            <div className="mt-1">
+              <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
+            </div>
+          )}
           {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {job.pressure_test_qty > 0 && (
