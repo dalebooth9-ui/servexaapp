@@ -395,24 +395,45 @@ export default function Jobs() {
 
   const handleDialogFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
+
+    // Try dataTransfer.items first (works better with email clients like Outlook/Gmail)
+    let file: File | null = null;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      for (let i = 0; i < e.dataTransfer.items.length; i++) {
+        const item = e.dataTransfer.items[i];
+        if (item.kind === "file") {
+          file = item.getAsFile();
+          if (file) break;
+        }
+      }
+    }
+    // Fallback to files array
+    if (!file && e.dataTransfer.files.length > 0) {
+      file = e.dataTransfer.files[0];
+    }
+
+    if (!file) {
+      toast({ title: "No file detected", description: "Could not read the dragged file. Try saving the attachment first, then dropping it here.", variant: "destructive" });
+      return;
+    }
+
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     if (![".pdf", ".doc", ".docx"].includes(ext)) {
       toast({ title: "Unsupported file", description: "Drop a PDF or Word document to auto-fill.", variant: "destructive" });
       return;
     }
-    setDialogParsedFile(file);
+    const resolvedFile = file;
+    setDialogParsedFile(resolvedFile);
     setDialogParsingFile(true);
     try {
       const reader = new FileReader();
       const base64 = await new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve((reader.result as string).split(",")[1]);
         reader.onerror = reject;
-        reader.readAsDataURL(file);
+        reader.readAsDataURL(resolvedFile);
       });
       const { data, error } = await supabase.functions.invoke("parse-po-document", {
-        body: { file_base64: base64, file_name: file.name },
+        body: { file_base64: base64, file_name: resolvedFile.name },
       });
       if (error || data?.error) throw new Error(error?.message || data?.error || "Parse failed");
       const ext2: any = data?.data || {};
@@ -421,7 +442,7 @@ export default function Jobs() {
       );
       setForm((prev) => ({
         ...prev,
-        name: ext2.job_description || ext2.po_number || file.name.replace(/\.[^.]+$/, ""),
+        name: ext2.job_description || ext2.po_number || resolvedFile.name.replace(/\.[^.]+$/, ""),
         reference_number: ext2.po_number || prev.reference_number,
         customer_id: matchedCustomer?.id || prev.customer_id,
         address: ext2.address || prev.address,
