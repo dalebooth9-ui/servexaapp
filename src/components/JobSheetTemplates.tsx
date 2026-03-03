@@ -21,7 +21,6 @@ import {
   FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
-import RamsPdfExport from "./RamsPdfExport";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
 import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
@@ -636,18 +635,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <FileText className="h-4 w-4" /> Job Sheet Templates
             </CardTitle>
             <div className="flex gap-1.5 items-center">
-              {latestRams && latestRamsTpl && (
-                <RamsPdfExport
-                  formData={latestRams.responses as Record<string, any>}
-                  jobInfo={jobInfo}
-                  jobId={jobId}
-                  trigger={
-                    <Button variant="secondary" size="sm" className="h-7 text-xs gap-1">
-                      <FileText className="h-3.5 w-3.5" /> Export RAMS PDF
-                    </Button>
-                  }
-                />
-              )}
               {userRole === "admin" && (
                 <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
                   <Plus className="h-3 w-3 mr-1" /> Import Template
@@ -749,13 +736,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <Pencil className="h-3 w-3 mr-1" /> Edit
                         </Button>
                       )}
-                      {tpl && (tpl as any).category === "rams" ? (
-                        <RamsPdfExport
-                          formData={resp.responses as Record<string, any>}
-                          jobInfo={jobInfo}
-                          jobId={jobId}
-                        />
-                      ) : tpl ? (
+                      {tpl && (tpl as any).category !== "rams" && (
                         <JobSheetPdfExport
                           template={{ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }}
                           formData={resp.responses as Record<string, any>}
@@ -764,7 +745,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           submittedBy={profiles[resp.submitted_by] || ""}
                           submittedAt={resp.submitted_at}
                         />
-                      ) : null}
+                      )}
                       <Button
                         variant="ghost"
                         size="sm"
