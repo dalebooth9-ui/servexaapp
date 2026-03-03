@@ -55,7 +55,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   // Auto-attach documents from category templates when the component mounts
   useEffect(() => {
-    if (!job?.category || !user) return;
+    if (!job?.category || !user || userRole !== "admin") return;
 
     if (job?.status === "completed" || job?.status === "cancelled") {
       // Clean up any stale auto-attached docs for closed jobs
@@ -68,13 +68,11 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       return;
     }
 
-    if (userRole !== "admin") return;
     autoAttachCategoryDocuments();
-  }, [job?.category, job?.status, userRole]);
+  }, [job?.category, job?.status]);
 
   const autoAttachCategoryDocuments = async () => {
     if (!job?.category) return;
-    if (job?.status === "completed" || job?.status === "cancelled") return;
     // Fetch enabled templates for this category
     const { data: catTemplates } = await supabase
       .from("category_document_templates" as any)
