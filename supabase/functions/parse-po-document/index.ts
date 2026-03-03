@@ -105,16 +105,17 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           {
             role: "system",
             content: `You extract purchase order details from documents. Return a SINGLE JSON object (not an array) with these exact fields:
-- customer_name: the name of the client / company who issued the order (look for "Bill To", "Client", "Company", "Ordered By", "Issued To", or the company letterhead)
+- customer_name: the name of the client / company who issued or sent the order. Look everywhere: letterhead, "From", "Bill To", "Client", "Company", "Ordered By", "Issued To", "Raised By". Even short abbreviations like "ABCA" or initials are valid company names — copy them exactly as written.
 - contact_name: contact person name if present, else ""
 - address: the site/delivery/work address (look for "Deliver To", "Site Address", "Work Location", "Ship To", NOT the issuing company address)
 - po_number: purchase order number or reference number (look for "PO#", "PO Number", "Order No", "Reference", "Ref No")
 - job_description: full description of the work or goods ordered — include as much detail as possible
+- quantity: total quantity ordered as a number (look for "Qty", "Quantity", "Units", "No. of", default 1 if only one item and no quantity stated)
 - due_date: required completion or delivery date in YYYY-MM-DD format, or "" if not found
 - priority: "high", "medium", or "low" based on urgency language such as "urgent", "ASAP", "priority" (default "medium")
 - total_value: numeric value of the PO if present (strip currency symbols), else null
@@ -123,6 +124,7 @@ serve(async (req) => {
 
 Rules:
 - Extract ALL available information — do not leave fields empty if the information exists anywhere in the document
+- Company/customer names can be abbreviations, acronyms, or short codes — always copy them verbatim
 - Return ONLY the JSON object, no markdown, no explanation
 - If a field is truly not found, use empty string "" or null for numeric fields`,
           },
