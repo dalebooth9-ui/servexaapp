@@ -273,13 +273,7 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           setTimeout(() => URL.revokeObjectURL(url), 1000);
           toast({ title: "PDF downloaded", description: fileName });
         } else {
-          const a = document.createElement("a");
-          a.href = url;
-          a.target = "_blank";
-          a.rel = "noopener noreferrer";
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
+          window.open(url, "_blank");
           setTimeout(() => URL.revokeObjectURL(url), 30000);
           toast({ title: "PDF opened", description: fileName });
         }
