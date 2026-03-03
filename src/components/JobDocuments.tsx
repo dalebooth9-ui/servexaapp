@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Trash2, Upload, Loader2, Zap } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
+import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 
 type JobDoc = {
   id: string;
@@ -24,13 +25,6 @@ type Props = {
   engineers: { id: string; name: string }[];
 };
 
-const DOC_TYPE_LABELS: Record<string, string> = {
-  rams_pdf: "RAMS PDF",
-  blank_job_sheet: "Blank Job Sheet",
-  uploaded_file: "File",
-  manual: "Manual",
-};
-
 export default function JobDocuments({ jobId, job, engineers }: Props) {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
@@ -40,6 +34,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [uploadingManual, setUploadingManual] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [jobInfo, setJobInfo] = useState<any | null>(null);
+  const [blankTemplates, setBlankTemplates] = useState<Record<string, any>>({});
 
   const fetchDocs = async () => {
     const { data } = await supabase
@@ -51,7 +47,51 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     setLoading(false);
   };
 
-  useEffect(() => { fetchDocs(); }, [jobId]);
+  // Fetch full job info including site/customer for PDF generation
+  const fetchJobInfo = async () => {
+    const { data: jd } = await supabase
+      .from("jobs")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)")
+      .eq("id", jobId)
+      .single();
+    if (!jd) return;
+    const j = jd as any;
+    let engineerNames: string[] = [];
+    const { data: assigns } = await supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId);
+    if (assigns && assigns.length > 0) {
+      const { data: profs } = await supabase.from("profiles").select("user_id, full_name").in("user_id", assigns.map((a: any) => a.engineer_id));
+      engineerNames = (profs || []).map((p: any) => p.full_name).filter(Boolean);
+    }
+    setJobInfo({
+      name: j.name,
+      address: j.address,
+      customer: j.customers?.name || j.customer,
+      customers: j.customers ? { name: j.customers.name } : null,
+      customer_email: j.customers?.email || null,
+      customer_phone: j.customers?.phone || null,
+      reference_number: j.reference_number,
+      category: j.category,
+      status: j.status,
+      priority: j.priority,
+      visual_qty: j.visual_qty,
+      pressure_test_qty: j.pressure_test_qty,
+      other_qty: j.other_qty ?? 0,
+      other_service_type: j.other_service_type ?? null,
+      engineers: engineerNames,
+      site: j.sites ? { name: j.sites.name, address: j.sites.address, postcode: j.sites.postcode, contact_name: j.sites.contact_name, contact_phone: j.sites.contact_phone, contact_email: j.sites.contact_email } : null,
+    });
+    // Fetch templates for blank_job_sheet docs
+    const { data: tpls } = await supabase.from("job_sheet_templates").select("*");
+    if (tpls) {
+      const map: Record<string, any> = {};
+      (tpls as any[]).forEach((t) => {
+        map[t.id] = { ...t, fields: typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields, branding: t.branding || {} };
+      });
+      setBlankTemplates(map);
+    }
+  };
+
+  useEffect(() => { fetchDocs(); fetchJobInfo(); }, [jobId]);
 
   // Auto-attach documents from category templates when the component mounts
   useEffect(() => {
@@ -219,6 +259,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
                 generatingRams={generatingRams}
                 jobId={jobId}
                 job={job}
+                jobInfo={jobInfo}
+                blankTemplates={blankTemplates}
               />
             ))}
           </div>
@@ -242,6 +284,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
                 generatingRams={generatingRams}
                 jobId={jobId}
                 job={job}
+                jobInfo={jobInfo}
+                blankTemplates={blankTemplates}
               />
             ))}
           </div>
@@ -282,6 +326,8 @@ function DocRow({
   generatingRams,
   jobId,
   job,
+  jobInfo,
+  blankTemplates,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -292,10 +338,21 @@ function DocRow({
   generatingRams: boolean;
   jobId: string;
   job: any;
+  jobInfo: any | null;
+  blankTemplates: Record<string, any>;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
   const hasFile = !!doc.file_url;
+
+  // Find matching template for blank job sheet by label
+  const matchedTemplate = isBlankSheet
+    ? Object.values(blankTemplates).find((t: any) =>
+        t.name?.toLowerCase() === doc.label?.toLowerCase() ||
+        doc.label?.toLowerCase().includes(t.name?.toLowerCase()) ||
+        t.name?.toLowerCase().includes(doc.label?.toLowerCase())
+      ) || Object.values(blankTemplates)[0]
+    : null;
 
   return (
     <div className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5">
@@ -331,10 +388,11 @@ function DocRow({
           Generate
         </Button>
       )}
-      {isBlankSheet && (
-        <Button variant="outline" size="sm" className="h-7 text-xs px-2 gap-1 shrink-0">
-          <FileText className="h-3 w-3" /> Generate (via Job Sheets)
-        </Button>
+      {isBlankSheet && matchedTemplate && jobInfo && (
+        <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
+      )}
+      {isBlankSheet && (!matchedTemplate || !jobInfo) && (
+        <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
       {hasFile && doc.document_type === "uploaded_file" && (
         <Button
