@@ -71,6 +71,7 @@ export default function ListView({
   jobParts = [],
   submissionComments = [],
   optimisedJobOrder = [],
+  jobVisitNotes = {},
 }: {
   schedule: ScheduleEntry[];
   engineers: Engineer[];
@@ -82,6 +83,7 @@ export default function ListView({
   jobParts?: JobPart[];
   submissionComments?: SubmissionComment[];
   optimisedJobOrder?: string[];
+  jobVisitNotes?: Record<string, string>;
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [sortBy, setSortBy] = useState<"date" | "customer" | "postcode" | "due_date">("date");
@@ -270,16 +272,31 @@ export default function ListView({
                           ) : <span className="text-muted-foreground">Unknown</span>}
                         </TableCell>
                         <TableCell className="min-w-[180px] text-sm">
-                          {entry.notes ? (
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span className="line-clamp-2 cursor-default text-foreground">{entry.notes}</span>
-                              </TooltipTrigger>
-                              <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">
-                                {entry.notes}
-                              </TooltipContent>
-                            </Tooltip>
-                          ) : <span className="text-muted-foreground">—</span>}
+                          {(() => {
+                            const schedNote = entry.notes;
+                            const visitNote = job ? jobVisitNotes[job.id] : undefined;
+                            if (!schedNote && !visitNote) return <span className="text-muted-foreground">—</span>;
+                            return (
+                              <div className="flex flex-col gap-0.5">
+                                {schedNote && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="line-clamp-2 cursor-default text-foreground">{schedNote}</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">{schedNote}</TooltipContent>
+                                  </Tooltip>
+                                )}
+                                {visitNote && (
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="line-clamp-2 cursor-default text-muted-foreground text-xs italic">{visitNote}</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">{visitNote}</TooltipContent>
+                                  </Tooltip>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           {(job?.pressure_test_qty > 0 || job?.visual_qty > 0 || (job?.other_qty > 0 && job?.other_service_type)) ? (

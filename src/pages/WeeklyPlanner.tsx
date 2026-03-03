@@ -95,6 +95,7 @@ export default function WeeklyPlanner() {
   const [sites, setSites] = useState<Site[]>([]);
   const [jobParts, setJobParts] = useState<JobPart[]>([]);
   const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
+  const [jobVisitNotes, setJobVisitNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,11 +160,18 @@ export default function WeeklyPlanner() {
     // Fetch parts and latest comments for scheduled jobs
     const jobIds = fetchedJobs.map((j: any) => j.id);
     if (jobIds.length > 0) {
-      const [partsRes, commentsRes] = await Promise.all([
+      const [partsRes, commentsRes, visitsRes] = await Promise.all([
         supabase.from("job_parts").select("id, job_id, name, quantity, notes").in("job_id", jobIds),
         supabase.from("submission_comments").select("id, content, created_at, submission_id, submissions!inner(job_id)").in("submissions.job_id", jobIds).order("created_at", { ascending: false }).limit(500),
+        supabase.from("job_visits").select("job_id, notes").in("job_id", jobIds).not("notes", "is", null).order("scheduled_date", { ascending: true }),
       ]);
       setJobParts((partsRes.data as any[]) || []);
+      // Build a map of job_id -> first visit note
+      const visitMap: Record<string, string> = {};
+      for (const v of ((visitsRes.data as any[]) || [])) {
+        if (v.notes && !visitMap[v.job_id]) visitMap[v.job_id] = v.notes;
+      }
+      setJobVisitNotes(visitMap);
       setSubmissionComments(
         ((commentsRes.data as any[]) || []).map((c: any) => ({
           id: c.id,
@@ -519,6 +527,7 @@ export default function WeeklyPlanner() {
             jobParts={jobParts}
             submissionComments={submissionComments}
             optimisedJobOrder={optimisedJobOrder}
+            jobVisitNotes={jobVisitNotes}
           />
         </TabsContent>
 
