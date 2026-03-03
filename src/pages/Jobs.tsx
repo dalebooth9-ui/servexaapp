@@ -797,7 +797,13 @@ export default function Jobs() {
       className="relative"
     >
       {fileDragging && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm">
+        <div
+          className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 backdrop-blur-sm"
+          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); fileDragCounter.current--; if (fileDragCounter.current === 0) setFileDragging(false); }}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={handleFileDrop}
+        >
           <div className="flex flex-col items-center gap-2 text-primary">
             <FolderOpen className="h-10 w-10" />
             <p className="font-semibold">Drop a PDF / Word file to create a job from PO</p>
