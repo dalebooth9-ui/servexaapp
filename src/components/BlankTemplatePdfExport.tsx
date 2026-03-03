@@ -185,7 +185,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
           for (const field of sectionFields) {
-            y = renderBlankFieldRow(doc, field, undefined, y, {
+            y = renderBlankFieldRow(doc, field, autoVals[field.id], y, {
               margin, maxWidth, colSplit, rowH: layout.rowH,
             });
           }
