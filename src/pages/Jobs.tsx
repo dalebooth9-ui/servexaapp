@@ -838,7 +838,7 @@ export default function Jobs() {
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
-            <DialogContent className="max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
               <DialogHeader>
                 <div className="flex items-center justify-between">
                   <DialogTitle>Create New Job</DialogTitle>
