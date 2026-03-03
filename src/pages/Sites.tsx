@@ -1139,43 +1139,48 @@ export default function Sites() {
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Site selector — show the root site + all descendants */}
+            {/* Site / Building selector — show root + all descendants */}
             {createJobSite && (() => {
               const siteOptions = getSiteAndDescendants(createJobSite.id);
               if (siteOptions.length <= 1) return null;
+              // Compute depth relative to the root site
+              const getDepth = (s: Site): number => {
+                let d = 0; let cur: Site | undefined = s;
+                while (cur?.parent_id && cur.id !== createJobSite.id) {
+                  if (cur.id === createJobSite.id) break;
+                  const parent = sites.find((x) => x.id === cur!.parent_id);
+                  if (!parent || parent.id === createJobSite.parent_id) break;
+                  d++; cur = parent;
+                }
+                return d;
+              };
               return (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Site / Building</label>
-                  <Select value={createJobSelectedSiteId} onValueChange={(v) => {
-                    setCreateJobSelectedSiteId(v);
-                    const s = sites.find((x) => x.id === v);
-                    if (s) setCreateJobForm((f) => ({ ...f, name: s.name }));
-                  }}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {siteOptions.map((s) => {
-                        const depth = (() => {
-                          let d = 0; let cur: Site | undefined = s;
-                          while (cur?.parent_id && cur.parent_id !== createJobSite.parent_id) {
-                            d++; cur = sites.find((x) => x.id === cur!.parent_id);
-                            if (cur?.id === createJobSite.id) break;
-                          }
-                          return d;
-                        })();
-                        const Ic = TYPE_CONFIG[s.site_type]?.icon || MapPin;
-                        return (
-                          <SelectItem key={s.id} value={s.id}>
-                            <span className="flex items-center gap-1.5">
-                              <span style={{ marginLeft: depth * 12 }} />
-                              <Ic className={`h-3.5 w-3.5 shrink-0 ${TYPE_CONFIG[s.site_type]?.color || ""}`} />
-                              {s.name}
-                              {s.postcode && <span className="text-muted-foreground text-xs ml-1">({s.postcode})</span>}
-                            </span>
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                  <div className="rounded-md border divide-y divide-border max-h-48 overflow-y-auto">
+                    {siteOptions.map((s) => {
+                      const depth = getDepth(s);
+                      const Ic = TYPE_CONFIG[s.site_type]?.icon || MapPin;
+                      const isSelected = createJobSelectedSiteId === s.id;
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 font-medium" : ""}`}
+                          style={{ paddingLeft: `${12 + depth * 16}px` }}
+                          onClick={() => {
+                            setCreateJobSelectedSiteId(s.id);
+                            setCreateJobForm((f) => ({ ...f, name: s.name }));
+                          }}
+                        >
+                          <Ic className={`h-3.5 w-3.5 shrink-0 ${TYPE_CONFIG[s.site_type]?.color || ""}`} />
+                          <span className="flex-1 truncate">{s.name}</span>
+                          {s.postcode && <span className="text-xs text-muted-foreground">{s.postcode}</span>}
+                          {isSelected && <span className="text-primary text-xs font-semibold ml-1">✓</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })()}
