@@ -479,11 +479,25 @@ function SortableEngineerRow({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
-  const totalJobs = schedule.filter((s) => s.engineer_id === eng.user_id).length;
+  const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
+  const totalJobs = engEntries.length;
   const todayJobs = schedule.filter(
     (s) => s.engineer_id === eng.user_id && s.schedule_date === format(new Date(), "yyyy-MM-dd")
   ).length;
   const available = todayJobs === 0;
+
+  const totalPT = engEntries.reduce((sum, s) => {
+    const job = getJob(s.job_id);
+    return sum + (job?.pressure_test_qty || 0);
+  }, 0);
+  const totalVis = engEntries.reduce((sum, s) => {
+    const job = getJob(s.job_id);
+    return sum + (job?.visual_qty || 0);
+  }, 0);
+  const totalOther = engEntries.reduce((sum, s) => {
+    const job = getJob(s.job_id);
+    return sum + (job?.other_qty || 0);
+  }, 0);
 
   return (
     <div
@@ -516,6 +530,13 @@ function SortableEngineerRow({
           >
             {available ? "Free" : `${todayJobs} today`}
           </span>
+          {(totalPT > 0 || totalVis > 0 || totalOther > 0) && (
+            <div className="flex items-center gap-0.5 flex-wrap">
+              {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
+              {totalVis > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">Vis×{totalVis}</span>}
+              {totalOther > 0 && <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">×{totalOther}</span>}
+            </div>
+          )}
         </div>
         {weekDays.map((d) => {
           const dateStr = format(d, "yyyy-MM-dd");
