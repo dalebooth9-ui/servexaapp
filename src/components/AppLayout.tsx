@@ -1,5 +1,4 @@
 import { ReactNode, useEffect, useState as useReactState } from "react";
-import fieldreportLogo from "@/assets/fieldreport-logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
@@ -141,7 +140,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <img src={fieldreportLogo} alt="FieldReport logo" className="h-8 w-auto" />
+          <img src="/favicon.png" alt="FieldReport logo" className="h-9 w-9 rounded-lg" />
+          <span className="text-lg font-bold text-sidebar-primary-foreground">FieldReport</span>
           <div className="ml-auto flex items-center gap-1.5">
             <ClockInButton />
             <NotificationBell />
