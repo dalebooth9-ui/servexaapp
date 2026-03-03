@@ -136,6 +136,7 @@ export default function DroppableCustomerFolder({
               <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Result</TableHead>
+              <TableHead>Due Date</TableHead>
               <TableHead className="text-right">Submissions</TableHead>
               {isAdmin && <TableHead className="w-10 px-2" />}
             </TableRow>
