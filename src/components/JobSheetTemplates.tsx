@@ -77,7 +77,7 @@ type JobInfo = {
   customer_email?: string | null;
   customer_phone?: string | null;
   engineers?: string[];
-  site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null } | null;
+  site?: { name: string; address: string | null; postcode: string | null; contact_name: string | null; contact_phone: string | null; contact_email: string | null; riser_location?: string | null } | null;
 };
 
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
@@ -101,7 +101,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)").eq("id", jobId).single(),
+      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
     ]);
     const tpls = (tplRes.data || []).map((t: any) => ({
       ...t,
@@ -142,7 +142,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         other_qty: jd.other_qty ?? 0,
         other_service_type: jd.other_service_type ?? null,
         engineers: engineerNames,
-        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone, contact_email: jd.sites.contact_email } : null,
+        site: jd.sites ? { name: jd.sites.name, address: jd.sites.address, postcode: jd.sites.postcode, contact_name: jd.sites.contact_name, contact_phone: jd.sites.contact_phone, contact_email: jd.sites.contact_email, riser_location: jd.sites.riser_location } : null,
       });
     }
 
@@ -290,6 +290,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         prefilled[f.id] = String(jobInfo.pressure_test_qty ?? 0);
       } else if (label.includes("visual") && (label.includes("qty") || label.includes("quantity") || label.includes("number"))) {
         prefilled[f.id] = String(jobInfo.visual_qty ?? 0);
+      } else if (label.includes("riser location") || label.includes("riser loc")) {
+        prefilled[f.id] = jobInfo.site?.riser_location || "";
       }
     });
     return prefilled;

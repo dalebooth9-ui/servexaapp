@@ -51,7 +51,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const fetchJobInfo = async () => {
     const { data: jd } = await supabase
       .from("jobs")
-      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email)")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
       .eq("id", jobId)
       .single();
     if (!jd) return;
@@ -78,7 +78,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       other_qty: j.other_qty ?? 0,
       other_service_type: j.other_service_type ?? null,
       engineers: engineerNames,
-      site: j.sites ? { name: j.sites.name, address: j.sites.address, postcode: j.sites.postcode, contact_name: j.sites.contact_name, contact_phone: j.sites.contact_phone, contact_email: j.sites.contact_email } : null,
+      site: j.sites ? { name: j.sites.name, address: j.sites.address, postcode: j.sites.postcode, contact_name: j.sites.contact_name, contact_phone: j.sites.contact_phone, contact_email: j.sites.contact_email, riser_location: j.sites.riser_location } : null,
     });
     // Fetch templates for blank_job_sheet docs
     const { data: tpls } = await supabase.from("job_sheet_templates").select("*");
