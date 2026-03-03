@@ -141,7 +141,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <img src={fieldreportLogo} alt="FieldReport logo" className="h-8 w-auto" />
+          <img src={fieldreportLogo} alt="FieldReport logo" className="h-10 w-auto brightness-0 invert" />
           <div className="ml-auto flex items-center gap-1.5">
             <ClockInButton />
             <NotificationBell />
