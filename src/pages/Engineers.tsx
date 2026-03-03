@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from "react";
+import ProfileSignatureCapture from "@/components/ProfileSignatureCapture";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -309,6 +310,10 @@ export default function Engineers() {
             <div className="space-y-2">
               <Label htmlFor="edit-wa">WhatsApp Number</Label>
               <Input id="edit-wa" value={form.whatsapp_number} onChange={(e) => setForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Digital Signature</Label>
+              {editEng && <ProfileSignatureCapture userId={editEng.user_id} />}
             </div>
           </div>
           <DialogFooter>
