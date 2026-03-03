@@ -709,9 +709,10 @@ export async function generateRamsPdf(
   // Info block
   const infoColW = CONTENT_W / 2;
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  const siteLocTrunc = doc.splitTextToSize(siteLocation, CONTENT_W - 30).slice(0, 1).join("") + (doc.splitTextToSize(siteLocation, CONTENT_W - 30).length > 1 ? "…" : "");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -764,7 +765,7 @@ export async function generateRamsPdf(
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -813,7 +814,7 @@ export async function generateRamsPdf(
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -862,7 +863,7 @@ export async function generateRamsPdf(
   doc.setFontSize(8); doc.setFont("helvetica", "normal");
   labelValue(doc, "Operation/Task:", "Riser Testing & Commissioning", ML, y, 28); y += 4.5;
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", siteLocation, ML, y, 26); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
   labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
   labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
@@ -905,7 +906,14 @@ export async function generateRamsPdf(
     ML, y, CONTENT_W, 8);
   y += 5;
 
-  // Assessment detail fields
+  // Assessment detail fields — ensure enough space (5 rows × 8mm + ~30mm for ratings)
+  const detailBlockH = 5 * 8 + 35;
+  if (y + detailBlockH > PAGE_H - 22) {
+    pageFooter(doc, 9, 10);
+    y = newPage(doc);
+    y = await pageHeader(doc, logoImg, "", y);
+  }
+
   doc.setDrawColor(180); doc.setLineWidth(0.3);
   const fieldRowH = 8;
   const labelColW = 55;
