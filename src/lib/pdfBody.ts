@@ -7,11 +7,15 @@ export interface AutoPopulateJobInfo {
   reference_number?: string;
   category?: string | null;
   name?: string | null;
+  priority?: string | null;
   engineers?: string[];
   site?: {
     name: string;
     address: string | null;
     postcode?: string | null;
+    contact_name?: string | null;
+    contact_phone?: string | null;
+    contact_email?: string | null;
   } | null;
 }
 
@@ -31,6 +35,9 @@ export function getAutoPopulatedValues(
   const siteName = jobInfo.site?.name || "";
   const siteAddress = jobInfo.site?.address || jobInfo.address || "";
   const sitePostcode = jobInfo.site?.postcode || "";
+  const siteContact = jobInfo.site?.contact_name || "";
+  const siteContactPhone = jobInfo.site?.contact_phone || "";
+  const siteContactEmail = jobInfo.site?.contact_email || "";
   const engineerList = (jobInfo.engineers || []).join(", ");
   const refNumber = jobInfo.reference_number || "";
   const dateVal = new Date().toLocaleDateString("en-GB");
@@ -46,6 +53,16 @@ export function getAutoPopulatedValues(
       vals[f.id] = [siteAddress, sitePostcode].filter(Boolean).join(", ");
     } else if (label.includes("postcode") || label.includes("post code")) {
       vals[f.id] = sitePostcode;
+    } else if (label.includes("site") && label.includes("contact") && label.includes("name")) {
+      vals[f.id] = siteContact;
+    } else if (label === "contact name" || label === "contact person") {
+      vals[f.id] = siteContact;
+    } else if ((label.includes("site") && label.includes("contact") && label.includes("phone")) || (label.includes("site") && label.includes("tel"))) {
+      vals[f.id] = siteContactPhone;
+    } else if (label === "contact phone" || label === "contact tel" || label === "contact number") {
+      vals[f.id] = siteContactPhone;
+    } else if (label.includes("site") && label.includes("email")) {
+      vals[f.id] = siteContactEmail;
     } else if ((label.includes("customer") && label.includes("detail")) || (label.includes("client") && label.includes("detail"))) {
       vals[f.id] = customerName;
     } else if (label === "customer name" || label === "client name" || label === "customer" || label === "client") {
@@ -69,6 +86,8 @@ export function getAutoPopulatedValues(
       vals[f.id] = engineerList;
     } else if (label === "job name" || label === "job title" || label === "job description") {
       vals[f.id] = jobInfo.name || "";
+    } else if (label === "priority" || label === "job priority") {
+      vals[f.id] = jobInfo.priority || "";
     }
   });
 

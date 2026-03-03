@@ -314,6 +314,46 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
   const lockedFieldIds = activeTemplate ? getLockedFieldIds(activeTemplate) : new Set<string>();
 
+  // Auto-create N draft responses for a template based on job quantities
+  const handleAutoCreateDrafts = async (template: Template) => {
+    if (!user || !jobInfo) return;
+    const tplName = template.name.toLowerCase();
+    let qty = 1;
+    if (tplName.includes("pressure test") || tplName.includes("dry riser")) {
+      qty = jobInfo.pressure_test_qty || 1;
+    } else if (tplName.includes("visual")) {
+      qty = jobInfo.visual_qty || 1;
+    }
+    if (qty <= 1) {
+      handleStartForm(template);
+      return;
+    }
+    // Find existing drafts for this template
+    const existingDrafts = responses.filter(
+      (r) => r.template_id === template.id && r.status === "draft"
+    );
+    const needed = qty - existingDrafts.length;
+    if (needed <= 0) {
+      // All already created — open first unfilled
+      handleStartForm(template, existingDrafts[0]);
+      return;
+    }
+    const prefilled = getAutoPopulatedData(template);
+    const toInsert = Array.from({ length: needed }, (_, i) => ({
+      job_id: jobId,
+      template_id: template.id,
+      responses: {
+        ...prefilled,
+        _system_label: `System ${existingDrafts.length + i + 1} of ${qty}`,
+      } as any,
+      submitted_by: user.id,
+      status: "draft",
+    }));
+    await supabase.from("job_sheet_responses").insert(toInsert as any);
+    toast({ title: `${qty} draft${qty > 1 ? "s" : ""} created`, description: `One per system for ${template.name}` });
+    await fetchData();
+  };
+
   const handleStartForm = (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
@@ -754,7 +794,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       variant="outline"
                       size="sm"
                       className="h-7 text-xs"
-                      onClick={() => handleStartForm(tpl)}
+                      onClick={() => {
+                        const tplName = tpl.name.toLowerCase();
+                        const isQtyTemplate = tplName.includes("pressure test") || tplName.includes("dry riser") || tplName.includes("visual");
+                        if (isQtyTemplate && ((jobInfo?.pressure_test_qty || 0) + (jobInfo?.visual_qty || 0)) > 1) {
+                          handleAutoCreateDrafts(tpl);
+                        } else {
+                          handleStartForm(tpl);
+                        }
+                      }}
                     >
                       <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
                     </Button>
