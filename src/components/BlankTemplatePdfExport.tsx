@@ -185,7 +185,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
           for (const field of sectionFields) {
-            y = renderBlankFieldRow(doc, field, autoVals[field.id], y, {
+            // Don't pre-fill option/select fields — leave blank for manual completion
+            const autoVal = (field.options && field.options.length > 0) ? undefined : autoVals[field.id];
+            y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH,
             });
           }
