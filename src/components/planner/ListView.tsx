@@ -84,7 +84,7 @@ export default function ListView({
   optimisedJobOrder?: string[];
 }) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sortBy, setSortBy] = useState<"date" | "customer" | "postcode">("date");
+  const [sortBy, setSortBy] = useState<"date" | "customer" | "postcode" | "due_date">("date");
   const [sortAsc, setSortAsc] = useState(true);
   const [reassignTarget, setReassignTarget] = useState("");
 
@@ -104,6 +104,10 @@ export default function ListView({
       if (sortBy === "date") cmp = a.schedule_date.localeCompare(b.schedule_date);
       else if (sortBy === "customer") {
         cmp = ((getJob(a.job_id) as any)?.customers?.name || getJob(a.job_id)?.customer || "").localeCompare((getJob(b.job_id) as any)?.customers?.name || getJob(b.job_id)?.customer || "");
+      } else if (sortBy === "due_date") {
+        const ddA = getJob(a.job_id)?.due_date || "9999-99-99";
+        const ddB = getJob(b.job_id)?.due_date || "9999-99-99";
+        cmp = ddA.localeCompare(ddB);
       } else {
         const pcA = getJob(a.job_id)?.site?.postcode || extractPostcode(getJob(a.job_id)?.address || null) || "";
         const pcB = getJob(b.job_id)?.site?.postcode || extractPostcode(getJob(b.job_id)?.address || null) || "";
@@ -215,7 +219,9 @@ export default function ListView({
                 <TableHead>Job</TableHead>
                 <TableHead>Scope</TableHead>
                 <TableHead>Priority</TableHead>
-                <TableHead>Due Date</TableHead>
+                <TableHead className="cursor-pointer" onClick={() => toggleSort("due_date")}>
+                  <span className="flex items-center gap-1">Due Date <ArrowUpDown className="h-3 w-3" /></span>
+                </TableHead>
                 {optimisedJobOrder.length > 0 && <TableHead className="w-12 text-center">Route #</TableHead>}
                 <TableHead className="min-w-[220px]">Materials</TableHead>
                 <TableHead className="min-w-[220px]">Comments</TableHead>
