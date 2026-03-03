@@ -41,6 +41,8 @@ type JobInfo = {
   visual_qty?: number;
   pressure_test_qty?: number;
   engineers?: string[];
+  other_qty?: number;
+  other_service_type?: string | null;
   site?: {
     name: string;
     address: string | null;
