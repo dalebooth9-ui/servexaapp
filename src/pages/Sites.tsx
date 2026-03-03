@@ -183,7 +183,22 @@ export default function Sites() {
       || customerFolders.find((f) => f.sites.some((s) => s.id === site.id))?.id
       || "";
     setCreateJobCustomerId(resolvedCustomerId);
-    setCreateJobForm({ name: site.name, priority: "medium", category: jobCategories[0]?.slug || "general", pressure_test_qty: 0, visual_qty: 0 });
+    const getAllDescIds = (id: string): string[] => {
+      const children = sites.filter((x) => x.parent_id === id);
+      return [...children.map((c) => c.id), ...children.flatMap((c) => getAllDescIds(c.id))];
+    };
+    const buildingCount = sites.filter((s) => getAllDescIds(site.id).includes(s.id) && s.site_type === "building").length || 1;
+    const defaultCategory = jobCategories[0]?.slug || "general";
+    const slug = defaultCategory.toLowerCase();
+    const isPT = slug.includes("pressure") || slug.includes("wet") || slug.includes("sprinkler") || slug.includes("hydrant");
+    const isVis = slug.includes("visual") || slug.includes("inspect");
+    setCreateJobForm({
+      name: site.name,
+      priority: "medium",
+      category: defaultCategory,
+      pressure_test_qty: isPT || (!isPT && !isVis) ? buildingCount : 0,
+      visual_qty: isVis || (!isPT && !isVis) ? buildingCount : 0,
+    });
     setCreateJobDialogOpen(true);
   };
 
@@ -1225,7 +1240,26 @@ export default function Sites() {
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Category</label>
-                <Select value={createJobForm.category} onValueChange={(v) => setCreateJobForm((f) => ({ ...f, category: v }))}>
+                <Select value={createJobForm.category} onValueChange={(v) => {
+                  // Recalculate qtys when category changes
+                  const targetSite = sites.find((s) => s.id === createJobSelectedSiteId) || createJobSite;
+                  const buildingCount = targetSite ? sites.filter((s) => {
+                    const getAllDescIds = (id: string): string[] => {
+                      const children = sites.filter((x) => x.parent_id === id);
+                      return [...children.map((c) => c.id), ...children.flatMap((c) => getAllDescIds(c.id))];
+                    };
+                    return getAllDescIds(targetSite.id).includes(s.id) && s.site_type === "building";
+                  }).length || 1 : 1;
+                  const slug = v.toLowerCase();
+                  const isPT = slug.includes("pressure") || slug.includes("wet") || slug.includes("sprinkler") || slug.includes("hydrant");
+                  const isVis = slug.includes("visual") || slug.includes("inspect");
+                  setCreateJobForm((f) => ({
+                    ...f,
+                    category: v,
+                    pressure_test_qty: isPT || (!isPT && !isVis) ? buildingCount : 0,
+                    visual_qty: isVis || (!isPT && !isVis) ? buildingCount : 0,
+                  }));
+                }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     {jobCategories.length > 0
@@ -1238,26 +1272,19 @@ export default function Sites() {
                     }
                   </SelectContent>
                 </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Pressure Tests (PT)</label>
-                <Input
-                  type="number" min={0}
-                  value={createJobForm.pressure_test_qty}
-                  onChange={(e) => setCreateJobForm((f) => ({ ...f, pressure_test_qty: Math.max(0, parseInt(e.target.value) || 0) }))}
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Visual (Vis)</label>
-                <Input
-                  type="number" min={0}
-                  value={createJobForm.visual_qty}
-                  onChange={(e) => setCreateJobForm((f) => ({ ...f, visual_qty: Math.max(0, parseInt(e.target.value) || 0) }))}
-                />
               </div>
             </div>
-          </div>
+            {(createJobForm.pressure_test_qty > 0 || createJobForm.visual_qty > 0) && (
+              <div className="rounded-md bg-muted/50 border px-3 py-2 flex gap-4 text-sm">
+                <span className="text-muted-foreground">Auto-calculated from buildings:</span>
+                {createJobForm.pressure_test_qty > 0 && (
+                  <span className="font-medium">PT: <span className="text-primary">{createJobForm.pressure_test_qty}</span></span>
+                )}
+                {createJobForm.visual_qty > 0 && (
+                  <span className="font-medium">Vis: <span className="text-primary">{createJobForm.visual_qty}</span></span>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
