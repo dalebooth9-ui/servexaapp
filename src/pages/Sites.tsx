@@ -1139,34 +1139,31 @@ export default function Sites() {
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Site / Building selector — show root + all descendants */}
+            {/* Site / Building selector — always show root + all descendants in tree order */}
             {createJobSite && (() => {
-              const siteOptions = getSiteAndDescendants(createJobSite.id);
-              if (siteOptions.length <= 1) return null;
-              // Compute depth relative to the root site
-              const getDepth = (s: Site): number => {
-                let d = 0; let cur: Site | undefined = s;
-                while (cur?.parent_id && cur.id !== createJobSite.id) {
-                  if (cur.id === createJobSite.id) break;
-                  const parent = sites.find((x) => x.id === cur!.parent_id);
-                  if (!parent || parent.id === createJobSite.parent_id) break;
-                  d++; cur = parent;
-                }
-                return d;
+              // Build tree-ordered list with correct depths
+              const treeItems: { site: Site; depth: number }[] = [];
+              const addWithChildren = (siteId: string, depth: number) => {
+                const s = sites.find((x) => x.id === siteId);
+                if (!s) return;
+                treeItems.push({ site: s, depth });
+                const children = sites.filter((x) => x.parent_id === siteId);
+                children.forEach((c) => addWithChildren(c.id, depth + 1));
               };
+              addWithChildren(createJobSite.id, 0);
+
               return (
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium">Site / Building</label>
-                  <div className="rounded-md border divide-y divide-border max-h-48 overflow-y-auto">
-                    {siteOptions.map((s) => {
-                      const depth = getDepth(s);
+                  <div className="rounded-md border divide-y divide-border max-h-56 overflow-y-auto">
+                    {treeItems.map(({ site: s, depth }) => {
                       const Ic = TYPE_CONFIG[s.site_type]?.icon || MapPin;
                       const isSelected = createJobSelectedSiteId === s.id;
                       return (
                         <button
                           key={s.id}
                           type="button"
-                          className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 font-medium" : ""}`}
+                          className={`w-full flex items-center gap-2 py-2 pr-3 text-sm text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 font-medium" : ""}`}
                           style={{ paddingLeft: `${12 + depth * 16}px` }}
                           onClick={() => {
                             setCreateJobSelectedSiteId(s.id);
@@ -1176,7 +1173,7 @@ export default function Sites() {
                           <Ic className={`h-3.5 w-3.5 shrink-0 ${TYPE_CONFIG[s.site_type]?.color || ""}`} />
                           <span className="flex-1 truncate">{s.name}</span>
                           {s.postcode && <span className="text-xs text-muted-foreground">{s.postcode}</span>}
-                          {isSelected && <span className="text-primary text-xs font-semibold ml-1">✓</span>}
+                          {isSelected && <span className="text-primary text-xs font-semibold">✓</span>}
                         </button>
                       );
                     })}
