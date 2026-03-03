@@ -275,11 +275,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Date fields
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
         prefilled[f.id] = new Date().toISOString().split("T")[0];
-      // Category / scope / type of work — auto-set from job category
+      // Category / scope / type of work — auto-set from PT/Visual quantities, fallback to category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
+        const scopeParts: string[] = [];
+        if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
+        if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
+        if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
         const categoryName = jobCategories.find(c => c.slug === jobInfo.category)?.name
           || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
-        prefilled[f.id] = categoryName;
+        prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
       // Priority
       } else if (label === "priority" || label === "job priority") {
         prefilled[f.id] = jobInfo.priority || "";
