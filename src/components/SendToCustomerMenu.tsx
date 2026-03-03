@@ -16,6 +16,7 @@ import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, 
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
+import { useJobCategories } from "@/hooks/useJobCategories";
 
 interface Props {
   jobId: string;
@@ -27,6 +28,7 @@ type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs"
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
+  const { categories: jobCategories } = useJobCategories();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedDocs, setSelectedDocs] = useState<Set<DocOption>>(new Set());
   const [sending, setSending] = useState(false);
@@ -261,6 +263,8 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
             formData,
             { address: job.address, customer: job.customer, customers: job.customers, reference_number: job.reference_number, site: job.sites },
             jobId, undefined, fullResponse.submitted_at,
+            jobCategories.find((c: any) => c.slug === job.category)?.name
+              || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : ""),
           );
           attachments.push({ filename: fileName, content: base64 });
         }
