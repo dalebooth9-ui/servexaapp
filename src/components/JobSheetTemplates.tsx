@@ -215,6 +215,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const engineerList = (jobInfo.engineers || []).join(", ");
 
     template.fields.forEach((f) => {
+      // Never auto-fill fields that have options — leave blank for engineer to select
+      if (f.options && f.options.length > 0) return;
       const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
 
       // Site details (composite: name + address)
