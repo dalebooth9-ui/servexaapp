@@ -399,7 +399,7 @@ export async function generateRamsPdf(
   doc.text("Pressure testing Pipework and associated fittings", PAGE_W / 2, y, { align: "center" });
   y += 8;
   doc.setFontSize(22);
-  doc.text("VIVA", PAGE_W / 2, y, { align: "center" });
+  doc.text("VIVA FIRE", PAGE_W / 2, y, { align: "center" });
   y += 8;
   doc.setFontSize(13);
   doc.text("Method Statement & Risk Assessment", PAGE_W / 2, y, { align: "center" });
@@ -452,7 +452,13 @@ export async function generateRamsPdf(
   labelValue(doc, "Contract / Job Name:", contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : ""), ML + 3, ry); ry += rowGap;
   labelValue(doc, "Client:", clientName, ML + 3, ry); ry += rowGap;
   if (siteLocation && siteLocation !== "All areas / locations") {
-    labelValue(doc, "Site / Location:", siteLocation, ML + 3, ry); ry += rowGap;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("Site / Location:", ML + 3, ry);
+    doc.setFont("helvetica", "normal");
+    const siteLines = doc.splitTextToSize(siteLocation, CONTENT_W - 55);
+    doc.text(siteLines, ML + 3 + 52, ry);
+    ry += Math.max(rowGap, siteLines.length * (9 * 0.352778 + 1.2));
   }
   labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry); ry += rowGap;
   if (scopeParts) {
