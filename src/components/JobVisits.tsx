@@ -79,13 +79,22 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
     fetchEngineers();
   }, [jobId]);
 
+  const getScopeNotes = () => {
+    if (!jobData) return "";
+    const parts: string[] = [];
+    if (jobData.pressure_test_qty > 0) parts.push(`Pressure Test ×${jobData.pressure_test_qty}`);
+    if (jobData.visual_qty > 0) parts.push(`Visual Inspection ×${jobData.visual_qty}`);
+    if (jobData.other_qty > 0 && jobData.other_service_type) parts.push(`${jobData.other_service_type} ×${jobData.other_qty}`);
+    return parts.join(", ");
+  };
+
   const openEdit = (v: Visit) => {
     setEditVisit(v);
     setEditForm({
       scheduled_date: v.scheduled_date,
       scheduled_time: v.scheduled_time || "",
       engineer_id: v.engineer_id || "",
-      notes: v.notes || "",
+      notes: v.notes || getScopeNotes(),
       status: v.status,
     });
   };
@@ -272,7 +281,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                   </form>
                 </DialogContent>
               </Dialog>
-              <Dialog open={addOpen} onOpenChange={setAddOpen}>
+              <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (o) setForm((f) => ({ ...f, notes: f.notes || getScopeNotes() })); }}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add Visit</Button>
                 </DialogTrigger>
