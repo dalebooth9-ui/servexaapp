@@ -51,6 +51,7 @@ type JobInfo = {
     contact_name: string | null;
     contact_phone: string | null;
     contact_email: string | null;
+    riser_location?: string | null;
   } | null;
 };
 
@@ -99,7 +100,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const refNumber = jobInfo?.reference_number || "";
       const dateVal = new Date().toLocaleDateString("en-GB");
       const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-      const riserLocValue = riserField ? (autoVals[riserField.id] || "") : "";
+      const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
       const engineerList = (jobInfo?.engineers || []).join(", ");
 
       const doc = new jsPDF();
@@ -112,9 +113,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         // Add a new page for every sheet after the first
         if (sysIdx > 0) doc.addPage();
 
-        const sheetTitle = systemQty > 1
-          ? `${template.name} — System ${sysIdx + 1} of ${systemQty}`
-          : template.name;
+        const sheetTitle = template.name;
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName,

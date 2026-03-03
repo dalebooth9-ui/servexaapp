@@ -17,6 +17,7 @@ export interface AutoPopulateJobInfo {
     contact_name?: string | null;
     contact_phone?: string | null;
     contact_email?: string | null;
+    riser_location?: string | null;
   } | null;
 }
 
@@ -84,6 +85,8 @@ export function getAutoPopulatedValues(
       vals[f.id] = jobInfo.name || "";
     } else if (label === "priority" || label === "job priority") {
       vals[f.id] = jobInfo.priority || "";
+    } else if (label.includes("riser location") || label.includes("riser loc")) {
+      vals[f.id] = jobInfo.site?.riser_location || "";
     }
   });
 
