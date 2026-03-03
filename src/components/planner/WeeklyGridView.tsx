@@ -52,6 +52,8 @@ interface Job {
   site?: { name: string; address: string | null; postcode: string | null } | null;
   pressure_test_qty: number;
   visual_qty: number;
+  other_qty: number;
+  other_service_type: string | null;
   created_at?: string;
   due_date?: string | null;
 }
@@ -114,13 +116,16 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
           {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
         </div>
       )}
-      {(job.pressure_test_qty > 0 || job.visual_qty > 0) && (
-        <div className="flex gap-1.5 mt-0.5">
+      {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+        <div className="flex flex-wrap gap-1 mt-0.5">
           {job.pressure_test_qty > 0 && (
-            <span className="inline-flex items-center rounded bg-primary/10 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
+            <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
           )}
           {job.visual_qty > 0 && (
-            <span className="inline-flex items-center rounded bg-accent/20 text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+            <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+          )}
+          {job.other_qty > 0 && job.other_service_type && (
+            <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
           )}
         </div>
       )}
@@ -182,13 +187,16 @@ function DraggableScheduleCard({
             </div>
           )}
           {entry.notes && <div className="truncate text-muted-foreground italic">{entry.notes}</div>}
-          {(job.pressure_test_qty > 0 || job.visual_qty > 0) && (
-            <div className="flex gap-1 mt-0.5">
+          {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+            <div className="flex flex-wrap gap-1 mt-0.5">
               {job.pressure_test_qty > 0 && (
-                <span className="inline-flex items-center rounded bg-primary/10 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
+                <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
               )}
               {job.visual_qty > 0 && (
-                <span className="inline-flex items-center rounded bg-accent/20 text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+                <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+              )}
+              {job.other_qty > 0 && job.other_service_type && (
+                <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
               )}
             </div>
           )}
