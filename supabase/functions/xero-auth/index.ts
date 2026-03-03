@@ -51,7 +51,19 @@ Deno.serve(async (req) => {
 
       const redirectUri = `${SUPABASE_URL}/functions/v1/xero-oauth-callback`;
       const scopes = "openid profile email accounting.transactions accounting.contacts offline_access";
-      const state = btoa(JSON.stringify({ userId: user.id }));
+      // Build HMAC-signed state to prevent CSRF/account takeover
+      const statePayload = JSON.stringify({ userId: user.id, ts: Date.now() });
+      const secret = Deno.env.get("XERO_CLIENT_SECRET")!;
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+      const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(statePayload));
+      const sigB64 = btoa(String.fromCharCode(...new Uint8Array(sig)));
+      const state = btoa(statePayload + "|" + sigB64);
 
       const authUrl = `${XERO_AUTH_URL}?response_type=code&client_id=${XERO_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}&state=${state}`;
 

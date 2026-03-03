@@ -64,10 +64,31 @@ Deno.serve(async (req) => {
   try {
     let userId: string;
     try {
-      const parsed = JSON.parse(atob(state));
+      const decoded = atob(state);
+      const pipeIdx = decoded.lastIndexOf("|");
+      if (pipeIdx === -1) throw new Error("No pipe separator in state");
+      const statePayload = decoded.substring(0, pipeIdx);
+      const sigB64 = decoded.substring(pipeIdx + 1);
+
+      // Verify HMAC signature
+      const secret = XERO_CLIENT_SECRET!;
+      const key = await crypto.subtle.importKey(
+        "raw",
+        new TextEncoder().encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["verify"]
+      );
+      const sigBytes = Uint8Array.from(atob(sigB64), (c) => c.charCodeAt(0));
+      const valid = await crypto.subtle.verify("HMAC", key, sigBytes, new TextEncoder().encode(statePayload));
+      if (!valid) throw new Error("Invalid state signature");
+
+      const parsed = JSON.parse(statePayload);
+      // Reject state older than 15 minutes
+      if (Date.now() - (parsed.ts || 0) > 15 * 60 * 1000) throw new Error("State expired");
       userId = parsed.userId;
     } catch (e) {
-      console.error("Failed to parse state:", e);
+      console.error("Failed to validate state:", e);
       return new Response(null, {
         status: 302,
         headers: { Location: `${appUrl}/settings?xero_error=invalid_state` },

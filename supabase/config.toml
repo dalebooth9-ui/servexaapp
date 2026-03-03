@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.send-test-reminder]
 verify_jwt = false
+
+[functions.customer-portal-validate]
+verify_jwt = false
