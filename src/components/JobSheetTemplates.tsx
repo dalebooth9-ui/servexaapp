@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useJobCategories } from "@/hooks/useJobCategories";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,6 +84,7 @@ type JobInfo = {
 export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
+  const { categories: jobCategories } = useJobCategories();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
@@ -273,16 +275,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Date fields
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
         prefilled[f.id] = new Date().toISOString().split("T")[0];
-      // Category / scope / type of work — auto-set from template name
+      // Category / scope / type of work — auto-set from job category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
-        const tplName = template.name.toLowerCase();
-        if (tplName.includes("pressure test") || tplName.includes("pressure-test")) {
-          prefilled[f.id] = "Pressure Test";
-        } else if (tplName.includes("visual")) {
-          prefilled[f.id] = "Visual";
-        } else {
-          prefilled[f.id] = jobInfo.category || "";
-        }
+        const categoryName = jobCategories.find(c => c.slug === jobInfo.category)?.name
+          || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+        prefilled[f.id] = categoryName;
       // Priority
       } else if (label === "priority" || label === "job priority") {
         prefilled[f.id] = jobInfo.priority || "";
