@@ -149,7 +149,7 @@ export default function Sites() {
   const [createJobSelectedSiteId, setCreateJobSelectedSiteId] = useState<string>("");
   const [createJobSelectedSiteIds, setCreateJobSelectedSiteIds] = useState<Set<string>>(new Set());
   const [createJobCustomerId, setCreateJobCustomerId] = useState<string>("");
-  const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0 });
+  const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "" });
   const [createJobSaving, setCreateJobSaving] = useState(false);
   const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
 
@@ -198,6 +198,8 @@ export default function Sites() {
       category: defaultCategory,
       pressure_test_qty: isPT || (!isPT && !isVis) ? buildingCount : 0,
       visual_qty: isVis || (!isPT && !isVis) ? buildingCount : 0,
+      other_qty: 0,
+      other_service_type: "",
     });
     setCreateJobDialogOpen(true);
   };
@@ -215,6 +217,8 @@ export default function Sites() {
       customer_id: createJobCustomerId || null,
       pressure_test_qty: createJobForm.pressure_test_qty,
       visual_qty: createJobForm.visual_qty,
+      other_qty: createJobForm.other_qty,
+      other_service_type: createJobForm.other_service_type || null,
       status: "active",
     } as any).select("id").single();
     setCreateJobSaving(false);
@@ -1253,11 +1257,13 @@ export default function Sites() {
                   const slug = v.toLowerCase();
                   const isPT = slug.includes("pressure") || slug.includes("wet") || slug.includes("sprinkler") || slug.includes("hydrant");
                   const isVis = slug.includes("visual") || slug.includes("inspect");
-                  setCreateJobForm((f) => ({
+                   setCreateJobForm((f) => ({
                     ...f,
                     category: v,
                     pressure_test_qty: isPT || (!isPT && !isVis) ? buildingCount : 0,
                     visual_qty: isVis || (!isPT && !isVis) ? buildingCount : 0,
+                    other_qty: f.other_qty,
+                    other_service_type: f.other_service_type,
                   }));
                 }}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1283,8 +1289,29 @@ export default function Sites() {
                 {createJobForm.visual_qty > 0 && (
                   <span className="font-medium">Vis: <span className="text-primary">{createJobForm.visual_qty}</span></span>
                 )}
+                {createJobForm.other_qty > 0 && createJobForm.other_service_type && (
+                  <span className="font-medium">{createJobForm.other_service_type}: <span className="text-primary">{createJobForm.other_qty}</span></span>
+                )}
               </div>
             )}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Other Service Type</label>
+                <Input
+                  placeholder="e.g. Wet Riser"
+                  value={createJobForm.other_service_type}
+                  onChange={(e) => setCreateJobForm((f) => ({ ...f, other_service_type: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Other Qty</label>
+                <Input
+                  type="number" min={0}
+                  value={createJobForm.other_qty}
+                  onChange={(e) => setCreateJobForm((f) => ({ ...f, other_qty: Math.max(0, parseInt(e.target.value) || 0) }))}
+                />
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
