@@ -56,20 +56,9 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   // Auto-attach documents from category templates when the component mounts
   useEffect(() => {
     if (!job?.category || !user || userRole !== "admin") return;
-
-    if (job?.status === "completed" || job?.status === "cancelled") {
-      // Clean up any stale auto-attached docs for closed jobs
-      supabase
-        .from("job_documents" as any)
-        .delete()
-        .eq("job_id", jobId)
-        .eq("source", "auto")
-        .then(() => fetchDocs());
-      return;
-    }
-
+    if (job?.status === "completed" || job?.status === "cancelled") return;
     autoAttachCategoryDocuments();
-  }, [job?.category, job?.status]);
+  }, [job?.category]);
 
   const autoAttachCategoryDocuments = async () => {
     if (!job?.category) return;
@@ -81,29 +70,20 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       .eq("enabled", true)
       .order("sort_order");
 
-    // Get ALL existing auto-attached docs for this job
+    if (!catTemplates || catTemplates.length === 0) return;
+
+    // Get existing auto-attached docs to avoid duplicates
     const { data: existingDocs } = await supabase
       .from("job_documents" as any)
-      .select("id, category_template_id")
+      .select("category_template_id")
       .eq("job_id", jobId)
       .eq("source", "auto");
 
-    const enabledTemplateIds = new Set((catTemplates as any[] || []).map((t: any) => t.id));
     const existingTemplateIds = new Set((existingDocs || []).map((d: any) => d.category_template_id));
 
-    // Delete stale auto-attached docs whose template is no longer enabled
-    const staleIds = (existingDocs || [])
-      .filter((d: any) => !enabledTemplateIds.has(d.category_template_id))
-      .map((d: any) => d.id);
-
-    if (staleIds.length > 0) {
-      await supabase.from("job_documents" as any).delete().in("id", staleIds);
-    }
-
-    // Insert missing auto-attached docs for newly enabled templates
-    const toInsert = (catTemplates as any[] || [])
-      .filter((t: any) => !existingTemplateIds.has(t.id))
-      .map((t: any) => ({
+    const toInsert = (catTemplates as any[])
+      .filter((t) => !existingTemplateIds.has(t.id))
+      .map((t) => ({
         job_id: jobId,
         document_type: t.document_type,
         label: t.label,
@@ -114,10 +94,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         created_by: user?.id,
       }));
 
-    if (staleIds.length > 0 || toInsert.length > 0) {
-      if (toInsert.length > 0) {
-        await supabase.from("job_documents" as any).insert(toInsert as any);
-      }
+    if (toInsert.length > 0) {
+      await supabase.from("job_documents" as any).insert(toInsert as any);
       fetchDocs();
     }
   };
