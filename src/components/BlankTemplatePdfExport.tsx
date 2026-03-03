@@ -222,19 +222,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       if (watermark) addWatermarkToAllPages(doc, watermark);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
-      const base64 = doc.output("datauristring").split(",")[1];
-      const byteCharacters = atob(base64);
-      const byteArray = new Uint8Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
-      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.target = "_blank";
-      a.rel = "noopener noreferrer";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      window.open(url, "_blank");
       setTimeout(() => URL.revokeObjectURL(url), 30000);
       toast({
         title: "Blank template opened",
