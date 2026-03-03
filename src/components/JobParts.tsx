@@ -226,7 +226,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
   const [parts, setParts] = useState<JobPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
+  const [form, setForm] = useState({ name: "", quantity: "", unit_cost: "0", sell_price: "0", notes: "" });
   const [importOpen, setImportOpen] = useState(false);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -305,7 +305,7 @@ export default function JobParts({ jobId }: { jobId: string }) {
     if (!form.name.trim() || !user) return;
     setAdding(true);
     await handleAddAt(form);
-    setForm({ name: "", quantity: "1", unit_cost: "0", sell_price: "0", notes: "" });
+    setForm({ name: "", quantity: "", unit_cost: "0", sell_price: "0", notes: "" });
     setAdding(false);
   };
 
