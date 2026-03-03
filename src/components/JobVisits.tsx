@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarPlus, Check, Clock, AlertTriangle, Ban, Plus, Repeat } from "lucide-react";
+import { CalendarPlus, Check, Clock, AlertTriangle, Ban, Plus, Repeat, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 
@@ -43,6 +43,8 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [recurrenceOpen, setRecurrenceOpen] = useState(false);
+  const [editVisit, setEditVisit] = useState<Visit | null>(null);
+  const [editForm, setEditForm] = useState({ scheduled_date: "", scheduled_time: "", engineer_id: "", notes: "", status: "" });
   const [form, setForm] = useState({ scheduled_date: "", scheduled_time: "", engineer_id: "", notes: "" });
   const [recForm, setRecForm] = useState({ interval: "1", unit: "weeks", start_date: "", end_date: "", engineer_id: "" });
   const [loading, setLoading] = useState(false);
@@ -76,6 +78,44 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
     fetchVisits();
     fetchEngineers();
   }, [jobId]);
+
+  const openEdit = (v: Visit) => {
+    setEditVisit(v);
+    setEditForm({
+      scheduled_date: v.scheduled_date,
+      scheduled_time: v.scheduled_time || "",
+      engineer_id: v.engineer_id || "",
+      notes: v.notes || "",
+      status: v.status,
+    });
+  };
+
+  const handleEditVisit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editVisit) return;
+    setLoading(true);
+    const update: any = {
+      scheduled_date: editForm.scheduled_date,
+      scheduled_time: editForm.scheduled_time || null,
+      engineer_id: editForm.engineer_id || null,
+      notes: editForm.notes || null,
+      status: editForm.status,
+    };
+    if (editForm.status === "completed" && editVisit.status !== "completed") {
+      update.completed_at = new Date().toISOString();
+    } else if (editForm.status !== "completed") {
+      update.completed_at = null;
+    }
+    const { error } = await supabase.from("job_visits").update(update).eq("id", editVisit.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to update visit.", variant: "destructive" });
+    } else {
+      toast({ title: "Visit updated" });
+      setEditVisit(null);
+      fetchVisits();
+    }
+    setLoading(false);
+  };
 
   const handleAddVisit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,7 +162,6 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
       return;
     }
 
-    // Also update job recurrence fields
     await supabase.from("jobs").update({
       job_type: "recurring",
       recurrence_interval: interval,
@@ -279,6 +318,60 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
         </div>
       </CardHeader>
       <CardContent>
+        {/* Edit Visit Dialog */}
+        <Dialog open={!!editVisit} onOpenChange={(o) => { if (!o) setEditVisit(null); }}>
+          <DialogContent>
+            <DialogHeader><DialogTitle>Edit Visit</DialogTitle></DialogHeader>
+            <form onSubmit={handleEditVisit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <Label>Date</Label>
+                  <Input type="date" value={editForm.scheduled_date} onChange={(e) => setEditForm({ ...editForm, scheduled_date: e.target.value })} required />
+                </div>
+                <div className="space-y-2">
+                  <Label>Time (optional)</Label>
+                  <Input type="time" value={editForm.scheduled_time} onChange={(e) => setEditForm({ ...editForm, scheduled_time: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Status</Label>
+                <Select value={editForm.status} onValueChange={(v) => setEditForm({ ...editForm, status: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unscheduled">Unscheduled</SelectItem>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="overdue">Overdue</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {engineers.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Engineer</Label>
+                  <Select value={editForm.engineer_id || "__none__"} onValueChange={(v) => setEditForm({ ...editForm, engineer_id: v === "__none__" ? "" : v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Unassigned</SelectItem>
+                      {engineers.map((e) => (
+                        <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              <div className="space-y-2">
+                <Label>Notes</Label>
+                <Textarea value={editForm.notes} onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })} rows={2} />
+              </div>
+              <div className="flex gap-2">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setEditVisit(null)}>Cancel</Button>
+                <Button type="submit" className="flex-1" disabled={loading}>{loading ? "Saving..." : "Save Changes"}</Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+
         {visits.length === 0 ? (
           <p className="text-sm text-muted-foreground py-4 text-center">No visits scheduled yet.</p>
         ) : (
@@ -290,7 +383,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                 <TableHead>Engineer</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Notes</TableHead>
-                {isAdmin && <TableHead className="w-[130px]">Action</TableHead>}
+                {isAdmin && <TableHead className="w-[80px]">Action</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -309,16 +402,9 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{v.notes || "—"}</TableCell>
                     {isAdmin && (
                       <TableCell>
-                        <Select value={v.status} onValueChange={(s) => handleStatusChange(v.id, s)}>
-                          <SelectTrigger className="h-7 text-xs w-[120px]"><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="unscheduled">Unscheduled</SelectItem>
-                            <SelectItem value="upcoming">Upcoming</SelectItem>
-                            <SelectItem value="overdue">Overdue</SelectItem>
-                            <SelectItem value="completed">Completed</SelectItem>
-                            <SelectItem value="cancelled">Cancelled</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(v)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
                       </TableCell>
                     )}
                   </TableRow>
