@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -88,6 +88,8 @@ export default function Jobs() {
   const [quickScheduleJob, setQuickScheduleJob] = useState<any>(null);
   const [quickScheduleOpen, setQuickScheduleOpen] = useState(false);
   const [fileDragging, setFileDragging] = useState(false);
+  const [dialogParsingFile, setDialogParsingFile] = useState(false);
+  const [dialogParsedFile, setDialogParsedFile] = useState<File | null>(null);
   const [fileDropUploading, setFileDropUploading] = useState(false);
   const [fileDropDialogOpen, setFileDropDialogOpen] = useState(false);
   const [fileDropChoiceOpen, setFileDropChoiceOpen] = useState(false);
@@ -391,6 +393,49 @@ export default function Jobs() {
     fetchJobs();
   };
 
+  const handleDialogFileDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (![".pdf", ".doc", ".docx"].includes(ext)) {
+      toast({ title: "Unsupported file", description: "Drop a PDF or Word document to auto-fill.", variant: "destructive" });
+      return;
+    }
+    setDialogParsedFile(file);
+    setDialogParsingFile(true);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => resolve((reader.result as string).split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const { data, error } = await supabase.functions.invoke("parse-po-document", {
+        body: { file_base64: base64, file_name: file.name },
+      });
+      if (error || data?.error) throw new Error(error?.message || data?.error || "Parse failed");
+      const ext2: any = data?.data || {};
+      const matchedCustomer = customers.find(
+        (c) => c.name.toLowerCase() === (ext2.customer_name || "").toLowerCase()
+      );
+      setForm((prev) => ({
+        ...prev,
+        name: ext2.job_description || ext2.po_number || file.name.replace(/\.[^.]+$/, ""),
+        reference_number: ext2.po_number || prev.reference_number,
+        customer_id: matchedCustomer?.id || prev.customer_id,
+        address: ext2.address || prev.address,
+        priority: ["high", "medium", "low"].includes(ext2.priority || "") ? ext2.priority : prev.priority,
+        due_date: ext2.due_date || prev.due_date,
+      }));
+      toast({ title: "Details extracted", description: "Form pre-filled from document. Review and adjust as needed." });
+    } catch (err: any) {
+      toast({ title: "Could not extract details", description: err.message || "Please fill in manually.", variant: "destructive" });
+    } finally {
+      setDialogParsingFile(false);
+    }
+  };
+
   const handleCreate = async (e: React.FormEvent, statusOverride?: string) => {
     e.preventDefault();
     setLoading(true);
@@ -433,6 +478,7 @@ export default function Jobs() {
       toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
       setDialogOpen(false);
+      setDialogParsedFile(null);
       fetchJobs();
 
       if (createdJob) {
@@ -807,6 +853,30 @@ export default function Jobs() {
                 </div>
               </DialogHeader>
               <form onSubmit={handleCreate} className="space-y-4">
+                {/* Drag-drop AI extraction zone */}
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={handleDialogFileDrop}
+                  className="flex items-center gap-3 rounded-lg border-2 border-dashed border-muted-foreground/25 px-4 py-3 text-sm text-muted-foreground hover:border-primary/40 hover:bg-primary/5 transition-colors cursor-default"
+                >
+                  {dialogParsingFile ? (
+                    <>
+                      <Loader2 className="h-4 w-4 shrink-0 animate-spin text-primary" />
+                      <span className="text-primary font-medium">Reading document…</span>
+                    </>
+                  ) : dialogParsedFile ? (
+                    <>
+                      <Sparkles className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate"><span className="font-medium text-foreground">{dialogParsedFile.name}</span> — form pre-filled. Drop another to replace.</span>
+                      <button type="button" className="ml-auto shrink-0 text-muted-foreground hover:text-destructive" onClick={() => setDialogParsedFile(null)}><X className="h-3.5 w-3.5" /></button>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="h-4 w-4 shrink-0" />
+                      <span>Drop a PDF or Word doc to auto-fill from a purchase order</span>
+                    </>
+                  )}
+                </div>
                 <div className="space-y-2">
                   <Label>Job Name</Label>
                   <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
