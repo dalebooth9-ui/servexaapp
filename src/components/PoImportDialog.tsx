@@ -19,6 +19,7 @@ interface ExtractedPO {
   job_description?: string;
   due_date?: string;
   priority?: string;
+  quantity?: number | null;
   total_value?: number | null;
   currency?: string;
   notes?: string;
@@ -240,6 +241,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
             {extracted.customer_name && <p><span className="font-medium">Customer:</span> {extracted.customer_name}</p>}
             {extracted.po_number && <p><span className="font-medium">PO Number:</span> {extracted.po_number}</p>}
             {extracted.address && <p><span className="font-medium">Address:</span> {extracted.address}</p>}
+            {extracted.quantity != null && <p><span className="font-medium">Quantity:</span> {extracted.quantity}</p>}
             {extracted.total_value != null && (
               <p><span className="font-medium">Value:</span> {extracted.currency || ""}{extracted.total_value?.toLocaleString()}</p>
             )}
