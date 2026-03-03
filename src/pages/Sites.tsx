@@ -147,6 +147,7 @@ export default function Sites() {
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
   const [createJobSite, setCreateJobSite] = useState<Site | null>(null);
   const [createJobSelectedSiteId, setCreateJobSelectedSiteId] = useState<string>("");
+  const [createJobSelectedSiteIds, setCreateJobSelectedSiteIds] = useState<Set<string>>(new Set());
   const [createJobCustomerId, setCreateJobCustomerId] = useState<string>("");
   const [createJobForm, setCreateJobForm] = useState({ name: "", priority: "medium", category: "general" });
   const [createJobSaving, setCreateJobSaving] = useState(false);
@@ -170,6 +171,13 @@ export default function Sites() {
   const openCreateJob = (site: Site, customerId?: string) => {
     setCreateJobSite(site);
     setCreateJobSelectedSiteId(site.id);
+    // Pre-select parent + all descendants
+    const getAllIds = (siteId: string): string[] => {
+      const ids = [siteId];
+      sites.filter((s) => s.parent_id === siteId).forEach((c) => ids.push(...getAllIds(c.id)));
+      return ids;
+    };
+    setCreateJobSelectedSiteIds(new Set(getAllIds(site.id)));
     // Auto-detect customer from folder if not explicitly provided
     const resolvedCustomerId = customerId
       || customerFolders.find((f) => f.sites.some((s) => s.id === site.id))?.id
@@ -181,22 +189,28 @@ export default function Sites() {
 
   const handleCreateJob = async () => {
     if (!createJobForm.name.trim() || !createJobSite) return;
-    const selectedSite = sites.find((s) => s.id === createJobSelectedSiteId) || createJobSite;
     setCreateJobSaving(true);
-    const { data, error } = await supabase.from("jobs").insert({
-      name: createJobForm.name.trim(),
-      priority: createJobForm.priority,
-      category: createJobForm.category,
-      site_id: selectedSite.id,
-      address: selectedSite.address || null,
-      customer_id: createJobCustomerId || null,
-      status: "active",
-    } as any).select("id").single();
+    const selectedIds = Array.from(createJobSelectedSiteIds);
+    const sitesToCreate = selectedIds.length > 0 ? selectedIds : [createJobSite.id];
+    let lastJobId: string | null = null;
+    for (const siteId of sitesToCreate) {
+      const s = sites.find((x) => x.id === siteId) || createJobSite;
+      const { data, error } = await supabase.from("jobs").insert({
+        name: createJobForm.name.trim(),
+        priority: createJobForm.priority,
+        category: createJobForm.category,
+        site_id: s.id,
+        address: s.address || null,
+        customer_id: createJobCustomerId || null,
+        status: "active",
+      } as any).select("id").single();
+      if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); setCreateJobSaving(false); return; }
+      lastJobId = data.id;
+    }
     setCreateJobSaving(false);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Job created", description: `${createJobForm.name} linked to ${selectedSite.name}.` });
+    toast({ title: "Job(s) created", description: `${sitesToCreate.length} job(s) created for ${createJobForm.name}.` });
     setCreateJobDialogOpen(false);
-    navigate(`/jobs/${data.id}`);
+    if (lastJobId) navigate(`/jobs/${lastJobId}`);
   };
 
   // Navigate to a site in the hierarchy: switch tab, clear search, expand all ancestors, highlight the target
@@ -1139,42 +1153,56 @@ export default function Sites() {
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Site / Building selector — always show root + all descendants in tree order */}
+            {/* Site / Building selector — checkboxes, all pre-selected */}
             {createJobSite && (() => {
-              // Build tree-ordered list with correct depths
               const treeItems: { site: Site; depth: number }[] = [];
               const addWithChildren = (siteId: string, depth: number) => {
                 const s = sites.find((x) => x.id === siteId);
                 if (!s) return;
                 treeItems.push({ site: s, depth });
-                const children = sites.filter((x) => x.parent_id === siteId);
-                children.forEach((c) => addWithChildren(c.id, depth + 1));
+                sites.filter((x) => x.parent_id === siteId).forEach((c) => addWithChildren(c.id, depth + 1));
               };
               addWithChildren(createJobSite.id, 0);
 
+              const toggleSite = (id: string) => {
+                setCreateJobSelectedSiteIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) { next.delete(id); } else { next.add(id); }
+                  return next;
+                });
+              };
+
               return (
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">Site / Building</label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium">Create a job for each ({createJobSelectedSiteIds.size} selected)</label>
+                    <button type="button" className="text-xs text-muted-foreground hover:text-foreground" onClick={() => {
+                      const allIds = treeItems.map((t) => t.site.id);
+                      setCreateJobSelectedSiteIds((prev) => prev.size === allIds.length ? new Set() : new Set(allIds));
+                    }}>
+                      {createJobSelectedSiteIds.size === treeItems.length ? "Deselect all" : "Select all"}
+                    </button>
+                  </div>
                   <div className="rounded-md border divide-y divide-border max-h-56 overflow-y-auto">
                     {treeItems.map(({ site: s, depth }) => {
                       const Ic = TYPE_CONFIG[s.site_type]?.icon || MapPin;
-                      const isSelected = createJobSelectedSiteId === s.id;
+                      const isChecked = createJobSelectedSiteIds.has(s.id);
                       return (
-                        <button
+                        <label
                           key={s.id}
-                          type="button"
-                          className={`w-full flex items-center gap-2 py-2 pr-3 text-sm text-left hover:bg-muted/50 transition-colors ${isSelected ? "bg-primary/10 font-medium" : ""}`}
+                          className={`w-full flex items-center gap-2 py-2 pr-3 text-sm cursor-pointer hover:bg-muted/50 transition-colors ${isChecked ? "bg-primary/10" : ""}`}
                           style={{ paddingLeft: `${12 + depth * 16}px` }}
-                          onClick={() => {
-                            setCreateJobSelectedSiteId(s.id);
-                            setCreateJobForm((f) => ({ ...f, name: s.name }));
-                          }}
                         >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleSite(s.id)}
+                            className="accent-primary h-3.5 w-3.5 shrink-0"
+                          />
                           <Ic className={`h-3.5 w-3.5 shrink-0 ${TYPE_CONFIG[s.site_type]?.color || ""}`} />
                           <span className="flex-1 truncate">{s.name}</span>
                           {s.postcode && <span className="text-xs text-muted-foreground">{s.postcode}</span>}
-                          {isSelected && <span className="text-primary text-xs font-semibold">✓</span>}
-                        </button>
+                        </label>
                       );
                     })}
                   </div>
