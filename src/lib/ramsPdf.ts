@@ -414,11 +414,8 @@ export async function generateRamsPdf(
   hr(doc, y, 60);
   y += 8;
 
-  // Key details box – rows are laid out sequentially to avoid overlap
-  doc.setDrawColor(180);
-  doc.setLineWidth(0.3);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
+  // Key details box – measure content first, then draw box to fit exactly
+  const rowGap = 7;
 
   // Build service scope string
   const scopeParts = [
@@ -427,55 +424,73 @@ export async function generateRamsPdf(
     (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
   ].filter(Boolean).join("  |  ");
 
-  // Review note (wraps to multiple lines)
+  // Pre-compute review note lines
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";
   const reviewLines = doc.splitTextToSize(reviewText, CONTENT_W - 6);
 
-  // Calculate total box height from content rows
-  const rowGap = 7;
-  let rows = 4; // Operation, Contract, Client, Date
-  if (clientName) rows += 0; // already counted above
-  if (siteLocation && siteLocation !== "All areas / locations") rows += 1;
-  if (scopeParts) rows += 1;
-  if (engineerNames && engineerNames !== "Viva Fire Operatives") rows += 1;
-  rows += 2; // Written by, Approved by
-  const reviewExtra = (reviewLines.length - 1) * (8.5 * 0.352778 + 1.2);
-  const detailBoxH = rows * rowGap + reviewExtra + 6;
-
+  // Compute box height by simulating the layout
   const boxY = y;
-  doc.rect(ML, boxY, CONTENT_W, detailBoxH);
-
-  doc.setFontSize(9);
   let ry = boxY + 7;
-  labelValue(doc, "Operation / Task:", "Pressure testing Pipework and associated fittings.", ML + 3, ry); ry += rowGap;
-  labelValue(doc, "Contract / Job Name:", contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : ""), ML + 3, ry); ry += rowGap;
-  labelValue(doc, "Client:", clientName, ML + 3, ry); ry += rowGap;
+  ry += rowGap; // Operation / Task
+  // Contract / Job Name — may wrap if long
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const contractLabel = "Contract / Job Name:";
+  const contractVal = contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : "");
+  const contractLines = doc.splitTextToSize(contractVal, CONTENT_W - 3 - 52);
+  ry += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
+  ry += rowGap; // Client
   if (siteLocation && siteLocation !== "All areas / locations") {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text("Site / Location:", ML + 3, ry);
-    doc.setFont("helvetica", "normal");
     const siteLines = doc.splitTextToSize(siteLocation, CONTENT_W - 55);
-    doc.text(siteLines, ML + 3 + 52, ry);
     ry += Math.max(rowGap, siteLines.length * (9 * 0.352778 + 1.2));
   }
-  labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry); ry += rowGap;
+  ry += rowGap; // Date Prepared
+  if (scopeParts) ry += rowGap; // Service Scope
+  if (engineerNames && engineerNames !== "Viva Fire Operatives") ry += rowGap; // Assigned Engineers
+  ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2; // Review text
+  ry += rowGap; // Written by
+  ry += rowGap; // Approved by
+  const detailBoxH = ry - boxY + 3;
+
+  // Draw the box
+  doc.setDrawColor(180);
+  doc.setLineWidth(0.3);
+  doc.rect(ML, boxY, CONTENT_W, detailBoxH);
+
+  // Now render the content
+  doc.setFontSize(9);
+  let ry2 = boxY + 7;
+  labelValue(doc, "Operation / Task:", "Pressure testing Pipework and associated fittings.", ML + 3, ry2); ry2 += rowGap;
+  // Contract / Job Name with wrapping
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text(contractLabel, ML + 3, ry2);
+  doc.setFont("helvetica", "normal");
+  doc.text(contractLines, ML + 3 + 52, ry2);
+  ry2 += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
+  labelValue(doc, "Client:", clientName, ML + 3, ry2); ry2 += rowGap;
+  if (siteLocation && siteLocation !== "All areas / locations") {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    doc.text("Site / Location:", ML + 3, ry2);
+    doc.setFont("helvetica", "normal");
+    const siteLines = doc.splitTextToSize(siteLocation, CONTENT_W - 55);
+    doc.text(siteLines, ML + 3 + 52, ry2);
+    ry2 += Math.max(rowGap, siteLines.length * (9 * 0.352778 + 1.2));
+  }
+  labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry2); ry2 += rowGap;
   if (scopeParts) {
-    labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry); ry += rowGap;
+    labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry2); ry2 += rowGap;
   }
   if (engineerNames && engineerNames !== "Viva Fire Operatives") {
-    labelValue(doc, "Assigned Engineers:", engineerNames, ML + 3, ry); ry += rowGap;
+    labelValue(doc, "Assigned Engineers:", engineerNames, ML + 3, ry2); ry2 += rowGap;
   }
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  doc.text(reviewLines, ML + 3, ry);
-  ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
+  doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+  doc.text(reviewLines, ML + 3, ry2);
+  ry2 += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   doc.setFontSize(9);
-  labelValue(doc, "Method Statement Written by:", "Martin Whatmough", ML + 3, ry); ry += rowGap;
-  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, ry);
+  labelValue(doc, "Method Statement Written by:", "Martin Whatmough", ML + 3, ry2); ry2 += rowGap;
+  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, ry2);
 
-  y += detailBoxH + 8;
+  y = boxY + detailBoxH + 8;
 
   y = await sectionH1(doc, y, logoImg, "1 Introduction");
   y = para(doc,
