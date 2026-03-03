@@ -660,16 +660,66 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Existing responses — exclude RAMS (handled separately) */}
+          {/* Draft responses — exclude RAMS */}
           {responses.filter((r) => {
             const tpl = templates.find((t) => t.id === r.template_id);
-            return (tpl as any)?.category !== "rams";
+            return (tpl as any)?.category !== "rams" && r.status === "draft";
+          }).length > 0 && (
+            <div className="mb-3">
+              <p className="text-xs font-semibold text-muted-foreground mb-1.5">In Progress</p>
+              {responses.filter((r) => {
+                const tpl = templates.find((t) => t.id === r.template_id);
+                return (tpl as any)?.category !== "rams" && r.status === "draft";
+              }).map((resp) => {
+                const tpl = templates.find((t) => t.id === resp.template_id);
+                const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
+                return (
+                  <div key={resp.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-3.5 w-3.5 text-amber-500" />
+                      <span className="text-sm">{tpl?.name || "Unknown Template"}</span>
+                      <Badge variant="secondary" className="text-[10px]">Draft</Badge>
+                    </div>
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => tpl && handleStartForm(tpl, resp)}>
+                        Continue
+                      </Button>
+                      {canEdit && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive">
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Delete Draft</AlertDialogTitle>
+                              <AlertDialogDescription>This will permanently delete this draft. This cannot be undone.</AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Completed responses — exclude RAMS (handled separately) */}
+          {responses.filter((r) => {
+            const tpl = templates.find((t) => t.id === r.template_id);
+            return (tpl as any)?.category !== "rams" && r.status === "submitted";
           }).length > 0 && (
             <div className="mb-3">
               <p className="text-xs font-semibold text-muted-foreground mb-1.5">Completed Reports</p>
               {responses.filter((r) => {
                 const tpl = templates.find((t) => t.id === r.template_id);
-                return (tpl as any)?.category !== "rams";
+                return (tpl as any)?.category !== "rams" && r.status === "submitted";
               }).map((resp) => {
                 const tpl = templates.find((t) => t.id === resp.template_id);
                 const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
@@ -691,17 +741,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       )}
                     </div>
                     <div className="flex gap-1">
-                      {resp.status === "draft" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-xs"
-                          onClick={() => tpl && handleStartForm(tpl, resp)}
-                        >
-                          Continue
-                        </Button>
-                      )}
-                      {resp.status === "submitted" && canEdit && (
+                      {canEdit && (
                         <Button
                           variant="ghost"
                           size="sm"
