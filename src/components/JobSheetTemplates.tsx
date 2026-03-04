@@ -18,6 +18,9 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
   FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
@@ -474,158 +477,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
     : [];
 
-  // Active form view — inspection sheet style
-  if (activeTemplate && !viewingResponse) {
-    return (
-      <Card>
-        <CardHeader className="pb-1">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <ClipboardCheck className="h-4 w-4" /> {activeTemplate.name}
-            </CardTitle>
-            <Button variant="ghost" size="sm" onClick={() => { setActiveTemplate(null); setFormData({}); }}>
-              ← Back
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0 flex flex-col" style={{ maxHeight: "calc(90vh - 200px)" }}>
-          <div className="overflow-y-auto flex-1 border-t border-border">
-              {sections.map((section) => (
-                <div key={section}>
-                  {/* Section header bar */}
-                  <div className="bg-muted px-3 py-1.5 border-b border-border">
-                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      {section}
-                    </span>
-                  </div>
-                  {/* Fields as table rows */}
-                  {activeTemplate.fields
-                    .filter((f) => (f.section || "General") === section)
-                    .map((field) => (
-                      <div key={field.id} className="border-b border-border last:border-b-0">
-                        <div className="grid grid-cols-[1fr,1fr]">
-                          {/* Label cell */}
-                          <div className="px-3 py-2 border-r border-border flex items-start">
-                            <Label className="text-xs leading-tight">
-                              {field.label}
-                              {field.required && <span className="text-destructive ml-0.5">*</span>}
-                            </Label>
-                          </div>
-                          {/* Input cell */}
-                          <div className="px-2 py-1.5 flex items-center">
-                            {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id))}
-                          </div>
-                        </div>
-                        {field.allow_notes && (
-                          <div className="px-3 pb-1.5">
-                            <Input
-                              value={formData[`${field.id}_notes`] || ""}
-                              onChange={(e) => handleFieldValue(`${field.id}_notes`, e.target.value)}
-                              placeholder="Add note..."
-                              className="h-6 text-[11px] border-dashed"
-                            />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              ))}
-          </div>
-          <div className="flex gap-2 p-3 border-t border-border sticky bottom-0 bg-card z-10 shrink-0">
-            <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
-              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-              Save Draft
-            </Button>
-            <Button size="sm" onClick={handleSubmit} disabled={submitting}>
-              <Send className="h-3.5 w-3.5 mr-1" />
-              Submit
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  // Read-only view — inspection sheet style
-  if (viewingResponse && activeTemplate) {
-    return (
-      <Card>
-        <CardHeader className="pb-1">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Eye className="h-4 w-4" /> {activeTemplate.name}
-              <Badge variant="secondary" className="text-[10px]">{viewingResponse.status}</Badge>
-            </CardTitle>
-            <div className="flex gap-1.5">
-              <JobSheetPdfExport
-                template={activeTemplate}
-                formData={formData}
-                jobInfo={jobInfo}
-                jobId={jobId}
-                submittedBy={viewingResponse.submitted_by ? profiles[viewingResponse.submitted_by] : undefined}
-                submittedAt={viewingResponse.submitted_at}
-              />
-              <Button variant="ghost" size="sm" onClick={() => { setViewingResponse(null); setActiveTemplate(null); setFormData({}); }}>
-                ← Back
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-y-auto border-t border-border" style={{ maxHeight: "calc(90vh - 200px)" }}>
-              {sections.map((section) => (
-                <div key={section}>
-                  <div className="bg-muted px-3 py-1.5 border-b border-border">
-                    <span className="text-xs font-bold uppercase tracking-wider text-foreground">
-                      {section}
-                    </span>
-                  </div>
-                  {activeTemplate.fields
-                    .filter((f) => (f.section || "General") === section)
-                    .map((field) => (
-                      <div key={field.id} className="border-b border-border last:border-b-0">
-                        <div className="grid grid-cols-[1fr,1fr]">
-                          <div className="px-3 py-2 border-r border-border">
-                            <span className="text-xs text-muted-foreground leading-tight">{field.label}</span>
-                          </div>
-                           <div className="px-3 py-2">
-                             {field.type === "photo" ? (
-                               formData[field.id] ? (
-                                 <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
-                               ) : (
-                                 <span className="text-xs text-muted-foreground">—</span>
-                               )
-                             ) : field.type === "signature" ? (
-                               formData[field.id] ? (
-                                 <img src={formData[field.id]} alt="Signature" className="max-h-[60px] border rounded bg-background" />
-                               ) : (
-                                 <span className="text-xs text-muted-foreground">—</span>
-                               )
-                             ) : (
-                               <span className="text-xs font-medium whitespace-pre-wrap">
-                                 {field.type === "checkbox"
-                                   ? (formData[field.id] ? "✓ Yes" : "✗ No")
-                                   : field.type === "pass_fail"
-                                   ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
-                                   : (formData[field.id] || "—")}
-                               </span>
-                             )}
-                          </div>
-                        </div>
-                        {field.allow_notes && formData[`${field.id}_notes`] && (
-                          <div className="px-3 pb-1.5">
-                            <span className="text-[11px] text-muted-foreground italic">Note: {formData[`${field.id}_notes`]}</span>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
+  const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); };
 
   // Find the most recent RAMS response (any status) for prominent export
   const ramsTemplates = templates.filter((t) => (t as any).category === "rams");
@@ -933,6 +785,135 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
       <ImportTemplateDialog open={importOpen} onOpenChange={setImportOpen} onCreated={fetchData} />
       <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
+
+      {/* Fill In dialog */}
+      <Dialog open={!!(activeTemplate && !viewingResponse)} onOpenChange={(open) => { if (!open) closeForm(); }}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b border-border">
+            <DialogTitle className="text-sm flex items-center gap-2">
+              <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
+            {sections.map((section) => (
+              <div key={section}>
+                <div className="bg-muted px-3 py-1.5 border-b border-border">
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">{section}</span>
+                </div>
+                {activeTemplate?.fields
+                  .filter((f) => (f.section || "General") === section)
+                  .map((field) => (
+                    <div key={field.id} className="border-b border-border last:border-b-0">
+                      <div className="grid grid-cols-[1fr,1fr]">
+                        <div className="px-3 py-2 border-r border-border flex items-start">
+                          <Label className="text-xs leading-tight">
+                            {field.label}
+                            {field.required && <span className="text-destructive ml-0.5">*</span>}
+                          </Label>
+                        </div>
+                        <div className="px-2 py-1.5 flex items-center">
+                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id))}
+                        </div>
+                      </div>
+                      {field.allow_notes && (
+                        <div className="px-3 pb-1.5">
+                          <Input
+                            value={formData[`${field.id}_notes`] || ""}
+                            onChange={(e) => handleFieldValue(`${field.id}_notes`, e.target.value)}
+                            placeholder="Add note..."
+                            className="h-6 text-[11px] border-dashed"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 px-4 py-3 border-t border-border bg-card">
+            <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
+              {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
+              Save Draft
+            </Button>
+            <Button size="sm" onClick={handleSubmit} disabled={submitting}>
+              <Send className="h-3.5 w-3.5 mr-1" />
+              Submit
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View response dialog */}
+      <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={(open) => { if (!open) closeForm(); }}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 py-3 border-b border-border">
+            <div className="flex items-center justify-between pr-6">
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <Eye className="h-4 w-4" /> {activeTemplate?.name}
+                {viewingResponse && <Badge variant="secondary" className="text-[10px]">{viewingResponse.status}</Badge>}
+              </DialogTitle>
+              {activeTemplate && viewingResponse && (
+                <JobSheetPdfExport
+                  template={activeTemplate}
+                  formData={formData}
+                  jobInfo={jobInfo}
+                  jobId={jobId}
+                  submittedBy={viewingResponse.submitted_by ? profiles[viewingResponse.submitted_by] : undefined}
+                  submittedAt={viewingResponse.submitted_at}
+                />
+              )}
+            </div>
+          </DialogHeader>
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 100px)" }}>
+            {sections.map((section) => (
+              <div key={section}>
+                <div className="bg-muted px-3 py-1.5 border-b border-border">
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">{section}</span>
+                </div>
+                {activeTemplate?.fields
+                  .filter((f) => (f.section || "General") === section)
+                  .map((field) => (
+                    <div key={field.id} className="border-b border-border last:border-b-0">
+                      <div className="grid grid-cols-[1fr,1fr]">
+                        <div className="px-3 py-2 border-r border-border">
+                          <span className="text-xs text-muted-foreground leading-tight">{field.label}</span>
+                        </div>
+                        <div className="px-3 py-2">
+                          {field.type === "photo" ? (
+                            formData[field.id] ? (
+                              <PhotoPreview path={formData[field.id]} className="max-w-[180px] rounded" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )
+                          ) : field.type === "signature" ? (
+                            formData[field.id] ? (
+                              <img src={formData[field.id]} alt="Signature" className="max-h-[60px] border rounded bg-background" />
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )
+                          ) : (
+                            <span className="text-xs font-medium whitespace-pre-wrap">
+                              {field.type === "checkbox"
+                                ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                                : field.type === "pass_fail"
+                                ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
+                                : (formData[field.id] || "—")}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      {field.allow_notes && formData[`${field.id}_notes`] && (
+                        <div className="px-3 pb-1.5">
+                          <span className="text-[11px] text-muted-foreground italic">Note: {formData[`${field.id}_notes`]}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
