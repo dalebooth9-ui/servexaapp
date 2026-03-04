@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
@@ -19,6 +20,16 @@ import WeeklyGridView from "@/components/planner/WeeklyGridView";
 import MonthlyView from "@/components/planner/MonthlyView";
 import ListView from "@/components/planner/ListView";
 import PlannerMapView from "@/components/planner/PlannerMapView";
+
+const NOTE_COLORS = [
+  { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
+  { value: "#ef4444", label: "Red",      swatch: "bg-red-500" },
+  { value: "#f97316", label: "Orange",   swatch: "bg-orange-500" },
+  { value: "#eab308", label: "Yellow",   swatch: "bg-yellow-400" },
+  { value: "#22c55e", label: "Green",    swatch: "bg-green-500" },
+  { value: "#3b82f6", label: "Blue",     swatch: "bg-blue-500" },
+  { value: "#a855f7", label: "Purple",   swatch: "bg-purple-500" },
+];
 
 interface ScheduleEntry {
   id: string;
@@ -109,6 +120,7 @@ export default function WeeklyPlanner() {
   const [addJobId, setAddJobId] = useState("");
   const [addSiteId, setAddSiteId] = useState("");
   const [addNotes, setAddNotes] = useState("");
+  const [addNotesColor, setAddNotesColor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Batch deploy dialog
@@ -292,12 +304,25 @@ export default function WeeklyPlanner() {
   const handleAddEntry = async () => {
     if (!addDay || !addEngineerId || !addJobId) return;
     setSaving(true);
-    // If a site was selected, update the job's site_id
     if (addSiteId) {
       await supabase.from("jobs").update({ site_id: addSiteId } as any).eq("id", addJobId);
     }
-    await handleAssign(addJobId, addEngineerId, addDay);
+    const { error } = await supabase.from("job_schedule").insert({
+      job_id: addJobId, engineer_id: addEngineerId, schedule_date: addDay,
+      notes: addNotes.trim() || null, notes_color: addNotesColor, created_by: user?.id,
+    } as any);
+    if (error) {
+      toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
+    } else {
+      const job = jobs.find((j) => j.id === addJobId);
+      if (job?.status === "scheduled") {
+        await supabase.from("jobs").update({ status: "active" } as any).eq("id", addJobId);
+      }
+      fetchData();
+    }
     setAddOpen(false);
+    setAddNotes("");
+    setAddNotesColor(null);
     setSaving(false);
   };
 
@@ -584,7 +609,30 @@ export default function WeeklyPlanner() {
             </div>
             <div className="space-y-2">
               <Label>Notes</Label>
-              <Textarea value={addNotes} onChange={(e) => setAddNotes(e.target.value)} rows={2} />
+              <Textarea
+                value={addNotes}
+                onChange={(e) => setAddNotes(e.target.value)}
+                rows={2}
+                style={addNotesColor ? { color: addNotesColor } : undefined}
+              />
+              {addNotes && (
+                <div className="flex items-center gap-1.5 pt-0.5">
+                  <span className="text-xs text-muted-foreground mr-1">Highlight:</span>
+                  {NOTE_COLORS.map((c) => (
+                    <button
+                      key={c.label}
+                      type="button"
+                      title={c.label}
+                      onClick={() => setAddNotesColor(c.value)}
+                      className={cn(
+                        "h-5 w-5 rounded-full transition-transform",
+                        c.swatch,
+                        addNotesColor === c.value && "ring-2 ring-offset-1 ring-foreground scale-110"
+                      )}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             <Button onClick={handleAddEntry} className="w-full" disabled={!addJobId || !addEngineerId || !addDay || saving}>
               {saving ? "Saving..." : "Add to Schedule"}
