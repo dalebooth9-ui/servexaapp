@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Trash2, Upload, Loader2, Zap } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
+import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import type { RamsType } from "@/components/RamsPdfExport";
 
 type JobDoc = {
   id: string;
@@ -140,23 +142,30 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     }
   };
 
+  // Determine RAMS type from job category
+  const ramsTypeForJob = (): RamsType => {
+    const cat = job?.category || "";
+    if (cat === "sprinkler") return "sprinkler";
+    if (cat === "fire_extinguisher") return "fire_extinguisher";
+    if (cat === "fire_hydrant") return "fire_hydrant";
+    return "dry_riser";
+  };
+
   const handleGenerateRams = async () => {
     setGeneratingRams(true);
     try {
-      // Fetch site data
       let siteData = null;
       if (job.site_id) {
         const { data: s } = await supabase.from("sites").select("*").eq("id", job.site_id).single();
         siteData = s;
       }
-      // Fetch customer
       let customerData = null;
       if (job.customer_id) {
         const { data: c } = await supabase.from("customers").select("*").eq("id", job.customer_id).single();
         customerData = c;
       }
 
-      const jobInfo = {
+      const jInfo = {
         ...job,
         site: siteData,
         customer: customerData,
@@ -165,7 +174,6 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
       const operatives = engineers.map((e) => ({ name: e.name, sig: "", date: "" }));
 
-      // Fetch earliest scheduled date for attendance date auto-population
       let attendanceDate = "";
       const { data: schedules } = await supabase
         .from("job_schedule")
@@ -177,7 +185,21 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         attendanceDate = new Date(schedules[0].schedule_date).toLocaleDateString("en-GB");
       }
 
-      const { base64, fileName } = await generateRamsPdf({ rams_attendance_date: attendanceDate }, jobInfo, operatives);
+      const formData = { rams_attendance_date: attendanceDate };
+      const ramsType = ramsTypeForJob();
+
+      let result: { base64: string; fileName: string };
+      if (ramsType === "sprinkler") {
+        result = await generateSprinklerRamsPdf(formData, jInfo, operatives);
+      } else if (ramsType === "fire_extinguisher") {
+        result = await generateExtinguisherRamsPdf(formData, jInfo, operatives);
+      } else if (ramsType === "fire_hydrant") {
+        result = await generateHydrantRamsPdf(formData, jInfo, operatives);
+      } else {
+        result = await generateRamsPdf(formData, jInfo, operatives);
+      }
+
+      const { base64, fileName } = result;
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
