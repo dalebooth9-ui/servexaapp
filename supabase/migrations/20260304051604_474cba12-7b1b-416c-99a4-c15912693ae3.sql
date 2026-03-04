@@ -1,0 +1,1 @@
+ALTER TABLE public.job_schedule ADD COLUMN IF NOT EXISTS notes_color text DEFAULT NULL;

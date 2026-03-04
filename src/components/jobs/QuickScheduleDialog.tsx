@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { CalendarDays } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface QuickScheduleDialogProps {
   job: { id: string; name: string; reference_number: string } | null;
@@ -17,6 +18,16 @@ interface QuickScheduleDialogProps {
   onScheduled?: () => void;
 }
 
+const NOTE_COLORS = [
+  { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
+  { value: "#ef4444", label: "Red",      swatch: "bg-red-500" },
+  { value: "#f97316", label: "Orange",   swatch: "bg-orange-500" },
+  { value: "#eab308", label: "Yellow",   swatch: "bg-yellow-400" },
+  { value: "#22c55e", label: "Green",    swatch: "bg-green-500" },
+  { value: "#3b82f6", label: "Blue",     swatch: "bg-blue-500" },
+  { value: "#a855f7", label: "Purple",   swatch: "bg-purple-500" },
+];
+
 export default function QuickScheduleDialog({ job, open, onOpenChange, onScheduled }: QuickScheduleDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -24,6 +35,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
   const [engineerId, setEngineerId] = useState("");
   const [scheduleDate, setScheduleDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [notesColor, setNotesColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -33,7 +45,6 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
       .select("user_id, full_name")
       .then(({ data: profiles }) => {
         if (!profiles) return;
-        // Filter to engineers only
         supabase.from("user_roles").select("user_id").eq("role", "engineer").then(({ data: roles }) => {
           const engIds = new Set((roles || []).map((r) => r.user_id));
           setEngineers(profiles.filter((p) => engIds.has(p.user_id)));
@@ -46,7 +57,6 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
     if (!job || !engineerId || !scheduleDate || !user) return;
     setLoading(true);
 
-    // Assign engineer to job if not already
     const { data: existing } = await supabase
       .from("job_assignments")
       .select("id")
@@ -58,16 +68,15 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
       await supabase.from("job_assignments").insert({ job_id: job.id, engineer_id: engineerId });
     }
 
-    // Add to job_schedule (planner)
     const { error } = await supabase.from("job_schedule").insert({
       job_id: job.id,
       engineer_id: engineerId,
       schedule_date: scheduleDate,
       notes: notes.trim() || null,
+      notes_color: notesColor,
       created_by: user.id,
     } as any);
 
-    // Update job status to scheduled
     await supabase.from("jobs").update({ status: "scheduled" } as any).eq("id", job.id);
 
     setLoading(false);
@@ -76,6 +85,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
     } else {
       toast({ title: "Job scheduled", description: `${job.reference_number} added to planner.` });
       setNotes("");
+      setNotesColor(null);
       onOpenChange(false);
       onScheduled?.();
     }
@@ -111,7 +121,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           </div>
           <div className="space-y-2">
             <Label>Date</Label>
-          <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
+            <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
           </div>
           <div className="space-y-2">
             <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
@@ -121,7 +131,26 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
               className="resize-none"
+              style={notesColor ? { color: notesColor } : undefined}
             />
+            {notes && (
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <span className="text-xs text-muted-foreground mr-1">Highlight:</span>
+                {NOTE_COLORS.map((c) => (
+                  <button
+                    key={c.label}
+                    type="button"
+                    title={c.label}
+                    onClick={() => setNotesColor(c.value)}
+                    className={cn(
+                      "h-5 w-5 rounded-full transition-transform",
+                      c.swatch,
+                      notesColor === c.value && "ring-2 ring-offset-1 ring-foreground scale-110"
+                    )}
+                  />
+                ))}
+              </div>
+            )}
           </div>
           <Button type="submit" className="w-full" disabled={loading || !engineerId}>
             {loading ? "Scheduling..." : "Add to Planner"}

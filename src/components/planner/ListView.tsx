@@ -33,6 +33,7 @@ interface ScheduleEntry {
   engineer_id: string;
   schedule_date: string;
   notes: string | null;
+  notes_color: string | null;
 }
 
 interface Engineer { user_id: string; full_name: string }
@@ -280,7 +281,12 @@ export default function ListView({
                                 {schedNote && (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <span className="line-clamp-2 cursor-default text-foreground">{schedNote}</span>
+                                      <span
+                                        className="line-clamp-2 cursor-default font-medium"
+                                        style={entry.notes_color ? { color: entry.notes_color } : undefined}
+                                      >
+                                        {schedNote}
+                                      </span>
                                     </TooltipTrigger>
                                     <TooltipContent side="top" className="max-w-xs text-xs whitespace-pre-wrap">{schedNote}</TooltipContent>
                                   </Tooltip>

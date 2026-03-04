@@ -1206,6 +1206,7 @@ export type Database = {
           id: string
           job_id: string
           notes: string | null
+          notes_color: string | null
           schedule_date: string
           updated_at: string
         }
@@ -1216,6 +1217,7 @@ export type Database = {
           id?: string
           job_id: string
           notes?: string | null
+          notes_color?: string | null
           schedule_date: string
           updated_at?: string
         }
@@ -1226,6 +1228,7 @@ export type Database = {
           id?: string
           job_id?: string
           notes?: string | null
+          notes_color?: string | null
           schedule_date?: string
           updated_at?: string
         }
