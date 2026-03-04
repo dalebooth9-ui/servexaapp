@@ -104,12 +104,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
       supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
     ]);
-    const tpls = (tplRes.data || []).map((t: any) => ({
+    const jobCategory = (jobRes.data as any)?.category || null;
+    const allTpls = (tplRes.data || []).map((t: any) => ({
       ...t,
       fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
       branding: t.branding || {},
     }));
-    setTemplates(tpls);
+    // Only show templates that are global (no job_category) or match the job's category
+    const filteredTpls = allTpls.filter((t: any) => !t.job_category || t.job_category === jobCategory);
+    setTemplates(filteredTpls);
     setResponses((respRes.data || []) as Response[]);
 
     let engineerNames: string[] = [];
