@@ -28,8 +28,21 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
     setGenerating(true);
     try {
       let assignedEngineers: { name: string; sig: string; date: string }[] = [];
+      let attendanceDate = formData["rams_attendance_date"] || "";
+
       if (jobId) {
-        const { data: assigns } = await supabase.from("job_assignments").select("engineer_id, assigned_at").eq("job_id", jobId);
+        // Fetch earliest scheduled date for the job
+        const [{ data: assigns }, { data: schedules }] = await Promise.all([
+          supabase.from("job_assignments").select("engineer_id, assigned_at").eq("job_id", jobId),
+          supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
+        ]);
+
+        // Auto-populate attendance date from earliest schedule entry
+        if (!attendanceDate && schedules && schedules.length > 0) {
+          const d = new Date(schedules[0].schedule_date);
+          attendanceDate = d.toLocaleDateString("en-GB");
+        }
+
         if (assigns && assigns.length > 0) {
           const engineerIds = assigns.map((a) => a.engineer_id);
           const [{ data: profs }, { data: sigs }] = await Promise.all([
@@ -63,8 +76,9 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       }
 
       const effectiveMode = forceMode ?? mode;
+      const mergedFormData = { ...formData, rams_attendance_date: attendanceDate };
 
-      const { base64, fileName } = await generateRamsPdf(formData, jobInfo, assignedEngineers);
+      const { base64, fileName } = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
