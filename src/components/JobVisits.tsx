@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CalendarPlus, Check, Clock, AlertTriangle, Ban, Plus, Repeat, Pencil } from "lucide-react";
+import { CalendarPlus, Check, Clock, AlertTriangle, Ban, Plus, Repeat, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 
@@ -46,6 +46,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
   const [editVisit, setEditVisit] = useState<Visit | null>(null);
   const [editForm, setEditForm] = useState({ scheduled_date: "", scheduled_time: "", engineer_id: "", notes: "", status: "" });
   const [form, setForm] = useState({ scheduled_date: "", scheduled_time: "", engineer_id: "", notes: "" });
+
   const [recForm, setRecForm] = useState({ interval: "1", unit: "weeks", start_date: "", end_date: "", engineer_id: "" });
   const [loading, setLoading] = useState(false);
 
@@ -197,6 +198,16 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
     setLoading(false);
   };
 
+  const handleDeleteVisit = async (visitId: string) => {
+    const { error } = await supabase.from("job_visits").delete().eq("id", visitId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to delete visit.", variant: "destructive" });
+    } else {
+      toast({ title: "Visit deleted" });
+      fetchVisits();
+    }
+  };
+
   const handleStatusChange = async (visitId: string, newStatus: string) => {
     const update: any = { status: newStatus };
     if (newStatus === "completed") update.completed_at = new Date().toISOString();
@@ -281,7 +292,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                   </form>
                 </DialogContent>
               </Dialog>
-              <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (o) setForm((f) => ({ ...f, notes: f.notes || getScopeNotes() })); }}>
+              <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setForm({ scheduled_date: "", scheduled_time: "", engineer_id: "", notes: "" }); }}>
                 <DialogTrigger asChild>
                   <Button size="sm"><Plus className="mr-1.5 h-3.5 w-3.5" /> Add Visit</Button>
                 </DialogTrigger>
@@ -392,7 +403,7 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                 <TableHead>Engineer</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Notes</TableHead>
-                {isAdmin && <TableHead className="w-[80px]">Action</TableHead>}
+                {isAdmin && <TableHead className="w-[100px]">Actions</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -411,9 +422,14 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
                     <TableCell className="text-sm text-muted-foreground max-w-[200px] truncate">{v.notes || "—"}</TableCell>
                     {isAdmin && (
                       <TableCell>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(v)}>
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
+                        <div className="flex items-center gap-1">
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(v)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteVisit(v.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
