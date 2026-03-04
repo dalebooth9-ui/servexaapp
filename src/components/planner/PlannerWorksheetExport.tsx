@@ -57,7 +57,6 @@ type WorksheetRow = {
   jobDescription: string;
   scope: string;
   materials: string;
-  comments: string;
   notes: string;
   routeOrder: string;
 };
@@ -74,7 +73,7 @@ function buildRows(
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEng = (id: string) => engineers.find((e) => e.user_id === id);
   const getPartsForJob = (jobId: string) => jobParts.filter((p) => p.job_id === jobId);
-  const getLatestComment = (jobId: string) => submissionComments.find((c) => c.submission_job_id === jobId);
+  
 
   return [...schedule]
     .sort((a, b) => {
@@ -94,7 +93,6 @@ function buildRows(
 
       const parts = job ? getPartsForJob(job.id) : [];
       const materialsStr = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
-      const latestComment = job ? getLatestComment(job.id) : undefined;
 
       // Combine schedule entry notes + job visit notes into one NOTES cell
       const noteParts: string[] = [];
@@ -111,7 +109,6 @@ function buildRows(
         jobDescription: job ? [job.site?.name, job.name].filter(Boolean).join(" – ") : "",
         scope: scopeParts.join(", "),
         materials: materialsStr,
-        comments: latestComment?.content || "",
         notes: noteParts.join(" | "),
         routeOrder: (() => {
           const idx = optimisedJobOrder.indexOf(entry.job_id);
@@ -178,9 +175,8 @@ export function exportWorksheetPdf(
     { label: "POSTCODE",        key: "postcode",       w: usableW * 0.06 },
     { label: "JOB DESCRIPTION", key: "jobDescription", w: usableW * 0.14 },
     { label: "SCOPE",           key: "scope",          w: usableW * 0.06 },
-    { label: "MATERIALS",       key: "materials",      w: usableW * 0.16 },
-    { label: "COMMENTS",        key: "comments",       w: usableW * 0.14 },
-    { label: "NOTES",           key: "notes",          w: usableW * 0.10 },
+    { label: "MATERIALS",       key: "materials",      w: usableW * 0.22 },
+    { label: "NOTES",           key: "notes",          w: usableW * 0.18 },
   ];
   const cols = hasRoute
     ? [{ label: "#", key: "routeOrder", w: usableW * 0.03 }, ...baseCols.map(c => ({ ...c, w: c.w * 0.97 }))]
@@ -298,7 +294,7 @@ export function exportWorksheetXlsx(
   const groups = groupByEngineer(rows);
 
   // Build headers without ENGINEER column
-  const baseHeaders = ["DATE", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "COMMENTS", "NOTES"];
+  const baseHeaders = ["DATE", "COMPANY", "SITE", "POSTCODE", "JOB DESCRIPTION", "SCOPE", "MATERIALS", "NOTES"];
   const headers = hasRoute ? ["#", ...baseHeaders] : baseHeaders;
 
   const wsData: (string | number)[][] = [
@@ -314,14 +310,14 @@ export function exportWorksheetXlsx(
     wsData.push(groupRow);
 
     for (const r of group.rows) {
-      const base = [r.date, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.comments, r.notes];
+      const base = [r.date, r.company, r.site, r.postcode, r.jobDescription, r.scope, r.materials, r.notes];
       wsData.push(hasRoute ? [r.routeOrder, ...base] : base);
     }
   }
 
   const ws = XLSX.utils.aoa_to_sheet(wsData);
 
-  const baseWidths = [{ wch: 16 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 14 }, { wch: 34 }, { wch: 34 }, { wch: 24 }];
+  const baseWidths = [{ wch: 16 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 14 }, { wch: 34 }, { wch: 30 }];
   ws["!cols"] = hasRoute ? [{ wch: 4 }, ...baseWidths] : baseWidths;
 
   // Merge title + engineer group header rows

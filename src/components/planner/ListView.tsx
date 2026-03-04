@@ -227,7 +227,6 @@ export default function ListView({
                 </TableHead>
                 {optimisedJobOrder.length > 0 && <TableHead className="w-12 text-center">Route #</TableHead>}
                 <TableHead className="min-w-[220px]">Materials</TableHead>
-                <TableHead className="min-w-[220px]">Comments</TableHead>
                 {isAdmin && <TableHead className="w-10" />}
               </TableRow>
             </TableHeader>
@@ -356,25 +355,6 @@ export default function ListView({
                                       <li key={p.id}>{p.name} ×{p.quantity}{p.notes ? ` — ${p.notes}` : ""}</li>
                                     ))}
                                   </ul>
-                                </TooltipContent>
-                              </Tooltip>
-                            );
-                          })() : <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell className="min-w-[220px]">
-                          {job ? (() => {
-                            const comment = getLatestComment(job.id);
-                            if (!comment) return <span className="text-muted-foreground">—</span>;
-                            return (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span className="flex items-center gap-1 text-xs cursor-default">
-                                    <MessageSquare className="h-3 w-3 shrink-0 text-muted-foreground" />
-                                    <span className="line-clamp-2">{comment.content}</span>
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs text-xs">
-                                  {comment.content}
                                 </TooltipContent>
                               </Tooltip>
                             );
