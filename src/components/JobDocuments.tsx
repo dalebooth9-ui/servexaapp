@@ -164,7 +164,20 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       };
 
       const operatives = engineers.map((e) => ({ name: e.name, sig: "", date: "" }));
-      const { base64, fileName } = await generateRamsPdf({}, jobInfo, operatives);
+
+      // Fetch earliest scheduled date for attendance date auto-population
+      let attendanceDate = "";
+      const { data: schedules } = await supabase
+        .from("job_schedule")
+        .select("schedule_date")
+        .eq("job_id", jobId)
+        .order("schedule_date", { ascending: true })
+        .limit(1);
+      if (schedules && schedules.length > 0) {
+        attendanceDate = new Date(schedules[0].schedule_date).toLocaleDateString("en-GB");
+      }
+
+      const { base64, fileName } = await generateRamsPdf({ rams_attendance_date: attendanceDate }, jobInfo, operatives);
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
