@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, GripVertical, Tags } from "lucide-react";
+import { Plus, Trash2, Pencil, Check, X, Tags } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function JobCategorySettings() {
@@ -13,6 +13,8 @@ export default function JobCategorySettings() {
   const { toast } = useToast();
   const [newName, setNewName] = useState("");
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
 
   const toSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -52,6 +54,33 @@ export default function JobCategorySettings() {
     }
   };
 
+  const startEdit = (id: string, name: string) => {
+    setEditingId(id);
+    setEditingName(name);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditingName("");
+  };
+
+  const handleSaveEdit = async (id: string) => {
+    const name = editingName.trim();
+    if (!name) return;
+    const slug = toSlug(name);
+    const { error } = await supabase
+      .from("job_categories" as any)
+      .update({ name, slug } as any)
+      .eq("id", id);
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "Category updated" });
+      refetch();
+      cancelEdit();
+    }
+  };
+
   if (loading) return null;
 
   return (
@@ -85,22 +114,54 @@ export default function JobCategorySettings() {
                 <TableHead className="w-10">#</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Slug</TableHead>
-                <TableHead className="w-10" />
+                <TableHead className="w-20" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {categories.map((cat, i) => (
                 <TableRow key={cat.id}>
                   <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                  <TableCell className="font-medium">{cat.name}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">{cat.slug}</TableCell>
+                  <TableCell className="font-medium">
+                    {editingId === cat.id ? (
+                      <Input
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleSaveEdit(cat.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        className="h-7 py-0 text-sm"
+                        autoFocus
+                      />
+                    ) : (
+                      cat.name
+                    )}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">
+                    {editingId === cat.id ? toSlug(editingName || cat.name) : cat.slug}
+                  </TableCell>
                   <TableCell>
-                    <button
-                      onClick={() => handleDelete(cat.id, cat.name)}
-                      className="text-muted-foreground hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {editingId === cat.id ? (
+                        <>
+                          <button onClick={() => handleSaveEdit(cat.id)} className="text-primary hover:text-primary/80">
+                            <Check className="h-4 w-4" />
+                          </button>
+                          <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground">
+                            <X className="h-4 w-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button onClick={() => startEdit(cat.id, cat.name)} className="text-muted-foreground hover:text-primary">
+                            <Pencil className="h-4 w-4" />
+                          </button>
+                          <button onClick={() => handleDelete(cat.id, cat.name)} className="text-muted-foreground hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}
