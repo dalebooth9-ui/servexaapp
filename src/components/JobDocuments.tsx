@@ -145,9 +145,9 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   // Determine RAMS type from job category
   const ramsTypeForJob = (): RamsType => {
     const cat = job?.category || "";
-    if (cat === "sprinkler") return "sprinkler";
+    if (cat === "sprinkler" || cat === "sprinkler_service") return "sprinkler";
     if (cat === "fire_extinguisher") return "fire_extinguisher";
-    if (cat === "fire_hydrant") return "fire_hydrant";
+    if (cat === "fire_hydrant" || cat === "hydrant_service") return "fire_hydrant";
     return "dry_riser";
   };
 
