@@ -586,23 +586,45 @@ export async function buildRiskPage(
   totalPages: number,
   rC: number[]
 ): Promise<void> {
+  // Reserve 18mm for colour legend + footer at bottom
+  const RISK_SAFE_BOTTOM = PAGE_H - 26;
+
+  const renderHeader = async (isNewPage: boolean) => {
+    if (isNewPage) {
+      pageFooter(doc, pageNum, totalPages);
+      newPage(doc);
+      await pageHeader(doc, logoImg, "", 18);
+    } else {
+      await pageHeader(doc, logoImg, "", 18);
+    }
+    let hy = 39;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
+    doc.text(data.title, PAGE_W / 2, hy, { align: "center" }); doc.setTextColor(0, 0, 0); hy += 6;
+    doc.setFontSize(8); doc.setFont("helvetica", "normal");
+    labelValue(doc, "Operation/Task:", data.operationTask, ML, hy, 28); hy += 4.5;
+    labelValue(doc, "Employees at Risk:", data.engineerNames, ML, hy, 32); hy += 4.5;
+    labelValue(doc, "Location/Area:", data.siteLocTrunc, ML, hy, 26); hy += 4.5;
+    labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, hy, 36); hy += 4.5;
+    labelValue(doc, "Assessor:", "Dale Booth", ML, hy, 18); hy += 4.5;
+    labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, hy, 46); hy += 6;
+    return riskTableHeader(doc, rC, hy);
+  };
+
   newPage(doc);
-  await pageHeader(doc, logoImg, "", 18);
-  let y = 39;
+  let y = await renderHeader(false);
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
-  doc.text(data.title, PAGE_W / 2, y, { align: "center" }); doc.setTextColor(0, 0, 0); y += 6;
-
-  doc.setFontSize(8); doc.setFont("helvetica", "normal");
-  labelValue(doc, "Operation/Task:", data.operationTask, ML, y, 28); y += 4.5;
-  labelValue(doc, "Employees at Risk:", data.engineerNames, ML, y, 32); y += 4.5;
-  labelValue(doc, "Location/Area:", data.siteLocTrunc, ML, y, 26); y += 4.5;
-  labelValue(doc, "Other Persons at Risk:", "Other nearby contractors", ML, y, 36); y += 4.5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
-
-  y = riskTableHeader(doc, rC, y);
   for (const row of data.rows) {
+    // Estimate row height before drawing
+    let rowH = RISK_LINE_H + RISK_PAD_V * 2;
+    for (let i = 0; i < row.length; i++) {
+      const h = cellHeight(doc, row[i], rC[i], false);
+      if (h > rowH) rowH = h;
+    }
+    // If this row won't fit, start a new page with repeated header
+    if (y + rowH > RISK_SAFE_BOTTOM) {
+      riskColorLegend(doc, PAGE_H - 18);
+      y = await renderHeader(true);
+    }
     y = riskRow(doc, row, rC, y, 0, false);
   }
 
@@ -760,26 +782,32 @@ export async function buildSharedMethodSections(
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
 
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.2 Supervision", ML, y); y += 4;
   y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
 
+  y = await checkPageBreak(doc, y, 20 + sections.plantAndEquipment.length * 6, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.3 Plant and Equipment", ML, y); y += 4;
   y = bulletList(doc, sections.plantAndEquipment, ML + 3, y, CONTENT_W - 3);
   y += 4;
 
+  y = await checkPageBreak(doc, y, 20 + sections.significantRisks.length * 5, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4 Assessment of Significant Risks for all Tasks", ML, y); y += 4;
   y = numberedList(doc, sections.significantRisks, ML + 2, y, CONTENT_W / 2 - 2);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.1 COSHH", ML, y); y += 4;
   y = para(doc, "N/A", ML, y, CONTENT_W); y += 3;
 
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.2 Security", ML, y); y += 4;
   y = para(doc,
     "Site security will be Principal Contractor responsibility but all Viva Fire personnel and sub-contractors on site must play their part and cooperate fully.",
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 22, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.3 Special Training", ML, y); y += 4;
   y = para(doc, sections.specialTraining, ML, y, CONTENT_W); y += 1;
   y = para(doc,
@@ -787,6 +815,7 @@ export async function buildSharedMethodSections(
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 35, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("5 PPE", ML, y); y += 4;
   y = bulletList(doc, [
     "Hard Hat EN397",
@@ -813,24 +842,28 @@ export async function buildSharedMethodSections(
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6.1 Special First Aid Requirements", ML, y); y += 4;
   y = para(doc,
     "No special first aid requirements are necessary, and the principal contractor will provide suitable first aid provision as per CDM regulations 2015.",
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6.2 Rescue", ML, y); y += 4;
   y = para(doc,
     "In the event of an incident requiring emergency rescue, all operatives are reminded not to put themselves at risk of harm. If a safe rescue cannot be completed, the emergency services must be informed.",
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("7 Temporary Amended Systems", ML, y); y += 4;
   y = para(doc,
     "No amendments are anticipated on site at this stage. Any changes to systems will be advised by Viva Fire in line with CDM regulations 2015.",
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 30, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8 Responsibilities for Safety Control & Monitoring", ML, y); y += 4;
   y = para(doc, "Work activities will be monitored on a daily basis by site supervision.", ML, y, CONTENT_W);
   y += 2;
@@ -843,6 +876,7 @@ export async function buildSharedMethodSections(
     ML, y, CONTENT_W);
   y += 3;
 
+  y = await checkPageBreak(doc, y, 22, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9 Environment Impacts", ML, y); y += 4;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.1 Waste Handling", ML, y); y += 4;
   y = para(doc, "All waste materials must be disposed of in the correct skips provided by Viva Fire.", ML, y, CONTENT_W);
@@ -855,17 +889,23 @@ export async function buildSharedMethodSections(
 
   y = para(doc, "Viva Fire will manage Waste Streams of COSHH Materials and complete Principal Contractor Waste Management Form.", ML, y, CONTENT_W);
   y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.2 Water", ML, y); y += 4;
   y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.3 Fuel Oils", ML, y); y += 4;
   y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 25, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10 Briefing Arrangements", ML, y); y += 4;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10.1 Person Responsible", ML, y); y += 4;
   y = para(doc, "Name Dale Booth. Mob 07801269206.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10.2 Acknowledgement", ML, y); y += 4;
   y = para(doc, "See signatures below.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("11 Interfaces with Others", ML, y); y += 4;
   y = para(doc, "Ensure co-ordination with other trades at all times to ensure work areas are not congested.", ML, y, CONTENT_W); y += 4;
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("12. Health, Hygiene & Welfare", ML, y); y += 4;
   y = bulletList(doc, [
     "Wash hands regularly throughout the working day for a minimum of 20 seconds.",
