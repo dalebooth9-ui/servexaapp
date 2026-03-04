@@ -787,14 +787,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
 
       {/* Fill In dialog */}
-      <Dialog open={!!(activeTemplate && !viewingResponse)} onOpenChange={(open) => { if (!open) closeForm(); }}>
-        <DialogContent className="max-w-2xl w-full p-0 gap-0 overflow-hidden">
+      <Dialog open={!!(activeTemplate && !viewingResponse)} onOpenChange={() => {}}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ maxHeight: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="px-4 py-3 border-b border-border">
             <DialogTitle className="text-sm flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
             </DialogTitle>
           </DialogHeader>
-          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 120px)" }}>
+          <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
             {sections.map((section) => (
               <div key={section}>
                 <div className="bg-muted px-3 py-1.5 border-b border-border">
@@ -844,8 +844,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       </Dialog>
 
       {/* View response dialog */}
-      <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={(open) => { if (!open) closeForm(); }}>
-        <DialogContent className="max-w-2xl w-full p-0 gap-0 overflow-hidden">
+      <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={() => {}}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ maxHeight: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-sm flex items-center gap-2">
@@ -864,7 +864,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               )}
             </div>
           </DialogHeader>
-          <div className="overflow-y-auto" style={{ maxHeight: "calc(80vh - 100px)" }}>
+          <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
             {sections.map((section) => (
               <div key={section}>
                 <div className="bg-muted px-3 py-1.5 border-b border-border">
