@@ -788,7 +788,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
       {/* Fill In dialog */}
       <Dialog open={!!(activeTemplate && !viewingResponse)} onOpenChange={() => {}}>
-        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ maxHeight: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ height: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="px-4 py-3 border-b border-border">
             <DialogTitle className="text-sm flex items-center gap-2">
               <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
@@ -845,7 +845,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
       {/* View response dialog */}
       <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={() => {}}>
-        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ maxHeight: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ height: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-sm flex items-center gap-2">
