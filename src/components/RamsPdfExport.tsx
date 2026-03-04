@@ -3,7 +3,10 @@ import { Button } from "@/components/ui/button";
 import { FileText, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateRamsPdf } from "@/lib/ramsPdf";
+import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf } from "@/lib/ramsPdfVariants";
 import { supabase } from "@/integrations/supabase/client";
+
+export type RamsType = "dry_riser" | "sprinkler" | "fire_extinguisher" | "fire_hydrant";
 
 interface Props {
   formData: Record<string, any>;
@@ -18,9 +21,10 @@ interface Props {
   jobId?: string;
   trigger?: React.ReactNode;
   mode?: "preview" | "download";
+  ramsType?: RamsType;
 }
 
-export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode = "preview" }: Props) {
+export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode = "preview", ramsType = "dry_riser" }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
 
@@ -31,13 +35,11 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       let attendanceDate = formData["rams_attendance_date"] || "";
 
       if (jobId) {
-        // Fetch earliest scheduled date for the job
         const [{ data: assigns }, { data: schedules }] = await Promise.all([
           supabase.from("job_assignments").select("engineer_id, assigned_at").eq("job_id", jobId),
           supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
         ]);
 
-        // Auto-populate attendance date from earliest schedule entry
         if (!attendanceDate && schedules && schedules.length > 0) {
           const d = new Date(schedules[0].schedule_date);
           attendanceDate = d.toLocaleDateString("en-GB");
@@ -57,7 +59,6 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
             let sigData = "";
             const sigPath = sigMap.get(assign.engineer_id);
             if (sigPath) {
-              // Prefer job-specific signature
               const { data: blob } = await supabase.storage.from("signatures").download(sigPath);
               if (blob) {
                 const arrayBuffer = await blob.arrayBuffer();
@@ -67,7 +68,6 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
                 sigData = `data:image/png;base64,${btoa(binary)}`;
               }
             } else if (prof?.signature_data) {
-              // Fall back to profile signature
               sigData = prof.signature_data;
             }
             assignedEngineers.push({ name, sig: sigData, date: new Date().toLocaleDateString("en-GB") });
@@ -78,7 +78,19 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       const effectiveMode = forceMode ?? mode;
       const mergedFormData = { ...formData, rams_attendance_date: attendanceDate };
 
-      const { base64, fileName } = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      // Dispatch to the correct generator
+      let result: { base64: string; fileName: string };
+      if (ramsType === "sprinkler") {
+        result = await generateSprinklerRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      } else if (ramsType === "fire_extinguisher") {
+        result = await generateExtinguisherRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      } else if (ramsType === "fire_hydrant") {
+        result = await generateHydrantRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      } else {
+        result = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      }
+
+      const { base64, fileName } = result;
       const byteCharacters = atob(base64);
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
