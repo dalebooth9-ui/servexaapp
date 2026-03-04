@@ -68,7 +68,8 @@ function buildRows(
   engineers: Engineer[],
   jobParts: JobPart[] = [],
   submissionComments: SubmissionComment[] = [],
-  optimisedJobOrder: string[] = []
+  optimisedJobOrder: string[] = [],
+  jobVisitNotes: Record<string, string> = {}
 ): WorksheetRow[] {
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEng = (id: string) => engineers.find((e) => e.user_id === id);
@@ -95,6 +96,12 @@ function buildRows(
       const materialsStr = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
       const latestComment = job ? getLatestComment(job.id) : undefined;
 
+      // Combine schedule entry notes + job visit notes into one NOTES cell
+      const noteParts: string[] = [];
+      if (entry.notes) noteParts.push(entry.notes);
+      const visitNote = job ? jobVisitNotes[job.id] : undefined;
+      if (visitNote) noteParts.push(visitNote);
+
       return {
         date: format(new Date(entry.schedule_date), "EEE dd/MM/yyyy"),
         engineer: eng?.full_name || "",
@@ -105,7 +112,7 @@ function buildRows(
         scope: scopeParts.join(", "),
         materials: materialsStr,
         comments: latestComment?.content || "",
-        notes: entry.notes || "",
+        notes: noteParts.join(" | "),
         routeOrder: (() => {
           const idx = optimisedJobOrder.indexOf(entry.job_id);
           return idx >= 0 ? String(idx + 1) : "";
@@ -135,9 +142,10 @@ export function exportWorksheetPdf(
   engineers: Engineer[],
   jobParts: JobPart[] = [],
   submissionComments: SubmissionComment[] = [],
-  optimisedJobOrder: string[] = []
+  optimisedJobOrder: string[] = [],
+  jobVisitNotes: Record<string, string> = {}
 ) {
-  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder);
+  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes);
   const hasRoute = optimisedJobOrder.length > 0;
   const groups = groupByEngineer(rows);
 
@@ -282,9 +290,10 @@ export function exportWorksheetXlsx(
   engineers: Engineer[],
   jobParts: JobPart[] = [],
   submissionComments: SubmissionComment[] = [],
-  optimisedJobOrder: string[] = []
+  optimisedJobOrder: string[] = [],
+  jobVisitNotes: Record<string, string> = {}
 ) {
-  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder);
+  const rows = buildRows(schedule, jobs, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes);
   const hasRoute = optimisedJobOrder.length > 0;
   const groups = groupByEngineer(rows);
 

@@ -476,10 +476,10 @@ export default function WeeklyPlanner() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder)}>
+              <DropdownMenuItem onClick={() => exportWorksheetPdf(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
                 <FileText className="mr-2 h-4 w-4" /> Download PDF
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder)}>
+              <DropdownMenuItem onClick={() => exportWorksheetXlsx(weekStart, filteredSchedule, jobs as any, engineers, jobParts, submissionComments, optimisedJobOrder, jobVisitNotes)}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" /> Download Excel (.xlsx)
               </DropdownMenuItem>
             </DropdownMenuContent>
