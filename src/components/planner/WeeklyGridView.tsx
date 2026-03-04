@@ -32,6 +32,7 @@ interface ScheduleEntry {
   engineer_id: string;
   schedule_date: string;
   notes: string | null;
+  notes_color: string | null;
 }
 
 interface Engineer {
@@ -204,7 +205,14 @@ function DraggableScheduleCard({
               📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
             </div>
           )}
-          {entry.notes && <div className="truncate text-muted-foreground italic">{entry.notes}</div>}
+          {entry.notes && (
+            <div
+              className="truncate italic text-[10px] font-medium"
+              style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
+            >
+              {entry.notes}
+            </div>
+          )}
           {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
             <div className="flex flex-wrap gap-1 mt-0.5">
               {job.pressure_test_qty > 0 && (

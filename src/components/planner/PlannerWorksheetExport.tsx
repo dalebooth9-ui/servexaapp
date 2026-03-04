@@ -8,6 +8,7 @@ interface ScheduleEntry {
   engineer_id: string;
   schedule_date: string;
   notes: string | null;
+  notes_color: string | null;
 }
 
 interface Job {
