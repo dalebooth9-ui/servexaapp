@@ -107,14 +107,24 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
       supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
     ]);
-    const jobCategory = (jobRes.data as any)?.category || null;
+    const rawJobCategory = (jobRes.data as any)?.category || null;
+    // Normalize legacy slug aliases to canonical slugs
+    const normalizeCategory = (cat: string | null) => {
+      if (!cat) return null;
+      if (cat === "sprinkler_service") return "sprinkler";
+      if (cat === "hydrant_service" || cat === "fire_hydrant") return "fire_hydrant";
+      if (cat === "extinguisher_service") return "fire_extinguisher";
+      if (cat === "dry_riser_service" || cat === "dry_riser") return "dry_riser";
+      return cat;
+    };
+    const jobCategory = normalizeCategory(rawJobCategory);
     const allTpls = (tplRes.data || []).map((t: any) => ({
       ...t,
       fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
       branding: t.branding || {},
     }));
-    // Only show templates that are global (no job_category) or match the job's category
-    const filteredTpls = allTpls.filter((t: any) => !t.job_category || t.job_category === jobCategory);
+    // Only show templates that are global (no job_category) or match the job's canonical category
+    const filteredTpls = allTpls.filter((t: any) => !t.job_category || normalizeCategory(t.job_category) === jobCategory);
     setTemplates(filteredTpls);
     setResponses((respRes.data || []) as Response[]);
 
@@ -673,13 +683,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
           {/* Available templates — engineers only see templates matching the job category; RAMS hidden from this list */}
           {(() => {
-            const jobCategory = jobInfo?.category || "";
+            const normalizeSlug = (s: string | null) => {
+              if (!s) return s;
+              if (s === "sprinkler_service") return "sprinkler";
+              if (s === "hydrant_service" || s === "fire_hydrant") return "fire_hydrant";
+              if (s === "extinguisher_service") return "fire_extinguisher";
+              if (s === "dry_riser_service" || s === "dry_riser") return "dry_riser";
+              return s;
+            };
+            const jobCategory = normalizeSlug(jobInfo?.category || "");
             const nonRamsTemplates = templates.filter((tpl) => (tpl as any).category !== "rams");
             const visibleTemplates = userRole === "admin"
               ? nonRamsTemplates
               : nonRamsTemplates.filter((tpl) => {
-                  const tplJobCategory = (tpl as any).job_category;
-                  // Show template if it has no job_category restriction, or it matches the job's category
+                  const tplJobCategory = normalizeSlug((tpl as any).job_category);
+                  // Show template if it has no job_category restriction, or it matches the job's canonical category
                   return !tplJobCategory || tplJobCategory === jobCategory;
                 });
             // Admins see all templates; show a badge indicating job category restriction
