@@ -22,6 +22,7 @@ import Audits from "@/pages/Audits";
 import Invoices from "@/pages/Invoices";
 import InvoiceDetail from "@/pages/InvoiceDetail";
 import PartsLibrary from "@/pages/PartsLibrary";
+import IndustryTemplates from "@/pages/IndustryTemplates";
 import Install from "@/pages/Install";
 import CustomerSignOff from "@/pages/CustomerSignOff";
 import CustomerPortal from "@/pages/CustomerPortal";
@@ -74,6 +75,7 @@ const App = () => (
             <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
             <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
             <Route path="/parts-library" element={<ProtectedRoute><PartsLibrary /></ProtectedRoute>} />
+            <Route path="/industry-templates" element={<ProtectedRoute><IndustryTemplates /></ProtectedRoute>} />
             <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
             <Route path="/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
