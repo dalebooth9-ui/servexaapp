@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Webhook, Copy, CheckCircle2, ArrowLeft } from "lucide-react";
+import { MessageSquare, Webhook, Copy, CheckCircle2, ArrowLeft, Mail, Loader2, Send, BarChart2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,18 +14,48 @@ import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
 import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
+import { supabase } from "@/integrations/supabase/client";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [testEmail, setTestEmail] = useState("");
+  const [sendingReport, setSendingReport] = useState(false);
 
   const copyWebhookUrl = () => {
     navigator.clipboard.writeText(WEBHOOK_URL);
     setCopied(true);
     toast.success("Webhook URL copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const sendTestReport = async () => {
+    if (!testEmail) return;
+    setSendingReport(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/send-weekly-report`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ test: true, to_email: testEmail }),
+        }
+      );
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      toast.success(`Test report sent to ${testEmail}`);
+    } catch (err: any) {
+      toast.error(`Failed: ${err.message}`);
+    } finally {
+      setSendingReport(false);
+    }
   };
 
   return (
@@ -105,6 +135,55 @@ export default function SettingsPage() {
         <CategoryDocumentTemplateSettings />
         <RamsTemplateSettings />
         <XeroSettings />
+
+        {/* Weekly Report Settings */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <BarChart2 className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Weekly Management Report</CardTitle>
+            </div>
+            <CardDescription>
+              A rich executive summary email is sent automatically every Monday at 08:00 UTC to all admin users, covering the previous week's revenue, jobs completed, engineer performance, and top customers.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border border-dashed p-4 space-y-2">
+              <p className="text-sm font-medium">What's included in the report</p>
+              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                <li>Revenue paid vs prior week (with % delta)</li>
+                <li>Jobs created, completed, and completion rate</li>
+                <li>Per-engineer breakdown: jobs done, hours logged, submissions</li>
+                <li>Job status mix and top customers by volume</li>
+                <li>Direct link back to the full Reports dashboard</li>
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <Label>Send a test report now</Label>
+              <div className="flex gap-2">
+                <Input
+                  type="email"
+                  placeholder="your@email.com"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                />
+                <Button
+                  onClick={sendTestReport}
+                  disabled={sendingReport || !testEmail}
+                  className="shrink-0"
+                >
+                  {sendingReport
+                    ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending…</>
+                    : <><Send className="mr-1.5 h-4 w-4" /> Send Test</>
+                  }
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sends last week's data to the address above. Marked <strong>[TEST]</strong> in the subject line.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
