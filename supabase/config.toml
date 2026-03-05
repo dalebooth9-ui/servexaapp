@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.ai-scheduler]
 verify_jwt = false
+
+[functions.send-weekly-report]
+verify_jwt = false
