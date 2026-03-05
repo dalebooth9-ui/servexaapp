@@ -27,6 +27,7 @@ import Install from "@/pages/Install";
 import CustomerSignOff from "@/pages/CustomerSignOff";
 import CustomerPortal from "@/pages/CustomerPortal";
 import EngineerReport from "@/pages/EngineerReport";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
 import { ReactNode } from "react";
 
@@ -84,6 +85,7 @@ const App = () => (
             <Route path="/sign-off" element={<CustomerSignOff />} />
             <Route path="/portal" element={<CustomerPortal />} />
             <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
+            <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

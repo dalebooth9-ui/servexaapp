@@ -38,6 +38,7 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/compliance", label: "Compliance", icon: Shield },
   { to: "/audits", label: "Audits", icon: ClipboardCheck },
   { to: "/planner", label: "Planner", icon: CalendarDays },
+  { to: "/reports", label: "Reports", icon: BarChart2, adminOnly: true },
   { to: "/reports/engineers", label: "Performance", icon: BarChart2, adminOnly: true },
   { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
   { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
