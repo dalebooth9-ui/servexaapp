@@ -34,6 +34,7 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/sites", label: "Sites", icon: MapPin },
   { to: "/assets", label: "Assets", icon: Package },
   { to: "/parts-library", label: "Parts Library", icon: Library },
+  { to: "/industry-templates", label: "Templates", icon: ClipboardCheck },
   { to: "/compliance", label: "Compliance", icon: Shield },
   { to: "/audits", label: "Audits", icon: ClipboardCheck },
   { to: "/planner", label: "Planner", icon: CalendarDays },
