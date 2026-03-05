@@ -787,12 +787,24 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
 
       {/* Fill In dialog */}
-      <Dialog open={!!(activeTemplate && !viewingResponse)} onOpenChange={() => {}}>
-        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ height: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
+      <Dialog open={!!(activeTemplate && !viewingResponse)} onOpenChange={(open) => { if (!open) closeForm(); }}>
+        <DialogContent
+          className="max-w-2xl w-full p-0 gap-0 flex flex-col"
+          style={{ height: "90vh" }}
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader className="px-4 py-3 border-b border-border">
-            <DialogTitle className="text-sm flex items-center gap-2">
-              <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
-            </DialogTitle>
+            <div className="flex items-center justify-between pr-6">
+              <DialogTitle className="text-sm flex items-center gap-2">
+                <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
+              </DialogTitle>
+              <button onClick={closeForm} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </button>
+            </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
             {sections.map((section) => (
@@ -844,24 +856,36 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       </Dialog>
 
       {/* View response dialog */}
-      <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={() => {}}>
-        <DialogContent className="max-w-2xl w-full p-0 gap-0 flex flex-col" style={{ height: "90vh" }} onInteractOutside={(e) => e.preventDefault()}>
+      <Dialog open={!!(viewingResponse && activeTemplate)} onOpenChange={(open) => { if (!open) closeForm(); }}>
+        <DialogContent
+          className="max-w-2xl w-full p-0 gap-0 flex flex-col"
+          style={{ height: "90vh" }}
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onEscapeKeyDown={(e) => e.preventDefault()}
+        >
           <DialogHeader className="px-4 py-3 border-b border-border">
             <div className="flex items-center justify-between pr-6">
               <DialogTitle className="text-sm flex items-center gap-2">
                 <Eye className="h-4 w-4" /> {activeTemplate?.name}
                 {viewingResponse && <Badge variant="secondary" className="text-[10px]">{viewingResponse.status}</Badge>}
               </DialogTitle>
-              {activeTemplate && viewingResponse && (
-                <JobSheetPdfExport
-                  template={activeTemplate}
-                  formData={formData}
-                  jobInfo={jobInfo}
-                  jobId={jobId}
-                  submittedBy={viewingResponse.submitted_by ? profiles[viewingResponse.submitted_by] : undefined}
-                  submittedAt={viewingResponse.submitted_at}
-                />
-              )}
+              <div className="flex items-center gap-2">
+                {activeTemplate && viewingResponse && (
+                  <JobSheetPdfExport
+                    template={activeTemplate}
+                    formData={formData}
+                    jobInfo={jobInfo}
+                    jobId={jobId}
+                    submittedBy={viewingResponse.submitted_by ? profiles[viewingResponse.submitted_by] : undefined}
+                    submittedAt={viewingResponse.submitted_at}
+                  />
+                )}
+                <button onClick={closeForm} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
