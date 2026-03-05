@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.customer-portal-validate]
 verify_jwt = false
+
+[functions.ai-scheduler]
+verify_jwt = false

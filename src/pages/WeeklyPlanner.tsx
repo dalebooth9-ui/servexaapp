@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -20,6 +20,7 @@ import WeeklyGridView from "@/components/planner/WeeklyGridView";
 import MonthlyView from "@/components/planner/MonthlyView";
 import ListView from "@/components/planner/ListView";
 import PlannerMapView from "@/components/planner/PlannerMapView";
+import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
@@ -135,6 +136,9 @@ export default function WeeklyPlanner() {
   const [shuntDays, setShuntDays] = useState("1");
   const [shuntDirection, setShuntDirection] = useState<"forward" | "backward">("forward");
   const [shuntFromDate, setShuntFromDate] = useState("");
+
+  // AI Scheduler
+  const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
 
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -395,6 +399,22 @@ export default function WeeklyPlanner() {
     setCopying(false);
   };
 
+  // AI Scheduler confirm
+  const handleAiSchedulerConfirm = async (suggestions: { job_id: string; engineer_id: string; date: string }[]) => {
+    const rows = suggestions.map((s) => ({
+      job_id: s.job_id,
+      engineer_id: s.engineer_id,
+      schedule_date: s.date,
+      created_by: user?.id,
+    }));
+    const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
+      onConflict: "job_id,engineer_id,schedule_date",
+      ignoreDuplicates: true,
+    });
+    if (error) throw new Error(error.message);
+    fetchData();
+  };
+
   // PDF export
   const handleExportPdf = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
@@ -481,6 +501,13 @@ export default function WeeklyPlanner() {
 
           {isAdmin && (
             <>
+              <Button
+                size="sm"
+                className="gap-1.5 bg-primary/90 hover:bg-primary"
+                onClick={() => setAiSchedulerOpen(true)}
+              >
+                <Sparkles className="h-4 w-4" /> AI Schedule
+              </Button>
               <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
@@ -733,6 +760,17 @@ export default function WeeklyPlanner() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* AI Scheduler Dialog */}
+      <AiSchedulerDialog
+        open={aiSchedulerOpen}
+        onOpenChange={setAiSchedulerOpen}
+        unallocatedJobs={unallocatedJobs}
+        engineers={sortedEngineers}
+        weekStart={weekStart}
+        existingSchedule={schedule}
+        onConfirm={handleAiSchedulerConfirm}
+      />
     </div>
   );
 }
