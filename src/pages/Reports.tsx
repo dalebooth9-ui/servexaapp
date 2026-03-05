@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,13 +14,15 @@ import {
 import {
   CalendarIcon, TrendingUp, PoundSterling, Users, CheckCircle2,
   Briefcase, Clock, AlertTriangle, Download, RefreshCw, ChevronDown,
-  Target, Activity, ArrowUpRight, ArrowDownRight, Minus,
+  Target, Activity, ArrowUpRight, ArrowDownRight, Minus, FileText, Loader2,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek,
   subMonths, subWeeks, eachWeekOfInterval, eachMonthOfInterval,
   startOfDay, endOfDay, isWithinInterval
 } from "date-fns";
 import { Link } from "react-router-dom";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 
 // ── Types ──────────────────────────────────────────────────
 type DateRange = { from: Date; to: Date };
@@ -120,6 +122,8 @@ export default function Reports() {
   const [customTo, setCustomTo] = useState<Date | undefined>();
   const [customOpen, setCustomOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
 
   // Data state
   const [kpis, setKpis] = useState<KPI[]>([]);
@@ -328,6 +332,212 @@ export default function Reports() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // ── PDF Export ──────────────────────────────────────────
+  const exportPDF = async () => {
+    if (!reportRef.current || loading) return;
+    setExportingPdf(true);
+    try {
+      const el = reportRef.current;
+      const canvas = await html2canvas(el, {
+        scale: 1.5,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+        logging: false,
+        ignoreElements: (node) => node.classList?.contains("no-pdf"),
+      });
+
+      const imgData = canvas.toDataURL("image/png");
+      const pageW = 210; // A4 mm
+      const pageH = 297;
+      const margin = 10;
+      const contentW = pageW - margin * 2;
+      const pxPerMm = canvas.width / contentW;
+      const contentH = canvas.height / pxPerMm;
+
+      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+
+      // Header
+      pdf.setFillColor(249, 250, 251);
+      pdf.rect(0, 0, pageW, 20, "F");
+      pdf.setFontSize(14);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(17, 24, 39);
+      pdf.text("Management Reports", margin, 13);
+      pdf.setFontSize(9);
+      pdf.setFont("helvetica", "normal");
+      pdf.setTextColor(107, 114, 128);
+      pdf.text(
+        `${format(range.from, "d MMM yyyy")} – ${format(range.to, "d MMM yyyy")}  ·  Generated ${format(new Date(), "d MMM yyyy, HH:mm")}`,
+        pageW - margin,
+        13,
+        { align: "right" }
+      );
+      pdf.setDrawColor(229, 231, 235);
+      pdf.line(margin, 18, pageW - margin, 18);
+
+      // KPI summary table
+      const startY = 24;
+      pdf.setFontSize(10);
+      pdf.setFont("helvetica", "bold");
+      pdf.setTextColor(17, 24, 39);
+      pdf.text("Key Performance Indicators", margin, startY);
+
+      const kpiY = startY + 5;
+      const colW = (contentW) / 4;
+      kpis.forEach((kpi, i) => {
+        const col = i % 4;
+        const row = Math.floor(i / 4);
+        const x = margin + col * colW;
+        const y = kpiY + row * 18;
+        pdf.setFillColor(249, 250, 251);
+        pdf.roundedRect(x, y, colW - 2, 15, 2, 2, "F");
+        pdf.setFontSize(13);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(17, 24, 39);
+        pdf.text(String(kpi.value), x + 3, y + 7);
+        pdf.setFontSize(7);
+        pdf.setFont("helvetica", "normal");
+        pdf.setTextColor(107, 114, 128);
+        pdf.text(kpi.label, x + 3, y + 12);
+      });
+
+      // Screenshot of charts section
+      const chartImgY = kpiY + Math.ceil(kpis.length / 4) * 18 + 8;
+      const remainingH = pageH - chartImgY - margin;
+      const scaledH = Math.min(contentH, remainingH);
+
+      if (contentH <= remainingH) {
+        pdf.addImage(imgData, "PNG", margin, chartImgY, contentW, scaledH);
+      } else {
+        // Multi-page for tall content
+        let srcY = 0;
+        let firstPage = true;
+        const mmPerPx = 1 / pxPerMm;
+        const pxPageH = (firstPage ? remainingH : pageH - margin * 2) / mmPerPx;
+
+        while (srcY < canvas.height) {
+          const sliceH = Math.min(pxPageH, canvas.height - srcY);
+          const sliceCanvas = document.createElement("canvas");
+          sliceCanvas.width = canvas.width;
+          sliceCanvas.height = sliceH;
+          const ctx = sliceCanvas.getContext("2d")!;
+          ctx.drawImage(canvas, 0, srcY, canvas.width, sliceH, 0, 0, canvas.width, sliceH);
+          const sliceImg = sliceCanvas.toDataURL("image/png");
+          const destY = firstPage ? chartImgY : margin;
+          pdf.addImage(sliceImg, "PNG", margin, destY, contentW, sliceH * mmPerPx);
+          srcY += sliceH;
+          if (srcY < canvas.height) {
+            pdf.addPage();
+            firstPage = false;
+          }
+        }
+      }
+
+      // Engineer table (last page)
+      if (engineerRows.length > 0) {
+        pdf.addPage();
+        pdf.setFillColor(249, 250, 251);
+        pdf.rect(0, 0, pageW, 20, "F");
+        pdf.setFontSize(14);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(17, 24, 39);
+        pdf.text("Engineer Performance", margin, 13);
+        pdf.setDrawColor(229, 231, 235);
+        pdf.line(margin, 18, pageW - margin, 18);
+
+        const headers = ["Engineer", "Jobs Completed", "Hours Worked", "Submissions", "Jobs/Day"];
+        const colWidths = [55, 35, 35, 35, 30];
+        let tableY = 26;
+
+        pdf.setFontSize(8);
+        pdf.setFont("helvetica", "bold");
+        pdf.setTextColor(107, 114, 128);
+        let cx = margin;
+        headers.forEach((h, i) => {
+          pdf.text(h, cx, tableY, { align: i === 0 ? "left" : "right" });
+          cx += colWidths[i];
+        });
+        tableY += 2;
+        pdf.setDrawColor(229, 231, 235);
+        pdf.line(margin, tableY, pageW - margin, tableY);
+        tableY += 5;
+
+        engineerRows.forEach((eng, idx) => {
+          if (idx % 2 === 1) {
+            pdf.setFillColor(249, 250, 251);
+            pdf.rect(margin, tableY - 4, contentW, 8, "F");
+          }
+          pdf.setFontSize(9);
+          pdf.setFont("helvetica", "normal");
+          pdf.setTextColor(17, 24, 39);
+          let cx2 = margin;
+          const cells = [eng.name, eng.jobsCompleted, `${eng.hoursWorked}h`, eng.submissions, eng.avgJobsPerDay];
+          cells.forEach((cell, i) => {
+            pdf.text(String(cell), i === 0 ? cx2 : cx2 + colWidths[i] - 2, tableY, { align: i === 0 ? "left" : "right" });
+            cx2 += colWidths[i];
+          });
+          tableY += 8;
+        });
+
+        // Customer table
+        if (topCustomers.length > 0) {
+          tableY += 8;
+          pdf.setFontSize(14);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(17, 24, 39);
+          pdf.text("Top Customers", margin, tableY);
+          tableY += 6;
+
+          const custHeaders = ["Customer", "Jobs", "Revenue"];
+          const custColW = [100, 30, 60];
+          pdf.setFontSize(8);
+          pdf.setFont("helvetica", "bold");
+          pdf.setTextColor(107, 114, 128);
+          let cx3 = margin;
+          custHeaders.forEach((h, i) => {
+            pdf.text(h, i === 0 ? cx3 : cx3 + custColW[i] - 2, tableY, { align: i === 0 ? "left" : "right" });
+            cx3 += custColW[i];
+          });
+          tableY += 2;
+          pdf.line(margin, tableY, pageW - margin, tableY);
+          tableY += 5;
+
+          topCustomers.forEach((c, idx) => {
+            if (idx % 2 === 1) {
+              pdf.setFillColor(249, 250, 251);
+              pdf.rect(margin, tableY - 4, contentW, 8, "F");
+            }
+            pdf.setFontSize(9);
+            pdf.setFont("helvetica", "normal");
+            pdf.setTextColor(17, 24, 39);
+            let cx4 = margin;
+            const cells = [c.name, c.jobs, `£${c.revenue.toLocaleString()}`];
+            cells.forEach((cell, i) => {
+              pdf.text(String(cell), i === 0 ? cx4 : cx4 + custColW[i] - 2, tableY, { align: i === 0 ? "left" : "right" });
+              cx4 += custColW[i];
+            });
+            tableY += 8;
+          });
+        }
+      }
+
+      // Footer on all pages
+      const pageCount = pdf.getNumberOfPages();
+      for (let p = 1; p <= pageCount; p++) {
+        pdf.setPage(p);
+        pdf.setFontSize(7);
+        pdf.setTextColor(156, 163, 175);
+        pdf.text(`Page ${p} of ${pageCount}`, pageW / 2, pageH - 5, { align: "center" });
+      }
+
+      pdf.save(`management-report-${format(new Date(), "yyyy-MM-dd")}.pdf`);
+    } catch (err) {
+      console.error("PDF export failed", err);
+    } finally {
+      setExportingPdf(false);
+    }
+  };
+
   // ── Date Range Picker UI ──────────────────────────────────
   const DateRangePicker = () => (
     <div className="flex flex-wrap items-center gap-2">
@@ -385,8 +595,26 @@ export default function Reports() {
             {format(range.from, "d MMM yyyy")} – {format(range.to, "d MMM yyyy")}
           </p>
         </div>
-        <DateRangePicker />
+        <div className="flex flex-wrap items-center gap-2">
+          <DateRangePicker />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 text-xs gap-1.5 no-pdf"
+            onClick={exportPDF}
+            disabled={exportingPdf || loading}
+            title="Export PDF"
+          >
+            {exportingPdf
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <FileText className="h-3.5 w-3.5" />}
+            {exportingPdf ? "Generating…" : "Export PDF"}
+          </Button>
+        </div>
       </div>
+
+      {/* Capturable report area */}
+      <div ref={reportRef}>
 
       {/* KPI Grid */}
       <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
@@ -745,6 +973,7 @@ export default function Reports() {
           </div>
         </TabsContent>
       </Tabs>
+      </div>{/* end reportRef */}
     </div>
   );
 }
