@@ -68,6 +68,8 @@ const emptySite = {
   notes: "",
   outlets_count: "" as string,
   riser_location: "",
+  category: "",
+  quantity: "" as string,
 };
 
 type CustomerFolder = {
@@ -548,6 +550,8 @@ export default function Sites() {
       contact_email: site.contact_email || "", notes: site.notes || "",
       outlets_count: site.outlets_count != null ? String(site.outlets_count) : "",
       riser_location: (site as any).riser_location || "",
+      category: (site as any).category || "",
+      quantity: site.outlets_count != null ? String(site.outlets_count) : "",
     });
     setDialogOpen(true);
   };
@@ -559,8 +563,9 @@ export default function Sites() {
       address: form.address || null, postcode: form.postcode || null,
       contact_name: form.contact_name || null, contact_phone: form.contact_phone || null,
       contact_email: form.contact_email || null, notes: form.notes || null,
-      outlets_count: form.outlets_count !== "" ? Number(form.outlets_count) : null,
+      outlets_count: (form as any).quantity !== "" ? Number((form as any).quantity) : (form.outlets_count !== "" ? Number(form.outlets_count) : null),
       riser_location: form.riser_location || null,
+      category: (form as any).category || null,
     };
     if (editing) {
       const oldSite = sites.find((s) => s.id === editing.id);
@@ -1116,6 +1121,24 @@ export default function Sites() {
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Email</label>
                 <Input value={form.contact_email} onChange={(e) => setForm((f) => ({ ...f, contact_email: e.target.value }))} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Category / System</label>
+                <Select value={(form as any).category || ""} onValueChange={(v) => setForm((f) => ({ ...f, category: v }))}>
+                  <SelectTrigger><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">— None —</SelectItem>
+                    {jobCategories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.slug}>{cat.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Quantity</label>
+                <Input type="number" min={0} value={(form as any).quantity} onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))} placeholder="e.g. 12" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

@@ -1762,6 +1762,7 @@ export type Database = {
       sites: {
         Row: {
           address: string | null
+          category: string | null
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -1779,6 +1780,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          category?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -1796,6 +1798,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          category?: string | null
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
