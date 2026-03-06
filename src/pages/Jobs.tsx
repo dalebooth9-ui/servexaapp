@@ -1032,72 +1032,75 @@ export default function Jobs() {
         )}
       </div>
 
-      <div className="relative mb-4 flex gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Search jobs..." value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-        <Button
-          variant={showFilters || statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all" ? "secondary" : "outline"}
-          size="icon"
-          onClick={() => setShowFilters((v) => !v)}
-          title="Toggle filters"
-        >
-          <SlidersHorizontal className="h-4 w-4" />
-        </Button>
-        {(statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all") && (
+      {/* Search & filter bar — visually separated from the job list */}
+      <div className="mb-6 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input className="pl-9 bg-background" placeholder="Search jobs..." value={search} onChange={(e) => setSearch(e.target.value)} />
+          </div>
           <Button
-            variant="ghost"
-            size="sm"
-            className="text-xs text-muted-foreground"
-            onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}
+            variant={showFilters || statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all" ? "secondary" : "outline"}
+            size="icon"
+            onClick={() => setShowFilters((v) => !v)}
+            title="Toggle filters"
           >
-            Clear
+            <SlidersHorizontal className="h-4 w-4" />
           </Button>
+          {(statusFilter !== "all" || priorityFilter !== "all" || categoryFilter !== "all") && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs text-muted-foreground"
+              onClick={() => { setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+        {showFilters && (
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-border pt-3">
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-[140px] bg-background">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="in_progress">In Progress</SelectItem>
+                <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
+                <SelectItem value="on_hold">On Hold</SelectItem>
+                <SelectItem value="requires_revisit">Requires Revisit</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+              <SelectTrigger className="w-[130px] bg-background">
+                <SelectValue placeholder="Priority" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All priorities</SelectItem>
+                <SelectItem value="high">High</SelectItem>
+                <SelectItem value="medium">Medium</SelectItem>
+                <SelectItem value="low">Low</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-[150px] bg-background">
+                <SelectValue placeholder="Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All categories</SelectItem>
+                {categories.map((c) => (
+                  <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         )}
       </div>
-      {showFilters && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="awaiting_parts">Awaiting Parts</SelectItem>
-              <SelectItem value="on_hold">On Hold</SelectItem>
-              <SelectItem value="requires_revisit">Requires Revisit</SelectItem>
-              <SelectItem value="scheduled">Scheduled</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-            <SelectTrigger className="w-[130px]">
-              <SelectValue placeholder="Priority" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All priorities</SelectItem>
-              <SelectItem value="high">High</SelectItem>
-              <SelectItem value="medium">Medium</SelectItem>
-              <SelectItem value="low">Low</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[150px]">
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All categories</SelectItem>
-              {categories.map((c) => (
-                <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
 
       {isAdmin && selectedJobIds.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3">
@@ -1401,6 +1404,18 @@ export default function Jobs() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Mobile FAB — only visible on small screens for admin users */}
+      {isAdmin && (
+        <button
+          className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg transition-transform hover:scale-105 active:scale-95 sm:hidden"
+          onClick={() => setDialogOpen(true)}
+          aria-label="Create new job"
+          title="Create new job"
+        >
+          <Plus className="h-6 w-6" />
+        </button>
+      )}
     </div>
   );
 }
