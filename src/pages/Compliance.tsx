@@ -869,9 +869,6 @@ export default function Compliance() {
                   {!ocrLoading && <span className="text-xs text-muted-foreground">or drag & drop files here</span>}
                 </div>
               </div>
-                if (fileRef.current) fileRef.current.value = "";
-
-                // Always OCR first eligible file — extract dates even if title is already set
                 const ocrFile = newFiles.find((f) => f.type.startsWith("image/") || f.type === "application/pdf");
                 if (ocrFile) {
                   setOcrLoading(true);
