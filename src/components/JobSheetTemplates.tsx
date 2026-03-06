@@ -122,7 +122,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (cat === "sprinkler_service") return "sprinkler";
       if (cat === "hydrant_service" || cat === "fire_hydrant") return "fire_hydrant";
       if (cat === "extinguisher_service") return "fire_extinguisher";
-      if (cat === "dry_riser_service" || cat === "dry_riser") return "dry_riser";
+      // All dry riser variants → canonical "dry_riser"
+      if (cat.startsWith("dry_riser") || cat === "dry_riser_service") return "dry_riser";
       return cat;
     };
     const jobCategory = normalizeCategory(rawJobCategory);
@@ -707,7 +708,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               if (s === "sprinkler_service") return "sprinkler";
               if (s === "hydrant_service" || s === "fire_hydrant") return "fire_hydrant";
               if (s === "extinguisher_service") return "fire_extinguisher";
-              if (s === "dry_riser_service" || s === "dry_riser") return "dry_riser";
+              // All dry riser variants (pressure test, visual, annual service, etc.) → "dry_riser"
+              if (s.startsWith("dry_riser") || s === "dry_riser_service") return "dry_riser";
               return s;
             };
             const jobCategory = normalizeSlug(jobInfo?.category || "");
