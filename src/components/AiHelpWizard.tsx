@@ -1,11 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { MessageCircleQuestion, X, Send, Loader2, Bot, User, Sparkles, ChevronDown } from "lucide-react";
+import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { useLocation, useNavigate } from "react-router-dom";
 
-type Message = { role: "user" | "assistant"; content: string };
+type QuickAction = { label: string; url: string; description: string };
+type Message = {
+  role: "user" | "assistant";
+  content: string;
+  quick_actions?: QuickAction[];
+};
 
 const SUGGESTED_QUESTIONS = [
   "How do I create a new job?",
@@ -14,18 +20,44 @@ const SUGGESTED_QUESTIONS = [
   "What job statuses are available?",
 ];
 
+// Map route patterns to human-readable names for context
+function describeCurrentPage(pathname: string): string {
+  if (pathname === "/") return "Dashboard (/)";
+  if (pathname === "/jobs") return "Jobs list (/jobs)";
+  if (pathname.startsWith("/jobs/")) return `Job detail page (${pathname})`;
+  if (pathname === "/customers") return "Customers list (/customers)";
+  if (pathname.startsWith("/customers/")) return `Customer detail page (${pathname})`;
+  if (pathname === "/invoices") return "Invoices (/invoices)";
+  if (pathname.startsWith("/invoices/")) return `Invoice detail (${pathname})`;
+  if (pathname === "/planner") return "Weekly Planner (/planner)";
+  if (pathname === "/engineers") return "Engineers (/engineers)";
+  if (pathname === "/settings") return "Settings (/settings)";
+  if (pathname === "/sites") return "Sites (/sites)";
+  if (pathname === "/assets") return "Assets (/assets)";
+  if (pathname.startsWith("/assets/")) return `Asset detail (${pathname})`;
+  if (pathname === "/compliance") return "Compliance (/compliance)";
+  if (pathname === "/audits") return "Audits (/audits)";
+  if (pathname === "/parts-library") return "Parts Library (/parts-library)";
+  if (pathname === "/industry-templates") return "Industry Templates (/industry-templates)";
+  if (pathname === "/reports") return "Reports (/reports)";
+  if (pathname === "/reports/engineers") return "Engineer Performance Report (/reports/engineers)";
+  return pathname;
+}
+
 export default function AiHelpWizard() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const [streaming, setStreaming] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [minimised, setMinimised] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (open && !minimised) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
   }, [messages, open, minimised]);
 
@@ -36,15 +68,16 @@ export default function AiHelpWizard() {
   }, [open, minimised]);
 
   const sendMessage = async (text: string) => {
-    if (!text.trim() || streaming) return;
+    if (!text.trim() || loading) return;
 
     const userMsg: Message = { role: "user", content: text.trim() };
     const updatedMessages = [...messages, userMsg];
     setMessages(updatedMessages);
     setInput("");
-    setStreaming(true);
+    setLoading(true);
 
-    let assistantContent = "";
+    // Placeholder while waiting
+    setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
     try {
       const resp = await fetch(
@@ -55,7 +88,10 @@ export default function AiHelpWizard() {
             "Content-Type": "application/json",
             Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
           },
-          body: JSON.stringify({ messages: updatedMessages }),
+          body: JSON.stringify({
+            messages: updatedMessages.map(({ role, content }) => ({ role, content })),
+            currentPage: describeCurrentPage(location.pathname),
+          }),
         }
       );
 
@@ -64,84 +100,25 @@ export default function AiHelpWizard() {
         if (resp.status === 429) toast.error(err.error || "Rate limit reached");
         else if (resp.status === 402) toast.error(err.error || "AI credits exhausted");
         else toast.error(err.error || "AI error, please try again");
-        setStreaming(false);
+        // Remove placeholder
+        setMessages((prev) => prev.slice(0, -1));
         return;
       }
 
-      if (!resp.body) throw new Error("No response body");
+      const data = await resp.json();
+      const { message, quick_actions } = data as { message: string; quick_actions: QuickAction[] };
 
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let textBuffer = "";
-      let done = false;
-
-      // Add placeholder assistant message
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
-
-      while (!done) {
-        const { done: readDone, value } = await reader.read();
-        if (readDone) break;
-        textBuffer += decoder.decode(value, { stream: true });
-
-        let newlineIndex: number;
-        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-          let line = textBuffer.slice(0, newlineIndex);
-          textBuffer = textBuffer.slice(newlineIndex + 1);
-
-          if (line.endsWith("\r")) line = line.slice(0, -1);
-          if (line.startsWith(":") || line.trim() === "") continue;
-          if (!line.startsWith("data: ")) continue;
-
-          const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") { done = true; break; }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const chunk = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (chunk) {
-              assistantContent += chunk;
-              setMessages((prev) => {
-                const copy = [...prev];
-                const last = copy[copy.length - 1];
-                if (last?.role === "assistant") {
-                  copy[copy.length - 1] = { ...last, content: assistantContent };
-                }
-                return copy;
-              });
-            }
-          } catch {
-            textBuffer = line + "\n" + textBuffer;
-            break;
-          }
-        }
-      }
-
-      // Flush remainder
-      if (textBuffer.trim()) {
-        for (let raw of textBuffer.split("\n")) {
-          if (!raw.startsWith("data: ")) continue;
-          const jsonStr = raw.slice(6).trim();
-          if (jsonStr === "[DONE]") continue;
-          try {
-            const parsed = JSON.parse(jsonStr);
-            const chunk = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (chunk) {
-              assistantContent += chunk;
-              setMessages((prev) => {
-                const copy = [...prev];
-                const last = copy[copy.length - 1];
-                if (last?.role === "assistant") copy[copy.length - 1] = { ...last, content: assistantContent };
-                return copy;
-              });
-            }
-          } catch { /* ignore */ }
-        }
-      }
+      setMessages((prev) => {
+        const copy = [...prev];
+        copy[copy.length - 1] = { role: "assistant", content: message, quick_actions: quick_actions || [] };
+        return copy;
+      });
     } catch (e) {
       toast.error("Failed to reach AI assistant");
       console.error(e);
+      setMessages((prev) => prev.slice(0, -1));
     } finally {
-      setStreaming(false);
+      setLoading(false);
     }
   };
 
@@ -150,6 +127,11 @@ export default function AiHelpWizard() {
       e.preventDefault();
       sendMessage(input);
     }
+  };
+
+  const handleAction = (action: QuickAction) => {
+    navigate(action.url);
+    setMinimised(true);
   };
 
   const reset = () => {
@@ -180,7 +162,7 @@ export default function AiHelpWizard() {
         <div
           className={cn(
             "fixed bottom-5 right-5 z-50 flex flex-col rounded-2xl shadow-2xl border border-border",
-            "bg-background w-[370px] h-[540px] max-h-[80vh]"
+            "bg-background w-[370px] h-[560px] max-h-[85vh]"
           )}
           style={{ boxShadow: "0 20px 60px hsl(var(--primary) / 0.15), 0 4px 16px hsl(var(--foreground) / 0.08)" }}
         >
@@ -233,24 +215,49 @@ export default function AiHelpWizard() {
                     <Bot className="h-3.5 w-3.5 text-primary mb-0.5" />
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "max-w-[82%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
-                    msg.role === "user"
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted text-foreground rounded-bl-sm"
-                  )}
-                >
-                  {msg.role === "assistant" && msg.content === "" && streaming ? (
-                    <span className="flex gap-1 items-center h-4">
-                      <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "0ms" }} />
-                      <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "120ms" }} />
-                      <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "240ms" }} />
-                    </span>
-                  ) : (
-                    <div className="whitespace-pre-wrap">{msg.content}</div>
+
+                <div className={cn("flex flex-col gap-2", msg.role === "user" ? "items-end max-w-[82%]" : "items-start max-w-[85%]")}>
+                  <div
+                    className={cn(
+                      "rounded-2xl px-3 py-2 text-sm leading-relaxed",
+                      msg.role === "user"
+                        ? "bg-primary text-primary-foreground rounded-br-sm"
+                        : "bg-muted text-foreground rounded-bl-sm"
+                    )}
+                  >
+                    {msg.role === "assistant" && msg.content === "" && loading ? (
+                      <span className="flex gap-1 items-center h-4">
+                        <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "0ms" }} />
+                        <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "120ms" }} />
+                        <span className="animate-bounce h-1.5 w-1.5 rounded-full bg-muted-foreground/60" style={{ animationDelay: "240ms" }} />
+                      </span>
+                    ) : (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    )}
+                  </div>
+
+                  {/* Quick action buttons */}
+                  {msg.role === "assistant" && msg.quick_actions && msg.quick_actions.length > 0 && (
+                    <div className="flex flex-col gap-1.5 w-full">
+                      {msg.quick_actions.map((action, j) => (
+                        <button
+                          key={j}
+                          onClick={() => handleAction(action)}
+                          title={action.description}
+                          className={cn(
+                            "flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs font-medium",
+                            "border border-primary/30 bg-primary/8 text-primary hover:bg-primary/15",
+                            "transition-colors text-left group"
+                          )}
+                        >
+                          <span>{action.label}</span>
+                          <ArrowRight className="h-3 w-3 shrink-0 opacity-60 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all" />
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
+
                 {msg.role === "user" && (
                   <div className="flex items-end justify-center h-6 w-6 rounded-full bg-primary shrink-0 mt-0.5">
                     <User className="h-3.5 w-3.5 text-primary-foreground mb-0.5" />
@@ -260,8 +267,8 @@ export default function AiHelpWizard() {
             ))}
 
             {/* Clear chat */}
-            {messages.length > 0 && !streaming && (
-              <div className="flex justify-center">
+            {messages.length > 0 && !loading && (
+              <div className="flex justify-center pt-1">
                 <button onClick={reset} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
                   Clear conversation
                 </button>
@@ -282,18 +289,18 @@ export default function AiHelpWizard() {
                 placeholder="Ask anything about FieldReport…"
                 rows={1}
                 className="resize-none text-sm min-h-[38px] max-h-[100px] py-2 leading-relaxed"
-                disabled={streaming}
+                disabled={loading}
               />
               <Button
                 size="icon"
                 className="h-[38px] w-[38px] shrink-0"
                 onClick={() => sendMessage(input)}
-                disabled={!input.trim() || streaming}
+                disabled={!input.trim() || loading}
               >
-                {streaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1.5 text-center">Press Enter to send · Shift+Enter for new line</p>
+            <p className="text-[10px] text-muted-foreground mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
           </div>
         </div>
       )}
