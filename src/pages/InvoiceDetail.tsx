@@ -593,7 +593,37 @@ export default function InvoiceDetail() {
         /* Printable document (read-only view) */
         <Card>
           <CardContent className="p-0">
-            <div ref={printRef} className="bg-white p-8 text-foreground" style={{ color: "#1a1a1a" }}>
+            {/* Watermark + content wrapper */}
+            <div
+              ref={printRef}
+              className="bg-white text-foreground"
+              style={{
+                color: "#1a1a1a",
+                position: "relative",
+                padding: "2rem",
+                minHeight: "1100px",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {/* Blue flame watermark */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundImage: "url('/images/viva-watermark.png')",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center center",
+                  backgroundSize: "70%",
+                  opacity: 0.07,
+                  pointerEvents: "none",
+                  zIndex: 0,
+                }}
+              />
+
+              {/* All content sits above the watermark */}
+              <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
 
               {/* ── Viva Fire branded header ─────────────────────────── */}
               <div className="mb-6 flex flex-col items-center">
