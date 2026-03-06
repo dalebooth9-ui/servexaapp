@@ -425,7 +425,7 @@ export default function AiHelpWizard() {
               <Sparkles className="h-3.5 w-3.5" />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold leading-none">FieldReport Assistant</p>
+              <p className="text-sm font-semibold leading-none">Servexa Assistant</p>
               <div className="flex items-center gap-1 mt-0.5">
                 <MapPin className="h-2.5 w-2.5 opacity-60" />
                 <p className="text-[11px] opacity-70 truncate">{pageLabel}</p>
