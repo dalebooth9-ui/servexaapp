@@ -844,6 +844,9 @@ export default function Compliance() {
               <input ref={fileRef} type="file" multiple accept="image/*,.pdf" onChange={async (e) => {
                 if (!e.target.files) return;
                 const newFiles = Array.from(e.target.files);
+                if (fileRef.current) fileRef.current.value = "";
+                await handleFilesAdded(newFiles);
+              }} className="hidden" />
                 setPendingFiles((prev) => [...prev, ...newFiles]);
                 if (fileRef.current) fileRef.current.value = "";
 
