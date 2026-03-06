@@ -31,6 +31,7 @@ import EngineerReport from "@/pages/EngineerReport";
 import Reports from "@/pages/Reports";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import Servexa from "@/pages/Servexa";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import OfflineIndicator from "@/components/OfflineIndicator";
