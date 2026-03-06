@@ -132,12 +132,23 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    const oldIndex = navOrder.indexOf(active.id as string);
-    const newIndex = navOrder.indexOf(over.id as string);
+    // Work on the visible items only — reorder within that set, then
+    // rebuild the full nav order by splicing back in non-visible items.
+    const visibleIds = visibleNavItems.map((i) => i.to);
+    const oldIndex = visibleIds.indexOf(active.id as string);
+    const newIndex = visibleIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
-    const newOrder = arrayMove(navOrder, oldIndex, newIndex);
-    setNavOrder(newOrder);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
+    const reorderedVisible = arrayMove(visibleIds, oldIndex, newIndex);
+    // Merge: walk allOrderedItems and replace visible ones with new order
+    let visibleCursor = 0;
+    const merged = allOrderedItems.map((item) => {
+      if (visibleIds.includes(item.to)) {
+        return reorderedVisible[visibleCursor++];
+      }
+      return item.to;
+    });
+    setNavOrder(merged);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   };
 
   // Group items by section for display with section labels
