@@ -747,14 +747,10 @@ export async function buildSharedMethodSections(
   y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 5;
   y = numberedList(doc, sections.sequenceOfOps, ML + 2, y, CONTENT_W - 2);
+  y += 3;
 
-  pageFooter(doc, currentPageRef.num, totalPages);
-
-  // ─── PAGE 2 ───
-  currentPageRef.num++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
-
+  // ─── 2.3 Task Specific ───
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 5;
   y = numberedList(doc, sections.taskSpecificOps, ML + 2, y, CONTENT_W - 2);
   y += 3;
@@ -774,11 +770,12 @@ export async function buildSharedMethodSections(
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3 Resources", ML, y); y += 4;
   y = para(doc, sections.resources, ML, y, CONTENT_W); y += 2;
 
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.1 Personnel", ML, y); y += 4;
   y = para(doc, sections.personnel, ML, y, CONTENT_W);
   pageFooter(doc, currentPageRef.num, totalPages);
 
-  // ─── PAGE 3 ───
+  // ─── Continue on next page ───
   currentPageRef.num++;
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
@@ -828,7 +825,7 @@ export async function buildSharedMethodSections(
   ], ML + 3, y, CONTENT_W - 3);
   pageFooter(doc, currentPageRef.num, totalPages);
 
-  // ─── PAGE 4 ───
+  // ─── Continue on next page ───
   currentPageRef.num++;
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
@@ -883,7 +880,7 @@ export async function buildSharedMethodSections(
   y = para(doc, "All waste materials must be disposed of in the correct skips provided by Viva Fire.", ML, y, CONTENT_W);
   pageFooter(doc, currentPageRef.num, totalPages);
 
-  // ─── PAGE 5 ───
+  // ─── Continue on next page ───
   currentPageRef.num++;
   y = newPage(doc);
   y = await pageHeader(doc, logoImg, "", y);
@@ -920,6 +917,9 @@ export async function buildSharedMethodSections(
   currentPageRef.num++;
   return y;
 }
+
+
+
 
 /* ─────────────────────────────────────── full generator helper ── */
 
