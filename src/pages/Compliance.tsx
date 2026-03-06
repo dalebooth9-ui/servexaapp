@@ -400,15 +400,42 @@ export default function Compliance() {
 
   const todayStr = () => new Date().toISOString().split("T")[0];
 
-  const addBulkFiles = (files: File[]) => {
+  const addBulkFiles = async (files: File[]) => {
+    // Add entries immediately with today's date, then run OCR in background per file
     const entries = files.map((f) => ({
       file: f,
-      title: f.name.replace(/\.[^/.]+$/, ""), // strip extension for default title
+      title: f.name.replace(/\.[^/.]+$/, ""),
       record_type: "certificate",
       issue_date: todayStr(),
       expiry_date: "",
+      ocrLoading: true,
     }));
     setBulkFiles((prev) => [...prev, ...entries]);
+
+    // Run OCR for each file concurrently, update the matching entry
+    const startIndex = await new Promise<number>((resolve) => {
+      setBulkFiles((prev) => { resolve(prev.length - entries.length); return prev; });
+    });
+
+    await Promise.all(
+      files.map(async (file, offset) => {
+        const idx = startIndex + offset;
+        const result = await runOcrOnFile(file);
+        setBulkFiles((prev) =>
+          prev.map((it, i) =>
+            i === idx
+              ? {
+                  ...it,
+                  ocrLoading: false,
+                  ...(result?.issue_date ? { issue_date: result.issue_date } : {}),
+                  ...(result?.expiry_date ? { expiry_date: result.expiry_date } : {}),
+                  ...(result?.title && !it.title ? { title: result.title } : {}),
+                }
+              : it
+          )
+        );
+      })
+    );
   };
 
   const handleBulkImport = async () => {
