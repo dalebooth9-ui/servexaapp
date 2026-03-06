@@ -1092,7 +1092,7 @@ export async function generateRamsPdf(
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
   // Footer sits at PAGE_H - 8 (page number line); logos row sits just above
-  addAccreditationLogosToAllPages(doc, accredLogos, PAGE_H - 17);
+  addAccreditationLogosToAllPages(doc, accredLogos, PAGE_H - 21, 18);
 
   const ref = jobInfo?.reference_number || "rams";
   const fileName = `${ref}-rams-method-statement.pdf`;
