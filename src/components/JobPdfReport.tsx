@@ -5,6 +5,7 @@ import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -568,9 +569,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
         }
       }
 
-      // ── WATERMARK on every page ──
-      const watermark = await loadWatermarkImage();
+      // ── WATERMARK + ACCREDITATIONS on every page ──
+      const [watermark, accredLogos] = await Promise.all([
+        loadWatermarkImage(),
+        loadAccreditationLogos(),
+      ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
+      addAccreditationLogosToAllPages(doc, accredLogos, 279); // sits just above page-number line (286)
 
       // ── FOOTER on every page ──
       const pageCount = doc.getNumberOfPages();

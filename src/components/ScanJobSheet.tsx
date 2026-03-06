@@ -7,6 +7,7 @@ import { Camera, FileDown, Loader2, MessageSquare, ScanLine, Upload } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 
@@ -353,9 +354,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       // --- FOOTER DECLARATION on last page ---
       renderPdfFooter(doc, footerStartY, footerText);
 
-      // Watermark
-      const watermark = await loadWatermarkImage();
+      // Watermark + Accreditations
+      const [watermark, accredLogos] = await Promise.all([
+        loadWatermarkImage(),
+        loadAccreditationLogos(),
+      ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerStartY);
 
       doc.save(`scanned-sheet-${Date.now()}.pdf`);
 

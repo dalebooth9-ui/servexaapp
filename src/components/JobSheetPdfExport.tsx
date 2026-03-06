@@ -7,6 +7,7 @@ import { useJobCategories } from "@/hooks/useJobCategories";
 
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import {
@@ -264,8 +265,13 @@ export async function generateJobSheetPdf(
 
   renderPdfFooter(doc, footerY, footerText);
 
-  const watermark = await loadWatermarkImage();
+  const [watermark, accredLogos] = await Promise.all([
+    loadWatermarkImage(),
+    loadAccreditationLogos(),
+  ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
+  const footerYForLogos = pageHeight - margin - 9;
+  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
 
   const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];

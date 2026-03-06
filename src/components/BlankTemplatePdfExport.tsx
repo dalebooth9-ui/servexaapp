@@ -4,6 +4,7 @@ import { Printer, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import {
@@ -217,8 +218,13 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         renderPdfFooter(doc, footerY, footerText);
       }
 
-      const watermark = await loadWatermarkImage();
+      const [watermark, accredLogos] = await Promise.all([
+        loadWatermarkImage(),
+        loadAccreditationLogos(),
+      ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
+      const footerYForLogos = pageHeight - margin - 9;
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
       const blob = doc.output("blob");
