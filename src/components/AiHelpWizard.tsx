@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight, MapPin, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
+import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight, MapPin, RotateCcw, Maximize2, Minimize2, Mic, MicOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -221,6 +221,8 @@ export default function AiHelpWizard() {
   const [minimised, setMinimised] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<any>(null);
   // Track the page the wizard was opened on, so navigating away doesn't re-trigger
   const openedOnPage = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -228,6 +230,47 @@ export default function AiHelpWizard() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const SpeechRecognitionAPI = typeof window !== "undefined"
+    ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition)
+    : null;
+
+  const startListening = useCallback(() => {
+    if (!SpeechRecognitionAPI) {
+      toast.error("Voice input is not supported in this browser");
+      return;
+    }
+    const recognition = new SpeechRecognitionAPI();
+    recognition.lang = "en-GB";
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognitionRef.current = recognition;
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+      recognitionRef.current = null;
+    };
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results as any[])
+        .map((r: any) => r[0].transcript)
+        .join("");
+      setInput(transcript);
+      if (event.results[event.results.length - 1].isFinal) {
+        recognition.stop();
+      }
+    };
+    recognition.start();
+  }, [SpeechRecognitionAPI]);
+
+  const stopListening = useCallback(() => {
+    recognitionRef.current?.stop();
+    setIsListening(false);
+  }, []);
 
   useEffect(() => {
     if (open && !minimised) {
@@ -533,11 +576,26 @@ export default function AiHelpWizard() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask anything about FieldReport…"
+                placeholder={isListening ? "Listening…" : "Ask anything about FieldReport…"}
                 rows={1}
-                className="resize-none text-sm min-h-[38px] max-h-[100px] py-2 leading-relaxed"
+                className={cn(
+                  "resize-none text-sm min-h-[38px] max-h-[100px] py-2 leading-relaxed transition-all",
+                  isListening && "border-destructive ring-2 ring-destructive/30"
+                )}
                 disabled={loading}
               />
+              {SpeechRecognitionAPI && (
+                <Button
+                  size="icon"
+                  variant={isListening ? "destructive" : "outline"}
+                  className="h-[38px] w-[38px] shrink-0"
+                  onClick={isListening ? stopListening : startListening}
+                  disabled={loading}
+                  title={isListening ? "Stop recording" : "Speak your question"}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 size="icon"
                 className="h-[38px] w-[38px] shrink-0"
@@ -547,7 +605,9 @@ export default function AiHelpWizard() {
                 {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </Button>
             </div>
-            <p className="text-[10px] text-muted-foreground mt-1.5 text-center">Enter to send · Shift+Enter for new line</p>
+            <p className="text-[10px] text-muted-foreground mt-1.5 text-center">
+              {isListening ? "🎙 Recording — speak now, then click send" : "Enter to send · Shift+Enter for new line"}
+            </p>
           </div>
         </div>
       )}
