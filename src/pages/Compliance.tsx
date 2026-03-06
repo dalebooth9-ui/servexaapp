@@ -854,8 +854,12 @@ export default function Compliance() {
                     <div key={i} className="rounded-md border bg-card p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {item.ocrLoading
+                            ? <Loader2 className="h-4 w-4 shrink-0 text-primary animate-spin" />
+                            : <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          }
                           <span className="text-xs text-muted-foreground truncate">{item.file.name}</span>
+                          {item.ocrLoading && <span className="text-[10px] text-primary animate-pulse shrink-0">Scanning…</span>}
                         </div>
                         <button
                           onClick={() => setBulkFiles((prev) => prev.filter((_, j) => j !== i))}
