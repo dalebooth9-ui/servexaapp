@@ -141,7 +141,7 @@ serve(async (req) => {
         .eq("key", dedupKey)
         .maybeSingle();
 
-      if (!existing) {
+      if (!existing || forceRun) {
         for (const adminId of adminIds) {
           await supabase.from("notifications").insert({
             user_id: adminId,
@@ -151,7 +151,9 @@ serve(async (req) => {
           });
           notified++;
         }
-        await supabase.from("app_settings").upsert({ key: dedupKey, value: { notified_at: todayStr } });
+        if (!forceRun) {
+          await supabase.from("app_settings").upsert({ key: dedupKey, value: { notified_at: todayStr } });
+        }
       }
     }
 
