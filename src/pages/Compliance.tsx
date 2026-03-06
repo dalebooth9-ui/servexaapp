@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -75,9 +75,10 @@ export default function Compliance() {
   // Bulk import state
   const bulkFileRef = useRef<HTMLInputElement>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string }[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string; ocrLoading?: boolean }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
 
   const fetchData = async () => {
     const [recRes, assetRes, siteRes, jobRes] = await Promise.all([
