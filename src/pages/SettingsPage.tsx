@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone } from "lucide-react";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -26,6 +26,9 @@ export default function SettingsPage() {
   const [copiedInstall, setCopiedInstall] = useState(false);
   const [testEmail, setTestEmail] = useState("");
   const [sendingReport, setSendingReport] = useState(false);
+  const [onboardingEmail, setOnboardingEmail] = useState("");
+  const [onboardingName, setOnboardingName] = useState("");
+  const [sendingOnboarding, setSendingOnboarding] = useState(false);
 
   const copyWebhookUrl = () => {
     navigator.clipboard.writeText(WEBHOOK_URL);
@@ -40,6 +43,36 @@ export default function SettingsPage() {
     toast.success("Install link copied to clipboard");
     setTimeout(() => setCopiedInstall(false), 2000);
   };
+
+  const sendOnboardingEmail = async () => {
+    if (!onboardingEmail) return;
+    setSendingOnboarding(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+      const res = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/send-engineer-onboarding`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ to_email: onboardingEmail, engineer_name: onboardingName || undefined }),
+        }
+      );
+      const json = await res.json();
+      if (json.error) throw new Error(json.error);
+      toast.success(`Onboarding email sent to ${onboardingEmail}`);
+      setOnboardingEmail("");
+      setOnboardingName("");
+    } catch (err: any) {
+      toast.error(`Failed: ${err.message}`);
+    } finally {
+      setSendingOnboarding(false);
+    }
+  };
+
 
   const sendTestReport = async () => {
     if (!testEmail) return;
@@ -117,6 +150,49 @@ export default function SettingsPage() {
                   </ul>
                 </div>
               </div>
+            </div>
+
+            {/* Onboarding email */}
+            <div className="mt-5 pt-5 border-t space-y-3">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-primary" />
+                <p className="text-sm font-medium">Send onboarding email to an engineer</p>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sends a branded email with the install link, QR code, and step-by-step instructions directly to the engineer's inbox.
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="onb-name">Engineer name (optional)</Label>
+                  <Input
+                    id="onb-name"
+                    placeholder="e.g. James"
+                    value={onboardingName}
+                    onChange={(e) => setOnboardingName(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="onb-email">Engineer email</Label>
+                  <Input
+                    id="onb-email"
+                    type="email"
+                    placeholder="engineer@example.com"
+                    value={onboardingEmail}
+                    onChange={(e) => setOnboardingEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && sendOnboardingEmail()}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={sendOnboardingEmail}
+                disabled={sendingOnboarding || !onboardingEmail}
+                size="sm"
+              >
+                {sendingOnboarding
+                  ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending…</>
+                  : <><Send className="mr-1.5 h-4 w-4" /> Send Onboarding Email</>
+                }
+              </Button>
             </div>
           </CardContent>
         </Card>
