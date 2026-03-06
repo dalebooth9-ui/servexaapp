@@ -156,7 +156,13 @@ export default function Auth() {
           </ul>
         </div>
 
-        <p className="text-sm text-sidebar-foreground/40">© {new Date().getFullYear()} FieldReport. All rights reserved.</p>
+        <div className="space-y-1">
+          <p className="text-sm text-sidebar-foreground/40">© {new Date().getFullYear()} FieldReport. All rights reserved.</p>
+          <div className="flex gap-3 text-xs text-sidebar-foreground/30">
+            <a href="/terms" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Terms of Service</a>
+            <a href="/privacy" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Privacy Policy</a>
+          </div>
+        </div>
       </div>
 
       {/* Right panel — auth form */}

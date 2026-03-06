@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks, ClipboardList } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -35,6 +35,7 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/sites", label: "Sites", icon: MapPin, section: "operations" },
   { to: "/assets", label: "Assets", icon: Package, section: "operations" },
   { to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
+  { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "operations", adminOnly: true },
   { to: "/parts-library", label: "Parts Library", icon: Library, section: "operations" },
   { to: "/compliance", label: "Compliance", icon: Shield, section: "operations" },
   { to: "/audits", label: "Audits", icon: ListChecks, section: "operations" },

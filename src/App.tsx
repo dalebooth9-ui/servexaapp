@@ -21,6 +21,7 @@ import Compliance from "@/pages/Compliance";
 import Audits from "@/pages/Audits";
 import Invoices from "@/pages/Invoices";
 import InvoiceDetail from "@/pages/InvoiceDetail";
+import Quotes from "@/pages/Quotes";
 import PartsLibrary from "@/pages/PartsLibrary";
 import IndustryTemplates from "@/pages/IndustryTemplates";
 import Install from "@/pages/Install";
@@ -30,12 +31,17 @@ import EngineerReport from "@/pages/EngineerReport";
 import Reports from "@/pages/Reports";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ReactNode } from "react";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   return <AppLayout>{children}</AppLayout>;
@@ -43,6 +49,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 function AdminRoute({ children }: { children: ReactNode }) {
   const { user, userRole, loading } = useAuth();
+  useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   if (userRole !== "admin") return <Navigate to="/" replace />;
@@ -71,6 +78,7 @@ const App = () => (
             <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+            <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
             <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
             <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
@@ -88,8 +96,11 @@ const App = () => (
             <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
             <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <OfflineIndicator />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
