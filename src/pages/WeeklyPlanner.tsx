@@ -565,7 +565,17 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="month" className="mt-4">
-          <MonthlyView currentDate={monthDate} schedule={filteredSchedule} jobs={jobs} optimisedJobOrder={optimisedJobOrder} />
+          <MonthlyView
+            currentDate={monthDate}
+            schedule={filteredSchedule}
+            jobs={jobs}
+            unallocatedJobs={isAdmin ? unallocatedJobs : []}
+            engineers={sortedEngineers}
+            isAdmin={isAdmin}
+            optimisedJobOrder={optimisedJobOrder}
+            onAssign={handleAssign}
+            onRemove={handleRemove}
+          />
         </TabsContent>
 
         <TabsContent value="list" className="mt-4">
