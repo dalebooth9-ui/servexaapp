@@ -1009,7 +1009,7 @@ export async function generateRamsPdf(
 
   // Assessment detail fields — ensure enough space (5 rows × 8mm + ~30mm for ratings)
   const detailBlockH = 5 * 8 + 35;
-  if (y + detailBlockH > PAGE_H - 22) {
+  if (y + detailBlockH > SAFE_BOTTOM) {
     pageFooter(doc, 9, 10);
     y = newPage(doc);
     y = await pageHeader(doc, logoImg, "", y);
