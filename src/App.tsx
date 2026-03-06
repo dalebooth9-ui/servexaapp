@@ -99,6 +99,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/servexa" element={<Servexa />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <OfflineIndicator />
