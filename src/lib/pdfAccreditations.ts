@@ -86,7 +86,7 @@ export function addAccreditationLogosToAllPages(
   logoH = 7
 ): void {
   const pageCount = doc.getNumberOfPages();
-  const rowY = footerY - logoH - 2; // 2mm gap above footer
+  const rowY = footerY - logoH - 3; // 3mm gap above footer
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     renderAccreditationLogos(doc, logos, rowY, logoH);
