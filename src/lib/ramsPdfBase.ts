@@ -587,8 +587,8 @@ export async function buildRiskPage(
   totalPages: number,
   rC: number[]
 ): Promise<void> {
-  // Reserve 18mm for colour legend + footer at bottom
-  const RISK_SAFE_BOTTOM = PAGE_H - 26;
+  // Reserve space for colour legend + accreditation logos + footer at bottom
+  const RISK_SAFE_BOTTOM = PAGE_H - 50;
 
   const renderHeader = async (isNewPage: boolean) => {
     if (isNewPage) {
