@@ -1,43 +1,68 @@
 
-## What's already done
-All code is in place from the previous implementation session:
-- `src/lib/ramsPdfBase.ts` — shared PDF helpers ✓
-- `src/lib/ramsPdfVariants.ts` — all 3 RAMS generators (sprinkler, extinguisher, hydrant) ✓  
-- `src/components/RamsPdfExport.tsx` — `ramsType` prop and dispatch logic ✓
-- `src/components/JobDocuments.tsx` — `ramsTypeForJob()` detection ✓
+## UX & App Review — FieldReport
 
-## What's missing — database seed data only
+I've reviewed the full codebase, session replay (shows a user browsing the admin dashboard bar chart), the screenshot (showing the login page), and the key pages. Here's an honest assessment with specific, actionable improvements.
 
-### Migration: Insert 3 job categories
-```sql
-INSERT INTO job_categories (name, slug, sort_order)
-VALUES
-  ('Sprinkler', 'sprinkler', 10),
-  ('Fire Extinguisher', 'fire_extinguisher', 11),
-  ('Fire Hydrant', 'fire_hydrant', 12)
-ON CONFLICT DO NOTHING;
+---
+
+### What's Working Well
+- Clean dark sidebar with good contrast
+- Engineer dashboard is well-designed for mobile (large touch targets, tab navigation, clock in/out)
+- KPI cards and weekly chart on the admin dashboard are useful
+- Drag-to-reorder nav items is a clever power-user feature
+- AI Help Wizard with voice input is a strong differentiator
+
+---
+
+### Issues Found & Proposed Improvements
+
+**1. Login page — plain and off-brand**
+- The auth page is a basic centered card with no branding beyond a small favicon
+- No "Forgot password?" link — users are stuck if they forget credentials
+- Improvement: Add a subtle branded background panel (like the sidebar gradient colour), a "Forgot password?" flow, and make the card feel more polished
+
+**2. Admin Dashboard — quick actions are confusing**
+- Three outline buttons ("Create Job", "Create Customer", "Upload Files") all navigate to `/jobs` — "Upload Files" does not actually trigger an upload
+- "Create Customer" should go to `/customers`, not `/jobs`
+- "Upload Files" button should open the folder import dialog directly
+- The buttons lack visual hierarchy — a primary "Create Job" button would stand out better
+
+**3. Sidebar — 15 nav items is overwhelming**
+- Many items are rarely used (Industry Templates, Parts Library, Audits, Compliance, Sites, Assets all visible at once)
+- The drag-to-reorder feature is useful but most users won't discover the grip handle (it only appears on hover)
+- Improvement: Group items into collapsible sections (e.g. "Field Ops", "Management", "Reports") or add a "pin/unpin" mechanism
+
+**4. Navigation — two identical icons**
+- Both "Audits" and "Industry Templates" use the `ClipboardCheck` icon — this makes the sidebar visually confusing
+- Improvement: Use distinct icons (e.g. `ListChecks` for Audits, `BookOpen` for Templates)
+
+**5. Jobs page — high complexity**
+- The Jobs page is 1,406 lines with many dialogs, filters, and drag-and-drop
+- New users will struggle to find "Create Job" — consider a floating action button (FAB) on mobile views
+- The filter/search bar could benefit from a clearer visual separation from the job list
+
+**6. Dashboard "Recent Activity" — low signal**
+- Shows submission type ("photo", "document") without a thumbnail or detail — clicking requires going to the job
+- Improvement: Show a small thumbnail for photo submissions inline
+
+---
+
+### Plan
+
+1. **Fix the three quick-action buttons** on AdminDashboard — correct the navigation targets and wire "Upload Files" to the folder import dialog
+2. **Fix duplicate icons** in the sidebar (Audits vs Templates)
+3. **Add "Forgot password?" link** to the Auth page with a Supabase password reset flow
+4. **Improve sidebar grouping** — add subtle section labels ("Operations", "Admin") to break up the 15-item list visually without removing any items
+5. **Polish the auth page** — add a branded left panel with the app description for a more professional first impression
+
+---
+
+### Files to Change
+
+```text
+src/components/AdminDashboard.tsx     — fix quick action buttons
+src/components/AppLayout.tsx          — fix icons, add section labels to nav
+src/pages/Auth.tsx                    — add forgot password + branded panel
 ```
 
-### Migration: Insert 6 job sheet templates
-Two templates per category (matching dry riser pattern of Visual + Pressure/Service):
-
-**Sprinkler** (2 templates):
-- `Sprinkler System — Annual Service` (fields: system type, reference, number of heads, water supply check, pump test, alarm valve test, pressure readings, flow test, system restored, engineer comments, pass/fail)
-- `Sprinkler System — Quarterly Inspection` (fields: system type, reference, visual inspection checks, control valve status, alarm test, overall condition, pass/fail)
-
-**Fire Extinguisher** (2 templates):
-- `Fire Extinguisher — Annual Service` (fields: location, extinguisher type, serial number, weight check, pressure indicator, safety pin, hose/horn, service label fitted, discharge test required, condition, pass/fail)
-- `Fire Extinguisher — Extended Service` (fields: location, type, serial number, date last extended service, internal inspection, O-rings replaced, recharged weight, hydraulic test required, new label fitted, condemned/replaced, notes)
-
-**Fire Hydrant** (2 templates):
-- `Fire Hydrant — Annual Inspection` (fields: hydrant type, location/reference, valve condition, outlet cap condition, flow test result, outlet pressure, marker post condition, access clear, pass/fail, remedial action required)
-- `Fire Hydrant — Quarterly Visual Check` (fields: hydrant reference, location, marker post visible, cover/lid condition, access obstruction, overall condition, pass/fail)
-
-Each template: `category` = slug, `job_category` = slug, `fields` = JSON array.
-
-## Implementation
-Single migration file with:
-1. `INSERT INTO job_categories` (3 rows)  
-2. `INSERT INTO job_sheet_templates` (6 rows with full field JSON)
-
-No code changes needed — everything is already wired up and waiting for this data.
+No database changes required.
