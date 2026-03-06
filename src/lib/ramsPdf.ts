@@ -598,13 +598,9 @@ export async function generateRamsPdf(
     "A common appreciation of plant and pedestrians (who retain priority) must be observed and followed before moving about site.",
     "All deliveries of materials must be pre booked with Principal Contractor with 48 hours' notice given.",
   ], ML + 2, y, CONTENT_W - 2);
+  y += 3;
 
-  pageFooter(doc, currentPage, 10);
-
-  /* ───────────────────────────────────────────── PAGE 2 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 5;
   y = numberedList(doc, [
     "Check available timeslots for deliveries in the site office, with assessment of what is being delivered, what it weights, how will it be unloaded, what kind of materials are being delivered, how will it be stored, where will it be stored, do any special precautions need to be taken, will mechanical lifting aids need to be used. All deliveries will be supervised by main contractor Competent Banksman, and the delivery drivers must remain in vehicle if they do not have suitable PPE.",
