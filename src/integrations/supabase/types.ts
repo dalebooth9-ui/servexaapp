@@ -550,6 +550,45 @@ export type Database = {
           },
         ]
       }
+      customer_paperwork: {
+        Row: {
+          auto_attach: boolean
+          created_at: string
+          customer_id: string
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          label: string
+          updated_at: string
+          uploaded_by: string
+        }
+        Insert: {
+          auto_attach?: boolean
+          created_at?: string
+          customer_id: string
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          label?: string
+          updated_at?: string
+          uploaded_by: string
+        }
+        Update: {
+          auto_attach?: boolean
+          created_at?: string
+          customer_id?: string
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          label?: string
+          updated_at?: string
+          uploaded_by?: string
+        }
+        Relationships: []
+      }
       customer_portal_tokens: {
         Row: {
           created_at: string
