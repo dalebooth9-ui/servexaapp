@@ -113,6 +113,7 @@ export default function Compliance() {
     expiry_date: string; ocrLoading?: boolean; aiFields?: string[];
   }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
+  const [dialogDragOver, setDialogDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [scanningExistingIdx, setScanningExistingIdx] = useState<number | null>(null);
