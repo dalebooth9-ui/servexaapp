@@ -5,6 +5,7 @@
  */
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 
 export type RamsFormData = Record<string, any>;
 
