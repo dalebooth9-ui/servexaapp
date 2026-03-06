@@ -4,16 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Shield, Loader2, Play } from "lucide-react";
+import { Shield, Loader2, Play, Mail } from "lucide-react";
 import { toast } from "sonner";
 
 type Settings = {
   notify_30: boolean;
   notify_60: boolean;
   notify_90: boolean;
+  email_notifications: boolean;
 };
 
-const DEFAULT_SETTINGS: Settings = { notify_30: true, notify_60: false, notify_90: false };
+const DEFAULT_SETTINGS: Settings = { notify_30: true, notify_60: false, notify_90: false, email_notifications: true };
 
 export default function ComplianceReminderSettings() {
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
@@ -62,7 +63,8 @@ export default function ComplianceReminderSettings() {
       );
       const json = await res.json();
       if (!res.ok || json.error) throw new Error(json.error || "Unknown error");
-      toast.success(`Check complete — ${json.notified} notification(s) sent, ${json.updated} record(s) updated`);
+      const emailPart = json.emailed > 0 ? `, ${json.emailed} email(s) sent` : "";
+      toast.success(`Check complete — ${json.notified} notification(s), ${json.updated} record(s) updated${emailPart}`);
     } catch (err: any) {
       toast.error(`Run failed: ${err.message}`);
     } finally {
@@ -86,10 +88,11 @@ export default function ComplianceReminderSettings() {
           <CardTitle className="text-lg">Compliance Expiry Reminders</CardTitle>
         </div>
         <CardDescription>
-          Receive in-app notifications when compliance certificates are approaching their expiry date. Reminders run automatically every day at 08:00 UTC.
+          Receive in-app and email notifications when compliance certificates are approaching their expiry date. Reminders run automatically every day at 08:00 UTC.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
+        {/* Threshold toggles */}
         <div className="space-y-3">
           {thresholds.map(({ key, label, description }) => (
             <div key={key} className="flex items-center justify-between rounded-lg border p-3 gap-4">
@@ -99,18 +102,42 @@ export default function ComplianceReminderSettings() {
               </div>
               <Switch
                 id={key}
-                checked={settings[key]}
+                checked={settings[key] as boolean}
                 onCheckedChange={(v) => setSettings((s) => ({ ...s, [key]: v }))}
               />
             </div>
           ))}
         </div>
 
+        {/* Email notifications toggle */}
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-start gap-2.5">
+              <Mail className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <div className="space-y-0.5">
+                <Label htmlFor="email_notifications" className="text-sm font-medium cursor-pointer">
+                  Email notifications
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Send a summary email to all admin users via Resend when records expire or are expiring soon. One batched email per threshold per day.
+                </p>
+              </div>
+            </div>
+            <Switch
+              id="email_notifications"
+              checked={settings.email_notifications}
+              onCheckedChange={(v) => setSettings((s) => ({ ...s, email_notifications: v }))}
+            />
+          </div>
+        </div>
+
         <div className="rounded-lg border border-dashed p-3 space-y-1.5">
           <p className="text-xs font-medium">How it works</p>
           <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
             <li>A daily background job checks all compliance records each morning</li>
-            <li>Notifications appear in the bell icon for all admin users</li>
+            <li>In-app notifications appear in the bell icon for all admin users</li>
+            <li>Email alerts are sent to all admin email addresses via Resend</li>
+            <li>Emails are batched — one summary per threshold per day (not one per record)</li>
             <li>Each record triggers at most one reminder per week per threshold</li>
             <li>Expired records always generate an alert regardless of these settings</li>
           </ul>
