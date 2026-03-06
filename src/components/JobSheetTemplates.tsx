@@ -566,11 +566,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           )}
           {/* Draft responses — exclude RAMS */}
-              </div>
-            </div>
-            </div>
-          )}
-          {/* Draft responses — exclude RAMS */}
           {responses.filter((r) => {
             const tpl = templates.find((t) => t.id === r.template_id);
             return (tpl as any)?.category !== "rams" && r.status === "draft";
