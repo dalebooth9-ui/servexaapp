@@ -9,6 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
+import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
