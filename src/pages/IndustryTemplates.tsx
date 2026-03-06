@@ -25,6 +25,7 @@ type IndustryTemplate = {
   standard: string;
   description: string;
   category: "dry_riser" | "fire_extinguisher" | "fire_hydrant" | "sprinkler";
+  job_category?: string; // override for more specific job type matching
   fields: FieldDef[];
 };
 
