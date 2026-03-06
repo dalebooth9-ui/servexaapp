@@ -99,6 +99,95 @@ export default function Compliance() {
   const assetLookup = Object.fromEntries(assets.map((a) => [a.id, a.name]));
   const siteLookup = Object.fromEntries(sites.map((s) => [s.id, s.name]));
 
+  // OCR helper: converts a File to base64 and calls the parse-compliance-document edge function
+  const runOcrOnFile = useCallback(async (file: File): Promise<{
+    issue_date?: string | null;
+    expiry_date?: string | null;
+    title?: string | null;
+    issuer?: string | null;
+    reference_number?: string | null;
+  } | null> => {
+    try {
+      // Only process images and PDFs (take first page image for PDFs via canvas trick is complex,
+      // so we send the raw file as-is if it's an image; for PDFs we send the first page as JPEG)
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      if (!isImage && !isPdf) return null;
+
+      let base64 = "";
+      let mimeType = file.type;
+
+      if (isImage) {
+        // Read image directly as base64
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]); // strip data URL prefix
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      } else if (isPdf) {
+        // For PDFs: render first page to canvas using pdf.js CDN and capture as JPEG
+        try {
+          const pdfjsLib = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm" as any);
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          base64 = dataUrl.split(",")[1];
+          mimeType = "image/jpeg";
+        } catch (pdfErr) {
+          console.warn("PDF render failed, skipping OCR:", pdfErr);
+          return null;
+        }
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return null;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-compliance-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ image_base64: base64, mime_type: mimeType }),
+        }
+      );
+
+      if (res.status === 429) {
+        toast({ title: "Rate limit reached", description: "AI OCR rate limited — please try again shortly.", variant: "destructive" });
+        return null;
+      }
+      if (res.status === 402) {
+        toast({ title: "Credits required", description: "AI usage credits exhausted — dates not auto-filled.", variant: "destructive" });
+        return null;
+      }
+      if (!res.ok) return null;
+
+      const json = await res.json();
+      if (json.error) return null;
+      return json;
+    } catch (err) {
+      console.warn("OCR failed:", err);
+      return null;
+    }
+  }, [supabase, toast]);
+
+
   const filtered = records.filter((r) => {
     if (typeFilter !== "all" && r.record_type !== typeFilter) return false;
     if (statusFilter !== "all" && r.status !== statusFilter) return false;
