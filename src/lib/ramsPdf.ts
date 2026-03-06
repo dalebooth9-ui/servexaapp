@@ -638,12 +638,9 @@ export async function generateRamsPdf(
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.1 Personnel", ML, y); y += 4;
   y = para(doc, "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith, James Ogg", ML, y, CONTENT_W);
-  pageFooter(doc, currentPage, 10);
+  y += 3;
 
-  /* ───────────────────────────────────────────── PAGE 3 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.2 Supervision", ML, y); y += 4;
   y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
   y = await checkPageBreak(doc, y, 35, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
