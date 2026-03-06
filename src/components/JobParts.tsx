@@ -259,7 +259,11 @@ export default function JobParts({ jobId }: { jobId: string }) {
     if (!formData.name.trim() || !user) return;
     // Calculate sort_order
     let newSortOrder: number;
-    if (insertAfterIndex !== undefined && insertAfterIndex >= 0 && parts.length > 0) {
+    if (insertAfterIndex === -1 && parts.length > 0) {
+      // Insert before the first item
+      const firstPart = parts[0];
+      newSortOrder = firstPart.sort_order - 1;
+    } else if (insertAfterIndex !== undefined && insertAfterIndex >= 0 && parts.length > 0) {
       const afterPart = parts[insertAfterIndex];
       const nextPart = parts[insertAfterIndex + 1];
       if (nextPart) {
@@ -569,6 +573,12 @@ export default function JobParts({ jobId }: { jobId: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <InlineAddRow
+                    key="add-top"
+                    isAdmin={isAdmin}
+                    colSpan={colCount}
+                    onAdd={(f) => handleAddAt(f, -1)}
+                  />
                   {parts.map((part, idx) => (
                     <>
                       <SortablePartRow
