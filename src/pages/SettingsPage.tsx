@@ -261,6 +261,7 @@ export default function SettingsPage() {
         </Card>
         <UserRoleSettings />
         <FollowUpReminderSettings />
+        <ComplianceReminderSettings />
         <JobCategorySettings />
         <AssetCategorySettings />
         <JobTemplateSettings />
