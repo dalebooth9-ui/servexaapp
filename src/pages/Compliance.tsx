@@ -816,6 +816,7 @@ export default function Compliance() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Attach Documents</label>
+              {/* Drag-and-drop zone wrapping the file input area */}
               <input ref={fileRef} type="file" multiple accept="image/*,.pdf" onChange={async (e) => {
                 if (!e.target.files) return;
                 const newFiles = Array.from(e.target.files);
