@@ -53,3 +53,6 @@ verify_jwt = false
 
 [functions.send-engineer-onboarding]
 verify_jwt = false
+
+[functions.ai-help-wizard]
+verify_jwt = false

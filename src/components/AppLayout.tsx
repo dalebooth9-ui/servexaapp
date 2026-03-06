@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
 import NotificationBell from "@/components/NotificationBell";
+import AiHelpWizard from "@/components/AiHelpWizard";
 import ClockInButton from "@/components/ClockInButton";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -210,6 +211,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
       <CommandPalette />
+      <AiHelpWizard />
     </div>
   );
 }
