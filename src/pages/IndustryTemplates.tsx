@@ -25,6 +25,7 @@ type IndustryTemplate = {
   standard: string;
   description: string;
   category: "dry_riser" | "fire_extinguisher" | "fire_hydrant" | "sprinkler";
+  job_category?: string; // override for more specific job type matching
   fields: FieldDef[];
 };
 
@@ -95,6 +96,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
     standard: "BS EN 9990",
     description: "New installation commissioning record confirming system is fit for purpose before handover.",
     category: "dry_riser",
+    job_category: "dry_riser_installation",
     fields: [
       { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
       { id: "site_address", label: "Site Address", type: "textarea", section: "Site Details", required: true },
@@ -314,7 +316,7 @@ export default function IndustryTemplates() {
         name: tpl.name,
         description: `${tpl.standard} — ${tpl.description}`,
         fields: tpl.fields as any,
-        job_category: tpl.category,
+        job_category: tpl.job_category ?? tpl.category,
         created_by: user.id,
         locked: false,
       } as any);
