@@ -113,6 +113,7 @@ export default function Compliance() {
     expiry_date: string; ocrLoading?: boolean; aiFields?: string[];
   }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
+  const [dialogDragOver, setDialogDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
   const [scanningExistingIdx, setScanningExistingIdx] = useState<number | null>(null);
@@ -219,6 +220,30 @@ export default function Compliance() {
       return null;
     }
   }, [supabase, toast]);
+
+  // Shared handler for files added via browser OR drag-and-drop in the single-record dialog
+  const handleFilesAdded = useCallback(async (newFiles: File[]) => {
+    if (!newFiles.length) return;
+    setPendingFiles((prev) => [...prev, ...newFiles]);
+    const ocrFile = newFiles.find((f) => f.type.startsWith("image/") || f.type === "application/pdf");
+    if (!ocrFile) return;
+    setOcrLoading(true);
+    const result = await runOcrOnFile(ocrFile);
+    setOcrLoading(false);
+    if (result) {
+      const newAiFields: string[] = [];
+      setForm((f) => {
+        const updates: Partial<typeof emptyForm> = {};
+        if (result.issue_date) { updates.issue_date = result.issue_date; newAiFields.push("issue_date"); }
+        if (result.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
+        if (result.title && !f.title) { updates.title = result.title; newAiFields.push("title"); }
+        if (result.issuer && !f.issuer) { updates.issuer = result.issuer; newAiFields.push("issuer"); }
+        if (result.reference_number && !f.reference_number) { updates.reference_number = result.reference_number; newAiFields.push("reference_number"); }
+        return { ...f, ...updates };
+      });
+      setAiFields((prev) => [...new Set([...prev, ...newAiFields])]);
+    }
+  }, [runOcrOnFile]);
 
 
   const filtered = records.filter((r) => {
@@ -819,97 +844,31 @@ export default function Compliance() {
               <input ref={fileRef} type="file" multiple accept="image/*,.pdf" onChange={async (e) => {
                 if (!e.target.files) return;
                 const newFiles = Array.from(e.target.files);
-                setPendingFiles((prev) => [...prev, ...newFiles]);
                 if (fileRef.current) fileRef.current.value = "";
-
-                // Always OCR first eligible file — extract dates even if title is already set
-                const ocrFile = newFiles.find((f) => f.type.startsWith("image/") || f.type === "application/pdf");
-                if (ocrFile) {
-                  setOcrLoading(true);
-                  const result = await runOcrOnFile(ocrFile);
-                  setOcrLoading(false);
-                  if (result) {
-                    const newAiFields: string[] = [];
-                    setForm((f) => {
-                      const updates: Partial<typeof emptyForm> = {};
-                      if (result.issue_date) { updates.issue_date = result.issue_date; newAiFields.push("issue_date"); }
-                      if (result.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
-                      if (result.title && !f.title) { updates.title = result.title; newAiFields.push("title"); }
-                      if (result.issuer && !f.issuer) { updates.issuer = result.issuer; newAiFields.push("issuer"); }
-                      if (result.reference_number && !f.reference_number) { updates.reference_number = result.reference_number; newAiFields.push("reference_number"); }
-                      return { ...f, ...updates };
-                    });
-                    setAiFields((prev) => [...new Set([...prev, ...newAiFields])]);
-                  } else if (!form.issue_date) {
-                    setForm((f) => ({ ...f, issue_date: todayStr() }));
-                  }
-                }
+                await handleFilesAdded(newFiles);
               }} className="hidden" />
-              <div className="flex items-center gap-2 flex-wrap">
-                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={ocrLoading}>
-                  {ocrLoading
-                    ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Scanning…</>
-                    : <><Upload className="mr-1.5 h-3.5 w-3.5" /> Add files</>
-                  }
-                </Button>
-                {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
-              </div>
-              {editing && (() => {
-                const { urls, names } = parseFileList(editing.file_url, editing.file_name);
-                return names.length > 0 ? (
-                  <div className="space-y-1 mt-1">
-                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Existing files — click to re-scan with AI</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {names.map((n, i) => {
-                        const isScanning = scanningExistingIdx === i;
-                        const isPdf = n.toLowerCase().endsWith(".pdf");
-                        const isImg = [".jpg",".jpeg",".png",".webp"].some((e) => n.toLowerCase().endsWith(e));
-                        const canScan = isPdf || isImg;
-                        return (
-                          <TooltipProvider key={i} delayDuration={200}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <button
-                                  type="button"
-                                  disabled={!canScan || scanningExistingIdx !== null}
-                                  onClick={() => canScan && urls[i] && runOcrOnExistingFile(urls[i], n, i)}
-                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-medium transition-colors
-                                    ${canScan ? "cursor-pointer hover:border-violet-400 hover:bg-violet-500/10 hover:text-violet-700" : "cursor-default opacity-60"}
-                                    ${isScanning ? "border-violet-400 bg-violet-500/10 text-violet-700 animate-pulse" : "border-border bg-muted text-muted-foreground"}`}
-                                >
-                                  {isScanning
-                                    ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                                    : canScan ? <Sparkles className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />
-                                  }
-                                  <span className="max-w-[160px] truncate">{n}</span>
-                                </button>
-                              </TooltipTrigger>
-                              {canScan && (
-                                <TooltipContent side="top" className="text-xs">
-                                  {isScanning ? "Scanning…" : "Click to extract dates with AI"}
-                                </TooltipContent>
-                              )}
-                            </Tooltip>
-                          </TooltipProvider>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : null;
-              })()}
-              {pendingFiles.length > 0 && (
-                <div className="space-y-1 mt-1">
-                  {pendingFiles.map((f, i) => (
-                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <FileText className="h-3 w-3 shrink-0" />
-                      <span className="truncate">{f.name}</span>
-                      <button onClick={() => setPendingFiles((prev) => prev.filter((_, j) => j !== i))} className="text-destructive hover:underline text-[10px] shrink-0">Remove</button>
-                    </div>
-                  ))}
+              <div
+                className={`rounded-lg border-2 border-dashed p-3 transition-colors ${dialogDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/20"}`}
+                onDragOver={(e) => { e.preventDefault(); setDialogDragOver(true); }}
+                onDragLeave={() => setDialogDragOver(false)}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setDialogDragOver(false);
+                  const dropped = Array.from(e.dataTransfer.files).filter((f) => f.size > 0);
+                  if (dropped.length) await handleFilesAdded(dropped);
+                }}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={ocrLoading}>
+                    {ocrLoading
+                      ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Scanning…</>
+                      : <><Upload className="mr-1.5 h-3.5 w-3.5" /> Add files</>
+                    }
+                  </Button>
+                  {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
+                  {!ocrLoading && <span className="text-xs text-muted-foreground">or drag &amp; drop files here</span>}
                 </div>
-              )}
-            </div>
-            <div className="space-y-1.5">
+              </div>
               <label className="text-sm font-medium">Notes</label>
               <Textarea value={form.notes} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} rows={2} />
             </div>
