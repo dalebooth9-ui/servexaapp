@@ -1233,11 +1233,11 @@ export default function Sites() {
 
       {/* Create Job from Site dialog */}
       <Dialog open={createJobDialogOpen} onOpenChange={(o) => { if (!o) setCreateJobDialogOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
             {/* Site / Building selector — single selection, full tree */}
             {createJobSite && (() => {
               const treeItems: { site: Site; depth: number }[] = [];
@@ -1397,12 +1397,12 @@ export default function Sites() {
                 />
               </div>
             </div>
-          </div>
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
-            <Input type="date" value={createJobForm.due_date} onChange={(e) => setCreateJobForm((f) => ({ ...f, due_date: e.target.value }))} />
-          </div>
-          <div className="flex gap-2 pt-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></label>
+              <Input type="date" value={createJobForm.due_date} onChange={(e) => setCreateJobForm((f) => ({ ...f, due_date: e.target.value }))} />
+            </div>
+          </div>{/* end scrollable area */}
+          <div className="flex gap-2 pt-2 shrink-0 border-t">
             <Button
               className="flex-1"
               onClick={() => handleCreateJob()}
