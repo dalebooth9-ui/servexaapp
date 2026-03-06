@@ -795,6 +795,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   </div>
                 </div>
               ))}
+                  </div>
                 </div>
               );
             }
