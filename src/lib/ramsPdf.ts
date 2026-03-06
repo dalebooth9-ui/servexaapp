@@ -694,13 +694,9 @@ export async function generateRamsPdf(
     "Gloves CE4131",
     "Glasses EN166",
     "Goggles EN166",
-  ], ML + 3, y, CONTENT_W - 3);
-  pageFooter(doc, currentPage, 10);
+  y += 3;
 
-  /* ───────────────────────────────────────────── PAGE 4 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6 Emergency Arrangements", ML, y); y += 4;
   y = para(doc,
     "All accidents must be recorded in the site accident book and reported to Principal Contractor and Viva Fire senior management team.",
