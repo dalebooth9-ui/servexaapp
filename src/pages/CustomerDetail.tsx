@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
+import CustomerPaperwork from "@/components/CustomerPaperwork";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -521,6 +522,26 @@ export default function CustomerDetail() {
       });
     }
 
+    // Auto-attach customer paperwork files
+    const { data: paperwork } = await supabase
+      .from("customer_paperwork" as any)
+      .select("*")
+      .eq("customer_id", id)
+      .eq("auto_attach", true);
+    if (paperwork && (paperwork as any[]).length > 0) {
+      for (const pw of paperwork as any[]) {
+        await supabase.from("job_documents" as any).insert({
+          job_id: newJob.id,
+          document_type: "customer_paperwork",
+          label: pw.label || pw.file_name,
+          file_url: pw.file_url,
+          file_name: pw.file_name,
+          source: "customer_paperwork",
+          created_by: user.id,
+        });
+      }
+    }
+
     toast({ title: "Job created", description: `${newJob.reference_number} created.` });
     setManualJobDialogOpen(false);
     setManualJobForm({ name: "", reference_number: "", priority: "medium", category: "general", site_id: "", address: "" });
@@ -606,6 +627,9 @@ export default function CustomerDetail() {
           )}
         </div>
       </div>
+
+      {/* Customer Paperwork Section */}
+      <CustomerPaperwork customerId={id} />
 
       {/* Documents Section */}
       <div
