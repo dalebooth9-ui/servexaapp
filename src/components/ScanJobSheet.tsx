@@ -354,9 +354,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       // --- FOOTER DECLARATION on last page ---
       renderPdfFooter(doc, footerStartY, footerText);
 
-      // Watermark
-      const watermark = await loadWatermarkImage();
+      // Watermark + Accreditations
+      const [watermark, accredLogos] = await Promise.all([
+        loadWatermarkImage(),
+        loadAccreditationLogos(),
+      ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerStartY);
 
       doc.save(`scanned-sheet-${Date.now()}.pdf`);
 

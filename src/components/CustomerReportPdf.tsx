@@ -23,7 +23,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
   const generate = async () => {
     setGenerating(true);
     try {
-      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, watermark] = await Promise.all([
+      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, watermark, accredLogos] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("field_reports").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_visits").select("*").eq("job_id", jobId).order("scheduled_date", { ascending: true }),
@@ -31,6 +31,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
         supabase.from("job_signatures").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         loadWatermarkImage(),
+        loadAccreditationLogos(),
       ]);
 
       const submissions = subsRes.data || [];
@@ -305,10 +306,12 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       const footerY = doc.internal.pageSize.getHeight() - 18;
       renderPdfFooter(doc, footerY, footerText);
 
-      // === WATERMARK ===
+      // === WATERMARK + ACCREDITATIONS ===
       if (watermark) {
         addWatermarkToAllPages(doc, watermark);
       }
+      const footerY = doc.internal.pageSize.getHeight() - 18;
+      addAccreditationLogosToAllPages(doc, accredLogos, footerY);
 
       const fileName = `${job.reference_number}-customer-report.pdf`;
 
