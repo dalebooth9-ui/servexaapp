@@ -115,6 +115,7 @@ export default function Compliance() {
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [scanningExistingIdx, setScanningExistingIdx] = useState<number | null>(null);
 
   const fetchData = async () => {
     const [recRes, assetRes, siteRes, jobRes] = await Promise.all([
