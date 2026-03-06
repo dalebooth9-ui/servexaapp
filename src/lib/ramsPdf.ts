@@ -854,7 +854,7 @@ export async function generateRamsPdf(
     "Whilst lone working is not envisaged, if this should occur an individual activity related risk assessment must be carried out."
   ], rC, y, 0, false);
 
-  riskColorLegend(doc, PAGE_H - 18);
+  riskColorLegend(doc, PAGE_H - 42);
   pageFooter(doc, 6, 10);
 
   /* ───────────────────────────────────────────── PAGE 7 – Risk Table 2 ── */
@@ -903,7 +903,7 @@ export async function generateRamsPdf(
     "Good housekeeping helps keep safe sites. Never walk on by if you see materials or tools in your walkway, if it is safe to move do so."
   ], rC, y, 0, false);
 
-  riskColorLegend(doc, PAGE_H - 18);
+  riskColorLegend(doc, PAGE_H - 42);
   pageFooter(doc, 7, 10);
 
   /* ───────────────────────────────────────────── PAGE 8 – Risk Table 3 ── */
@@ -952,7 +952,7 @@ export async function generateRamsPdf(
     ""
   ], rC, y, 0, false);
 
-  riskColorLegend(doc, PAGE_H - 18);
+  riskColorLegend(doc, PAGE_H - 42);
   pageFooter(doc, 8, 10);
 
   /* ───────────────────────────────────────────── PAGE 9 – Risk Table 4 (Human Factors + Manual Handling) ── */
@@ -1039,7 +1039,7 @@ export async function generateRamsPdf(
   y = para(doc, "1=Highly Unlikely, 2=Unlikely, 3=Possible, 4=Probable, 5=Common, 6=Regular, 7=Continuous", ML, y, CONTENT_W, 8); y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Severity Ratings:", ML, y); y += 4;
   y = para(doc, "1=Trivial, 2=Minor, 3=Under '7-day' Injury, 4=Over '7-day' Reportable Injury, 5=Major Injury, 6=Fatality (1 person), 7=Multiple Fatality (2+ persons)", ML, y, CONTENT_W, 8);
-  riskColorLegend(doc, PAGE_H - 18);
+  riskColorLegend(doc, PAGE_H - 42);
   pageFooter(doc, 9, 10);
 
   /* ───────────────────────────────────────────── PAGE 10 – Sign Off ── */
