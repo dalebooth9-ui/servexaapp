@@ -520,21 +520,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         <CardContent>
           {/* RAMS section — auto-filled export */}
           {ramsTemplates.length > 0 && (
-            <div className="mb-4 pb-3 border-b border-border/60">
-              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                <FileText className="h-3 w-3" /> RAMS – Risk Assessment & Method Statement
+            <div className="mb-3 pb-3 border-b border-border/60">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                RAMS
               </p>
-              <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{ramsTemplates[0]?.name || "RAMS"}</span>
-                  <Badge variant="secondary" className="text-[10px]">Auto-filled</Badge>
+              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 min-h-[38px]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium truncate">{ramsTemplates[0]?.name || "RAMS"}</span>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">Auto-fill</Badge>
                   {latestRams && (
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-[10px] shrink-0">
                       {latestRams.status === "submitted" ? "Completed" : "Draft"}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 shrink-0 ml-2">
                   <AiRamsAutoFill
                     jobName={jobInfo?.name || ""}
                     category={jobInfo?.category || ""}
