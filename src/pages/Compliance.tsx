@@ -847,7 +847,28 @@ export default function Compliance() {
                 if (fileRef.current) fileRef.current.value = "";
                 await handleFilesAdded(newFiles);
               }} className="hidden" />
-                setPendingFiles((prev) => [...prev, ...newFiles]);
+              <div
+                className={`rounded-lg border-2 border-dashed p-3 transition-colors ${dialogDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/20"}`}
+                onDragOver={(e) => { e.preventDefault(); setDialogDragOver(true); }}
+                onDragLeave={() => setDialogDragOver(false)}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setDialogDragOver(false);
+                  const dropped = Array.from(e.dataTransfer.files).filter((f) => f.size > 0);
+                  if (dropped.length) await handleFilesAdded(dropped);
+                }}
+              >
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={ocrLoading}>
+                    {ocrLoading
+                      ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Scanning…</>
+                      : <><Upload className="mr-1.5 h-3.5 w-3.5" /> Add files</>
+                    }
+                  </Button>
+                  {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
+                  {!ocrLoading && <span className="text-xs text-muted-foreground">or drag & drop files here</span>}
+                </div>
+              </div>
                 if (fileRef.current) fileRef.current.value = "";
 
                 // Always OCR first eligible file — extract dates even if title is already set
