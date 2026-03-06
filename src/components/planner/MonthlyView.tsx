@@ -17,7 +17,9 @@ interface Job {
   name: string;
   reference_number: string;
   priority: string;
+  status: string;
   customer: string | null;
+  due_date?: string | null;
   pressure_test_qty: number;
   visual_qty: number;
   other_qty: number;
