@@ -434,6 +434,51 @@ export default function Compliance() {
 
   const todayStr = () => new Date().toISOString().split("T")[0];
 
+  // Fetch an existing stored file by storage path, convert to File, run OCR
+  const runOcrOnExistingFile = async (storagePath: string, fileName: string, idx: number) => {
+    setScanningExistingIdx(idx);
+    try {
+      const { data } = await supabase.storage.from("asset-documents").createSignedUrl(storagePath, 300);
+      if (!data?.signedUrl) { setScanningExistingIdx(null); return; }
+      const res = await fetch(data.signedUrl);
+      if (!res.ok) { setScanningExistingIdx(null); return; }
+      const blob = await res.blob();
+      // Infer MIME from file name
+      const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        ".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".webp": "image/webp",
+      };
+      const type = mimeMap[ext] || blob.type || "application/octet-stream";
+      const file = new File([blob], fileName, { type });
+      const result = await runOcrOnFile(file);
+      if (result) {
+        const newAiFields: string[] = [];
+        setForm((f) => {
+          const updates: Partial<typeof emptyForm> = {};
+          if (result.issue_date) { updates.issue_date = result.issue_date; newAiFields.push("issue_date"); }
+          if (result.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
+          if (result.title && !f.title) { updates.title = result.title; newAiFields.push("title"); }
+          if (result.issuer && !f.issuer) { updates.issuer = result.issuer; newAiFields.push("issuer"); }
+          if (result.reference_number && !f.reference_number) { updates.reference_number = result.reference_number; newAiFields.push("reference_number"); }
+          return { ...f, ...updates };
+        });
+        setAiFields((prev) => [...new Set([...prev, ...newAiFields])]);
+        if (newAiFields.length > 0) {
+          toast({ title: "AI extracted dates", description: `Found: ${newAiFields.map((x) => AI_FIELD_LABELS[x] || x).join(", ")}` });
+        } else {
+          toast({ title: "No new data found", description: "AI couldn't extract additional information from this file." });
+        }
+      } else {
+        toast({ title: "Scan complete", description: "No date information found in this document.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.warn("Existing file OCR failed:", err);
+    } finally {
+      setScanningExistingIdx(null);
+    }
+  };
+
   const addBulkFiles = async (files: File[]) => {
     const entries = files.map((f) => ({
       file: f,
