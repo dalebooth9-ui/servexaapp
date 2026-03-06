@@ -714,29 +714,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             if (visibleTemplates.length > 0) {
               return (
                 <div>
-                  {userRole === "admin" && (
-                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Available Templates</p>
-                  )}
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Available Templates</p>
+                  <div className="rounded-md border divide-y">
                   {visibleTemplates.map((tpl) => (
                 <div
                   key={tpl.id}
-                  className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
+                  className="flex items-center justify-between px-3 py-2 min-h-[38px]"
                 >
-                   <div>
-                    <span className="text-sm font-medium">{tpl.name}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{tpl.fields.length} fields</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="text-sm font-medium truncate">{tpl.name}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{tpl.fields.length} fields</span>
                     {userRole === "admin" && (tpl as any).job_category && (
-                      <Badge variant="outline" className="ml-2 text-xs h-4">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
-                    )}
-                    {userRole === "admin" && !(tpl as any).job_category && (
-                      <Badge variant="secondary" className="ml-2 text-xs h-4 opacity-50">all jobs</Badge>
+                      <Badge variant="outline" className="text-[10px] h-4 shrink-0">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
                     )}
                   </div>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs"
+                      className="h-7 text-xs px-2"
                       onClick={() => {
                         const tplName = tpl.name.toLowerCase();
                         const isQtyTemplate = tplName.includes("pressure test") || tplName.includes("dry riser") || tplName.includes("visual");
@@ -747,7 +744,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         }
                       }}
                     >
-                      <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
+                      Fill In
                     </Button>
                     <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
                     <ScanJobSheet
