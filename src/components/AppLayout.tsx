@@ -18,39 +18,39 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
+  DragEndEvent } from
+"@dnd-kit/core";
 import {
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
-  arrayMove,
-} from "@dnd-kit/sortable";
+  arrayMove } from
+"@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
 const DEFAULT_NAV_ITEMS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, section: "main" },
-  { to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
-  { to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
-  { to: "/customers", label: "Customers", icon: Building2, section: "operations" },
-  { to: "/sites", label: "Sites", icon: MapPin, section: "operations" },
-  { to: "/assets", label: "Assets", icon: Package, section: "operations" },
-  { to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
-  { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "operations", adminOnly: true },
-  { to: "/parts-library", label: "Parts Library", icon: Library, section: "operations" },
-  { to: "/compliance", label: "Compliance", icon: Shield, section: "operations" },
-  { to: "/audits", label: "Audits", icon: ListChecks, section: "operations" },
-  { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
-  { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
-  { to: "/reports/engineers", label: "Performance", icon: BarChart2, section: "admin", adminOnly: true },
-  { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
-  { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true },
-];
+{ to: "/", label: "Dashboard", icon: LayoutDashboard, section: "main" },
+{ to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
+{ to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
+{ to: "/customers", label: "Customers", icon: Building2, section: "operations" },
+{ to: "/sites", label: "Sites", icon: MapPin, section: "operations" },
+{ to: "/assets", label: "Assets", icon: Package, section: "operations" },
+{ to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
+{ to: "/quotes", label: "Quotes", icon: ClipboardList, section: "operations", adminOnly: true },
+{ to: "/parts-library", label: "Parts Library", icon: Library, section: "operations" },
+{ to: "/compliance", label: "Compliance", icon: Shield, section: "operations" },
+{ to: "/audits", label: "Audits", icon: ListChecks, section: "operations" },
+{ to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
+{ to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
+{ to: "/reports/engineers", label: "Performance", icon: BarChart2, section: "admin", adminOnly: true },
+{ to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
+{ to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
+
 
 const SECTION_LABELS: Record<string, string> = {
   main: "",
   operations: "Operations",
-  admin: "Admin",
+  admin: "Admin"
 };
 
 const STORAGE_KEY = "nav-order";
@@ -59,14 +59,14 @@ function loadNavOrder(): string[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
+  } catch {return null;}
 }
 
-function SortableNavItem({ item, isActive, onClick }: {
-  item: typeof DEFAULT_NAV_ITEMS[number];
-  isActive: boolean;
-  onClick: () => void;
-}) {
+function SortableNavItem({ item, isActive, onClick
+
+
+
+}: {item: typeof DEFAULT_NAV_ITEMS[number];isActive: boolean;onClick: () => void;}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -76,8 +76,8 @@ function SortableNavItem({ item, isActive, onClick }: {
         {...attributes}
         {...listeners}
         className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-40 hover:!opacity-80 transition-opacity text-sidebar-foreground"
-        tabIndex={-1}
-      >
+        tabIndex={-1}>
+        
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       <Link
@@ -85,19 +85,19 @@ function SortableNavItem({ item, isActive, onClick }: {
         onClick={onClick}
         className={cn(
           "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-          isActive
-            ? "bg-sidebar-accent text-sidebar-primary"
-            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        )}
-      >
+          isActive ?
+          "bg-sidebar-accent text-sidebar-primary" :
+          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        )}>
+        
         <item.icon className="h-4.5 w-4.5" />
         {item.label}
       </Link>
-    </div>
-  );
+    </div>);
+
 }
 
-export default function AppLayout({ children }: { children: ReactNode }) {
+export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
   useEngineerLocation();
   const location = useLocation();
@@ -108,21 +108,21 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
-    supabase
-      .from("app_settings")
-      .select("value")
-      .eq("key", "business_whatsapp_number")
-      .single()
-      .then(({ data }) => {
-        if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
-          setWhatsappNumber(data.value);
-        }
-      });
+    supabase.
+    from("app_settings").
+    select("value").
+    eq("key", "business_whatsapp_number").
+    single().
+    then(({ data }) => {
+      if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
+        setWhatsappNumber(data.value);
+      }
+    });
   }, []);
 
-  const orderedItems = navOrder
-    .map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to))
-    .filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
+  const orderedItems = navOrder.
+  map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).
+  filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
 
   // Append any new items not in saved order
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
@@ -166,9 +166,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="border-b border-sidebar-border overflow-hidden">
+        )}>
+        
+        <div className="border-b overflow-hidden border-secondary-foreground">
           <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-cover" />
           <div className="flex items-center justify-end gap-1.5 px-3 py-1.5">
             <ClockInButton />
@@ -188,43 +188,43 @@ export default function AppLayout({ children }: { children: ReactNode }) {
                 const label = SECTION_LABELS[section];
                 return (
                   <div key={section} className="mb-1">
-                    {label && (
-                      <p className="mb-1 mt-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
+                    {label &&
+                    <p className="mb-1 mt-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
                         {label}
                       </p>
-                    )}
+                    }
                     <div className="space-y-0.5">
                       {items.map((item) => {
-                        const isActive = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
+                        const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
                         return (
                           <SortableNavItem
                             key={item.to}
                             item={item}
                             isActive={isActive}
-                            onClick={() => setMobileOpen(false)}
-                          />
-                        );
+                            onClick={() => setMobileOpen(false)} />);
+
+
                       })}
                     </div>
-                  </div>
-                );
+                  </div>);
+
               })}
             </SortableContext>
           </DndContext>
         </nav>
 
         <div className="shrink-0 border-t border-sidebar-border px-3 py-2">
-          {whatsappNumber && (
-            <a
-              href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mb-1.5 flex items-center gap-2 rounded-lg bg-sidebar-accent px-2 py-1.5 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80"
-            >
+          {whatsappNumber &&
+          <a
+            href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mb-1.5 flex items-center gap-2 rounded-lg bg-sidebar-accent px-2 py-1.5 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80">
+            
               <MessageCircle className="h-3.5 w-3.5 shrink-0 text-accent" />
               <span className="truncate">{whatsappNumber}</span>
             </a>
-          )}
+          }
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 text-xs">
               <p className="truncate font-medium text-sidebar-accent-foreground">{profile?.full_name || user?.email}</p>
@@ -252,6 +252,6 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       </div>
       <CommandPalette />
       <AiHelpWizard />
-    </div>
-  );
+    </div>);
+
 }
