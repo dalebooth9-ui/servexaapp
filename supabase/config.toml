@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.send-weekly-report]
 verify_jwt = false
+
+[functions.send-engineer-onboarding]
+verify_jwt = false
