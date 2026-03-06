@@ -170,7 +170,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       >
         <div className="border-b border-sidebar-border overflow-hidden">
           <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-cover" />
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="flex items-center justify-end gap-1.5 px-3 py-1.5">
             <ClockInButton />
             <NotificationBell />
             <button onClick={() => setMobileOpen(false)} className="lg:hidden">
