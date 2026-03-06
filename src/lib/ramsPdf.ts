@@ -24,7 +24,7 @@ const PAGE_H = 297;
 const ML = 14;
 const MR = 14;
 const CONTENT_W = PAGE_W - ML - MR;
-const SAFE_BOTTOM = PAGE_H - 20; // footer sits at PAGE_H-8; leave 12mm clearance
+const SAFE_BOTTOM = PAGE_H - 44; // logos (18mm) + footer + clearance
 
 /** Add a new page and return y=top-of-content */
 function newPage(doc: jsPDF): number {
