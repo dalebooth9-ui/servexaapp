@@ -249,8 +249,6 @@ export default function Sites() {
         const customerName = selectedCustomer?.name || "";
         const address = selectedSite.address || "";
         for (const tpl of matchingTemplates) {
-          // Skip dry riser templates — engineers start them manually
-          if ((createJobForm.category || "").startsWith("dry_riser")) continue;
           const tplName = (tpl.name || "").toLowerCase();
           let copies = 1;
           if (tplName.includes("pressure") && createJobForm.pressure_test_qty > 0) copies = createJobForm.pressure_test_qty;

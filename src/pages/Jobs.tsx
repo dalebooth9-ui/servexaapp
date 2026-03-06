@@ -358,8 +358,6 @@ export default function Jobs() {
       .eq("category", fileDropNewJobForm.category);
     if (matchingTpls && matchingTpls.length > 0) {
       for (const tpl of matchingTpls) {
-        // Skip dry riser templates — engineers start them manually
-        if ((fileDropNewJobForm.category || "").startsWith("dry_riser")) continue;
         const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];
         const prefilled: Record<string, any> = {};
         const category = fileDropNewJobForm.category || "";
@@ -518,8 +516,6 @@ export default function Jobs() {
           .in("category", Array.from(categoriesToFetch));
         if (matchingTemplates && matchingTemplates.length > 0) {
           for (const tpl of matchingTemplates) {
-            // Skip dry riser templates — engineers start them manually
-            if ((form.category || "").startsWith("dry_riser")) continue;
             const tplName = (tpl.name || "").toLowerCase();
             // Determine how many copies based on service type quantities
             let copies = 1;
