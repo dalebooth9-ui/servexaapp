@@ -62,6 +62,13 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // Allow manual "force" runs to bypass daily dedup
+    let forceRun = false;
+    try {
+      const body = await req.json();
+      forceRun = body?.force === true;
+    } catch (_) { /* no body is fine */ }
+
     // Load compliance reminder settings from app_settings
     const { data: settingsRow } = await supabase
       .from("app_settings")
@@ -134,7 +141,7 @@ serve(async (req) => {
         .eq("key", dedupKey)
         .maybeSingle();
 
-      if (!existing) {
+      if (!existing || forceRun) {
         for (const adminId of adminIds) {
           await supabase.from("notifications").insert({
             user_id: adminId,
@@ -144,7 +151,9 @@ serve(async (req) => {
           });
           notified++;
         }
-        await supabase.from("app_settings").upsert({ key: dedupKey, value: { notified_at: todayStr } });
+        if (!forceRun) {
+          await supabase.from("app_settings").upsert({ key: dedupKey, value: { notified_at: todayStr } });
+        }
       }
     }
 
@@ -241,7 +250,7 @@ serve(async (req) => {
               ? Math.floor((today.getTime() - lastNotifiedDate.getTime()) / (1000 * 60 * 60 * 24))
               : 999;
 
-            if (!existingDedup || daysSinceLast >= 7) {
+            if (!existingDedup || daysSinceLast >= 7 || forceRun) {
               for (const adminId of adminIds) {
                 await supabase.from("notifications").insert({
                   user_id: adminId,
@@ -251,7 +260,7 @@ serve(async (req) => {
                 });
                 notified++;
               }
-              await supabase.from("app_settings").upsert({
+              if (!forceRun) await supabase.from("app_settings").upsert({
                 key: dedupKey,
                 value: { notified_at: todayStr, threshold, days_left: daysLeft },
               });
