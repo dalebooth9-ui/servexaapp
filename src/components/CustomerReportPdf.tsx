@@ -310,7 +310,6 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       if (watermark) {
         addWatermarkToAllPages(doc, watermark);
       }
-      const footerY = doc.internal.pageSize.getHeight() - 18;
       addAccreditationLogosToAllPages(doc, accredLogos, footerY);
 
       const fileName = `${job.reference_number}-customer-report.pdf`;
