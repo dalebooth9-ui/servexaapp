@@ -115,6 +115,7 @@ export default function Compliance() {
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
+  const [scanningExistingIdx, setScanningExistingIdx] = useState<number | null>(null);
 
   const fetchData = async () => {
     const [recRes, assetRes, siteRes, jobRes] = await Promise.all([
@@ -432,6 +433,51 @@ export default function Compliance() {
   });
 
   const todayStr = () => new Date().toISOString().split("T")[0];
+
+  // Fetch an existing stored file by storage path, convert to File, run OCR
+  const runOcrOnExistingFile = async (storagePath: string, fileName: string, idx: number) => {
+    setScanningExistingIdx(idx);
+    try {
+      const { data } = await supabase.storage.from("asset-documents").createSignedUrl(storagePath, 300);
+      if (!data?.signedUrl) { setScanningExistingIdx(null); return; }
+      const res = await fetch(data.signedUrl);
+      if (!res.ok) { setScanningExistingIdx(null); return; }
+      const blob = await res.blob();
+      // Infer MIME from file name
+      const ext = fileName.slice(fileName.lastIndexOf(".")).toLowerCase();
+      const mimeMap: Record<string, string> = {
+        ".pdf": "application/pdf", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".webp": "image/webp",
+      };
+      const type = mimeMap[ext] || blob.type || "application/octet-stream";
+      const file = new File([blob], fileName, { type });
+      const result = await runOcrOnFile(file);
+      if (result) {
+        const newAiFields: string[] = [];
+        setForm((f) => {
+          const updates: Partial<typeof emptyForm> = {};
+          if (result.issue_date) { updates.issue_date = result.issue_date; newAiFields.push("issue_date"); }
+          if (result.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
+          if (result.title && !f.title) { updates.title = result.title; newAiFields.push("title"); }
+          if (result.issuer && !f.issuer) { updates.issuer = result.issuer; newAiFields.push("issuer"); }
+          if (result.reference_number && !f.reference_number) { updates.reference_number = result.reference_number; newAiFields.push("reference_number"); }
+          return { ...f, ...updates };
+        });
+        setAiFields((prev) => [...new Set([...prev, ...newAiFields])]);
+        if (newAiFields.length > 0) {
+          toast({ title: "AI extracted dates", description: `Found: ${newAiFields.map((x) => AI_FIELD_LABELS[x] || x).join(", ")}` });
+        } else {
+          toast({ title: "No new data found", description: "AI couldn't extract additional information from this file." });
+        }
+      } else {
+        toast({ title: "Scan complete", description: "No date information found in this document.", variant: "destructive" });
+      }
+    } catch (err) {
+      console.warn("Existing file OCR failed:", err);
+    } finally {
+      setScanningExistingIdx(null);
+    }
+  };
 
   const addBulkFiles = async (files: File[]) => {
     const entries = files.map((f) => ({
@@ -808,12 +854,45 @@ export default function Compliance() {
                 {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
               </div>
               {editing && (() => {
-                const { names } = parseFileList(editing.file_url, editing.file_name);
+                const { urls, names } = parseFileList(editing.file_url, editing.file_name);
                 return names.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {names.map((n, i) => (
-                      <Badge key={i} variant="secondary" className="text-[10px]">{n}</Badge>
-                    ))}
+                  <div className="space-y-1 mt-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Existing files — click to re-scan with AI</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {names.map((n, i) => {
+                        const isScanning = scanningExistingIdx === i;
+                        const isPdf = n.toLowerCase().endsWith(".pdf");
+                        const isImg = [".jpg",".jpeg",".png",".webp"].some((e) => n.toLowerCase().endsWith(e));
+                        const canScan = isPdf || isImg;
+                        return (
+                          <TooltipProvider key={i} delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  disabled={!canScan || scanningExistingIdx !== null}
+                                  onClick={() => canScan && urls[i] && runOcrOnExistingFile(urls[i], n, i)}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-medium transition-colors
+                                    ${canScan ? "cursor-pointer hover:border-violet-400 hover:bg-violet-500/10 hover:text-violet-700" : "cursor-default opacity-60"}
+                                    ${isScanning ? "border-violet-400 bg-violet-500/10 text-violet-700 animate-pulse" : "border-border bg-muted text-muted-foreground"}`}
+                                >
+                                  {isScanning
+                                    ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                    : canScan ? <Sparkles className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />
+                                  }
+                                  <span className="max-w-[160px] truncate">{n}</span>
+                                </button>
+                              </TooltipTrigger>
+                              {canScan && (
+                                <TooltipContent side="top" className="text-xs">
+                                  {isScanning ? "Scanning…" : "Click to extract dates with AI"}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null;
               })()}
