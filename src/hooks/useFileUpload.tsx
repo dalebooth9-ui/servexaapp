@@ -48,7 +48,7 @@ export function useFileUpload({ bucket = "submissions", onComplete }: UseFileUpl
       const { error: insertError } = await supabase.from("submissions").insert({
         job_id: jobId,
         engineer_id: userId,
-        type: isImageFile(file.name) ? "photo" : "document",
+        type: isVideoFile(file.name) ? "video" : isImageFile(file.name) ? "photo" : "document",
         file_url: urlData.publicUrl,
         file_name: file.name,
       });
