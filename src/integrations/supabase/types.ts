@@ -824,6 +824,30 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_onboarding_logs: {
+        Row: {
+          engineer_user_id: string
+          id: string
+          sent_at: string
+          sent_by: string
+          sent_to_email: string
+        }
+        Insert: {
+          engineer_user_id: string
+          id?: string
+          sent_at?: string
+          sent_by: string
+          sent_to_email: string
+        }
+        Update: {
+          engineer_user_id?: string
+          id?: string
+          sent_at?: string
+          sent_by?: string
+          sent_to_email?: string
+        }
+        Relationships: []
+      }
       fault_codes: {
         Row: {
           code: string

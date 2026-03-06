@@ -52,7 +52,7 @@ serve(async (req) => {
       });
     }
 
-    const { to_email, engineer_name } = await req.json();
+    const { to_email, engineer_name, engineer_user_id } = await req.json();
 
     if (!to_email) {
       return new Response(JSON.stringify({ error: "to_email is required" }), {
@@ -190,6 +190,15 @@ serve(async (req) => {
       if (!fallbackRes.ok) {
         throw new Error(fallback?.message || "Failed to send email");
       }
+    }
+
+    // Log the onboarding send
+    if (engineer_user_id) {
+      await supabaseAdmin.from("engineer_onboarding_logs").insert({
+        engineer_user_id,
+        sent_to_email: to_email,
+        sent_by: caller.id,
+      });
     }
 
     return new Response(JSON.stringify({ success: true }), {

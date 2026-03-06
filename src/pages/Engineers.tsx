@@ -45,6 +45,7 @@ export default function Engineers() {
   const [onboardingEng, setOnboardingEng] = useState<any | null>(null);
   const [onboardingEmail, setOnboardingEmail] = useState("");
   const [sendingOnboarding, setSendingOnboarding] = useState(false);
+  const [onboardingLogs, setOnboardingLogs] = useState<Record<string, { sent_to_email: string; sent_at: string }>>({});
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
 
@@ -62,13 +63,18 @@ export default function Engineers() {
     if (!onboardingEng || !onboardingEmail) return;
     setSendingOnboarding(true);
     const { data, error } = await supabase.functions.invoke("send-engineer-onboarding", {
-      body: { to_email: onboardingEmail, engineer_name: onboardingEng.full_name },
+      body: { to_email: onboardingEmail, engineer_name: onboardingEng.full_name, engineer_user_id: onboardingEng.user_id },
     });
     setSendingOnboarding(false);
     if (error || data?.error) {
       toast({ title: "Error", description: data?.error || "Failed to send onboarding email.", variant: "destructive" });
     } else {
       toast({ title: "Onboarding email sent", description: `Install link sent to ${onboardingEmail}.` });
+      // Update local log state immediately
+      setOnboardingLogs((prev) => ({
+        ...prev,
+        [onboardingEng.user_id]: { sent_to_email: onboardingEmail, sent_at: new Date().toISOString() },
+      }));
       setOnboardingEng(null);
       setOnboardingEmail("");
     }
@@ -91,10 +97,19 @@ export default function Engineers() {
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
     if (!roles || roles.length === 0) { setEngineers([]); return; }
     const userIds = roles.map((r) => r.user_id);
-    const { data: profiles } = await supabase.from("profiles").select("*").in("user_id", userIds);
-    const { data: assignments } = await supabase.from("job_assignments").select("engineer_id, job_id").in("engineer_id", userIds);
+    const [{ data: profiles }, { data: assignments }, { data: logs }] = await Promise.all([
+      supabase.from("profiles").select("*").in("user_id", userIds),
+      supabase.from("job_assignments").select("engineer_id, job_id").in("engineer_id", userIds),
+      supabase.from("engineer_onboarding_logs" as any).select("engineer_user_id, sent_to_email, sent_at").in("engineer_user_id", userIds).order("sent_at", { ascending: false }),
+    ]);
     const counts: Record<string, number> = {};
     (assignments || []).forEach((a) => { counts[a.engineer_id] = (counts[a.engineer_id] || 0) + 1; });
+    // Keep only the most recent log per engineer
+    const logMap: Record<string, { sent_to_email: string; sent_at: string }> = {};
+    ((logs as any) || []).forEach((l: any) => {
+      if (!logMap[l.engineer_user_id]) logMap[l.engineer_user_id] = { sent_to_email: l.sent_to_email, sent_at: l.sent_at };
+    });
+    setOnboardingLogs(logMap);
     setEngineers((profiles || []).map((p) => ({ ...p, job_count: counts[p.user_id] || 0 })));
   };
 
@@ -251,7 +266,21 @@ export default function Engineers() {
               ) : (
                 engineers.map((eng) => (
                   <TableRow key={eng.id}>
-                    <TableCell className="font-medium">{eng.full_name || "—"}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span>{eng.full_name || "—"}</span>
+                        {onboardingLogs[eng.user_id] && (
+                          <Badge variant="secondary" className="text-[10px] gap-1 text-primary border-primary/30 bg-primary/10">
+                            <Mail className="h-2.5 w-2.5" /> Onboarding sent
+                          </Badge>
+                        )}
+                      </div>
+                      {onboardingLogs[eng.user_id] && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {onboardingLogs[eng.user_id].sent_to_email} · {new Date(onboardingLogs[eng.user_id].sent_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {eng.whatsapp_number ? (
                         <span className="inline-flex items-center gap-1 text-sm">
