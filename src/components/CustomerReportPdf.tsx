@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import { renderPdfHeader, type PdfHeaderData, type PdfBranding } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, type PdfSignatureData } from "@/lib/pdfFooter";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 
 interface Props {
   jobId: string;
