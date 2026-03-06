@@ -260,7 +260,7 @@ serve(async (req) => {
                 });
                 notified++;
               }
-              await supabase.from("app_settings").upsert({
+              if (!forceRun) await supabase.from("app_settings").upsert({
                 key: dedupKey,
                 value: { notified_at: todayStr, threshold, days_left: daysLeft },
               });
