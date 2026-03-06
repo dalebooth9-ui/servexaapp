@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_wizard_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          messages: Json
+          page_context: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          page_context?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          messages?: Json
+          page_context?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       app_settings: {
         Row: {
           key: string
