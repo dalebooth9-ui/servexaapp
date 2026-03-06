@@ -168,8 +168,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <img src="/favicon.png" alt="FieldReport logo" className="h-11 w-11 rounded-lg" />
-          <span className="text-lg font-bold text-sidebar-primary-foreground">FieldReport</span>
+          <img src="/favicon.png" alt="Servexa logo" className="h-11 w-11 rounded-lg" />
+          <span className="text-lg font-bold text-sidebar-primary-foreground">Servexa</span>
           <div className="ml-auto flex items-center gap-1.5">
             <ClockInButton />
             <NotificationBell />
@@ -246,8 +246,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
-          <img src="/favicon.png" alt="FieldReport logo" className="ml-3 h-7 w-7 rounded" />
-          <span className="font-semibold">FieldReport</span>
+          <img src="/favicon.png" alt="Servexa logo" className="ml-3 h-7 w-7 rounded" />
+          <span className="font-semibold">Servexa</span>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
       </div>
