@@ -854,12 +854,45 @@ export default function Compliance() {
                 {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
               </div>
               {editing && (() => {
-                const { names } = parseFileList(editing.file_url, editing.file_name);
+                const { urls, names } = parseFileList(editing.file_url, editing.file_name);
                 return names.length > 0 ? (
-                  <div className="flex flex-wrap gap-1 mt-1">
-                    {names.map((n, i) => (
-                      <Badge key={i} variant="secondary" className="text-[10px]">{n}</Badge>
-                    ))}
+                  <div className="space-y-1 mt-1">
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-semibold">Existing files — click to re-scan with AI</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {names.map((n, i) => {
+                        const isScanning = scanningExistingIdx === i;
+                        const isPdf = n.toLowerCase().endsWith(".pdf");
+                        const isImg = [".jpg",".jpeg",".png",".webp"].some((e) => n.toLowerCase().endsWith(e));
+                        const canScan = isPdf || isImg;
+                        return (
+                          <TooltipProvider key={i} delayDuration={200}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  disabled={!canScan || scanningExistingIdx !== null}
+                                  onClick={() => canScan && urls[i] && runOcrOnExistingFile(urls[i], n, i)}
+                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded border text-[10px] font-medium transition-colors
+                                    ${canScan ? "cursor-pointer hover:border-violet-400 hover:bg-violet-500/10 hover:text-violet-700" : "cursor-default opacity-60"}
+                                    ${isScanning ? "border-violet-400 bg-violet-500/10 text-violet-700 animate-pulse" : "border-border bg-muted text-muted-foreground"}`}
+                                >
+                                  {isScanning
+                                    ? <Loader2 className="h-2.5 w-2.5 animate-spin" />
+                                    : canScan ? <Sparkles className="h-2.5 w-2.5" /> : <FileText className="h-2.5 w-2.5" />
+                                  }
+                                  <span className="max-w-[160px] truncate">{n}</span>
+                                </button>
+                              </TooltipTrigger>
+                              {canScan && (
+                                <TooltipContent side="top" className="text-xs">
+                                  {isScanning ? "Scanning…" : "Click to extract dates with AI"}
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        );
+                      })}
+                    </div>
                   </div>
                 ) : null;
               })()}
