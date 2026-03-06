@@ -168,12 +168,8 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="flex h-20 items-center border-b border-sidebar-border px-4 py-3 gap-3">
-          <img src={servexaLogo} alt="Servexa icon" className="h-12 w-12 object-contain shrink-0" />
-          <div className="flex flex-col min-w-0">
-            <span className="text-xl font-bold text-white leading-tight tracking-tight">Servexa</span>
-            <span className="text-[10px] text-sidebar-foreground/60 leading-tight">Smarter Service Operations</span>
-          </div>
+        <div className="border-b border-sidebar-border overflow-hidden">
+          <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-cover" />
           <div className="ml-auto flex items-center gap-1.5">
             <ClockInButton />
             <NotificationBell />
