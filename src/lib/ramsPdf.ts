@@ -694,6 +694,7 @@ export async function generateRamsPdf(
     "Gloves CE4131",
     "Glasses EN166",
     "Goggles EN166",
+  ], ML + 3, y, CONTENT_W - 3);
   y += 3;
 
   y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
