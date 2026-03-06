@@ -3,7 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2, GripVertical } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -28,22 +28,28 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 
 const DEFAULT_NAV_ITEMS = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/customers", label: "Customers", icon: Building2 },
-  { to: "/invoices", label: "Invoices", icon: FileText },
-  { to: "/sites", label: "Sites", icon: MapPin },
-  { to: "/assets", label: "Assets", icon: Package },
-  { to: "/parts-library", label: "Parts Library", icon: Library },
-  { to: "/industry-templates", label: "Templates", icon: ClipboardCheck },
-  { to: "/compliance", label: "Compliance", icon: Shield },
-  { to: "/audits", label: "Audits", icon: ClipboardCheck },
-  { to: "/planner", label: "Planner", icon: CalendarDays },
-  { to: "/reports", label: "Reports", icon: BarChart2, adminOnly: true },
-  { to: "/reports/engineers", label: "Performance", icon: BarChart2, adminOnly: true },
-  { to: "/engineers", label: "Engineers", icon: Users, adminOnly: true },
-  { to: "/settings", label: "Settings", icon: Settings, adminOnly: true },
+  { to: "/", label: "Dashboard", icon: LayoutDashboard, section: "main" },
+  { to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
+  { to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
+  { to: "/customers", label: "Customers", icon: Building2, section: "operations" },
+  { to: "/sites", label: "Sites", icon: MapPin, section: "operations" },
+  { to: "/assets", label: "Assets", icon: Package, section: "operations" },
+  { to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
+  { to: "/parts-library", label: "Parts Library", icon: Library, section: "operations" },
+  { to: "/compliance", label: "Compliance", icon: Shield, section: "operations" },
+  { to: "/audits", label: "Audits", icon: ListChecks, section: "operations" },
+  { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
+  { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
+  { to: "/reports/engineers", label: "Performance", icon: BarChart2, section: "admin", adminOnly: true },
+  { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
+  { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true },
 ];
+
+const SECTION_LABELS: Record<string, string> = {
+  main: "",
+  operations: "Operations",
+  admin: "Admin",
+};
 
 const STORAGE_KEY = "nav-order";
 
@@ -133,6 +139,13 @@ export default function AppLayout({ children }: { children: ReactNode }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(newOrder));
   };
 
+  // Group items by section for display with section labels
+  const sections = ["main", "operations", "admin"] as const;
+  const itemsBySection = sections.reduce((acc, section) => {
+    acc[section] = visibleNavItems.filter((i) => i.section === section);
+    return acc;
+  }, {} as Record<string, typeof visibleNavItems>);
+
   return (
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
@@ -154,18 +167,34 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 min-h-0 overflow-y-auto space-y-0.5 px-3 py-2">
+        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleNavItems.map((i) => i.to)} strategy={verticalListSortingStrategy}>
-              {visibleNavItems.map((item) => {
-                const isActive = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
+              {sections.map((section) => {
+                const items = itemsBySection[section];
+                if (!items || items.length === 0) return null;
+                const label = SECTION_LABELS[section];
                 return (
-                  <SortableNavItem
-                    key={item.to}
-                    item={item}
-                    isActive={isActive}
-                    onClick={() => setMobileOpen(false)}
-                  />
+                  <div key={section} className="mb-1">
+                    {label && (
+                      <p className="mb-1 mt-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
+                        {label}
+                      </p>
+                    )}
+                    <div className="space-y-0.5">
+                      {items.map((item) => {
+                        const isActive = location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to));
+                        return (
+                          <SortableNavItem
+                            key={item.to}
+                            item={item}
+                            isActive={isActive}
+                            onClick={() => setMobileOpen(false)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
                 );
               })}
             </SortableContext>
