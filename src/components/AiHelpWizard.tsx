@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight, MapPin, RotateCcw } from "lucide-react";
+import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight, MapPin, RotateCcw, Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -219,6 +219,7 @@ export default function AiHelpWizard() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [minimised, setMinimised] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const [historyLoaded, setHistoryLoaded] = useState(false);
   // Track the page the wizard was opened on, so navigating away doesn't re-trigger
   const openedOnPage = useRef<string | null>(null);
@@ -365,13 +366,18 @@ export default function AiHelpWizard() {
       {open && !minimised && (
         <div
           className={cn(
-            "fixed bottom-5 right-5 z-50 flex flex-col rounded-2xl shadow-2xl border border-border",
-            "bg-background w-[370px] h-[580px] max-h-[85vh]"
+            "fixed z-50 flex flex-col shadow-2xl border border-border bg-background transition-all duration-300",
+            fullscreen
+              ? "inset-0 rounded-none"
+              : "bottom-5 right-5 rounded-2xl w-[370px] h-[580px] max-h-[85vh]"
           )}
           style={{ boxShadow: "0 20px 60px hsl(var(--primary) / 0.15), 0 4px 16px hsl(var(--foreground) / 0.08)" }}
         >
           {/* Header */}
-          <div className="flex items-center gap-2.5 border-b border-border px-4 py-3 rounded-t-2xl bg-primary text-primary-foreground shrink-0">
+          <div className={cn(
+            "flex items-center gap-2.5 border-b border-border px-4 py-3 bg-primary text-primary-foreground shrink-0",
+            fullscreen ? "rounded-none" : "rounded-t-2xl"
+          )}>
             <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary-foreground/20">
               <Sparkles className="h-3.5 w-3.5" />
             </div>
@@ -391,16 +397,23 @@ export default function AiHelpWizard() {
                 <RotateCcw className="h-3.5 w-3.5" />
               </button>
             )}
+            <button
+              onClick={() => setFullscreen((f) => !f)}
+              className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded"
+              title={fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            >
+              {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
             <button onClick={() => setMinimised(true)} className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded" title="Minimise">
               <ChevronDown className="h-4 w-4" />
             </button>
-            <button onClick={() => { setOpen(false); }} className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded" title="Close">
+            <button onClick={() => { setOpen(false); setFullscreen(false); }} className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded" title="Close">
               <X className="h-4 w-4" />
             </button>
           </div>
 
           {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div className={cn("flex-1 overflow-y-auto space-y-3", fullscreen ? "p-6 max-w-3xl w-full mx-auto" : "p-3")}>
 
             {/* Empty state */}
             {messages.length === 0 && !loading && (
@@ -514,7 +527,7 @@ export default function AiHelpWizard() {
 
           {/* Input */}
           <div className="shrink-0 border-t border-border p-3">
-            <div className="flex gap-2 items-end">
+            <div className={cn("flex gap-2 items-end", fullscreen && "max-w-3xl mx-auto")}>
               <Textarea
                 ref={textareaRef}
                 value={input}
