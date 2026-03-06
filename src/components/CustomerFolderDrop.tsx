@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FolderOpen, Upload, FileText, Image, Loader2 } from "lucide-react";
+import { FolderOpen, Upload, FileText, Image, Video, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 import { ALLOWED_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from "@/lib/fileUtils";
@@ -52,7 +52,7 @@ const CustomerFolderDrop = forwardRef<CustomerFolderDropHandle, CustomerFolderDr
 
       const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
       if (!ALLOWED_EXTENSIONS.includes(ext)) continue;
-      if (file.size > 20 * 1024 * 1024) continue;
+      if (file.size > 100 * 1024 * 1024) continue;
 
       // parts[0] is the root folder selected, parts[1] would be a customer subfolder
       // If structure is root/customer/files or root/customer/subfolder/files
@@ -155,9 +155,9 @@ const CustomerFolderDrop = forwardRef<CustomerFolderDropHandle, CustomerFolderDr
 
   const getFileIcon = (name: string) => {
     const ext = name.slice(name.lastIndexOf(".")).toLowerCase();
-    return IMAGE_EXTENSIONS.includes(ext)
-      ? <Image className="h-3.5 w-3.5 text-muted-foreground" />
-      : <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
+    if (IMAGE_EXTENSIONS.includes(ext)) return <Image className="h-3.5 w-3.5 text-muted-foreground" />;
+    if (VIDEO_EXTENSIONS.includes(ext)) return <Video className="h-3.5 w-3.5 text-muted-foreground" />;
+    return <FileText className="h-3.5 w-3.5 text-muted-foreground" />;
   };
 
   return (
@@ -185,7 +185,7 @@ const CustomerFolderDrop = forwardRef<CustomerFolderDropHandle, CustomerFolderDr
                 Each subfolder becomes a customer, files inside become customer documents
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Supported: PDF, Word, Excel, JPG, PNG, WEBP, GIF • Max 20MB per file
+                Supported: PDF, Word, Excel, Images, MP4, MOV, WEBM • Max 100MB per file
               </p>
             </div>
             <input
