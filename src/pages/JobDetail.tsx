@@ -335,6 +335,7 @@ export default function JobDetail() {
         </div>
         {userRole === "admin" ? (
           <div className="flex items-center gap-2">
+            <AiJobBriefDialog job={job} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
