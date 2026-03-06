@@ -755,12 +755,8 @@ export async function generateRamsPdf(
   y = para(doc,
     "Full cooperation with principal contractor on any environmental issue must be stringently followed at all times in line with Viva Fire environmental policy.",
     ML, y, CONTENT_W);
-  pageFooter(doc, currentPage, 10);
-
-  /* ───────────────────────────────────────────── PAGE 5 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y += 2;
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   y = para(doc, "Viva Fire will manage Waste Streams of COSHH Materials and will complete Principal Contractor Waste Management Form.", ML, y, CONTENT_W);
   y += 3;
   y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
