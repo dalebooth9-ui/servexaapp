@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight, MapPin } from "lucide-react";
+import { X, Send, Loader2, Bot, User, Sparkles, ChevronDown, ArrowRight, MapPin, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -127,7 +127,6 @@ function getPageSuggestions(pathname: string): string[] {
     "How do audit templates work?",
     "How are audit scores calculated?",
   ];
-  // Generic fallback
   return [
     "How do I create a new job?",
     "How does auto-attach paperwork work?",
@@ -175,16 +174,57 @@ async function callWizard(
   return data as { message: string; quick_actions: QuickAction[] };
 }
 
+// --- Persistence helpers ---
+async function loadConversation(): Promise<Message[] | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session?.user) return null;
+
+  const { data, error } = await supabase
+    .from("ai_wizard_conversations" as any)
+    .select("messages")
+    .eq("user_id", sessionData.session.user.id)
+    .maybeSingle();
+
+  if (error || !data) return null;
+  const msgs = (data as any).messages;
+  return Array.isArray(msgs) && msgs.length > 0 ? (msgs as Message[]) : null;
+}
+
+async function saveConversation(messages: Message[]): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session?.user) return;
+
+  const userId = sessionData.session.user.id;
+  await supabase
+    .from("ai_wizard_conversations" as any)
+    .upsert(
+      { user_id: userId, messages: messages as any, updated_at: new Date().toISOString() },
+      { onConflict: "user_id" }
+    );
+}
+
+async function clearConversation(): Promise<void> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session?.user) return;
+
+  await supabase
+    .from("ai_wizard_conversations" as any)
+    .delete()
+    .eq("user_id", sessionData.session.user.id);
+}
+
 export default function AiHelpWizard() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [minimised, setMinimised] = useState(false);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
   // Track the page the wizard was opened on, so navigating away doesn't re-trigger
   const openedOnPage = useRef<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -200,11 +240,25 @@ export default function AiHelpWizard() {
     }
   }, [open, minimised]);
 
-  // Auto-fetch context greeting when wizard opens on a new page
+  // Load persisted conversation when wizard first opens
+  useEffect(() => {
+    if (!open || minimised || historyLoaded) return;
+
+    setHistoryLoaded(true);
+    loadConversation().then((saved) => {
+      if (saved && saved.length > 0) {
+        setMessages(saved);
+        openedOnPage.current = location.pathname; // suppress auto-greeting
+      }
+    });
+  }, [open, minimised, historyLoaded, location.pathname]);
+
+  // Auto-fetch context greeting when wizard opens on a new page (no saved history)
   useEffect(() => {
     if (!open || minimised) return;
     if (messages.length > 0) return; // already has conversation
-    if (openedOnPage.current === location.pathname) return; // same page, don't re-fetch
+    if (!historyLoaded) return; // wait until we've checked for saved history
+    if (openedOnPage.current === location.pathname) return;
 
     openedOnPage.current = location.pathname;
     const currentPage = describeCurrentPage(location.pathname);
@@ -215,15 +269,24 @@ export default function AiHelpWizard() {
 
     callWizard([{ role: "user", content: contextPrompt }], currentPage)
       .then(({ message, quick_actions }) => {
-        setMessages([{ role: "assistant", content: message, quick_actions }]);
+        const newMessages: Message[] = [{ role: "assistant", content: message, quick_actions }];
+        setMessages(newMessages);
+        saveConversation(newMessages);
       })
-      .catch((e) => {
-        // On error, just show empty state — don't block the wizard
+      .catch(() => {
         setMessages([]);
         openedOnPage.current = null;
       })
       .finally(() => setLoading(false));
-  }, [open, minimised, location.pathname]);
+  }, [open, minimised, location.pathname, historyLoaded, messages.length]);
+
+  // Debounced save after messages change
+  const debouncedSave = useCallback((msgs: Message[]) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      if (msgs.length > 0) saveConversation(msgs);
+    }, 800);
+  }, []);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || loading) return;
@@ -244,6 +307,7 @@ export default function AiHelpWizard() {
       setMessages((prev) => {
         const copy = [...prev];
         copy[copy.length - 1] = { role: "assistant", content: message, quick_actions: quick_actions || [] };
+        debouncedSave(copy);
         return copy;
       });
     } catch (e: any) {
@@ -254,7 +318,7 @@ export default function AiHelpWizard() {
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, location.pathname]);
+  }, [loading, messages, location.pathname, debouncedSave]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -272,10 +336,12 @@ export default function AiHelpWizard() {
     setMessages([]);
     setInput("");
     openedOnPage.current = null;
+    clearConversation();
   };
 
   const pageLabel = getPageLabel(location.pathname);
   const pageSuggestions = getPageSuggestions(location.pathname);
+  const hasHistory = messages.length > 0;
 
   return (
     <>
@@ -316,10 +382,19 @@ export default function AiHelpWizard() {
                 <p className="text-[11px] opacity-70 truncate">{pageLabel}</p>
               </div>
             </div>
+            {hasHistory && !loading && (
+              <button
+                onClick={reset}
+                className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded"
+                title="Clear conversation"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button onClick={() => setMinimised(true)} className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded" title="Minimise">
               <ChevronDown className="h-4 w-4" />
             </button>
-            <button onClick={() => { setOpen(false); reset(); }} className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded" title="Close">
+            <button onClick={() => { setOpen(false); }} className="opacity-70 hover:opacity-100 transition-opacity p-1 rounded" title="Close">
               <X className="h-4 w-4" />
             </button>
           </div>
@@ -327,7 +402,7 @@ export default function AiHelpWizard() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-3 space-y-3">
 
-            {/* Empty state — shown while loading initial context OR if context fetch failed */}
+            {/* Empty state */}
             {messages.length === 0 && !loading && (
               <div className="flex flex-col items-center justify-center h-full gap-4 px-2">
                 <div className="flex items-center justify-center h-12 w-12 rounded-full bg-primary/10">
@@ -425,12 +500,12 @@ export default function AiHelpWizard() {
               </div>
             ))}
 
-            {/* Clear chat */}
+            {/* Resumed session notice */}
             {messages.length > 1 && !loading && (
               <div className="flex justify-center pt-1">
-                <button onClick={reset} className="text-[11px] text-muted-foreground hover:text-foreground transition-colors">
-                  Clear conversation
-                </button>
+                <p className="text-[11px] text-muted-foreground">
+                  Conversation saved · <button onClick={reset} className="underline hover:text-foreground transition-colors">Clear</button>
+                </p>
               </div>
             )}
 
