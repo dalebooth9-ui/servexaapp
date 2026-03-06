@@ -569,6 +569,12 @@ export default function JobParts({ jobId }: { jobId: string }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
+                  <InlineAddRow
+                    key="add-top"
+                    isAdmin={isAdmin}
+                    colSpan={colCount}
+                    onAdd={(f) => handleAddAt(f, -1)}
+                  />
                   {parts.map((part, idx) => (
                     <>
                       <SortablePartRow
