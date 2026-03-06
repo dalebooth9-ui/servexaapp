@@ -232,14 +232,14 @@ export default function AdminDashboard() {
 
       {isAdmin && (
         <div className="mb-6 flex flex-wrap gap-3">
-          <Button onClick={() => navigate("/jobs")} variant="outline">
+          <Button onClick={() => navigate("/jobs")} variant="default">
             <Plus className="mr-2 h-4 w-4" /> Create Job
           </Button>
           <Button onClick={() => navigate("/customers")} variant="outline">
-            <Building2 className="mr-2 h-4 w-4" /> Create Customer
+            <Building2 className="mr-2 h-4 w-4" /> New Customer
           </Button>
-          <Button onClick={() => navigate("/jobs")} variant="outline">
-            <Upload className="mr-2 h-4 w-4" /> Upload Files
+          <Button onClick={() => { setFolderImportOpen(true); }} variant="outline">
+            <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
         </div>
       )}
