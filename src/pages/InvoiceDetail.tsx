@@ -625,7 +625,7 @@ export default function InvoiceDetail() {
               {/* All content sits above the watermark */}
               <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
 
-              {/* ── Viva Fire branded header ─────────────────────────── */}
+                {/* ── Viva Fire branded header ─────────────────────────── */}
               <div className="mb-6 flex flex-col items-center">
                 <img
                   src="/images/vivafire-logo-new.jpg"
