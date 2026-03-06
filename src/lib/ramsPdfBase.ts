@@ -916,7 +916,9 @@ export async function buildSharedMethodSections(
 
   currentPageRef.num++;
   return y;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.2 Supervision", ML, y); y += 4;
+}
+
+/* ─────────────────────────────────────── full generator helper ── */
   y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
 
   y = await checkPageBreak(doc, y, 20 + sections.plantAndEquipment.length * 6, logoImg, currentPageRef.num, totalPages);
