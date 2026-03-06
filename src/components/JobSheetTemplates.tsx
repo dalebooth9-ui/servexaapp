@@ -564,6 +564,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 </div>
               </div>
             </div>
+          )}
+          {/* Draft responses — exclude RAMS */}
+              </div>
+            </div>
             </div>
           )}
           {/* Draft responses — exclude RAMS */}
