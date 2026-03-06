@@ -520,21 +520,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         <CardContent>
           {/* RAMS section — auto-filled export */}
           {ramsTemplates.length > 0 && (
-            <div className="mb-4 pb-3 border-b border-border/60">
-              <p className="text-xs font-semibold text-muted-foreground mb-2 flex items-center gap-1.5">
-                <FileText className="h-3 w-3" /> RAMS – Risk Assessment & Method Statement
+            <div className="mb-3 pb-3 border-b border-border/60">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                RAMS
               </p>
-              <div className="flex items-center justify-between rounded-lg border bg-card px-3 py-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{ramsTemplates[0]?.name || "RAMS"}</span>
-                  <Badge variant="secondary" className="text-[10px]">Auto-filled</Badge>
+              <div className="flex items-center justify-between rounded-md border bg-muted/30 px-3 py-2 min-h-[38px]">
+                <div className="flex items-center gap-2 min-w-0">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="text-sm font-medium truncate">{ramsTemplates[0]?.name || "RAMS"}</span>
+                  <Badge variant="secondary" className="text-[10px] shrink-0">Auto-fill</Badge>
                   {latestRams && (
-                    <Badge variant="outline" className="text-[10px]">
+                    <Badge variant="outline" className="text-[10px] shrink-0">
                       {latestRams.status === "submitted" ? "Completed" : "Draft"}
                     </Badge>
                   )}
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-1 shrink-0 ml-2">
                   <AiRamsAutoFill
                     jobName={jobInfo?.name || ""}
                     category={jobInfo?.category || ""}
@@ -566,144 +567,129 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           )}
           {/* Draft responses — exclude RAMS */}
-          {responses.filter((r) => {
-            const tpl = templates.find((t) => t.id === r.template_id);
-            return (tpl as any)?.category !== "rams" && r.status === "draft";
-          }).length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-1.5">In Progress</p>
-              {responses.filter((r) => {
-                const tpl = templates.find((t) => t.id === r.template_id);
-                return (tpl as any)?.category !== "rams" && r.status === "draft";
-              }).map((resp) => {
-                const tpl = templates.find((t) => t.id === resp.template_id);
-                const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
-                return (
-                  <div key={resp.id} className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-3.5 w-3.5 text-amber-500" />
-                      <span className="text-sm">{tpl?.name || "Unknown Template"}</span>
-                      <Badge variant="secondary" className="text-[10px]">Draft</Badge>
-                    </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="sm" className="h-6 text-xs" onClick={() => tpl && handleStartForm(tpl, resp)}>
-                        Continue
-                      </Button>
-                      {tpl && <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />}
-                      {canEdit && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive">
-                              <Trash2 className="h-3 w-3" />
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Draft</AlertDialogTitle>
-                              <AlertDialogDescription>This will permanently delete this draft. This cannot be undone.</AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          {(() => {
+            const draftResps = responses.filter((r) => {
+              const tpl = templates.find((t) => t.id === r.template_id);
+              return (tpl as any)?.category !== "rams" && r.status === "draft";
+            });
+            if (!draftResps.length) return null;
+            return (
+              <div className="mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">In Progress</p>
+                <div className="rounded-md border divide-y">
+                  {draftResps.map((resp) => {
+                    const tpl = templates.find((t) => t.id === resp.template_id);
+                    const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
+                    return (
+                      <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => tpl && handleStartForm(tpl, resp)}>
+                            Continue
+                          </Button>
+                          {tpl && <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />}
+                          {canEdit && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Draft</AlertDialogTitle>
+                                  <AlertDialogDescription>This will permanently delete this draft. This cannot be undone.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
-          {/* Completed responses — exclude RAMS (handled separately) */}
-          {responses.filter((r) => {
-            const tpl = templates.find((t) => t.id === r.template_id);
-            return (tpl as any)?.category !== "rams" && r.status === "submitted";
-          }).length > 0 && (
-            <div className="mb-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-1.5">Completed Reports</p>
-              {responses.filter((r) => {
-                const tpl = templates.find((t) => t.id === r.template_id);
-                return (tpl as any)?.category !== "rams" && r.status === "submitted";
-              }).map((resp) => {
-                const tpl = templates.find((t) => t.id === resp.template_id);
-                const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
-                return (
-                  <div
-                    key={resp.id}
-                    className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
-                  >
-                    <div className="flex items-center gap-2">
-                      {resp.status === "submitted" ? (
-                        <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
-                      ) : (
-                        <FileText className="h-3.5 w-3.5 text-amber-500" />
-                      )}
-                      <span className="text-sm">{tpl?.name || "Unknown Template"}</span>
-                      <Badge variant="secondary" className="text-[10px] capitalize">{resp.status}</Badge>
-                      {resp.submitted_by && profiles[resp.submitted_by] && (
-                        <span className="text-[10px] text-muted-foreground">by {profiles[resp.submitted_by]}</span>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {canEdit && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 text-xs"
-                          onClick={() => tpl && handleStartForm(tpl, resp)}
-                        >
-                          <Pencil className="h-3 w-3 mr-1" /> Edit
-                        </Button>
-                      )}
-                      {tpl && (tpl as any).category !== "rams" && (
-                        <JobSheetPdfExport
-                          template={{ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }}
-                          formData={resp.responses as Record<string, any>}
-                          jobInfo={jobInfo}
-                          jobId={jobId}
-                          submittedBy={profiles[resp.submitted_by] || ""}
-                          submittedAt={resp.submitted_at}
-                        />
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 text-xs"
-                        onClick={() => handleViewResponse(resp)}
-                      >
-                        View
-                      </Button>
-                      {canEdit && (
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-6 text-xs text-destructive hover:text-destructive">
-                              <Trash2 className="h-3 w-3" />
+          {/* Completed responses — exclude RAMS */}
+          {(() => {
+            const completedResps = responses.filter((r) => {
+              const tpl = templates.find((t) => t.id === r.template_id);
+              return (tpl as any)?.category !== "rams" && r.status === "submitted";
+            });
+            if (!completedResps.length) return null;
+            return (
+              <div className="mb-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Completed Reports</p>
+                <div className="rounded-md border divide-y">
+                  {completedResps.map((resp) => {
+                    const tpl = templates.find((t) => t.id === resp.template_id);
+                    const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
+                    return (
+                      <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-green-600" />
+                          <span className="text-sm truncate">{tpl?.name || "Unknown Template"}</span>
+                          <Badge variant="secondary" className="text-[10px] shrink-0">Submitted</Badge>
+                          {resp.submitted_by && profiles[resp.submitted_by] && (
+                            <span className="text-[10px] text-muted-foreground shrink-0">by {profiles[resp.submitted_by]}</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0 ml-2">
+                          {canEdit && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => tpl && handleStartForm(tpl, resp)} title="Edit">
+                              <Pencil className="h-3.5 w-3.5" />
                             </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Report</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This will permanently delete this completed report. This cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+                          )}
+                          {tpl && (tpl as any).category !== "rams" && (
+                            <JobSheetPdfExport
+                              template={{ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }}
+                              formData={resp.responses as Record<string, any>}
+                              jobInfo={jobInfo}
+                              jobId={jobId}
+                              submittedBy={profiles[resp.submitted_by] || ""}
+                              submittedAt={resp.submitted_at}
+                            />
+                          )}
+                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleViewResponse(resp)} title="View">
+                            <Eye className="h-3.5 w-3.5" />
+                          </Button>
+                          {canEdit && (
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive">
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Report</AlertDialogTitle>
+                                  <AlertDialogDescription>This will permanently delete this completed report. This cannot be undone.</AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteResponse(resp.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Available templates — engineers only see templates matching the job category; RAMS hidden from this list */}
           {(() => {
@@ -728,29 +714,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             if (visibleTemplates.length > 0) {
               return (
                 <div>
-                  {userRole === "admin" && (
-                    <p className="text-xs font-semibold text-muted-foreground mb-1.5">Available Templates</p>
-                  )}
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Available Templates</p>
+                  <div className="rounded-md border divide-y">
                   {visibleTemplates.map((tpl) => (
                 <div
                   key={tpl.id}
-                  className="flex items-center justify-between py-1.5 border-b border-border/50 last:border-0"
+                  className="flex items-center justify-between px-3 py-2 min-h-[38px]"
                 >
-                   <div>
-                    <span className="text-sm font-medium">{tpl.name}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{tpl.fields.length} fields</span>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <ClipboardCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="text-sm font-medium truncate">{tpl.name}</span>
+                    <span className="text-[10px] text-muted-foreground shrink-0">{tpl.fields.length} fields</span>
                     {userRole === "admin" && (tpl as any).job_category && (
-                      <Badge variant="outline" className="ml-2 text-xs h-4">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
-                    )}
-                    {userRole === "admin" && !(tpl as any).job_category && (
-                      <Badge variant="secondary" className="ml-2 text-xs h-4 opacity-50">all jobs</Badge>
+                      <Badge variant="outline" className="text-[10px] h-4 shrink-0">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
                     )}
                   </div>
-                    <div className="flex gap-1">
+                    <div className="flex items-center gap-1 shrink-0 ml-2">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="h-7 text-xs"
+                      className="h-7 text-xs px-2"
                       onClick={() => {
                         const tplName = tpl.name.toLowerCase();
                         const isQtyTemplate = tplName.includes("pressure test") || tplName.includes("dry riser") || tplName.includes("visual");
@@ -761,7 +744,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         }
                       }}
                     >
-                      <ClipboardCheck className="h-3 w-3 mr-1" /> Fill In
+                      Fill In
                     </Button>
                     <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />
                     <ScanJobSheet
@@ -812,6 +795,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   </div>
                 </div>
               ))}
+                  </div>
                 </div>
               );
             }
