@@ -31,12 +31,15 @@ import EngineerReport from "@/pages/EngineerReport";
 import Reports from "@/pages/Reports";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import OfflineIndicator from "@/components/OfflineIndicator";
+import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ReactNode } from "react";
 
 const queryClient = new QueryClient();
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
+  useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   return <AppLayout>{children}</AppLayout>;
@@ -44,6 +47,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
 function AdminRoute({ children }: { children: ReactNode }) {
   const { user, userRole, loading } = useAuth();
+  useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   if (userRole !== "admin") return <Navigate to="/" replace />;
@@ -72,6 +76,7 @@ const App = () => (
             <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+            <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
             <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
             <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
             <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
@@ -91,6 +96,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <OfflineIndicator />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
