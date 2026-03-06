@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLocation, useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 type QuickAction = { label: string; url: string; description: string };
 type Message = {
@@ -139,25 +140,39 @@ async function callWizard(
   messages: Array<{ role: string; content: string }>,
   currentPage: string
 ): Promise<{ message: string; quick_actions: QuickAction[] }> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const token = sessionData?.session?.access_token;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
   const resp = await fetch(
     `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-help-wizard`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        "Authorization": `Bearer ${token ?? anonKey}`,
+        "apikey": anonKey,
       },
       body: JSON.stringify({ messages, currentPage }),
     }
   );
 
   if (!resp.ok) {
-    const err = await resp.json().catch(() => ({ error: "Failed to connect to AI" }));
-    const status = resp.status;
-    throw Object.assign(new Error(err.error || "AI error"), { status });
+    const err = await resp.json().catch(() => ({ error: "AI error" }));
+    throw Object.assign(new Error(err.error || "AI error"), { status: resp.status });
   }
 
-  return resp.json();
+  const data = await resp.json();
+
+  if (data?.error) {
+    throw Object.assign(new Error(data.error), { status: 500 });
+  }
+  if (!data?.message) {
+    console.error("ai-help-wizard unexpected response:", JSON.stringify(data));
+    throw Object.assign(new Error("Unexpected AI response"), { status: 500 });
+  }
+
+  return data as { message: string; quick_actions: QuickAction[] };
 }
 
 export default function AiHelpWizard() {

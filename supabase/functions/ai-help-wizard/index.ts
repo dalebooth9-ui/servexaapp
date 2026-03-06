@@ -169,6 +169,7 @@ serve(async (req) => {
         ],
         tools: [RESPOND_TOOL],
         tool_choice: { type: "function", function: { name: "respond" } },
+        stream: false,
       }),
     });
 
@@ -190,11 +191,64 @@ serve(async (req) => {
       });
     }
 
-    const data = await response.json();
+    const rawText = await response.text();
+
+    // The gateway may return SSE stream even for tool-call requests — parse it
+    let data: any;
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("text/event-stream") || rawText.startsWith("data:") || rawText.startsWith(": OPENROUTER")) {
+      // Collect all SSE chunks and reconstruct the full message
+      let toolCallArgs = "";
+      let textContent = "";
+      const lines = rawText.split("\n");
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const json = line.slice(6).trim();
+        if (json === "[DONE]") continue;
+        try {
+          const chunk = JSON.parse(json);
+          const delta = chunk.choices?.[0]?.delta;
+          if (delta?.tool_calls?.[0]?.function?.arguments) {
+            toolCallArgs += delta.tool_calls[0].function.arguments;
+          }
+          if (delta?.content) {
+            textContent += delta.content;
+          }
+        } catch { /* skip malformed lines */ }
+      }
+      if (toolCallArgs) {
+        try {
+          const parsed = JSON.parse(toolCallArgs);
+          return new Response(JSON.stringify({ message: parsed.message, quick_actions: parsed.quick_actions || [] }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch {
+          // Tool args were partial; fall through to text content
+        }
+      }
+      if (textContent) {
+        return new Response(JSON.stringify({ message: textContent, quick_actions: [] }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ message: "I couldn't process that. Please try again.", quick_actions: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Normal JSON response
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.error("Failed to parse AI response:", rawText.slice(0, 200));
+      return new Response(JSON.stringify({ message: "I had trouble parsing the response. Please try again.", quick_actions: [] }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
     
     if (!toolCall) {
-      // Fallback: use content if tool call not present
       const content = data.choices?.[0]?.message?.content || "I couldn't process that request. Please try again.";
       return new Response(JSON.stringify({ message: content, quick_actions: [] }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
