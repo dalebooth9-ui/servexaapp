@@ -933,7 +933,7 @@ export async function finaliseAndReturn(
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
-  addAccreditationLogosToAllPages(doc, accredLogos, 280); // above page-number footer
+  addAccreditationLogosToAllPages(doc, accredLogos, 280, 14); // above page-number footer
   const ref = jobInfo?.reference_number || "rams";
   const fileName = `${ref}-${suffix}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
