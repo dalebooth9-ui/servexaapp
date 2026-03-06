@@ -92,15 +92,24 @@ export default function MonthlyView({
                 <div className="space-y-0.5">
                   {entries.slice(0, 3).map((entry) => {
                     const job = getJob(entry.job_id);
+                    const isOverdue = job?.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
+                    const dueToday = job?.due_date && isSameDay(parseISO(job.due_date), new Date());
                     return (
                       <Tooltip key={entry.id}>
                         <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1 truncate">
-                            <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", PRIORITY_DOT[job?.priority || "medium"])} />
-                            {optimisedJobOrder.length > 0 && optimisedJobOrder.indexOf(entry.job_id) >= 0 && (
-                              <span className="text-[9px] font-bold text-primary shrink-0">{optimisedJobOrder.indexOf(entry.job_id) + 1}.</span>
+                          <div className="space-y-0">
+                            <div className="flex items-center gap-1 truncate">
+                              <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", PRIORITY_DOT[job?.priority || "medium"])} />
+                              {optimisedJobOrder.length > 0 && optimisedJobOrder.indexOf(entry.job_id) >= 0 && (
+                                <span className="text-[9px] font-bold text-primary shrink-0">{optimisedJobOrder.indexOf(entry.job_id) + 1}.</span>
+                              )}
+                              <span className="truncate text-[10px]">{[job?.site?.name, job?.name].filter(Boolean).join(" – ") || "?"}</span>
+                            </div>
+                            {job?.due_date && (
+                              <div className={cn("text-[9px] font-mono ml-2.5", isOverdue ? "text-destructive font-semibold" : dueToday ? "text-amber-500 font-semibold" : "text-muted-foreground")}>
+                                Due {format(parseISO(job.due_date), "dd/MM/yy")}
+                              </div>
                             )}
-                            <span className="truncate text-[10px]">{[job?.site?.name, job?.name].filter(Boolean).join(" – ") || "?"}</span>
                           </div>
                         </TooltipTrigger>
                         <TooltipContent side="top" className="text-xs">
