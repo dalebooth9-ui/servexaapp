@@ -17,6 +17,10 @@ export function isImageFile(name: string): boolean {
   return IMAGE_EXTENSIONS.includes(getFileExtension(name));
 }
 
+export function isVideoFile(name: string): boolean {
+  return VIDEO_EXTENSIONS.includes(getFileExtension(name));
+}
+
 export function isAllowedFile(file: File): boolean {
   const ext = getFileExtension(file.name);
   return ALLOWED_EXTENSIONS.includes(ext) && file.size <= MAX_FILE_SIZE_MB * 1024 * 1024;

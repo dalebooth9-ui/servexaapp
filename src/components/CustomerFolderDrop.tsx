@@ -9,8 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FolderOpen, Upload, FileText, Image, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
+import { ALLOWED_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from "@/lib/fileUtils";
 
 type FolderEntry = {
   customerName: string;
