@@ -79,7 +79,7 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
         </TableCell>
       )}
       <TableCell>
-        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-blue-600 hover:text-blue-700 hover:underline">
+        <Link to={`/jobs/${job.id}`} className="font-mono text-sm font-medium text-ref hover:underline">
           {job.reference_number}
         </Link>
       </TableCell>
