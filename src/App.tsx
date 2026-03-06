@@ -31,6 +31,8 @@ import EngineerReport from "@/pages/EngineerReport";
 import Reports from "@/pages/Reports";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ReactNode } from "react";
@@ -94,6 +96,8 @@ const App = () => (
             <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
             <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/terms" element={<TermsOfService />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <OfflineIndicator />
