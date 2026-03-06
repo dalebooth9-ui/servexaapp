@@ -308,11 +308,14 @@ export default function Compliance() {
     return j.name.toLowerCase().includes(q) || j.reference_number?.toLowerCase().includes(q) || j.customer?.toLowerCase().includes(q);
   });
 
+  const todayStr = () => new Date().toISOString().split("T")[0];
+
   const addBulkFiles = (files: File[]) => {
     const entries = files.map((f) => ({
       file: f,
       title: f.name.replace(/\.[^/.]+$/, ""), // strip extension for default title
       record_type: "certificate",
+      issue_date: todayStr(),
       expiry_date: "",
     }));
     setBulkFiles((prev) => [...prev, ...entries]);
