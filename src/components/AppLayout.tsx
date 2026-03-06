@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState as useReactState } from "react";
+import servexaLogo from "@/assets/servexa-logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
@@ -168,7 +169,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <img src="/favicon.png" alt="Servexa logo" className="h-11 w-11 rounded-lg" />
+          <img src={servexaLogo} alt="Servexa logo" className="h-11 w-11 rounded-lg object-contain" />
           <span className="text-lg font-bold text-sidebar-primary-foreground">Servexa</span>
           <div className="ml-auto flex items-center gap-1.5">
             <ClockInButton />
@@ -246,7 +247,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
           <button onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </button>
-          <img src="/favicon.png" alt="Servexa logo" className="ml-3 h-7 w-7 rounded" />
+          <img src={servexaLogo} alt="Servexa logo" className="ml-3 h-7 w-7 rounded object-contain" />
           <span className="font-semibold">Servexa</span>
         </header>
         <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
