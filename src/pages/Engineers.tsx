@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Pencil, Plus, UserMinus, ArrowLeft, KeyRound, FileText, Upload, Trash2, Download, X, Loader2 } from "lucide-react";
+import { Phone, Pencil, Plus, UserMinus, ArrowLeft, KeyRound, FileText, Upload, Trash2, Download, X, Loader2, Mail } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,9 @@ export default function Engineers() {
   const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "", send_reset_email: true });
   const [adding, setAdding] = useState(false);
   const [resettingId, setResettingId] = useState<string | null>(null);
+  const [onboardingEng, setOnboardingEng] = useState<any | null>(null);
+  const [onboardingEmail, setOnboardingEmail] = useState("");
+  const [sendingOnboarding, setSendingOnboarding] = useState(false);
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
 
@@ -54,6 +57,22 @@ export default function Engineers() {
   const [docForm, setDocForm] = useState({ title: "", document_type: "certificate", expiry_date: "", notes: "" });
   const [pendingDocFiles, setPendingDocFiles] = useState<File[]>([]);
   const docFileRef = useRef<HTMLInputElement>(null);
+
+  const handleSendOnboarding = async () => {
+    if (!onboardingEng || !onboardingEmail) return;
+    setSendingOnboarding(true);
+    const { data, error } = await supabase.functions.invoke("send-engineer-onboarding", {
+      body: { to_email: onboardingEmail, engineer_name: onboardingEng.full_name },
+    });
+    setSendingOnboarding(false);
+    if (error || data?.error) {
+      toast({ title: "Error", description: data?.error || "Failed to send onboarding email.", variant: "destructive" });
+    } else {
+      toast({ title: "Onboarding email sent", description: `Install link sent to ${onboardingEmail}.` });
+      setOnboardingEng(null);
+      setOnboardingEmail("");
+    }
+  };
 
   const handleSendReset = async (eng: any) => {
     setResettingId(eng.id);
@@ -246,6 +265,14 @@ export default function Engineers() {
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" title="Certification documents" onClick={() => openDocs(eng)}>
                           <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Send onboarding email"
+                          onClick={() => { setOnboardingEng(eng); setOnboardingEmail(""); }}
+                        >
+                          <Mail className="h-4 w-4" />
                         </Button>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -500,6 +527,39 @@ export default function Engineers() {
             <Button variant="outline" onClick={() => { setAddDocOpen(false); setPendingDocFiles([]); }}>Cancel</Button>
             <Button onClick={handleAddDoc} disabled={uploadingDoc}>
               {uploadingDoc ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading…</> : `Save ${pendingDocFiles.length > 1 ? `${pendingDocFiles.length} Documents` : "Document"}`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Onboarding Email Dialog */}
+      <Dialog open={!!onboardingEng} onOpenChange={(open) => { if (!open) { setOnboardingEng(null); setOnboardingEmail(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5" />
+              Send Onboarding Email
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <p className="text-sm text-muted-foreground">
+              Send <strong>{onboardingEng?.full_name}</strong> the app install link with a QR code so they can add FieldReport to their home screen.
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="onboarding-email">Engineer's Email *</Label>
+              <Input
+                id="onboarding-email"
+                type="email"
+                placeholder="engineer@example.com"
+                value={onboardingEmail}
+                onChange={(e) => setOnboardingEmail(e.target.value)}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setOnboardingEng(null); setOnboardingEmail(""); }}>Cancel</Button>
+            <Button onClick={handleSendOnboarding} disabled={sendingOnboarding || !onboardingEmail}>
+              {sendingOnboarding ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending…</> : "Send Install Link"}
             </Button>
           </DialogFooter>
         </DialogContent>
