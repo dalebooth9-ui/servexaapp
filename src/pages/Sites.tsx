@@ -1233,11 +1233,11 @@ export default function Sites() {
 
       {/* Create Job from Site dialog */}
       <Dialog open={createJobDialogOpen} onOpenChange={(o) => { if (!o) setCreateJobDialogOpen(false); }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Create Job for {createJobSite?.name}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <div className="flex-1 overflow-y-auto space-y-4 py-2 pr-1">
             {/* Site / Building selector — single selection, full tree */}
             {createJobSite && (() => {
               const treeItems: { site: Site; depth: number }[] = [];
