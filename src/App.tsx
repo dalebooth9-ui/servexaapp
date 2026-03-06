@@ -21,6 +21,7 @@ import Compliance from "@/pages/Compliance";
 import Audits from "@/pages/Audits";
 import Invoices from "@/pages/Invoices";
 import InvoiceDetail from "@/pages/InvoiceDetail";
+import Quotes from "@/pages/Quotes";
 import PartsLibrary from "@/pages/PartsLibrary";
 import IndustryTemplates from "@/pages/IndustryTemplates";
 import Install from "@/pages/Install";
