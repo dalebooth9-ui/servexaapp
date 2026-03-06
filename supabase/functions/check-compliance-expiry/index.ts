@@ -62,6 +62,13 @@ serve(async (req) => {
     const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
     const supabase = createClient(supabaseUrl, serviceKey);
 
+    // Allow manual "force" runs to bypass daily dedup
+    let forceRun = false;
+    try {
+      const body = await req.json();
+      forceRun = body?.force === true;
+    } catch (_) { /* no body is fine */ }
+
     // Load compliance reminder settings from app_settings
     const { data: settingsRow } = await supabase
       .from("app_settings")
