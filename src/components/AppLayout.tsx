@@ -171,7 +171,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         )}>
         
         <div className="border-b border-sidebar-border border-dashed">
-          <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-contain px-4 py-3" />
+          <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-contain px-4 pt-1 pb-0" />
           <div className="flex items-center justify-end gap-1 px-3 pb-2">
             <ClockInButton />
             <TodaysVisitsBadge />
