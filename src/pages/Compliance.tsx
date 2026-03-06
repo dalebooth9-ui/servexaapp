@@ -75,7 +75,7 @@ export default function Compliance() {
   // Bulk import state
   const bulkFileRef = useRef<HTMLInputElement>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; expiry_date: string }[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
 
