@@ -1,8 +1,13 @@
 // Shared file utilities used across Jobs, JobDetail, CustomerFolderDrop, etc.
 
-export const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
 export const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-export const MAX_FILE_SIZE_MB = 20;
+export const VIDEO_EXTENSIONS = [".mp4", ".mov", ".webm", ".avi", ".mkv", ".m4v"];
+export const ALLOWED_EXTENSIONS = [
+  ".pdf", ".doc", ".docx", ".xls", ".xlsx",
+  ...IMAGE_EXTENSIONS,
+  ...VIDEO_EXTENSIONS,
+];
+export const MAX_FILE_SIZE_MB = 100; // 100MB to accommodate video files
 
 export function getFileExtension(name: string): string {
   return name.slice(name.lastIndexOf(".")).toLowerCase();
@@ -10,6 +15,10 @@ export function getFileExtension(name: string): string {
 
 export function isImageFile(name: string): boolean {
   return IMAGE_EXTENSIONS.includes(getFileExtension(name));
+}
+
+export function isVideoFile(name: string): boolean {
+  return VIDEO_EXTENSIONS.includes(getFileExtension(name));
 }
 
 export function isAllowedFile(file: File): boolean {
