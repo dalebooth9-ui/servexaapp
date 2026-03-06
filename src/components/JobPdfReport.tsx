@@ -569,9 +569,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
         }
       }
 
-      // ── WATERMARK on every page ──
-      const watermark = await loadWatermarkImage();
+      // ── WATERMARK + ACCREDITATIONS on every page ──
+      const [watermark, accredLogos] = await Promise.all([
+        loadWatermarkImage(),
+        loadAccreditationLogos(),
+      ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
+      addAccreditationLogosToAllPages(doc, accredLogos, 279); // sits just above page-number line (286)
 
       // ── FOOTER on every page ──
       const pageCount = doc.getNumberOfPages();
