@@ -231,7 +231,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">Field Reports ({reports.length})</h2>
+        <h2 className="text-lg font-semibold">Servexa Reports ({reports.length})</h2>
         <Button size="sm" onClick={openNew}>
           <Plus className="mr-1.5 h-4 w-4" /> New Report
         </Button>
@@ -240,7 +240,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
       {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
 
       {!loading && reports.length === 0 && (
-        <p className="py-8 text-center text-muted-foreground">No field reports yet. Create one to get started.</p>
+        <p className="py-8 text-center text-muted-foreground">No Servexa reports yet. Create one to get started.</p>
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -299,11 +299,11 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
       <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
         <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
           <DialogHeader>
-            <DialogTitle>{editingReport ? "Edit Report" : "New Field Report"}</DialogTitle>
+            <DialogTitle>{editingReport ? "Edit Report" : "New Servexa Report"}</DialogTitle>
           </DialogHeader>
           <div className="flex-1 overflow-auto space-y-4">
             <Input placeholder="Report title" value={title} onChange={(e) => setTitle(e.target.value)} />
-            <RichTextEditor content={content} onChange={setContent} placeholder="Write your field report..." />
+            <RichTextEditor content={content} onChange={setContent} placeholder="Write your Servexa report..." />
           </div>
           <div className="flex justify-end gap-2 pt-4 border-t">
             <Button variant="outline" onClick={() => setEditorOpen(false)}>Cancel</Button>

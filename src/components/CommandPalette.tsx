@@ -86,7 +86,7 @@ export default function CommandPalette() {
           </CommandGroup>
         )}
         {reports.length > 0 && (
-          <CommandGroup heading="Field Reports">
+          <CommandGroup heading="Servexa Reports">
             {reports.map((r) => (
               <CommandItem key={r.id} onSelect={() => handleSelect(`/jobs/${r.job_id}`)}>
                 <FileText className="mr-2 h-4 w-4 text-muted-foreground" />
