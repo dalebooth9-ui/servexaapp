@@ -917,12 +917,6 @@ export async function buildSharedMethodSections(
   currentPageRef.num++;
   return y;
 }
-
-/* ─────────────────────────────────────── full generator helper ── */
-
-export async function finaliseAndReturn(
-
-  y = await checkPageBreak(doc, y, 20 + sections.plantAndEquipment.length * 6, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.3 Plant and Equipment", ML, y); y += 4;
   y = bulletList(doc, sections.plantAndEquipment, ML + 3, y, CONTENT_W - 3);
   y += 4;
