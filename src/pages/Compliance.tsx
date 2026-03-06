@@ -19,7 +19,10 @@ import {
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip, FolderOpen, X, Loader2,
+  Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip, FolderOpen, X, Loader2, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -30,6 +33,7 @@ type ComplianceRecord = {
   issue_date: string | null; expiry_date: string | null;
   status: string; file_url: string | null; file_name: string | null;
   notes: string | null; created_at: string;
+  ai_extracted_fields: string[] | null;
 };
 
 type LookupOption = { id: string; name: string };
@@ -43,11 +47,39 @@ const STATUS_DISPLAY: Record<string, { label: string; icon: React.ElementType; c
   not_applicable: { label: "N/A", icon: AlertTriangle, color: "text-muted-foreground" },
 };
 
+// Human-readable labels for AI field names
+const AI_FIELD_LABELS: Record<string, string> = {
+  title: "Title",
+  issue_date: "Issue date",
+  expiry_date: "Expiry date",
+  issuer: "Issuer",
+  reference_number: "Reference no.",
+};
+
 const emptyForm = {
   title: "", record_type: "certificate", asset_id: "", site_id: "",
   issuer: "", reference_number: "", issue_date: "", expiry_date: "",
   status: "valid", notes: "",
 };
+
+// Small sparkle chip shown next to a field value indicating AI auto-fill
+function AiChip({ fields, field }: { fields: string[] | null; field: string }) {
+  if (!fields?.includes(field)) return null;
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="inline-flex items-center gap-0.5 ml-1 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40 cursor-default select-none">
+            <Sparkles className="h-2.5 w-2.5" /> AI
+          </span>
+        </TooltipTrigger>
+        <TooltipContent side="top" className="text-xs">
+          {AI_FIELD_LABELS[field] || field} was auto-extracted by AI
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
 
 export default function Compliance() {
   const { userRole, user } = useAuth();
@@ -65,6 +97,7 @@ export default function Compliance() {
   const [editing, setEditing] = useState<ComplianceRecord | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [aiFields, setAiFields] = useState<string[]>([]); // fields auto-filled by AI in current form session
   const [attachDialogOpen, setAttachDialogOpen] = useState(false);
   const [attachingRecord, setAttachingRecord] = useState<ComplianceRecord | null>(null);
   const [jobs, setJobs] = useState<{ id: string; name: string; reference_number: string; customer: string | null }[]>([]);
@@ -75,7 +108,10 @@ export default function Compliance() {
   // Bulk import state
   const bulkFileRef = useRef<HTMLInputElement>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string; ocrLoading?: boolean }[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<{
+    file: File; title: string; record_type: string; issue_date: string;
+    expiry_date: string; ocrLoading?: boolean; aiFields?: string[];
+  }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
   const [ocrLoading, setOcrLoading] = useState(false);
@@ -108,8 +144,6 @@ export default function Compliance() {
     reference_number?: string | null;
   } | null> => {
     try {
-      // Only process images and PDFs (take first page image for PDFs via canvas trick is complex,
-      // so we send the raw file as-is if it's an image; for PDFs we send the first page as JPEG)
       const isImage = file.type.startsWith("image/");
       const isPdf = file.type === "application/pdf";
       if (!isImage && !isPdf) return null;
@@ -118,18 +152,16 @@ export default function Compliance() {
       let mimeType = file.type;
 
       if (isImage) {
-        // Read image directly as base64
         base64 = await new Promise<string>((resolve, reject) => {
           const reader = new FileReader();
           reader.onload = () => {
             const result = reader.result as string;
-            resolve(result.split(",")[1]); // strip data URL prefix
+            resolve(result.split(",")[1]);
           };
           reader.onerror = reject;
           reader.readAsDataURL(file);
         });
       } else if (isPdf) {
-        // For PDFs: render first page to canvas using pdf.js CDN and capture as JPEG
         try {
           const pdfjsLib = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm" as any);
           pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
@@ -215,7 +247,7 @@ export default function Compliance() {
     return { urls: [url], names: [name || "file"] };
   };
 
-  const openCreate = () => { setEditing(null); setForm(emptyForm); setPendingFiles([]); setDialogOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(emptyForm); setPendingFiles([]); setAiFields([]); setDialogOpen(true); };
   const openEdit = (r: ComplianceRecord) => {
     setEditing(r);
     setForm({
@@ -226,18 +258,17 @@ export default function Compliance() {
       status: r.status, notes: r.notes || "",
     });
     setPendingFiles([]);
+    setAiFields(r.ai_extracted_fields || []);
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.title.trim()) { toast({ title: "Title required", variant: "destructive" }); return; }
 
-    // Gather existing files (for edit mode)
     const existing = editing ? parseFileList(editing.file_url, editing.file_name) : { urls: [], names: [] };
     const allUrls = [...existing.urls];
     const allNames = [...existing.names];
 
-    // Upload new pending files
     for (const file of pendingFiles) {
       const path = `compliance/${Date.now()}_${file.name}`;
       const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, file);
@@ -256,6 +287,7 @@ export default function Compliance() {
       issue_date: form.issue_date || null, expiry_date: form.expiry_date || null,
       status: form.status, notes: form.notes || null,
       file_url: fileUrl, file_name: fileName,
+      ai_extracted_fields: aiFields,
     };
 
     if (editing) {
@@ -267,6 +299,7 @@ export default function Compliance() {
         issue_date: oldRec.issue_date, expiry_date: oldRec.expiry_date,
         status: oldRec.status, notes: oldRec.notes,
         file_url: oldRec.file_url, file_name: oldRec.file_name,
+        ai_extracted_fields: oldRec.ai_extracted_fields,
       } : null;
       const editId = editing.id;
       const { error } = await supabase.from("compliance_records").update(payload).eq("id", editId);
@@ -401,7 +434,6 @@ export default function Compliance() {
   const todayStr = () => new Date().toISOString().split("T")[0];
 
   const addBulkFiles = async (files: File[]) => {
-    // Add entries immediately with today's date, then run OCR in background per file
     const entries = files.map((f) => ({
       file: f,
       title: f.name.replace(/\.[^/.]+$/, ""),
@@ -409,10 +441,10 @@ export default function Compliance() {
       issue_date: todayStr(),
       expiry_date: "",
       ocrLoading: true,
+      aiFields: [] as string[],
     }));
     setBulkFiles((prev) => [...prev, ...entries]);
 
-    // Run OCR for each file concurrently, update the matching entry
     const startIndex = await new Promise<number>((resolve) => {
       setBulkFiles((prev) => { resolve(prev.length - entries.length); return prev; });
     });
@@ -422,17 +454,21 @@ export default function Compliance() {
         const idx = startIndex + offset;
         const result = await runOcrOnFile(file);
         setBulkFiles((prev) =>
-          prev.map((it, i) =>
-            i === idx
-              ? {
-                  ...it,
-                  ocrLoading: false,
-                  ...(result?.issue_date ? { issue_date: result.issue_date } : {}),
-                  ...(result?.expiry_date ? { expiry_date: result.expiry_date } : {}),
-                  ...(result?.title && !it.title ? { title: result.title } : {}),
-                }
-              : it
-          )
+          prev.map((it, i) => {
+            if (i !== idx) return it;
+            const detectedFields: string[] = [];
+            if (result?.issue_date) detectedFields.push("issue_date");
+            if (result?.expiry_date) detectedFields.push("expiry_date");
+            if (result?.title) detectedFields.push("title");
+            return {
+              ...it,
+              ocrLoading: false,
+              ...(result?.issue_date ? { issue_date: result.issue_date } : {}),
+              ...(result?.expiry_date ? { expiry_date: result.expiry_date } : {}),
+              ...(result?.title && !it.title ? { title: result.title } : {}),
+              aiFields: detectedFields,
+            };
+          })
         );
       })
     );
@@ -455,6 +491,7 @@ export default function Compliance() {
         issue_date: item.issue_date || null,
         expiry_date: item.expiry_date || null,
         created_by: user.id,
+        ai_extracted_fields: item.aiFields || [],
       } as any);
       if (!insErr) created++;
     }
@@ -464,6 +501,9 @@ export default function Compliance() {
     fetchData();
     toast({ title: "Bulk import complete", description: `${created} record(s) created.` });
   };
+
+  // How many records in current view have any AI-filled fields
+  const aiFilledCount = filtered.filter((r) => (r.ai_extracted_fields?.length ?? 0) > 0).length;
 
   return (
     <div className="space-y-6">
@@ -511,7 +551,7 @@ export default function Compliance() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3 items-center">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input placeholder="Search records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
@@ -525,6 +565,12 @@ export default function Compliance() {
             ))}
           </SelectContent>
         </Select>
+        {aiFilledCount > 0 && (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-violet-500" />
+            <span>{aiFilledCount} record{aiFilledCount !== 1 ? "s" : ""} with AI-extracted fields</span>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -543,6 +589,7 @@ export default function Compliance() {
                   <TableHead>Title</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Asset / Site</TableHead>
+                  <TableHead>Issue Date</TableHead>
                   <TableHead>Expiry</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Doc</TableHead>
@@ -554,21 +601,47 @@ export default function Compliance() {
                 {filtered.map((r) => {
                   const sd = STATUS_DISPLAY[r.status];
                   const StatusIcon = sd?.icon || Shield;
+                  const aiF = r.ai_extracted_fields || [];
                   return (
                     <TableRow key={r.id}>
                       <TableCell>
-                        <p className="font-medium text-sm">{r.title}</p>
-                        {r.reference_number && <p className="text-[10px] text-muted-foreground font-mono">{r.reference_number}</p>}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          <p className="font-medium text-sm">{r.title}</p>
+                          <AiChip fields={aiF} field="title" />
+                        </div>
+                        {r.reference_number && (
+                          <div className="flex items-center gap-0.5">
+                            <p className="text-[10px] text-muted-foreground font-mono">{r.reference_number}</p>
+                            <AiChip fields={aiF} field="reference_number" />
+                          </div>
+                        )}
+                        {r.issuer && (
+                          <div className="flex items-center gap-0.5">
+                            <p className="text-[10px] text-muted-foreground">{r.issuer}</p>
+                            <AiChip fields={aiF} field="issuer" />
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell><Badge variant="outline" className="text-[10px] capitalize">{r.record_type.replace("_", " ")}</Badge></TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {r.asset_id ? assetLookup[r.asset_id] || "—" : r.site_id ? siteLookup[r.site_id] || "—" : "—"}
                       </TableCell>
                       <TableCell>
+                        {r.issue_date ? (
+                          <div className="flex items-center gap-0.5">
+                            <span className="text-xs text-muted-foreground">{format(new Date(r.issue_date), "dd MMM yyyy")}</span>
+                            <AiChip fields={aiF} field="issue_date" />
+                          </div>
+                        ) : <span className="text-xs text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell>
                         {r.expiry_date ? (
-                          <span className={`text-xs ${r.status === "expired" ? "text-destructive font-medium" : r.status === "expiring_soon" ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                            {format(new Date(r.expiry_date), "dd MMM yyyy")}
-                          </span>
+                          <div className="flex items-center gap-0.5">
+                            <span className={`text-xs ${r.status === "expired" ? "text-destructive font-medium" : r.status === "expiring_soon" ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                              {format(new Date(r.expiry_date), "dd MMM yyyy")}
+                            </span>
+                            <AiChip fields={aiF} field="expiry_date" />
+                          </div>
                         ) : <span className="text-xs text-muted-foreground">—</span>}
                       </TableCell>
                       <TableCell>
@@ -580,7 +653,7 @@ export default function Compliance() {
                         {r.file_url ? (() => {
                           const { urls } = parseFileList(r.file_url, r.file_name);
                           return (
-                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(r)}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 relative" onClick={() => handleDownload(r)}>
                               <Download className="h-3.5 w-3.5" />
                               {urls.length > 1 && <span className="absolute -top-1 -right-1 text-[9px] bg-primary text-primary-foreground rounded-full h-3.5 w-3.5 flex items-center justify-center">{urls.length}</span>}
                             </Button>
@@ -611,15 +684,18 @@ export default function Compliance() {
         </CardContent>
       </Card>
 
-      {/* Dialog */}
+      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editing ? "Edit" : "Add"} Compliance Record</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Title *</label>
-                <Input value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="e.g. Gas Safety Certificate" />
+                <label className="text-sm font-medium flex items-center gap-1">
+                  Title *
+                  {aiFields.includes("title") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
+                </label>
+                <Input value={form.title} onChange={(e) => { setForm((f) => ({ ...f, title: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "title")); }} placeholder="e.g. Gas Safety Certificate" />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Type</label>
@@ -653,22 +729,34 @@ export default function Compliance() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Issuer</label>
-                <Input value={form.issuer} onChange={(e) => setForm((f) => ({ ...f, issuer: e.target.value }))} />
+                <label className="text-sm font-medium flex items-center gap-1">
+                  Issuer
+                  {aiFields.includes("issuer") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
+                </label>
+                <Input value={form.issuer} onChange={(e) => { setForm((f) => ({ ...f, issuer: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "issuer")); }} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Reference</label>
-                <Input value={form.reference_number} onChange={(e) => setForm((f) => ({ ...f, reference_number: e.target.value }))} />
+                <label className="text-sm font-medium flex items-center gap-1">
+                  Reference
+                  {aiFields.includes("reference_number") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
+                </label>
+                <Input value={form.reference_number} onChange={(e) => { setForm((f) => ({ ...f, reference_number: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "reference_number")); }} />
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Issue Date</label>
-                <Input type="date" value={form.issue_date} onChange={(e) => setForm((f) => ({ ...f, issue_date: e.target.value }))} />
+                <label className="text-sm font-medium flex items-center gap-1">
+                  Issue Date
+                  {aiFields.includes("issue_date") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
+                </label>
+                <Input type="date" value={form.issue_date} onChange={(e) => { setForm((f) => ({ ...f, issue_date: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "issue_date")); }} />
               </div>
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Expiry Date</label>
-                <Input type="date" value={form.expiry_date} onChange={(e) => setForm((f) => ({ ...f, expiry_date: e.target.value }))} />
+                <label className="text-sm font-medium flex items-center gap-1">
+                  Expiry Date
+                  {aiFields.includes("expiry_date") && <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40"><Sparkles className="h-2.5 w-2.5" /> AI</span>}
+                </label>
+                <Input type="date" value={form.expiry_date} onChange={(e) => { setForm((f) => ({ ...f, expiry_date: e.target.value })); setAiFields((prev) => prev.filter((x) => x !== "expiry_date")); }} />
               </div>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Status</label>
@@ -688,20 +776,23 @@ export default function Compliance() {
                 setPendingFiles((prev) => [...prev, ...newFiles]);
                 if (fileRef.current) fileRef.current.value = "";
 
-                // Run OCR on first file to auto-fill dates and fields
                 if (newFiles.length > 0) {
                   setOcrLoading(true);
                   const result = await runOcrOnFile(newFiles[0]);
                   setOcrLoading(false);
                   if (result) {
-                    setForm((f) => ({
-                      ...f,
-                      ...(result.issue_date ? { issue_date: result.issue_date } : { issue_date: f.issue_date || todayStr() }),
-                      ...(result.expiry_date && !f.expiry_date ? { expiry_date: result.expiry_date } : {}),
-                      ...(result.title && !f.title ? { title: result.title } : {}),
-                      ...(result.issuer && !f.issuer ? { issuer: result.issuer } : {}),
-                      ...(result.reference_number && !f.reference_number ? { reference_number: result.reference_number } : {}),
-                    }));
+                    const newAiFields: string[] = [];
+                    setForm((f) => {
+                      const updates: Partial<typeof emptyForm> = {};
+                      if (result.issue_date) { updates.issue_date = result.issue_date; newAiFields.push("issue_date"); }
+                      else if (!f.issue_date) { updates.issue_date = todayStr(); }
+                      if (result.expiry_date && !f.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
+                      if (result.title && !f.title) { updates.title = result.title; newAiFields.push("title"); }
+                      if (result.issuer && !f.issuer) { updates.issuer = result.issuer; newAiFields.push("issuer"); }
+                      if (result.reference_number && !f.reference_number) { updates.reference_number = result.reference_number; newAiFields.push("reference_number"); }
+                      return { ...f, ...updates };
+                    });
+                    setAiFields((prev) => [...new Set([...prev, ...newAiFields])]);
                   } else if (!form.issue_date) {
                     setForm((f) => ({ ...f, issue_date: todayStr() }));
                   }
@@ -860,6 +951,20 @@ export default function Compliance() {
                           }
                           <span className="text-xs text-muted-foreground truncate">{item.file.name}</span>
                           {item.ocrLoading && <span className="text-[10px] text-primary animate-pulse shrink-0">Scanning…</span>}
+                          {!item.ocrLoading && (item.aiFields?.length ?? 0) > 0 && (
+                            <TooltipProvider delayDuration={200}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span className="inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-medium bg-violet-500/10 text-violet-600 border border-violet-300/40 cursor-default shrink-0">
+                                    <Sparkles className="h-2.5 w-2.5" /> AI filled {item.aiFields!.length} field{item.aiFields!.length !== 1 ? "s" : ""}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  {item.aiFields!.map((f) => AI_FIELD_LABELS[f] || f).join(", ")}
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          )}
                         </div>
                         <button
                           onClick={() => setBulkFiles((prev) => prev.filter((_, j) => j !== i))}
@@ -873,8 +978,8 @@ export default function Compliance() {
                           <Input
                             placeholder="Title"
                             value={item.title}
-                            onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, title: e.target.value } : it))}
-                            className="h-7 text-xs"
+                            onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, title: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "title") } : it))}
+                            className={`h-7 text-xs ${item.aiFields?.includes("title") ? "border-violet-300/60 bg-violet-500/5" : ""}`}
                           />
                         </div>
                         <Select
@@ -890,15 +995,15 @@ export default function Compliance() {
                           type="date"
                           title="Issue Date"
                           value={item.issue_date}
-                          onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, issue_date: e.target.value } : it))}
-                          className="h-7 text-xs"
+                          onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, issue_date: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "issue_date") } : it))}
+                          className={`h-7 text-xs ${item.aiFields?.includes("issue_date") ? "border-violet-300/60 bg-violet-500/5" : ""}`}
                         />
                         <Input
                           type="date"
                           title="Expiry Date"
                           value={item.expiry_date}
-                          onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, expiry_date: e.target.value } : it))}
-                          className="h-7 text-xs"
+                          onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, expiry_date: e.target.value, aiFields: it.aiFields?.filter((x) => x !== "expiry_date") } : it))}
+                          className={`h-7 text-xs ${item.aiFields?.includes("expiry_date") ? "border-violet-300/60 bg-violet-500/5" : ""}`}
                         />
                       </div>
                     </div>
