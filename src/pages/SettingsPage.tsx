@@ -2,10 +2,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Webhook, Copy, CheckCircle2, ArrowLeft, Mail, Loader2, Send, BarChart2 } from "lucide-react";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { QRCodeSVG } from "qrcode.react";
 import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
@@ -17,10 +18,12 @@ import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTempl
 import { supabase } from "@/integrations/supabase/client";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+const INSTALL_URL = "https://field-aid-box.lovable.app/install";
 
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [copiedInstall, setCopiedInstall] = useState(false);
   const [testEmail, setTestEmail] = useState("");
   const [sendingReport, setSendingReport] = useState(false);
 
@@ -29,6 +32,13 @@ export default function SettingsPage() {
     setCopied(true);
     toast.success("Webhook URL copied to clipboard");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyInstallUrl = () => {
+    navigator.clipboard.writeText(INSTALL_URL);
+    setCopiedInstall(true);
+    toast.success("Install link copied to clipboard");
+    setTimeout(() => setCopiedInstall(false), 2000);
   };
 
   const sendTestReport = async () => {
@@ -66,6 +76,51 @@ export default function SettingsPage() {
       <h1 className="mb-6 text-2xl font-bold">Settings</h1>
 
       <div className="space-y-6">
+        {/* Engineer App Install QR Code */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">Engineer App Install</CardTitle>
+            </div>
+            <CardDescription>
+              Share this QR code or link with engineers to install the FieldReport app on their phone.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="flex flex-col items-center gap-2 rounded-xl border bg-muted/40 p-4 shrink-0">
+                <QRCodeSVG
+                  value={INSTALL_URL}
+                  size={140}
+                  bgColor="transparent"
+                  fgColor="hsl(var(--foreground))"
+                  level="M"
+                />
+                <p className="text-xs text-muted-foreground">Scan to install</p>
+              </div>
+              <div className="flex-1 space-y-3 w-full">
+                <div className="space-y-1.5">
+                  <Label>Install link</Label>
+                  <div className="flex gap-2">
+                    <Input value={INSTALL_URL} readOnly className="font-mono text-xs" />
+                    <Button variant="outline" size="icon" onClick={copyInstallUrl}>
+                      {copiedInstall ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="rounded-lg border border-dashed p-3 space-y-1">
+                  <p className="text-xs font-medium">Installation instructions</p>
+                  <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-0.5">
+                    <li><strong>iPhone:</strong> Open link → Safari Share → "Add to Home Screen"</li>
+                    <li><strong>Android:</strong> Open link → Chrome menu → "Install App"</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -82,7 +137,7 @@ export default function SettingsPage() {
               <div className="flex gap-2">
                 <Input value={WEBHOOK_URL} readOnly className="font-mono text-xs" />
                 <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
-                  {copied ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copied ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
