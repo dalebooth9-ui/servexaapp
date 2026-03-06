@@ -1,0 +1,1 @@
+ALTER TABLE public.compliance_records ADD COLUMN IF NOT EXISTS ai_extracted_fields text[] DEFAULT '{}'::text[];

@@ -434,6 +434,7 @@ export type Database = {
       }
       compliance_records: {
         Row: {
+          ai_extracted_fields: string[] | null
           asset_id: string | null
           created_at: string
           created_by: string | null
@@ -452,6 +453,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ai_extracted_fields?: string[] | null
           asset_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -470,6 +472,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ai_extracted_fields?: string[] | null
           asset_id?: string | null
           created_at?: string
           created_by?: string | null
