@@ -31,6 +31,7 @@ import EngineerReport from "@/pages/EngineerReport";
 import Reports from "@/pages/Reports";
 import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/NotFound";
+import Servexa from "@/pages/Servexa";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
 import OfflineIndicator from "@/components/OfflineIndicator";
@@ -98,6 +99,7 @@ const App = () => (
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/terms" element={<TermsOfService />} />
             <Route path="/privacy" element={<PrivacyPolicy />} />
+            <Route path="/servexa" element={<Servexa />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <OfflineIndicator />
