@@ -296,9 +296,12 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Job name / description
       } else if (label === "job name" || label === "job title" || label === "job description" || label === "description of work" || label === "works description") {
         prefilled[f.id] = jobInfo.name || "";
-      // Date fields
+      // Date fields — use scheduled planner date if available, else today
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
-        prefilled[f.id] = new Date().toISOString().split("T")[0];
+        prefilled[f.id] = scheduledDate || new Date().toISOString().split("T")[0];
+      // Attendance date — always use the planner-booked date
+      } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
+        prefilled[f.id] = scheduledDate || new Date().toLocaleDateString("en-GB");
       // Category / scope / type of work — auto-set from PT/Visual quantities, fallback to category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
         const scopeParts: string[] = [];
