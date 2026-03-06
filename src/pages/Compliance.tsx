@@ -822,9 +822,11 @@ export default function Compliance() {
                 setPendingFiles((prev) => [...prev, ...newFiles]);
                 if (fileRef.current) fileRef.current.value = "";
 
-                if (newFiles.length > 0) {
+                // Always OCR first eligible file — extract dates even if title is already set
+                const ocrFile = newFiles.find((f) => f.type.startsWith("image/") || f.type === "application/pdf");
+                if (ocrFile) {
                   setOcrLoading(true);
-                  const result = await runOcrOnFile(newFiles[0]);
+                  const result = await runOcrOnFile(ocrFile);
                   setOcrLoading(false);
                   if (result) {
                     const newAiFields: string[] = [];
