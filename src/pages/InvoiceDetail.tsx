@@ -594,14 +594,36 @@ export default function InvoiceDetail() {
         <Card>
           <CardContent className="p-0">
             <div ref={printRef} className="bg-white p-8 text-foreground" style={{ color: "#1a1a1a" }}>
-              {/* Header */}
-              <div className="mb-8 flex justify-between">
+
+              {/* ── Viva Fire branded header ─────────────────────────── */}
+              <div className="mb-6 flex flex-col items-center">
+                <img
+                  src="/images/vivafire-logo-new.jpg"
+                  alt="Viva Fire"
+                  className="mb-2"
+                  style={{ maxHeight: 56, maxWidth: 180, objectFit: "contain" }}
+                  crossOrigin="anonymous"
+                />
+                <h2
+                  className="text-lg font-bold tracking-widest uppercase"
+                  style={{ color: "#213D63", letterSpacing: "0.15em" }}
+                >
+                  {docLabel}
+                </h2>
+              </div>
+              {/* Brand separator */}
+              <div style={{ borderTop: "2px solid #213D63", marginBottom: "1.5rem" }} />
+
+              {/* Doc meta row */}
+              <div className="mb-6 flex justify-between items-start">
                 <div>
-                  <h2 className="text-2xl font-bold" style={{ color: "#1a1a1a" }}>{docLabel}</h2>
-                  <p className="text-lg font-mono" style={{ color: "#555" }}>{invoice.invoice_number}</p>
+                  <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>{isQuote ? "Quote For" : "Bill To"}</p>
+                  <p className="font-semibold" style={{ color: "#1a1a1a" }}>{invoice.customer_name}</p>
+                  {invoice.customer_email && <p className="text-sm" style={{ color: "#555" }}>{invoice.customer_email}</p>}
+                  {invoice.customer_address && <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{invoice.customer_address}</p>}
                 </div>
                 <div className="text-right text-sm" style={{ color: "#555" }}>
-                  <p className="font-semibold" style={{ color: "#1a1a1a" }}>FieldReport</p>
+                  <p className="font-mono font-semibold" style={{ color: "#213D63" }}>{invoice.invoice_number}</p>
                   <p>Date: {format(new Date(invoice.created_at), "dd MMM yyyy")}</p>
                   {invoice.due_date && <p>{isQuote ? "Valid Until" : "Due"}: {format(new Date(invoice.due_date), "dd MMM yyyy")}</p>}
                   <Badge variant="secondary" className={`mt-1 ${statusStyles[invoice.status]}`}>
@@ -610,22 +632,14 @@ export default function InvoiceDetail() {
                 </div>
               </div>
 
-              {/* Bill to */}
-              <div className="mb-6">
-                <p className="text-xs font-semibold uppercase" style={{ color: "#888" }}>{isQuote ? "Quote For" : "Bill To"}</p>
-                <p className="font-semibold" style={{ color: "#1a1a1a" }}>{invoice.customer_name}</p>
-                {invoice.customer_email && <p className="text-sm" style={{ color: "#555" }}>{invoice.customer_email}</p>}
-                {invoice.customer_address && <p className="text-sm whitespace-pre-line" style={{ color: "#555" }}>{invoice.customer_address}</p>}
-              </div>
-
               {/* Line items */}
               <table className="w-full mb-6" style={{ borderCollapse: "collapse" }}>
                 <thead>
-                  <tr style={{ borderBottom: "2px solid #e5e5e5" }}>
-                    <th className="py-2 text-left text-xs font-semibold uppercase" style={{ color: "#888" }}>Description</th>
-                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Qty</th>
-                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Unit Price</th>
-                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#888" }}>Amount</th>
+                  <tr style={{ borderBottom: "2px solid #213D63" }}>
+                    <th className="py-2 text-left text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Description</th>
+                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Qty</th>
+                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Unit Price</th>
+                    <th className="py-2 text-right text-xs font-semibold uppercase" style={{ color: "#213D63" }}>Amount</th>
                     {userRole === "admin" && <th className="py-2 w-20" />}
                   </tr>
                 </thead>
@@ -693,7 +707,7 @@ export default function InvoiceDetail() {
               </table>
 
               {/* Totals */}
-              <div className="flex justify-end">
+              <div className="flex justify-end mb-8">
                 <div className="w-64 space-y-1 text-sm">
                   <div className="flex justify-between" style={{ color: "#555" }}>
                     <span>Subtotal</span>
@@ -705,7 +719,7 @@ export default function InvoiceDetail() {
                       <span>£{Number(invoice.tax_amount).toFixed(2)}</span>
                     </div>
                   )}
-                  <div className="flex justify-between border-t pt-1 text-base font-bold" style={{ borderColor: "#e5e5e5", color: "#1a1a1a" }}>
+                  <div className="flex justify-between border-t pt-1 text-base font-bold" style={{ borderColor: "#213D63", color: "#213D63" }}>
                     <span>Total</span>
                     <span>£{Number(invoice.total).toFixed(2)}</span>
                   </div>
@@ -714,7 +728,7 @@ export default function InvoiceDetail() {
 
               {/* Notes */}
               {invoice.notes && (
-                <div className="mt-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555" }}>
+                <div className="mb-8 rounded border p-3 text-sm" style={{ borderColor: "#e5e5e5", color: "#555" }}>
                   <p className="text-xs font-semibold uppercase mb-1" style={{ color: "#888" }}>Notes</p>
                   <p className="whitespace-pre-line">{invoice.notes}</p>
                 </div>
@@ -722,10 +736,31 @@ export default function InvoiceDetail() {
 
               {/* Payment info */}
               {invoice.paid_at && (
-                <p className="mt-4 text-xs" style={{ color: "#888" }}>
+                <p className="mb-6 text-xs" style={{ color: "#888" }}>
                   Paid on {format(new Date(invoice.paid_at), "dd MMM yyyy 'at' HH:mm")}
                 </p>
               )}
+
+              {/* ── Accreditation logos ────────────────────────────────── */}
+              <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: "0.75rem", marginTop: "auto" }}>
+                <div className="flex items-center justify-center gap-4">
+                  {[
+                    "/accreditation/smas-logo.png",
+                    "/accreditation/constructionline-logo.png",
+                    "/accreditation/iso-9001-logo.jpg",
+                    "/accreditation/bafe-logo.jpeg",
+                  ].map((src) => (
+                    <img
+                      key={src}
+                      src={src}
+                      alt=""
+                      crossOrigin="anonymous"
+                      style={{ height: 28, objectFit: "contain", opacity: 0.22 }}
+                    />
+                  ))}
+                </div>
+              </div>
+
             </div>
           </CardContent>
         </Card>
