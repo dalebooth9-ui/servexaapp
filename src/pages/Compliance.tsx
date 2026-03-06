@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -75,9 +75,10 @@ export default function Compliance() {
   // Bulk import state
   const bulkFileRef = useRef<HTMLInputElement>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string }[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string; ocrLoading?: boolean }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [ocrLoading, setOcrLoading] = useState(false);
 
   const fetchData = async () => {
     const [recRes, assetRes, siteRes, jobRes] = await Promise.all([
@@ -97,6 +98,95 @@ export default function Compliance() {
 
   const assetLookup = Object.fromEntries(assets.map((a) => [a.id, a.name]));
   const siteLookup = Object.fromEntries(sites.map((s) => [s.id, s.name]));
+
+  // OCR helper: converts a File to base64 and calls the parse-compliance-document edge function
+  const runOcrOnFile = useCallback(async (file: File): Promise<{
+    issue_date?: string | null;
+    expiry_date?: string | null;
+    title?: string | null;
+    issuer?: string | null;
+    reference_number?: string | null;
+  } | null> => {
+    try {
+      // Only process images and PDFs (take first page image for PDFs via canvas trick is complex,
+      // so we send the raw file as-is if it's an image; for PDFs we send the first page as JPEG)
+      const isImage = file.type.startsWith("image/");
+      const isPdf = file.type === "application/pdf";
+      if (!isImage && !isPdf) return null;
+
+      let base64 = "";
+      let mimeType = file.type;
+
+      if (isImage) {
+        // Read image directly as base64
+        base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(",")[1]); // strip data URL prefix
+          };
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      } else if (isPdf) {
+        // For PDFs: render first page to canvas using pdf.js CDN and capture as JPEG
+        try {
+          const pdfjsLib = await import("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/+esm" as any);
+          pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          const page = await pdf.getPage(1);
+          const viewport = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement("canvas");
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return null;
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+          base64 = dataUrl.split(",")[1];
+          mimeType = "image/jpeg";
+        } catch (pdfErr) {
+          console.warn("PDF render failed, skipping OCR:", pdfErr);
+          return null;
+        }
+      }
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+      if (!token) return null;
+
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-compliance-document`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ image_base64: base64, mime_type: mimeType }),
+        }
+      );
+
+      if (res.status === 429) {
+        toast({ title: "Rate limit reached", description: "AI OCR rate limited — please try again shortly.", variant: "destructive" });
+        return null;
+      }
+      if (res.status === 402) {
+        toast({ title: "Credits required", description: "AI usage credits exhausted — dates not auto-filled.", variant: "destructive" });
+        return null;
+      }
+      if (!res.ok) return null;
+
+      const json = await res.json();
+      if (json.error) return null;
+      return json;
+    } catch (err) {
+      console.warn("OCR failed:", err);
+      return null;
+    }
+  }, [supabase, toast]);
+
 
   const filtered = records.filter((r) => {
     if (typeFilter !== "all" && r.record_type !== typeFilter) return false;
@@ -310,15 +400,42 @@ export default function Compliance() {
 
   const todayStr = () => new Date().toISOString().split("T")[0];
 
-  const addBulkFiles = (files: File[]) => {
+  const addBulkFiles = async (files: File[]) => {
+    // Add entries immediately with today's date, then run OCR in background per file
     const entries = files.map((f) => ({
       file: f,
-      title: f.name.replace(/\.[^/.]+$/, ""), // strip extension for default title
+      title: f.name.replace(/\.[^/.]+$/, ""),
       record_type: "certificate",
       issue_date: todayStr(),
       expiry_date: "",
+      ocrLoading: true,
     }));
     setBulkFiles((prev) => [...prev, ...entries]);
+
+    // Run OCR for each file concurrently, update the matching entry
+    const startIndex = await new Promise<number>((resolve) => {
+      setBulkFiles((prev) => { resolve(prev.length - entries.length); return prev; });
+    });
+
+    await Promise.all(
+      files.map(async (file, offset) => {
+        const idx = startIndex + offset;
+        const result = await runOcrOnFile(file);
+        setBulkFiles((prev) =>
+          prev.map((it, i) =>
+            i === idx
+              ? {
+                  ...it,
+                  ocrLoading: false,
+                  ...(result?.issue_date ? { issue_date: result.issue_date } : {}),
+                  ...(result?.expiry_date ? { expiry_date: result.expiry_date } : {}),
+                  ...(result?.title && !it.title ? { title: result.title } : {}),
+                }
+              : it
+          )
+        );
+      })
+    );
   };
 
   const handleBulkImport = async () => {
@@ -565,17 +682,40 @@ export default function Compliance() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Attach Documents</label>
-              <input ref={fileRef} type="file" multiple onChange={(e) => {
-                if (e.target.files) {
-                  setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
-                  // Auto-set issue date to today when files are first added
-                  if (!form.issue_date) setForm((f) => ({ ...f, issue_date: todayStr() }));
-                }
+              <input ref={fileRef} type="file" multiple accept="image/*,.pdf" onChange={async (e) => {
+                if (!e.target.files) return;
+                const newFiles = Array.from(e.target.files);
+                setPendingFiles((prev) => [...prev, ...newFiles]);
                 if (fileRef.current) fileRef.current.value = "";
+
+                // Run OCR on first file to auto-fill dates and fields
+                if (newFiles.length > 0) {
+                  setOcrLoading(true);
+                  const result = await runOcrOnFile(newFiles[0]);
+                  setOcrLoading(false);
+                  if (result) {
+                    setForm((f) => ({
+                      ...f,
+                      ...(result.issue_date ? { issue_date: result.issue_date } : { issue_date: f.issue_date || todayStr() }),
+                      ...(result.expiry_date && !f.expiry_date ? { expiry_date: result.expiry_date } : {}),
+                      ...(result.title && !f.title ? { title: result.title } : {}),
+                      ...(result.issuer && !f.issuer ? { issuer: result.issuer } : {}),
+                      ...(result.reference_number && !f.reference_number ? { reference_number: result.reference_number } : {}),
+                    }));
+                  } else if (!form.issue_date) {
+                    setForm((f) => ({ ...f, issue_date: todayStr() }));
+                  }
+                }
               }} className="hidden" />
-              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                <Upload className="mr-1.5 h-3.5 w-3.5" /> Add files
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={ocrLoading}>
+                  {ocrLoading
+                    ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Scanning…</>
+                    : <><Upload className="mr-1.5 h-3.5 w-3.5" /> Add files</>
+                  }
+                </Button>
+                {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
+              </div>
               {editing && (() => {
                 const { names } = parseFileList(editing.file_url, editing.file_name);
                 return names.length > 0 ? (
@@ -714,8 +854,12 @@ export default function Compliance() {
                     <div key={i} className="rounded-md border bg-card p-3 space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
-                          <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          {item.ocrLoading
+                            ? <Loader2 className="h-4 w-4 shrink-0 text-primary animate-spin" />
+                            : <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          }
                           <span className="text-xs text-muted-foreground truncate">{item.file.name}</span>
+                          {item.ocrLoading && <span className="text-[10px] text-primary animate-pulse shrink-0">Scanning…</span>}
                         </div>
                         <button
                           onClick={() => setBulkFiles((prev) => prev.filter((_, j) => j !== i))}
