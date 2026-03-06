@@ -593,9 +593,39 @@ export default function InvoiceDetail() {
         /* Printable document (read-only view) */
         <Card>
           <CardContent className="p-0">
-            <div ref={printRef} className="bg-white p-8 text-foreground" style={{ color: "#1a1a1a" }}>
+            {/* Watermark + content wrapper */}
+            <div
+              ref={printRef}
+              className="bg-white text-foreground"
+              style={{
+                color: "#1a1a1a",
+                position: "relative",
+                padding: "2rem",
+                minHeight: "1100px",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {/* Blue flame watermark */}
+              <div
+                aria-hidden="true"
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  backgroundImage: "url('/images/viva-watermark.png')",
+                  backgroundRepeat: "no-repeat",
+                  backgroundPosition: "center center",
+                  backgroundSize: "70%",
+                  opacity: 0.07,
+                  pointerEvents: "none",
+                  zIndex: 0,
+                }}
+              />
 
-              {/* ── Viva Fire branded header ─────────────────────────── */}
+              {/* All content sits above the watermark */}
+              <div style={{ position: "relative", zIndex: 1, flex: 1, display: "flex", flexDirection: "column" }}>
+
+                {/* ── Viva Fire branded header ─────────────────────────── */}
               <div className="mb-6 flex flex-col items-center">
                 <img
                   src="/images/vivafire-logo-new.jpg"
@@ -741,27 +771,31 @@ export default function InvoiceDetail() {
                 </p>
               )}
 
-              {/* ── Accreditation logos ────────────────────────────────── */}
-              <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: "0.75rem", marginTop: "auto" }}>
-                <div className="flex items-center justify-center gap-4">
-                  {[
-                    "/accreditation/smas-logo.png",
-                    "/accreditation/constructionline-logo.png",
-                    "/accreditation/iso-9001-logo.jpg",
-                    "/accreditation/bafe-logo.jpeg",
-                  ].map((src) => (
-                    <img
-                      key={src}
-                      src={src}
-                      alt=""
-                      crossOrigin="anonymous"
-                      style={{ height: 28, objectFit: "contain", opacity: 0.22 }}
-                    />
-                  ))}
-                </div>
-              </div>
+                {/* Spacer pushes footer to bottom */}
+                <div style={{ flex: 1 }} />
 
-            </div>
+                {/* ── Accreditation footer ──────────────────────────────── */}
+                <div style={{ borderTop: "2px solid #213D63", paddingTop: "0.6rem", marginTop: "2rem" }}>
+                  <div className="flex items-center justify-center gap-6">
+                    {[
+                      "/accreditation/smas-logo.png",
+                      "/accreditation/constructionline-logo.png",
+                      "/accreditation/iso-9001-logo.jpg",
+                      "/accreditation/bafe-logo.jpeg",
+                    ].map((src) => (
+                      <img
+                        key={src}
+                        src={src}
+                        alt=""
+                        crossOrigin="anonymous"
+                        style={{ height: 30, objectFit: "contain", opacity: 0.22 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+              </div>{/* end inner zIndex wrapper */}
+            </div>{/* end printRef watermark wrapper */}
           </CardContent>
         </Card>
       )}
