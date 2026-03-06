@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Zap } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Zap, Building2 } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
@@ -271,10 +271,39 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
   const autoAttached = docs.filter((d) => d.source === "auto" && d.document_type === "rams_pdf");
+  const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
   const manualDocs = docs.filter((d) => d.source === "manual");
 
   return (
     <div className="space-y-4">
+      {/* Customer paperwork documents */}
+      {customerPaperwork.length > 0 && (
+        <div>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <Building2 className="h-3 w-3" /> Customer's Own Forms
+          </p>
+          <div className="space-y-2">
+            {customerPaperwork.map((doc) => (
+              <DocRow
+                key={doc.id}
+                doc={doc}
+                isAdmin={userRole === "admin"}
+                deleting={deletingId === doc.id}
+                onDelete={handleDelete}
+                onDownload={handleDownload}
+                onGenerateRams={handleGenerateRams}
+                generatingRams={generatingRams}
+                jobId={jobId}
+                job={job}
+                jobInfo={jobInfo}
+                blankTemplates={blankTemplates}
+                isCustomerPaperwork
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Auto-attached documents */}
       {autoAttached.length > 0 && (
         <div>
@@ -363,6 +392,7 @@ function DocRow({
   job,
   jobInfo,
   blankTemplates,
+  isCustomerPaperwork,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -375,6 +405,7 @@ function DocRow({
   job: any;
   jobInfo: any | null;
   blankTemplates: Record<string, any>;
+  isCustomerPaperwork?: boolean;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
@@ -390,15 +421,21 @@ function DocRow({
     : null;
 
   return (
-    <div className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5">
-      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : "bg-card"}`}>
+      <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : "text-muted-foreground"}`} />
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{doc.label}</p>
         <div className="flex items-center gap-1.5 mt-0.5">
-          <Badge variant="secondary" className="text-[10px]">
-            {doc.document_type === "rams_pdf" ? "RAMS PDF" :
-             doc.document_type === "blank_job_sheet" ? "Blank Job Sheet" : "File"}
-          </Badge>
+          {isCustomerPaperwork ? (
+            <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary">
+              <Building2 className="h-2.5 w-2.5" /> Customer Form
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">
+              {doc.document_type === "rams_pdf" ? "RAMS PDF" :
+               doc.document_type === "blank_job_sheet" ? "Blank Job Sheet" : "File"}
+            </Badge>
+          )}
           {doc.source === "auto" && (
             <Badge variant="outline" className="text-[10px] gap-0.5">
               <Zap className="h-2.5 w-2.5" /> Auto
