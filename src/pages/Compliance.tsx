@@ -682,17 +682,40 @@ export default function Compliance() {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Attach Documents</label>
-              <input ref={fileRef} type="file" multiple onChange={(e) => {
-                if (e.target.files) {
-                  setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
-                  // Auto-set issue date to today when files are first added
-                  if (!form.issue_date) setForm((f) => ({ ...f, issue_date: todayStr() }));
-                }
+              <input ref={fileRef} type="file" multiple accept="image/*,.pdf" onChange={async (e) => {
+                if (!e.target.files) return;
+                const newFiles = Array.from(e.target.files);
+                setPendingFiles((prev) => [...prev, ...newFiles]);
                 if (fileRef.current) fileRef.current.value = "";
+
+                // Run OCR on first file to auto-fill dates and fields
+                if (newFiles.length > 0) {
+                  setOcrLoading(true);
+                  const result = await runOcrOnFile(newFiles[0]);
+                  setOcrLoading(false);
+                  if (result) {
+                    setForm((f) => ({
+                      ...f,
+                      ...(result.issue_date ? { issue_date: result.issue_date } : { issue_date: f.issue_date || todayStr() }),
+                      ...(result.expiry_date && !f.expiry_date ? { expiry_date: result.expiry_date } : {}),
+                      ...(result.title && !f.title ? { title: result.title } : {}),
+                      ...(result.issuer && !f.issuer ? { issuer: result.issuer } : {}),
+                      ...(result.reference_number && !f.reference_number ? { reference_number: result.reference_number } : {}),
+                    }));
+                  } else if (!form.issue_date) {
+                    setForm((f) => ({ ...f, issue_date: todayStr() }));
+                  }
+                }
               }} className="hidden" />
-              <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
-                <Upload className="mr-1.5 h-3.5 w-3.5" /> Add files
-              </Button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()} disabled={ocrLoading}>
+                  {ocrLoading
+                    ? <><Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> Scanning…</>
+                    : <><Upload className="mr-1.5 h-3.5 w-3.5" /> Add files</>
+                  }
+                </Button>
+                {ocrLoading && <span className="text-xs text-muted-foreground animate-pulse">AI extracting dates…</span>}
+              </div>
               {editing && (() => {
                 const { names } = parseFileList(editing.file_url, editing.file_name);
                 return names.length > 0 ? (
