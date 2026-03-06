@@ -29,6 +29,7 @@ import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
 import RamsPdfExport from "./RamsPdfExport";
+import AiRamsAutoFill from "./AiRamsAutoFill";
 
 type TemplateField = {
   id: string;
@@ -99,6 +100,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
+  const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
 
   const fetchData = async () => {
@@ -532,12 +534,34 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     </Badge>
                   )}
                 </div>
-                <RamsPdfExport
-                  formData={latestRams ? (latestRams.responses as any) : {}}
-                  jobInfo={jobInfo}
-                  jobId={jobId}
-                  mode="preview"
-                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <AiRamsAutoFill
+                    jobName={jobInfo?.name || ""}
+                    category={jobInfo?.category || ""}
+                    address={jobInfo?.address || ""}
+                    customer={jobInfo?.customer || ""}
+                    ramsType={(() => {
+                      const cat = jobInfo?.category || "";
+                      if (cat === "sprinkler" || cat === "sprinkler_service") return "sprinkler";
+                      if (cat === "extinguisher_service") return "fire_extinguisher";
+                      if (cat === "hydrant_service" || cat === "fire_hydrant") return "fire_hydrant";
+                      return "dry_riser";
+                    })()}
+                    onApply={(result) => setAiRamsData({
+                      rams_description: result.description,
+                      rams_method_statement: result.method_statement,
+                      rams_hazards: result.hazards.join("\n"),
+                      rams_controls: result.controls.join("\n"),
+                      rams_ppe: result.ppe.join(", "),
+                    })}
+                  />
+                  <RamsPdfExport
+                    formData={aiRamsData || (latestRams ? (latestRams.responses as any) : {})}
+                    jobInfo={jobInfo}
+                    jobId={jobId}
+                    mode="preview"
+                  />
+                </div>
               </div>
             </div>
           )}

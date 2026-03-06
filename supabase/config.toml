@@ -59,3 +59,12 @@ verify_jwt = false
 
 [functions.parse-compliance-document]
 verify_jwt = false
+
+[functions.ai-job-brief]
+verify_jwt = false
+
+[functions.ai-rams-autofill]
+verify_jwt = false
+
+[functions.ai-predictive-maintenance]
+verify_jwt = false

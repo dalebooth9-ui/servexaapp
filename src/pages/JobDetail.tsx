@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X } from "lucide-react";
+import AiJobBriefDialog from "@/components/AiJobBriefDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -334,6 +335,7 @@ export default function JobDetail() {
         </div>
         {userRole === "admin" ? (
           <div className="flex items-center gap-2">
+            <AiJobBriefDialog job={job} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
