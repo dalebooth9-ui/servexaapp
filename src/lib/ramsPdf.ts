@@ -598,13 +598,9 @@ export async function generateRamsPdf(
     "A common appreciation of plant and pedestrians (who retain priority) must be observed and followed before moving about site.",
     "All deliveries of materials must be pre booked with Principal Contractor with 48 hours' notice given.",
   ], ML + 2, y, CONTENT_W - 2);
+  y += 3;
 
-  pageFooter(doc, currentPage, 10);
-
-  /* ───────────────────────────────────────────── PAGE 2 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 5;
   y = numberedList(doc, [
     "Check available timeslots for deliveries in the site office, with assessment of what is being delivered, what it weights, how will it be unloaded, what kind of materials are being delivered, how will it be stored, where will it be stored, do any special precautions need to be taken, will mechanical lifting aids need to be used. All deliveries will be supervised by main contractor Competent Banksman, and the delivery drivers must remain in vehicle if they do not have suitable PPE.",
@@ -642,12 +638,9 @@ export async function generateRamsPdf(
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.1 Personnel", ML, y); y += 4;
   y = para(doc, "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith, James Ogg", ML, y, CONTENT_W);
-  pageFooter(doc, currentPage, 10);
+  y += 3;
 
-  /* ───────────────────────────────────────────── PAGE 3 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.2 Supervision", ML, y); y += 4;
   y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
   y = await checkPageBreak(doc, y, 35, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
@@ -702,12 +695,9 @@ export async function generateRamsPdf(
     "Glasses EN166",
     "Goggles EN166",
   ], ML + 3, y, CONTENT_W - 3);
-  pageFooter(doc, currentPage, 10);
+  y += 3;
 
-  /* ───────────────────────────────────────────── PAGE 4 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6 Emergency Arrangements", ML, y); y += 4;
   y = para(doc,
     "All accidents must be recorded in the site accident book and reported to Principal Contractor and Viva Fire senior management team.",
@@ -765,12 +755,8 @@ export async function generateRamsPdf(
   y = para(doc,
     "Full cooperation with principal contractor on any environmental issue must be stringently followed at all times in line with Viva Fire environmental policy.",
     ML, y, CONTENT_W);
-  pageFooter(doc, currentPage, 10);
-
-  /* ───────────────────────────────────────────── PAGE 5 ───── */
-  currentPage++;
-  y = newPage(doc);
-  y = await pageHeader(doc, logoImg, "", y);
+  y += 2;
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   y = para(doc, "Viva Fire will manage Waste Streams of COSHH Materials and will complete Principal Contractor Waste Management Form.", ML, y, CONTENT_W);
   y += 3;
   y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
