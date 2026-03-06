@@ -1,4 +1,5 @@
 import { ReactNode, useEffect, useState as useReactState } from "react";
+import servexaLogo from "@/assets/servexa-logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
