@@ -250,7 +250,7 @@ serve(async (req) => {
               ? Math.floor((today.getTime() - lastNotifiedDate.getTime()) / (1000 * 60 * 60 * 24))
               : 999;
 
-            if (!existingDedup || daysSinceLast >= 7) {
+            if (!existingDedup || daysSinceLast >= 7 || forceRun) {
               for (const adminId of adminIds) {
                 await supabase.from("notifications").insert({
                   user_id: adminId,
