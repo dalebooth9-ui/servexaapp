@@ -440,7 +440,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       // ── FIELD REPORTS ──
       if (includeFieldReports && reports.length > 0) {
         checkPage(20);
-        y = sectionTitle(doc, "Field Reports", y, margin, maxWidth);
+        y = sectionTitle(doc, "Servexa Reports", y, margin, maxWidth);
         reports.forEach((r: any) => {
           checkPage(15);
           drawTableRow(doc, y, [
@@ -614,7 +614,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
           <div className="py-2 space-y-4">
             {[
               { id: "include-photos", label: "Include Photos", desc: "Embed submitted photos in the report", checked: includePhotos, onChange: setIncludePhotos },
-              { id: "include-field-reports", label: "Include Field Reports", desc: "Append field report summaries", checked: includeFieldReports, onChange: setIncludeFieldReports },
+              { id: "include-field-reports", label: "Include Servexa Reports", desc: "Append Servexa report summaries", checked: includeFieldReports, onChange: setIncludeFieldReports },
               { id: "include-job-sheets", label: "Include Job Sheet Responses", desc: "Include submitted job sheet form data", checked: includeJobSheets, onChange: setIncludeJobSheets },
               { id: "include-certs", label: "Include Engineer Certificates", desc: "Attach the certificates table to the report", checked: includeCerts, onChange: setIncludeCerts },
             ].map(({ id, label, desc, checked, onChange }) => (
