@@ -919,7 +919,8 @@ export async function buildSharedMethodSections(
 }
 
 /* ─────────────────────────────────────── full generator helper ── */
-  y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
+
+export async function finaliseAndReturn(
 
   y = await checkPageBreak(doc, y, 20 + sections.plantAndEquipment.length * 6, logoImg, currentPageRef.num, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.3 Plant and Equipment", ML, y); y += 4;
