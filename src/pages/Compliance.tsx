@@ -833,8 +833,7 @@ export default function Compliance() {
                     setForm((f) => {
                       const updates: Partial<typeof emptyForm> = {};
                       if (result.issue_date) { updates.issue_date = result.issue_date; newAiFields.push("issue_date"); }
-                      else if (!f.issue_date) { updates.issue_date = todayStr(); }
-                      if (result.expiry_date && !f.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
+                      if (result.expiry_date) { updates.expiry_date = result.expiry_date; newAiFields.push("expiry_date"); }
                       if (result.title && !f.title) { updates.title = result.title; newAiFields.push("title"); }
                       if (result.issuer && !f.issuer) { updates.issuer = result.issuer; newAiFields.push("issuer"); }
                       if (result.reference_number && !f.reference_number) { updates.reference_number = result.reference_number; newAiFields.push("reference_number"); }
