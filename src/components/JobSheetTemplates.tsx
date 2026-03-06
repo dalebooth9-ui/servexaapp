@@ -29,6 +29,7 @@ import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
 import RamsPdfExport from "./RamsPdfExport";
+import AiRamsAutoFill from "./AiRamsAutoFill";
 
 type TemplateField = {
   id: string;
