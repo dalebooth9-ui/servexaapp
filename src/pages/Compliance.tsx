@@ -75,7 +75,7 @@ export default function Compliance() {
   // Bulk import state
   const bulkFileRef = useRef<HTMLInputElement>(null);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
-  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; expiry_date: string }[]>([]);
+  const [bulkFiles, setBulkFiles] = useState<{ file: File; title: string; record_type: string; issue_date: string; expiry_date: string }[]>([]);
   const [bulkDragOver, setBulkDragOver] = useState(false);
   const [bulkUploading, setBulkUploading] = useState(false);
 
@@ -308,11 +308,14 @@ export default function Compliance() {
     return j.name.toLowerCase().includes(q) || j.reference_number?.toLowerCase().includes(q) || j.customer?.toLowerCase().includes(q);
   });
 
+  const todayStr = () => new Date().toISOString().split("T")[0];
+
   const addBulkFiles = (files: File[]) => {
     const entries = files.map((f) => ({
       file: f,
       title: f.name.replace(/\.[^/.]+$/, ""), // strip extension for default title
       record_type: "certificate",
+      issue_date: todayStr(),
       expiry_date: "",
     }));
     setBulkFiles((prev) => [...prev, ...entries]);
@@ -332,6 +335,7 @@ export default function Compliance() {
         status: "valid",
         file_url: JSON.stringify([path]),
         file_name: JSON.stringify([item.file.name]),
+        issue_date: item.issue_date || null,
         expiry_date: item.expiry_date || null,
         created_by: user.id,
       } as any);
@@ -562,7 +566,11 @@ export default function Compliance() {
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Attach Documents</label>
               <input ref={fileRef} type="file" multiple onChange={(e) => {
-                if (e.target.files) setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+                if (e.target.files) {
+                  setPendingFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+                  // Auto-set issue date to today when files are first added
+                  if (!form.issue_date) setForm((f) => ({ ...f, issue_date: todayStr() }));
+                }
                 if (fileRef.current) fileRef.current.value = "";
               }} className="hidden" />
               <Button variant="outline" size="sm" onClick={() => fileRef.current?.click()}>
@@ -716,8 +724,8 @@ export default function Compliance() {
                           <X className="h-3.5 w-3.5" />
                         </button>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="col-span-3 sm:col-span-1">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        <div className="col-span-2 sm:col-span-1">
                           <Input
                             placeholder="Title"
                             value={item.title}
@@ -736,7 +744,14 @@ export default function Compliance() {
                         </Select>
                         <Input
                           type="date"
-                          placeholder="Expiry"
+                          title="Issue Date"
+                          value={item.issue_date}
+                          onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, issue_date: e.target.value } : it))}
+                          className="h-7 text-xs"
+                        />
+                        <Input
+                          type="date"
+                          title="Expiry Date"
                           value={item.expiry_date}
                           onChange={(e) => setBulkFiles((prev) => prev.map((it, j) => j === i ? { ...it, expiry_date: e.target.value } : it))}
                           className="h-7 text-xs"
