@@ -1099,9 +1099,14 @@ export async function generateRamsPdf(
   y = para(doc, "1.2 Change requirements: Legislation, Work Area, Personnel, Task.", ML, y, CONTENT_W);
   pageFooter(doc, 10, 10);
 
-  // Watermark
-  const watermark = await loadWatermarkImage();
+  // Watermark + Accreditations
+  const [watermark, accredLogos] = await Promise.all([
+    loadWatermarkImage(),
+    loadAccreditationLogos(),
+  ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
+  // Footer sits at PAGE_H - 8 (page number line); logos row sits just above
+  addAccreditationLogosToAllPages(doc, accredLogos, PAGE_H - 17);
 
   const ref = jobInfo?.reference_number || "rams";
   const fileName = `${ref}-rams-method-statement.pdf`;
