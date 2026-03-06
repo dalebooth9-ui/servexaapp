@@ -518,6 +518,8 @@ export default function Jobs() {
           .in("category", Array.from(categoriesToFetch));
         if (matchingTemplates && matchingTemplates.length > 0) {
           for (const tpl of matchingTemplates) {
+            // Skip dry riser templates — engineers start them manually
+            if ((form.category || "").startsWith("dry_riser")) continue;
             const tplName = (tpl.name || "").toLowerCase();
             // Determine how many copies based on service type quantities
             let copies = 1;
