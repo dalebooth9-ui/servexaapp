@@ -169,7 +169,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
         )}
       >
         <div className="flex h-16 items-center gap-2.5 border-b border-sidebar-border px-5">
-          <img src="/favicon.png" alt="Servexa logo" className="h-11 w-11 rounded-lg" />
+          <img src={servexaLogo} alt="Servexa logo" className="h-11 w-11 rounded-lg object-contain" />
           <span className="text-lg font-bold text-sidebar-primary-foreground">Servexa</span>
           <div className="ml-auto flex items-center gap-1.5">
             <ClockInButton />
