@@ -11,6 +11,8 @@ import CommandPalette from "@/components/CommandPalette";
 import NotificationBell from "@/components/NotificationBell";
 import AiHelpWizard from "@/components/AiHelpWizard";
 import ClockInButton from "@/components/ClockInButton";
+import TodaysVisitsBadge from "@/components/TodaysVisitsBadge";
+import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
