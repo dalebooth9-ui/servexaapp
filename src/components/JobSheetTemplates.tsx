@@ -102,13 +102,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
+  const [scheduledDate, setScheduledDate] = useState<string>("");
 
   const fetchData = async () => {
-    const [tplRes, respRes, jobRes] = await Promise.all([
+    const [tplRes, respRes, jobRes, schedRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
       supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
+      supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
     ]);
+    // Store earliest scheduled date for RAMS attendance date auto-fill
+    if (schedRes.data && schedRes.data.length > 0) {
+      setScheduledDate(new Date(schedRes.data[0].schedule_date).toLocaleDateString("en-GB"));
+    }
     const rawJobCategory = (jobRes.data as any)?.category || null;
     // Normalize legacy slug aliases to canonical slugs
     const normalizeCategory = (cat: string | null) => {
@@ -290,9 +296,12 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Job name / description
       } else if (label === "job name" || label === "job title" || label === "job description" || label === "description of work" || label === "works description") {
         prefilled[f.id] = jobInfo.name || "";
-      // Date fields
+      // Date fields — use scheduled planner date if available, else today
       } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
-        prefilled[f.id] = new Date().toISOString().split("T")[0];
+        prefilled[f.id] = scheduledDate || new Date().toISOString().split("T")[0];
+      // Attendance date — always use the planner-booked date
+      } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
+        prefilled[f.id] = scheduledDate || new Date().toLocaleDateString("en-GB");
       // Category / scope / type of work — auto-set from PT/Visual quantities, fallback to category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
         const scopeParts: string[] = [];
