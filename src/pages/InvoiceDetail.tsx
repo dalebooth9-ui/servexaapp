@@ -771,27 +771,31 @@ export default function InvoiceDetail() {
                 </p>
               )}
 
-              {/* ── Accreditation logos ────────────────────────────────── */}
-              <div style={{ borderTop: "1px solid #e5e5e5", paddingTop: "0.75rem", marginTop: "auto" }}>
-                <div className="flex items-center justify-center gap-4">
-                  {[
-                    "/accreditation/smas-logo.png",
-                    "/accreditation/constructionline-logo.png",
-                    "/accreditation/iso-9001-logo.jpg",
-                    "/accreditation/bafe-logo.jpeg",
-                  ].map((src) => (
-                    <img
-                      key={src}
-                      src={src}
-                      alt=""
-                      crossOrigin="anonymous"
-                      style={{ height: 28, objectFit: "contain", opacity: 0.22 }}
-                    />
-                  ))}
-                </div>
-              </div>
+                {/* Spacer pushes footer to bottom */}
+                <div style={{ flex: 1 }} />
 
-            </div>
+                {/* ── Accreditation footer ──────────────────────────────── */}
+                <div style={{ borderTop: "2px solid #213D63", paddingTop: "0.6rem", marginTop: "2rem" }}>
+                  <div className="flex items-center justify-center gap-6">
+                    {[
+                      "/accreditation/smas-logo.png",
+                      "/accreditation/constructionline-logo.png",
+                      "/accreditation/iso-9001-logo.jpg",
+                      "/accreditation/bafe-logo.jpeg",
+                    ].map((src) => (
+                      <img
+                        key={src}
+                        src={src}
+                        alt=""
+                        crossOrigin="anonymous"
+                        style={{ height: 30, objectFit: "contain", opacity: 0.22 }}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+              </div>{/* end inner zIndex wrapper */}
+            </div>{/* end printRef watermark wrapper */}
           </CardContent>
         </Card>
       )}
