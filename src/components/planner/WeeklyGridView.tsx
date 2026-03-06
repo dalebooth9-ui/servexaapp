@@ -98,24 +98,25 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
       {...attributes}
       {...listeners}
       className={cn(
-        "rounded-md border-l-4 bg-card p-2 text-xs cursor-grab shadow-sm hover:shadow transition-shadow",
+        "relative rounded-md border-l-4 bg-card p-2 text-xs cursor-grab shadow-sm hover:shadow transition-shadow",
         isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30"
       )}
     >
-      <div className="flex items-center justify-between gap-1">
+      {/* Top row: ref + due date */}
+      <div className="flex items-center justify-between gap-1 mb-0.5">
         <span className="font-mono font-medium text-primary">{job.reference_number}</span>
         {isOverdue ? (
-          <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground">
+          <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
             <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
           </span>
         ) : isDueToday ? (
-          <span className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white">
+          <span className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground shrink-0">
             DUE TODAY
           </span>
         ) : job.due_date ? (
-          <span className="text-[9px] font-mono text-muted-foreground">
-            Due {format(new Date(job.due_date), "dd/MM/yy")}
+          <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
+            {format(new Date(job.due_date), "dd/MM/yy")}
           </span>
         ) : null}
       </div>
