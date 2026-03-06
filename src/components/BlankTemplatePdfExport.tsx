@@ -218,8 +218,13 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         renderPdfFooter(doc, footerY, footerText);
       }
 
-      const watermark = await loadWatermarkImage();
+      const [watermark, accredLogos] = await Promise.all([
+        loadWatermarkImage(),
+        loadAccreditationLogos(),
+      ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
+      const footerYForLogos = pageHeight - margin - 9;
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
       const blob = doc.output("blob");

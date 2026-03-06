@@ -265,8 +265,13 @@ export async function generateJobSheetPdf(
 
   renderPdfFooter(doc, footerY, footerText);
 
-  const watermark = await loadWatermarkImage();
+  const [watermark, accredLogos] = await Promise.all([
+    loadWatermarkImage(),
+    loadAccreditationLogos(),
+  ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
+  const footerYForLogos = pageHeight - margin - 9;
+  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
 
   const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
