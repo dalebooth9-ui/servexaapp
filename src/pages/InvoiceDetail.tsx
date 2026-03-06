@@ -788,7 +788,7 @@ export default function InvoiceDetail() {
                         src={src}
                         alt=""
                         crossOrigin="anonymous"
-                        style={{ height: 30, objectFit: "contain", opacity: 0.22 }}
+                        style={{ height: 60, objectFit: "contain", opacity: 0.22 }}
                       />
                     ))}
                   </div>
