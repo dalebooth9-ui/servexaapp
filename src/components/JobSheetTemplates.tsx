@@ -561,7 +561,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     jobId={jobId}
                     mode="preview"
                   />
+                </div>
               </div>
+            </div>
             </div>
           )}
           {/* Draft responses — exclude RAMS */}
