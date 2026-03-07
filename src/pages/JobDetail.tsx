@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles } from "lucide-react";
 import AiJobBriefDialog from "@/components/AiJobBriefDialog";
+import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -428,6 +429,27 @@ export default function JobDetail() {
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
                   </Button>
                 </div>
+
+                {/* AI Job Brief — stored brief */}
+                {(job as any).brief && (
+                  <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-primary">AI Job Brief</span>
+                    </div>
+                    <div className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap line-clamp-6">
+                      {(job as any).brief.replace(/^#+\s+/gm, "").replace(/\*\*(.*?)\*\*/g, "$1")}
+                    </div>
+                    <AiJobBriefDialog
+                      job={job}
+                      trigger={
+                        <button className="mt-2 text-xs text-primary hover:underline underline-offset-2">
+                          View full brief →
+                        </button>
+                      }
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-lg border bg-card p-4 space-y-3">

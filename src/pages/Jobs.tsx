@@ -32,6 +32,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { getStatusColor, getFileExtension, IMAGE_EXTENSIONS, isImageFile } from "@/lib/fileUtils";
+import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
 import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
@@ -582,6 +583,22 @@ export default function Jobs() {
             userId: user.id,
           });
         }
+
+        // Generate AI job brief in background and save to job record
+        generateAndSaveAiBrief({
+          id: createdJob.id,
+          name: form.name,
+          reference_number: createdJob.reference_number,
+          category: form.category,
+          priority: form.priority,
+          customer: customerName || undefined,
+          address: form.address || undefined,
+          status: statusOverride || "active",
+          due_date: form.due_date || undefined,
+          visual_qty: form.visual_qty || undefined,
+          pressure_test_qty: form.pressure_test_qty || undefined,
+          other_service_type: form.other_service_type || undefined,
+        });
       }
     }
   };
