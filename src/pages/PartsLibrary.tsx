@@ -32,6 +32,8 @@ interface LibraryPart {
   description: string | null;
   unit_cost: number;
   sell_price: number;
+  china_cost: number;
+  uk_cost: number;
   category: string;
   supplier: string | null;
   part_number: string | null;
@@ -53,11 +55,11 @@ interface ParsedLibraryPart {
 // Inline add row between parts
 const InlineAddRow = forwardRef<HTMLTableRowElement, {
   isAdmin: boolean;
-  onAdd: (form: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string }) => Promise<void>;
+  onAdd: (form: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; category: string; supplier: string; part_number: string }) => Promise<void>;
   colSpan: number;
 }>(function InlineAddRow({ isAdmin, onAdd, colSpan }, ref) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+  const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
   const [adding, setAdding] = useState(false);
 
   if (!open) {
@@ -79,7 +81,7 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
     if (!form.name.trim()) return;
     setAdding(true);
     await onAdd(form);
-    setForm({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+    setForm({ name: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
     setOpen(false);
     setAdding(false);
   };
@@ -92,7 +94,11 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
           <Input placeholder="Part #" value={form.part_number} onChange={(e) => setForm({ ...form, part_number: e.target.value })} className="h-8 text-sm w-24" />
           <Input type="number" placeholder="Cost £" min="0" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
           {isAdmin && (
-            <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
+            <>
+              <Input type="number" placeholder="China £" min="0" step="0.01" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
+              <Input type="number" placeholder="UK £" min="0" step="0.01" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
+              <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
+            </>
           )}
           <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8 text-sm w-24" />
           <Input placeholder="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="h-8 text-sm w-24" onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
@@ -114,7 +120,7 @@ function SortableLibraryRow({
   part: LibraryPart;
   isAdmin: boolean;
   isEditing: boolean;
-  editForm: { name: string; unit_cost: string; sell_price: string; supplier: string; part_number: string };
+  editForm: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; supplier: string; part_number: string };
   setEditForm: (f: any) => void;
   startEdit: (p: LibraryPart) => void;
   saveEdit: () => void;
@@ -131,6 +137,7 @@ function SortableLibraryRow({
   };
 
   const margin = part.sell_price > 0 ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100 : 0;
+  const costDiff = part.uk_cost - part.china_cost;
 
   return (
     <TableRow ref={setNodeRef} style={style} data-state={selected.has(part.id) ? "selected" : undefined}>
@@ -164,16 +171,29 @@ function SortableLibraryRow({
         ) : <>£{Number(part.unit_cost).toFixed(2)}</>}
       </TableCell>
       {isAdmin && (
-        <TableCell className="text-right">
-          {isEditing ? (
-            <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
-          ) : <>£{Number(part.sell_price).toFixed(2)}</>}
-        </TableCell>
-      )}
-      {isAdmin && (
-        <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-          {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
-        </TableCell>
+        <>
+          <TableCell className="text-right">
+            {isEditing ? (
+              <Input type="number" min="0" step="0.01" value={editForm.china_cost} onChange={(e) => setEditForm({ ...editForm, china_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+            ) : <>£{Number(part.china_cost).toFixed(2)}</>}
+          </TableCell>
+          <TableCell className="text-right">
+            {isEditing ? (
+              <Input type="number" min="0" step="0.01" value={editForm.uk_cost} onChange={(e) => setEditForm({ ...editForm, uk_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+            ) : <>£{Number(part.uk_cost).toFixed(2)}</>}
+          </TableCell>
+          <TableCell className={`text-right text-sm font-medium ${costDiff > 0 ? "text-green-600" : costDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {(part.china_cost > 0 || part.uk_cost > 0) ? (costDiff >= 0 ? `+£${costDiff.toFixed(2)}` : `-£${Math.abs(costDiff).toFixed(2)}`) : "—"}
+          </TableCell>
+          <TableCell className="text-right">
+            {isEditing ? (
+              <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
+            ) : <>£{Number(part.sell_price).toFixed(2)}</>}
+          </TableCell>
+          <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
+          </TableCell>
+        </>
       )}
       <TableCell>
         <div className="flex items-center gap-1 justify-end">
@@ -214,11 +234,11 @@ export default function PartsLibrary() {
 
   // Add form
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+  const [form, setForm] = useState({ name: "", description: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
 
   // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", unit_cost: "", sell_price: "", supplier: "", part_number: "" });
+  const [editForm, setEditForm] = useState({ name: "", unit_cost: "", sell_price: "", china_cost: "", uk_cost: "", supplier: "", part_number: "" });
 
   // Bulk import
   const [importOpen, setImportOpen] = useState(false);
@@ -255,7 +275,7 @@ export default function PartsLibrary() {
   const isSearching = search.trim().length > 0;
 
   const handleAddAt = async (
-    formData: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string },
+    formData: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; category: string; supplier: string; part_number: string },
     insertAfterIndex?: number,
   ) => {
     if (!formData.name.trim() || !user) return;
@@ -286,6 +306,8 @@ export default function PartsLibrary() {
       description: null,
       unit_cost: parseFloat(formData.unit_cost) || 0,
       sell_price: parseFloat(formData.sell_price) || 0,
+      china_cost: parseFloat(formData.china_cost) || 0,
+      uk_cost: parseFloat(formData.uk_cost) || 0,
       category: formData.category.trim() || "general",
       supplier: formData.supplier.trim() || null,
       part_number: formData.part_number.trim() || null,
@@ -305,9 +327,10 @@ export default function PartsLibrary() {
     setAdding(true);
     await handleAddAt({
       name: form.name, unit_cost: form.unit_cost, sell_price: form.sell_price,
+      china_cost: form.china_cost, uk_cost: form.uk_cost,
       category: form.category, supplier: form.supplier, part_number: form.part_number,
     });
-    setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+    setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
     setAdding(false);
   };
 
@@ -336,6 +359,8 @@ export default function PartsLibrary() {
       name: part.name,
       unit_cost: String(part.unit_cost),
       sell_price: String(part.sell_price),
+      china_cost: String(part.china_cost),
+      uk_cost: String(part.uk_cost),
       supplier: part.supplier || "",
       part_number: part.part_number || "",
     });
@@ -348,6 +373,7 @@ export default function PartsLibrary() {
     const oldPart = parts.find((p) => p.id === editingId);
     const oldPayload = oldPart ? {
       name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price,
+      china_cost: oldPart.china_cost, uk_cost: oldPart.uk_cost,
       supplier: oldPart.supplier, part_number: oldPart.part_number,
     } : null;
     const editId = editingId;
@@ -355,6 +381,8 @@ export default function PartsLibrary() {
       name: editForm.name.trim(),
       unit_cost: parseFloat(editForm.unit_cost) || 0,
       sell_price: parseFloat(editForm.sell_price) || 0,
+      china_cost: parseFloat(editForm.china_cost) || 0,
+      uk_cost: parseFloat(editForm.uk_cost) || 0,
       supplier: editForm.supplier.trim() || null,
       part_number: editForm.part_number.trim() || null,
     } as any).eq("id", editId);
@@ -405,7 +433,7 @@ export default function PartsLibrary() {
   };
 
   // Column count for inline add row
-  const colCount = 7 + (isAdmin ? 3 : 0); // grip + checkbox(admin) + name + part# + supplier + category + cost + sell(admin) + margin(admin) + actions
+  const colCount = 7 + (isAdmin ? 5 : 0); // grip + checkbox(admin) + name + part# + supplier + category + cost + china(admin) + uk(admin) + sell(admin) + margin(admin) + actions
 
   // Bulk import handlers
   const handleParse = async () => {
@@ -518,9 +546,17 @@ export default function PartsLibrary() {
               <Input type="number" placeholder="Cost £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
             </div>
             {isAdmin && (
-              <div className="w-24">
-                <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
-              </div>
+              <>
+                <div className="w-24">
+                  <Input type="number" placeholder="China £" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} min="0" step="0.01" />
+                </div>
+                <div className="w-24">
+                  <Input type="number" placeholder="UK £" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} min="0" step="0.01" />
+                </div>
+                <div className="w-24">
+                  <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
+                </div>
+              </>
             )}
             <div className="w-28">
               <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
@@ -591,6 +627,9 @@ export default function PartsLibrary() {
                   <TableHead>Supplier</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Unit Cost</TableHead>
+                  {isAdmin && <TableHead className="text-right">China Cost</TableHead>}
+                  {isAdmin && <TableHead className="text-right">UK Cost</TableHead>}
+                  {isAdmin && <TableHead className="text-right">Profit</TableHead>}
                   {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
                   {isAdmin && <TableHead className="text-right">Margin</TableHead>}
                   <TableHead className="w-20" />
