@@ -234,7 +234,7 @@ function CreateProjectDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5 text-primary" /> New Installation Project
+            <FolderOpen className="h-5 w-5 text-primary" /> New Notes / Snag List
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
