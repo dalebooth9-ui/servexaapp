@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks, ClipboardList, ChevronDown } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks, ClipboardList, ChevronDown, Pin, PinOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -59,19 +59,35 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const STORAGE_KEY = "nav-order";
+const PIN_KEY = "nav-pinned-ops";
+
+// Items that are always in operations and cannot be demoted
+const CORE_OPS = new Set(["/", "/jobs", "/planner", "/customers", "/invoices"]);
 
 function loadNavOrder(): string[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch {return null;}
+  } catch { return null; }
 }
 
-function SortableNavItem({ item, isActive, onClick
+function loadPinnedOps(): string[] {
+  try {
+    const raw = localStorage.getItem(PIN_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
 
-
-
-}: {item: typeof DEFAULT_NAV_ITEMS[number];isActive: boolean;onClick: () => void;}) {
+function SortableNavItem({
+  item, isActive, onClick, showPin, isPinned, onTogglePin,
+}: {
+  item: typeof DEFAULT_NAV_ITEMS[number];
+  isActive: boolean;
+  onClick: () => void;
+  showPin?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -82,7 +98,6 @@ function SortableNavItem({ item, isActive, onClick
         {...listeners}
         className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-40 hover:!opacity-80 transition-opacity text-sidebar-foreground"
         tabIndex={-1}>
-        
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       <Link
@@ -94,12 +109,25 @@ function SortableNavItem({ item, isActive, onClick
           "bg-sidebar-accent text-sidebar-primary" :
           "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}>
-        
         <item.icon className="h-4.5 w-4.5" />
         {item.label}
       </Link>
-    </div>);
-
+      {showPin && onTogglePin && (
+        <button
+          onClick={(e) => { e.preventDefault(); onTogglePin(); }}
+          title={isPinned ? "Move to More" : "Pin to Operations"}
+          className={cn(
+            "p-1 rounded transition-all shrink-0",
+            isPinned
+              ? "opacity-0 group-hover:opacity-60 hover:!opacity-100 text-sidebar-primary"
+              : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
+          )}
+          tabIndex={-1}>
+          {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
@@ -111,6 +139,15 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
   const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
+  const [pinnedOps, setPinnedOps] = useReactState<string[]>(loadPinnedOps);
+
+  const handleTogglePin = (to: string) => {
+    setPinnedOps((prev) => {
+      const next = prev.includes(to) ? prev.filter((p) => p !== to) : [...prev, to];
+      localStorage.setItem(PIN_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -165,10 +202,22 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     return moreRoutes.some((r) => location.pathname.startsWith(r));
   });
 
-  // Group items by section for display with section labels
+  // Group items by section — respecting pin overrides
+  // "more" items pinned to ops are shown in operations; non-core ops items can be demoted
   const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
-    acc[section] = visibleNavItems.filter((i) => i.section === section);
+    acc[section] = visibleNavItems.filter((i) => {
+      if (section === "operations") {
+        // show native ops items + pinned "more" items
+        return i.section === "operations" && !pinnedOps.includes("demote:" + i.to)
+          || (i.section === "more" && pinnedOps.includes(i.to));
+      }
+      if (section === "more") {
+        // hide "more" items that have been pinned to ops
+        return i.section === "more" && !pinnedOps.includes(i.to);
+      }
+      return i.section === section;
+    });
     return acc;
   }, {} as Record<string, typeof visibleNavItems>);
 
@@ -227,7 +276,10 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   key={item.to}
                                   item={item}
                                   isActive={isActive}
-                                  onClick={() => setMobileOpen(false)} />
+                                  onClick={() => setMobileOpen(false)}
+                                  showPin
+                                  isPinned={false}
+                                  onTogglePin={() => handleTogglePin(item.to)} />
                               );
                             })}
                           </div>
@@ -237,12 +289,17 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                       <div className="space-y-0.5">
                         {items.map((item) => {
                           const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
+                          // Show unpin button for non-core ops items that were pinned from "more"
+                          const wasPinnedFromMore = item.section === "more" && pinnedOps.includes(item.to);
                           return (
                             <SortableNavItem
                               key={item.to}
                               item={item}
                               isActive={isActive}
-                              onClick={() => setMobileOpen(false)} />);
+                              onClick={() => setMobileOpen(false)}
+                              showPin={wasPinnedFromMore}
+                              isPinned={wasPinnedFromMore}
+                              onTogglePin={wasPinnedFromMore ? () => handleTogglePin(item.to) : undefined} />);
                         })}
                       </div>
                     )}
