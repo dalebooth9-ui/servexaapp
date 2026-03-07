@@ -2079,6 +2079,92 @@ export type Database = {
         }
         Relationships: []
       }
+      rams_documents: {
+        Row: {
+          assessment_date: string | null
+          attendance_date: string | null
+          client: string | null
+          contract_job_name: string | null
+          created_at: string
+          created_by: string
+          description_of_work: string | null
+          id: string
+          job_id: string
+          location: string | null
+          operatives: Json | null
+          personnel: string | null
+          plant_and_equipment: Json | null
+          ppe_items: Json | null
+          rams_type: string
+          resources: string | null
+          risk_rows: Json | null
+          sequence_of_ops: Json | null
+          significant_risks: Json | null
+          site_location: string | null
+          special_training: string | null
+          task_specific_ops: Json | null
+          updated_at: string
+        }
+        Insert: {
+          assessment_date?: string | null
+          attendance_date?: string | null
+          client?: string | null
+          contract_job_name?: string | null
+          created_at?: string
+          created_by: string
+          description_of_work?: string | null
+          id?: string
+          job_id: string
+          location?: string | null
+          operatives?: Json | null
+          personnel?: string | null
+          plant_and_equipment?: Json | null
+          ppe_items?: Json | null
+          rams_type?: string
+          resources?: string | null
+          risk_rows?: Json | null
+          sequence_of_ops?: Json | null
+          significant_risks?: Json | null
+          site_location?: string | null
+          special_training?: string | null
+          task_specific_ops?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          assessment_date?: string | null
+          attendance_date?: string | null
+          client?: string | null
+          contract_job_name?: string | null
+          created_at?: string
+          created_by?: string
+          description_of_work?: string | null
+          id?: string
+          job_id?: string
+          location?: string | null
+          operatives?: Json | null
+          personnel?: string | null
+          plant_and_equipment?: Json | null
+          ppe_items?: Json | null
+          rams_type?: string
+          resources?: string | null
+          risk_rows?: Json | null
+          sequence_of_ops?: Json | null
+          significant_risks?: Json | null
+          site_location?: string | null
+          special_training?: string | null
+          task_specific_ops?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_documents_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           address: string | null
