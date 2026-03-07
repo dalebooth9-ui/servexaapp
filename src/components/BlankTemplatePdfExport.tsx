@@ -227,13 +227,10 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
-      const blob = doc.output("blob");
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      doc.save(fileName);
       toast({
-        title: "Blank template opened",
-        description: systemQty > 1 ? `${systemQty} systems included` : fileName,
+        title: "PDF downloaded",
+        description: fileName,
       });
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
@@ -243,8 +240,8 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   };
 
   return (
-    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generate} disabled={generating} title="Print blank template">
-      {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generate} disabled={generating} title="Download blank template">
+      {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
     </Button>
   );
 }
