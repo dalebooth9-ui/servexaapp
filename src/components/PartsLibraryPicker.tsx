@@ -57,7 +57,7 @@ export default function PartsLibraryPicker({
       setParts((data as any) || []);
       setLoading(false);
     })();
-  }, [open]);
+  }, [open, listType]);
 
   const filtered = parts.filter((p) => {
     const q = search.toLowerCase();
