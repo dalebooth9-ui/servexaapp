@@ -711,49 +711,49 @@ export async function buildSharedMethodSections(
 
   // ─── Section 1 Introduction ───
   y = await checkPageBreak(doc, y, 10, logoImg, currentPageRef, totalPages);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("1 Introduction", ML, y); y += 5;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("1 Introduction", ML, y); y += 4;
   y = para(doc,
     "This Method Statement describes the specific safe working methods which will be used to carry out the work. It gives details of how the work will be carried out and what health and safety issues and controls are involved. The content of this Method Statement reflects the finding of the relevant Risk Assessment(s).",
     ML, y, CONTENT_W);
-  y += 4;
+  y += 2;
 
   // ─── Section 2 Description ───
   y = await checkPageBreak(doc, y, 10, logoImg, currentPageRef, totalPages);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("2 Description of Work", ML, y); y += 5;
-  y = para(doc, sections.descriptionOfWork, ML, y, CONTENT_W); y += 3;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("2 Description of Work", ML, y); y += 4;
+  y = para(doc, sections.descriptionOfWork, ML, y, CONTENT_W); y += 2;
 
   // ─── Site Working Hours ───
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPageRef, totalPages);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Time", ML, y); y += 4;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Site Working Hours:", ML, y); y += 4;
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Time", ML, y); y += 3.5;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Site Working Hours:", ML, y); y += 3.5;
   y = bulletList(doc, [
     "Monday to Friday: 6:00am to 8:00pm",
     "Saturday: 8:00am to 12:30pm",
     "Sunday: None (Inc. Bank Holidays)"
   ], ML + 3, y, CONTENT_W - 3);
-  y = para(doc, "Any additional hours will need to be approved by main contractor.", ML, y + 1, CONTENT_W);
-  y += 3;
+  y = para(doc, "Any additional hours will need to be approved by main contractor.", ML, y + 0.5, CONTENT_W);
+  y += 2;
 
   // ─── 2.1 Duration ───
-  y = await checkPageBreak(doc, y, 25, logoImg, currentPageRef, totalPages);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.1 Duration", ML, y); y += 5;
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.1 Duration", ML, y); y += 4;
   y = para(doc,
     "All works will be supervised at every stage by a competent qualified supervisor. Martin Whatmough will be responsible for the day-to-day supervision of Viva Fire Protection personnel and sub-contractors on site.",
     ML, y, CONTENT_W);
-  y += 2;
+  y += 1.5;
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
-  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4.5;
-  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 6;
+  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4;
+  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 4;
 
   // ─── 2.2 Sequence ───
-  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef, totalPages);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 5;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 4;
   y = numberedList(doc, sections.sequenceOfOps, ML + 2, y, CONTENT_W - 2);
-  y += 3;
+  y += 2;
 
   // ─── 2.3 Task Specific ───
-  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef, totalPages);
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 5;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 4;
   // Render task-specific ops with per-item page breaks
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
   for (let i = 0; i < sections.taskSpecificOps.length; i++) {
