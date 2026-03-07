@@ -372,7 +372,7 @@ export async function generateRamsPdf(
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // RAMS always use Viva Fire branding — never the customer's logo
+  // RAMS always use Viva Fire branding — customer logos are NEVER applied here
   let logoImg: HTMLImageElement | null = null;
   try {
     const img = new Image();
@@ -380,7 +380,7 @@ export async function generateRamsPdf(
     await new Promise<void>((res, rej) => {
       img.onload = () => res();
       img.onerror = () => rej();
-      img.src = "/images/vivafire-logo-new.jpg";
+      img.src = `/images/vivafire-logo-new.jpg?v=${Date.now()}`;
     });
     logoImg = img;
   } catch { /* no logo */ }
