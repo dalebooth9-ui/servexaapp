@@ -439,8 +439,13 @@ export async function buildCoverPage(
   const scopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
-    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
+    (jobInfo?.other_qty ?? 0) > 0
+      ? (jobInfo!.other_service_type
+          ? `${jobInfo!.other_service_type} x${jobInfo!.other_qty}`
+          : `${jobInfo!.other_qty} x systems`)
+      : null,
   ].filter(Boolean).join("  |  ");
+  const scopeLabel = scopeParts && !jobInfo?.pressure_test_qty && !jobInfo?.visual_qty ? "Scope:" : "Service Scope:";
 
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";
@@ -504,7 +509,7 @@ export async function buildCoverPage(
     ry2 += Math.max(rowGap, siteLines.length * (9 * 0.352778 + 1.2));
   }
   labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry2); ry2 += rowGap;
-  if (scopeParts) { labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry2); ry2 += rowGap; }
+  if (scopeParts) { labelValue(doc, scopeLabel, scopeParts, ML + 3, ry2); ry2 += rowGap; }
   if (engineerNames && engineerNames !== "Viva Fire Operatives") {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Assigned Engineers:", ML + 3, ry2);
     doc.setFont("helvetica", "normal");
