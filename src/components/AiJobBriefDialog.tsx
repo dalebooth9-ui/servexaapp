@@ -84,13 +84,19 @@ export default function AiJobBriefDialog({ job, trigger }: Props) {
 
     try {
       const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-      const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast({ title: "Not authenticated", description: "Please sign in to use AI features.", variant: "destructive" });
+        setStreaming(false);
+        return;
+      }
 
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/ai-job-brief`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ANON_KEY}`,
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({ job }),
         signal: abortRef.current.signal,
