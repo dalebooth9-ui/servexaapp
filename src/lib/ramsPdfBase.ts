@@ -346,8 +346,9 @@ export function signatureRow(
 
 /* ─────────────────────────────────────── logo loader ── */
 
-export async function loadLogoImage(customerLogoUrl?: string | null): Promise<HTMLImageElement | null> {
-  const url = customerLogoUrl || "/images/vivafire-logo-new.jpg";
+export async function loadLogoImage(_customerLogoUrl?: string | null): Promise<HTMLImageElement | null> {
+  // RAMS always use Viva Fire branding — customer logos are never applied here
+  const url = "/images/vivafire-logo-new.jpg";
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
@@ -358,19 +359,6 @@ export async function loadLogoImage(customerLogoUrl?: string | null): Promise<HT
     });
     return img;
   } catch {
-    // If custom logo fails, fall back to default
-    if (customerLogoUrl) {
-      try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        await new Promise<void>((res, rej) => {
-          img.onload = () => res();
-          img.onerror = () => rej();
-          img.src = "/images/vivafire-logo-new.jpg";
-        });
-        return img;
-      } catch { return null; }
-    }
     return null;
   }
 }
