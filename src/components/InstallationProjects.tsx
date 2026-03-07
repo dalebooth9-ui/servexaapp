@@ -45,9 +45,9 @@ async function getSignedUrl(path: string): Promise<string> {
 
 function IssueCard({
   issue, issueNumber, onUpdateTitle, onUpdateDescription, onToggleStatus,
-  onDelete, onAddPhoto, onDeletePhoto, uploadingIssueId,
+  onDelete, onAddPhoto, onDeletePhoto, uploadingIssueId, initiallyExpanded,
 }: {
-  issue: Issue; issueNumber: number;
+  issue: Issue; issueNumber: number; initiallyExpanded?: boolean;
   onUpdateTitle: (id: string, val: string) => void;
   onUpdateDescription: (id: string, val: string) => void;
   onToggleStatus: (id: string, current: string) => void;
@@ -56,7 +56,7 @@ function IssueCard({
   onDeletePhoto: (issueId: string, photoId: string, photoUrl: string) => void;
   uploadingIssueId: string | null;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(initiallyExpanded ?? false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(issue.title);
   const [descVal, setDescVal] = useState(issue.description || "");
@@ -301,6 +301,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
   const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [uploadingIssueId, setUploadingIssueId] = useState<string | null>(null);
+  const [newlyAddedIssueId, setNewlyAddedIssueId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -325,6 +326,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
     if (error) { toast({ title: "Failed to add issue", variant: "destructive" }); return; }
     const newIssue = { ...(data as any), photos: [] };
     setIssues((prev) => [...prev, newIssue]);
+    setNewlyAddedIssueId(newIssue.id);
     setNewIssueTitle("");
     setAddingIssue(false);
     const photos = pendingPhotos;
@@ -628,6 +630,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
             onAddPhoto={addPhoto}
             onDeletePhoto={deletePhoto}
             uploadingIssueId={uploadingIssueId}
+            initiallyExpanded={issue.id === newlyAddedIssueId}
           />
         ))}
 
