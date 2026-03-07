@@ -279,7 +279,7 @@ function CreateProjectDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleCreate} disabled={saving}>
-            {saving ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Creating…</> : "Create Project"}
+            {saving ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Creating…</> : "Create Snag List"}
           </Button>
         </DialogFooter>
       </DialogContent>
