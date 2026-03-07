@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import {
   FolderOpen, Plus, Trash2, Camera, X, ChevronDown, ChevronUp,
   Download, Share2, CheckCircle2, Circle, Pencil, Loader2, Image as ImageIcon,
-  Building2, User, FileText
+  Building2, User, FileText, Mic, MicOff
 } from "lucide-react";
 import jsPDF from "jspdf";
 
