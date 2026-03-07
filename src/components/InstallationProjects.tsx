@@ -87,6 +87,9 @@ function IssueCard({
   const [annotatorOpen, setAnnotatorOpen] = useState(false);
   const [annotatorImage, setAnnotatorImage] = useState<string | null>(null);
   const [pendingAnnotationFile, setPendingAnnotationFile] = useState<File | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (initiallyExpanded && expanded) {
@@ -94,6 +97,19 @@ function IssueCard({
       return () => clearTimeout(t);
     }
   }, []);
+
+  const loadHistory = async () => {
+    if (history.length > 0) { setShowHistory(h => !h); return; }
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from("installation_issue_history" as any)
+      .select("*")
+      .eq("issue_id", issue.id)
+      .order("changed_at", { ascending: false });
+    setHistory((data as any[]) || []);
+    setHistoryLoading(false);
+    setShowHistory(true);
+  };
 
   const resolved = issue.status === "resolved";
   const pc = PRIORITY_CONFIG[issue.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
