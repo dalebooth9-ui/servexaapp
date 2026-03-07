@@ -69,7 +69,7 @@ export default function PreCompletionChecklist({ jobId }: Props) {
       .select("*")
       .eq("job_id", jobId)
       .order("sort_order");
-    setItems((data as ChecklistItem[]) || []);
+    setItems((data as unknown as ChecklistItem[]) || []);
     setLoading(false);
   }, [jobId]);
 
