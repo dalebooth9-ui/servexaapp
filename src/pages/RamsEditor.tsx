@@ -259,6 +259,7 @@ export default function RamsEditor() {
         else if (jobData?.category === "installation") type = "installation";
         loadDefaults(type, jobData);
       }
+      setIsDirty(false);
       setLoading(false);
     };
     load();
