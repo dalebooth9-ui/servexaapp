@@ -279,3 +279,59 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
 export function getRamsDefaults(type: RamsType): RamsDefaults {
   return DEFAULTS[type] ?? DEFAULTS.dry_riser;
 }
+
+/**
+ * Builds a context-aware "Description of Work" string based on job quantities.
+ * Falls back to the default for the RAMS type if no quantities are provided.
+ */
+export function buildScopeDescription(
+  type: RamsType,
+  pressureTestQty?: number,
+  visualQty?: number,
+  otherQty?: number,
+  otherServiceType?: string | null
+): string {
+  const pt = pressureTestQty ?? 0;
+  const vis = visualQty ?? 0;
+  const other = otherQty ?? 0;
+
+  // For installation type, always use fixed description
+  if (type === "installation") {
+    return DEFAULTS.installation.descriptionOfWork;
+  }
+
+  const parts: string[] = [];
+  if (pt > 0) parts.push(`pressure testing (${pt} system${pt > 1 ? "s" : ""})`);
+  if (vis > 0) parts.push(`visual inspection (${vis} system${vis > 1 ? "s" : ""})`);
+  if (other > 0) {
+    const label = otherServiceType || "other service";
+    parts.push(`${label} (${other} system${other > 1 ? "s" : ""})`);
+  }
+
+  if (parts.length === 0) {
+    return DEFAULTS[type]?.descriptionOfWork ?? DEFAULTS.dry_riser.descriptionOfWork;
+  }
+
+  const scopeSentence = parts.join(" and ");
+
+  const standardMap: Record<RamsType, string> = {
+    dry_riser: "BS 9990:2015",
+    sprinkler: "BS EN 12845 and LPS 1048",
+    fire_extinguisher: "BS 5306-3:2017",
+    fire_hydrant: "BS EN 14339",
+    installation: "BS 9990:2015",
+  };
+
+  const systemMap: Record<RamsType, string> = {
+    dry_riser: "dry riser systems",
+    sprinkler: "sprinkler systems",
+    fire_extinguisher: "portable fire extinguishers",
+    fire_hydrant: "fire hydrants",
+    installation: "dry riser systems",
+  };
+
+  const standard = standardMap[type] ?? standardMap.dry_riser;
+  const system = systemMap[type] ?? systemMap.dry_riser;
+
+  return `${scopeSentence.charAt(0).toUpperCase() + scopeSentence.slice(1)} of ${system} in accordance with ${standard}.`;
+}
