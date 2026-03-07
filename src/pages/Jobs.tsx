@@ -1165,65 +1165,95 @@ export default function Jobs() {
         )}
       </div>
 
-      {isAdmin && selectedJobIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3">
-          <span className="text-sm font-medium mr-1">{selectedJobIds.size} selected</span>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds(new Set())}>Clear</Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">Status <ChevronDown className="ml-1 h-3 w-3" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {["active","in_progress","scheduled","awaiting_parts","on_hold","requires_revisit","completed","archived"].map((s) => (
-                <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(s)}>{s.replace(/_/g, " ")}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">Priority <ChevronDown className="ml-1 h-3 w-3" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {["high","medium","low"].map((p) => (
-                <DropdownMenuItem key={p} onClick={() => handleBulkPriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {engineers.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">Assign Engineer <ChevronDown className="ml-1 h-3 w-3" /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {engineers.map((e) => (
-                  <DropdownMenuItem key={e.user_id} onClick={() => handleBulkAssignEngineer(e.user_id)}>{e.full_name}</DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {selectedJobIds.size} job(s)?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete the selected jobs and all associated data. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete}>
-                  Delete {selectedJobIds.size} Job(s)
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+      {isAdmin && (selectedJobIds.size > 0 || filtered.length > 0) && (
+        <div className={`mb-4 rounded-lg border px-4 py-3 transition-colors ${selectedJobIds.size > 0 ? "bg-primary/5 border-primary/30" : "bg-muted/30 border-border"}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Global select-all checkbox */}
+            <div className="flex items-center gap-2 mr-1">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                checked={allFilteredSelected}
+                ref={(el) => { if (el) el.indeterminate = someFilteredSelected; }}
+                onChange={(e) => handleSelectAllFiltered(e.target.checked)}
+                title="Select / deselect all visible jobs"
+              />
+              {selectedJobIds.size > 0 ? (
+                <span className="text-sm font-semibold text-primary">{selectedJobIds.size} selected</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">Select all ({filtered.length})</span>
+              )}
+            </div>
+
+            {selectedJobIds.size > 0 && (
+              <>
+                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setSelectedJobIds(new Set())}>
+                  <X className="mr-1 h-3 w-3" /> Clear <span className="ml-1 text-muted-foreground">(Esc)</span>
+                </Button>
+                <div className="h-4 w-px bg-border mx-1" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">Status <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {["active","in_progress","scheduled","awaiting_parts","on_hold","requires_revisit","completed","archived"].map((s) => (
+                      <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(s)} className="capitalize">{s.replace(/_/g, " ")}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">Priority <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {["high","medium","low"].map((p) => (
+                      <DropdownMenuItem key={p} onClick={() => handleBulkPriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {engineers.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-xs">Assign Engineer <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {engineers.map((e) => (
+                        <DropdownMenuItem key={e.user_id} onClick={() => handleBulkAssignEngineer(e.user_id)}>{e.full_name}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkExportCsv}>
+                  <Download className="mr-1.5 h-3 w-3" /> Export CSV
+                </Button>
+                <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto">
+                      <Trash2 className="mr-1.5 h-3 w-3" /> Delete {selectedJobIds.size}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selectedJobIds.size} job(s)?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the selected jobs and all associated data. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete}>
+                        Delete {selectedJobIds.size} Job(s)
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </div>
         </div>
       )}
+
+
 
       {filtered.length === 0 ? (
         <Card>
