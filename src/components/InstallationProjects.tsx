@@ -197,11 +197,19 @@ function CreateProjectDialog({
   open: boolean; onClose: () => void; onCreated: (p: Project) => void;
   jobId: string; userId: string; job?: any;
 }) {
+  const siteName = job?.sites?.name || "";
+  const siteAddress = job?.address || job?.sites?.address || "";
+  const clientName = job?.customer || job?.customers?.name || siteName || "";
+  const jobRef = job?.reference_number || "";
+
   const [form, setForm] = useState({
-    title: "", reference: "",
-    client_name: job?.customer || job?.customers?.name || "",
+    title: siteName ? `${siteName} Installation` : "",
+    reference: jobRef,
+    client_name: clientName,
     company_name: "Viva Fire & Protection Ltd",
-    company_address: "", company_phone: "", company_email: "",
+    company_address: siteAddress,
+    company_phone: "",
+    company_email: "",
   });
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
