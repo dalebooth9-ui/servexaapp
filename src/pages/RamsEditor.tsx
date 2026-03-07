@@ -188,6 +188,13 @@ export default function RamsEditor() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [docId, setDocId] = useState<string | null>(ramsId || null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
+
+  // Helpers to set form fields and mark dirty
+  const dirty = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
+    (val: T | ((prev: T) => T)) => { setter(val as any); setIsDirty(true); };
 
   // Form state
   const [ramsType, setRamsType] = useState<RamsType>("dry_riser");
