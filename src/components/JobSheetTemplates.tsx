@@ -70,6 +70,7 @@ type Response = {
 type JobInfo = {
   address: string | null;
   customer: string | null;
+  customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
   category?: string | null;
   name?: string | null;
@@ -108,7 +109,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const [tplRes, respRes, jobRes, schedRes] = await Promise.all([
       supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
       supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
+      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
       supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
     ]);
     // Store earliest scheduled date for RAMS attendance date auto-fill
@@ -162,6 +163,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         customer: jd.customers?.name || jd.customer,
         customer_email: jd.customers?.email || null,
         customer_phone: jd.customers?.phone || null,
+        customers: jd.customers ? { name: jd.customers.name, logo_url: jd.customers.logo_url || null } : null,
         reference_number: jd.reference_number,
         category: jd.category,
         status: jd.status,
