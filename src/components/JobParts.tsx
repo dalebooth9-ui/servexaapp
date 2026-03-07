@@ -394,6 +394,13 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
     const unitCost = parseFloat(editForm.unit_cost) || 0;
     const sellPrice = parseFloat(editForm.sell_price) || 0;
 
+    // Optimistic update
+    setParts((prev) => prev.map((p) => p.id === editId
+      ? { ...p, quantity: qty, unit_cost: unitCost, sell_price: sellPrice, total_cost: qty * unitCost }
+      : p
+    ));
+    cancelEdit();
+
     const { error } = await supabase
       .from("job_parts" as any)
       .update({ quantity: qty, unit_cost: unitCost, sell_price: sellPrice } as any)
@@ -401,9 +408,9 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      // Revert on failure
+      if (oldPayload) setParts((prev) => prev.map((p) => p.id === editId ? { ...p, ...oldPayload, total_cost: oldPayload.quantity * oldPayload.unit_cost } : p));
     } else {
-      cancelEdit();
-      fetchParts();
       editWithUndo({
         label: "Part updated",
         onUndo: async () => {
