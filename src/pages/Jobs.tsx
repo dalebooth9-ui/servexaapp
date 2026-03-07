@@ -32,6 +32,7 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { getStatusColor, getFileExtension, IMAGE_EXTENSIONS, isImageFile } from "@/lib/fileUtils";
+import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
 import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
