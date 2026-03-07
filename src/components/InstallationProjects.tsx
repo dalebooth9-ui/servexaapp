@@ -786,7 +786,7 @@ function ProjectDetail({
     await supabase.from("installation_issues" as any).update({ title }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, title } : i));
     if (old !== title) {
-      await supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "title", old_value: old || null, new_value: title }).catch(() => {});
+      supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "title", old_value: old || null, new_value: title }).then(() => {});
     }
   }, [issues, user]);
 
@@ -799,7 +799,7 @@ function ProjectDetail({
     const next = current === "resolved" ? "open" : "resolved";
     await supabase.from("installation_issues" as any).update({ status: next }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, status: next } : i));
-    await supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "status", old_value: current, new_value: next }).catch(() => {});
+    supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "status", old_value: current, new_value: next }).then(() => {});
   }, [user]);
 
   const updatePriority = useCallback(async (id: string, priority: string) => {
@@ -807,7 +807,7 @@ function ProjectDetail({
     await supabase.from("installation_issues" as any).update({ priority }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, priority } : i));
     if (old !== priority) {
-      await supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "priority", old_value: old || null, new_value: priority }).catch(() => {});
+      supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "priority", old_value: old || null, new_value: priority }).then(() => {});
     }
   }, [issues, user]);
 
