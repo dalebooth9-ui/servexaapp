@@ -5,48 +5,58 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
-import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
-import Jobs from "@/pages/Jobs";
-import JobDetail from "@/pages/JobDetail";
-import Engineers from "@/pages/Engineers";
-import Customers from "@/pages/Customers";
-import CustomerDetail from "@/pages/CustomerDetail";
-import SettingsPage from "@/pages/SettingsPage";
-import WeeklyPlanner from "@/pages/WeeklyPlanner";
-import Sites from "@/pages/Sites";
-import Assets from "@/pages/Assets";
-import AssetDetail from "@/pages/AssetDetail";
-import Compliance from "@/pages/Compliance";
-import Audits from "@/pages/Audits";
-import Invoices from "@/pages/Invoices";
-import InvoiceDetail from "@/pages/InvoiceDetail";
-import Quotes from "@/pages/Quotes";
-import PartsLibrary from "@/pages/PartsLibrary";
-import IndustryTemplates from "@/pages/IndustryTemplates";
-import Install from "@/pages/Install";
-import CustomerSignOff from "@/pages/CustomerSignOff";
-import CustomerPortal from "@/pages/CustomerPortal";
-import EngineerReport from "@/pages/EngineerReport";
-import Reports from "@/pages/Reports";
-import ResetPassword from "@/pages/ResetPassword";
-import NotFound from "@/pages/NotFound";
-import Servexa from "@/pages/Servexa";
-import TermsOfService from "@/pages/TermsOfService";
-import PrivacyPolicy from "@/pages/PrivacyPolicy";
-import RamsEditor from "@/pages/RamsEditor";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
-import { ReactNode } from "react";
+import { ReactNode, lazy, Suspense } from "react";
+
+// Eagerly loaded — used immediately on auth/landing
+import Auth from "@/pages/Auth";
+import Dashboard from "@/pages/Dashboard";
+
+// Lazily loaded — heavier pages loaded on demand
+const Jobs = lazy(() => import("@/pages/Jobs"));
+const JobDetail = lazy(() => import("@/pages/JobDetail"));
+const Engineers = lazy(() => import("@/pages/Engineers"));
+const Customers = lazy(() => import("@/pages/Customers"));
+const CustomerDetail = lazy(() => import("@/pages/CustomerDetail"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const WeeklyPlanner = lazy(() => import("@/pages/WeeklyPlanner"));
+const Sites = lazy(() => import("@/pages/Sites"));
+const Assets = lazy(() => import("@/pages/Assets"));
+const AssetDetail = lazy(() => import("@/pages/AssetDetail"));
+const Compliance = lazy(() => import("@/pages/Compliance"));
+const Audits = lazy(() => import("@/pages/Audits"));
+const Invoices = lazy(() => import("@/pages/Invoices"));
+const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
+const Quotes = lazy(() => import("@/pages/Quotes"));
+const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
+const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
+const Install = lazy(() => import("@/pages/Install"));
+const CustomerSignOff = lazy(() => import("@/pages/CustomerSignOff"));
+const CustomerPortal = lazy(() => import("@/pages/CustomerPortal"));
+const EngineerReport = lazy(() => import("@/pages/EngineerReport"));
+const Reports = lazy(() => import("@/pages/Reports"));
+const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
+const Servexa = lazy(() => import("@/pages/Servexa"));
+const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
+const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 
 const queryClient = new QueryClient();
+
+const PageFallback = () => (
+  <div className="flex h-64 items-center justify-center text-muted-foreground text-sm">
+    Loading…
+  </div>
+);
 
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
   useOfflineSync();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
 }
 
 function AdminRoute({ children }: { children: ReactNode }) {
@@ -55,7 +65,7 @@ function AdminRoute({ children }: { children: ReactNode }) {
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   if (userRole !== "admin") return <Navigate to="/" replace />;
-  return <AppLayout>{children}</AppLayout>;
+  return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
 }
 
 function AuthRoute() {
@@ -94,16 +104,16 @@ const App = () => (
             <Route path="/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
             <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
             <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-            <Route path="/install" element={<Install />} />
-            <Route path="/sign-off" element={<CustomerSignOff />} />
-            <Route path="/portal" element={<CustomerPortal />} />
+            <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
+            <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
+            <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
             <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
             <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/terms" element={<TermsOfService />} />
-            <Route path="/privacy" element={<PrivacyPolicy />} />
-            <Route path="/servexa" element={<Servexa />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
+            <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
+            <Route path="/privacy" element={<Suspense fallback={<PageFallback />}><PrivacyPolicy /></Suspense>} />
+            <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
+            <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
           </Routes>
           <OfflineIndicator />
         </AuthProvider>
