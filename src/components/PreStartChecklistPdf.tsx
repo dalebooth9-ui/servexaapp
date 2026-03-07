@@ -10,7 +10,7 @@ export type PreStartJobInfo = {
   address?: string | null;
   reference_number?: string;
   customer?: string | null;
-  customers?: { name?: string | null } | null;
+  customers?: { name?: string | null; logo_url?: string | null } | null;
   site?: {
     name?: string | null;
     address?: string | null;
@@ -42,7 +42,9 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // ── Logo ────────────────────────────────────────────────────────────
   try {
-    const logoUrl = `${window.location.origin}/images/vivafire-logo-new.jpg`;
+    const logoUrl = jobInfo?.customers?.logo_url
+      ? jobInfo.customers.logo_url
+      : `${window.location.origin}/images/vivafire-logo-new.jpg`;
     const res = await fetch(logoUrl);
     const blob = await res.blob();
     const reader = new FileReader();
@@ -50,7 +52,8 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
       reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
       reader.readAsDataURL(blob);
     });
-    doc.addImage(logoBase64, "JPEG", pw / 2 - 28, 8, 56, 20);
+    const fmt = logoUrl.toLowerCase().endsWith(".png") ? "PNG" : "JPEG";
+    doc.addImage(logoBase64, fmt, pw / 2 - 28, 8, 56, 20);
   } catch {}
 
   let y = 34;

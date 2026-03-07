@@ -104,7 +104,9 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       const refNumber = job.reference_number || "";
       const dateVal = new Date().toLocaleDateString("en-GB");
 
-      const branding: PdfBranding = {};
+      const branding: PdfBranding = {
+        logo_url: job.customers?.logo_url || undefined,
+      };
       const headerData: PdfHeaderData = {
         customerName,
         siteName,
