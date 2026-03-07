@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
@@ -69,7 +70,10 @@ export default function JobDetail() {
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
 
+  useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
+
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => fetchData() });
+
 
   const fetchData = async () => {
     if (!id) return;

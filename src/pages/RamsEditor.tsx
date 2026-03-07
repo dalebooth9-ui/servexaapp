@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -187,6 +188,9 @@ export default function RamsEditor() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [docId, setDocId] = useState<string | null>(ramsId || null);
+  const [isDirty, setIsDirty] = useState(false);
+
+  useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
 
   // Form state
   const [ramsType, setRamsType] = useState<RamsType>("dry_riser");
@@ -251,10 +255,17 @@ export default function RamsEditor() {
         else if (jobData?.category === "installation") type = "installation";
         loadDefaults(type, jobData);
       }
+      setIsDirty(false);
       setLoading(false);
     };
     load();
   }, [jobId, ramsId]);
+
+  // Mark dirty whenever any form field changes (loading=false guards against initial population)
+  useEffect(() => {
+    if (!loading) setIsDirty(true);
+  }, [coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps, location, resources,
+      personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType]);
 
   const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
     const d = getRamsDefaults(type);
@@ -333,6 +344,7 @@ export default function RamsEditor() {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "RAMS saved" });
+      setIsDirty(false);
     }
     setSaving(false);
   };
