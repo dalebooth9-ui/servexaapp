@@ -196,6 +196,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 if (!items || items.length === 0) return null;
                 const label = SECTION_LABELS[section];
                 const isMoreSection = section === "more";
+                const isOpsSection = section === "operations";
                 return (
                   <div key={section} className="mb-1">
                     {label && !isMoreSection &&
@@ -222,9 +223,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   item={item}
                                   isActive={isActive}
                                   onClick={() => setMobileOpen(false)}
-                                  showPin
-                                  isPinned={false}
-                                  onTogglePin={() => handleTogglePin(item.to)} />
+                                  inOps={false}
+                                  onTogglePin={() => handleTogglePin(item.to, "more")} />
                               );
                             })}
                           </div>
@@ -234,17 +234,15 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                       <div className="space-y-0.5">
                         {items.map((item) => {
                           const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
-                          // Show unpin button for non-core ops items that were pinned from "more"
-                          const wasPinnedFromMore = item.section === "more" && pinnedOps.includes(item.to);
                           return (
                             <SortableNavItem
                               key={item.to}
                               item={item}
                               isActive={isActive}
                               onClick={() => setMobileOpen(false)}
-                              showPin={wasPinnedFromMore}
-                              isPinned={wasPinnedFromMore}
-                              onTogglePin={wasPinnedFromMore ? () => handleTogglePin(item.to) : undefined} />);
+                              inOps={isOpsSection}
+                              onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")} />
+                          );
                         })}
                       </div>
                     )}
