@@ -49,6 +49,8 @@ interface ParsedLibraryPart {
   name: string;
   description: string;
   unit_cost: number;
+  china_cost: number;
+  uk_cost: number;
   sell_price: number;
   category: string;
   supplier: string;
@@ -430,7 +432,18 @@ function PartsPanel({
       );
       if (!res.ok) { const err = await res.json().catch(() => ({ error: "Parse failed" })); throw new Error(err.error || "Failed to parse document"); }
       const { parts: parsed } = await res.json();
-      setParsedParts((parsed || []).map((p: any) => ({ name: p.name || p.part || p.material || "", description: p.notes || p.description || "", unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0), sell_price: parseFloat(p.sell_price ?? 0), category: p.category || "general", supplier: p.supplier || "", part_number: p.part_number || p.sku || "", selected: true })));
+      setParsedParts((parsed || []).map((p: any) => ({
+          name: p.name || p.part || p.material || "",
+          description: p.notes || p.description || "",
+          unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0),
+          china_cost: parseFloat(p.china_cost ?? 0),
+          uk_cost: parseFloat(p.uk_cost ?? 0),
+          sell_price: parseFloat(p.sell_price ?? 0),
+          category: p.category || "general",
+          supplier: p.supplier || "",
+          part_number: p.part_number || p.sku || "",
+          selected: true,
+        })));
     } catch (err: any) {
       toast({ title: "Parse Error", description: err.message, variant: "destructive" });
     } finally {
@@ -444,7 +457,7 @@ function PartsPanel({
     if (items.length === 0) { toast({ title: "No parts selected", variant: "destructive" }); return; }
     setImporting(true);
     const maxOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) : -1;
-    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
+    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, china_cost: p.china_cost || 0, uk_cost: p.uk_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
     const { error } = await supabase.from("parts_library").insert(rows as any);
     if (error) {
       toast({ title: "Import Error", description: error.message, variant: "destructive" });
