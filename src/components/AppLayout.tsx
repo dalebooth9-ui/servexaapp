@@ -4,7 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ClipboardCheck, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, GripVertical, BookOpen, ListChecks, ClipboardList, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -37,13 +37,13 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
 { to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
 { to: "/customers", label: "Customers", icon: Building2, section: "operations" },
-{ to: "/sites", label: "Sites", icon: MapPin, section: "operations" },
-{ to: "/assets", label: "Assets", icon: Package, section: "operations" },
 { to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
-{ to: "/quotes", label: "Quotes", icon: ClipboardList, section: "operations", adminOnly: true },
-{ to: "/parts-library", label: "Parts Library", icon: Library, section: "operations" },
-{ to: "/compliance", label: "Compliance", icon: Shield, section: "operations" },
-{ to: "/audits", label: "Audits", icon: ListChecks, section: "operations" },
+{ to: "/sites", label: "Sites", icon: MapPin, section: "more" },
+{ to: "/assets", label: "Assets", icon: Package, section: "more" },
+{ to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
+{ to: "/parts-library", label: "Parts Library", icon: Library, section: "more" },
+{ to: "/compliance", label: "Compliance", icon: Shield, section: "more" },
+{ to: "/audits", label: "Audits", icon: ListChecks, section: "more" },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
 { to: "/reports/engineers", label: "Performance", icon: BarChart2, section: "admin", adminOnly: true },
@@ -54,6 +54,7 @@ const DEFAULT_NAV_ITEMS = [
 const SECTION_LABELS: Record<string, string> = {
   main: "",
   operations: "Operations",
+  more: "More",
   admin: "Admin"
 };
 
@@ -158,8 +159,14 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   };
 
+  // Collapsible "More" section
+  const [moreOpen, setMoreOpen] = useReactState(() => {
+    const moreRoutes = ["/sites", "/assets", "/quotes", "/parts-library", "/compliance", "/audits"];
+    return moreRoutes.some((r) => location.pathname.startsWith(r));
+  });
+
   // Group items by section for display with section labels
-  const sections = ["main", "operations", "admin"] as const;
+  const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
     acc[section] = visibleNavItems.filter((i) => i.section === section);
     return acc;
@@ -194,28 +201,52 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 const items = itemsBySection[section];
                 if (!items || items.length === 0) return null;
                 const label = SECTION_LABELS[section];
+                const isMoreSection = section === "more";
                 return (
                   <div key={section} className="mb-1">
-                    {label &&
+                    {label && !isMoreSection &&
                     <p className="mb-1 mt-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
                         {label}
                       </p>
                     }
-                    <div className="space-y-0.5">
-                      {items.map((item) => {
-                        const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
-                        return (
-                          <SortableNavItem
-                            key={item.to}
-                            item={item}
-                            isActive={isActive}
-                            onClick={() => setMobileOpen(false)} />);
-
-
-                      })}
-                    </div>
+                    {isMoreSection ? (
+                      <>
+                        <button
+                          onClick={() => setMoreOpen((v) => !v)}
+                          className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors select-none"
+                        >
+                          <span className="flex-1 text-left">{label}</span>
+                          <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
+                        </button>
+                        {moreOpen && (
+                          <div className="space-y-0.5">
+                            {items.map((item) => {
+                              const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
+                              return (
+                                <SortableNavItem
+                                  key={item.to}
+                                  item={item}
+                                  isActive={isActive}
+                                  onClick={() => setMobileOpen(false)} />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {items.map((item) => {
+                          const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
+                          return (
+                            <SortableNavItem
+                              key={item.to}
+                              item={item}
+                              isActive={isActive}
+                              onClick={() => setMobileOpen(false)} />);
+                        })}
+                      </div>
+                    )}
                   </div>);
-
               })}
             </SortableContext>
           </DndContext>

@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1172,8 +1172,8 @@ export default function Jobs() {
         )}
       </div>
 
-      {isAdmin && (selectedJobIds.size > 0 || filtered.length > 0) && (
-        <div className={`mb-4 rounded-lg border px-4 py-3 transition-colors ${selectedJobIds.size > 0 ? "bg-primary/5 border-primary/30" : "bg-muted/30 border-border"}`}>
+      {isAdmin && selectedJobIds.size > 0 && (
+        <div className="mb-4 rounded-lg border px-4 py-3 transition-colors bg-primary/5 border-primary/30">
           <div className="flex flex-wrap items-center gap-2">
             {/* Global select-all checkbox */}
             <div className="flex items-center gap-2 mr-1">
@@ -1185,11 +1185,7 @@ export default function Jobs() {
                 onChange={(e) => handleSelectAllFiltered(e.target.checked)}
                 title="Select / deselect all visible jobs"
               />
-              {selectedJobIds.size > 0 ? (
-                <span className="text-sm font-semibold text-primary">{selectedJobIds.size} selected</span>
-              ) : (
-                <span className="text-sm text-muted-foreground">Select all ({filtered.length})</span>
-              )}
+              <span className="text-sm font-semibold text-primary">{selectedJobIds.size} selected</span>
             </div>
 
             {selectedJobIds.size > 0 && (
@@ -1264,7 +1260,33 @@ export default function Jobs() {
 
       {filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">No jobs found.</CardContent>
+          <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+            {jobs.length === 0 ? (
+              <>
+                <Briefcase className="h-12 w-12 text-muted-foreground/40" />
+                <div>
+                  <p className="font-semibold text-foreground">No jobs yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Create your first job to start tracking work for your customers.</p>
+                </div>
+                {isAdmin && (
+                  <Button size="sm" onClick={() => setDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Create First Job
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Search className="h-10 w-10 text-muted-foreground/40" />
+                <div>
+                  <p className="font-semibold text-foreground">No jobs match your filters</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or clearing filters.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}>
+                  Clear filters
+                </Button>
+              </>
+            )}
+          </CardContent>
         </Card>
       ) : (
         <DndContext
