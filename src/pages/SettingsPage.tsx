@@ -107,7 +107,10 @@ export default function SettingsPage() {
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
-      <h1 className="mb-6 text-2xl font-bold">Settings</h1>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold">Settings</h1>
+        <p className="mt-1 text-sm text-muted-foreground">Configure your workspace — integrations, reminders, templates, and team access.</p>
+      </div>
 
       <div className="space-y-6">
         {/* Engineer App Install QR Code */}

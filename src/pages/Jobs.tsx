@@ -1260,7 +1260,33 @@ export default function Jobs() {
 
       {filtered.length === 0 ? (
         <Card>
-          <CardContent className="py-8 text-center text-muted-foreground">No jobs found.</CardContent>
+          <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+            {jobs.length === 0 ? (
+              <>
+                <Briefcase className="h-12 w-12 text-muted-foreground/40" />
+                <div>
+                  <p className="font-semibold text-foreground">No jobs yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Create your first job to start tracking work for your customers.</p>
+                </div>
+                {isAdmin && (
+                  <Button size="sm" onClick={() => setDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> Create First Job
+                  </Button>
+                )}
+              </>
+            ) : (
+              <>
+                <Search className="h-10 w-10 text-muted-foreground/40" />
+                <div>
+                  <p className="font-semibold text-foreground">No jobs match your filters</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Try adjusting your search or clearing filters.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => { setSearch(""); setStatusFilter("all"); setPriorityFilter("all"); setCategoryFilter("all"); }}>
+                  Clear filters
+                </Button>
+              </>
+            )}
+          </CardContent>
         </Card>
       ) : (
         <DndContext
