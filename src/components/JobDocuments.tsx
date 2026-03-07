@@ -8,6 +8,7 @@ import { FileText, Download, Trash2, Upload, Loader2, Zap, Building2 } from "luc
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import PreStartChecklistPdf from "@/components/PreStartChecklistPdf";
 import type { RamsType } from "@/components/RamsPdfExport";
 
 type JobDoc = {
@@ -103,7 +104,36 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (!job?.category || !user || userRole !== "admin") return;
     if (job?.status === "completed" || job?.status === "cancelled") return;
     autoAttachCategoryDocuments();
+    autoAttachPreStartChecklist();
   }, [job?.category]);
+
+  const isInstallationJob = () => {
+    const cat = job?.category || "";
+    return cat === "installation" || cat === "dry_riser_installation";
+  };
+
+  const autoAttachPreStartChecklist = async () => {
+    if (!isInstallationJob() || !user) return;
+    // Check if already attached
+    const { data: existing } = await supabase
+      .from("job_documents" as any)
+      .select("id")
+      .eq("job_id", jobId)
+      .eq("document_type", "pre_start_checklist")
+      .limit(1);
+    if (existing && (existing as any[]).length > 0) return;
+
+    await supabase.from("job_documents" as any).insert({
+      job_id: jobId,
+      document_type: "pre_start_checklist",
+      label: "Pre-start Check List",
+      file_url: null,
+      file_name: null,
+      source: "auto",
+      created_by: user.id,
+    } as any);
+    fetchDocs();
+  };
 
   const autoAttachCategoryDocuments = async () => {
     if (!job?.category) return;
@@ -302,7 +332,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing"].includes(d.document_type));
+  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing", "pre_start_checklist"].includes(d.document_type));
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
   const manualDocs = docs.filter((d) => d.source === "manual");
 
@@ -449,6 +479,7 @@ function DocRow({
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
+  const isPreStart = doc.document_type === "pre_start_checklist";
   const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file"].includes(doc.document_type);
   const hasFile = !!doc.file_url;
 
@@ -459,6 +490,7 @@ function DocRow({
     quote: "Quote",
     purchase_order: "Purchase Order",
     site_drawing: "Site Drawing",
+    pre_start_checklist: "Pre-start Checklist",
   };
 
   // Find matching template for blank job sheet by label
@@ -512,12 +544,16 @@ function DocRow({
           Generate
         </Button>
       )}
+      {isPreStart && (
+        <PreStartChecklistPdf jobInfo={jobInfo} />
+      )}
       {isBlankSheet && matchedTemplate && jobInfo && (
         <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
       )}
       {isBlankSheet && (!matchedTemplate || !jobInfo) && (
         <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
+
       {isUploadSlot && hasFile && (
         <Button
           variant="outline"
