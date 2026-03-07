@@ -270,7 +270,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const autoAttached = docs.filter((d) => d.source === "auto" && d.document_type === "rams_pdf");
+  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing"].includes(d.document_type));
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
   const manualDocs = docs.filter((d) => d.source === "manual");
 
