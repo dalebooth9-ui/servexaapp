@@ -1282,6 +1282,53 @@ function ProjectDetail({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Send for Sign-Off Dialog */}
+      <Dialog open={signOffOpen} onOpenChange={(o) => { setSignOffOpen(o); if (!o) setSignOffLink(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4 text-primary" /> Send Handover for Client Sign-Off
+            </DialogTitle>
+          </DialogHeader>
+          {signOffLink ? (
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">Share this link with your client. They can review the handover summary and sign digitally.</p>
+              <div className="flex items-center gap-2 bg-muted rounded-lg p-3">
+                <code className="text-xs flex-1 break-all text-foreground">{signOffLink}</code>
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5"
+                  onClick={() => { navigator.clipboard.writeText(signOffLink); toast({ title: "Link copied" }); }}>
+                  <Link2 className="h-3.5 w-3.5" /> Copy
+                </Button>
+              </div>
+              {navigator.share && (
+                <Button className="w-full gap-1.5" onClick={() => navigator.share({ title: `Handover Sign-Off: ${project.title}`, url: signOffLink })}>
+                  <Share2 className="h-3.5 w-3.5" /> Share Link
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground text-center">Link valid for 30 days</p>
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              <div>
+                <Label className="text-xs">Client Name *</Label>
+                <Input className="mt-1" placeholder="e.g. John Smith" value={signOffName} onChange={(e) => setSignOffName(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Client Email (optional)</Label>
+                <Input className="mt-1" type="email" placeholder="client@example.com" value={signOffEmail} onChange={(e) => setSignOffEmail(e.target.value)} />
+              </div>
+              <DialogFooter className="pt-1">
+                <Button variant="outline" onClick={() => setSignOffOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateSignOff} disabled={signOffLoading || !signOffName.trim()} className="gap-1.5">
+                  {signOffLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                  Generate Link
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
