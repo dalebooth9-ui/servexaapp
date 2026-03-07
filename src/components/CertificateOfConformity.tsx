@@ -476,8 +476,13 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
     y += 7;
   }
 
-  // ── Footer ───────────────────────────────────────────────────────────
+  // ── Accreditation logos ──────────────────────────────────────────────
   const footerY = ph - 18;
+  const logoH = 7;
+  const logoRowY = footerY - logoH - 5;
+  renderAccreditationLogos(doc, logos, logoRowY, logoH);
+
+  // ── Footer ───────────────────────────────────────────────────────────
   doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.4);
   doc.line(14, footerY - 4, pw - 14, footerY - 4);
