@@ -59,10 +59,8 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const STORAGE_KEY = "nav-order";
-const PIN_KEY = "nav-pinned-ops";
-
-// Items that are always in operations and cannot be demoted
-const CORE_OPS = new Set(["/", "/jobs", "/planner", "/customers", "/invoices"]);
+// Stores { [to]: "operations" | "more" } overrides for items moved between sections
+const SECTION_OVERRIDE_KEY = "nav-section-overrides";
 
 function loadNavOrder(): string[] | null {
   try {
@@ -71,22 +69,21 @@ function loadNavOrder(): string[] | null {
   } catch { return null; }
 }
 
-function loadPinnedOps(): string[] {
+function loadSectionOverrides(): Record<string, "operations" | "more"> {
   try {
-    const raw = localStorage.getItem(PIN_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+    const raw = localStorage.getItem(SECTION_OVERRIDE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
 }
 
 function SortableNavItem({
-  item, isActive, onClick, showPin, isPinned, onTogglePin,
+  item, isActive, onClick, inOps, onTogglePin,
 }: {
   item: typeof DEFAULT_NAV_ITEMS[number];
   isActive: boolean;
   onClick: () => void;
-  showPin?: boolean;
-  isPinned?: boolean;
-  onTogglePin?: () => void;
+  inOps: boolean;
+  onTogglePin: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -112,20 +109,18 @@ function SortableNavItem({
         <item.icon className="h-4.5 w-4.5" />
         {item.label}
       </Link>
-      {showPin && onTogglePin && (
-        <button
-          onClick={(e) => { e.preventDefault(); onTogglePin(); }}
-          title={isPinned ? "Move to More" : "Pin to Operations"}
-          className={cn(
-            "p-1 rounded transition-all shrink-0",
-            isPinned
-              ? "opacity-0 group-hover:opacity-60 hover:!opacity-100 text-sidebar-primary"
-              : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
-          )}
-          tabIndex={-1}>
-          {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-        </button>
-      )}
+      <button
+        onClick={(e) => { e.preventDefault(); onTogglePin(); }}
+        title={inOps ? "Move to More" : "Pin to Operations"}
+        className={cn(
+          "p-1 rounded transition-all shrink-0",
+          inOps
+            ? "opacity-0 group-hover:opacity-50 hover:!opacity-100 text-sidebar-primary"
+            : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
+        )}
+        tabIndex={-1}>
+        {inOps ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+      </button>
     </div>
   );
 }
@@ -139,12 +134,21 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
   const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
-  const [pinnedOps, setPinnedOps] = useReactState<string[]>(loadPinnedOps);
+  // sectionOverrides: { [to]: "operations" | "more" } — user-controlled moves between sections
+  const [sectionOverrides, setSectionOverrides] = useReactState<Record<string, "operations" | "more">>(loadSectionOverrides);
 
-  const handleTogglePin = (to: string) => {
-    setPinnedOps((prev) => {
-      const next = prev.includes(to) ? prev.filter((p) => p !== to) : [...prev, to];
-      localStorage.setItem(PIN_KEY, JSON.stringify(next));
+  const handleTogglePin = (to: string, currentSection: "operations" | "more") => {
+    setSectionOverrides((prev) => {
+      const defaultSection = DEFAULT_NAV_ITEMS.find((i) => i.to === to)?.section as "operations" | "more";
+      const next = { ...prev };
+      const target = currentSection === "operations" ? "more" : "operations";
+      if (target === defaultSection) {
+        // Back to default — remove override
+        delete next[to];
+      } else {
+        next[to] = target;
+      }
+      localStorage.setItem(SECTION_OVERRIDE_KEY, JSON.stringify(next));
       return next;
     });
   };
@@ -152,69 +156,48 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   useEffect(() => {
-    supabase.
-    from("app_settings").
-    select("value").
-    eq("key", "business_whatsapp_number").
-    single().
-    then(({ data }) => {
-      if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
-        setWhatsappNumber(data.value);
-      }
-    });
+    supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
+          setWhatsappNumber(data.value);
+        }
+      });
   }, []);
 
-  const orderedItems = navOrder.
-  map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).
-  filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
-
-  // Append any new items not in saved order
+  const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
-
   const visibleNavItems = allOrderedItems.filter((item) => !item.adminOnly || userRole === "admin");
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    // Work on the visible items only — reorder within that set, then
-    // rebuild the full nav order by splicing back in non-visible items.
     const visibleIds = visibleNavItems.map((i) => i.to);
     const oldIndex = visibleIds.indexOf(active.id as string);
     const newIndex = visibleIds.indexOf(over.id as string);
     if (oldIndex === -1 || newIndex === -1) return;
     const reorderedVisible = arrayMove(visibleIds, oldIndex, newIndex);
-    // Merge: walk allOrderedItems and replace visible ones with new order
     let visibleCursor = 0;
     const merged = allOrderedItems.map((item) => {
-      if (visibleIds.includes(item.to)) {
-        return reorderedVisible[visibleCursor++];
-      }
+      if (visibleIds.includes(item.to)) return reorderedVisible[visibleCursor++];
       return item.to;
     });
     setNavOrder(merged);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   };
 
-  // Collapsible "More" section
   const [moreOpen, setMoreOpen] = useReactState(() => {
     const moreRoutes = ["/sites", "/assets", "/quotes", "/parts-library", "/compliance", "/audits"];
     return moreRoutes.some((r) => location.pathname.startsWith(r));
   });
 
-  // Group items by section — respecting pin overrides
-  // "more" items pinned to ops are shown in operations; non-core ops items can be demoted
+  // Group items by section respecting user overrides
   const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
     acc[section] = visibleNavItems.filter((i) => {
-      if (section === "operations") {
-        // show native ops items + pinned "more" items
-        return i.section === "operations" && !pinnedOps.includes("demote:" + i.to)
-          || (i.section === "more" && pinnedOps.includes(i.to));
-      }
-      if (section === "more") {
-        // hide "more" items that have been pinned to ops
-        return i.section === "more" && !pinnedOps.includes(i.to);
+      if (section === "operations" || section === "more") {
+        const effective = sectionOverrides[i.to] ?? i.section;
+        return effective === section;
       }
       return i.section === section;
     });
@@ -251,6 +234,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 if (!items || items.length === 0) return null;
                 const label = SECTION_LABELS[section];
                 const isMoreSection = section === "more";
+                const isOpsSection = section === "operations";
                 return (
                   <div key={section} className="mb-1">
                     {label && !isMoreSection &&
@@ -277,9 +261,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   item={item}
                                   isActive={isActive}
                                   onClick={() => setMobileOpen(false)}
-                                  showPin
-                                  isPinned={false}
-                                  onTogglePin={() => handleTogglePin(item.to)} />
+                                  inOps={false}
+                                  onTogglePin={() => handleTogglePin(item.to, "more")} />
                               );
                             })}
                           </div>
@@ -289,17 +272,15 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                       <div className="space-y-0.5">
                         {items.map((item) => {
                           const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
-                          // Show unpin button for non-core ops items that were pinned from "more"
-                          const wasPinnedFromMore = item.section === "more" && pinnedOps.includes(item.to);
                           return (
                             <SortableNavItem
                               key={item.to}
                               item={item}
                               isActive={isActive}
                               onClick={() => setMobileOpen(false)}
-                              showPin={wasPinnedFromMore}
-                              isPinned={wasPinnedFromMore}
-                              onTogglePin={wasPinnedFromMore ? () => handleTogglePin(item.to) : undefined} />);
+                              inOps={isOpsSection}
+                              onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")} />
+                          );
                         })}
                       </div>
                     )}
