@@ -998,6 +998,29 @@ function ProjectDetail({
     } finally { setSharing(null); }
   };
 
+  const handleCreateSignOff = async () => {
+    if (!signOffName.trim()) { toast({ title: "Client name required", variant: "destructive" }); return; }
+    setSignOffLoading(true);
+    const { data, error } = await supabase
+      .from("installation_handover_tokens" as any)
+      .insert({
+        project_id: project.id,
+        job_id: jobId,
+        created_by: user?.id,
+        client_name: signOffName.trim(),
+        client_email: signOffEmail.trim() || null,
+      })
+      .select("token")
+      .single();
+    setSignOffLoading(false);
+    if (error || !data) { toast({ title: "Failed to create sign-off link", variant: "destructive" }); return; }
+    const link = `${window.location.origin}/handover/${(data as any).token}`;
+    setSignOffLink(link);
+    if (signOffEmail.trim()) {
+      toast({ title: "Sign-off link created", description: `Share it with ${signOffEmail}` });
+    }
+  };
+
   // Determine unique areas for group-by
   const areas = Array.from(new Set(issues.map(i => i.area || "General").filter(Boolean)));
 
