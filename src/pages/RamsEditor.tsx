@@ -268,7 +268,14 @@ export default function RamsEditor() {
         ? `${jobData.sites.name}${jobData.sites.address ? ", " + jobData.sites.address : ""}`
         : jobData?.address || "",
     });
-    setDescriptionOfWork(d.descriptionOfWork);
+    const scopeDesc = buildScopeDescription(
+      type,
+      jobData?.pressure_test_qty,
+      jobData?.visual_qty,
+      jobData?.other_qty,
+      jobData?.other_service_type
+    );
+    setDescriptionOfWork(scopeDesc);
     setSequenceOfOps(d.sequenceOfOps);
     setTaskSpecificOps(d.taskSpecificOps);
     setLocation(d.location);
