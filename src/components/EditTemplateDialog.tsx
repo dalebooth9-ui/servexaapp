@@ -7,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2 } from "lucide-react";
+import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Settings2, List } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -54,17 +55,22 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   select: "Dropdown",
   textarea: "Long Text",
   photo: "Photo",
+  signature: "Signature",
 };
 
-function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
+function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange, allSections }: {
   field: TemplateField;
   idx: number;
   onFieldChange: (idx: number, key: keyof TemplateField, value: any) => void;
   onRemove: (idx: number) => void;
+  onSectionChange: (idx: number, section: string) => void;
+  allSections: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
   const [showOptions, setShowOptions] = useState(false);
+  const [editingSection, setEditingSection] = useState(false);
+  const [sectionInput, setSectionInput] = useState(field.section || "General");
   const [newOption, setNewOption] = useState("");
 
   const isDropdown = field.type === "select";
@@ -80,48 +86,118 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
     onFieldChange(idx, "options", options.filter((_, i) => i !== optIdx));
   };
 
+  const commitSection = () => {
+    const val = sectionInput.trim() || "General";
+    onSectionChange(idx, val);
+    setEditingSection(false);
+  };
+
   return (
-    <div ref={setNodeRef} style={style} className="rounded hover:bg-muted/50 group">
-      <div className="flex items-center gap-2 py-1.5 px-2">
-        <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none shrink-0">
-          <GripVertical className="h-3.5 w-3.5 text-muted-foreground/40" />
+    <div ref={setNodeRef} style={style} className="rounded-md border bg-card hover:bg-muted/30 group mb-1.5">
+      <div className="flex items-start gap-2 py-2 px-2">
+        {/* Drag handle */}
+        <button type="button" {...attributes} {...listeners} className="cursor-grab touch-none shrink-0 mt-1.5">
+          <GripVertical className="h-4 w-4 text-muted-foreground/40" />
         </button>
-        <Input value={field.label} onChange={(e) => onFieldChange(idx, "label", e.target.value)} className="h-7 text-sm flex-1" />
-        <select value={field.type} onChange={(e) => onFieldChange(idx, "type", e.target.value)} className="h-7 text-xs border rounded px-1.5 bg-background">
-          {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (<option key={k} value={k}>{v}</option>))}
-        </select>
-        {isDropdown && (
-          <Button variant="ghost" size="sm" className="h-6 text-[10px] px-1.5" onClick={() => setShowOptions(!showOptions)}>
-            {options.length} opt{options.length !== 1 ? "s" : ""}
-          </Button>
-        )}
-        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
-          <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} />
-          Req
-        </label>
-        <label className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap" title="Allow notes next to this field">
-          <input type="checkbox" checked={!!field.allow_notes} onChange={(e) => onFieldChange(idx, "allow_notes", e.target.checked)} />
-          Notes
-        </label>
-        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => onRemove(idx)}>
+
+        <div className="flex flex-col gap-1.5 flex-1 min-w-0">
+          {/* Row 1: label + type */}
+          <div className="flex items-center gap-2">
+            <Input
+              value={field.label}
+              onChange={(e) => onFieldChange(idx, "label", e.target.value)}
+              className="h-7 text-sm flex-1 min-w-0"
+              placeholder="Field label"
+            />
+            <select
+              value={field.type}
+              onChange={(e) => onFieldChange(idx, "type", e.target.value)}
+              className="h-7 text-xs border rounded px-1.5 bg-background shrink-0 max-w-[110px]"
+            >
+              {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Row 2: section + flags */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Section badge / edit */}
+            <div className="flex items-center gap-1">
+              {editingSection ? (
+                <div className="flex items-center gap-1">
+                  <Input
+                    value={sectionInput}
+                    onChange={(e) => setSectionInput(e.target.value)}
+                    onBlur={commitSection}
+                    onKeyDown={(e) => { if (e.key === "Enter") commitSection(); if (e.key === "Escape") setEditingSection(false); }}
+                    className="h-5 text-[10px] w-24 px-1.5"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    className="text-[10px] text-muted-foreground border rounded px-1 hover:bg-muted"
+                    onMouseDown={(e) => { e.preventDefault(); commitSection(); }}
+                  >✓</button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { setSectionInput(field.section || "General"); setEditingSection(true); }}
+                  className="text-[10px] text-muted-foreground border rounded px-1.5 py-0.5 hover:bg-muted flex items-center gap-1 leading-none"
+                  title="Click to change section"
+                >
+                  §&nbsp;{field.section || "General"}
+                </button>
+              )}
+            </div>
+
+            <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none">
+              <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} className="h-3 w-3" />
+              Required
+            </label>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Allow notes field alongside this">
+              <input type="checkbox" checked={!!field.allow_notes} onChange={(e) => onFieldChange(idx, "allow_notes", e.target.checked)} className="h-3 w-3" />
+              Notes
+            </label>
+            {isDropdown && (
+              <button
+                type="button"
+                onClick={() => setShowOptions(!showOptions)}
+                className="text-[10px] text-primary border border-primary/30 rounded px-1.5 py-0.5 hover:bg-primary/10 leading-none"
+              >
+                {options.length} option{options.length !== 1 ? "s" : ""} {showOptions ? "▲" : "▼"}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Delete */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 mt-0.5"
+          onClick={() => onRemove(idx)}
+        >
           <X className="h-3 w-3" />
         </Button>
       </div>
+
       {isDropdown && showOptions && (
-        <div className="ml-8 mr-2 mb-2 p-2 border rounded bg-background space-y-1.5">
+        <div className="mx-3 mb-2 p-2 border rounded bg-muted/30 space-y-1.5">
           {options.length === 0 && (
             <p className="text-[10px] text-muted-foreground">No options yet. Add some below.</p>
           )}
-          {options.map((opt, optIdx) => (
-            <div key={optIdx} className="flex items-center gap-1.5">
-              <Badge variant="secondary" className="text-[10px] gap-1">
+          <div className="flex flex-wrap gap-1.5">
+            {options.map((opt, optIdx) => (
+              <Badge key={optIdx} variant="secondary" className="text-[10px] gap-1">
                 {opt}
                 <button type="button" onClick={() => removeOption(optIdx)} className="hover:text-destructive">
                   <X className="h-2.5 w-2.5" />
                 </button>
               </Badge>
-            </div>
-          ))}
+            ))}
+          </div>
           <div className="flex items-center gap-1.5 mt-1">
             <Input
               value={newOption}
@@ -157,14 +233,12 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch job categories once
   useEffect(() => {
     supabase.from("job_categories").select("slug, name").order("sort_order").then(({ data }) => {
       if (data) setJobCategories(data);
     });
   }, []);
 
-  // Sync state when template changes or dialog opens
   if (open && template && !initialised) {
     setTemplateName(template.name);
     setTemplateDesc(template.description || "");
@@ -193,13 +267,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       setFields((prev) => {
         const oldIndex = prev.findIndex((f) => f.id === active.id);
         const newIndex = prev.findIndex((f) => f.id === over.id);
-        const reordered = arrayMove(prev, oldIndex, newIndex);
-        const movedField = reordered[newIndex];
-        const neighbour = reordered[newIndex > 0 ? newIndex - 1 : newIndex + 1];
-        if (neighbour && neighbour.section !== movedField.section) {
-          reordered[newIndex] = { ...movedField, section: neighbour.section };
-        }
-        return reordered;
+        return arrayMove(prev, oldIndex, newIndex);
       });
     }
   }, []);
@@ -212,18 +280,19 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setFields((prev) => prev.map((f, i) => (i === idx ? { ...f, [key]: value } : f)));
   };
 
+  const handleSectionChange = (idx: number, section: string) => {
+    setFields((prev) => prev.map((f, i) => (i === idx ? { ...f, section } : f)));
+  };
+
   const handleAddField = () => {
+    const lastSection = fields.length > 0 ? fields[fields.length - 1].section || "General" : "General";
     setFields((prev) => [
       ...prev,
-      {
-        id: `custom_field_${Date.now()}`,
-        label: "New Field",
-        type: "text",
-        required: false,
-        section: prev.length > 0 ? prev[prev.length - 1].section : "General",
-      },
+      { id: `custom_field_${Date.now()}`, label: "New Field", type: "text", required: false, section: lastSection },
     ]);
   };
+
+  const allSections = [...new Set(fields.map(f => f.section || "General"))];
 
   const handleLogoUpload = async (file: File) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -238,6 +307,21 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       if (data?.signedUrl) setLogoUrl(data.signedUrl);
     }
     setUploadingLogo(false);
+  };
+
+  const handleRevert = () => {
+    if (!template) return;
+    setTemplateName(template.name);
+    setTemplateDesc(template.description || "");
+    setTemplateCategory(template.category || "");
+    setJobCategory((template as any).job_category || "");
+    setFields(template.fields.map(f => ({ ...f })));
+    const b = template.branding || {};
+    setCompanyName(b.company_name || "");
+    setCompanySubtitle(b.company_subtitle || "");
+    setLogoUrl(b.logo_url || "");
+    setFooterText(b.footer_text || "");
+    toast({ title: "Reverted to saved version" });
   };
 
   const handleSave = async () => {
@@ -279,162 +363,176 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle>Edit Template</DialogTitle>
+      <DialogContent className="max-w-2xl flex flex-col" style={{ height: "min(90vh, 760px)" }}>
+        <DialogHeader className="shrink-0">
+          <DialogTitle className="flex items-center gap-2">
+            Edit Template
+            {templateName && <span className="text-sm font-normal text-muted-foreground">— {templateName}</span>}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col flex-1 min-h-0 gap-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Template Name</Label>
-              <Input
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g. Gas Safety Inspection"
-              />
-            </div>
-            <div>
-              <Label>Description (optional)</Label>
-              <Input
-                value={templateDesc}
-                onChange={(e) => setTemplateDesc(e.target.value)}
-                placeholder="Brief description"
-              />
-            </div>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label>Template Type <span className="text-muted-foreground text-xs font-normal">(category)</span></Label>
-              <Select value={templateCategory || "none"} onValueChange={(v) => setTemplateCategory(v === "none" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {jobCategories.map((c) => (
-                    <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Applies to Job Category <span className="text-muted-foreground text-xs font-normal">(leave blank = all jobs)</span></Label>
-              <Select value={jobCategory || "all"} onValueChange={(v) => setJobCategory(v === "all" ? "" : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All job types" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All job types</SelectItem>
-                  {jobCategories.map((c) => (
-                    <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+        <Tabs defaultValue="fields" className="flex flex-col flex-1 min-h-0">
+          <TabsList className="shrink-0 w-full grid grid-cols-2">
+            <TabsTrigger value="fields" className="gap-1.5">
+              <List className="h-3.5 w-3.5" /> Fields <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{fields.length}</Badge>
+            </TabsTrigger>
+            <TabsTrigger value="settings" className="gap-1.5">
+              <Settings2 className="h-3.5 w-3.5" /> Settings & Branding
+            </TabsTrigger>
+          </TabsList>
 
-          {/* Company Branding */}
-          <div className="border rounded-md p-3 space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-              <ImageIcon className="h-3 w-3" /> Company Branding (PDF)
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div>
-                <Label className="text-xs">Company Name</Label>
-                <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. VIVAFIRE" className="h-7 text-xs" />
-              </div>
-              <div>
-                <Label className="text-xs">Subtitle</Label>
-                <Input value={companySubtitle} onChange={(e) => setCompanySubtitle(e.target.value)} placeholder="e.g. Wet & Dry Riser Specialists" className="h-7 text-xs" />
-              </div>
-            </div>
-            <div>
-              <Label className="text-xs">Footer Declaration</Label>
-              <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have carried out..." rows={2} className="text-xs min-h-[40px]" />
-            </div>
-            <div className="flex items-center gap-2">
-              <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
-                {uploadingLogo ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                {logoUrl ? "Change Logo" : "Upload Logo"}
+          {/* ── FIELDS TAB ── */}
+          <TabsContent value="fields" className="flex flex-col flex-1 min-h-0 mt-3 gap-2 data-[state=inactive]:hidden">
+            <div className="flex items-center justify-between shrink-0">
+              <p className="text-xs text-muted-foreground">
+                Drag to reorder · Click section badge to rename · Req = required
+              </p>
+              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleAddField}>
+                <Plus className="h-3 w-3" /> Add Field
               </Button>
-              {logoUrl && (
-                <div className="flex items-center gap-1.5">
-                  <img src={logoUrl} alt="Logo" className="h-6 rounded border" />
-                  <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => setLogoUrl("")}>
-                    <X className="h-3 w-3" />
+            </div>
+
+            <div className="flex-1 overflow-y-auto border rounded-md p-2 min-h-0">
+              {fields.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-8">
+                  <List className="h-8 w-8 opacity-30" />
+                  <p className="text-sm">No fields yet</p>
+                  <Button variant="outline" size="sm" onClick={handleAddField}>
+                    <Plus className="h-3 w-3 mr-1" /> Add your first field
                   </Button>
                 </div>
+              ) : (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                    {fields.map((field, idx) => {
+                      const section = field.section || "General";
+                      const prevSection = idx > 0 ? (fields[idx - 1].section || "General") : null;
+                      const showHeader = section !== prevSection;
+                      return (
+                        <div key={field.id}>
+                          {showHeader && (
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1 px-1 first:mt-0">
+                              {section}
+                            </p>
+                          )}
+                          <SortableFieldRow
+                            field={field}
+                            idx={idx}
+                            onFieldChange={handleFieldChange}
+                            onRemove={handleRemoveField}
+                            onSectionChange={handleSectionChange}
+                            allSections={allSections}
+                          />
+                        </div>
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
               )}
-              {!logoUrl && <span className="text-[10px] text-muted-foreground">No logo — will use default</span>}
             </div>
-          </div>
+          </TabsContent>
 
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
-              {fields.length} field{fields.length !== 1 ? "s" : ""}
-            </p>
-            <Button variant="outline" size="sm" onClick={handleAddField}>
-              <Plus className="h-3 w-3 mr-1" /> Add Field
-            </Button>
-          </div>
+          {/* ── SETTINGS TAB ── */}
+          <TabsContent value="settings" className="flex-1 overflow-y-auto mt-3 min-h-0 data-[state=inactive]:hidden">
+            <div className="space-y-4 pb-2">
+              {/* Basic Info */}
+              <div className="space-y-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Template Info</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Template Name</Label>
+                    <Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. Gas Safety Inspection" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Description (optional)</Label>
+                    <Input value={templateDesc} onChange={(e) => setTemplateDesc(e.target.value)} placeholder="Brief description" />
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Template Type <span className="text-muted-foreground font-normal">(category)</span></Label>
+                    <Select value={templateCategory || "none"} onValueChange={(v) => setTemplateCategory(v === "none" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="None" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">None</SelectItem>
+                        {jobCategories.map((c) => (
+                          <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Applies to Job Category <span className="text-muted-foreground font-normal">(blank = all)</span></Label>
+                    <Select value={jobCategory || "all"} onValueChange={(v) => setJobCategory(v === "all" ? "" : v)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="All job types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All job types</SelectItem>
+                        {jobCategories.map((c) => (
+                          <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
 
-          <div className="overflow-y-auto border rounded-md" style={{ maxHeight: "calc(90vh - 280px)" }}>
-            <div className="p-3 space-y-1">
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                  {fields.map((field, idx) => {
-                    const section = field.section || "General";
-                    const prevSection = idx > 0 ? (fields[idx - 1].section || "General") : null;
-                    const showHeader = section !== prevSection;
-                    return (
-                      <div key={field.id}>
-                        {showHeader && (
-                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1 first:mt-0">
-                            {section}
-                          </p>
-                        )}
-                        <SortableFieldRow
-                          field={field}
-                          idx={idx}
-                          onFieldChange={handleFieldChange}
-                          onRemove={handleRemoveField}
-                        />
-                      </div>
-                    );
-                  })}
-                </SortableContext>
-              </DndContext>
+              {/* Branding */}
+              <div className="space-y-3 border-t pt-4">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                  <ImageIcon className="h-3 w-3" /> Company Branding (PDF)
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label className="text-xs">Company Name</Label>
+                    <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. VIVAFIRE" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Subtitle</Label>
+                    <Input value={companySubtitle} onChange={(e) => setCompanySubtitle(e.target.value)} placeholder="e.g. Wet & Dry Riser Specialists" />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">Footer Declaration</Label>
+                  <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have carried out the works in accordance with..." rows={3} className="text-sm" />
+                </div>
+                <div className="flex items-center gap-3">
+                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
+                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
+                    {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    {logoUrl ? "Change Logo" : "Upload Logo"}
+                  </Button>
+                  {logoUrl ? (
+                    <div className="flex items-center gap-2">
+                      <img src={logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setLogoUrl("")}>
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No logo — will use default</span>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
+          </TabsContent>
+        </Tabs>
 
-          <DialogFooter>
+        <DialogFooter className="shrink-0 border-t pt-3">
+          <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
+            <Undo2 className="h-3.5 w-3.5 mr-1" /> Revert
+          </Button>
+          <div className="flex gap-2 ml-auto">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button
-              variant="ghost"
-              onClick={() => {
-                if (!template) return;
-                setTemplateName(template.name);
-                setTemplateDesc(template.description || "");
-                setTemplateCategory(template.category || "");
-                setFields(template.fields.map(f => ({ ...f })));
-                const b = template.branding || {};
-                setCompanyName(b.company_name || "");
-                setCompanySubtitle(b.company_subtitle || "");
-                setLogoUrl(b.logo_url || "");
-                setFooterText(b.footer_text || "");
-                toast({ title: "Reverted to saved version" });
-              }}
-            >
-              <Undo2 className="h-4 w-4 mr-1" /> Revert
-            </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Save Changes
             </Button>
-          </DialogFooter>
-        </div>
+          </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
