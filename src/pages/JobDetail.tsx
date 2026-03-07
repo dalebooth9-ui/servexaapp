@@ -39,6 +39,7 @@ import SubmissionList from "@/components/jobs/SubmissionList";
 import EngineerCertificates from "@/components/jobs/EngineerCertificates";
 import AddNoteInput from "@/components/jobs/AddNoteInput";
 import JobDocuments from "@/components/JobDocuments";
+import InstallationProjects from "@/components/InstallationProjects";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 
