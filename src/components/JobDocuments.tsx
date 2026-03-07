@@ -332,7 +332,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing"].includes(d.document_type));
+  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing", "pre_start_checklist"].includes(d.document_type));
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
   const manualDocs = docs.filter((d) => d.source === "manual");
 
@@ -479,6 +479,7 @@ function DocRow({
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
+  const isPreStart = doc.document_type === "pre_start_checklist";
   const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file"].includes(doc.document_type);
   const hasFile = !!doc.file_url;
 
@@ -489,6 +490,7 @@ function DocRow({
     quote: "Quote",
     purchase_order: "Purchase Order",
     site_drawing: "Site Drawing",
+    pre_start_checklist: "Pre-start Checklist",
   };
 
   // Find matching template for blank job sheet by label
