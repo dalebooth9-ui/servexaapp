@@ -516,10 +516,14 @@ export type Database = {
           engineer_name: string
           engineer_signature: string | null
           id: string
+          inlet_qty: number
           installation_date: string
           issue_date: string
           job_id: string
           job_name: string
+          outlet_qty: number
+          pressure_bar: number
+          pressure_duration: number
           reference_number: string
           riser_locations: string
           sign_date: string
@@ -538,10 +542,14 @@ export type Database = {
           engineer_name?: string
           engineer_signature?: string | null
           id?: string
+          inlet_qty?: number
           installation_date?: string
           issue_date?: string
           job_id: string
           job_name?: string
+          outlet_qty?: number
+          pressure_bar?: number
+          pressure_duration?: number
           reference_number?: string
           riser_locations?: string
           sign_date?: string
@@ -560,10 +568,14 @@ export type Database = {
           engineer_name?: string
           engineer_signature?: string | null
           id?: string
+          inlet_qty?: number
           installation_date?: string
           issue_date?: string
           job_id?: string
           job_name?: string
+          outlet_qty?: number
+          pressure_bar?: number
+          pressure_duration?: number
           reference_number?: string
           riser_locations?: string
           sign_date?: string
