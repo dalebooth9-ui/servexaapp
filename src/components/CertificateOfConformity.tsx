@@ -218,9 +218,6 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
     return { base64, fileName };
   };
 
-  // Public export for use in other modules (e.g. SendToCustomerMenu)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-
   const handleDownload = async (cert: ConformityCert) => {
     setExporting(cert.id);
     try {
