@@ -700,16 +700,12 @@ export async function buildSharedMethodSections(
   currentPageRef: { num: number },
   totalPages: number
 ): Promise<number> {
-  const paraH = (text: string, maxW: number, size = 8.5): number => {
-    doc.setFontSize(size);
-    const lines = doc.splitTextToSize(text, maxW);
-    return lines.length * (size * 0.352778 + 1.2);
-  };
-
-  let y = 39; // after header on page 1
+  // Start method statement on a fresh page
+  newPage(doc);
+  let y = await pageHeader(doc, logoImg, "", 18);
 
   // ─── Section 1 Introduction ───
-  y = await checkPageBreak(doc, y, 10, logoImg, currentPageRef.num, totalPages);
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPageRef, totalPages);
   doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("1 Introduction", ML, y); y += 5;
   y = para(doc,
     "This Method Statement describes the specific safe working methods which will be used to carry out the work. It gives details of how the work will be carried out and what health and safety issues and controls are involved. The content of this Method Statement reflects the finding of the relevant Risk Assessment(s).",
