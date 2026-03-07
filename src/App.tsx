@@ -34,6 +34,7 @@ import NotFound from "@/pages/NotFound";
 import Servexa from "@/pages/Servexa";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import RamsEditor from "@/pages/RamsEditor";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ReactNode } from "react";
@@ -76,6 +77,8 @@ const App = () => (
             <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
             <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
+            <Route path="/jobs/:jobId/rams" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
+            <Route path="/jobs/:jobId/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
             <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
             <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
             <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />

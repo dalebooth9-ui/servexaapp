@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList } from "lucide-react";
 import AiJobBriefDialog from "@/components/AiJobBriefDialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -566,6 +566,14 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
+          <div className="mb-3 flex justify-end">
+            <Button
+              variant="outline" size="sm" className="gap-1.5 text-xs"
+              onClick={() => navigate(`/jobs/${id}/rams`)}
+            >
+              <ClipboardList className="h-3.5 w-3.5" /> Edit / Create RAMS
+            </Button>
+          </div>
           <JobDocuments jobId={id!} job={job} engineers={engineers} />
         </CollapsibleContent>
       </Collapsible>
