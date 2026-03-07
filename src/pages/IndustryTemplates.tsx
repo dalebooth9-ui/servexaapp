@@ -183,10 +183,10 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
     ],
   },
   {
-    id: "fh-quarterly",
-    name: "Fire Hydrant — Quarterly Visual Check",
+    id: "fh-biannual",
+    name: "Fire Hydrant — Bi-Annual Visual Check",
     standard: "BS 9990 / NFCC",
-    description: "Quarterly visual check confirming hydrant is accessible, signed, and undamaged.",
+    description: "Bi-annual visual check confirming hydrant is accessible, signed, and undamaged.",
     category: "fire_hydrant",
     fields: [
       { id: "reference", label: "Hydrant Reference", type: "text", section: "Site Details", required: true },
