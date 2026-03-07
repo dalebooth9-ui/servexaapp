@@ -577,12 +577,21 @@ function PartsPanel({
                     <TableHead>Part #</TableHead>
                     <TableHead>Supplier</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Unit Cost</TableHead>
-                    {isAdmin && showInstallCosts && <TableHead className="text-right">China Cost</TableHead>}
-                    {isAdmin && showInstallCosts && <TableHead className="text-right">UK Cost</TableHead>}
-                    {isAdmin && showInstallCosts && <TableHead className="text-right">Profit</TableHead>}
-                    {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
-                    {isAdmin && <TableHead className="text-right">Margin</TableHead>}
+                    {showInstallCosts ? (
+                      isAdmin && (
+                        <>
+                          <TableHead className="text-right">China Cost</TableHead>
+                          <TableHead className="text-right">UK Cost</TableHead>
+                          <TableHead className="text-right">Profit</TableHead>
+                        </>
+                      )
+                    ) : (
+                      <>
+                        <TableHead className="text-right">Unit Cost</TableHead>
+                        {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
+                        {isAdmin && <TableHead className="text-right">Margin</TableHead>}
+                      </>
+                    )}
                     <TableHead className="w-20" />
                   </TableRow>
                 </TableHeader>
