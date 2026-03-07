@@ -1069,30 +1069,45 @@ export type Database = {
       }
       installation_issues: {
         Row: {
+          area: string | null
+          assignee_id: string | null
           created_at: string
           description: string | null
           id: string
+          priority: string
           project_id: string
+          resolution_photo_file_name: string | null
+          resolution_photo_url: string | null
           sort_order: number
           status: string
           title: string
           updated_at: string
         }
         Insert: {
+          area?: string | null
+          assignee_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          priority?: string
           project_id: string
+          resolution_photo_file_name?: string | null
+          resolution_photo_url?: string | null
           sort_order?: number
           status?: string
           title?: string
           updated_at?: string
         }
         Update: {
+          area?: string | null
+          assignee_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
+          priority?: string
           project_id?: string
+          resolution_photo_file_name?: string | null
+          resolution_photo_url?: string | null
           sort_order?: number
           status?: string
           title?: string
@@ -2048,6 +2063,56 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pre_completion_checklist_items: {
+        Row: {
+          category: string
+          checked: boolean
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          id: string
+          job_id: string
+          label: string
+          notes: string | null
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          checked?: boolean
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          job_id: string
+          label?: string
+          notes?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          checked?: boolean
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          id?: string
+          job_id?: string
+          label?: string
+          notes?: string | null
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pre_completion_checklist_items_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
         ]
