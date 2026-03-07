@@ -37,9 +37,9 @@ export async function renderPdfHeader(
   const maxWidth = pageWidth - margin * 2;
   let y = 8;
 
-  const companyName = branding.company_name || "VIVAFIRE";
-  const companySubtitle = branding.company_subtitle || "Wet & Dry Riser Specialists";
-  const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
+  const companyName = branding.company_name || "Servexa";
+  const companySubtitle = branding.company_subtitle || "Fire Protection Services";
+  const logoUrl = branding.logo_url || "/servexa-logo.png";
 
   // --- Logo ---
   let logoBottomY = y;
