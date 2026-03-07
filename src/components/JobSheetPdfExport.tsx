@@ -145,8 +145,21 @@ export async function generateJobSheetPdf(
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
 
-  const branding = { ...(template.branding || {}), logo_url: template.branding?.logo_url || jobInfo?.customers?.logo_url || undefined };
+  const customerLogoUrl = jobInfo?.customers?.logo_url ?? null;
+  const branding = { ...(template.branding || {}), logo_url: template.branding?.logo_url || customerLogoUrl || undefined };
   const footerText = getDefaultFooterText(template.name, branding);
+
+  // --- Load customer logo and extract dominant brand colour ---
+  let brandLogoImg: HTMLImageElement | null = null;
+  if (customerLogoUrl) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = customerLogoUrl; });
+      brandLogoImg = img;
+    } catch { /* use default colour */ }
+  }
+  const accentColor = getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl);
 
   // Helper: find form value by label pattern
   const findFormVal = (...patterns: string[]): string => {
@@ -176,7 +189,7 @@ export async function generateJobSheetPdf(
     refNumber,
     dateVal,
     riserLocation: riserLocValue,
-  });
+  }, undefined, accentColor);
 
   // --- Service scope line (PT / Visual / Other) ---
   const scopeParts = [
