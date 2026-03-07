@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle } from "lucide-react";
-import { getRamsDefaults, RamsType } from "@/lib/ramsDefaults";
+import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
 
 const RAMS_TYPE_LABELS: Record<RamsType, string> = {
