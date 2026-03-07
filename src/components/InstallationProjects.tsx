@@ -14,7 +14,7 @@ import {
   FolderOpen, Plus, Trash2, Camera, X, ChevronDown, ChevronUp,
   Download, Share2, CheckCircle2, Circle, Pencil, Loader2, Image as ImageIcon,
   Building2, User, FileText, Mic, MicOff, Tag, ArrowUpRight, Pen,
-  LayoutList, AlertTriangle, CheckCheck, PackageOpen
+  LayoutList, AlertTriangle, CheckCheck, PackageOpen, History, Send, Clock, Link2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import PhotoAnnotator from "@/components/PhotoAnnotator";
