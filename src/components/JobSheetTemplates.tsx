@@ -605,6 +605,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     jobInfo={jobInfo}
                     jobId={jobId}
                     mode="preview"
+                    ramsType={
+                      jobInfo?.category === "sprinkler" || jobInfo?.category === "sprinkler_service" ? "sprinkler"
+                      : jobInfo?.category === "fire_extinguisher" ? "fire_extinguisher"
+                      : jobInfo?.category === "fire_hydrant" || jobInfo?.category === "hydrant_service" ? "fire_hydrant"
+                      : jobInfo?.category === "installation" || jobInfo?.category === "dry_riser_installation" ? "installation"
+                      : "dry_riser"
+                    }
                   />
                 </div>
               </div>
