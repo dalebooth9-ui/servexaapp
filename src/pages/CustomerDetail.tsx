@@ -67,6 +67,20 @@ type LinkedSite = {
   postcode: string | null;
 };
 
+type ServiceReport = {
+  id: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  author_id: string;
+  created_at: string;
+  updated_at: string;
+  job_id: string;
+  job_name?: string;
+  job_reference?: string;
+  author_name?: string;
+};
+
 const SITE_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   region: { label: "Region", icon: Globe, color: "text-blue-500" },
   site: { label: "Site", icon: MapPin, color: "text-green-500" },
