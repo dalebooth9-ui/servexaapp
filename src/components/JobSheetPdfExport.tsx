@@ -195,7 +195,8 @@ export async function generateJobSheetPdf(
   }
 
   // --- Shared layout utilities ---
-  const footerSpace = 28;
+  // footerSpace must accommodate: sigs (15mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (5mm)
+  const footerSpace = 44;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
   const sections = getSections(template.fields);
@@ -245,7 +246,9 @@ export async function generateJobSheetPdf(
   }
 
   // --- Signature blocks ---
-  const sigY = Math.max(y + 2, pageHeight - footerSpace);
+  // sigY must sit above logos (footerYForLogos ≈ pageHeight - margin - 9 - 12 - 3 = 263mm)
+  // Sigs are ~15mm tall, so anchor them at pageHeight - footerSpace (= 297 - 44 = 253mm)
+  const sigY = Math.max(y + 2, pageHeight - footerSpace + 2);
   const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
   const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
@@ -263,15 +266,18 @@ export async function generateJobSheetPdf(
     customerSig,
   });
 
-  renderPdfFooter(doc, footerY, footerText);
+  // Declaration footer sits at very bottom; logos sit just above it
+  const declarationFooterY = pageHeight - margin - 9;
+  renderPdfFooter(doc, declarationFooterY, footerText);
 
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
-  const footerYForLogos = pageHeight - margin - 9;
-  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
+  // Logos: 12mm tall, 3mm gap above declaration footer
+  const footerYForLogos = declarationFooterY - 12 - 3;
+  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 12);
 
   const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
