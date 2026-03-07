@@ -24,11 +24,13 @@ export default function PartsLibraryPicker({
   onOpenChange,
   jobId,
   onAdded,
+  listType = "general",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   jobId: string;
   onAdded: () => void;
+  listType?: string;
 }) {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === "admin";
