@@ -297,23 +297,6 @@ export default function JobDetail() {
                   <SelectItem value="low">🟢 Low</SelectItem>
                 </SelectContent>
               </Select>
-              <Select
-                value={job.category || "general"}
-                onValueChange={async (v) => {
-                  const { error } = await supabase.from("jobs").update({ category: v } as any).eq("id", id!);
-                  if (error) { toast({ title: "Error", description: "Failed to update category.", variant: "destructive" }); }
-                  else { setJob((prev: any) => ({ ...prev, category: v })); toast({ title: "Category updated" }); }
-                }}
-              >
-                <SelectTrigger className="h-7 w-[130px] text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="general">General</SelectItem>
-                  <SelectItem value="installation">Installation</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                  <SelectItem value="inspection">Inspection</SelectItem>
-                  <SelectItem value="survey">Survey</SelectItem>
-                </SelectContent>
-              </Select>
               <FaultCodeSelect
                 value={(job as any).result || null}
                 onChange={async (v) => {
