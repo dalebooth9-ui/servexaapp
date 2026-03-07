@@ -34,6 +34,7 @@ import NotFound from "@/pages/NotFound";
 import Servexa from "@/pages/Servexa";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import RamsEditor from "@/pages/RamsEditor";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ReactNode } from "react";
