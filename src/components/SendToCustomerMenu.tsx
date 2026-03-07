@@ -175,6 +175,14 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     setRamsSubmissions((ramsRes.data || []).filter((s: any) => s.file_name && s.file_url && !s.file_name.startsWith("[Cert]")));
     setCertSubmissions((certsRes.data || []).filter((s: any) => s.file_name && s.file_url));
     setLoadingInvoices(false);
+
+    // Load CoC certificates
+    const { data: cocData } = await supabase
+      .from("conformity_certificates" as any)
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    setCocCerts((cocData as any[]) || []);
   };
 
   const handleSend = async () => {
