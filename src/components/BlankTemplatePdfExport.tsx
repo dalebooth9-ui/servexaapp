@@ -190,8 +190,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
           for (const field of sectionFields) {
-            // Don't pre-fill option/select fields — leave blank for manual completion
-            const autoVal = (field.options && field.options.length > 0) ? undefined : autoVals[field.id];
+            // Allow scope_of_work to be pre-filled; leave other select fields blank for manual completion
+            const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
+            const autoVal = (field.options && field.options.length > 0 && !isScopeField) ? undefined : autoVals[field.id];
             y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH,
             });
