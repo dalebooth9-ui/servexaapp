@@ -198,7 +198,11 @@ function CreateProjectDialog({
   jobId: string; userId: string; job?: any;
 }) {
   const siteName = job?.sites?.name || "";
-  const siteAddress = job?.address || job?.sites?.address || "";
+  const sitePostcode = job?.sites?.postcode || "";
+  const rawAddress = job?.address || job?.sites?.address || "";
+  const siteAddress = rawAddress && sitePostcode && !rawAddress.includes(sitePostcode)
+    ? `${rawAddress}, ${sitePostcode}`
+    : rawAddress;
   const clientName = job?.customer || job?.customers?.name || siteName || "";
   const jobRef = job?.reference_number || "";
 
