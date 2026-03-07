@@ -286,10 +286,9 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
 
       // Generate CoC PDFs and attach
       if (selectedDocs.has("coc") && cocCerts.length > 0) {
-        const { default: jsPDF } = await import("jspdf");
+        const { generateConformityPdfBase64 } = await import("@/components/CertificateOfConformity");
         for (const cert of cocCerts) {
-          const { generateConformityPdf } = await import("@/components/CertificateOfConformity");
-          const { base64, fileName } = await generateConformityPdf(cert);
+          const { base64, fileName } = await generateConformityPdfBase64(cert);
           attachments.push({ filename: fileName, content: base64 });
         }
       }
