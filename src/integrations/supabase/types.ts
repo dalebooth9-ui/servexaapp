@@ -1781,6 +1781,7 @@ export type Database = {
           address: string | null
           allocated_days: number | null
           asset_id: string | null
+          brief: string | null
           category: string
           created_at: string
           created_by: string | null
@@ -1810,6 +1811,7 @@ export type Database = {
           address?: string | null
           allocated_days?: number | null
           asset_id?: string | null
+          brief?: string | null
           category?: string
           created_at?: string
           created_by?: string | null
@@ -1839,6 +1841,7 @@ export type Database = {
           address?: string | null
           allocated_days?: number | null
           asset_id?: string | null
+          brief?: string | null
           category?: string
           created_at?: string
           created_by?: string | null
