@@ -2097,7 +2097,21 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      profile_names: {
+        Row: {
+          full_name: string | null
+          user_id: string | null
+        }
+        Insert: {
+          full_name?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          full_name?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       generate_vfp_reference: { Args: never; Returns: string }

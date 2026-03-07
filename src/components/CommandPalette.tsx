@@ -30,17 +30,20 @@ export default function CommandPalette() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
+  const escapeLike = (str: string) => str.replace(/[%_\\]/g, "\\$&");
+
   const search = useCallback(async (q: string) => {
-    if (!q.trim()) {
+    const trimmed = q.trim();
+    if (!trimmed || trimmed.length < 2 || trimmed.length > 100) {
       setJobs([]);
       setEngineers([]);
       setReports([]);
       return;
     }
-    const term = `%${q}%`;
+    const term = `%${escapeLike(trimmed)}%`;
     const [jobsRes, engRes, repRes] = await Promise.all([
       supabase.from("jobs").select("id, name, reference_number").or(`name.ilike.${term},reference_number.ilike.${term}`).limit(5),
-      supabase.from("profiles").select("user_id, full_name").ilike("full_name", term).limit(5),
+      supabase.from("profile_names" as any).select("user_id, full_name").ilike("full_name", term).limit(5),
       supabase.from("field_reports").select("id, title, job_id").ilike("title", term).limit(5),
     ]);
     setJobs(jobsRes.data || []);
