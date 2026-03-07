@@ -782,9 +782,13 @@ function ProjectDetail({
   }, [isListening, toast]);
 
   const updateIssueTitle = useCallback(async (id: string, title: string) => {
+    const old = issues.find(i => i.id === id)?.title;
     await supabase.from("installation_issues" as any).update({ title }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, title } : i));
-  }, []);
+    if (old !== title) {
+      await supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "title", old_value: old || null, new_value: title }).catch(() => {});
+    }
+  }, [issues, user]);
 
   const updateIssueDescription = useCallback(async (id: string, description: string) => {
     await supabase.from("installation_issues" as any).update({ description }).eq("id", id);
@@ -795,12 +799,17 @@ function ProjectDetail({
     const next = current === "resolved" ? "open" : "resolved";
     await supabase.from("installation_issues" as any).update({ status: next }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, status: next } : i));
-  }, []);
+    await supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "status", old_value: current, new_value: next }).catch(() => {});
+  }, [user]);
 
   const updatePriority = useCallback(async (id: string, priority: string) => {
+    const old = issues.find(i => i.id === id)?.priority;
     await supabase.from("installation_issues" as any).update({ priority }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, priority } : i));
-  }, []);
+    if (old !== priority) {
+      await supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "priority", old_value: old || null, new_value: priority }).catch(() => {});
+    }
+  }, [issues, user]);
 
   const updateArea = useCallback(async (id: string, area: string) => {
     await supabase.from("installation_issues" as any).update({ area: area || null }).eq("id", id);
@@ -1046,6 +1055,9 @@ function ProjectDetail({
           <Button size="sm" onClick={handleHandoverPack} disabled={sharing !== null}>
             {sharing === "handover" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <PackageOpen className="h-3.5 w-3.5 mr-1.5" />}
             Handover Pack
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setSignOffOpen(true)}>
+            <Send className="h-3.5 w-3.5 mr-1.5" /> Send for Sign-Off
           </Button>
         </div>
       </div>
