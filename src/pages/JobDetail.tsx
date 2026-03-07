@@ -420,7 +420,7 @@ export default function JobDetail() {
                       </div>
                     )}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "" }); setEditing(true); }}>
+                  <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "", allocated_days: (job as any).allocated_days != null ? String((job as any).allocated_days) : "" }); setEditing(true); }}>
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
                   </Button>
                 </div>
