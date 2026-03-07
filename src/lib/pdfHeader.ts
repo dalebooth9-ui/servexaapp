@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import type { RgbTriple } from "@/lib/extractLogoColors";
 
 export interface PdfHeaderData {
   customerName: string;
@@ -16,6 +17,8 @@ export interface PdfBranding {
   footer_text?: string;
 }
 
+const DEFAULT_ACCENT: RgbTriple = [33, 61, 99];
+
 /**
  * Render the shared branded PDF header used by all three export types:
  *  - Logo (centred)
@@ -25,13 +28,20 @@ export interface PdfBranding {
  *
  * Returns the y position immediately after the header block.
  */
+/**
+ * @param accentColor  Optional [r,g,b] extracted from the customer logo.
+ *                     When provided, replaces the default navy for the title
+ *                     text and separator line.
+ */
 export async function renderPdfHeader(
   doc: jsPDF,
   templateName: string,
   branding: PdfBranding,
   data: PdfHeaderData,
-  standard?: string | null
+  standard?: string | null,
+  accentColor?: RgbTriple | null
 ): Promise<number> {
+  const accent = accentColor ?? DEFAULT_ACCENT;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
@@ -70,10 +80,10 @@ export async function renderPdfHeader(
     logoBottomY = y + 12;
   }
 
-  // --- Title ---
+  // --- Title (uses extracted brand accent colour) ---
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(33, 61, 99);
+  doc.setTextColor(...accent);
   doc.text(templateName.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
 
   // --- Standard (BS number) subtitle ---
@@ -81,13 +91,13 @@ export async function renderPdfHeader(
   if (standard) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(33, 61, 99);
+    doc.setTextColor(...accent);
     doc.text(standard, pageWidth / 2, afterTitleY, { align: "center" });
     afterTitleY += 4;
   }
 
-  // --- Separator ---
-  doc.setDrawColor(33, 61, 99);
+  // --- Separator (uses extracted brand accent colour) ---
+  doc.setDrawColor(...accent);
   doc.setLineWidth(0.5);
   doc.line(margin, afterTitleY, pageWidth - margin, afterTitleY);
 

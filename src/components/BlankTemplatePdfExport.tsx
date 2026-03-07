@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import {
   PdfTemplateField,
@@ -106,6 +107,18 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
       const engineerList = (jobInfo?.engineers || []).join(", ");
 
+      // --- Load customer logo and extract dominant brand colour ---
+      let brandLogoImg: HTMLImageElement | null = null;
+      if (customerLogoUrl) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = customerLogoUrl; });
+          brandLogoImg = img;
+        } catch { /* use default colour */ }
+      }
+      const accentColor = getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl);
+
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
@@ -125,7 +138,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           refNumber,
           dateVal,
           riserLocation: riserLocValue,
-        }, template.standard);
+        }, template.standard, accentColor);
 
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
@@ -228,7 +241,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         loadWatermarkImage(),
         loadAccreditationLogos(),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark);
+      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 

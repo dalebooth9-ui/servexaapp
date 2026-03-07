@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import {
   PdfTemplateField,
@@ -144,8 +145,21 @@ export async function generateJobSheetPdf(
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
 
-  const branding = { ...(template.branding || {}), logo_url: template.branding?.logo_url || jobInfo?.customers?.logo_url || undefined };
+  const customerLogoUrl = jobInfo?.customers?.logo_url ?? null;
+  const branding = { ...(template.branding || {}), logo_url: template.branding?.logo_url || customerLogoUrl || undefined };
   const footerText = getDefaultFooterText(template.name, branding);
+
+  // --- Load customer logo and extract dominant brand colour ---
+  let brandLogoImg: HTMLImageElement | null = null;
+  if (customerLogoUrl) {
+    try {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = customerLogoUrl; });
+      brandLogoImg = img;
+    } catch { /* use default colour */ }
+  }
+  const accentColor = getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl);
 
   // Helper: find form value by label pattern
   const findFormVal = (...patterns: string[]): string => {
@@ -175,7 +189,7 @@ export async function generateJobSheetPdf(
     refNumber,
     dateVal,
     riserLocation: riserLocValue,
-  });
+  }, undefined, accentColor);
 
   // --- Service scope line (PT / Visual / Other) ---
   const scopeParts = [
@@ -186,7 +200,7 @@ export async function generateJobSheetPdf(
   if (scopeParts) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.setTextColor(33, 61, 99);
+    doc.setTextColor(...accentColor);
     doc.text(`Service Scope: `, margin, y + 3.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
@@ -274,7 +288,7 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark);
+  if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
   // Logos: 12mm tall, 3mm gap above declaration footer
   const footerYForLogos = declarationFooterY - 12 - 3;
   addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 12);
