@@ -1,0 +1,1 @@
+DELETE FROM job_sheet_templates WHERE id = 'fc38e69f-4f9f-4f14-b88e-500c6abef738';
