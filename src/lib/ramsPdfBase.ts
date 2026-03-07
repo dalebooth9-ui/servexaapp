@@ -509,7 +509,7 @@ export async function buildCoverPage(
     ry2 += Math.max(rowGap, siteLines.length * (9 * 0.352778 + 1.2));
   }
   labelValue(doc, "Date Prepared / Revision:", datePrepared, ML + 3, ry2); ry2 += rowGap;
-  if (scopeParts) { labelValue(doc, "Service Scope:", scopeParts, ML + 3, ry2); ry2 += rowGap; }
+  if (scopeParts) { labelValue(doc, scopeLabel, scopeParts, ML + 3, ry2); ry2 += rowGap; }
   if (engineerNames && engineerNames !== "Viva Fire Operatives") {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Assigned Engineers:", ML + 3, ry2);
     doc.setFont("helvetica", "normal");
