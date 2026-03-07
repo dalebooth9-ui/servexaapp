@@ -260,6 +260,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       </div>
       <CommandPalette />
       <AiHelpWizard />
+      <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>);
 
 }
