@@ -162,6 +162,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         customer: jd.customers?.name || jd.customer,
         customer_email: jd.customers?.email || null,
         customer_phone: jd.customers?.phone || null,
+        customers: jd.customers ? { name: jd.customers.name, logo_url: jd.customers.logo_url || null } : null,
         reference_number: jd.reference_number,
         category: jd.category,
         status: jd.status,
