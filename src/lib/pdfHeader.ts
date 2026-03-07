@@ -80,10 +80,10 @@ export async function renderPdfHeader(
     logoBottomY = y + 12;
   }
 
-  // --- Title ---
+  // --- Title (uses extracted brand accent colour) ---
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
-  doc.setTextColor(33, 61, 99);
+  doc.setTextColor(...accent);
   doc.text(templateName.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
 
   // --- Standard (BS number) subtitle ---
@@ -91,13 +91,13 @@ export async function renderPdfHeader(
   if (standard) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
-    doc.setTextColor(33, 61, 99);
+    doc.setTextColor(...accent);
     doc.text(standard, pageWidth / 2, afterTitleY, { align: "center" });
     afterTitleY += 4;
   }
 
-  // --- Separator ---
-  doc.setDrawColor(33, 61, 99);
+  // --- Separator (uses extracted brand accent colour) ---
+  doc.setDrawColor(...accent);
   doc.setLineWidth(0.5);
   doc.line(margin, afterTitleY, pageWidth - margin, afterTitleY);
 
