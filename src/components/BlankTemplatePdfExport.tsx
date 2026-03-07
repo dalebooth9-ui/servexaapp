@@ -99,7 +99,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         jobInfo?.site?.postcode || "",
       ].filter(Boolean).join(", ");
       const refNumber = jobInfo?.reference_number || "";
-      const dateVal = new Date().toLocaleDateString("en-GB");
+      const dateVal = ""; // blank — no auto-filled date on blank templates
       const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
       const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
       const engineerList = (jobInfo?.engineers || []).join(", ");
@@ -198,14 +198,16 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           y += 1;
         }
 
-        // Comments box — capped at 18mm max so logos/sigs have room
+        // Comments box — bottom sits 10mm above the date/signature line
         const sigY = pageHeight - footerSpace - 10;
-        const commentsH = Math.min(Math.max(sigY - y - 2, 6), 18);
+        const commentsBoxBottom = sigY - 10;
+        const commentsBoxTop = y + 4;
+        const commentsRectH = Math.max(commentsBoxBottom - commentsBoxTop, 4);
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
         doc.setDrawColor(180);
-        doc.rect(margin, y + 4, maxWidth, commentsH - 4);
+        doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
 
         renderPdfSignatures(doc, sigY, {
           dateStr: "",
