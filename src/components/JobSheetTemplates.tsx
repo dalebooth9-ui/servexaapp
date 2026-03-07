@@ -297,11 +297,30 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Reference / PO number
       } else if (label.includes("po number") || label.includes("reference") || label.includes("ref no") || label.includes("job ref") || label.includes("job number") || label.includes("order number")) {
         prefilled[f.id] = jobInfo.reference_number || "";
-      // Job name / description
-      } else if (label === "job name" || label === "job title" || label === "job description" || label === "description of work" || label === "works description") {
+      // Job name / description — extended for commissioning certs
+      } else if (
+        label === "job name" || label === "job title" || label === "job description" ||
+        label === "description of work" || label === "works description" ||
+        label === "project name" || label === "project title" || label === "contract" ||
+        label.includes("project description") || label === "works"
+      ) {
         prefilled[f.id] = jobInfo.name || "";
+      // Address / location — extended for commissioning certs
+      } else if (
+        label === "site address" || label === "address" || label === "location" ||
+        label === "site location" || label === "property address" || label === "premises address" ||
+        label === "installation address" || label === "premises"
+      ) {
+        prefilled[f.id] = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
+      // Number of systems (commissioning cert specific)
+      } else if (
+        label.includes("number of") && (label.includes("system") || label.includes("riser")) ||
+        label.includes("no. of") || label.includes("no of") && (label.includes("system") || label.includes("riser")) ||
+        label === "qty" || label === "quantity of systems" || label === "number of risers"
+      ) {
+        prefilled[f.id] = String(jobInfo.other_qty || 1);
       // Date fields — use scheduled planner date if available, else today
-      } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date") {
+      } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date" || label === "work date" || label === "commissioning date" || label === "installation date" || label === "completion date") {
         prefilled[f.id] = scheduledDate || new Date().toISOString().split("T")[0];
       // Attendance date — always use the planner-booked date
       } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
