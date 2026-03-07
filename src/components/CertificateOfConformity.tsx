@@ -446,3 +446,94 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
     test_outcome: "pass",
   } as any);
 }
+
+/** Standalone PDF generator for use outside the component (e.g. SendToCustomerMenu) */
+export async function generateConformityPdfBase64(cert: ConformityCert): Promise<{ base64: string; fileName: string }> {
+  const { default: jsPDF } = await import("jspdf");
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const pw = doc.internal.pageSize.getWidth();
+
+  doc.setFillColor(220, 38, 38);
+  doc.rect(0, 0, pw, 28, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.text("CERTIFICATE OF CONFORMITY", pw / 2, 12, { align: "center" });
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.text("Dry Riser Installation — BS EN 9990:2015", pw / 2, 19, { align: "center" });
+  doc.text("Viva Fire Protection Ltd", pw / 2, 24, { align: "center" });
+  doc.setTextColor(0, 0, 0);
+
+  doc.setFillColor(245, 245, 245);
+  doc.rect(14, 32, pw - 28, 14, "F");
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text(`Certificate No: ${cert.certificate_number || "—"}`, 18, 39);
+  doc.text(`Issue Date: ${cert.issue_date || "—"}`, pw / 2, 39, { align: "center" });
+  const oc = cert.test_outcome === "pass" ? [22, 163, 74] : [220, 38, 38];
+  doc.setTextColor(...(oc as [number, number, number]));
+  doc.text(`Outcome: ${cert.test_outcome.toUpperCase()}`, pw - 18, 39, { align: "right" });
+  doc.setTextColor(0, 0, 0);
+
+  let y = 52;
+  const sh = (title: string) => {
+    doc.setFillColor(239, 68, 68);
+    doc.rect(14, y, pw - 28, 7, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text(title.toUpperCase(), 17, y + 5);
+    doc.setTextColor(0, 0, 0);
+    y += 9;
+  };
+  const row = (label: string, value: string, rl?: string, rv?: string) => {
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text(label, 17, y);
+    doc.setFont("helvetica", "normal");
+    doc.text(value || "—", 65, y);
+    if (rl) { doc.setFont("helvetica", "bold"); doc.text(rl, pw / 2 + 5, y); doc.setFont("helvetica", "normal"); doc.text(rv || "—", pw / 2 + 45, y); }
+    y += 7;
+  };
+
+  sh("Project Details");
+  row("Job Reference:", cert.reference_number, "Customer:", cert.customer_name);
+  row("Job Name:", cert.job_name);
+  row("Site Address:", cert.site_address);
+  y += 2;
+  sh("System Information");
+  row("No. of Dry Riser Systems:", String(cert.system_qty), "Installation Date:", cert.installation_date || "—");
+  row("Riser Locations:", cert.riser_locations);
+  y += 2;
+  sh("Test Results");
+  row("Outcome:", cert.test_outcome.toUpperCase());
+  if (cert.test_notes) {
+    doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.text("Notes:", 17, y);
+    doc.setFont("helvetica", "normal");
+    const lines = doc.splitTextToSize(cert.test_notes, pw - 80);
+    doc.text(lines, 65, y); y += lines.length * 5 + 2;
+  }
+  y += 2;
+  sh("Compliance Declaration");
+  doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  const decl = `We hereby certify that the dry riser installation described above has been installed, tested and commissioned in accordance with BS EN 9990:2015 and all relevant statutory requirements.`;
+  const dLines = doc.splitTextToSize(decl, pw - 32);
+  doc.text(dLines, 17, y); y += dLines.length * 5 + 6;
+  sh("Sign-Off");
+  row("Engineer / Technician:", cert.engineer_name, "Date:", cert.sign_date || "—");
+  y += 4;
+  if (cert.engineer_signature) {
+    try { doc.addImage(cert.engineer_signature, "PNG", 17, y, 50, 20); } catch {}
+    doc.setFontSize(7); doc.setFont("helvetica", "italic"); doc.text("Authorised Signature", 17, y + 22);
+  }
+
+  const fY = doc.internal.pageSize.getHeight() - 14;
+  doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5); doc.line(14, fY - 3, pw - 14, fY - 3);
+  doc.setFontSize(7); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
+  doc.text("Viva Fire Protection Ltd  |  Certificate of Conformity  |  Dry Riser Installation", pw / 2, fY + 2, { align: "center" });
+
+  const base64 = doc.output("datauristring").split(",")[1];
+  const fileName = `CoC-${cert.reference_number || cert.job_id.slice(0, 8)}.pdf`;
+  return { base64, fileName };
+}
