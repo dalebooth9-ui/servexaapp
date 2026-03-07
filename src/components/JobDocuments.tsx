@@ -57,7 +57,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const fetchJobInfo = async () => {
     const { data: jd } = await supabase
       .from("jobs")
-      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
       .eq("id", jobId)
       .single();
     if (!jd) return;
@@ -72,7 +72,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       name: j.name,
       address: j.address,
       customer: j.customers?.name || j.customer,
-      customers: j.customers ? { name: j.customers.name } : null,
+      customers: j.customers ? { name: j.customers.name, logo_url: j.customers.logo_url || null } : null,
       customer_email: j.customers?.email || null,
       customer_phone: j.customers?.phone || null,
       reference_number: j.reference_number,
