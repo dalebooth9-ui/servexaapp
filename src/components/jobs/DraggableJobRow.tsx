@@ -90,7 +90,9 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
             {job.name}
           </Link>
           {(job.submissions || []).some((s: any) => s.type === "document") && (
-            <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" title="Has compliance / RAMS documents" />
+            <span title="Has compliance / RAMS documents">
+              <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+            </span>
           )}
         </div>
 
