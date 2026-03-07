@@ -223,8 +223,8 @@ function CreateProjectDialog({
       .select()
       .single();
     setSaving(false);
-    if (error) { toast({ title: "Failed to create project", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Project created" });
+    if (error) { toast({ title: "Failed to create snag list", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Snag list created" });
     onCreated({ ...(data as any), issues: [] });
     onClose();
   };
@@ -234,13 +234,13 @@ function CreateProjectDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FolderOpen className="h-5 w-5 text-primary" /> New Installation Project
+            <FolderOpen className="h-5 w-5 text-primary" /> New Notes / Snag List
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-4 py-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label className="text-xs">Project Title *</Label>
+              <Label className="text-xs">Snag List Title *</Label>
               <Input className="mt-1" placeholder="e.g. Dry Riser Installation – Block A"
                 value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             </div>
@@ -279,7 +279,7 @@ function CreateProjectDialog({
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
           <Button onClick={handleCreate} disabled={saving}>
-            {saving ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Creating…</> : "Create Project"}
+            {saving ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Creating…</> : "Create Snag List"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -378,7 +378,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
 
   const saveProjectEdit = async () => {
     await supabase.from("installation_projects" as any).update(editForm).eq("id", project.id);
-    toast({ title: "Project updated" });
+    toast({ title: "Snag list updated" });
     setEditProjectOpen(false);
     onRefresh();
   };
@@ -523,7 +523,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
           <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-1 transition-colors">
-            ← All projects
+            ← All snag lists
           </button>
           <h3 className="font-semibold text-base">{project.title}</h3>
           <div className="flex flex-wrap gap-2 mt-1">
@@ -611,11 +611,11 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
       {/* Edit Project Dialog */}
       <Dialog open={editProjectOpen} onOpenChange={setEditProjectOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Edit Project</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Edit Notes / Snag List</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Label className="text-xs">Project Title</Label>
+                <Label className="text-xs">Snag List Title</Label>
                 <Input className="mt-1" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
               </div>
               <div><Label className="text-xs">Reference</Label><Input className="mt-1" value={editForm.reference} onChange={(e) => setEditForm({ ...editForm, reference: e.target.value })} /></div>
@@ -705,7 +705,7 @@ export default function InstallationProjects({ jobId, job }: Props) {
     await supabase.from("installation_projects" as any).delete().eq("id", projectId);
     setProjects((prev) => prev.filter((p) => p.id !== projectId));
     if (selectedProjectId === projectId) setSelectedProjectId(null);
-    toast({ title: "Project deleted" });
+    toast({ title: "Snag list deleted" });
   };
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -713,7 +713,7 @@ export default function InstallationProjects({ jobId, job }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-10 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> Loading projects…
+        <Loader2 className="h-5 w-5 animate-spin" /> Loading snag lists…
       </div>
     );
   }
@@ -734,18 +734,18 @@ export default function InstallationProjects({ jobId, job }: Props) {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-2">
                 <FolderOpen className="h-6 w-6 text-primary" />
               </div>
-              <p className="font-medium">No installation projects yet</p>
+              <p className="font-medium">No snag lists yet</p>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                Create a project to track installation issues, add photos and generate a sharable report.
+                Create a snag list to track installation issues, add photos and generate a sharable report.
               </p>
               <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" /> Create Project
+                <Plus className="mr-1.5 h-4 w-4" /> Create Snag List
               </Button>
             </div>
           ) : (
             <>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-sm text-muted-foreground">{projects.length} project{projects.length !== 1 ? "s" : ""}</p>
+                <p className="text-sm text-muted-foreground">{projects.length} snag list{projects.length !== 1 ? "s" : ""}</p>
                 <Button size="sm" onClick={() => setCreateOpen(true)}>
                   <Plus className="mr-1.5 h-3.5 w-3.5" /> New Note / Snag
                 </Button>
@@ -785,7 +785,7 @@ export default function InstallationProjects({ jobId, job }: Props) {
                           </AlertDialogTrigger>
                           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                              <AlertDialogTitle>Delete Snag List</AlertDialogTitle>
                               <AlertDialogDescription>Delete "{proj.title}" and all its issues and photos?</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
