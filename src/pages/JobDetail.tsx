@@ -18,6 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useToast } from "@/hooks/use-toast";
 import EngineerAssignments from "@/components/EngineerAssignments";
 import WhatsAppReply from "@/components/WhatsAppReply";
+import AllocatedDaysTracker from "@/components/AllocatedDaysTracker";
 import JobMessages from "@/components/JobMessages";
 import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
 import LocationMap from "@/components/LocationMap";
