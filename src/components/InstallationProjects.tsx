@@ -14,7 +14,7 @@ import {
   FolderOpen, Plus, Trash2, Camera, X, ChevronDown, ChevronUp,
   Download, Share2, CheckCircle2, Circle, Pencil, Loader2, Image as ImageIcon,
   Building2, User, FileText, Mic, MicOff, Tag, ArrowUpRight, Pen,
-  LayoutList, AlertTriangle, CheckCheck, PackageOpen
+  LayoutList, AlertTriangle, CheckCheck, PackageOpen, History, Send, Clock, Link2
 } from "lucide-react";
 import jsPDF from "jspdf";
 import PhotoAnnotator from "@/components/PhotoAnnotator";
@@ -87,6 +87,9 @@ function IssueCard({
   const [annotatorOpen, setAnnotatorOpen] = useState(false);
   const [annotatorImage, setAnnotatorImage] = useState<string | null>(null);
   const [pendingAnnotationFile, setPendingAnnotationFile] = useState<File | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (initiallyExpanded && expanded) {
@@ -94,6 +97,19 @@ function IssueCard({
       return () => clearTimeout(t);
     }
   }, []);
+
+  const loadHistory = async () => {
+    if (history.length > 0) { setShowHistory(h => !h); return; }
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from("installation_issue_history" as any)
+      .select("*")
+      .eq("issue_id", issue.id)
+      .order("changed_at", { ascending: false });
+    setHistory((data as any[]) || []);
+    setHistoryLoading(false);
+    setShowHistory(true);
+  };
 
   const resolved = issue.status === "resolved";
   const pc = PRIORITY_CONFIG[issue.priority as keyof typeof PRIORITY_CONFIG] || PRIORITY_CONFIG.medium;
@@ -299,7 +315,7 @@ function IssueCard({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
             <Button size="sm" variant="outline" className="gap-1.5 text-xs"
               onClick={() => fileRef.current?.click()}
@@ -311,7 +327,37 @@ function IssueCard({
               }
             </Button>
             <span className="text-xs text-muted-foreground">(Single photo opens annotator)</span>
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs ml-auto text-muted-foreground" onClick={loadHistory} disabled={historyLoading}>
+              {historyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <History className="h-3.5 w-3.5" />}
+              History
+            </Button>
           </div>
+
+          {/* Revision history */}
+          {showHistory && (
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <History className="h-3 w-3" /> Revision History
+              </p>
+              {history.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No changes recorded yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {history.map((h: any) => (
+                    <div key={h.id} className="flex items-start gap-2 text-xs">
+                      <Clock className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-medium capitalize">{h.field}</span>
+                        {h.old_value && <span className="text-muted-foreground"> from <s>{h.old_value}</s></span>}
+                        {h.new_value && <span className="text-muted-foreground"> → <span className="text-foreground">{h.new_value}</span></span>}
+                        <span className="text-muted-foreground ml-2">{new Date(h.changed_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -658,6 +704,7 @@ function ProjectDetail({
 }: {
   project: Project; onBack: () => void; onRefresh: () => void; jobId: string;
 }) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [issues, setIssues] = useState<Issue[]>(project.issues);
   const [addingIssue, setAddingIssue] = useState(false);
@@ -678,8 +725,26 @@ function ProjectDetail({
     company_email: project.company_email || "",
   });
   const [groupByArea, setGroupByArea] = useState(false);
+  const [signOffOpen, setSignOffOpen] = useState(false);
+  const [signOffEmail, setSignOffEmail] = useState(project.company_email || "");
+  const [signOffName, setSignOffName] = useState(project.client_name || "");
+  const [signOffLoading, setSignOffLoading] = useState(false);
+  const [signOffLink, setSignOffLink] = useState<string | null>(null);
+  const [checklistPct, setChecklistPct] = useState<number | null>(null);
   const newPhotoRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Load checklist % for the progress gauge
+  useEffect(() => {
+    supabase.from("pre_completion_checklist_items" as any)
+      .select("checked")
+      .eq("job_id", jobId)
+      .then(({ data }) => {
+        if (!data || !(data as any[]).length) { setChecklistPct(null); return; }
+        const pct = Math.round(((data as any[]).filter((d: any) => d.checked).length / (data as any[]).length) * 100);
+        setChecklistPct(pct);
+      });
+  }, [jobId]);
 
   const openCount = issues.filter((i) => i.status !== "resolved").length;
   const resolvedCount = issues.filter((i) => i.status === "resolved").length;
@@ -717,9 +782,13 @@ function ProjectDetail({
   }, [isListening, toast]);
 
   const updateIssueTitle = useCallback(async (id: string, title: string) => {
+    const old = issues.find(i => i.id === id)?.title;
     await supabase.from("installation_issues" as any).update({ title }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, title } : i));
-  }, []);
+    if (old !== title) {
+      supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "title", old_value: old || null, new_value: title }).then(() => {});
+    }
+  }, [issues, user]);
 
   const updateIssueDescription = useCallback(async (id: string, description: string) => {
     await supabase.from("installation_issues" as any).update({ description }).eq("id", id);
@@ -730,12 +799,17 @@ function ProjectDetail({
     const next = current === "resolved" ? "open" : "resolved";
     await supabase.from("installation_issues" as any).update({ status: next }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, status: next } : i));
-  }, []);
+    supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "status", old_value: current, new_value: next }).then(() => {});
+  }, [user]);
 
   const updatePriority = useCallback(async (id: string, priority: string) => {
+    const old = issues.find(i => i.id === id)?.priority;
     await supabase.from("installation_issues" as any).update({ priority }).eq("id", id);
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, priority } : i));
-  }, []);
+    if (old !== priority) {
+      supabase.from("installation_issue_history" as any).insert({ issue_id: id, changed_by: user?.id, field: "priority", old_value: old || null, new_value: priority }).then(() => {});
+    }
+  }, [issues, user]);
 
   const updateArea = useCallback(async (id: string, area: string) => {
     await supabase.from("installation_issues" as any).update({ area: area || null }).eq("id", id);
@@ -924,6 +998,29 @@ function ProjectDetail({
     } finally { setSharing(null); }
   };
 
+  const handleCreateSignOff = async () => {
+    if (!signOffName.trim()) { toast({ title: "Client name required", variant: "destructive" }); return; }
+    setSignOffLoading(true);
+    const { data, error } = await supabase
+      .from("installation_handover_tokens" as any)
+      .insert({
+        project_id: project.id,
+        job_id: jobId,
+        created_by: user?.id,
+        client_name: signOffName.trim(),
+        client_email: signOffEmail.trim() || null,
+      })
+      .select("token")
+      .single();
+    setSignOffLoading(false);
+    if (error || !data) { toast({ title: "Failed to create sign-off link", variant: "destructive" }); return; }
+    const link = `${window.location.origin}/handover/${(data as any).token}`;
+    setSignOffLink(link);
+    if (signOffEmail.trim()) {
+      toast({ title: "Sign-off link created", description: `Share it with ${signOffEmail}` });
+    }
+  };
+
   // Determine unique areas for group-by
   const areas = Array.from(new Set(issues.map(i => i.area || "General").filter(Boolean)));
 
@@ -982,8 +1079,47 @@ function ProjectDetail({
             {sharing === "handover" ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <PackageOpen className="h-3.5 w-3.5 mr-1.5" />}
             Handover Pack
           </Button>
+          <Button size="sm" variant="outline" onClick={() => setSignOffOpen(true)}>
+            <Send className="h-3.5 w-3.5 mr-1.5" /> Send for Sign-Off
+          </Button>
         </div>
       </div>
+
+      {/* Progress Gauge */}
+      {issues.length > 0 && (
+        <div className="rounded-lg border bg-card p-3 mb-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{resolvedCount}</span>/{issues.length} snags resolved</span>
+              {checklistPct !== null && (
+                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{checklistPct}%</span> checklist done</span>
+              )}
+              {criticalCount > 0 && (
+                <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+                  <AlertTriangle className="h-3 w-3" /> {criticalCount} critical open
+                </span>
+              )}
+            </div>
+            {/* RAG status indicator */}
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+              openCount === 0 ? "text-green-700 bg-green-50 border-green-200" :
+              criticalCount > 0 ? "text-destructive bg-destructive/10 border-destructive/20" :
+              "text-amber-700 bg-amber-50 border-amber-200"
+            }`}>
+              {openCount === 0 ? "✓ Complete" : criticalCount > 0 ? "! Critical" : "In Progress"}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                openCount === 0 ? "bg-green-500" : criticalCount > 0 ? "bg-destructive" : "bg-amber-500"
+              }`}
+              style={{ width: `${issues.length > 0 ? Math.round((resolvedCount / issues.length) * 100) : 100}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="flex flex-wrap gap-2 mb-4">
@@ -994,7 +1130,7 @@ function ProjectDetail({
           <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> {resolvedCount} resolved
         </div>
         {criticalCount > 0 && (
-          <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-1.5">
             <AlertTriangle className="h-3.5 w-3.5" /> {criticalCount} critical
           </div>
         )}
@@ -1144,6 +1280,53 @@ function ProjectDetail({
             <Button variant="outline" onClick={() => setEditProjectOpen(false)}>Cancel</Button>
             <Button onClick={saveProjectEdit}>Save Changes</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send for Sign-Off Dialog */}
+      <Dialog open={signOffOpen} onOpenChange={(o) => { setSignOffOpen(o); if (!o) setSignOffLink(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Send className="h-4 w-4 text-primary" /> Send Handover for Client Sign-Off
+            </DialogTitle>
+          </DialogHeader>
+          {signOffLink ? (
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">Share this link with your client. They can review the handover summary and sign digitally.</p>
+              <div className="flex items-center gap-2 bg-muted rounded-lg p-3">
+                <code className="text-xs flex-1 break-all text-foreground">{signOffLink}</code>
+                <Button size="sm" variant="outline" className="shrink-0 gap-1.5"
+                  onClick={() => { navigator.clipboard.writeText(signOffLink); toast({ title: "Link copied" }); }}>
+                  <Link2 className="h-3.5 w-3.5" /> Copy
+                </Button>
+              </div>
+              {navigator.share && (
+                <Button className="w-full gap-1.5" onClick={() => navigator.share({ title: `Handover Sign-Off: ${project.title}`, url: signOffLink })}>
+                  <Share2 className="h-3.5 w-3.5" /> Share Link
+                </Button>
+              )}
+              <p className="text-xs text-muted-foreground text-center">Link valid for 30 days</p>
+            </div>
+          ) : (
+            <div className="space-y-3 py-2">
+              <div>
+                <Label className="text-xs">Client Name *</Label>
+                <Input className="mt-1" placeholder="e.g. John Smith" value={signOffName} onChange={(e) => setSignOffName(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs">Client Email (optional)</Label>
+                <Input className="mt-1" type="email" placeholder="client@example.com" value={signOffEmail} onChange={(e) => setSignOffEmail(e.target.value)} />
+              </div>
+              <DialogFooter className="pt-1">
+                <Button variant="outline" onClick={() => setSignOffOpen(false)}>Cancel</Button>
+                <Button onClick={handleCreateSignOff} disabled={signOffLoading || !signOffName.trim()} className="gap-1.5">
+                  {signOffLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Link2 className="h-3.5 w-3.5" />}
+                  Generate Link
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
