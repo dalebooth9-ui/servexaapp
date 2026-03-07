@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
