@@ -419,6 +419,9 @@ export default function JobDetail() {
                         )}
                       </div>
                     )}
+                    {(job as any).allocated_days != null && (
+                      <AllocatedDaysTracker jobId={id!} allocatedDays={(job as any).allocated_days} />
+                    )}
                   </div>
                   <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "", allocated_days: (job as any).allocated_days != null ? String((job as any).allocated_days) : "" }); setEditing(true); }}>
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
@@ -485,11 +488,15 @@ export default function JobDetail() {
                     <Label className="text-xs">Due Date</Label>
                     <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
                   </div>
+                  <div>
+                    <Label className="text-xs">Allocated Days</Label>
+                    <Input type="number" min={1} placeholder="e.g. 5" value={editForm.allocated_days} onChange={(e) => setEditForm({ ...editForm, allocated_days: e.target.value })} className="mt-1" />
+                  </div>
                 </div>
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" disabled={editSaving || !editForm.name.trim()} onClick={async () => {
                     setEditSaving(true);
-                    const updatePayload: any = { name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, other_qty: editForm.other_qty, due_date: editForm.due_date || null };
+                    const updatePayload: any = { name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, other_qty: editForm.other_qty, due_date: editForm.due_date || null, allocated_days: editForm.allocated_days ? parseInt(editForm.allocated_days) : null };
                     if (job.category !== "installation") {
                       updatePayload.pressure_test_qty = editForm.pressure_test_qty;
                       updatePayload.visual_qty = editForm.visual_qty;
