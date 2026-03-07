@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import {
   FolderOpen, Plus, Trash2, Camera, X, ChevronDown, ChevronUp,
   Download, Share2, CheckCircle2, Circle, Pencil, Loader2, Image as ImageIcon,
-  Building2, User, FileText
+  Building2, User, FileText, Mic, MicOff
 } from "lucide-react";
 import jsPDF from "jspdf";
 
@@ -294,6 +294,8 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
   const [issues, setIssues] = useState<Issue[]>(project.issues);
   const [addingIssue, setAddingIssue] = useState(false);
   const [newIssueTitle, setNewIssueTitle] = useState("");
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+  const [isListening, setIsListening] = useState(false);
   const [uploadingIssueId, setUploadingIssueId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
@@ -303,6 +305,8 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
     company_address: project.company_address || "", company_phone: project.company_phone || "",
     company_email: project.company_email || "",
   });
+  const newPhotoRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const openCount = issues.filter((i) => i.status === "open").length;
   const resolvedCount = issues.filter((i) => i.status === "resolved").length;
@@ -315,10 +319,48 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
       .select()
       .single();
     if (error) { toast({ title: "Failed to add issue", variant: "destructive" }); return; }
-    setIssues((prev) => [...prev, { ...(data as any), photos: [] }]);
+    const newIssue = { ...(data as any), photos: [] };
+    setIssues((prev) => [...prev, newIssue]);
     setNewIssueTitle("");
     setAddingIssue(false);
+    const photos = pendingPhotos;
+    setPendingPhotos([]);
+    if (photos.length > 0) {
+      const dt = new DataTransfer();
+      photos.forEach((f) => dt.items.add(f));
+      await addPhoto(newIssue.id, dt.files);
+    }
   };
+
+  const toggleVoice = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast({ title: "Voice not supported", description: "Use Chrome or Edge for voice notes.", variant: "destructive" });
+      return;
+    }
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-GB";
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results).map((r: any) => r[0].transcript).join("");
+      setNewIssueTitle(transcript);
+    };
+    recognition.onerror = (e: any) => {
+      setIsListening(false);
+      if (e.error !== "aborted") toast({ title: "Voice error", description: "Could not capture audio.", variant: "destructive" });
+    };
+    recognitionRef.current = recognition;
+    recognition.start();
+    setAddingIssue(true);
+  }, [isListening, toast]);
 
   const updateIssueTitle = useCallback(async (id: string, title: string) => {
     await supabase.from("installation_issues" as any).update({ title }).eq("id", id);
@@ -585,25 +627,60 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
           />
         ))}
 
-        {/* Add Issue */}
+        {/* Add Snag */}
         {addingIssue ? (
-          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2">
-            <Input
-              autoFocus
-              placeholder="Issue title…"
-              value={newIssueTitle}
-              onChange={(e) => setNewIssueTitle(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && newIssueTitle.trim()) addIssue(); if (e.key === "Escape") { setAddingIssue(false); setNewIssueTitle(""); } }}
-              className="h-8 text-sm"
-            />
-            <Button size="sm" onClick={addIssue} disabled={!newIssueTitle.trim()}>Add</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAddingIssue(false); setNewIssueTitle(""); }}>
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="rounded-lg border bg-card px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Input
+                autoFocus
+                placeholder="Snag title… or tap 🎤 to dictate"
+                value={newIssueTitle}
+                onChange={(e) => setNewIssueTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && newIssueTitle.trim()) addIssue(); if (e.key === "Escape") { setAddingIssue(false); setNewIssueTitle(""); setPendingPhotos([]); recognitionRef.current?.stop(); } }}
+                className={`h-8 text-sm flex-1 ${isListening ? "border-destructive ring-1 ring-destructive" : ""}`}
+              />
+              <Button
+                size="icon" variant={isListening ? "destructive" : "outline"}
+                className="h-8 w-8 shrink-0" onClick={toggleVoice}
+                title={isListening ? "Stop recording" : "Voice note – AI transcribes"}
+              >
+                {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+              </Button>
+              <input ref={newPhotoRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
+                onChange={(e) => { if (e.target.files) { setPendingPhotos(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; } }} />
+              <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
+                onClick={() => newPhotoRef.current?.click()} title="Attach photo">
+                <Camera className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" onClick={addIssue} disabled={!newIssueTitle.trim()}>Add</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAddingIssue(false); setNewIssueTitle(""); setPendingPhotos([]); recognitionRef.current?.stop(); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {isListening && (
+              <p className="text-xs text-destructive flex items-center gap-1.5 animate-pulse">
+                <span className="inline-block h-2 w-2 rounded-full bg-destructive" />
+                Listening… speak your snag description
+              </p>
+            )}
+            {pendingPhotos.length > 0 && (
+              <div className="flex gap-2 flex-wrap items-center">
+                {pendingPhotos.map((file, i) => (
+                  <div key={i} className="relative group">
+                    <img src={URL.createObjectURL(file)} alt="" className="h-12 w-12 object-cover rounded border" />
+                    <button onClick={() => setPendingPhotos(prev => prev.filter((_, j) => j !== i))}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+                <span className="text-xs text-muted-foreground">{pendingPhotos.length} photo{pendingPhotos.length > 1 ? "s" : ""} ready</span>
+              </div>
+            )}
           </div>
         ) : (
           <Button variant="outline" className="w-full gap-2 text-sm border-dashed" onClick={() => setAddingIssue(true)}>
-            <Plus className="h-4 w-4" /> Add Issue
+            <Plus className="h-4 w-4" /> Add Snag
           </Button>
         )}
       </div>
