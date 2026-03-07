@@ -593,7 +593,7 @@ export async function buildRiskPage(
   rC: number[]
 ): Promise<void> {
   // Reserve space for colour legend + accreditation logos + footer at bottom
-  const RISK_SAFE_BOTTOM = PAGE_H - 50;
+  const RISK_SAFE_BOTTOM = PAGE_H - 62; // stop table rows before legend zone
 
   const renderHeader = async (isNewPage: boolean) => {
     if (isNewPage) {
