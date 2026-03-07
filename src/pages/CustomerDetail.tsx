@@ -656,22 +656,75 @@ export default function CustomerDetail() {
       </Breadcrumb>
 
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Building2 className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">{customer.name}</h1>
-        </div>
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          {customer.email && (
-            <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {customer.email}</span>
-          )}
-          {customer.phone && (
-            <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {customer.phone}</span>
-          )}
-          {customer.address && (
-            <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {customer.address}</span>
-          )}
+        <div className="flex items-start gap-4 mb-2">
+          {/* Customer Logo */}
+          <div className="relative group flex-shrink-0">
+            {customer.logo_url ? (
+              <div className="relative">
+                <img
+                  src={customer.logo_url}
+                  alt={`${customer.name} logo`}
+                  className="h-16 w-16 rounded-lg object-contain border bg-muted/30 p-1"
+                />
+                {isAdmin && (
+                  <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => logoInputRef.current?.click()}
+                      className="rounded p-1 text-white hover:text-primary transition-colors"
+                      title="Change logo"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleRemoveLogo}
+                      className="rounded p-1 text-white hover:text-destructive transition-colors"
+                      title="Remove logo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : isAdmin ? (
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading}
+                className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                title="Upload customer logo"
+              >
+                {logoUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
+                <span className="text-[9px] font-medium leading-none">LOGO</span>
+              </button>
+            ) : null}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.[0]) handleLogoUpload(e.target.files[0]); }}
+            />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2">
+              <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
+              <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              {customer.email && (
+                <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {customer.email}</span>
+              )}
+              {customer.phone && (
+                <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {customer.phone}</span>
+              )}
+              {customer.address && (
+                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {customer.address}</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
 
       {/* Customer Paperwork Section */}
       <CustomerPaperwork customerId={id} />
