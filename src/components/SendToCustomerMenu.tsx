@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award } from "lucide-react";
+import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
@@ -24,7 +24,7 @@ interface Props {
   customerEmail?: string;
 }
 
-type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs" | "coc";
+type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs" | "coc" | "prestart";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
@@ -67,6 +67,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("certs")) parts.push("Engineer Certificates");
     if (docs.has("jobsheets")) parts.push("Job Sheets");
     if (docs.has("coc")) parts.push("Certificate of Conformity");
+    if (docs.has("prestart")) parts.push("Pre-start Checklist");
     if (docs.has("quote")) parts.push("Quote");
     if (docs.has("invoice")) parts.push("Invoice");
     setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
@@ -83,6 +84,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("certs")) items.push("the engineer certificates");
     if (docs.has("jobsheets")) items.push("the completed job sheets");
     if (docs.has("coc")) items.push("the Certificate of Conformity");
+    if (docs.has("prestart")) items.push("the Pre-start Check List");
     if (docs.has("quote")) items.push("our quote for further works");
     if (docs.has("invoice")) items.push("your invoice");
     const itemStr = items.length > 0 ? items.join(", ") : "the documents";
@@ -91,7 +93,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       ? `\n\nJob Reference: ${job.reference_number}\nJob: ${job.name}\nCustomer: ${customerName}${siteAddress ? `\nSite / Address: ${siteAddress}` : ""}\nDate: ${today}`
       : "";
 
-    setMessage(`Dear ${customerName},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).${ramsBlock}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nFieldReport`);
+    setMessage(`Dear ${customerName},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).${ramsBlock}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nViva Fire Protection`);
   };
 
   const handleDocToggleImmediate = (doc: DocOption) => {
@@ -293,6 +295,28 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         }
       }
 
+      // Generate Pre-start Checklist PDF and attach
+      if (selectedDocs.has("prestart")) {
+        const { generatePreStartChecklistPdf } = await import("@/components/PreStartChecklistPdf");
+        const jobInfo = {
+          name: job.name,
+          address: job.address,
+          reference_number: job.reference_number,
+          customer: job.customer,
+          customers: job.customers,
+          site: job.sites ? {
+            name: job.sites.name,
+            address: job.sites.address,
+            postcode: job.sites.postcode,
+            contact_name: job.sites.contact_name,
+            contact_phone: job.sites.contact_phone,
+            contact_email: job.sites.contact_email,
+          } : null,
+        };
+        const { base64, fileName } = await generatePreStartChecklistPdf(jobInfo);
+        attachments.push({ filename: fileName, content: base64 });
+      }
+
       const { error } = await supabase.functions.invoke("send-customer-email", {
         body: {
           customerEmail: email.trim(),
@@ -418,6 +442,21 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                     </div>
                   </label>
                 )}
+
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors border-primary/20 bg-primary/5">
+                  <Checkbox
+                    checked={selectedDocs.has("prestart")}
+                    onCheckedChange={() => handleDocToggleImmediate("prestart")}
+                  />
+                  <ListChecks className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="text-sm font-medium">Pre-start Check List</p>
+                    <p className="text-xs text-muted-foreground">
+                      Dry riser pre-start requirements — send to site before installation
+                    </p>
+                  </div>
+                </label>
+
 
                 <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
                   <Checkbox
