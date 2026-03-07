@@ -306,6 +306,8 @@ export default function PartsLibrary() {
       description: null,
       unit_cost: parseFloat(formData.unit_cost) || 0,
       sell_price: parseFloat(formData.sell_price) || 0,
+      china_cost: parseFloat(formData.china_cost) || 0,
+      uk_cost: parseFloat(formData.uk_cost) || 0,
       category: formData.category.trim() || "general",
       supplier: formData.supplier.trim() || null,
       part_number: formData.part_number.trim() || null,
