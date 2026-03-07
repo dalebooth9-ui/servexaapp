@@ -137,6 +137,7 @@ function SortableLibraryRow({
   };
 
   const margin = part.sell_price > 0 ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100 : 0;
+  const costDiff = part.uk_cost - part.china_cost;
 
   return (
     <TableRow ref={setNodeRef} style={style} data-state={selected.has(part.id) ? "selected" : undefined}>
