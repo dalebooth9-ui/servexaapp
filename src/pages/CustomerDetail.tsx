@@ -1213,6 +1213,115 @@ export default function CustomerDetail() {
         </Card>
       </div>
 
+
+      {/* Service Reports Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-primary" />
+            Service Reports ({serviceReports.length})
+          </h2>
+        </div>
+
+        {serviceReports.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground text-sm">
+              No service reports found for this customer's jobs.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {serviceReports.map((report) => (
+              <Card
+                key={report.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setViewingReport(report)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-2 mb-2">
+                    <FileText className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                    <p className="font-medium text-sm leading-snug line-clamp-2">{report.title || "Untitled"}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    <Link to={`/jobs/${report.job_id}`} className="font-mono text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+                      {report.job_reference}
+                    </Link>
+                    {" — "}{report.job_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {report.author_name} • {new Date(report.updated_at).toLocaleDateString()}
+                  </p>
+                  {report.summary && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 italic">{report.summary}</p>
+                  )}
+                  <div className="mt-3 flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={(e) => { e.stopPropagation(); setViewingReport(report); }}
+                    >
+                      <FileText className="mr-1 h-3 w-3" /> View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={(e) => { e.stopPropagation(); exportReportToPdf(report); }}
+                    >
+                      <Download className="mr-1 h-3 w-3" /> PDF
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* View Service Report Dialog */}
+      {viewingReport && (
+        <Dialog open={!!viewingReport} onOpenChange={(open) => !open && setViewingReport(null)}>
+          <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                {viewingReport.title || "Untitled"}
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                <Link to={`/jobs/${viewingReport.job_id}`} className="font-mono text-primary hover:underline">
+                  {viewingReport.job_reference}
+                </Link>
+                {" — "}{viewingReport.job_name} • {viewingReport.author_name} • {new Date(viewingReport.updated_at).toLocaleString()}
+              </p>
+            </DialogHeader>
+
+            {viewingReport.summary && (
+              <div className="rounded-lg border bg-muted/50 p-3 shrink-0">
+                <p className="text-xs font-medium text-muted-foreground mb-1">AI Summary</p>
+                <p className="text-sm text-muted-foreground">{viewingReport.summary}</p>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-auto">
+              <RichTextEditor content={viewingReport.content} onChange={() => {}} editable={false} />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
+              <Button variant="outline" onClick={() => setViewingReport(null)}>Close</Button>
+              <Button variant="outline" onClick={() => exportReportToPdf(viewingReport)}>
+                <Download className="mr-1.5 h-4 w-4" /> Export PDF
+              </Button>
+              <Button asChild>
+                <Link to={`/jobs/${viewingReport.job_id}`}>
+                  <ExternalLink className="mr-1.5 h-4 w-4" /> Open Job
+                </Link>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {/* Manual Create Job Dialog */}
       <Dialog open={manualJobDialogOpen} onOpenChange={setManualJobDialogOpen}>
         <DialogContent>
