@@ -324,9 +324,19 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
 /** Standalone PDF generator — matches actual Viva Fire Certificate of Conformity layout */
 export async function generateConformityPdfBase64(cert: ConformityCert): Promise<{ base64: string; fileName: string }> {
   const { default: jsPDF } = await import("jspdf");
+  const { loadWatermarkImage, addWatermarkToAllPages } = await import("@/lib/pdfWatermark");
+  const { loadAccreditationLogos, renderAccreditationLogos } = await import("@/lib/pdfAccreditations");
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
+
+  // ── Watermark (blue flame behind content) ────────────────────────────
+  const [watermark, logos] = await Promise.all([
+    loadWatermarkImage(),
+    loadAccreditationLogos(),
+  ]);
+  if (watermark) addWatermarkToAllPages(doc, watermark);
 
   // ── Logo ─────────────────────────────────────────────────────────────
   try {
@@ -338,7 +348,6 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
       reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
       reader.readAsDataURL(blob);
     });
-    // Logo centred, roughly 60mm wide
     doc.addImage(logoBase64, "JPEG", pw / 2 - 30, 10, 60, 22);
   } catch {}
 
@@ -467,8 +476,13 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
     y += 7;
   }
 
-  // ── Footer ───────────────────────────────────────────────────────────
+  // ── Accreditation logos ──────────────────────────────────────────────
   const footerY = ph - 18;
+  const logoH = 7;
+  const logoRowY = footerY - logoH - 5;
+  renderAccreditationLogos(doc, logos, logoRowY, logoH);
+
+  // ── Footer ───────────────────────────────────────────────────────────
   doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.4);
   doc.line(14, footerY - 4, pw - 14, footerY - 4);
