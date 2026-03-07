@@ -397,7 +397,7 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
       </Dialog>
 
       {showSigCapture && (
-        <SignatureCapture
+        <InlineSignaturePad
           onCapture={(sig) => { setForm((f) => ({ ...f, engineer_signature: sig })); setShowSigCapture(false); }}
           onCancel={() => setShowSigCapture(false)}
         />
