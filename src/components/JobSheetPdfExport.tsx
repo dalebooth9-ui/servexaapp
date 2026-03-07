@@ -246,7 +246,9 @@ export async function generateJobSheetPdf(
   }
 
   // --- Signature blocks ---
-  const sigY = Math.max(y + 2, pageHeight - footerSpace);
+  // sigY must sit above logos (footerYForLogos ≈ pageHeight - margin - 9 - 12 - 3 = 263mm)
+  // Sigs are ~15mm tall, so anchor them at pageHeight - footerSpace (= 297 - 44 = 253mm)
+  const sigY = Math.max(y + 2, pageHeight - footerSpace + 2);
   const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
   const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
