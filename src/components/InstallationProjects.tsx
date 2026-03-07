@@ -1062,6 +1062,42 @@ function ProjectDetail({
         </div>
       </div>
 
+      {/* Progress Gauge */}
+      {issues.length > 0 && (
+        <div className="rounded-lg border bg-card p-3 mb-4 space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{resolvedCount}</span>/{issues.length} snags resolved</span>
+              {checklistPct !== null && (
+                <span className="text-xs text-muted-foreground"><span className="font-semibold text-foreground">{checklistPct}%</span> checklist done</span>
+              )}
+              {criticalCount > 0 && (
+                <span className="flex items-center gap-1 text-xs font-medium text-destructive">
+                  <AlertTriangle className="h-3 w-3" /> {criticalCount} critical open
+                </span>
+              )}
+            </div>
+            {/* RAG status indicator */}
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+              openCount === 0 ? "text-green-700 bg-green-50 border-green-200" :
+              criticalCount > 0 ? "text-destructive bg-destructive/10 border-destructive/20" :
+              "text-amber-700 bg-amber-50 border-amber-200"
+            }`}>
+              {openCount === 0 ? "✓ Complete" : criticalCount > 0 ? "! Critical" : "In Progress"}
+            </span>
+          </div>
+          {/* Progress bar */}
+          <div className="h-1.5 bg-muted rounded-full overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                openCount === 0 ? "bg-green-500" : criticalCount > 0 ? "bg-destructive" : "bg-amber-500"
+              }`}
+              style={{ width: `${issues.length > 0 ? Math.round((resolvedCount / issues.length) * 100) : 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="flex flex-wrap gap-2 mb-4">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground bg-muted/50 rounded-md px-3 py-1.5">
@@ -1071,7 +1107,7 @@ function ProjectDetail({
           <CheckCircle2 className="h-3.5 w-3.5 text-green-500" /> {resolvedCount} resolved
         </div>
         {criticalCount > 0 && (
-          <div className="flex items-center gap-1.5 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-3 py-1.5">
+          <div className="flex items-center gap-1.5 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-md px-3 py-1.5">
             <AlertTriangle className="h-3.5 w-3.5" /> {criticalCount} critical
           </div>
         )}
