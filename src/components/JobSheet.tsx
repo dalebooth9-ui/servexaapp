@@ -12,6 +12,7 @@ import {
   Ban, Send, Printer, Plus, Activity,
 } from "lucide-react";
 import JobSheetTemplates from "./JobSheetTemplates";
+import CertificateOfConformity from "./CertificateOfConformity";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
