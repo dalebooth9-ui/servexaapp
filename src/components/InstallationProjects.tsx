@@ -315,7 +315,7 @@ function IssueCard({
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <input ref={fileRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
             <Button size="sm" variant="outline" className="gap-1.5 text-xs"
               onClick={() => fileRef.current?.click()}
@@ -327,7 +327,37 @@ function IssueCard({
               }
             </Button>
             <span className="text-xs text-muted-foreground">(Single photo opens annotator)</span>
+            <Button size="sm" variant="ghost" className="gap-1.5 text-xs ml-auto text-muted-foreground" onClick={loadHistory} disabled={historyLoading}>
+              {historyLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <History className="h-3.5 w-3.5" />}
+              History
+            </Button>
           </div>
+
+          {/* Revision history */}
+          {showHistory && (
+            <div className="border-t pt-3 space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                <History className="h-3 w-3" /> Revision History
+              </p>
+              {history.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No changes recorded yet.</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {history.map((h: any) => (
+                    <div key={h.id} className="flex items-start gap-2 text-xs">
+                      <Clock className="h-3 w-3 text-muted-foreground mt-0.5 shrink-0" />
+                      <div>
+                        <span className="font-medium capitalize">{h.field}</span>
+                        {h.old_value && <span className="text-muted-foreground"> from <s>{h.old_value}</s></span>}
+                        {h.new_value && <span className="text-muted-foreground"> → <span className="text-foreground">{h.new_value}</span></span>}
+                        <span className="text-muted-foreground ml-2">{new Date(h.changed_at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
