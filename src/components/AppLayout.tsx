@@ -59,19 +59,35 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const STORAGE_KEY = "nav-order";
+const PIN_KEY = "nav-pinned-ops";
+
+// Items that are always in operations and cannot be demoted
+const CORE_OPS = new Set(["/", "/jobs", "/planner", "/customers", "/invoices"]);
 
 function loadNavOrder(): string[] | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : null;
-  } catch {return null;}
+  } catch { return null; }
 }
 
-function SortableNavItem({ item, isActive, onClick
+function loadPinnedOps(): string[] {
+  try {
+    const raw = localStorage.getItem(PIN_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
 
-
-
-}: {item: typeof DEFAULT_NAV_ITEMS[number];isActive: boolean;onClick: () => void;}) {
+function SortableNavItem({
+  item, isActive, onClick, showPin, isPinned, onTogglePin,
+}: {
+  item: typeof DEFAULT_NAV_ITEMS[number];
+  isActive: boolean;
+  onClick: () => void;
+  showPin?: boolean;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
@@ -82,7 +98,6 @@ function SortableNavItem({ item, isActive, onClick
         {...listeners}
         className="cursor-grab active:cursor-grabbing p-1 opacity-0 group-hover:opacity-40 hover:!opacity-80 transition-opacity text-sidebar-foreground"
         tabIndex={-1}>
-        
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       <Link
@@ -94,12 +109,25 @@ function SortableNavItem({ item, isActive, onClick
           "bg-sidebar-accent text-sidebar-primary" :
           "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}>
-        
         <item.icon className="h-4.5 w-4.5" />
         {item.label}
       </Link>
-    </div>);
-
+      {showPin && onTogglePin && (
+        <button
+          onClick={(e) => { e.preventDefault(); onTogglePin(); }}
+          title={isPinned ? "Move to More" : "Pin to Operations"}
+          className={cn(
+            "p-1 rounded transition-all shrink-0",
+            isPinned
+              ? "opacity-0 group-hover:opacity-60 hover:!opacity-100 text-sidebar-primary"
+              : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
+          )}
+          tabIndex={-1}>
+          {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+        </button>
+      )}
+    </div>
+  );
 }
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
