@@ -1844,6 +1844,7 @@ export type Database = {
       parts_library: {
         Row: {
           category: string
+          china_cost: number
           created_at: string
           created_by: string | null
           description: string | null
@@ -1853,11 +1854,13 @@ export type Database = {
           sell_price: number
           sort_order: number
           supplier: string | null
+          uk_cost: number
           unit_cost: number
           updated_at: string
         }
         Insert: {
           category?: string
+          china_cost?: number
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1867,11 +1870,13 @@ export type Database = {
           sell_price?: number
           sort_order?: number
           supplier?: string | null
+          uk_cost?: number
           unit_cost?: number
           updated_at?: string
         }
         Update: {
           category?: string
+          china_cost?: number
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -1881,6 +1886,7 @@ export type Database = {
           sell_price?: number
           sort_order?: number
           supplier?: string | null
+          uk_cost?: number
           unit_cost?: number
           updated_at?: string
         }
