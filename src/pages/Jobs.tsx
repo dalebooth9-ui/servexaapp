@@ -1172,8 +1172,8 @@ export default function Jobs() {
         )}
       </div>
 
-      {isAdmin && (selectedJobIds.size > 0 || filtered.length > 0) && (
-        <div className={`mb-4 rounded-lg border px-4 py-3 transition-colors ${selectedJobIds.size > 0 ? "bg-primary/5 border-primary/30" : "bg-muted/30 border-border"}`}>
+      {isAdmin && selectedJobIds.size > 0 && (
+        <div className="mb-4 rounded-lg border px-4 py-3 transition-colors bg-primary/5 border-primary/30">
           <div className="flex flex-wrap items-center gap-2">
             {/* Global select-all checkbox */}
             <div className="flex items-center gap-2 mr-1">
@@ -1185,11 +1185,7 @@ export default function Jobs() {
                 onChange={(e) => handleSelectAllFiltered(e.target.checked)}
                 title="Select / deselect all visible jobs"
               />
-              {selectedJobIds.size > 0 ? (
-                <span className="text-sm font-semibold text-primary">{selectedJobIds.size} selected</span>
-              ) : (
-                <span className="text-sm text-muted-foreground">Select all ({filtered.length})</span>
-              )}
+              <span className="text-sm font-semibold text-primary">{selectedJobIds.size} selected</span>
             </div>
 
             {selectedJobIds.size > 0 && (
