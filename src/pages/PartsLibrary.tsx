@@ -384,12 +384,16 @@ function PartsPanel({
     const oldPart = parts.find((p) => p.id === editingId);
     const oldPayload = oldPart ? { name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price, china_cost: oldPart.china_cost, uk_cost: oldPart.uk_cost, supplier: oldPart.supplier, part_number: oldPart.part_number } : null;
     const editId = editingId;
+    const chinaCost = parseFloat(editForm.china_cost) || 0;
+    const ukCost = parseFloat(editForm.uk_cost) || 0;
+    const unitCost = listType === "install" ? chinaCost : (parseFloat(editForm.unit_cost) || 0);
+    const sellPrice = listType === "install" ? ukCost : (parseFloat(editForm.sell_price) || 0);
     const { error } = await supabase.from("parts_library").update({
       name: editForm.name.trim(),
-      unit_cost: parseFloat(editForm.unit_cost) || 0,
-      sell_price: parseFloat(editForm.sell_price) || 0,
-      china_cost: parseFloat(editForm.china_cost) || 0,
-      uk_cost: parseFloat(editForm.uk_cost) || 0,
+      unit_cost: unitCost,
+      sell_price: sellPrice,
+      china_cost: chinaCost,
+      uk_cost: ukCost,
       supplier: editForm.supplier.trim() || null,
       part_number: editForm.part_number.trim() || null,
     } as any).eq("id", editId);
