@@ -380,6 +380,8 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
 
           {/* Job Sheet Templates */}
           <JobSheetTemplates jobId={jobId} />
+          {/* Certificate of Conformity (installation jobs) */}
+          <CertificateOfConformity jobId={jobId} />
         </div>
 
         {/* Activity timeline */}
