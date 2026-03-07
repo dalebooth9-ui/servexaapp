@@ -280,6 +280,16 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
             jobCategories.find((c: any) => c.slug === job.category)?.name
               || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : ""),
           );
+        attachments.push({ filename: fileName, content: base64 });
+        }
+      }
+
+      // Generate CoC PDFs and attach
+      if (selectedDocs.has("coc") && cocCerts.length > 0) {
+        const { default: jsPDF } = await import("jspdf");
+        for (const cert of cocCerts) {
+          const { generateConformityPdf } = await import("@/components/CertificateOfConformity");
+          const { base64, fileName } = await generateConformityPdf(cert);
           attachments.push({ filename: fileName, content: base64 });
         }
       }
