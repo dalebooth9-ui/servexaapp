@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle } from "lucide-react";
-import { getRamsDefaults, RamsType } from "@/lib/ramsDefaults";
+import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
 
 const RAMS_TYPE_LABELS: Record<RamsType, string> = {
@@ -268,7 +268,14 @@ export default function RamsEditor() {
         ? `${jobData.sites.name}${jobData.sites.address ? ", " + jobData.sites.address : ""}`
         : jobData?.address || "",
     });
-    setDescriptionOfWork(d.descriptionOfWork);
+    const scopeDesc = buildScopeDescription(
+      type,
+      jobData?.pressure_test_qty,
+      jobData?.visual_qty,
+      jobData?.other_qty,
+      jobData?.other_service_type
+    );
+    setDescriptionOfWork(scopeDesc);
     setSequenceOfOps(d.sequenceOfOps);
     setTaskSpecificOps(d.taskSpecificOps);
     setLocation(d.location);
