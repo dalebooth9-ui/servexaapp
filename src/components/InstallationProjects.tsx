@@ -611,7 +611,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
       {/* Edit Project Dialog */}
       <Dialog open={editProjectOpen} onOpenChange={setEditProjectOpen}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>Edit Project</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Edit Notes / Snag List</DialogTitle></DialogHeader>
           <div className="space-y-3 py-1">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
