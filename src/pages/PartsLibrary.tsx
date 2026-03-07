@@ -234,7 +234,7 @@ export default function PartsLibrary() {
 
   // Add form
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: "", description: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+  const [form, setForm] = useState({ name: "", description: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
 
   // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
