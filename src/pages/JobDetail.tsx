@@ -85,9 +85,9 @@ export default function JobDetail() {
     setSubmissions(subs);
 
     // Get customer email from joined data — fallback lookup in parallel below if needed
-    let custEmailPromise: Promise<string> = Promise.resolve("");
+    let custEmailPromise: Promise<string>;
     if (jobRes.data?.customers?.email) {
-      custEmailPromise = Promise.resolve(jobRes.data.customers.email);
+      custEmailPromise = Promise.resolve(jobRes.data.customers.email as string);
     } else if (jobRes.data?.customer) {
       custEmailPromise = supabase
         .from("customers")
@@ -95,7 +95,9 @@ export default function JobDetail() {
         .eq("name", jobRes.data.customer)
         .limit(1)
         .maybeSingle()
-        .then(({ data }) => data?.email || "");
+        .then(({ data }) => (data?.email as string) || "") as Promise<string>;
+    } else {
+      custEmailPromise = Promise.resolve("");
     }
 
     // Collect all unique engineer IDs from submissions + assignments, then fetch profiles
