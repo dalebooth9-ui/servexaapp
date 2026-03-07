@@ -478,7 +478,13 @@ function PartsPanel({
     if (items.length === 0) { toast({ title: "No parts selected", variant: "destructive" }); return; }
     setImporting(true);
     const maxOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) : -1;
-    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, china_cost: p.china_cost || 0, uk_cost: p.uk_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
+    const rows = items.map((p, i) => {
+      const chinaCost = p.china_cost || 0;
+      const ukCost = p.uk_cost || 0;
+      const unitCost = listType === "install" ? chinaCost : (p.unit_cost || 0);
+      const sellPrice = listType === "install" ? ukCost : (p.sell_price || 0);
+      return { name: p.name.trim(), description: p.description.trim() || null, unit_cost: unitCost, china_cost: chinaCost, uk_cost: ukCost, sell_price: sellPrice, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType };
+    });
     const { error } = await supabase.from("parts_library").insert(rows as any);
     if (error) {
       toast({ title: "Import Error", description: error.message, variant: "destructive" });
