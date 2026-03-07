@@ -486,11 +486,6 @@ function DocRow({
               {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
             </Badge>
           )}
-          {doc.source === "auto" && (
-            <Badge variant="outline" className="text-[10px] gap-0.5">
-              <Zap className="h-2.5 w-2.5" /> Auto
-            </Badge>
-          )}
           {doc.file_name && (
             <span className="text-[10px] text-muted-foreground truncate">{doc.file_name}</span>
           )}
