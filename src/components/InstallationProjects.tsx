@@ -327,6 +327,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
     const newIssue = { ...(data as any), photos: [] };
     setIssues((prev) => [...prev, newIssue]);
     setNewlyAddedIssueId(newIssue.id);
+    setNewIssueTitle("");
     setAddingIssue(false);
     const photos = pendingPhotos;
     setPendingPhotos([]);
