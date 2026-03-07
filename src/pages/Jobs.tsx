@@ -272,14 +272,6 @@ export default function Jobs() {
     return () => window.removeEventListener("keydown", handler);
   }, [selectedJobIds]);
 
-  // All visible job IDs for global select-all
-  const allFilteredIds = useMemo(() => filtered.map((j) => j.id), [filtered]);
-  const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedJobIds.has(id));
-
-  const handleSelectAllFiltered = (checked: boolean) => {
-    setSelectedJobIds(checked ? new Set(allFilteredIds) : new Set());
-  };
-
   const handleSaveTemplate = async () => {
 
     if (!templateName.trim() || !user) return;
