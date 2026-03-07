@@ -240,7 +240,7 @@ function CreateProjectDialog({
         <div className="space-y-4 py-2">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Label className="text-xs">Project Title *</Label>
+              <Label className="text-xs">Snag List Title *</Label>
               <Input className="mt-1" placeholder="e.g. Dry Riser Installation – Block A"
                 value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
             </div>
