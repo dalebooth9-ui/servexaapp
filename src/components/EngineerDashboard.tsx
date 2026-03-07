@@ -342,6 +342,47 @@ export default function EngineerDashboard() {
         ))}
       </div>
 
+      {/* Map — always visible */}
+      <div className="rounded-2xl overflow-hidden border bg-card">
+        <div className="flex items-center justify-between px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2">
+            <MapPin className="h-4 w-4 text-primary" />
+            <span className="font-semibold text-sm">Today's Locations</span>
+            {jobsWithDistance.filter(j => j.address).length > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5 font-medium">
+                {jobsWithDistance.filter(j => j.address).length} job{jobsWithDistance.filter(j => j.address).length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+          {jobsWithDistance.filter(j => j.address).length > 0 && (
+            <a
+              href={`https://www.google.com/maps/dir/${jobsWithDistance.filter(j => j.address).map(j => encodeURIComponent(j.address!)).join("/")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-primary font-medium flex items-center gap-1 active:opacity-70"
+            >
+              Full Route <Navigation className="h-3 w-3" />
+            </a>
+          )}
+        </div>
+        {jobsWithDistance.filter(j => j.address).length > 0 ? (
+          <iframe
+            key={jobsWithDistance.filter(j => j.address).map(j => j.id).join(",")}
+            title="Job locations"
+            width="100%"
+            height="220"
+            loading="lazy"
+            style={{ border: 0 }}
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(jobsWithDistance.filter(j => j.address)[0].address!)}&output=embed&z=12`}
+          />
+        ) : (
+          <div className="h-[180px] flex flex-col items-center justify-center text-muted-foreground gap-2 bg-muted/20">
+            <MapPin className="h-8 w-8 opacity-30" />
+            <p className="text-xs">No job addresses to map</p>
+          </div>
+        )}
+      </div>
+
       {/* Nearest job */}
       {currentPos && jobsWithDistance[0]?.distance_km !== null && (
         <Link to={`/jobs/${jobsWithDistance[0].id}`}>
