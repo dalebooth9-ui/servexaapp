@@ -704,6 +704,7 @@ function ProjectDetail({
 }: {
   project: Project; onBack: () => void; onRefresh: () => void; jobId: string;
 }) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const [issues, setIssues] = useState<Issue[]>(project.issues);
   const [addingIssue, setAddingIssue] = useState(false);
@@ -724,8 +725,26 @@ function ProjectDetail({
     company_email: project.company_email || "",
   });
   const [groupByArea, setGroupByArea] = useState(false);
+  const [signOffOpen, setSignOffOpen] = useState(false);
+  const [signOffEmail, setSignOffEmail] = useState(project.company_email || "");
+  const [signOffName, setSignOffName] = useState(project.client_name || "");
+  const [signOffLoading, setSignOffLoading] = useState(false);
+  const [signOffLink, setSignOffLink] = useState<string | null>(null);
+  const [checklistPct, setChecklistPct] = useState<number | null>(null);
   const newPhotoRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+
+  // Load checklist % for the progress gauge
+  useEffect(() => {
+    supabase.from("pre_completion_checklist_items" as any)
+      .select("checked")
+      .eq("job_id", jobId)
+      .then(({ data }) => {
+        if (!data || !(data as any[]).length) { setChecklistPct(null); return; }
+        const pct = Math.round(((data as any[]).filter((d: any) => d.checked).length / (data as any[]).length) * 100);
+        setChecklistPct(pct);
+      });
+  }, [jobId]);
 
   const openCount = issues.filter((i) => i.status !== "resolved").length;
   const resolvedCount = issues.filter((i) => i.status === "resolved").length;
