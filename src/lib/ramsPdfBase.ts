@@ -521,8 +521,8 @@ export async function buildCoverPage(
   doc.text(reviewLines, ML + 3, ry2);
   ry2 += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   doc.setFontSize(9);
-  labelValue(doc, "Method Statement Written by:", "Martin Whatmough", ML + 3, ry2); ry2 += rowGap;
-  labelValue(doc, "Method Statement Approved by:", "Dale Booth", ML + 3, ry2);
+  labelValue(doc, "Method Statement Written by:", "Dale Booth", ML + 3, ry2); ry2 += rowGap;
+  labelValue(doc, "Method Statement Approved by:", "", ML + 3, ry2);
 
   y = boxY + detailBoxH + 8;
 
