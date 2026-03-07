@@ -171,16 +171,29 @@ function SortableLibraryRow({
         ) : <>£{Number(part.unit_cost).toFixed(2)}</>}
       </TableCell>
       {isAdmin && (
-        <TableCell className="text-right">
-          {isEditing ? (
-            <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
-          ) : <>£{Number(part.sell_price).toFixed(2)}</>}
-        </TableCell>
-      )}
-      {isAdmin && (
-        <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
-          {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
-        </TableCell>
+        <>
+          <TableCell className="text-right">
+            {isEditing ? (
+              <Input type="number" min="0" step="0.01" value={editForm.china_cost} onChange={(e) => setEditForm({ ...editForm, china_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+            ) : <>£{Number(part.china_cost).toFixed(2)}</>}
+          </TableCell>
+          <TableCell className="text-right">
+            {isEditing ? (
+              <Input type="number" min="0" step="0.01" value={editForm.uk_cost} onChange={(e) => setEditForm({ ...editForm, uk_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+            ) : <>£{Number(part.uk_cost).toFixed(2)}</>}
+          </TableCell>
+          <TableCell className={`text-right text-sm font-medium ${costDiff > 0 ? "text-green-600" : costDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {(part.china_cost > 0 || part.uk_cost > 0) ? (costDiff >= 0 ? `+£${costDiff.toFixed(2)}` : `-£${Math.abs(costDiff).toFixed(2)}`) : "—"}
+          </TableCell>
+          <TableCell className="text-right">
+            {isEditing ? (
+              <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
+            ) : <>£{Number(part.sell_price).toFixed(2)}</>}
+          </TableCell>
+          <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+            {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
+          </TableCell>
+        </>
       )}
       <TableCell>
         <div className="flex items-center gap-1 justify-end">
