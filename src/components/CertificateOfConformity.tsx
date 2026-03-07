@@ -300,13 +300,31 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   const siteAddr = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
   const today = new Date().toISOString().split("T")[0];
 
+  // Auto-generate cert number from reference number e.g. VFP-00123 → VFP00123/CoC
+  const ref = jobInfo.reference_number || "";
+  const certNumber = ref ? `${ref.replace(/-/g, "")}/CoC` : "";
+
+  // Load Dale Booth's profile signature automatically
+  let daleSig: string | null = null;
+  try {
+    const { data: daleProfiles } = await supabase
+      .from("profiles")
+      .select("signature_data")
+      .ilike("full_name", "%dale booth%")
+      .limit(1);
+    if (daleProfiles && daleProfiles.length > 0) {
+      daleSig = (daleProfiles[0] as any).signature_data || null;
+    }
+  } catch {}
+
   await supabase.from("conformity_certificates" as any).insert({
     job_id: jobId,
     created_by: userId,
     job_name: jobInfo.name || "",
     site_address: siteAddr,
     customer_name: jobInfo.customer || "",
-    reference_number: jobInfo.reference_number || "",
+    reference_number: ref,
+    certificate_number: certNumber,
     system_qty: jobInfo.other_qty || 1,
     inlet_qty: 1,
     outlet_qty: 2,
@@ -315,7 +333,8 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
     riser_locations: jobInfo.site?.riser_location || "",
     issue_date: today,
     sign_date: today,
-    engineer_name: (jobInfo.engineers || []).join(", "),
+    engineer_name: "Dale Booth",
+    engineer_signature: daleSig,
     status: "draft",
     test_outcome: "pass",
   } as any);
@@ -478,7 +497,7 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
 
   // ── Accreditation logos ──────────────────────────────────────────────
   const footerY = ph - 18;
-  const logoH = 7;
+  const logoH = 14;
   const logoRowY = footerY - logoH - 5;
   renderAccreditationLogos(doc, logos, logoRowY, logoH);
 
