@@ -485,7 +485,9 @@ export async function generateRamsPdf(
   ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2; // Review text
   ry += rowGap; // Written by
   ry += rowGap; // Approved by
-  const detailBoxH = ry - boxY + 3;
+  // Cap the box so it never overlaps the accreditation logo zone
+  const MAX_BOX_BOTTOM = PAGE_H - 44; // 253mm — logos start ~257mm
+  const detailBoxH = Math.min(ry - boxY + 3, MAX_BOX_BOTTOM - boxY);
 
   // Draw the box
   doc.setDrawColor(180);
