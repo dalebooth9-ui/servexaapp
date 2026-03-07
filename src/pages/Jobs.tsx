@@ -61,7 +61,7 @@ export default function Jobs() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
+  const [form, setForm] = useState({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [loading, setLoading] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
@@ -488,6 +488,7 @@ export default function Jobs() {
       other_qty: form.other_qty || 0,
       other_service_type: form.other_service_type || null,
       due_date: form.due_date || null,
+      allocated_days: form.allocated_days ? parseInt(form.allocated_days) : null,
     } as any).select("id, reference_number").single();
     if (error) {
       if (import.meta.env.DEV) console.error("Job creation error:", error);
@@ -497,7 +498,7 @@ export default function Jobs() {
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
-      setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
+      setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
       setDialogParsedFile(null);
       setLoading(false);
@@ -855,7 +856,7 @@ export default function Jobs() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" }); setDialogParsedFile(null); setDialogParsingFile(false); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); } }}>
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
@@ -997,9 +998,15 @@ export default function Jobs() {
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
-                  <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Due Date <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                    <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Allocated Days <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
+                    <Input type="number" min={1} placeholder="e.g. 5" value={form.allocated_days} onChange={(e) => setForm({ ...form, allocated_days: e.target.value })} />
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1" disabled={loading}>

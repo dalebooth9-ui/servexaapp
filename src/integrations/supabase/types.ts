@@ -1690,6 +1690,7 @@ export type Database = {
       jobs: {
         Row: {
           address: string | null
+          allocated_days: number | null
           asset_id: string | null
           category: string
           created_at: string
@@ -1718,6 +1719,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          allocated_days?: number | null
           asset_id?: string | null
           category?: string
           created_at?: string
@@ -1746,6 +1748,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          allocated_days?: number | null
           asset_id?: string | null
           category?: string
           created_at?: string

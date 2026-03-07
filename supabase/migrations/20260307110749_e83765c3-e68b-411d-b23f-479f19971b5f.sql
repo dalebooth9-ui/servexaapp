@@ -1,0 +1,1 @@
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS allocated_days integer DEFAULT NULL;
