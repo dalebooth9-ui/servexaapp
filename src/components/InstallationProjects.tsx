@@ -301,6 +301,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
   const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [uploadingIssueId, setUploadingIssueId] = useState<string | null>(null);
+  const [newlyAddedIssueId, setNewlyAddedIssueId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
   const [editForm, setEditForm] = useState({
