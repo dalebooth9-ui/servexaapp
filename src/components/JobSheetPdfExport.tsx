@@ -9,6 +9,7 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
+import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import {
   PdfTemplateField,
