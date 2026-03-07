@@ -462,7 +462,13 @@ export default function IndustryTemplates() {
                           <p className="text-sm font-semibold text-foreground leading-snug">{tpl.name}</p>
                           <Badge variant="outline" className="text-xs shrink-0 font-bold">{tpl.standard}</Badge>
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{tpl.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
+                          {tpl.description.split(/(BS(?:\s+EN)?\s+[\d][\d\-.:]*(?::\d{4})?)/g).map((part, i) =>
+                            /^BS(?:\s+EN)?\s+[\d]/.test(part)
+                              ? <span key={i} className="font-bold text-foreground">{part}</span>
+                              : part
+                          )}
+                        </p>
                         <p className="text-xs text-muted-foreground mt-2">{tpl.fields.length} fields</p>
                       </div>
                       <div className="flex items-center gap-2 pt-1 border-t border-border">
