@@ -294,6 +294,8 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
   const [issues, setIssues] = useState<Issue[]>(project.issues);
   const [addingIssue, setAddingIssue] = useState(false);
   const [newIssueTitle, setNewIssueTitle] = useState("");
+  const [pendingPhotos, setPendingPhotos] = useState<File[]>([]);
+  const [isListening, setIsListening] = useState(false);
   const [uploadingIssueId, setUploadingIssueId] = useState<string | null>(null);
   const [sharing, setSharing] = useState(false);
   const [editProjectOpen, setEditProjectOpen] = useState(false);
@@ -303,6 +305,8 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
     company_address: project.company_address || "", company_phone: project.company_phone || "",
     company_email: project.company_email || "",
   });
+  const newPhotoRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<any>(null);
 
   const openCount = issues.filter((i) => i.status === "open").length;
   const resolvedCount = issues.filter((i) => i.status === "resolved").length;
