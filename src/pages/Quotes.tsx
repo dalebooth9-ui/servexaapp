@@ -65,6 +65,14 @@ export default function Quotes() {
     setUpdatingId(null);
   };
 
+  const handleDelete = async (id: string) => {
+    await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+    const { error } = await supabase.from("invoices").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete quote"); return; }
+    setQuotes((prev) => prev.filter((q) => q.id !== id));
+    toast.success("Quote deleted");
+  };
+
   const handleConvertToInvoice = async (quote: any) => {
     setUpdatingId(quote.id);
     try {
