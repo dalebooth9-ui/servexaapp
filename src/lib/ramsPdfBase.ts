@@ -713,7 +713,207 @@ export async function buildSharedMethodSections(
   y += 4;
 
   // ─── Section 2 Description ───
-  y = await checkPageBreak(doc, y, 10, logoImg, currentPageRef.num, totalPages);
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("2 Description of Work", ML, y); y += 5;
+  y = para(doc, sections.descriptionOfWork, ML, y, CONTENT_W); y += 3;
+
+  // ─── Site Working Hours ───
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Time", ML, y); y += 4;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Site Working Hours:", ML, y); y += 4;
+  y = bulletList(doc, [
+    "Monday to Friday: 6:00am to 8:00pm",
+    "Saturday: 8:00am to 12:30pm",
+    "Sunday: None (Inc. Bank Holidays)"
+  ], ML + 3, y, CONTENT_W - 3);
+  y = para(doc, "Any additional hours will need to be approved by main contractor.", ML, y + 1, CONTENT_W);
+  y += 3;
+
+  // ─── 2.1 Duration ───
+  y = await checkPageBreak(doc, y, 25, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.1 Duration", ML, y); y += 5;
+  y = para(doc,
+    "All works will be supervised at every stage by a competent qualified supervisor. Martin Whatmough will be responsible for the day-to-day supervision of Viva Fire Protection personnel and sub-contractors on site.",
+    ML, y, CONTENT_W);
+  y += 2;
+  doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
+  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4.5;
+  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 6;
+
+  // ─── 2.2 Sequence ───
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 5;
+  y = numberedList(doc, sections.sequenceOfOps, ML + 2, y, CONTENT_W - 2);
+  y += 3;
+
+  // ─── 2.3 Task Specific ───
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 5;
+  y = numberedList(doc, sections.taskSpecificOps, ML + 2, y, CONTENT_W - 2);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.4 Location", ML, y); y += 4;
+  y = para(doc, sections.location, ML, y, CONTENT_W); y += 2;
+
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.5 Access and Egress", ML, y); y += 4;
+  y = para(doc,
+    "Access and egress must be kept open to site at all times for authorised personnel. All Principal Contractor rules regarding access and egress must be followed by Viva Fire operatives at all times.",
+    ML, y, CONTENT_W);
+  y += 4;
+
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3 Resources", ML, y); y += 4;
+  y = para(doc, sections.resources, ML, y, CONTENT_W); y += 2;
+
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.1 Personnel", ML, y); y += 4;
+  y = para(doc, sections.personnel, ML, y, CONTENT_W);
+  pageFooter(doc, currentPageRef.num, totalPages);
+
+  // ─── Continue on next page ───
+  currentPageRef.num++;
+  y = newPage(doc);
+  y = await pageHeader(doc, logoImg, "", y);
+
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.2 Supervision", ML, y); y += 4;
+  y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
+
+  y = await checkPageBreak(doc, y, 20 + sections.plantAndEquipment.length * 6, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.3 Plant and Equipment", ML, y); y += 4;
+  y = bulletList(doc, sections.plantAndEquipment, ML + 3, y, CONTENT_W - 3);
+  y += 4;
+
+  y = await checkPageBreak(doc, y, 20 + sections.significantRisks.length * 5, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4 Assessment of Significant Risks for all Tasks", ML, y); y += 4;
+  y = numberedList(doc, sections.significantRisks, ML + 2, y, CONTENT_W / 2 - 2);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.1 COSHH", ML, y); y += 4;
+  y = para(doc, "N/A", ML, y, CONTENT_W); y += 3;
+
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.2 Security", ML, y); y += 4;
+  y = para(doc,
+    "Site security will be Principal Contractor responsibility but all Viva Fire personnel and sub-contractors on site must play their part and cooperate fully.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 22, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.3 Special Training", ML, y); y += 4;
+  y = para(doc, sections.specialTraining, ML, y, CONTENT_W); y += 1;
+  y = para(doc,
+    "All Viva Fire on site personnel and sub-contractors have current CSCS cards and the necessary trade specific training to carry out their working tasks safely and professionally.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 35, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("5 PPE", ML, y); y += 4;
+  y = bulletList(doc, [
+    "Hard Hat EN397",
+    "High Visibility Vest EN471",
+    "Steel Toe Cap/Mid Sole Boots EN20345",
+    "Gloves CE4131",
+    "Glasses EN166",
+    "Goggles EN166",
+  ], ML + 3, y, CONTENT_W - 3);
+  pageFooter(doc, currentPageRef.num, totalPages);
+
+  // ─── Continue on next page ───
+  currentPageRef.num++;
+  y = newPage(doc);
+  y = await pageHeader(doc, logoImg, "", y);
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6 Emergency Arrangements", ML, y); y += 4;
+  y = para(doc,
+    "All accidents must be recorded in the site accident book and reported to Principal Contractor and Viva Fire senior management team.",
+    ML, y, CONTENT_W);
+  y += 1;
+  y = para(doc,
+    "Emergency arrangements will be as Principal Contractor site induction. In the event of an emergency, incident, or accident all employees must report it to Site manager.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6.1 Special First Aid Requirements", ML, y); y += 4;
+  y = para(doc,
+    "No special first aid requirements are necessary, and the principal contractor will provide suitable first aid provision as per CDM regulations 2015.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6.2 Rescue", ML, y); y += 4;
+  y = para(doc,
+    "In the event of an incident requiring emergency rescue, all operatives are reminded not to put themselves at risk of harm. If a safe rescue cannot be completed, the emergency services must be informed.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("7 Temporary Amended Systems", ML, y); y += 4;
+  y = para(doc,
+    "No amendments are anticipated on site at this stage. Any changes to systems will be advised by Viva Fire in line with CDM regulations 2015.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 30, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8 Responsibilities for Safety Control & Monitoring", ML, y); y += 4;
+  y = para(doc, "Work activities will be monitored on a daily basis by site supervision.", ML, y, CONTENT_W);
+  y += 2;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8.1 Persons Responsible", ML, y); y += 4;
+  y = para(doc, "Dale Booth & Martin Whatmough.", ML, y, CONTENT_W);
+  y += 2;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8.2 Duties", ML, y); y += 4;
+  y = para(doc,
+    "Dale Booth will be responsible for overseeing the safe implementation of all Viva Fire works and as well as regular visits to site will provide ongoing assistance and support to Martin Whatmough.",
+    ML, y, CONTENT_W);
+  y += 3;
+
+  y = await checkPageBreak(doc, y, 22, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9 Environment Impacts", ML, y); y += 4;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.1 Waste Handling", ML, y); y += 4;
+  y = para(doc, "All waste materials must be disposed of in the correct skips provided by Viva Fire.", ML, y, CONTENT_W);
+  pageFooter(doc, currentPageRef.num, totalPages);
+
+  // ─── Continue on next page ───
+  currentPageRef.num++;
+  y = newPage(doc);
+  y = await pageHeader(doc, logoImg, "", y);
+
+  y = para(doc, "Viva Fire will manage Waste Streams of COSHH Materials and complete Principal Contractor Waste Management Form.", ML, y, CONTENT_W);
+  y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.2 Water", ML, y); y += 4;
+  y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.3 Fuel Oils", ML, y); y += 4;
+  y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 25, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10 Briefing Arrangements", ML, y); y += 4;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10.1 Person Responsible", ML, y); y += 4;
+  y = para(doc, "Name Dale Booth. Mob 07801269206.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10.2 Acknowledgement", ML, y); y += 4;
+  y = para(doc, "See signatures below.", ML, y, CONTENT_W); y += 3;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("11 Interfaces with Others", ML, y); y += 4;
+  y = para(doc, "Ensure co-ordination with other trades at all times to ensure work areas are not congested.", ML, y, CONTENT_W); y += 4;
+  y = await checkPageBreak(doc, y, 40, logoImg, currentPageRef, totalPages);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("12. Health, Hygiene & Welfare", ML, y); y += 4;
+  y = bulletList(doc, [
+    "Wash hands regularly throughout the working day for a minimum of 20 seconds.",
+    "RPE to be sourced and worn where required.",
+    "Safety gloves to be either washed or disposed of after every working day.",
+    "If any operative shows signs of illness, they must leave site and inform their supervisor.",
+    "Government enforced social distancing rules must be adhered to by all.",
+  ], ML + 3, y, CONTENT_W - 3);
+  pageFooter(doc, currentPageRef.num, totalPages);
+
+  currentPageRef.num++;
+  return y;
+}
   doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("2 Description of Work", ML, y); y += 5;
   y = para(doc, sections.descriptionOfWork, ML, y, CONTENT_W); y += 3;
 
