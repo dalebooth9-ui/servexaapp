@@ -262,7 +262,7 @@ function CreateProjectDialog({
                 <Input className="mt-1" value={form.company_name} onChange={(e) => setForm({ ...form, company_name: e.target.value })} />
               </div>
               <div className="sm:col-span-2">
-                <Label className="text-xs">Address</Label>
+                <Label className="text-xs">Site Address</Label>
                 <Input className="mt-1" value={form.company_address} onChange={(e) => setForm({ ...form, company_address: e.target.value })} />
               </div>
               <div>
