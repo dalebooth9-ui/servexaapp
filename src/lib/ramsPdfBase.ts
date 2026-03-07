@@ -28,7 +28,7 @@ export const PAGE_H = 297;
 export const ML = 14;
 export const MR = 14;
 export const CONTENT_W = PAGE_W - ML - MR;
-export const SAFE_BOTTOM = PAGE_H - 44; // reserve space for 18mm accreditation logos + footer
+export const SAFE_BOTTOM = PAGE_H - 62; // reserve space for legend (14mm) + 18mm logos + footer
 
 export const RISK_FONT_SIZE = 6.5;
 export const RISK_LINE_H = 3.9;
