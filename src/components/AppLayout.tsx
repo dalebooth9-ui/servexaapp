@@ -134,82 +134,32 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
   const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
-  const [pinnedOps, setPinnedOps] = useReactState<string[]>(loadPinnedOps);
+  // sectionOverrides: { [to]: "operations" | "more" } — user-controlled moves between sections
+  const [sectionOverrides, setSectionOverrides] = useReactState<Record<string, "operations" | "more">>(loadSectionOverrides);
 
-  const handleTogglePin = (to: string) => {
-    setPinnedOps((prev) => {
-      const next = prev.includes(to) ? prev.filter((p) => p !== to) : [...prev, to];
-      localStorage.setItem(PIN_KEY, JSON.stringify(next));
+  const handleTogglePin = (to: string, currentSection: "operations" | "more") => {
+    setSectionOverrides((prev) => {
+      const defaultSection = DEFAULT_NAV_ITEMS.find((i) => i.to === to)?.section as "operations" | "more";
+      const next = { ...prev };
+      const target = currentSection === "operations" ? "more" : "operations";
+      if (target === defaultSection) {
+        // Back to default — remove override
+        delete next[to];
+      } else {
+        next[to] = target;
+      }
+      localStorage.setItem(SECTION_OVERRIDE_KEY, JSON.stringify(next));
       return next;
     });
   };
-
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
-
-  useEffect(() => {
-    supabase.
-    from("app_settings").
-    select("value").
-    eq("key", "business_whatsapp_number").
-    single().
-    then(({ data }) => {
-      if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
-        setWhatsappNumber(data.value);
-      }
-    });
-  }, []);
-
-  const orderedItems = navOrder.
-  map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).
-  filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
-
-  // Append any new items not in saved order
-  const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
-  const allOrderedItems = [...orderedItems, ...extraItems];
-
-  const visibleNavItems = allOrderedItems.filter((item) => !item.adminOnly || userRole === "admin");
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    // Work on the visible items only — reorder within that set, then
-    // rebuild the full nav order by splicing back in non-visible items.
-    const visibleIds = visibleNavItems.map((i) => i.to);
-    const oldIndex = visibleIds.indexOf(active.id as string);
-    const newIndex = visibleIds.indexOf(over.id as string);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reorderedVisible = arrayMove(visibleIds, oldIndex, newIndex);
-    // Merge: walk allOrderedItems and replace visible ones with new order
-    let visibleCursor = 0;
-    const merged = allOrderedItems.map((item) => {
-      if (visibleIds.includes(item.to)) {
-        return reorderedVisible[visibleCursor++];
-      }
-      return item.to;
-    });
-    setNavOrder(merged);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-  };
-
-  // Collapsible "More" section
-  const [moreOpen, setMoreOpen] = useReactState(() => {
-    const moreRoutes = ["/sites", "/assets", "/quotes", "/parts-library", "/compliance", "/audits"];
-    return moreRoutes.some((r) => location.pathname.startsWith(r));
-  });
-
-  // Group items by section — respecting pin overrides
-  // "more" items pinned to ops are shown in operations; non-core ops items can be demoted
+...
+  // Group items by section respecting user overrides
   const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
     acc[section] = visibleNavItems.filter((i) => {
-      if (section === "operations") {
-        // show native ops items + pinned "more" items
-        return i.section === "operations" && !pinnedOps.includes("demote:" + i.to)
-          || (i.section === "more" && pinnedOps.includes(i.to));
-      }
-      if (section === "more") {
-        // hide "more" items that have been pinned to ops
-        return i.section === "more" && !pinnedOps.includes(i.to);
+      if (section === "operations" || section === "more") {
+        const effective = sectionOverrides[i.to] ?? i.section;
+        return effective === section;
       }
       return i.section === section;
     });
