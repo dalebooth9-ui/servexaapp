@@ -496,23 +496,28 @@ function PartsPanel({
             <div className="w-28">
               <Input placeholder="Part #" value={form.part_number} onChange={(e) => setForm({ ...form, part_number: e.target.value })} />
             </div>
-            <div className="w-24">
-              <Input type="number" placeholder="Cost £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
-            </div>
-            {isAdmin && showInstallCosts && (
+            {showInstallCosts ? (
+              isAdmin && (
+                <>
+                  <div className="w-24">
+                    <Input type="number" placeholder="China £" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} min="0" step="0.01" />
+                  </div>
+                  <div className="w-24">
+                    <Input type="number" placeholder="UK £" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} min="0" step="0.01" />
+                  </div>
+                </>
+              )
+            ) : (
               <>
                 <div className="w-24">
-                  <Input type="number" placeholder="China £" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} min="0" step="0.01" />
+                  <Input type="number" placeholder="Cost £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
                 </div>
-                <div className="w-24">
-                  <Input type="number" placeholder="UK £" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} min="0" step="0.01" />
-                </div>
+                {isAdmin && (
+                  <div className="w-24">
+                    <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
+                  </div>
+                )}
               </>
-            )}
-            {isAdmin && (
-              <div className="w-24">
-                <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
-              </div>
             )}
             <div className="w-28">
               <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
