@@ -55,17 +55,34 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
   const handleAssign = async () => {
     if (!selectedEngineerId) return;
     setLoading(true);
-    const { error } = await supabase.from("job_assignments").insert({ job_id: jobId, engineer_id: selectedEngineerId });
+    const eng = allEngineers.find((e) => e.user_id === selectedEngineerId);
+
+    // Optimistic insert with temp id
+    const tempAssignment: Assignment = {
+      id: `temp-${Date.now()}`,
+      engineer_id: selectedEngineerId,
+      assigned_at: new Date().toISOString(),
+      profile: eng,
+    };
+    setAssignments((prev) => [...prev, tempAssignment]);
+    setSelectedEngineerId("");
+
+    const { data: inserted, error } = await supabase
+      .from("job_assignments")
+      .insert({ job_id: jobId, engineer_id: selectedEngineerId })
+      .select("id, engineer_id, assigned_at")
+      .single();
+
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Engineer already assigned." : "Failed to assign.", variant: "destructive" });
+      setAssignments((prev) => prev.filter((a) => a.id !== tempAssignment.id));
       setLoading(false);
       return;
     }
 
+    // Replace temp with real record
+    setAssignments((prev) => prev.map((a) => a.id === tempAssignment.id ? { ...inserted, profile: eng } : a));
     toast({ title: "Engineer assigned" });
-    const eng = allEngineers.find((e) => e.user_id === selectedEngineerId);
-    setSelectedEngineerId("");
-    fetchAssignments();
     setLoading(false);
 
     // Fetch engineer's docs and offer to attach
@@ -73,12 +90,15 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
   };
 
   const handleUnassign = async (assignmentId: string) => {
+    const removed = assignments.find((a) => a.id === assignmentId);
+    // Optimistic remove
+    setAssignments((prev) => prev.filter((a) => a.id !== assignmentId));
     const { error } = await supabase.from("job_assignments").delete().eq("id", assignmentId);
     if (error) {
       toast({ title: "Error", description: "Failed to unassign.", variant: "destructive" });
+      if (removed) setAssignments((prev) => [...prev, removed]);
     } else {
       toast({ title: "Engineer unassigned" });
-      fetchAssignments();
     }
   };
 

@@ -287,20 +287,38 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
       newSortOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) + 1 : 0;
     }
 
-    const { error } = await supabase.from("job_parts" as any).insert({
+    const newPart = {
       job_id: jobId,
       name: formData.name.trim(),
       quantity: parseFloat(formData.quantity) || 1,
       unit_cost: parseFloat(formData.unit_cost) || 0,
       sell_price: parseFloat(formData.sell_price) || 0,
+      total_cost: (parseFloat(formData.quantity) || 1) * (parseFloat(formData.unit_cost) || 0),
       notes: formData.notes.trim() || null,
       added_by: user.id,
       sort_order: newSortOrder,
-    } as any);
+    };
+
+    // Optimistic insert with a temp id
+    const tempId = `temp-${Date.now()}`;
+    const optimisticPart: JobPart = { ...newPart, id: tempId, created_at: new Date().toISOString() };
+    if (insertAfterIndex !== undefined && insertAfterIndex >= 0 && parts.length > 0) {
+      setParts((prev) => {
+        const next = [...prev];
+        next.splice(insertAfterIndex + 1, 0, optimisticPart);
+        return next;
+      });
+    } else {
+      setParts((prev) => [...prev, optimisticPart]);
+    }
+
+    const { data: inserted, error } = await supabase.from("job_parts" as any).insert(newPart as any).select().single();
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      setParts((prev) => prev.filter((p) => p.id !== tempId));
     } else {
-      fetchParts();
+      // Replace temp with real record
+      setParts((prev) => prev.map((p) => p.id === tempId ? (inserted as unknown as JobPart) : p));
       toast({ title: "Part added" });
     }
   };
@@ -376,6 +394,13 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
     const unitCost = parseFloat(editForm.unit_cost) || 0;
     const sellPrice = parseFloat(editForm.sell_price) || 0;
 
+    // Optimistic update
+    setParts((prev) => prev.map((p) => p.id === editId
+      ? { ...p, quantity: qty, unit_cost: unitCost, sell_price: sellPrice, total_cost: qty * unitCost }
+      : p
+    ));
+    cancelEdit();
+
     const { error } = await supabase
       .from("job_parts" as any)
       .update({ quantity: qty, unit_cost: unitCost, sell_price: sellPrice } as any)
@@ -383,9 +408,9 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
 
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
+      // Revert on failure
+      if (oldPayload) setParts((prev) => prev.map((p) => p.id === editId ? { ...p, ...oldPayload, total_cost: oldPayload.quantity * oldPayload.unit_cost } : p));
     } else {
-      cancelEdit();
-      fetchParts();
       editWithUndo({
         label: "Part updated",
         onUndo: async () => {
