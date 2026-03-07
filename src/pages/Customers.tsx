@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload, X, FileText, Download } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload, X, FileText, Download, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
@@ -24,6 +24,7 @@ type Customer = {
   phone: string | null;
   email: string | null;
   created_at: string;
+  logo_url: string | null;
 };
 
 type CustomerForm = {
@@ -416,7 +417,14 @@ export default function Customers() {
                         </TableCell>
                       )}
                       <TableCell className="font-medium">
-                        <Link to={`/customers/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
+                        <Link to={`/customers/${c.id}`} className="flex items-center gap-2 text-primary hover:underline">
+                          {c.logo_url ? (
+                            <img src={c.logo_url} alt="" className="h-6 w-6 rounded object-contain border bg-muted/20 p-0.5 flex-shrink-0" />
+                          ) : (
+                            <ImageIcon className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                          )}
+                          {c.name}
+                        </Link>
                       </TableCell>
                       <TableCell>{c.email || "—"}</TableCell>
                       <TableCell>{c.phone || "—"}</TableCell>
