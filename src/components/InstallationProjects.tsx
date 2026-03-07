@@ -705,7 +705,7 @@ export default function InstallationProjects({ jobId, job }: Props) {
     await supabase.from("installation_projects" as any).delete().eq("id", projectId);
     setProjects((prev) => prev.filter((p) => p.id !== projectId));
     if (selectedProjectId === projectId) setSelectedProjectId(null);
-    toast({ title: "Project deleted" });
+    toast({ title: "Snag list deleted" });
   };
 
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
