@@ -650,7 +650,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
               >
                 {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
               </Button>
-              <input ref={newPhotoRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
+              <input ref={newPhotoRef} type="file" accept="image/*" multiple className="hidden"
                 onChange={(e) => { if (e.target.files) { setPendingPhotos(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; } }} />
               <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
                 onClick={() => newPhotoRef.current?.click()} title="Attach photo">
