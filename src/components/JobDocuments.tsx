@@ -305,6 +305,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   return (
     <div className="space-y-4">
+      <input ref={slotUploadRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleSlotFileChange} />
+
       {/* Customer paperwork documents */}
       {customerPaperwork.length > 0 && (
         <div>
@@ -354,6 +356,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
                 job={job}
                 jobInfo={jobInfo}
                 blankTemplates={blankTemplates}
+                onUploadSlot={handleUploadSlot}
+                uploadingSlotId={uploadingSlotId}
               />
             ))}
           </div>
