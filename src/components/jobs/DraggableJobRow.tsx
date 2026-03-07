@@ -105,7 +105,7 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
             <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">High</Badge>
           )}
           {job.result === "pass" && (
-            <Badge className="bg-green-600/90 text-white text-[10px] uppercase h-4 px-1.5">Pass</Badge>
+            <Badge className="bg-green-700 text-primary-foreground text-[10px] uppercase h-4 px-1.5">Pass</Badge>
           )}
           {job.result === "fail" && (
             <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">Fail</Badge>
