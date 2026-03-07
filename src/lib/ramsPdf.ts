@@ -372,8 +372,7 @@ export async function generateRamsPdf(
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
 
-  // Load logo — use customer logo if available, fall back to Viva Fire
-  const customerLogoUrl = jobInfo?.customers?.logo_url || null;
+  // RAMS always use Viva Fire branding — never the customer's logo
   let logoImg: HTMLImageElement | null = null;
   try {
     const img = new Image();
@@ -381,24 +380,10 @@ export async function generateRamsPdf(
     await new Promise<void>((res, rej) => {
       img.onload = () => res();
       img.onerror = () => rej();
-      img.src = customerLogoUrl || "/images/vivafire-logo-new.jpg";
+      img.src = "/images/vivafire-logo-new.jpg";
     });
     logoImg = img;
-  } catch {
-    // If custom logo fails, try default
-    if (customerLogoUrl) {
-      try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        await new Promise<void>((res, rej) => {
-          img.onload = () => res();
-          img.onerror = () => rej();
-          img.src = "/images/vivafire-logo-new.jpg";
-        });
-        logoImg = img;
-      } catch { /* no logo */ }
-    }
-  }
+  } catch { /* no logo */ }
 
   // Extract variable fields from form data
   const contractName = formData["rams_contract_job_name"] || jobInfo?.name || "";
