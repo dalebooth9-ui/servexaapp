@@ -34,8 +34,11 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [loading, setLoading] = useState(true);
   const [generatingRams, setGeneratingRams] = useState(false);
   const [uploadingManual, setUploadingManual] = useState(false);
+  const [uploadingSlotId, setUploadingSlotId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const slotUploadRef = useRef<HTMLInputElement>(null);
+  const pendingSlotDoc = useRef<JobDoc | null>(null);
   const [jobInfo, setJobInfo] = useState<any | null>(null);
   const [blankTemplates, setBlankTemplates] = useState<Record<string, any>>({});
 
@@ -268,14 +271,42 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     document.body.removeChild(link);
   };
 
+  const handleUploadSlot = (doc: JobDoc) => {
+    pendingSlotDoc.current = doc;
+    slotUploadRef.current?.click();
+  };
+
+  const handleSlotFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const doc = pendingSlotDoc.current;
+    if (!file || !doc || !user) return;
+    e.target.value = "";
+    setUploadingSlotId(doc.id);
+    const path = `job-documents/${jobId}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } else {
+      const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      if (urlData?.signedUrl) {
+        await supabase.from("job_documents" as any).update({ file_url: urlData.signedUrl, file_name: file.name } as any).eq("id", doc.id);
+        setDocs((prev) => prev.map((d) => d.id === doc.id ? { ...d, file_url: urlData.signedUrl, file_name: file.name } : d));
+        toast({ title: "Document uploaded" });
+      }
+    }
+    setUploadingSlotId(null);
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const autoAttached = docs.filter((d) => d.source === "auto" && d.document_type === "rams_pdf");
+  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing"].includes(d.document_type));
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
   const manualDocs = docs.filter((d) => d.source === "manual");
 
   return (
     <div className="space-y-4">
+      <input ref={slotUploadRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleSlotFileChange} />
+
       {/* Customer paperwork documents */}
       {customerPaperwork.length > 0 && (
         <div>
@@ -325,6 +356,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
                 job={job}
                 jobInfo={jobInfo}
                 blankTemplates={blankTemplates}
+                onUploadSlot={handleUploadSlot}
+                uploadingSlotId={uploadingSlotId}
               />
             ))}
           </div>
@@ -393,6 +426,8 @@ function DocRow({
   jobInfo,
   blankTemplates,
   isCustomerPaperwork,
+  onUploadSlot,
+  uploadingSlotId,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -406,10 +441,22 @@ function DocRow({
   jobInfo: any | null;
   blankTemplates: Record<string, any>;
   isCustomerPaperwork?: boolean;
+  onUploadSlot?: (doc: JobDoc) => void;
+  uploadingSlotId?: string | null;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
+  const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file"].includes(doc.document_type);
   const hasFile = !!doc.file_url;
+
+  const DOC_TYPE_BADGE: Record<string, string> = {
+    rams_pdf: "RAMS PDF",
+    blank_job_sheet: "Blank Job Sheet",
+    uploaded_file: "File",
+    quote: "Quote",
+    purchase_order: "Purchase Order",
+    site_drawing: "Site Drawing",
+  };
 
   // Find matching template for blank job sheet by label
   const matchedTemplate = isBlankSheet
@@ -432,8 +479,7 @@ function DocRow({
             </Badge>
           ) : (
             <Badge variant="secondary" className="text-[10px]">
-              {doc.document_type === "rams_pdf" ? "RAMS PDF" :
-               doc.document_type === "blank_job_sheet" ? "Blank Job Sheet" : "File"}
+              {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
             </Badge>
           )}
           {doc.source === "auto" && (
@@ -441,8 +487,11 @@ function DocRow({
               <Zap className="h-2.5 w-2.5" /> Auto
             </Badge>
           )}
-          {doc.file_name && doc.document_type === "uploaded_file" && (
+          {doc.file_name && (
             <span className="text-[10px] text-muted-foreground truncate">{doc.file_name}</span>
+          )}
+          {isUploadSlot && !hasFile && (
+            <span className="text-[10px] text-muted-foreground italic">Awaiting upload</span>
           )}
         </div>
       </div>
@@ -466,7 +515,7 @@ function DocRow({
       {isBlankSheet && (!matchedTemplate || !jobInfo) && (
         <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
-      {hasFile && doc.document_type === "uploaded_file" && (
+      {isUploadSlot && hasFile && (
         <Button
           variant="outline"
           size="sm"
@@ -474,6 +523,18 @@ function DocRow({
           onClick={() => onDownload(doc)}
         >
           <Download className="h-3 w-3" /> Open
+        </Button>
+      )}
+      {isUploadSlot && isAdmin && onUploadSlot && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs px-2 gap-1 shrink-0"
+          onClick={() => onUploadSlot(doc)}
+          disabled={uploadingSlotId === doc.id}
+        >
+          {uploadingSlotId === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+          {hasFile ? "Replace" : "Upload"}
         </Button>
       )}
 

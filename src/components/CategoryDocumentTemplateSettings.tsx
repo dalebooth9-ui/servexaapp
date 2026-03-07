@@ -15,7 +15,7 @@ import { useJobCategories } from "@/hooks/useJobCategories";
 type DocTemplate = {
   id: string;
   category_slug: string;
-  document_type: "rams_pdf" | "blank_job_sheet" | "uploaded_file";
+  document_type: "rams_pdf" | "blank_job_sheet" | "uploaded_file" | "quote" | "purchase_order" | "site_drawing";
   label: string;
   file_url: string | null;
   file_name: string | null;
@@ -28,12 +28,18 @@ const DOC_TYPE_LABELS: Record<string, string> = {
   rams_pdf: "RAMS PDF",
   blank_job_sheet: "Blank Job Sheet",
   uploaded_file: "Uploaded File",
+  quote: "Quote",
+  purchase_order: "Purchase Order",
+  site_drawing: "Site Drawing",
 };
 
 const DOC_TYPE_DESCRIPTIONS: Record<string, string> = {
   rams_pdf: "Auto-generate a RAMS method statement PDF with job & site details filled in",
   blank_job_sheet: "Generate a blank job sheet PDF for the engineer to fill out on site",
   uploaded_file: "Attach a specific uploaded file (e.g. SOP, risk assessment template)",
+  quote: "Upload slot for your company quote document",
+  purchase_order: "Upload slot for the client's purchase order",
+  site_drawing: "Upload slot for site drawings or floor plans",
 };
 
 export default function CategoryDocumentTemplateSettings() {
