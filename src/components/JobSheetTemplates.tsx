@@ -518,7 +518,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
             <CardTitle className="text-sm flex items-center gap-2">
-              <FileText className="h-4 w-4" /> Job Sheet Templates
+              <FileText className="h-4 w-4" /> Job Documents
             </CardTitle>
             <div className="flex gap-1.5 items-center">
               {userRole === "admin" && (
