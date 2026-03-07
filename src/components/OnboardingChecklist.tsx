@@ -51,8 +51,8 @@ export default function OnboardingChecklist() {
       description: "Assign jobs to engineers and track their work in real time.",
       href: "/engineers",
       check: async () => {
-        const { count } = await supabase.from("profiles").select("user_id", { count: "exact", head: true }).eq("role", "engineer");
-        return (count ?? 0) > 0;
+        const { data } = await supabase.from("profiles").select("user_id").eq("role", "engineer").limit(1);
+        return (data?.length ?? 0) > 0;
       },
     },
     {
