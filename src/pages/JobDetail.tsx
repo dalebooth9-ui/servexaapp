@@ -73,45 +73,45 @@ export default function JobDetail() {
 
   const fetchData = async () => {
     if (!id) return;
-    const [jobRes, subsRes, sitesRes] = await Promise.all([
+    const [jobRes, subsRes, sitesRes, assignmentsRes] = await Promise.all([
       supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
+      supabase.from("job_assignments").select("engineer_id").eq("job_id", id),
     ]);
     setJob(jobRes.data);
     setSites(sitesRes.data || []);
     const subs = subsRes.data || [];
     setSubmissions(subs);
 
-    // Get customer email from joined data
+    // Get customer email from joined data — fallback lookup in parallel below if needed
+    let custEmailPromise: Promise<string>;
     if (jobRes.data?.customers?.email) {
-      setCustomerEmail(jobRes.data.customers.email);
+      custEmailPromise = Promise.resolve(jobRes.data.customers.email as string);
     } else if (jobRes.data?.customer) {
-      // Fallback: lookup by name for legacy data
-      const { data: custData } = await supabase
+      custEmailPromise = supabase
         .from("customers")
         .select("email")
         .eq("name", jobRes.data.customer)
         .limit(1)
-        .maybeSingle();
-      setCustomerEmail(custData?.email || "");
+        .maybeSingle()
+        .then(({ data }) => (data?.email as string) || "") as Promise<string>;
+    } else {
+      custEmailPromise = Promise.resolve("");
     }
 
-    // Collect engineer IDs from both submissions and job assignments
+    // Collect all unique engineer IDs from submissions + assignments, then fetch profiles
     const submissionEngineerIds = subs.map((s: any) => s.engineer_id);
-    const { data: assignments } = await supabase
-      .from("job_assignments")
-      .select("engineer_id")
-      .eq("job_id", id);
-    const assignmentEngineerIds = (assignments || []).map((a: any) => a.engineer_id);
+    const assignmentEngineerIds = (assignmentsRes.data || []).map((a: any) => a.engineer_id);
     const engineerIds = [...new Set([...submissionEngineerIds, ...assignmentEngineerIds])];
-    if (engineerIds.length > 0) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("user_id, full_name, whatsapp_number")
-        .in("user_id", engineerIds);
-      setEngineers((profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id, whatsappNumber: p.whatsapp_number })));
-    }
+
+    const profilesPromise = engineerIds.length > 0
+      ? supabase.from("profiles").select("user_id, full_name, whatsapp_number").in("user_id", engineerIds).then(({ data }) => data || [])
+      : Promise.resolve([]);
+
+    const [custEmail, profiles] = await Promise.all([custEmailPromise, profilesPromise]);
+    setCustomerEmail(custEmail);
+    setEngineers((profiles as any[]).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id, whatsappNumber: p.whatsapp_number })));
     setLoading(false);
   };
 
