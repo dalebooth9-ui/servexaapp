@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,10 @@ export type ConformityCert = {
   customer_name: string;
   reference_number: string;
   system_qty: number;
+  inlet_qty: number;
+  outlet_qty: number;
+  pressure_bar: number;
+  pressure_duration: number;
   riser_locations: string;
   installation_date: string;
   test_outcome: string;
@@ -40,13 +44,12 @@ export type ConformityCert = {
 
 type Props = {
   jobId: string;
-  /** If provided, the CoC was auto-created from a commissioning cert submission */
   certId?: string;
   onSendReady?: (base64: string, fileName: string) => void;
 };
 
 export default function CertificateOfConformity({ jobId, certId, onSendReady }: Props) {
-  const { user, userRole } = useAuth();
+  const { userRole } = useAuth();
   const { toast } = useToast();
   const [certs, setCerts] = useState<ConformityCert[]>([]);
   const [loading, setLoading] = useState(true);
@@ -90,138 +93,10 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
     setSaving(false);
   };
 
-  const generatePdf = async (cert: ConformityCert): Promise<{ base64: string; fileName: string }> => {
-    const doc = new jsPDF({ unit: "mm", format: "a4" });
-    const pw = doc.internal.pageSize.getWidth();
-
-    // Header bar
-    doc.setFillColor(220, 38, 38); // red-600
-    doc.rect(0, 0, pw, 28, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("CERTIFICATE OF CONFORMITY", pw / 2, 12, { align: "center" });
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("Dry Riser Installation — BS EN 9990:2015", pw / 2, 19, { align: "center" });
-    doc.text("Viva Fire Protection Ltd", pw / 2, 24, { align: "center" });
-
-    doc.setTextColor(0, 0, 0);
-
-    // Certificate meta row
-    doc.setFillColor(245, 245, 245);
-    doc.rect(14, 32, pw - 28, 14, "F");
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Certificate No: ${cert.certificate_number || "—"}`, 18, 39);
-    doc.text(`Issue Date: ${cert.issue_date || "—"}`, pw / 2, 39, { align: "center" });
-    const outcomeColor = cert.test_outcome === "pass" ? [22, 163, 74] : [220, 38, 38];
-    doc.setTextColor(...(outcomeColor as [number, number, number]));
-    doc.setFont("helvetica", "bold");
-    doc.text(`Outcome: ${cert.test_outcome.toUpperCase()}`, pw - 18, 39, { align: "right" });
-    doc.setTextColor(0, 0, 0);
-
-    let y = 52;
-    const sectionHeader = (title: string) => {
-      doc.setFillColor(239, 68, 68);
-      doc.rect(14, y, pw - 28, 7, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.text(title.toUpperCase(), 17, y + 5);
-      doc.setTextColor(0, 0, 0);
-      y += 9;
-    };
-    const row = (label: string, value: string, rightLabel?: string, rightValue?: string) => {
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.text(label, 17, y);
-      doc.setFont("helvetica", "normal");
-      doc.text(value || "—", 65, y);
-      if (rightLabel) {
-        doc.setFont("helvetica", "bold");
-        doc.text(rightLabel, pw / 2 + 5, y);
-        doc.setFont("helvetica", "normal");
-        doc.text(rightValue || "—", pw / 2 + 45, y);
-      }
-      y += 7;
-    };
-
-    sectionHeader("Project Details");
-    row("Job Reference:", cert.reference_number, "Customer:", cert.customer_name);
-    row("Job Name:", cert.job_name);
-    row("Site Address:", cert.site_address);
-    y += 2;
-
-    sectionHeader("System Information");
-    row("No. of Dry Riser Systems:", String(cert.system_qty), "Installation Date:", cert.installation_date || "—");
-    row("Riser Locations:", cert.riser_locations);
-    y += 2;
-
-    sectionHeader("Test Results");
-    row("Outcome:", cert.test_outcome.toUpperCase());
-    if (cert.test_notes) {
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "bold");
-      doc.text("Notes:", 17, y);
-      doc.setFont("helvetica", "normal");
-      const lines = doc.splitTextToSize(cert.test_notes, pw - 80);
-      doc.text(lines, 65, y);
-      y += lines.length * 5 + 2;
-    }
-    y += 2;
-
-    sectionHeader("Compliance Declaration");
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "normal");
-    const declaration = `We hereby certify that the dry riser installation described above has been installed, tested and commissioned in accordance with BS EN 9990:2015 and all relevant statutory requirements. The installation has been inspected and found to be in a satisfactory condition and complies with the specification as detailed herein.`;
-    const declLines = doc.splitTextToSize(declaration, pw - 32);
-    doc.text(declLines, 17, y);
-    y += declLines.length * 5 + 6;
-
-    sectionHeader("Sign-Off");
-    row("Engineer / Technician:", cert.engineer_name, "Date:", cert.sign_date || "—");
-    y += 4;
-
-    // Signature
-    if (cert.engineer_signature) {
-      try {
-        doc.addImage(cert.engineer_signature, "PNG", 17, y, 50, 20);
-      } catch {}
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "italic");
-      doc.text("Authorised Signature", 17, y + 22);
-      y += 28;
-    } else {
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(17, y, 70, 18);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "italic");
-      doc.setTextColor(150, 150, 150);
-      doc.text("Signature pending", 20, y + 10);
-      doc.setTextColor(0, 0, 0);
-      y += 24;
-    }
-
-    // Footer
-    const fY = doc.internal.pageSize.getHeight() - 14;
-    doc.setDrawColor(220, 38, 38);
-    doc.setLineWidth(0.5);
-    doc.line(14, fY - 3, pw - 14, fY - 3);
-    doc.setFontSize(7);
-    doc.setTextColor(100, 100, 100);
-    doc.setFont("helvetica", "normal");
-    doc.text("Viva Fire Protection Ltd  |  Certificate of Conformity  |  Dry Riser Installation", pw / 2, fY + 2, { align: "center" });
-
-    const base64 = doc.output("datauristring").split(",")[1];
-    const fileName = `CoC-${cert.reference_number || cert.job_id.slice(0, 8)}.pdf`;
-    return { base64, fileName };
-  };
-
   const handleDownload = async (cert: ConformityCert) => {
     setExporting(cert.id);
     try {
-      const { base64, fileName } = await generatePdf(cert);
+      const { base64, fileName } = await generateConformityPdfBase64(cert);
       const byteArray = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
       const blob = new Blob([byteArray], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -255,12 +130,6 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
             <div className="flex items-center gap-1.5 mt-0.5">
               <Badge variant={cert.status === "final" ? "default" : "secondary"} className="text-[10px]">
                 {cert.status === "final" ? "Final" : "Draft"}
-              </Badge>
-              <Badge
-                variant="outline"
-                className={`text-[10px] ${cert.test_outcome === "pass" ? "border-green-500/40 text-green-600" : "border-destructive/40 text-destructive"}`}
-              >
-                {cert.test_outcome.toUpperCase()}
               </Badge>
               {cert.certificate_number && (
                 <span className="text-[10px] text-muted-foreground">{cert.certificate_number}</span>
@@ -302,65 +171,70 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label className="text-xs">Certificate Number</Label>
-              <Input value={form.certificate_number || ""} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} placeholder="CoC-001" />
+              <Input value={form.certificate_number || ""} onChange={(e) => setForm({ ...form, certificate_number: e.target.value })} placeholder="VFP09129/0809" />
             </div>
             <div>
-              <Label className="text-xs">Issue Date</Label>
+              <Label className="text-xs">Date of Test</Label>
               <Input type="date" value={form.issue_date || ""} onChange={(e) => setForm({ ...form, issue_date: e.target.value })} />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs">Job Name</Label>
-              <Input value={form.job_name || ""} onChange={(e) => setForm({ ...form, job_name: e.target.value })} />
+              <Label className="text-xs">Building / Site Name</Label>
+              <Input value={form.job_name || ""} onChange={(e) => setForm({ ...form, job_name: e.target.value })} placeholder="4 High Court, Leeds" />
             </div>
             <div className="col-span-2">
               <Label className="text-xs">Site Address</Label>
               <Input value={form.site_address || ""} onChange={(e) => setForm({ ...form, site_address: e.target.value })} />
             </div>
             <div>
-              <Label className="text-xs">Customer Name</Label>
-              <Input value={form.customer_name || ""} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} />
+              <Label className="text-xs">Client Name</Label>
+              <Input value={form.customer_name || ""} onChange={(e) => setForm({ ...form, customer_name: e.target.value })} placeholder="PH Plumbing" />
             </div>
             <div>
               <Label className="text-xs">Reference Number</Label>
               <Input value={form.reference_number || ""} onChange={(e) => setForm({ ...form, reference_number: e.target.value })} />
             </div>
-            <div>
-              <Label className="text-xs">No. of Dry Riser Systems</Label>
-              <Input type="number" min={1} value={form.system_qty || 1} onChange={(e) => setForm({ ...form, system_qty: parseInt(e.target.value) || 1 })} />
+
+            <div className="col-span-2 border-t pt-3">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">System Details</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">No. of Dry Riser Systems</Label>
+                  <Input type="number" min={1} value={form.system_qty ?? 1} onChange={(e) => setForm({ ...form, system_qty: parseInt(e.target.value) || 1 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">No. of Inlet Valves</Label>
+                  <Input type="number" min={1} value={form.inlet_qty ?? 1} onChange={(e) => setForm({ ...form, inlet_qty: parseInt(e.target.value) || 1 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">No. of Outlet Valves</Label>
+                  <Input type="number" min={1} value={form.outlet_qty ?? 2} onChange={(e) => setForm({ ...form, outlet_qty: parseInt(e.target.value) || 2 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Pressure Test (bar)</Label>
+                  <Input type="number" min={1} value={form.pressure_bar ?? 12} onChange={(e) => setForm({ ...form, pressure_bar: parseInt(e.target.value) || 12 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Test Duration (minutes)</Label>
+                  <Input type="number" min={1} value={form.pressure_duration ?? 15} onChange={(e) => setForm({ ...form, pressure_duration: parseInt(e.target.value) || 15 })} />
+                </div>
+                <div>
+                  <Label className="text-xs">Status</Label>
+                  <Select value={form.status || "draft"} onValueChange={(v) => setForm({ ...form, status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="draft">Draft</SelectItem>
+                      <SelectItem value="final">Final</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
-            <div>
-              <Label className="text-xs">Installation Date</Label>
-              <Input type="date" value={form.installation_date || ""} onChange={(e) => setForm({ ...form, installation_date: e.target.value })} />
-            </div>
+
             <div className="col-span-2">
-              <Label className="text-xs">Riser Locations</Label>
-              <Input value={form.riser_locations || ""} onChange={(e) => setForm({ ...form, riser_locations: e.target.value })} placeholder="e.g. Main lobby, Level 2 stairwell" />
+              <Label className="text-xs">Additional Notes (optional)</Label>
+              <Textarea rows={2} value={form.test_notes || ""} onChange={(e) => setForm({ ...form, test_notes: e.target.value })} placeholder="Any additional observations..." />
             </div>
-            <div>
-              <Label className="text-xs">Test Outcome</Label>
-              <Select value={form.test_outcome || "pass"} onValueChange={(v) => setForm({ ...form, test_outcome: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pass">Pass</SelectItem>
-                  <SelectItem value="fail">Fail</SelectItem>
-                  <SelectItem value="conditional_pass">Conditional Pass</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label className="text-xs">Status</Label>
-              <Select value={form.status || "draft"} onValueChange={(v) => setForm({ ...form, status: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="final">Final</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="col-span-2">
-              <Label className="text-xs">Test Notes / Observations</Label>
-              <Textarea rows={3} value={form.test_notes || ""} onChange={(e) => setForm({ ...form, test_notes: e.target.value })} placeholder="Any observations or conditions..." />
-            </div>
+
             <div>
               <Label className="text-xs">Engineer / Technician Name</Label>
               <Input value={form.engineer_name || ""} onChange={(e) => setForm({ ...form, engineer_name: e.target.value })} />
@@ -416,7 +290,6 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   site?: { address?: string | null; postcode?: string | null; riser_location?: string | null } | null;
   engineers?: string[];
 }) {
-  // Avoid duplicate: only create if none exists for this job
   const { data: existing } = await supabase
     .from("conformity_certificates" as any)
     .select("id")
@@ -435,6 +308,10 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
     customer_name: jobInfo.customer || "",
     reference_number: jobInfo.reference_number || "",
     system_qty: jobInfo.other_qty || 1,
+    inlet_qty: 1,
+    outlet_qty: 2,
+    pressure_bar: 12,
+    pressure_duration: 15,
     riser_locations: jobInfo.site?.riser_location || "",
     issue_date: today,
     sign_date: today,
@@ -444,93 +321,170 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   } as any);
 }
 
-/** Standalone PDF generator for use outside the component (e.g. SendToCustomerMenu) */
+/** Standalone PDF generator — matches actual Viva Fire Certificate of Conformity layout */
 export async function generateConformityPdfBase64(cert: ConformityCert): Promise<{ base64: string; fileName: string }> {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
+  const ph = doc.internal.pageSize.getHeight();
 
-  doc.setFillColor(220, 38, 38);
-  doc.rect(0, 0, pw, 28, "F");
-  doc.setTextColor(255, 255, 255);
+  // ── Logo ─────────────────────────────────────────────────────────────
+  try {
+    const logoUrl = `${window.location.origin}/images/vivafire-logo-new.jpg`;
+    const res = await fetch(logoUrl);
+    const blob = await res.blob();
+    const reader = new FileReader();
+    const logoBase64 = await new Promise<string>((resolve) => {
+      reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
+      reader.readAsDataURL(blob);
+    });
+    // Logo centred, roughly 60mm wide
+    doc.addImage(logoBase64, "JPEG", pw / 2 - 30, 10, 60, 22);
+  } catch {}
+
+  // ── Title block ──────────────────────────────────────────────────────
+  let y = 38;
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text("Dry Riser System", pw / 2, y, { align: "center" });
+  y += 7;
   doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("CERTIFICATE OF CONFORMITY", pw / 2, 12, { align: "center" });
-  doc.setFontSize(9);
+  doc.text("Certificate of Conformity", pw / 2, y, { align: "center" });
+  y += 8;
+
+  // Certificate number
+  doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("Dry Riser Installation — BS EN 9990:2015", pw / 2, 19, { align: "center" });
-  doc.text("Viva Fire Protection Ltd", pw / 2, 24, { align: "center" });
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(80, 80, 80);
+  doc.text(`Certificate Number  ${cert.certificate_number || "—"}`, pw / 2, y, { align: "center" });
+  y += 10;
 
-  doc.setFillColor(245, 245, 245);
-  doc.rect(14, 32, pw - 28, 14, "F");
-  doc.setFontSize(8);
+  // ── Divider ──────────────────────────────────────────────────────────
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.6);
+  doc.line(20, y, pw - 20, y);
+  y += 8;
+
+  // ── BUILDING section ─────────────────────────────────────────────────
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text(`Certificate No: ${cert.certificate_number || "—"}`, 18, 39);
-  doc.text(`Issue Date: ${cert.issue_date || "—"}`, pw / 2, 39, { align: "center" });
-  const oc = cert.test_outcome === "pass" ? [22, 163, 74] : [220, 38, 38];
-  doc.setTextColor(...(oc as [number, number, number]));
-  doc.text(`Outcome: ${cert.test_outcome.toUpperCase()}`, pw - 18, 39, { align: "right" });
-  doc.setTextColor(0, 0, 0);
+  doc.setTextColor(30, 30, 30);
+  doc.text("BUILDING", pw / 2, y, { align: "center" });
+  y += 7;
 
-  let y = 52;
-  const sh = (title: string) => {
-    doc.setFillColor(239, 68, 68);
-    doc.rect(14, y, pw - 28, 7, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text(title.toUpperCase(), 17, y + 5);
-    doc.setTextColor(0, 0, 0);
-    y += 9;
-  };
-  const row = (label: string, value: string, rl?: string, rv?: string) => {
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.text(label, 17, y);
-    doc.setFont("helvetica", "normal");
-    doc.text(value || "—", 65, y);
-    if (rl) { doc.setFont("helvetica", "bold"); doc.text(rl, pw / 2 + 5, y); doc.setFont("helvetica", "normal"); doc.text(rv || "—", pw / 2 + 45, y); }
-    y += 7;
-  };
+  doc.setFontSize(13);
+  const buildingLines = doc.splitTextToSize(cert.job_name || "—", pw - 60);
+  doc.text(buildingLines, pw / 2, y, { align: "center" });
+  y += buildingLines.length * 7 + 2;
 
-  sh("Project Details");
-  row("Job Reference:", cert.reference_number, "Customer:", cert.customer_name);
-  row("Job Name:", cert.job_name);
-  row("Site Address:", cert.site_address);
-  y += 2;
-  sh("System Information");
-  row("No. of Dry Riser Systems:", String(cert.system_qty), "Installation Date:", cert.installation_date || "—");
-  row("Riser Locations:", cert.riser_locations);
-  y += 2;
-  sh("Test Results");
-  row("Outcome:", cert.test_outcome.toUpperCase());
-  if (cert.test_notes) {
-    doc.setFontSize(8); doc.setFont("helvetica", "bold"); doc.text("Notes:", 17, y);
+  if (cert.site_address) {
+    doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    const lines = doc.splitTextToSize(cert.test_notes, pw - 80);
-    doc.text(lines, 65, y); y += lines.length * 5 + 2;
+    doc.setTextColor(80, 80, 80);
+    const addrLines = doc.splitTextToSize(cert.site_address, pw - 60);
+    doc.text(addrLines, pw / 2, y, { align: "center" });
+    y += addrLines.length * 5 + 2;
   }
-  y += 2;
-  sh("Compliance Declaration");
-  doc.setFontSize(8); doc.setFont("helvetica", "normal");
-  const decl = `We hereby certify that the dry riser installation described above has been installed, tested and commissioned in accordance with BS EN 9990:2015 and all relevant statutory requirements.`;
-  const dLines = doc.splitTextToSize(decl, pw - 32);
-  doc.text(dLines, 17, y); y += dLines.length * 5 + 6;
-  sh("Sign-Off");
-  row("Engineer / Technician:", cert.engineer_name, "Date:", cert.sign_date || "—");
+
   y += 4;
-  if (cert.engineer_signature) {
-    try { doc.addImage(cert.engineer_signature, "PNG", 17, y, 50, 20); } catch {}
-    doc.setFontSize(7); doc.setFont("helvetica", "italic"); doc.text("Authorised Signature", 17, y + 22);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(30, 30, 30);
+  doc.text(`Client – ${cert.customer_name || "—"}`, pw / 2, y, { align: "center" });
+  y += 6;
+  doc.text(`Date of Test: ${cert.issue_date || "—"}`, pw / 2, y, { align: "center" });
+  y += 10;
+
+  // ── Divider ──────────────────────────────────────────────────────────
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.4);
+  doc.line(20, y, pw - 20, y);
+  y += 10;
+
+  // ── Body text ────────────────────────────────────────────────────────
+  const inletQty = cert.inlet_qty ?? 1;
+  const outletQty = cert.outlet_qty ?? 2;
+  const pressureBar = cert.pressure_bar ?? 12;
+  const pressureDuration = cert.pressure_duration ?? 15;
+  const sysQty = cert.system_qty ?? 1;
+  const sysText = sysQty === 1 ? "one dry riser system" : `${sysQty} dry riser systems`;
+
+  const para1 = `Viva Fire Protection Ltd, confirm having installed, inspected and tested ${sysText} at the above site.`;
+  const para2 = "The system was found to conform to the requirements of BS 9990:2015";
+  const inletWord = inletQty === 1 ? "inlet valve" : "inlet valves";
+  const outletWord = outletQty === 1 ? "outlet valve" : "outlet valves";
+  const para3 = `The dry riser system comprises of ${inletQty} ${inletWord} and ${outletQty} ${outletWord}.`;
+  const para4 = `The Viva Fire test comprised of static pressure test with water to ${pressureBar} bar of the whole system for ${pressureDuration} minutes`;
+
+  const bodyLines = [para1, para2, para3, para4];
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(30, 30, 30);
+
+  for (const para of bodyLines) {
+    const lines = doc.splitTextToSize(para, pw - 40);
+    doc.text(lines, pw / 2, y, { align: "center" });
+    y += lines.length * 6 + 4;
   }
 
-  const fY = doc.internal.pageSize.getHeight() - 14;
-  doc.setDrawColor(220, 38, 38); doc.setLineWidth(0.5); doc.line(14, fY - 3, pw - 14, fY - 3);
-  doc.setFontSize(7); doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "normal");
-  doc.text("Viva Fire Protection Ltd  |  Certificate of Conformity  |  Dry Riser Installation", pw / 2, fY + 2, { align: "center" });
+  if (cert.test_notes) {
+    const noteLines = doc.splitTextToSize(cert.test_notes, pw - 40);
+    doc.text(noteLines, pw / 2, y, { align: "center" });
+    y += noteLines.length * 6 + 4;
+  }
+
+  y += 6;
+
+  // ── Sign-off ─────────────────────────────────────────────────────────
+  doc.setFontSize(10);
+  doc.text(`Signed on behalf of Viva Fire Protection Ltd    Date ${cert.sign_date || "—"}`, pw / 2, y, { align: "center" });
+  y += 12;
+
+  // Signature image or blank box
+  if (cert.engineer_signature) {
+    try {
+      doc.addImage(cert.engineer_signature, "PNG", pw / 2 - 25, y, 50, 18);
+      y += 20;
+    } catch {}
+  } else {
+    doc.setDrawColor(160, 160, 160);
+    doc.rect(pw / 2 - 35, y, 70, 16);
+    doc.setFontSize(7);
+    doc.setTextColor(150, 150, 150);
+    doc.setFont("helvetica", "italic");
+    doc.text("Signature pending", pw / 2, y + 9, { align: "center" });
+    doc.setTextColor(30, 30, 30);
+    y += 18;
+  }
+
+  // Engineer name
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  if (cert.engineer_name) {
+    doc.text(cert.engineer_name, pw / 2, y + 2, { align: "center" });
+    y += 7;
+  }
+
+  // ── Footer ───────────────────────────────────────────────────────────
+  const footerY = ph - 18;
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.4);
+  doc.line(14, footerY - 4, pw - 14, footerY - 4);
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text(
+    "Viva Fire Protection Limited, Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ",
+    pw / 2, footerY, { align: "center" }
+  );
+  doc.text(
+    "Company Reg No: 06464084   Tel: 0845 269 8482   sales@vivafire.co.uk   www.vivafire.co.uk",
+    pw / 2, footerY + 5, { align: "center" }
+  );
 
   const base64 = doc.output("datauristring").split(",")[1];
-  const fileName = `CoC-${cert.reference_number || cert.job_id.slice(0, 8)}.pdf`;
+  const fileName = `CoC-${cert.certificate_number || cert.reference_number || cert.job_id.slice(0, 8)}.pdf`;
   return { base64, fileName };
 }
