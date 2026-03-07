@@ -198,9 +198,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           y += 1;
         }
 
-        // Comments box
+        // Comments box — capped at 18mm max so logos/sigs have room
         const sigY = pageHeight - footerSpace - 10;
-        const commentsH = Math.max(sigY - y - 2, 6);
+        const commentsH = Math.min(Math.max(sigY - y - 2, 6), 18);
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
@@ -218,13 +218,14 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         renderPdfFooter(doc, footerY, footerText);
       }
 
+      const logoH = 12; // bigger logos
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
         loadAccreditationLogos(),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
       const footerYForLogos = pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
       doc.save(fileName);
