@@ -104,7 +104,36 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (!job?.category || !user || userRole !== "admin") return;
     if (job?.status === "completed" || job?.status === "cancelled") return;
     autoAttachCategoryDocuments();
+    autoAttachPreStartChecklist();
   }, [job?.category]);
+
+  const isInstallationJob = () => {
+    const cat = job?.category || "";
+    return cat === "installation" || cat === "dry_riser_installation";
+  };
+
+  const autoAttachPreStartChecklist = async () => {
+    if (!isInstallationJob() || !user) return;
+    // Check if already attached
+    const { data: existing } = await supabase
+      .from("job_documents" as any)
+      .select("id")
+      .eq("job_id", jobId)
+      .eq("document_type", "pre_start_checklist")
+      .limit(1);
+    if (existing && (existing as any[]).length > 0) return;
+
+    await supabase.from("job_documents" as any).insert({
+      job_id: jobId,
+      document_type: "pre_start_checklist",
+      label: "Pre-start Check List",
+      file_url: null,
+      file_name: null,
+      source: "auto",
+      created_by: user.id,
+    } as any);
+    fetchDocs();
+  };
 
   const autoAttachCategoryDocuments = async () => {
     if (!job?.category) return;
