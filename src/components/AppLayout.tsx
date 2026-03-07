@@ -276,7 +276,10 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   key={item.to}
                                   item={item}
                                   isActive={isActive}
-                                  onClick={() => setMobileOpen(false)} />
+                                  onClick={() => setMobileOpen(false)}
+                                  showPin
+                                  isPinned={false}
+                                  onTogglePin={() => handleTogglePin(item.to)} />
                               );
                             })}
                           </div>
@@ -286,12 +289,17 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                       <div className="space-y-0.5">
                         {items.map((item) => {
                           const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
+                          // Show unpin button for non-core ops items that were pinned from "more"
+                          const wasPinnedFromMore = item.section === "more" && pinnedOps.includes(item.to);
                           return (
                             <SortableNavItem
                               key={item.to}
                               item={item}
                               isActive={isActive}
-                              onClick={() => setMobileOpen(false)} />);
+                              onClick={() => setMobileOpen(false)}
+                              showPin={wasPinnedFromMore}
+                              isPinned={wasPinnedFromMore}
+                              onTogglePin={wasPinnedFromMore ? () => handleTogglePin(item.to) : undefined} />);
                         })}
                       </div>
                     )}
