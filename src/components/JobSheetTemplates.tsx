@@ -135,16 +135,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
       branding: t.branding || {},
     }));
-    // For installation jobs: only show commissioning/installation templates (never global maintenance templates)
-    // For all other jobs: show global templates + templates matching the job's category
-    const isInstallation = jobCategory === "dry_riser_installation";
-    const filteredTpls = allTpls.filter((t: any) => {
-      if (isInstallation) {
-        // Must have a job_category explicitly set to installation or dry_riser_installation
-        return t.job_category && normalizeCategory(t.job_category) === "dry_riser_installation";
-      }
-      return !t.job_category || normalizeCategory(t.job_category) === jobCategory;
-    });
+    // Only show templates that are global (no job_category) or match the job's canonical category
+    const filteredTpls = allTpls.filter((t: any) => !t.job_category || normalizeCategory(t.job_category) === jobCategory);
     setTemplates(filteredTpls);
     setResponses((respRes.data || []) as Response[]);
 
