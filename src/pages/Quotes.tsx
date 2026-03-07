@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ClipboardList, Search, Plus, CheckCircle2, XCircle, Clock, Send, ArrowRight, TrendingUp } from "lucide-react";
+import { ClipboardList, Search, Plus, CheckCircle2, XCircle, Clock, Send, ArrowRight, TrendingUp, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
 import { toast } from "sonner";
@@ -62,6 +63,14 @@ export default function Quotes() {
       setQuotes((prev) => prev.map((q) => q.id === id ? { ...q, status: newStatus } : q));
     }
     setUpdatingId(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
+    const { error } = await supabase.from("invoices").delete().eq("id", id);
+    if (error) { toast.error("Failed to delete quote"); return; }
+    setQuotes((prev) => prev.filter((q) => q.id !== id));
+    toast.success("Quote deleted");
   };
 
   const handleConvertToInvoice = async (quote: any) => {
@@ -297,6 +306,35 @@ export default function Quotes() {
                                 Reopen
                               </Button>
                             )}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  className="h-6 text-[11px] px-2 gap-1 text-destructive hover:bg-destructive/10 ml-auto"
+                                  disabled={updatingId === q.id}
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete {q.invoice_number}?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This will permanently delete this quote and all its line items. This cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDelete(q.id)}
+                                  >
+                                    Delete Quote
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         )}
                       </CardContent>
