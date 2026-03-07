@@ -288,7 +288,7 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark);
+  if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
   // Logos: 12mm tall, 3mm gap above declaration footer
   const footerYForLogos = declarationFooterY - 12 - 3;
   addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 12);

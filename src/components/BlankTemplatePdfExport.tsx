@@ -241,7 +241,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
         loadWatermarkImage(),
         loadAccreditationLogos(),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark);
+      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
