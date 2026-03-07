@@ -200,7 +200,7 @@ export async function generateJobSheetPdf(
   if (scopeParts) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
-    doc.setTextColor(33, 61, 99);
+    doc.setTextColor(...accentColor);
     doc.text(`Service Scope: `, margin, y + 3.5);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
