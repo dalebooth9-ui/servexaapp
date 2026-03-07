@@ -142,6 +142,7 @@ function IssueCard({
       {expanded && (
         <div className="px-4 pb-4 space-y-3 border-t pt-3">
           <Textarea
+            ref={descRef}
             placeholder="Add a description…"
             value={descVal}
             onChange={(e) => setDescVal(e.target.value)}
