@@ -332,9 +332,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing", "pre_start_checklist"].includes(d.document_type));
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
-  const manualDocs = docs.filter((d) => d.source === "manual");
+  const allJobDocs = docs.filter((d) => d.source !== "customer_paperwork");
 
   return (
     <div className="space-y-4">
@@ -368,57 +367,27 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         </div>
       )}
 
-      {/* Auto-attached documents */}
-      {autoAttached.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Zap className="h-3 w-3" /> Auto-attached for this job type
-          </p>
-          <div className="space-y-2">
-            {autoAttached.map((doc) => (
-              <DocRow
-                key={doc.id}
-                doc={doc}
-                isAdmin={userRole === "admin"}
-                deleting={deletingId === doc.id}
-                onDelete={handleDelete}
-                onDownload={handleDownload}
-                onGenerateRams={handleGenerateRams}
-                generatingRams={generatingRams}
-                jobId={jobId}
-                job={job}
-                jobInfo={jobInfo}
-                blankTemplates={blankTemplates}
-                onUploadSlot={handleUploadSlot}
-                uploadingSlotId={uploadingSlotId}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Manual documents */}
-      {manualDocs.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Additional Documents</p>
-          <div className="space-y-2">
-            {manualDocs.map((doc) => (
-              <DocRow
-                key={doc.id}
-                doc={doc}
-                isAdmin={userRole === "admin"}
-                deleting={deletingId === doc.id}
-                onDelete={handleDelete}
-                onDownload={handleDownload}
-                onGenerateRams={handleGenerateRams}
-                generatingRams={generatingRams}
-                jobId={jobId}
-                job={job}
-                jobInfo={jobInfo}
-                blankTemplates={blankTemplates}
-              />
-            ))}
-          </div>
+      {/* All job documents */}
+      {allJobDocs.length > 0 && (
+        <div className="space-y-2">
+          {allJobDocs.map((doc) => (
+            <DocRow
+              key={doc.id}
+              doc={doc}
+              isAdmin={userRole === "admin"}
+              deleting={deletingId === doc.id}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              onGenerateRams={handleGenerateRams}
+              generatingRams={generatingRams}
+              jobId={jobId}
+              job={job}
+              jobInfo={jobInfo}
+              blankTemplates={blankTemplates}
+              onUploadSlot={handleUploadSlot}
+              uploadingSlotId={uploadingSlotId}
+            />
+          ))}
         </div>
       )}
 
