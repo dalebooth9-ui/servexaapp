@@ -59,10 +59,8 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const STORAGE_KEY = "nav-order";
-const PIN_KEY = "nav-pinned-ops";
-
-// Items that are always in operations and cannot be demoted
-const CORE_OPS = new Set(["/", "/jobs", "/planner", "/customers", "/invoices"]);
+// Stores { [to]: "operations" | "more" } overrides for items moved between sections
+const SECTION_OVERRIDE_KEY = "nav-section-overrides";
 
 function loadNavOrder(): string[] | null {
   try {
@@ -71,22 +69,21 @@ function loadNavOrder(): string[] | null {
   } catch { return null; }
 }
 
-function loadPinnedOps(): string[] {
+function loadSectionOverrides(): Record<string, "operations" | "more"> {
   try {
-    const raw = localStorage.getItem(PIN_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch { return []; }
+    const raw = localStorage.getItem(SECTION_OVERRIDE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch { return {}; }
 }
 
 function SortableNavItem({
-  item, isActive, onClick, showPin, isPinned, onTogglePin,
+  item, isActive, onClick, inOps, onTogglePin,
 }: {
   item: typeof DEFAULT_NAV_ITEMS[number];
   isActive: boolean;
   onClick: () => void;
-  showPin?: boolean;
-  isPinned?: boolean;
-  onTogglePin?: () => void;
+  inOps: boolean;
+  onTogglePin: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
@@ -112,20 +109,18 @@ function SortableNavItem({
         <item.icon className="h-4.5 w-4.5" />
         {item.label}
       </Link>
-      {showPin && onTogglePin && (
-        <button
-          onClick={(e) => { e.preventDefault(); onTogglePin(); }}
-          title={isPinned ? "Move to More" : "Pin to Operations"}
-          className={cn(
-            "p-1 rounded transition-all shrink-0",
-            isPinned
-              ? "opacity-0 group-hover:opacity-60 hover:!opacity-100 text-sidebar-primary"
-              : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
-          )}
-          tabIndex={-1}>
-          {isPinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
-        </button>
-      )}
+      <button
+        onClick={(e) => { e.preventDefault(); onTogglePin(); }}
+        title={inOps ? "Move to More" : "Pin to Operations"}
+        className={cn(
+          "p-1 rounded transition-all shrink-0",
+          inOps
+            ? "opacity-0 group-hover:opacity-50 hover:!opacity-100 text-sidebar-primary"
+            : "opacity-0 group-hover:opacity-40 hover:!opacity-80 text-sidebar-foreground"
+        )}
+        tabIndex={-1}>
+        {inOps ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
+      </button>
     </div>
   );
 }
