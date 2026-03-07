@@ -36,7 +36,7 @@ type Template = {
 type JobInfo = {
   address: string | null;
   customer: string | null;
-  customers?: { name: string } | null;
+  customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
   category?: string | null;
   name?: string | null;
@@ -87,7 +87,8 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
-      const branding = template.branding || {};
+      const customerLogoUrl = jobInfo?.customers?.logo_url || null;
+      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
