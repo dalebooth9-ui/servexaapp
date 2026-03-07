@@ -143,12 +143,13 @@ export async function checkPageBreak(
   y: number,
   neededMm: number,
   logoImg: HTMLImageElement | null,
-  pageNum: number,
+  pageRef: { num: number },
   totalPages: number,
   subtitle = ""
 ): Promise<number> {
   if (y + neededMm > SAFE_BOTTOM) {
-    pageFooter(doc, pageNum, totalPages);
+    pageFooter(doc, pageRef.num, totalPages);
+    pageRef.num++;
     y = newPage(doc);
     y = await pageHeader(doc, logoImg, subtitle, y);
   }
