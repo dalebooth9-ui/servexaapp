@@ -633,7 +633,7 @@ export async function generateInstallationRamsPdf(
   assignedEngineers: { name: string; sig: string; date: string }[] = []
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
-  const logoImg = await loadLogoImage();
+  const logoImg = await loadLogoImage(jobInfo?.customers?.logo_url);
   const TOTAL_PAGES = 10;
 
   // Cover page
