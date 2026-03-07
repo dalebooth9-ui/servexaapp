@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Zap, Building2 } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Building2 } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
@@ -332,9 +332,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
-  const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing", "pre_start_checklist"].includes(d.document_type));
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
-  const manualDocs = docs.filter((d) => d.source === "manual");
+  const allJobDocs = docs.filter((d) => d.source !== "customer_paperwork");
 
   return (
     <div className="space-y-4">
@@ -368,57 +367,27 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         </div>
       )}
 
-      {/* Auto-attached documents */}
-      {autoAttached.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <Zap className="h-3 w-3" /> Auto-attached for this job type
-          </p>
-          <div className="space-y-2">
-            {autoAttached.map((doc) => (
-              <DocRow
-                key={doc.id}
-                doc={doc}
-                isAdmin={userRole === "admin"}
-                deleting={deletingId === doc.id}
-                onDelete={handleDelete}
-                onDownload={handleDownload}
-                onGenerateRams={handleGenerateRams}
-                generatingRams={generatingRams}
-                jobId={jobId}
-                job={job}
-                jobInfo={jobInfo}
-                blankTemplates={blankTemplates}
-                onUploadSlot={handleUploadSlot}
-                uploadingSlotId={uploadingSlotId}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Manual documents */}
-      {manualDocs.length > 0 && (
-        <div>
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Additional Documents</p>
-          <div className="space-y-2">
-            {manualDocs.map((doc) => (
-              <DocRow
-                key={doc.id}
-                doc={doc}
-                isAdmin={userRole === "admin"}
-                deleting={deletingId === doc.id}
-                onDelete={handleDelete}
-                onDownload={handleDownload}
-                onGenerateRams={handleGenerateRams}
-                generatingRams={generatingRams}
-                jobId={jobId}
-                job={job}
-                jobInfo={jobInfo}
-                blankTemplates={blankTemplates}
-              />
-            ))}
-          </div>
+      {/* All job documents */}
+      {allJobDocs.length > 0 && (
+        <div className="space-y-2">
+          {allJobDocs.map((doc) => (
+            <DocRow
+              key={doc.id}
+              doc={doc}
+              isAdmin={userRole === "admin"}
+              deleting={deletingId === doc.id}
+              onDelete={handleDelete}
+              onDownload={handleDownload}
+              onGenerateRams={handleGenerateRams}
+              generatingRams={generatingRams}
+              jobId={jobId}
+              job={job}
+              jobInfo={jobInfo}
+              blankTemplates={blankTemplates}
+              onUploadSlot={handleUploadSlot}
+              uploadingSlotId={uploadingSlotId}
+            />
+          ))}
         </div>
       )}
 
@@ -515,11 +484,6 @@ function DocRow({
           ) : (
             <Badge variant="secondary" className="text-[10px]">
               {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
-            </Badge>
-          )}
-          {doc.source === "auto" && (
-            <Badge variant="outline" className="text-[10px] gap-0.5">
-              <Zap className="h-2.5 w-2.5" /> Auto
             </Badge>
           )}
           {doc.file_name && (
