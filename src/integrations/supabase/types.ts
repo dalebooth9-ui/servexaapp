@@ -507,6 +507,83 @@ export type Database = {
           },
         ]
       }
+      conformity_certificates: {
+        Row: {
+          certificate_number: string
+          created_at: string
+          created_by: string | null
+          customer_name: string
+          engineer_name: string
+          engineer_signature: string | null
+          id: string
+          installation_date: string
+          issue_date: string
+          job_id: string
+          job_name: string
+          reference_number: string
+          riser_locations: string
+          sign_date: string
+          site_address: string
+          status: string
+          system_qty: number
+          test_notes: string
+          test_outcome: string
+          updated_at: string
+        }
+        Insert: {
+          certificate_number?: string
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string
+          engineer_name?: string
+          engineer_signature?: string | null
+          id?: string
+          installation_date?: string
+          issue_date?: string
+          job_id: string
+          job_name?: string
+          reference_number?: string
+          riser_locations?: string
+          sign_date?: string
+          site_address?: string
+          status?: string
+          system_qty?: number
+          test_notes?: string
+          test_outcome?: string
+          updated_at?: string
+        }
+        Update: {
+          certificate_number?: string
+          created_at?: string
+          created_by?: string | null
+          customer_name?: string
+          engineer_name?: string
+          engineer_signature?: string | null
+          id?: string
+          installation_date?: string
+          issue_date?: string
+          job_id?: string
+          job_name?: string
+          reference_number?: string
+          riser_locations?: string
+          sign_date?: string
+          site_address?: string
+          status?: string
+          system_qty?: number
+          test_notes?: string
+          test_outcome?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conformity_certificates_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_documents: {
         Row: {
           created_at: string
