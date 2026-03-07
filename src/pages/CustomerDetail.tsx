@@ -11,7 +11,11 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon, ClipboardList } from "lucide-react";
+import RichTextEditor from "@/components/RichTextEditor";
+import DOMPurify from "dompurify";
+import { jsPDF } from "jspdf";
+import html2canvas from "html2canvas";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { Progress } from "@/components/ui/progress";
@@ -63,6 +67,20 @@ type LinkedSite = {
   postcode: string | null;
 };
 
+type ServiceReport = {
+  id: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  author_id: string;
+  created_at: string;
+  updated_at: string;
+  job_id: string;
+  job_name?: string;
+  job_reference?: string;
+  author_name?: string;
+};
+
 const SITE_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   region: { label: "Region", icon: Globe, color: "text-blue-500" },
   site: { label: "Site", icon: MapPin, color: "text-green-500" },
@@ -92,6 +110,8 @@ export default function CustomerDetail() {
   const [docSortBy, setDocSortBy] = useState<"date" | "name">("date");
   const [docSortAsc, setDocSortAsc] = useState(false);
   const [linkedSites, setLinkedSites] = useState<LinkedSite[]>([]);
+  const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
+  const [viewingReport, setViewingReport] = useState<ServiceReport | null>(null);
 
   // Job creation from dropped files
   const [jobDropDragging, setJobDropDragging] = useState(false);
@@ -220,6 +240,66 @@ export default function CustomerDetail() {
     setLinkedSites(sites);
   }, [id]);
 
+  const fetchServiceReports = useCallback(async (customerName: string) => {
+    if (!customerName) return;
+    // Get all jobs for this customer first
+    const { data: jobsData } = await supabase
+      .from("jobs")
+      .select("id, name, reference_number")
+      .eq("customer", customerName);
+    if (!jobsData || jobsData.length === 0) { setServiceReports([]); return; }
+
+    const jobIds = jobsData.map((j: any) => j.id);
+    const { data: reportsData } = await supabase
+      .from("field_reports")
+      .select("*")
+      .in("job_id", jobIds)
+      .order("updated_at", { ascending: false });
+
+    if (!reportsData || reportsData.length === 0) { setServiceReports([]); return; }
+
+    // Fetch author names
+    const authorIds = [...new Set(reportsData.map((r: any) => r.author_id))];
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", authorIds);
+    const nameMap: Record<string, string> = {};
+    (profiles || []).forEach((p: any) => { nameMap[p.user_id] = p.full_name || "Unknown"; });
+
+    const jobMap: Record<string, { name: string; reference_number: string }> = {};
+    jobsData.forEach((j: any) => { jobMap[j.id] = { name: j.name, reference_number: j.reference_number }; });
+
+    setServiceReports(reportsData.map((r: any) => ({
+      ...r,
+      job_name: jobMap[r.job_id]?.name,
+      job_reference: jobMap[r.job_id]?.reference_number,
+      author_name: nameMap[r.author_id] || "Unknown",
+    })));
+  }, []);
+
+  const exportReportToPdf = async (report: ServiceReport) => {
+    const esc = (s: string) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] || m));
+    const sanitizedContent = DOMPurify.sanitize(report.content);
+    const container = document.createElement("div");
+    container.style.cssText = "width:794px;padding:40px;font-family:Arial,sans-serif;position:absolute;left:-9999px";
+    container.innerHTML = `
+      <h1 style="font-size:22px;margin-bottom:4px">${esc(report.title || "Untitled Report")}</h1>
+      <p style="font-size:11px;color:#666;margin-bottom:4px">Job: ${esc(report.job_reference || "")} — ${esc(report.job_name || "")}</p>
+      <p style="font-size:11px;color:#666;margin-bottom:16px">Author: ${esc(report.author_name || "")} • ${new Date(report.updated_at).toLocaleString()}</p>
+      ${report.summary ? `<p style="font-size:13px;color:#444;background:#f5f5f5;padding:8px 12px;border-radius:6px;margin-bottom:16px"><strong>Summary:</strong> ${esc(report.summary)}</p>` : ""}
+      <hr style="margin-bottom:16px"/>
+      <div style="font-size:14px;line-height:1.6">${sanitizedContent}</div>
+    `;
+    document.body.appendChild(container);
+    try {
+      const canvas = await html2canvas(container, { scale: 2 });
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait" });
+      const w = pdf.internal.pageSize.getWidth();
+      pdf.addImage(canvas.toDataURL("image/jpeg", 0.98), "JPEG", 0, 0, w, (canvas.height * w) / canvas.width);
+      pdf.save(`${(report.title || "report").replace(/[^a-zA-Z0-9]/g, "_")}.pdf`);
+    } finally {
+      document.body.removeChild(container);
+    }
+  };
+
   const fetchJobs = useCallback(async (customerName: string) => {
     const { data } = await supabase
       .from("jobs")
@@ -238,16 +318,17 @@ export default function CustomerDetail() {
       const cust = custRes.data as Customer | null;
       setCustomer(cust);
 
-      // Run jobs, documents, and linked sites in parallel
+      // Run jobs, documents, linked sites and service reports in parallel
       await Promise.all([
         cust ? fetchJobs(cust.name) : Promise.resolve(),
         fetchDocuments(),
         fetchLinkedSites(),
+        cust ? fetchServiceReports(cust.name) : Promise.resolve(),
       ]);
       setLoading(false);
     };
     fetchData();
-  }, [id, fetchJobs, fetchDocuments, fetchLinkedSites]);
+  }, [id, fetchJobs, fetchDocuments, fetchLinkedSites, fetchServiceReports]);
 
   const handleFileUpload = async (files: FileList) => {
     if (!user || !id) return;
@@ -1131,6 +1212,115 @@ export default function CustomerDetail() {
           </CardContent>
         </Card>
       </div>
+
+
+      {/* Service Reports Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <ClipboardList className="h-5 w-5 text-primary" />
+            Service Reports ({serviceReports.length})
+          </h2>
+        </div>
+
+        {serviceReports.length === 0 ? (
+          <Card>
+            <CardContent className="p-6 text-center text-muted-foreground text-sm">
+              No service reports found for this customer's jobs.
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {serviceReports.map((report) => (
+              <Card
+                key={report.id}
+                className="cursor-pointer hover:shadow-md transition-shadow"
+                onClick={() => setViewingReport(report)}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-2 mb-2">
+                    <FileText className="h-4 w-4 mt-0.5 shrink-0 text-primary" />
+                    <p className="font-medium text-sm leading-snug line-clamp-2">{report.title || "Untitled"}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-1">
+                    <Link to={`/jobs/${report.job_id}`} className="font-mono text-primary hover:underline" onClick={(e) => e.stopPropagation()}>
+                      {report.job_reference}
+                    </Link>
+                    {" — "}{report.job_name}
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-2">
+                    {report.author_name} • {new Date(report.updated_at).toLocaleDateString()}
+                  </p>
+                  {report.summary && (
+                    <p className="text-xs text-muted-foreground line-clamp-2 italic">{report.summary}</p>
+                  )}
+                  <div className="mt-3 flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={(e) => { e.stopPropagation(); setViewingReport(report); }}
+                    >
+                      <FileText className="mr-1 h-3 w-3" /> View
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2 text-xs"
+                      onClick={(e) => { e.stopPropagation(); exportReportToPdf(report); }}
+                    >
+                      <Download className="mr-1 h-3 w-3" /> PDF
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* View Service Report Dialog */}
+      {viewingReport && (
+        <Dialog open={!!viewingReport} onOpenChange={(open) => !open && setViewingReport(null)}>
+          <DialogContent className="max-w-3xl h-[85vh] flex flex-col">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5 text-primary" />
+                {viewingReport.title || "Untitled"}
+              </DialogTitle>
+              <p className="text-xs text-muted-foreground">
+                <Link to={`/jobs/${viewingReport.job_id}`} className="font-mono text-primary hover:underline">
+                  {viewingReport.job_reference}
+                </Link>
+                {" — "}{viewingReport.job_name} • {viewingReport.author_name} • {new Date(viewingReport.updated_at).toLocaleString()}
+              </p>
+            </DialogHeader>
+
+            {viewingReport.summary && (
+              <div className="rounded-lg border bg-muted/50 p-3 shrink-0">
+                <p className="text-xs font-medium text-muted-foreground mb-1">AI Summary</p>
+                <p className="text-sm text-muted-foreground">{viewingReport.summary}</p>
+              </div>
+            )}
+
+            <div className="flex-1 overflow-auto">
+              <RichTextEditor content={viewingReport.content} onChange={() => {}} editable={false} />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-4 border-t shrink-0">
+              <Button variant="outline" onClick={() => setViewingReport(null)}>Close</Button>
+              <Button variant="outline" onClick={() => exportReportToPdf(viewingReport)}>
+                <Download className="mr-1.5 h-4 w-4" /> Export PDF
+              </Button>
+              <Button asChild>
+                <Link to={`/jobs/${viewingReport.job_id}`}>
+                  <ExternalLink className="mr-1.5 h-4 w-4" /> Open Job
+                </Link>
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* Manual Create Job Dialog */}
       <Dialog open={manualJobDialogOpen} onOpenChange={setManualJobDialogOpen}>
