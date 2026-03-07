@@ -317,13 +317,19 @@ function PartsPanel({
       newSortOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) + 1 : 0;
     }
 
+    // For install: china_cost = purchase cost (unit_cost), uk_cost = sell price (sell_price)
+    const chinaCost = parseFloat(formData.china_cost) || 0;
+    const ukCost = parseFloat(formData.uk_cost) || 0;
+    const unitCost = listType === "install" ? chinaCost : (parseFloat(formData.unit_cost) || 0);
+    const sellPrice = listType === "install" ? ukCost : (parseFloat(formData.sell_price) || 0);
+
     const { error } = await supabase.from("parts_library").insert({
       name: formData.name.trim(),
       description: null,
-      unit_cost: parseFloat(formData.unit_cost) || 0,
-      sell_price: parseFloat(formData.sell_price) || 0,
-      china_cost: parseFloat(formData.china_cost) || 0,
-      uk_cost: parseFloat(formData.uk_cost) || 0,
+      unit_cost: unitCost,
+      sell_price: sellPrice,
+      china_cost: chinaCost,
+      uk_cost: ukCost,
       category: formData.category.trim() || "general",
       supplier: formData.supplier.trim() || null,
       part_number: formData.part_number.trim() || null,
