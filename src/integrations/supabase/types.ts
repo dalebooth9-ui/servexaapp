@@ -943,6 +943,132 @@ export type Database = {
           },
         ]
       }
+      installation_issue_photos: {
+        Row: {
+          created_at: string
+          file_name: string | null
+          id: string
+          issue_id: string
+          photo_url: string
+        }
+        Insert: {
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          issue_id: string
+          photo_url: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string | null
+          id?: string
+          issue_id?: string
+          photo_url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_issue_photos_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "installation_issues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_issues: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          project_id: string
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          project_id: string
+          sort_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          project_id?: string
+          sort_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_issues_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "installation_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_projects: {
+        Row: {
+          client_name: string
+          company_address: string | null
+          company_email: string | null
+          company_name: string
+          company_phone: string | null
+          created_at: string
+          created_by: string
+          id: string
+          job_id: string
+          reference: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_name?: string
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string
+          company_phone?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          job_id: string
+          reference?: string
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          client_name?: string
+          company_address?: string | null
+          company_email?: string | null
+          company_name?: string
+          company_phone?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          job_id?: string
+          reference?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_projects_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_line_items: {
         Row: {
           amount: number
