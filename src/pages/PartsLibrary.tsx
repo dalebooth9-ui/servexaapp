@@ -317,13 +317,19 @@ function PartsPanel({
       newSortOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) + 1 : 0;
     }
 
+    // For install: china_cost = purchase cost (unit_cost), uk_cost = sell price (sell_price)
+    const chinaCost = parseFloat(formData.china_cost) || 0;
+    const ukCost = parseFloat(formData.uk_cost) || 0;
+    const unitCost = listType === "install" ? chinaCost : (parseFloat(formData.unit_cost) || 0);
+    const sellPrice = listType === "install" ? ukCost : (parseFloat(formData.sell_price) || 0);
+
     const { error } = await supabase.from("parts_library").insert({
       name: formData.name.trim(),
       description: null,
-      unit_cost: parseFloat(formData.unit_cost) || 0,
-      sell_price: parseFloat(formData.sell_price) || 0,
-      china_cost: parseFloat(formData.china_cost) || 0,
-      uk_cost: parseFloat(formData.uk_cost) || 0,
+      unit_cost: unitCost,
+      sell_price: sellPrice,
+      china_cost: chinaCost,
+      uk_cost: ukCost,
       category: formData.category.trim() || "general",
       supplier: formData.supplier.trim() || null,
       part_number: formData.part_number.trim() || null,
@@ -378,12 +384,16 @@ function PartsPanel({
     const oldPart = parts.find((p) => p.id === editingId);
     const oldPayload = oldPart ? { name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price, china_cost: oldPart.china_cost, uk_cost: oldPart.uk_cost, supplier: oldPart.supplier, part_number: oldPart.part_number } : null;
     const editId = editingId;
+    const chinaCost = parseFloat(editForm.china_cost) || 0;
+    const ukCost = parseFloat(editForm.uk_cost) || 0;
+    const unitCost = listType === "install" ? chinaCost : (parseFloat(editForm.unit_cost) || 0);
+    const sellPrice = listType === "install" ? ukCost : (parseFloat(editForm.sell_price) || 0);
     const { error } = await supabase.from("parts_library").update({
       name: editForm.name.trim(),
-      unit_cost: parseFloat(editForm.unit_cost) || 0,
-      sell_price: parseFloat(editForm.sell_price) || 0,
-      china_cost: parseFloat(editForm.china_cost) || 0,
-      uk_cost: parseFloat(editForm.uk_cost) || 0,
+      unit_cost: unitCost,
+      sell_price: sellPrice,
+      china_cost: chinaCost,
+      uk_cost: ukCost,
       supplier: editForm.supplier.trim() || null,
       part_number: editForm.part_number.trim() || null,
     } as any).eq("id", editId);
@@ -468,7 +478,13 @@ function PartsPanel({
     if (items.length === 0) { toast({ title: "No parts selected", variant: "destructive" }); return; }
     setImporting(true);
     const maxOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) : -1;
-    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, china_cost: p.china_cost || 0, uk_cost: p.uk_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
+    const rows = items.map((p, i) => {
+      const chinaCost = p.china_cost || 0;
+      const ukCost = p.uk_cost || 0;
+      const unitCost = listType === "install" ? chinaCost : (p.unit_cost || 0);
+      const sellPrice = listType === "install" ? ukCost : (p.sell_price || 0);
+      return { name: p.name.trim(), description: p.description.trim() || null, unit_cost: unitCost, china_cost: chinaCost, uk_cost: ukCost, sell_price: sellPrice, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType };
+    });
     const { error } = await supabase.from("parts_library").insert(rows as any);
     if (error) {
       toast({ title: "Import Error", description: error.message, variant: "destructive" });
