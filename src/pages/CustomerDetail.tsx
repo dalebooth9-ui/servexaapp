@@ -318,16 +318,17 @@ export default function CustomerDetail() {
       const cust = custRes.data as Customer | null;
       setCustomer(cust);
 
-      // Run jobs, documents, and linked sites in parallel
+      // Run jobs, documents, linked sites and service reports in parallel
       await Promise.all([
         cust ? fetchJobs(cust.name) : Promise.resolve(),
         fetchDocuments(),
         fetchLinkedSites(),
+        cust ? fetchServiceReports(cust.name) : Promise.resolve(),
       ]);
       setLoading(false);
     };
     fetchData();
-  }, [id, fetchJobs, fetchDocuments, fetchLinkedSites]);
+  }, [id, fetchJobs, fetchDocuments, fetchLinkedSites, fetchServiceReports]);
 
   const handleFileUpload = async (files: FileList) => {
     if (!user || !id) return;
