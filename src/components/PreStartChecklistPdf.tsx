@@ -219,8 +219,8 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // ── BS note ──────────────────────────────────────────────────────────
   doc.setFontSize(7.5);
-  doc.setFont("helvetica", "italic");
-  doc.setTextColor(80, 80, 80);
+  doc.setFont("helvetica", "bolditalic");
+  doc.setTextColor(40, 40, 40);
   const bsNote = "*Testing is carried out in accordance with BS 9990:2015 and comprises a visual inspection of the entire system, a hydraulic pressure test to 12 Bar at the inlet, for 15 minutes.";
   const bsLines = doc.splitTextToSize(bsNote, cw);
   doc.text(bsLines, ml, y);
