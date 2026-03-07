@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { Progress } from "@/components/ui/progress";
@@ -33,6 +33,7 @@ type Customer = {
   phone: string | null;
   email: string | null;
   created_at: string;
+  logo_url: string | null;
 };
 
 type Job = {
@@ -72,7 +73,8 @@ const SITE_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType;
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === "admin";
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const [customer, setCustomer] = useState<Customer | null>(null);
@@ -110,6 +112,50 @@ export default function CustomerDetail() {
 
 
   const [attachingDocId, setAttachingDocId] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!id || !user) return;
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (![".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"].includes(ext)) {
+      toast({ title: "Invalid file", description: "Please upload an image file (JPG, PNG, SVG, etc.).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Logo must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    // Remove old logo if exists
+    if (customer?.logo_url) {
+      const oldPath = customer.logo_url.split("/customer-logos/").pop();
+      if (oldPath) await supabase.storage.from("customer-logos").remove([decodeURIComponent(oldPath)]);
+    }
+    const path = `${id}/${Date.now()}-logo${ext}`;
+    const { error: upErr } = await supabase.storage.from("customer-logos").upload(path, file, { upsert: true });
+    if (upErr) {
+      toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
+      setLogoUploading(false);
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage.from("customer-logos").getPublicUrl(path);
+    await supabase.from("customers").update({ logo_url: publicUrl } as any).eq("id", id);
+    setCustomer((prev) => prev ? { ...prev, logo_url: publicUrl } : prev);
+    toast({ title: "Logo updated" });
+    setLogoUploading(false);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!id || !customer?.logo_url) return;
+    const oldPath = customer.logo_url.split("/customer-logos/").pop();
+    if (oldPath) await supabase.storage.from("customer-logos").remove([decodeURIComponent(oldPath)]);
+    await supabase.from("customers").update({ logo_url: null } as any).eq("id", id);
+    setCustomer((prev) => prev ? { ...prev, logo_url: null } : prev);
+    toast({ title: "Logo removed" });
+  };
+
 
   const handleAttachToJob = async (doc: CustomerDocument, jobId: string) => {
     if (!user) return;
@@ -611,22 +657,75 @@ export default function CustomerDetail() {
       </Breadcrumb>
 
       <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <Building2 className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">{customer.name}</h1>
-        </div>
-        <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
-          {customer.email && (
-            <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {customer.email}</span>
-          )}
-          {customer.phone && (
-            <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {customer.phone}</span>
-          )}
-          {customer.address && (
-            <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {customer.address}</span>
-          )}
+        <div className="flex items-start gap-4 mb-2">
+          {/* Customer Logo */}
+          <div className="relative group flex-shrink-0">
+            {customer.logo_url ? (
+              <div className="relative">
+                <img
+                  src={customer.logo_url}
+                  alt={`${customer.name} logo`}
+                  className="h-16 w-16 rounded-lg object-contain border bg-muted/30 p-1"
+                />
+                {isAdmin && (
+                  <div className="absolute inset-0 flex items-center justify-center gap-1 rounded-lg bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      onClick={() => logoInputRef.current?.click()}
+                      className="rounded p-1 text-white hover:text-primary transition-colors"
+                      title="Change logo"
+                    >
+                      <Upload className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={handleRemoveLogo}
+                      className="rounded p-1 text-white hover:text-destructive transition-colors"
+                      title="Remove logo"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : isAdmin ? (
+              <button
+                onClick={() => logoInputRef.current?.click()}
+                disabled={logoUploading}
+                className="flex h-16 w-16 flex-col items-center justify-center gap-1 rounded-lg border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
+                title="Upload customer logo"
+              >
+                {logoUploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImageIcon className="h-5 w-5" />}
+                <span className="text-[9px] font-medium leading-none">LOGO</span>
+              </button>
+            ) : null}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { if (e.target.files?.[0]) handleLogoUpload(e.target.files[0]); }}
+            />
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2">
+              <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
+              <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
+            </div>
+            <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
+              {customer.email && (
+                <span className="flex items-center gap-1"><Mail className="h-3.5 w-3.5" /> {customer.email}</span>
+              )}
+              {customer.phone && (
+                <span className="flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {customer.phone}</span>
+              )}
+              {customer.address && (
+                <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" /> {customer.address}</span>
+              )}
+            </div>
+          </div>
         </div>
       </div>
+
 
       {/* Customer Paperwork Section */}
       <CustomerPaperwork customerId={id} />
