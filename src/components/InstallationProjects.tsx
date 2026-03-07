@@ -319,10 +319,48 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
       .select()
       .single();
     if (error) { toast({ title: "Failed to add issue", variant: "destructive" }); return; }
-    setIssues((prev) => [...prev, { ...(data as any), photos: [] }]);
+    const newIssue = { ...(data as any), photos: [] };
+    setIssues((prev) => [...prev, newIssue]);
     setNewIssueTitle("");
     setAddingIssue(false);
+    const photos = pendingPhotos;
+    setPendingPhotos([]);
+    if (photos.length > 0) {
+      const dt = new DataTransfer();
+      photos.forEach((f) => dt.items.add(f));
+      await addPhoto(newIssue.id, dt.files);
+    }
   };
+
+  const toggleVoice = useCallback(() => {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      setIsListening(false);
+      return;
+    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) {
+      toast({ title: "Voice not supported", description: "Use Chrome or Edge for voice notes.", variant: "destructive" });
+      return;
+    }
+    const recognition = new SR();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = "en-GB";
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend = () => setIsListening(false);
+    recognition.onresult = (event: any) => {
+      const transcript = Array.from(event.results).map((r: any) => r[0].transcript).join("");
+      setNewIssueTitle(transcript);
+    };
+    recognition.onerror = (e: any) => {
+      setIsListening(false);
+      if (e.error !== "aborted") toast({ title: "Voice error", description: "Could not capture audio.", variant: "destructive" });
+    };
+    recognitionRef.current = recognition;
+    recognition.start();
+    setAddingIssue(true);
+  }, [isListening, toast]);
 
   const updateIssueTitle = useCallback(async (id: string, title: string) => {
     await supabase.from("installation_issues" as any).update({ title }).eq("id", id);
