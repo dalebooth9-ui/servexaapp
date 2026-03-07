@@ -147,6 +147,13 @@ export default function Jobs() {
 
   useEffect(() => { fetchJobs(); }, [user]);
 
+  // Keyboard shortcut: n j → open new job dialog
+  useEffect(() => {
+    const handler = () => setDialogOpen(true);
+    window.addEventListener("shortcut:new-job" as any, handler);
+    return () => window.removeEventListener("shortcut:new-job" as any, handler);
+  }, []);
+
   const handleDeleteJob = async (jobId: string) => {
     const deletedJob = jobs.find((j) => j.id === jobId);
     if (!deletedJob) return;
