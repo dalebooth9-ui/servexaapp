@@ -242,7 +242,46 @@ export default function Jobs() {
     setSelectedJobIds(new Set());
   };
 
+  const handleBulkExportCsv = () => {
+    const ids = Array.from(selectedJobIds);
+    const selectedJobs = jobs.filter((j) => ids.includes(j.id));
+    const headers = ["Reference", "Name", "Customer", "Status", "Priority", "Category", "Due Date", "Address"];
+    const rows = selectedJobs.map((j) => [
+      j.reference_number, j.name, getCustomerName(j) || "",
+      j.status, j.priority, j.category, j.due_date || "", j.address || "",
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v: string) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jobs-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: `${ids.length} job(s) exported`, description: "CSV downloaded" });
+  };
+
+  // Escape key clears selection
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedJobIds.size > 0) setSelectedJobIds(new Set());
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedJobIds]);
+
+  // All visible job IDs for global select-all
+  const allFilteredIds = useMemo(() => filtered.map((j) => j.id), [filtered]);
+  const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedJobIds.has(id));
+
+  const handleSelectAllFiltered = (checked: boolean) => {
+    setSelectedJobIds(checked ? new Set(allFilteredIds) : new Set());
+  };
+
   const handleSaveTemplate = async () => {
+
     if (!templateName.trim() || !user) return;
     const { error } = await supabase.from("job_templates" as any).insert({
       name: templateName.trim(),
