@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import { useNavigate } from "react-router-dom";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -26,6 +27,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
+type ListType = "general" | "install";
+
 interface LibraryPart {
   id: string;
   name: string;
@@ -39,6 +42,7 @@ interface LibraryPart {
   part_number: string | null;
   created_at: string;
   sort_order: number;
+  list_type: string;
 }
 
 interface ParsedLibraryPart {
@@ -52,12 +56,13 @@ interface ParsedLibraryPart {
   selected: boolean;
 }
 
-// Inline add row between parts
+// ---------- Inline add row ----------
 const InlineAddRow = forwardRef<HTMLTableRowElement, {
   isAdmin: boolean;
+  showInstallCosts: boolean;
   onAdd: (form: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; category: string; supplier: string; part_number: string }) => Promise<void>;
   colSpan: number;
-}>(function InlineAddRow({ isAdmin, onAdd, colSpan }, ref) {
+}>(function InlineAddRow({ isAdmin, showInstallCosts, onAdd, colSpan }, ref) {
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
   const [adding, setAdding] = useState(false);
@@ -93,12 +98,14 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
           <Input placeholder="Part name *" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="h-8 text-sm flex-1 min-w-[120px]" autoFocus onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
           <Input placeholder="Part #" value={form.part_number} onChange={(e) => setForm({ ...form, part_number: e.target.value })} className="h-8 text-sm w-24" />
           <Input type="number" placeholder="Cost £" min="0" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
-          {isAdmin && (
+          {isAdmin && showInstallCosts && (
             <>
               <Input type="number" placeholder="China £" min="0" step="0.01" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
               <Input type="number" placeholder="UK £" min="0" step="0.01" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
-              <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
             </>
+          )}
+          {isAdmin && (
+            <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
           )}
           <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8 text-sm w-24" />
           <Input placeholder="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="h-8 text-sm w-24" onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
@@ -112,13 +119,14 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
   );
 });
 
-// Sortable table row
+// ---------- Sortable row ----------
 function SortableLibraryRow({
-  part, isAdmin, isEditing, editForm, setEditForm, startEdit, saveEdit, cancelEdit,
+  part, isAdmin, showInstallCosts, isEditing, editForm, setEditForm, startEdit, saveEdit, cancelEdit,
   selected, toggleSelect, handleDelete,
 }: {
   part: LibraryPart;
   isAdmin: boolean;
+  showInstallCosts: boolean;
   isEditing: boolean;
   editForm: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; supplier: string; part_number: string };
   setEditForm: (f: any) => void;
@@ -130,11 +138,7 @@ function SortableLibraryRow({
   handleDelete: (ids: string[]) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: part.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
 
   const margin = part.sell_price > 0 ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100 : 0;
   const costDiff = part.uk_cost - part.china_cost;
@@ -150,45 +154,43 @@ function SortableLibraryRow({
         </TableCell>
       )}
       <TableCell className="font-medium">
-        {isEditing ? (
-          <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-8 text-sm" />
-        ) : part.name}
+        {isEditing ? <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="h-8 text-sm" /> : part.name}
       </TableCell>
       <TableCell className="text-muted-foreground text-sm">
-        {isEditing ? (
-          <Input value={editForm.part_number} onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })} className="h-8 text-sm w-28" />
-        ) : (part.part_number || "—")}
+        {isEditing ? <Input value={editForm.part_number} onChange={(e) => setEditForm({ ...editForm, part_number: e.target.value })} className="h-8 text-sm w-28" /> : (part.part_number || "—")}
       </TableCell>
       <TableCell className="text-muted-foreground text-sm">
-        {isEditing ? (
-          <Input value={editForm.supplier} onChange={(e) => setEditForm({ ...editForm, supplier: e.target.value })} className="h-8 text-sm w-28" />
-        ) : (part.supplier || "—")}
+        {isEditing ? <Input value={editForm.supplier} onChange={(e) => setEditForm({ ...editForm, supplier: e.target.value })} className="h-8 text-sm w-28" /> : (part.supplier || "—")}
       </TableCell>
       <TableCell className="text-sm">{part.category}</TableCell>
       <TableCell className="text-right">
-        {isEditing ? (
-          <Input type="number" min="0" step="0.01" value={editForm.unit_cost} onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
-        ) : <>£{Number(part.unit_cost).toFixed(2)}</>}
+        {isEditing
+          ? <Input type="number" min="0" step="0.01" value={editForm.unit_cost} onChange={(e) => setEditForm({ ...editForm, unit_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+          : <>£{Number(part.unit_cost).toFixed(2)}</>}
       </TableCell>
-      {isAdmin && (
+      {isAdmin && showInstallCosts && (
         <>
           <TableCell className="text-right">
-            {isEditing ? (
-              <Input type="number" min="0" step="0.01" value={editForm.china_cost} onChange={(e) => setEditForm({ ...editForm, china_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
-            ) : <>£{Number(part.china_cost).toFixed(2)}</>}
+            {isEditing
+              ? <Input type="number" min="0" step="0.01" value={editForm.china_cost} onChange={(e) => setEditForm({ ...editForm, china_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+              : <>£{Number(part.china_cost).toFixed(2)}</>}
           </TableCell>
           <TableCell className="text-right">
-            {isEditing ? (
-              <Input type="number" min="0" step="0.01" value={editForm.uk_cost} onChange={(e) => setEditForm({ ...editForm, uk_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
-            ) : <>£{Number(part.uk_cost).toFixed(2)}</>}
+            {isEditing
+              ? <Input type="number" min="0" step="0.01" value={editForm.uk_cost} onChange={(e) => setEditForm({ ...editForm, uk_cost: e.target.value })} className="h-8 text-sm text-right w-24" />
+              : <>£{Number(part.uk_cost).toFixed(2)}</>}
           </TableCell>
           <TableCell className={`text-right text-sm font-medium ${costDiff > 0 ? "text-green-600" : costDiff < 0 ? "text-destructive" : "text-muted-foreground"}`}>
             {(part.china_cost > 0 || part.uk_cost > 0) ? (costDiff >= 0 ? `+£${costDiff.toFixed(2)}` : `-£${Math.abs(costDiff).toFixed(2)}`) : "—"}
           </TableCell>
+        </>
+      )}
+      {isAdmin && (
+        <>
           <TableCell className="text-right">
-            {isEditing ? (
-              <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
-            ) : <>£{Number(part.sell_price).toFixed(2)}</>}
+            {isEditing
+              ? <Input type="number" min="0" step="0.01" value={editForm.sell_price} onChange={(e) => setEditForm({ ...editForm, sell_price: e.target.value })} className="h-8 text-sm text-right w-24" />
+              : <>£{Number(part.sell_price).toFixed(2)}</>}
           </TableCell>
           <TableCell className={`text-right text-sm font-medium ${margin > 0 ? "text-green-600" : margin < 0 ? "text-destructive" : "text-muted-foreground"}`}>
             {part.sell_price > 0 ? `${margin.toFixed(1)}%` : "—"}
@@ -220,23 +222,27 @@ function SortableLibraryRow({
   );
 }
 
-export default function PartsLibrary() {
-  const { user, userRole } = useAuth();
+// ---------- Parts list panel (shared between tabs) ----------
+function PartsPanel({
+  listType,
+  isAdmin,
+}: {
+  listType: ListType;
+  isAdmin: boolean;
+}) {
+  const { user } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
-  const navigate = useNavigate();
-  const isAdmin = userRole === "admin";
+  const showInstallCosts = listType === "install";
 
   const [parts, setParts] = useState<LibraryPart[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Add form
-  const [adding, setAdding] = useState(false);
   const [form, setForm] = useState({ name: "", description: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
+  const [adding, setAdding] = useState(false);
 
-  // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", unit_cost: "", sell_price: "", china_cost: "", uk_cost: "", supplier: "", part_number: "" });
 
@@ -257,12 +263,13 @@ export default function PartsLibrary() {
     const { data } = await supabase
       .from("parts_library")
       .select("*")
+      .eq("list_type", listType)
       .order("sort_order", { ascending: true });
     setParts((data as any) || []);
     setLoading(false);
   };
 
-  useEffect(() => { fetchParts(); }, []);
+  useEffect(() => { setLoading(true); fetchParts(); }, [listType]);
 
   const filteredParts = parts.filter((p) => {
     const q = search.toLowerCase();
@@ -287,9 +294,7 @@ export default function PartsLibrary() {
         newSortOrder = Math.floor((afterPart.sort_order + nextPart.sort_order) / 2);
         if (newSortOrder === afterPart.sort_order) {
           newSortOrder = afterPart.sort_order + 1;
-          const updates = parts.slice(insertAfterIndex + 1).map((p, i) => ({
-            id: p.id, sort_order: afterPart.sort_order + 2 + i,
-          }));
+          const updates = parts.slice(insertAfterIndex + 1).map((p, i) => ({ id: p.id, sort_order: afterPart.sort_order + 2 + i }));
           for (const u of updates) {
             await supabase.from("parts_library").update({ sort_order: u.sort_order } as any).eq("id", u.id);
           }
@@ -313,6 +318,7 @@ export default function PartsLibrary() {
       part_number: formData.part_number.trim() || null,
       created_by: user.id,
       sort_order: newSortOrder,
+      list_type: listType,
     } as any);
     if (error) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -325,11 +331,7 @@ export default function PartsLibrary() {
   const handleAdd = async () => {
     if (!form.name.trim() || !user) return;
     setAdding(true);
-    await handleAddAt({
-      name: form.name, unit_cost: form.unit_cost, sell_price: form.sell_price,
-      china_cost: form.china_cost, uk_cost: form.uk_cost,
-      category: form.category, supplier: form.supplier, part_number: form.part_number,
-    });
+    await handleAddAt({ name: form.name, unit_cost: form.unit_cost, sell_price: form.sell_price, china_cost: form.china_cost, uk_cost: form.uk_cost, category: form.category, supplier: form.supplier, part_number: form.part_number });
     setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
     setAdding(false);
   };
@@ -355,15 +357,7 @@ export default function PartsLibrary() {
 
   const startEdit = (part: LibraryPart) => {
     setEditingId(part.id);
-    setEditForm({
-      name: part.name,
-      unit_cost: String(part.unit_cost),
-      sell_price: String(part.sell_price),
-      china_cost: String(part.china_cost),
-      uk_cost: String(part.uk_cost),
-      supplier: part.supplier || "",
-      part_number: part.part_number || "",
-    });
+    setEditForm({ name: part.name, unit_cost: String(part.unit_cost), sell_price: String(part.sell_price), china_cost: String(part.china_cost), uk_cost: String(part.uk_cost), supplier: part.supplier || "", part_number: part.part_number || "" });
   };
 
   const cancelEdit = () => setEditingId(null);
@@ -371,11 +365,7 @@ export default function PartsLibrary() {
   const saveEdit = async () => {
     if (!editingId) return;
     const oldPart = parts.find((p) => p.id === editingId);
-    const oldPayload = oldPart ? {
-      name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price,
-      china_cost: oldPart.china_cost, uk_cost: oldPart.uk_cost,
-      supplier: oldPart.supplier, part_number: oldPart.part_number,
-    } : null;
+    const oldPayload = oldPart ? { name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price, china_cost: oldPart.china_cost, uk_cost: oldPart.uk_cost, supplier: oldPart.supplier, part_number: oldPart.part_number } : null;
     const editId = editingId;
     const { error } = await supabase.from("parts_library").update({
       name: editForm.name.trim(),
@@ -394,21 +384,14 @@ export default function PartsLibrary() {
       editWithUndo({
         label: "Part updated",
         onUndo: async () => {
-          if (oldPayload) {
-            await supabase.from("parts_library").update(oldPayload as any).eq("id", editId);
-            fetchParts();
-          }
+          if (oldPayload) { await supabase.from("parts_library").update(oldPayload as any).eq("id", editId); fetchParts(); }
         },
       });
     }
   };
 
   const toggleSelect = (id: string) => {
-    setSelected((prev) => {
-      const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
+    setSelected((prev) => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
   };
 
   const toggleAll = () => {
@@ -419,64 +402,35 @@ export default function PartsLibrary() {
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-
     const oldIndex = parts.findIndex((p) => p.id === active.id);
     const newIndex = parts.findIndex((p) => p.id === over.id);
     const reordered = arrayMove(parts, oldIndex, newIndex);
-
     setParts(reordered);
-
     const updates = reordered.map((p, i) => ({ id: p.id, sort_order: i }));
     for (const u of updates) {
       await supabase.from("parts_library").update({ sort_order: u.sort_order } as any).eq("id", u.id);
     }
   };
 
-  // Column count for inline add row
-  const colCount = 7 + (isAdmin ? 5 : 0); // grip + checkbox(admin) + name + part# + supplier + category + cost + china(admin) + uk(admin) + sell(admin) + margin(admin) + actions
+  // Column count: grip + checkbox(admin) + name + part# + supplier + category + cost + [china+uk+profit if install+admin] + [sell+margin if admin] + actions
+  const colCount = 3 + (isAdmin ? 1 : 0) + 4 + (isAdmin && showInstallCosts ? 3 : 0) + (isAdmin ? 2 : 0);
 
-  // Bulk import handlers
+  // Bulk import
   const handleParse = async () => {
     if (!importFile) return;
     setParsing(true);
     try {
       const buffer = await importFile.arrayBuffer();
       const base64 = btoa(new Uint8Array(buffer).reduce((s, b) => s + String.fromCharCode(b), ""));
-
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData?.session?.access_token;
-
       const res = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-import-parts`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ file_base64: base64, file_name: importFile.name }),
-        }
+        { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY }, body: JSON.stringify({ file_base64: base64, file_name: importFile.name }) }
       );
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Parse failed" }));
-        throw new Error(err.error || "Failed to parse document");
-      }
-
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: "Parse failed" })); throw new Error(err.error || "Failed to parse document"); }
       const { parts: parsed } = await res.json();
-      setParsedParts(
-        (parsed || []).map((p: any) => ({
-          name: p.name || p.part || p.material || "",
-          description: p.notes || p.description || "",
-          unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0),
-          sell_price: parseFloat(p.sell_price ?? 0),
-          category: p.category || "general",
-          supplier: p.supplier || "",
-          part_number: p.part_number || p.sku || "",
-          selected: true,
-        }))
-      );
+      setParsedParts((parsed || []).map((p: any) => ({ name: p.name || p.part || p.material || "", description: p.notes || p.description || "", unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0), sell_price: parseFloat(p.sell_price ?? 0), category: p.category || "general", supplier: p.supplier || "", part_number: p.part_number || p.sku || "", selected: true })));
     } catch (err: any) {
       toast({ title: "Parse Error", description: err.message, variant: "destructive" });
     } finally {
@@ -487,52 +441,28 @@ export default function PartsLibrary() {
   const handleBulkImport = async () => {
     if (!user) return;
     const items = parsedParts.filter((p) => p.selected && p.name.trim());
-    if (items.length === 0) {
-      toast({ title: "No parts selected", variant: "destructive" });
-      return;
-    }
+    if (items.length === 0) { toast({ title: "No parts selected", variant: "destructive" }); return; }
     setImporting(true);
     const maxOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) : -1;
-    const rows = items.map((p, i) => ({
-      name: p.name.trim(),
-      description: p.description.trim() || null,
-      unit_cost: p.unit_cost || 0,
-      sell_price: p.sell_price || 0,
-      category: p.category.trim() || "general",
-      supplier: p.supplier.trim() || null,
-      part_number: p.part_number.trim() || null,
-      created_by: user.id,
-      sort_order: maxOrder + 1 + i,
-    }));
-
+    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
     const { error } = await supabase.from("parts_library").insert(rows as any);
     if (error) {
       toast({ title: "Import Error", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: `${items.length} part(s) imported to library` });
-      setImportOpen(false);
-      setParsedParts([]);
-      setImportFile(null);
-      fetchParts();
+      toast({ title: `${items.length} part(s) imported` });
+      setImportOpen(false); setParsedParts([]); setImportFile(null); fetchParts();
     }
     setImporting(false);
   };
 
-  if (loading) return <p className="text-sm text-muted-foreground py-8">Loading parts library...</p>;
+  if (loading) return <p className="text-sm text-muted-foreground py-8">Loading...</p>;
 
   return (
     <div>
-      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
-        <ArrowLeft className="mr-1 h-4 w-4" /> Back
-      </Button>
-      <div className="flex items-center gap-3 mb-6">
-        <Library className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">Parts Library</h1>
-      </div>
-
+      {/* Add Part form */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-base">Add Part to Library</CardTitle>
+          <CardTitle className="text-base">Add Part</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-2 items-end">
@@ -545,7 +475,7 @@ export default function PartsLibrary() {
             <div className="w-24">
               <Input type="number" placeholder="Cost £" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} min="0" step="0.01" />
             </div>
-            {isAdmin && (
+            {isAdmin && showInstallCosts && (
               <>
                 <div className="w-24">
                   <Input type="number" placeholder="China £" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} min="0" step="0.01" />
@@ -553,10 +483,12 @@ export default function PartsLibrary() {
                 <div className="w-24">
                   <Input type="number" placeholder="UK £" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} min="0" step="0.01" />
                 </div>
-                <div className="w-24">
-                  <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
-                </div>
               </>
+            )}
+            {isAdmin && (
+              <div className="w-24">
+                <Input type="number" placeholder="Sell £" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} min="0" step="0.01" />
+              </div>
             )}
             <div className="w-28">
               <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} />
@@ -592,7 +524,7 @@ export default function PartsLibrary() {
             </AlertDialogTrigger>
             <AlertDialogContent>
               <AlertDialogHeader>
-                <AlertDialogTitle>Delete {selected.size} part(s) from library?</AlertDialogTitle>
+                <AlertDialogTitle>Delete {selected.size} part(s)?</AlertDialogTitle>
                 <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -608,7 +540,7 @@ export default function PartsLibrary() {
       {filteredParts.length === 0 ? (
         <div className="py-12 text-center text-muted-foreground">
           <Library className="mx-auto mb-2 h-10 w-10 opacity-50" />
-          <p className="text-sm">{parts.length === 0 ? "No parts in library yet. Add parts or bulk import." : "No matching parts found."}</p>
+          <p className="text-sm">{parts.length === 0 ? "No parts yet. Add parts or bulk import." : "No matching parts found."}</p>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -617,19 +549,15 @@ export default function PartsLibrary() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  {isAdmin && (
-                    <TableHead className="w-10">
-                      <Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} />
-                    </TableHead>
-                  )}
+                  {isAdmin && <TableHead className="w-10"><Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} /></TableHead>}
                   <TableHead>Part Name</TableHead>
                   <TableHead>Part #</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead className="text-right">Unit Cost</TableHead>
-                  {isAdmin && <TableHead className="text-right">China Cost</TableHead>}
-                  {isAdmin && <TableHead className="text-right">UK Cost</TableHead>}
-                  {isAdmin && <TableHead className="text-right">Profit</TableHead>}
+                  {isAdmin && showInstallCosts && <TableHead className="text-right">China Cost</TableHead>}
+                  {isAdmin && showInstallCosts && <TableHead className="text-right">UK Cost</TableHead>}
+                  {isAdmin && showInstallCosts && <TableHead className="text-right">Profit</TableHead>}
                   {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
                   {isAdmin && <TableHead className="text-right">Margin</TableHead>}
                   <TableHead className="w-20" />
@@ -637,11 +565,7 @@ export default function PartsLibrary() {
               </TableHeader>
               <TableBody>
                 {!isSearching && (
-                  <InlineAddRow
-                    isAdmin={isAdmin}
-                    colSpan={colCount}
-                    onAdd={(f) => handleAddAt(f, -1)}
-                  />
+                  <InlineAddRow isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, -1)} />
                 )}
                 {filteredParts.map((part, idx) => (
                   <>
@@ -649,6 +573,7 @@ export default function PartsLibrary() {
                       key={part.id}
                       part={part}
                       isAdmin={isAdmin}
+                      showInstallCosts={showInstallCosts}
                       isEditing={editingId === part.id}
                       editForm={editForm}
                       setEditForm={setEditForm}
@@ -660,12 +585,7 @@ export default function PartsLibrary() {
                       handleDelete={handleDelete}
                     />
                     {!isSearching && (
-                      <InlineAddRow
-                        key={`add-${part.id}`}
-                        isAdmin={isAdmin}
-                        colSpan={colCount}
-                        onAdd={(f) => handleAddAt(f, idx)}
-                      />
+                      <InlineAddRow key={`add-${part.id}`} isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, idx)} />
                     )}
                   </>
                 ))}
@@ -679,7 +599,7 @@ export default function PartsLibrary() {
       <Dialog open={importOpen} onOpenChange={setImportOpen}>
         <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Bulk Import Parts to Library</DialogTitle>
+            <DialogTitle>Bulk Import Parts</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="flex gap-2 items-end">
@@ -700,9 +620,7 @@ export default function PartsLibrary() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-10">
-                        <Checkbox checked={parsedParts.every((p) => p.selected)} onCheckedChange={(c) => setParsedParts((prev) => prev.map((p) => ({ ...p, selected: !!c })))} />
-                      </TableHead>
+                      <TableHead className="w-10"><Checkbox checked={parsedParts.every((p) => p.selected)} onCheckedChange={(c) => setParsedParts((prev) => prev.map((p) => ({ ...p, selected: !!c })))} /></TableHead>
                       <TableHead>Part Name</TableHead>
                       <TableHead className="w-24">Part #</TableHead>
                       <TableHead className="w-24 text-right">Cost £</TableHead>
@@ -713,26 +631,12 @@ export default function PartsLibrary() {
                   <TableBody>
                     {parsedParts.map((part, idx) => (
                       <TableRow key={idx} className={part.selected ? "" : "opacity-50"}>
-                        <TableCell>
-                          <Checkbox checked={part.selected} onCheckedChange={() => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, selected: !p.selected } : p))} />
-                        </TableCell>
-                        <TableCell>
-                          <Input value={part.name} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, name: e.target.value } : p))} className="h-8 text-sm" />
-                        </TableCell>
-                        <TableCell>
-                          <Input value={part.part_number} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, part_number: e.target.value } : p))} className="h-8 text-sm" />
-                        </TableCell>
-                        <TableCell>
-                          <Input type="number" value={part.unit_cost} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, unit_cost: parseFloat(e.target.value) || 0 } : p))} className="h-8 text-sm text-right w-24" min="0" step="0.01" />
-                        </TableCell>
-                        <TableCell>
-                          <Input value={part.supplier} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, supplier: e.target.value } : p))} className="h-8 text-sm" />
-                        </TableCell>
-                        <TableCell>
-                          <button onClick={() => setParsedParts((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive">
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </TableCell>
+                        <TableCell><Checkbox checked={part.selected} onCheckedChange={() => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, selected: !p.selected } : p))} /></TableCell>
+                        <TableCell><Input value={part.name} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, name: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
+                        <TableCell><Input value={part.part_number} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, part_number: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
+                        <TableCell><Input type="number" value={part.unit_cost} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, unit_cost: parseFloat(e.target.value) || 0 } : p))} className="h-8 text-sm text-right w-24" min="0" step="0.01" /></TableCell>
+                        <TableCell><Input value={part.supplier} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, supplier: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
+                        <TableCell><button onClick={() => setParsedParts((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -751,6 +655,38 @@ export default function PartsLibrary() {
           )}
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+// ---------- Page ----------
+export default function PartsLibrary() {
+  const { userRole } = useAuth();
+  const isAdmin = userRole === "admin";
+  const navigate = useNavigate();
+
+  return (
+    <div>
+      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
+        <ArrowLeft className="mr-1 h-4 w-4" /> Back
+      </Button>
+      <div className="flex items-center gap-3 mb-6">
+        <Library className="h-6 w-6 text-primary" />
+        <h1 className="text-2xl font-bold">Parts Library</h1>
+      </div>
+
+      <Tabs defaultValue="general">
+        <TabsList className="mb-6">
+          <TabsTrigger value="general">General Parts</TabsTrigger>
+          <TabsTrigger value="install">Install Parts</TabsTrigger>
+        </TabsList>
+        <TabsContent value="general">
+          <PartsPanel listType="general" isAdmin={isAdmin} />
+        </TabsContent>
+        <TabsContent value="install">
+          <PartsPanel listType="install" isAdmin={isAdmin} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
