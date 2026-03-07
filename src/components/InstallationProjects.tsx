@@ -223,8 +223,8 @@ function CreateProjectDialog({
       .select()
       .single();
     setSaving(false);
-    if (error) { toast({ title: "Failed to create project", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Project created" });
+    if (error) { toast({ title: "Failed to create snag list", description: error.message, variant: "destructive" }); return; }
+    toast({ title: "Snag list created" });
     onCreated({ ...(data as any), issues: [] });
     onClose();
   };
