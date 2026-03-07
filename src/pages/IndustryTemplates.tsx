@@ -63,6 +63,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "remedial_details", label: "Remedial Action Details", type: "textarea", section: "General Checks", required: false },
       { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
       { id: "comments", label: "Comments / Observations", type: "textarea", section: "Result", required: false },
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015 — Dry Riser Systems — Code of Practice for the use of dry riser systems", type: "checkbox", section: "Declaration", required: true },
     ],
   },
   {
@@ -408,7 +409,7 @@ export default function IndustryTemplates() {
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-foreground leading-snug">{tpl.name}</p>
-                          <Badge variant="outline" className="text-xs shrink-0">{tpl.standard}</Badge>
+                          <Badge variant="outline" className="text-xs shrink-0 font-bold">{tpl.standard}</Badge>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">{tpl.description}</p>
                         <p className="text-xs text-muted-foreground mt-2">{tpl.fields.length} fields</p>
