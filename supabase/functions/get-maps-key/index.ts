@@ -43,6 +43,30 @@ Deno.serve(async (req) => {
     );
   }
 
+  // Proxy mode: if a geocode address is passed, resolve it server-side
+  // to avoid exposing the raw API key to the browser.
+  let body: Record<string, string> = {};
+  try {
+    if (req.headers.get("content-type")?.includes("application/json")) {
+      body = await req.json();
+    }
+  } catch { /* no body */ }
+
+  if (body.address) {
+    const encoded = encodeURIComponent(body.address);
+    const mapsRes = await fetch(
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${apiKey}`
+    );
+    const mapsData = await mapsRes.json();
+    return new Response(JSON.stringify(mapsData), {
+      status: mapsRes.status,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  // For the Maps JavaScript SDK (map rendering), we still need to return the key
+  // so the script tag can be loaded. Restrict this key in Google Cloud Console to
+  // your domain (HTTP referrer restriction) to prevent abuse.
   return new Response(
     JSON.stringify({ apiKey }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
