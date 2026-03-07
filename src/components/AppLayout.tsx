@@ -201,28 +201,52 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 const items = itemsBySection[section];
                 if (!items || items.length === 0) return null;
                 const label = SECTION_LABELS[section];
+                const isMoreSection = section === "more";
                 return (
                   <div key={section} className="mb-1">
-                    {label &&
+                    {label && !isMoreSection &&
                     <p className="mb-1 mt-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
                         {label}
                       </p>
                     }
-                    <div className="space-y-0.5">
-                      {items.map((item) => {
-                        const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
-                        return (
-                          <SortableNavItem
-                            key={item.to}
-                            item={item}
-                            isActive={isActive}
-                            onClick={() => setMobileOpen(false)} />);
-
-
-                      })}
-                    </div>
+                    {isMoreSection ? (
+                      <>
+                        <button
+                          onClick={() => setMoreOpen((v) => !v)}
+                          className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors select-none"
+                        >
+                          <span className="flex-1 text-left">{label}</span>
+                          <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
+                        </button>
+                        {moreOpen && (
+                          <div className="space-y-0.5">
+                            {items.map((item) => {
+                              const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
+                              return (
+                                <SortableNavItem
+                                  key={item.to}
+                                  item={item}
+                                  isActive={isActive}
+                                  onClick={() => setMobileOpen(false)} />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-0.5">
+                        {items.map((item) => {
+                          const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
+                          return (
+                            <SortableNavItem
+                              key={item.to}
+                              item={item}
+                              isActive={isActive}
+                              onClick={() => setMobileOpen(false)} />);
+                        })}
+                      </div>
+                    )}
                   </div>);
-
               })}
             </SortableContext>
           </DndContext>
