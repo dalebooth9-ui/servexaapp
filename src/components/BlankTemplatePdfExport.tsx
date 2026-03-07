@@ -23,6 +23,7 @@ type Template = {
   id: string;
   name: string;
   description: string | null;
+  standard?: string | null;
   fields: PdfTemplateField[];
   branding?: {
     company_name?: string;
@@ -123,7 +124,7 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           refNumber,
           dateVal,
           riserLocation: riserLocValue,
-        });
+        }, template.standard);
 
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);

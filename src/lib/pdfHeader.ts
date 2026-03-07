@@ -29,7 +29,8 @@ export async function renderPdfHeader(
   doc: jsPDF,
   templateName: string,
   branding: PdfBranding,
-  data: PdfHeaderData
+  data: PdfHeaderData,
+  standard?: string | null
 ): Promise<number> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
@@ -75,13 +76,23 @@ export async function renderPdfHeader(
   doc.setTextColor(33, 61, 99);
   doc.text(templateName.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
 
+  // --- Standard (BS number) subtitle ---
+  let afterTitleY = logoBottomY + 4;
+  if (standard) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8);
+    doc.setTextColor(33, 61, 99);
+    doc.text(standard, pageWidth / 2, afterTitleY, { align: "center" });
+    afterTitleY += 4;
+  }
+
   // --- Separator ---
   doc.setDrawColor(33, 61, 99);
   doc.setLineWidth(0.5);
-  doc.line(margin, logoBottomY + 3, pageWidth - margin, logoBottomY + 3);
+  doc.line(margin, afterTitleY, pageWidth - margin, afterTitleY);
 
   doc.setTextColor(30, 30, 30);
-  y = logoBottomY + 7;
+  y = afterTitleY + 4;
 
   // --- 3-row detail grid ---
   doc.setDrawColor(0);

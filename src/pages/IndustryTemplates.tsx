@@ -452,6 +452,7 @@ export default function IndustryTemplates() {
                     id: tpl.id,
                     name: tpl.name,
                     description: tpl.description,
+                    standard: tpl.standard,
                     fields: tpl.fields,
                     branding: {},
                   };
