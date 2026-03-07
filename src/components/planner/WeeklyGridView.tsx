@@ -69,6 +69,7 @@ const STATUS_INDICATOR: Record<string, { label: string; class: string }> = {
   active: { label: "Active", class: "bg-primary/20 text-primary" },
   completed: { label: "Done", class: "bg-green-500/20 text-green-700 dark:text-green-400" },
   archived: { label: "Archived", class: "bg-muted text-muted-foreground" },
+  revisit: { label: "Revisit", class: "bg-orange-500/20 text-orange-600 dark:text-orange-400" },
 };
 
 function extractPostcodeArea(job: Job): string {
