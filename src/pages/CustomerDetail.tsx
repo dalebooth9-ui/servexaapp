@@ -73,7 +73,8 @@ const SITE_TYPE_CONFIG: Record<string, { label: string; icon: React.ElementType;
 export default function CustomerDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
+  const isAdmin = userRole === "admin";
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const [customer, setCustomer] = useState<Customer | null>(null);
