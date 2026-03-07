@@ -275,7 +275,7 @@ export default function PartsLibrary() {
   const isSearching = search.trim().length > 0;
 
   const handleAddAt = async (
-    formData: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string },
+    formData: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; category: string; supplier: string; part_number: string },
     insertAfterIndex?: number,
   ) => {
     if (!formData.name.trim() || !user) return;
