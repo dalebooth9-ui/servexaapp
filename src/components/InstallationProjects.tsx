@@ -523,7 +523,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
       <div className="flex items-start justify-between gap-4 mb-4">
         <div>
           <button onClick={onBack} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1 mb-1 transition-colors">
-            ← All projects
+            ← All snag lists
           </button>
           <h3 className="font-semibold text-base">{project.title}</h3>
           <div className="flex flex-wrap gap-2 mt-1">
