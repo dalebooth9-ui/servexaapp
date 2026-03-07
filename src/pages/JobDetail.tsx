@@ -261,24 +261,34 @@ export default function JobDetail() {
               <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
             </div>
           )}
-          {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {job.pressure_test_qty > 0 && (
+          {job.category === "installation" ? (
+            job.other_qty > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
-                  Pressure Test <span className="font-bold">× {job.pressure_test_qty}</span>
+                  Dry Riser Systems <span className="font-bold">× {job.other_qty}</span>
                 </span>
-              )}
-              {job.visual_qty > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                  Visual Inspection <span className="font-bold">× {job.visual_qty}</span>
-                </span>
-              )}
-              {job.other_qty > 0 && job.other_service_type && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-accent border border-border px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                  {job.other_service_type} <span className="font-bold">× {job.other_qty}</span>
-                </span>
-              )}
-            </div>
+              </div>
+            )
+          ) : (
+            (job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {job.pressure_test_qty > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
+                    Pressure Test <span className="font-bold">× {job.pressure_test_qty}</span>
+                  </span>
+                )}
+                {job.visual_qty > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                    Visual Inspection <span className="font-bold">× {job.visual_qty}</span>
+                  </span>
+                )}
+                {job.other_qty > 0 && job.other_service_type && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-accent border border-border px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                    {job.other_service_type} <span className="font-bold">× {job.other_qty}</span>
+                  </span>
+                )}
+              </div>
+            )
           )}
           {userRole === "admin" ? (
             <div className="mt-1.5 flex items-center gap-2">
