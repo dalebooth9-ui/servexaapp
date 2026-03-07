@@ -913,8 +913,9 @@ export async function buildSharedMethodSections(
 
   currentPageRef.num++;
   return y;
-}
-  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.text("2 Description of Work", ML, y); y += 5;
+
+
+
   y = para(doc, sections.descriptionOfWork, ML, y, CONTENT_W); y += 3;
 
   // ─── Site Working Hours ───
