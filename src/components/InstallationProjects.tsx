@@ -45,9 +45,9 @@ async function getSignedUrl(path: string): Promise<string> {
 
 function IssueCard({
   issue, issueNumber, onUpdateTitle, onUpdateDescription, onToggleStatus,
-  onDelete, onAddPhoto, onDeletePhoto, uploadingIssueId,
+  onDelete, onAddPhoto, onDeletePhoto, uploadingIssueId, initiallyExpanded,
 }: {
-  issue: Issue; issueNumber: number;
+  issue: Issue; issueNumber: number; initiallyExpanded?: boolean;
   onUpdateTitle: (id: string, val: string) => void;
   onUpdateDescription: (id: string, val: string) => void;
   onToggleStatus: (id: string, current: string) => void;
@@ -56,7 +56,7 @@ function IssueCard({
   onDeletePhoto: (issueId: string, photoId: string, photoUrl: string) => void;
   uploadingIssueId: string | null;
 }) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(initiallyExpanded ?? false);
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleVal, setTitleVal] = useState(issue.title);
   const [descVal, setDescVal] = useState(issue.description || "");
