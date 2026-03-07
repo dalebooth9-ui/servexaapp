@@ -219,7 +219,7 @@ function SortablePartRow({
   );
 }
 
-export default function JobParts({ jobId }: { jobId: string }) {
+export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCategory?: string }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
@@ -623,8 +623,14 @@ export default function JobParts({ jobId }: { jobId: string }) {
           )}
         </>
       )}
-      <ImportPartsDialog open={importOpen} onOpenChange={setImportOpen} jobId={jobId} onImported={fetchParts} />
-      <PartsLibraryPicker open={libraryOpen} onOpenChange={setLibraryOpen} jobId={jobId} onAdded={fetchParts} />
+  <ImportPartsDialog open={importOpen} onOpenChange={setImportOpen} jobId={jobId} onImported={fetchParts} />
+      <PartsLibraryPicker
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        jobId={jobId}
+        onAdded={fetchParts}
+        listType={jobCategory?.includes("install") ? "install" : "general"}
+      />
     </div>
   );
 }

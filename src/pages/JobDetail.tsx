@@ -559,7 +559,7 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <JobParts jobId={id!} />
+          <JobParts jobId={id!} jobCategory={job.category} />
         </CollapsibleContent>
       </Collapsible>
 

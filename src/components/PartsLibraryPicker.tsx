@@ -24,11 +24,13 @@ export default function PartsLibraryPicker({
   onOpenChange,
   jobId,
   onAdded,
+  listType = "general",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   jobId: string;
   onAdded: () => void;
+  listType?: string;
 }) {
   const { user, userRole } = useAuth();
   const isAdmin = userRole === "admin";
@@ -50,11 +52,12 @@ export default function PartsLibraryPicker({
       const { data } = await supabase
         .from("parts_library")
         .select("id, name, unit_cost, sell_price, supplier, part_number, category")
+        .eq("list_type", listType)
         .order("name", { ascending: true });
       setParts((data as any) || []);
       setLoading(false);
     })();
-  }, [open]);
+  }, [open, listType]);
 
   const filtered = parts.filter((p) => {
     const q = search.toLowerCase();
