@@ -624,3 +624,244 @@ export async function generateHydrantRamsPdf(
 
   return finaliseAndReturn(doc, jobInfo, "hydrant-rams");
 }
+
+/* ══════════════════════════════════════════ DRY RISER INSTALLATION ══ */
+
+export async function generateInstallationRamsPdf(
+  formData: RamsFormData,
+  jobInfo: RamsJobInfo | null,
+  assignedEngineers: { name: string; sig: string; date: string }[] = []
+): Promise<{ base64: string; fileName: string }> {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const logoImg = await loadLogoImage();
+  const TOTAL_PAGES = 10;
+
+  // Cover page
+  const { datePrepared, clientName, attendanceDate, siteLocation, engineerNames, operatives } =
+    await buildCoverPage(doc, logoImg, formData, jobInfo, {
+      title1: "Supply & Installation of Dry Riser System",
+      title2: "Dry Riser Installation",
+      operationTask: "Supply, installation, pressure testing and commissioning of dry riser systems.",
+    }, assignedEngineers);
+
+  const siteLocTrunc = doc.splitTextToSize(siteLocation, CONTENT_W - 30).slice(0, 1).join("") +
+    (doc.splitTextToSize(siteLocation, CONTENT_W - 30).length > 1 ? "…" : "");
+
+  // Method statement pages 1–5
+  const pageRef = { num: 1 };
+  await buildSharedMethodSections(doc, logoImg, {
+    descriptionOfWork: `Supply, install and commission dry riser system(s) in accordance with BS 9990:2015 and the latest revision of the Viva Fire working drawings.`,
+    sequenceOfOps: [
+      "All working personnel must have received site induction from the Principal Contractor and a RAMS briefing from the Viva Fire site supervisor before works commence.",
+      "Personnel will be required to sign in via main security following the Principal Contractor procedures in place, then into the daily sign-in register.",
+      "All working personnel must be able to demonstrate they have the correct skill set and certification before works commence.",
+      "A common appreciation of plant and pedestrians (who retain priority) must be observed and followed before moving about site.",
+      "All deliveries of materials must be pre-booked with the Principal Contractor Zone Manager with 48 hours' notice given.",
+      "Check available timeslots for deliveries in the site office. All deliveries will be supervised by a competent banksman; delivery drivers must remain in vehicle if they do not have suitable PPE.",
+      "The delivery vehicle must deploy hazard lights/flashing beacon and any audible warning system if fitted.",
+      "All personnel must be familiar with manual handling techniques and never lift beyond personal capability.",
+      "Operatives will use Mobile Towers and Podiums (with fitted hand rails only) for access at high level. Towers must carry an EU mark, be inspected before use, and erected/dismantled by a PASMA trained operative. A scaff tag system will be deployed and signed off weekly.",
+      "Proceed to the work area and carry out a site safety check. Remove any debris or obstructions with permission of the Principal Contractor.",
+      "Set up working area in an agreed and safe position after consultation with the Principal Contractor supervisor/manager.",
+    ],
+    taskSpecificOps: [
+      "Ensure that all drawings are to construction status prior to commencing with any site works.",
+      "Viva Fire will have a storage area on site (location TBC). On a daily basis, pipework and materials shall be taken into the building and stored as close as practical to the work area on each floor.",
+      "Erect the tower scaffold or 2-wheel podium platform for work at height.",
+      "The holes through walls and floors shall be pre-drilled by others prior to installation of the pipework.",
+      "The dry riser pipework, fittings, couplings and valves shall be installed in accordance with the latest revision of the Viva Fire working drawings.",
+      "All pipework shall be installed in individual sections and connected using mechanical couplings and fittings.",
+      "Each pipe shall be correctly connected and securely fixed into position with pipe brackets prior to the installation of the next pipe.",
+      "All pipework shall be supported from structural floors/ceilings using brackets independent of other services unless otherwise agreed.",
+      "The brackets for the riser pipework shall be fixed to floors/ceilings using concrete anchors or Hilti screws.",
+      "The vertical pipework shall be installed connecting each floor level of the building using mechanical pipe couplings and fittings.",
+      "Permits to work will be obtained when required before any work commences — hot works permits are required for cutting 100mm galvanised pipe.",
+      "Pipework fabricated on site using a chop saw and grooving machine; machine to be secured when not in use and enclosed with barriers during use.",
+      "Each section of vertical pipe shall be installed by two operatives — one supporting the pipework while the other securely clamps and connects.",
+      "The dry riser pipework shall have a picture tee fitting on each floor for connection of a landing valve.",
+      "An air release valve shall be installed at the highest point of each system's pipework.",
+      "Each landing valve shall be housed in a cabinet securely fastened to the wall.",
+      "Pipework that is to be concealed shall not be enclosed until after it has been pressure tested.",
+      "Prior to testing, advise the Principal Contractor and obtain a Permit to Work. Inspect all pipework for open ends — plug or cap any open pipe ends.",
+      "Using a test pump with all ends sealed, charge the pipework with water to 12 bar standing pressure for 15 minutes. Monitor pressure and inspect joints for leaks.",
+      "Where leaks are detected, drain the system, rectify leaks, and repeat the pressure test.",
+      "When testing is complete, fully drain the system, close drain valves, and remove hose.",
+      "Issue the Viva Fire 'Pipework Test Report' sheet for each test. Certificate to be signed by the senior operative and the Principal Contractor's responsible person.",
+      "Descend Mobile Tower/Podium on completion of each task.",
+      "Leave work area clean and tidy on a progressive basis. Inspection check by supervisor.",
+    ],
+    location: "Ground floor and all levels stair lobbies / riser routes throughout the building.",
+    resources: "Minimum of: 1 operative & 1 supervisor per working sequence. Some tasks (e.g. installing valves and boxes) can be carried out by 1 supervisor.",
+    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    plantAndEquipment: [
+      "Mobile Scaffold Tower, Podium platforms",
+      "Chop saw (dry diamond tip)",
+      "Hilti Battery hammer drill c/w vacuum",
+      "Rigid 933 machine and 916 roll groover",
+      "Hilti Ratchet gun and sockets",
+      "Hand tools — various spanners, hammer, punch, hacksaw, tape measures",
+      "Portable pressure test pump and calibrated gauge",
+    ],
+    significantRisks: [
+      "Falls from height (tower/podium)",
+      "Electric shock",
+      "Potential collapse of tower/podium",
+      "Eye injury from drilling/cutting",
+      "Lacerations to hands",
+      "Manual handling / ergonomics",
+      "Slips, trips and falls",
+      "Noise from drilling/cutting",
+      "Hand arm vibration (HAVS)",
+      "Dust (silica dust from drilling)",
+      "Unloading/loading of vehicles",
+      "Hazardous substances (COSHH)",
+    ],
+    specialTraining: "IOSH Managing Safely – Managers. SSSTS – Supervisors. PASMA – Mobile Tower Erectors. IPAF 1a 1b – Where applicable. CSCS – All operatives. Manual Handling – All operatives. Dale Booth: IOSH MSC, CSCS, IPAF. Martin Whatmough: SSSTS, IOSH passport to work, CSCS, IPAF.",
+  }, pageRef, TOTAL_PAGES);
+
+  // Risk assessment pages 6–9
+  const riskTitle = "Risk Assessment for Dry Riser Installation";
+  const rC = [22, 20, 28, 6, 6, 8, 42, 6, 6, 8, 30];
+
+  await buildRiskPage(doc, logoImg, {
+    title: riskTitle, operationTask: "Dry Riser Installation",
+    engineerNames, siteLocTrunc,
+    rows: [
+      ["Working at height — Mobile Tower",
+        "Falls from height during erection or use",
+        "Falls from mobile tower by operatives. Falling tools or debris striking persons below.",
+        "5","6","30",
+        "Only PASMA trained operatives to erect/dismantle mobile tower. Scaff tag system deployed and signed if moved or every 7 days. Working area checked for obstacles; surface must be flat. Brakes applied at all times. Exclusion zone beneath tower. Hard hats worn by all in vicinity.",
+        "2","6","12", ""],
+      ["Working at height — Podium/Hop-Ups",
+        "Operatives falling or being knocked from podium",
+        "Falls from podium or hop-up causing serious injury.",
+        "1","2","2",
+        "Operatives must carry out a visual check of podium before every use. Deploy only on flat, even, clear surfaces. Podiums must be of industrial standard, fully extended. Only stand on working platform. Scaff-Tags completed weekly.",
+        "1","2","2", ""],
+      ["Working at height — Step Ladders",
+        "Falls from stepladder",
+        "Falls from stepladder causing serious injury.",
+        "5","6","30",
+        "Step ladders used only as last resort and under a daily permit issued by site foreman. Three points of contact required at all times. Ladders inspected before use, defects reported and quarantined. Heavy loads must not be carried up a ladder.",
+        "2","6","12", ""],
+    ],
+  }, pageRef.num++, TOTAL_PAGES, rC);
+
+  await buildRiskPage(doc, logoImg, {
+    title: riskTitle, operationTask: "Dry Riser Installation",
+    engineerNames, siteLocTrunc,
+    rows: [
+      ["Drilling / cutting operations",
+        "Eye injury from flying debris, dust, or fragments",
+        "Foreign bodies causing eye damage or loss of sight.",
+        "1","2","2",
+        "Safety goggles EN166 1F AS mandatory for all drilling and cutting operations. Dust kept to minimum. Toolbox talks to cover this topic. Adequate supervision.",
+        "2","5","10", ""],
+      ["Drilling / cutting operations",
+        "Silica dust inhalation",
+        "Respiratory disease and skin conditions. Silica dust is a significant health hazard.",
+        "5","4","20",
+        "FP3 dust masks mandatory for all drilling/cutting. Face-fit testing is mandatory for all operatives. Hilti vacuum used to capture dust at source. Good ventilation in work area maintained.",
+        "2","4","8", ""],
+      ["Drilling / cutting operations — HAVS",
+        "Hand arm vibration from power tools",
+        "HAVS — vibration white finger, carpal tunnel syndrome, permanent numbness, joint damage.",
+        "5","5","25",
+        "Power tools with lowest vibration selected. Hilti Drill EAV 37 mins, ELV 148 mins. Hilti Impact Drill EAV 750 mins, ELV 3000 mins. Job rotation to prevent over-exposure. Tools maintained and drill bits kept sharp. Operatives trained on risks of HAVS. Signs of injury to be reported immediately.",
+        "2","5","10", ""],
+    ],
+  }, pageRef.num++, TOTAL_PAGES, rC);
+
+  await buildRiskPage(doc, logoImg, {
+    title: riskTitle, operationTask: "Dry Riser Installation",
+    engineerNames, siteLocTrunc,
+    rows: [
+      ["Pressure testing pipework",
+        "High pressure water / burst connection",
+        "Injury from pressurised water. Water damage to building and contents.",
+        "3","5","15",
+        "Obtain Permit to Work before testing. Inspect all pipework and ensure no open ends. Check all drain valves closed. Use calibrated gauge (Certificate of Conformity issued). Charge to 12 bar for 15 minutes. Monitor pressure at test gauge. Inspect all joints for leaks. Principal Contractor representative to witness test.",
+        "2","3","6", ""],
+      ["Handling materials/tools with sharp edges",
+        "Lacerations to hands and body",
+        "Serious cuts from pipe ends, couplings, brackets and drill bits.",
+        "5","7","35",
+        "Gloves CE4131 to be worn at all times when handling pipework and materials. Attention paid to exposed sharp edges left by other contractors. Deploy correct manual handling techniques. All operatives to have had Manual Handling Training.",
+        "2","7","14", "Never deviate from safe system of work."],
+      ["Incompetence / defective tools",
+        "Eye injury, lacerations, various",
+        "Injuries from misuse or failure of tools.",
+        "1","2","2",
+        "All tools visually inspected prior to use and must be fit for purpose. Power tools PAT tested. All tools entered on PUWER register. Defective tools labelled and quarantined immediately.",
+        "3","4","12", ""],
+    ],
+  }, pageRef.num++, TOTAL_PAGES, rC);
+
+  // Final risk page with detail block
+  newPage(doc);
+  await pageHeader(doc, logoImg, "", 18);
+  let y = 39;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(10); doc.setTextColor(33, 61, 99);
+  doc.text(riskTitle, 105, y, { align: "center" }); doc.setTextColor(0, 0, 0); y += 6;
+  doc.setFontSize(8); doc.setFont("helvetica", "normal");
+  labelValue(doc, "Operation/Task:", "Dry Riser Installation", ML, y, 28); y += 4.5;
+  labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
+  labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
+  labelValue(doc, "Other Persons at Risk:", "Other nearby contractors, public", ML, y, 36); y += 4.5;
+  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+  y = riskTableHeader(doc, rC, y);
+  y = riskRow(doc, [
+    "Moving plant / traffic / pedestrians",
+    "Collision with vehicles or moving materials",
+    "Struck by moving plant. Injury or fatality.",
+    "5","7","35",
+    "Traffic and pedestrian routes clearly defined and followed. Vehicles and plant to have banksmen on site. Operatives to keep up to date with site changes. Short cuts must never be taken. Extra care at crossing points.",
+    "2","7","14",
+    "All operatives to keep up to date with site changes regarding pedestrian routes as project progresses."
+  ], rC, y, 0, false);
+  y = riskRow(doc, [
+    "Working adjacent other trades",
+    "Contact with electrical operations, manual handling, vehicle movements",
+    "Injury from adjacent contractor activities.",
+    "5","7","35",
+    "Close liaison with other contractors. Daily project briefs between contractors. Adherence to site rules. Particular attention to noise, dust, delivery schedules and common PPE standards. Report dangerous activities by other contractors to site management.",
+    "2","5","10",
+    ""
+  ], rC, y, 0, false);
+  y = riskRow(doc, [
+    "Human Factors: Capabilities and Behavioural Safety",
+    "Inappropriate behaviour / overconfidence",
+    "Activity exceeds capability of personnel.",
+    "1","2","2",
+    "Site induction. Competent supervisor (SSSTS) highly visible. All personnel to embrace behavioural safety training. Prior to commencement all employees to have CSCS cards, trade specific training and IOSH Working Safely. All PPE of appropriate size and fit for the individual.",
+    "1","2","4",
+    "All working personnel to re-evaluate working practices as per IOSH behavioural safety training."
+  ], rC, y, 0, false);
+  y += 4;
+  const fieldRowH = 8, labelColW = 55;
+  doc.setDrawColor(180); doc.setLineWidth(0.3);
+  for (const [label, val] of [
+    ["Assessment Date:", datePrepared], ["Review Date:", "3 monthly"],
+    ["Client:", clientName], ["Attendance Date:", attendanceDate],
+    ["Copies Issued To:", "(For Contract Specific Use)"],
+  ] as [string, string][]) {
+    doc.rect(ML, y, CONTENT_W, fieldRowH); doc.rect(ML, y, labelColW, fieldRowH);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text(label, ML + 1, y + 5);
+    doc.setFont("helvetica", "normal"); doc.text(val, ML + labelColW + 2, y + 5);
+    y += fieldRowH;
+  }
+  y += 4;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Exposure Ratings:", ML, y); y += 4;
+  y = para(doc, "1=Highly Unlikely, 2=Unlikely, 3=Possible, 4=Probable, 5=Common, 6=Regular, 7=Continuous", ML, y, CONTENT_W, 8); y += 3;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Severity Ratings:", ML, y); y += 4;
+  para(doc, "1=Trivial, 2=Minor, 3=Under '7-day' Injury, 4=Over '7-day' Reportable Injury, 5=Major Injury, 6=Fatality (1 person), 7=Multiple Fatality (2+ persons)", ML, y, CONTENT_W, 8);
+  riskColorLegend(doc, PAGE_H - 18);
+  pageFooter(doc, pageRef.num++, TOTAL_PAGES);
+
+  // Sign-off page
+  await buildSignOffPage(doc, logoImg, operatives, "Dry Riser Installation Specialist", pageRef.num, TOTAL_PAGES);
+
+  return finaliseAndReturn(doc, jobInfo, "installation-rams");
+}
