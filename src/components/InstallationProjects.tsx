@@ -326,7 +326,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
     if (error) { toast({ title: "Failed to add issue", variant: "destructive" }); return; }
     const newIssue = { ...(data as any), photos: [] };
     setIssues((prev) => [...prev, newIssue]);
-    setNewIssueTitle("");
+    setNewlyAddedIssueId(newIssue.id);
     setAddingIssue(false);
     const photos = pendingPhotos;
     setPendingPhotos([]);
