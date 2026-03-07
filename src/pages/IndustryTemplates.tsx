@@ -89,6 +89,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "remedial_required", label: "Remedial Action Required", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
       { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
       { id: "comments", label: "Comments", type: "textarea", section: "Result", required: false },
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015 — Dry Riser Systems — Code of Practice for the use of dry riser systems", type: "checkbox", section: "Declaration", required: true },
     ],
   },
   {
@@ -119,6 +120,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "test_result", label: "Pressure Test Result", type: "pass_fail", section: "Pressure Test", required: true },
       { id: "overall_result", label: "System Commissioned & Accepted", type: "pass_fail", section: "Result", required: true },
       { id: "comments", label: "Additional Notes", type: "textarea", section: "Result", required: false },
+      { id: "bs_declaration", label: "This commissioning has been carried out in accordance with BS 9990:2015 — Dry Riser Systems — Code of Practice for the use of dry riser systems", type: "checkbox", section: "Declaration", required: true },
     ],
   },
   // ── FIRE EXTINGUISHER ───────────────────────────────────────────────────────
