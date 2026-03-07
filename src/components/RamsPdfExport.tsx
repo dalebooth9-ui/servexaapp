@@ -86,6 +86,8 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
         result = await generateExtinguisherRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       } else if (ramsType === "fire_hydrant") {
         result = await generateHydrantRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      } else if (ramsType === "installation") {
+        result = await generateInstallationRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       } else {
         result = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       }

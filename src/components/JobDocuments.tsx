@@ -199,6 +199,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         result = await generateExtinguisherRamsPdf(formData, jInfo, operatives);
       } else if (ramsType === "fire_hydrant") {
         result = await generateHydrantRamsPdf(formData, jInfo, operatives);
+      } else if (ramsType === "installation") {
+        result = await generateInstallationRamsPdf(formData, jInfo, operatives);
       } else {
         result = await generateRamsPdf(formData, jInfo, operatives);
       }
