@@ -24,7 +24,7 @@ interface Props {
   customerEmail?: string;
 }
 
-type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs";
+type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs" | "coc";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
@@ -56,12 +56,17 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [certSubmissions, setCertSubmissions] = useState<{ id: string; file_name: string; file_url: string; engineer_id: string }[]>([]);
   const [selectedCerts, setSelectedCerts] = useState<Set<string>>(new Set());
 
+  // Certificate of Conformity
+  const [cocCerts, setCocCerts] = useState<any[]>([]);
+  const [cocPdfs, setCocPdfs] = useState<Record<string, { base64: string; fileName: string }>>({});
+
   const buildSubjectAndMessage = (docs: Set<DocOption>) => {
     const parts: string[] = [];
     if (docs.has("report")) parts.push("Report");
     if (docs.has("rams")) parts.push("RAMS");
     if (docs.has("certs")) parts.push("Engineer Certificates");
     if (docs.has("jobsheets")) parts.push("Job Sheets");
+    if (docs.has("coc")) parts.push("Certificate of Conformity");
     if (docs.has("quote")) parts.push("Quote");
     if (docs.has("invoice")) parts.push("Invoice");
     setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
@@ -77,6 +82,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("rams")) items.push("the RAMS documents");
     if (docs.has("certs")) items.push("the engineer certificates");
     if (docs.has("jobsheets")) items.push("the completed job sheets");
+    if (docs.has("coc")) items.push("the Certificate of Conformity");
     if (docs.has("quote")) items.push("our quote for further works");
     if (docs.has("invoice")) items.push("your invoice");
     const itemStr = items.length > 0 ? items.join(", ") : "the documents";
@@ -169,6 +175,14 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     setRamsSubmissions((ramsRes.data || []).filter((s: any) => s.file_name && s.file_url && !s.file_name.startsWith("[Cert]")));
     setCertSubmissions((certsRes.data || []).filter((s: any) => s.file_name && s.file_url));
     setLoadingInvoices(false);
+
+    // Load CoC certificates
+    const { data: cocData } = await supabase
+      .from("conformity_certificates" as any)
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: false });
+    setCocCerts((cocData as any[]) || []);
   };
 
   const handleSend = async () => {
@@ -266,6 +280,15 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
             jobCategories.find((c: any) => c.slug === job.category)?.name
               || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : ""),
           );
+        attachments.push({ filename: fileName, content: base64 });
+        }
+      }
+
+      // Generate CoC PDFs and attach
+      if (selectedDocs.has("coc") && cocCerts.length > 0) {
+        const { generateConformityPdfBase64 } = await import("@/components/CertificateOfConformity");
+        for (const cert of cocCerts) {
+          const { base64, fileName } = await generateConformityPdfBase64(cert);
           attachments.push({ filename: fileName, content: base64 });
         }
       }
@@ -379,6 +402,22 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                     </p>
                   </div>
                 </label>
+
+                {cocCerts.length > 0 && (
+                  <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors border-primary/20 bg-primary/5">
+                    <Checkbox
+                      checked={selectedDocs.has("coc")}
+                      onCheckedChange={() => handleDocToggleImmediate("coc")}
+                    />
+                    <Award className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">Certificate of Conformity</p>
+                      <p className="text-xs text-muted-foreground">
+                        Dry riser installation conformity certificate ({cocCerts.length} available)
+                      </p>
+                    </div>
+                  </label>
+                )}
 
                 <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
                   <Checkbox
