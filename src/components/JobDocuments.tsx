@@ -393,6 +393,8 @@ function DocRow({
   jobInfo,
   blankTemplates,
   isCustomerPaperwork,
+  onUploadSlot,
+  uploadingSlotId,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -406,7 +408,117 @@ function DocRow({
   jobInfo: any | null;
   blankTemplates: Record<string, any>;
   isCustomerPaperwork?: boolean;
+  onUploadSlot?: (doc: JobDoc) => void;
+  uploadingSlotId?: string | null;
 }) {
+  const isRams = doc.document_type === "rams_pdf";
+  const isBlankSheet = doc.document_type === "blank_job_sheet";
+  const isUploadSlot = ["quote", "purchase_order", "site_drawing", "uploaded_file"].includes(doc.document_type);
+  const hasFile = !!doc.file_url;
+
+  const DOC_TYPE_BADGE: Record<string, string> = {
+    rams_pdf: "RAMS PDF",
+    blank_job_sheet: "Blank Job Sheet",
+    uploaded_file: "File",
+    quote: "Quote",
+    purchase_order: "Purchase Order",
+    site_drawing: "Site Drawing",
+  };
+
+  // Find matching template for blank job sheet by label
+  const matchedTemplate = isBlankSheet
+    ? Object.values(blankTemplates).find((t: any) =>
+        t.name?.toLowerCase() === doc.label?.toLowerCase() ||
+        doc.label?.toLowerCase().includes(t.name?.toLowerCase()) ||
+        t.name?.toLowerCase().includes(doc.label?.toLowerCase())
+      ) ?? null
+    : null;
+
+  return (
+    <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : "bg-card"}`}>
+      <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : "text-muted-foreground"}`} />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{doc.label}</p>
+        <div className="flex items-center gap-1.5 mt-0.5">
+          {isCustomerPaperwork ? (
+            <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary">
+              <Building2 className="h-2.5 w-2.5" /> Customer Form
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="text-[10px]">
+              {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
+            </Badge>
+          )}
+          {doc.source === "auto" && (
+            <Badge variant="outline" className="text-[10px] gap-0.5">
+              <Zap className="h-2.5 w-2.5" /> Auto
+            </Badge>
+          )}
+          {doc.file_name && (
+            <span className="text-[10px] text-muted-foreground truncate">{doc.file_name}</span>
+          )}
+          {isUploadSlot && !hasFile && (
+            <span className="text-[10px] text-muted-foreground italic">Awaiting upload</span>
+          )}
+        </div>
+      </div>
+
+      {/* Action buttons */}
+      {isRams && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs px-2 gap-1 shrink-0"
+          onClick={onGenerateRams}
+          disabled={generatingRams}
+        >
+          {generatingRams ? <Loader2 className="h-3 w-3 animate-spin" /> : <FileText className="h-3 w-3" />}
+          Generate
+        </Button>
+      )}
+      {isBlankSheet && matchedTemplate && jobInfo && (
+        <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
+      )}
+      {isBlankSheet && (!matchedTemplate || !jobInfo) && (
+        <span className="text-[10px] text-muted-foreground">Loading…</span>
+      )}
+      {isUploadSlot && hasFile && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs px-2 gap-1 shrink-0"
+          onClick={() => onDownload(doc)}
+        >
+          <Download className="h-3 w-3" /> Open
+        </Button>
+      )}
+      {isUploadSlot && isAdmin && onUploadSlot && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs px-2 gap-1 shrink-0"
+          onClick={() => onUploadSlot(doc)}
+          disabled={uploadingSlotId === doc.id}
+        >
+          {uploadingSlotId === doc.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+          {hasFile ? "Replace" : "Upload"}
+        </Button>
+      )}
+
+      {isAdmin && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 text-muted-foreground hover:text-destructive shrink-0"
+          onClick={() => onDelete(doc)}
+          disabled={deleting}
+        >
+          {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+        </Button>
+      )}
+    </div>
+  );
+}
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
   const hasFile = !!doc.file_url;
