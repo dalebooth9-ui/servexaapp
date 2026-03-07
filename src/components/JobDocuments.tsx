@@ -333,7 +333,15 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
   const customerPaperwork = docs.filter((d) => d.source === "customer_paperwork");
-  const allJobDocs = docs.filter((d) => d.source !== "customer_paperwork");
+
+  const DOC_TYPE_ORDER: Record<string, number> = { rams_pdf: 0, pre_start_checklist: 1 };
+  const allJobDocs = docs
+    .filter((d) => d.source !== "customer_paperwork")
+    .sort((a, b) => {
+      const ao = DOC_TYPE_ORDER[a.document_type] ?? 99;
+      const bo = DOC_TYPE_ORDER[b.document_type] ?? 99;
+      return ao - bo;
+    });
 
   return (
     <div className="space-y-4">
