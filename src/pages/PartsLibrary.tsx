@@ -556,56 +556,58 @@ function PartsPanel({
           <p className="text-sm">{parts.length === 0 ? "No parts yet. Add parts or bulk import." : "No matching parts found."}</p>
         </div>
       ) : (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={filteredParts.map((p) => p.id)} strategy={verticalListSortingStrategy} disabled={isSearching}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8" />
-                  {isAdmin && <TableHead className="w-10"><Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} /></TableHead>}
-                  <TableHead>Part Name</TableHead>
-                  <TableHead>Part #</TableHead>
-                  <TableHead>Supplier</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead className="text-right">Unit Cost</TableHead>
-                  {isAdmin && showInstallCosts && <TableHead className="text-right">China Cost</TableHead>}
-                  {isAdmin && showInstallCosts && <TableHead className="text-right">UK Cost</TableHead>}
-                  {isAdmin && showInstallCosts && <TableHead className="text-right">Profit</TableHead>}
-                  {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
-                  {isAdmin && <TableHead className="text-right">Margin</TableHead>}
-                  <TableHead className="w-20" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {!isSearching && (
-                  <InlineAddRow isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, -1)} />
-                )}
-                {filteredParts.map((part, idx) => (
-                  <>
-                    <SortableLibraryRow
-                      key={part.id}
-                      part={part}
-                      isAdmin={isAdmin}
-                      showInstallCosts={showInstallCosts}
-                      isEditing={editingId === part.id}
-                      editForm={editForm}
-                      setEditForm={setEditForm}
-                      startEdit={startEdit}
-                      saveEdit={saveEdit}
-                      cancelEdit={cancelEdit}
-                      selected={selected}
-                      toggleSelect={toggleSelect}
-                      handleDelete={handleDelete}
-                    />
-                    {!isSearching && (
-                      <InlineAddRow key={`add-${part.id}`} isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, idx)} />
-                    )}
-                  </>
-                ))}
-              </TableBody>
-            </Table>
-          </SortableContext>
-        </DndContext>
+        <div className="overflow-x-auto w-full">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={filteredParts.map((p) => p.id)} strategy={verticalListSortingStrategy} disabled={isSearching}>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8" />
+                    {isAdmin && <TableHead className="w-10"><Checkbox checked={selected.size === filteredParts.length && filteredParts.length > 0} onCheckedChange={toggleAll} /></TableHead>}
+                    <TableHead>Part Name</TableHead>
+                    <TableHead>Part #</TableHead>
+                    <TableHead>Supplier</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead className="text-right">Unit Cost</TableHead>
+                    {isAdmin && showInstallCosts && <TableHead className="text-right">China Cost</TableHead>}
+                    {isAdmin && showInstallCosts && <TableHead className="text-right">UK Cost</TableHead>}
+                    {isAdmin && showInstallCosts && <TableHead className="text-right">Profit</TableHead>}
+                    {isAdmin && <TableHead className="text-right">Sell Price</TableHead>}
+                    {isAdmin && <TableHead className="text-right">Margin</TableHead>}
+                    <TableHead className="w-20" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {!isSearching && (
+                    <InlineAddRow isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, -1)} />
+                  )}
+                  {filteredParts.map((part, idx) => (
+                    <>
+                      <SortableLibraryRow
+                        key={part.id}
+                        part={part}
+                        isAdmin={isAdmin}
+                        showInstallCosts={showInstallCosts}
+                        isEditing={editingId === part.id}
+                        editForm={editForm}
+                        setEditForm={setEditForm}
+                        startEdit={startEdit}
+                        saveEdit={saveEdit}
+                        cancelEdit={cancelEdit}
+                        selected={selected}
+                        toggleSelect={toggleSelect}
+                        handleDelete={handleDelete}
+                      />
+                      {!isSearching && (
+                        <InlineAddRow key={`add-${part.id}`} isAdmin={isAdmin} showInstallCosts={showInstallCosts} colSpan={colCount} onAdd={(f) => handleAddAt(f, idx)} />
+                      )}
+                    </>
+                  ))}
+                </TableBody>
+              </Table>
+            </SortableContext>
+          </DndContext>
+        </div>
       )}
 
       {/* Bulk Import Dialog */}
