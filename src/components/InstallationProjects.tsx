@@ -615,7 +615,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
           <div className="space-y-3 py-1">
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="sm:col-span-2">
-                <Label className="text-xs">Project Title</Label>
+                <Label className="text-xs">Snag List Title</Label>
                 <Input className="mt-1" value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
               </div>
               <div><Label className="text-xs">Reference</Label><Input className="mt-1" value={editForm.reference} onChange={(e) => setEditForm({ ...editForm, reference: e.target.value })} /></div>
