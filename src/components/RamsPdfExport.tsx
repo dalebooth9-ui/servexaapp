@@ -3,10 +3,10 @@ import { Button } from "@/components/ui/button";
 import { FileText, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { generateRamsPdf } from "@/lib/ramsPdf";
-import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf } from "@/lib/ramsPdfVariants";
+import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import { supabase } from "@/integrations/supabase/client";
 
-export type RamsType = "dry_riser" | "sprinkler" | "fire_extinguisher" | "fire_hydrant";
+export type RamsType = "dry_riser" | "sprinkler" | "fire_extinguisher" | "fire_hydrant" | "installation";
 
 interface Props {
   formData: Record<string, any>;
@@ -86,6 +86,8 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
         result = await generateExtinguisherRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       } else if (ramsType === "fire_hydrant") {
         result = await generateHydrantRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+      } else if (ramsType === "installation") {
+        result = await generateInstallationRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       } else {
         result = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       }

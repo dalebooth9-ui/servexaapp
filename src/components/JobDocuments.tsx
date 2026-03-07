@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Download, Trash2, Upload, Loader2, Zap, Building2 } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
-import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf } from "@/lib/ramsPdfVariants";
+import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 import type { RamsType } from "@/components/RamsPdfExport";
 
@@ -151,6 +151,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (cat === "sprinkler" || cat === "sprinkler_service") return "sprinkler";
     if (cat === "fire_extinguisher") return "fire_extinguisher";
     if (cat === "fire_hydrant" || cat === "hydrant_service") return "fire_hydrant";
+    if (cat === "installation" || cat === "dry_riser_installation") return "installation";
     return "dry_riser";
   };
 
@@ -198,6 +199,8 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         result = await generateExtinguisherRamsPdf(formData, jInfo, operatives);
       } else if (ramsType === "fire_hydrant") {
         result = await generateHydrantRamsPdf(formData, jInfo, operatives);
+      } else if (ramsType === "installation") {
+        result = await generateInstallationRamsPdf(formData, jInfo, operatives);
       } else {
         result = await generateRamsPdf(formData, jInfo, operatives);
       }
