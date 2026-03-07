@@ -327,9 +327,10 @@ export default function PartsLibrary() {
     setAdding(true);
     await handleAddAt({
       name: form.name, unit_cost: form.unit_cost, sell_price: form.sell_price,
+      china_cost: form.china_cost, uk_cost: form.uk_cost,
       category: form.category, supplier: form.supplier, part_number: form.part_number,
     });
-    setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+    setForm({ name: "", description: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
     setAdding(false);
   };
 
