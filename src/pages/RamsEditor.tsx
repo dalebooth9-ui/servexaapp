@@ -265,6 +265,12 @@ export default function RamsEditor() {
     load();
   }, [jobId, ramsId]);
 
+  // Mark dirty whenever any form field changes (loading=false guards against initial population)
+  useEffect(() => {
+    if (!loading) setIsDirty(true);
+  }, [coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps, location, resources,
+      personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType]);
+
   const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
     const d = getRamsDefaults(type);
     setRamsType(type);
