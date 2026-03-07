@@ -403,6 +403,22 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                   </div>
                 </label>
 
+                {cocCerts.length > 0 && (
+                  <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors border-primary/20 bg-primary/5">
+                    <Checkbox
+                      checked={selectedDocs.has("coc")}
+                      onCheckedChange={() => handleDocToggleImmediate("coc")}
+                    />
+                    <Award className="h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-sm font-medium">Certificate of Conformity</p>
+                      <p className="text-xs text-muted-foreground">
+                        Dry riser installation conformity certificate ({cocCerts.length} available)
+                      </p>
+                    </div>
+                  </label>
+                )}
+
                 <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors">
                   <Checkbox
                     checked={selectedDocs.has("quote")}
