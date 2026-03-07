@@ -63,7 +63,7 @@ export default function JobDetail() {
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
   const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null }[]>([]);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
+  const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
 
