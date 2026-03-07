@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import type { RgbTriple } from "@/lib/extractLogoColors";
 
 export interface PdfHeaderData {
   customerName: string;
@@ -15,6 +16,8 @@ export interface PdfBranding {
   logo_url?: string;
   footer_text?: string;
 }
+
+const DEFAULT_ACCENT: RgbTriple = [33, 61, 99];
 
 /**
  * Render the shared branded PDF header used by all three export types:
