@@ -439,8 +439,13 @@ export async function buildCoverPage(
   const scopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
-    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
+    (jobInfo?.other_qty ?? 0) > 0
+      ? (jobInfo!.other_service_type
+          ? `${jobInfo!.other_service_type} x${jobInfo!.other_qty}`
+          : `${jobInfo!.other_qty} x systems`)
+      : null,
   ].filter(Boolean).join("  |  ");
+  const scopeLabel = scopeParts && !jobInfo?.pressure_test_qty && !jobInfo?.visual_qty ? "Scope:" : "Service Scope:";
 
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";
