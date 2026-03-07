@@ -558,6 +558,18 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
+      {(job.category === "installation" || job.category?.includes("install")) && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Installation Projects
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <InstallationProjects jobId={id!} job={job} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
       {userRole === "admin" && (
         <div className="mb-6">
           <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
