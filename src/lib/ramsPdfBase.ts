@@ -13,7 +13,7 @@ export interface RamsJobInfo {
   reference_number?: string;
   name?: string | null;
   customer?: string | null;
-  customers?: { name: string } | null;
+  customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
   pressure_test_qty?: number;
@@ -346,17 +346,31 @@ export function signatureRow(
 
 /* ─────────────────────────────────────── logo loader ── */
 
-export async function loadLogoImage(): Promise<HTMLImageElement | null> {
+export async function loadLogoImage(customerLogoUrl?: string | null): Promise<HTMLImageElement | null> {
+  const url = customerLogoUrl || "/images/vivafire-logo-new.jpg";
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
     await new Promise<void>((res, rej) => {
       img.onload = () => res();
       img.onerror = () => rej();
-      img.src = "/images/vivafire-logo-new.jpg";
+      img.src = url;
     });
     return img;
   } catch {
+    // If custom logo fails, fall back to default
+    if (customerLogoUrl) {
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise<void>((res, rej) => {
+          img.onload = () => res();
+          img.onerror = () => rej();
+          img.src = "/images/vivafire-logo-new.jpg";
+        });
+        return img;
+      } catch { return null; }
+    }
     return null;
   }
 }

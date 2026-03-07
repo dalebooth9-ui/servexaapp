@@ -36,7 +36,7 @@ type Template = {
 type JobInfo = {
   address: string | null;
   customer: string | null;
-  customers?: { name: string } | null;
+  customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
   category?: string | null;
   pressure_test_qty?: number;
@@ -144,7 +144,7 @@ export async function generateJobSheetPdf(
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
 
-  const branding = template.branding || {};
+  const branding = { ...(template.branding || {}), logo_url: template.branding?.logo_url || jobInfo?.customers?.logo_url || undefined };
   const footerText = getDefaultFooterText(template.name, branding);
 
   // Helper: find form value by label pattern
