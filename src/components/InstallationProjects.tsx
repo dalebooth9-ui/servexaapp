@@ -713,7 +713,7 @@ export default function InstallationProjects({ jobId, job }: Props) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-10 text-muted-foreground gap-2">
-        <Loader2 className="h-5 w-5 animate-spin" /> Loading projects…
+        <Loader2 className="h-5 w-5 animate-spin" /> Loading snag lists…
       </div>
     );
   }
