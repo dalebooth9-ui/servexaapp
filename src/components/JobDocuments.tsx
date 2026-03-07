@@ -151,6 +151,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (cat === "sprinkler" || cat === "sprinkler_service") return "sprinkler";
     if (cat === "fire_extinguisher") return "fire_extinguisher";
     if (cat === "fire_hydrant" || cat === "hydrant_service") return "fire_hydrant";
+    if (cat === "installation" || cat === "dry_riser_installation") return "installation";
     return "dry_riser";
   };
 
