@@ -348,15 +348,20 @@ export default function EngineerDashboard() {
           <div className="flex items-center gap-2">
             <MapPin className="h-4 w-4 text-primary" />
             <span className="font-semibold text-sm">Today's Locations</span>
+            {jobsWithDistance.filter(j => j.address).length > 0 && (
+              <span className="text-[10px] bg-primary/10 text-primary rounded-full px-2 py-0.5 font-medium">
+                {jobsWithDistance.filter(j => j.address).length} job{jobsWithDistance.filter(j => j.address).length !== 1 ? "s" : ""}
+              </span>
+            )}
           </div>
           {jobsWithDistance.filter(j => j.address).length > 0 && (
             <a
               href={`https://www.google.com/maps/dir/${jobsWithDistance.filter(j => j.address).map(j => encodeURIComponent(j.address!)).join("/")}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-primary font-medium flex items-center gap-1"
+              className="text-xs text-primary font-medium flex items-center gap-1 active:opacity-70"
             >
-              Route <Navigation className="h-3 w-3" />
+              Full Route <Navigation className="h-3 w-3" />
             </a>
           )}
         </div>
@@ -368,7 +373,7 @@ export default function EngineerDashboard() {
             height="220"
             loading="lazy"
             style={{ border: 0 }}
-            src={`https://www.openstreetmap.org/export/embed.html?bbox=-0.5,51.3,0.3,51.7&layer=mapnik&marker=${jobsWithDistance.find(j => j.address) ? encodeURIComponent(jobsWithDistance.filter(j => j.address)[0].address!) : ""}`}
+            src={`https://maps.google.com/maps?q=${encodeURIComponent(jobsWithDistance.filter(j => j.address)[0].address!)}&output=embed&z=12`}
           />
         ) : (
           <div className="h-[180px] flex flex-col items-center justify-center text-muted-foreground gap-2 bg-muted/20">
