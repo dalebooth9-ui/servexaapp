@@ -485,7 +485,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           submitted_at: new Date().toISOString(),
         } as any);
       }
-      toast({ title: "Report submitted" });
+
+      // Auto-create Certificate of Conformity when a commissioning cert is submitted
+      if (
+        activeTemplate.name.toLowerCase().includes("commissioning") &&
+        user && jobInfo
+      ) {
+        const { autoCreateConformityCert } = await import("@/components/CertificateOfConformity");
+        await autoCreateConformityCert(jobId, user.id, jobInfo);
+        toast({ title: "Report submitted", description: "Certificate of Conformity created — edit it in the Documents section." });
+      } else {
+        toast({ title: "Report submitted" });
+      }
+
       setActiveTemplate(null);
       setActiveResponse(null);
       setFormData({});
