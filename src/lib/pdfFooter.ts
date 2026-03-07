@@ -135,5 +135,16 @@ export function renderPdfFooter(
  */
 export function getDefaultFooterText(templateName: string, branding?: { footer_text?: string }): string {
   if (branding?.footer_text) return branding.footer_text;
-  return "We have, today, carried out a visual check of the system\nto the requirements of BS 9990:2015";
+  const n = templateName.toLowerCase();
+  if (n.includes("fire extinguisher") || n.includes("extinguisher")) {
+    return "We have, today, carried out this service / inspection\nto the requirements of BS 5306-3:2017";
+  }
+  if (n.includes("sprinkler")) {
+    return "We have, today, carried out this inspection\nto the requirements of BS EN 12845:2015";
+  }
+  if (n.includes("fire hydrant") || n.includes("hydrant")) {
+    return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015 / NFCC Guidelines";
+  }
+  // Default — dry riser and anything else
+  return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015";
 }
