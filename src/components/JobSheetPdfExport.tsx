@@ -264,15 +264,18 @@ export async function generateJobSheetPdf(
     customerSig,
   });
 
-  renderPdfFooter(doc, footerY, footerText);
+  // Declaration footer sits at very bottom; logos sit just above it
+  const declarationFooterY = pageHeight - margin - 9;
+  renderPdfFooter(doc, declarationFooterY, footerText);
 
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
-  const footerYForLogos = pageHeight - margin - 9;
-  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos);
+  // Logos: 12mm tall, 3mm gap above declaration footer
+  const footerYForLogos = declarationFooterY - 12 - 3;
+  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 12);
 
   const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
