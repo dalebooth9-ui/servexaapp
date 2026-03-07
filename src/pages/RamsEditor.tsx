@@ -1,0 +1,636 @@
+import { useState, useEffect, useCallback } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle } from "lucide-react";
+import { getRamsDefaults, RamsType } from "@/lib/ramsDefaults";
+import RamsPdfExport from "@/components/RamsPdfExport";
+
+const RAMS_TYPE_LABELS: Record<RamsType, string> = {
+  dry_riser: "Dry Riser",
+  sprinkler: "Sprinkler",
+  fire_extinguisher: "Fire Extinguisher",
+  fire_hydrant: "Fire Hydrant",
+  installation: "Installation",
+};
+
+// Risk table column definitions
+const RISK_COL_HEADERS = [
+  "Activity", "Hazard", "Risks / Persons at Risk",
+  "L (Pre)", "S (Pre)", "R (Pre)",
+  "Control Measures",
+  "L (Post)", "S (Post)", "R (Post)",
+  "Comments",
+];
+
+function ListEditor({
+  label, items, onChange, placeholder,
+}: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
+  return (
+    <div className="space-y-2">
+      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
+      {items.map((item, i) => (
+        <div key={i} className="flex gap-2 items-start">
+          <span className="mt-2 text-muted-foreground text-xs font-mono w-5 shrink-0">{i + 1}.</span>
+          <Textarea
+            value={item}
+            rows={2}
+            className="flex-1 text-sm resize-none"
+            placeholder={placeholder}
+            onChange={(e) => {
+              const next = [...items];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+          />
+          <Button
+            size="icon" variant="ghost"
+            className="mt-1 shrink-0 h-7 w-7 text-destructive/70 hover:text-destructive"
+            onClick={() => onChange(items.filter((_, j) => j !== i))}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        variant="outline" size="sm" className="gap-1.5 text-xs"
+        onClick={() => onChange([...items, ""])}
+      >
+        <Plus className="h-3.5 w-3.5" /> Add item
+      </Button>
+    </div>
+  );
+}
+
+function RiskRowEditor({
+  row, onChange, onDelete, index,
+}: { row: string[]; onChange: (row: string[]) => void; onDelete: () => void; index: number }) {
+  const set = (col: number, val: string) => {
+    const next = [...row];
+    next[col] = val;
+    onChange(next);
+  };
+  const risk = parseInt(row[5] || "0", 10);
+  const riskPost = parseInt(row[9] || "0", 10);
+  const riskColor = (r: number) =>
+    r >= 15 ? "bg-red-100 dark:bg-red-950 border-red-300" :
+    r >= 8  ? "bg-orange-100 dark:bg-orange-950 border-orange-300" :
+    r >= 4  ? "bg-yellow-100 dark:bg-yellow-950 border-yellow-300" :
+              "bg-green-100 dark:bg-green-950 border-green-300";
+
+  return (
+    <div className="rounded-lg border bg-card p-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-mono font-bold text-muted-foreground">Row {index + 1}</span>
+        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={onDelete}>
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label className="text-xs">Activity</Label>
+          <Input value={row[0] || ""} onChange={(e) => set(0, e.target.value)} className="mt-1 text-sm" />
+        </div>
+        <div>
+          <Label className="text-xs">Hazard</Label>
+          <Input value={row[1] || ""} onChange={(e) => set(1, e.target.value)} className="mt-1 text-sm" />
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs">Risks / Persons at Risk</Label>
+        <Textarea value={row[2] || ""} onChange={(e) => set(2, e.target.value)} rows={2} className="mt-1 text-sm resize-none" />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div className={`rounded-lg border p-2 space-y-2 ${riskColor(risk)}`}>
+          <p className="text-xs font-semibold">Pre-Control Risk Rating</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[3, 4, 5].map((col, ci) => (
+              <div key={ci}>
+                <Label className="text-[10px]">{ci === 0 ? "Likelihood" : ci === 1 ? "Severity" : "Rating"}</Label>
+                <Input
+                  type="number" min={1} max={7}
+                  value={row[col] || ""}
+                  readOnly={ci === 2}
+                  className="mt-0.5 text-xs h-7"
+                  onChange={(e) => {
+                    const next = [...row];
+                    next[col] = e.target.value;
+                    if (col === 3 || col === 4) {
+                      const l = parseInt(col === 3 ? e.target.value : next[3], 10) || 0;
+                      const s = parseInt(col === 4 ? e.target.value : next[4], 10) || 0;
+                      next[5] = l && s ? String(l * s) : "";
+                    }
+                    onChange(next);
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className={`rounded-lg border p-2 space-y-2 ${riskColor(riskPost)}`}>
+          <p className="text-xs font-semibold">Post-Control Risk Rating</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {[7, 8, 9].map((col, ci) => (
+              <div key={ci}>
+                <Label className="text-[10px]">{ci === 0 ? "Likelihood" : ci === 1 ? "Severity" : "Rating"}</Label>
+                <Input
+                  type="number" min={1} max={7}
+                  value={row[col] || ""}
+                  readOnly={ci === 2}
+                  className="mt-0.5 text-xs h-7"
+                  onChange={(e) => {
+                    const next = [...row];
+                    next[col] = e.target.value;
+                    if (col === 7 || col === 8) {
+                      const l = parseInt(col === 7 ? e.target.value : next[7], 10) || 0;
+                      const s = parseInt(col === 8 ? e.target.value : next[8], 10) || 0;
+                      next[9] = l && s ? String(l * s) : "";
+                    }
+                    onChange(next);
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div>
+        <Label className="text-xs">Control Measures</Label>
+        <Textarea value={row[6] || ""} onChange={(e) => set(6, e.target.value)} rows={3} className="mt-1 text-sm resize-none" />
+      </div>
+      <div>
+        <Label className="text-xs">Comments</Label>
+        <Input value={row[10] || ""} onChange={(e) => set(10, e.target.value)} className="mt-1 text-sm" />
+      </div>
+    </div>
+  );
+}
+
+export default function RamsEditor() {
+  const { jobId, ramsId } = useParams<{ jobId: string; ramsId?: string }>();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [job, setJob] = useState<any>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [docId, setDocId] = useState<string | null>(ramsId || null);
+
+  // Form state
+  const [ramsType, setRamsType] = useState<RamsType>("dry_riser");
+  const [coverFields, setCoverFields] = useState({
+    contractJobName: "", assessmentDate: new Date().toLocaleDateString("en-GB"),
+    client: "", attendanceDate: "", siteLocation: "",
+  });
+  const [descriptionOfWork, setDescriptionOfWork] = useState("");
+  const [sequenceOfOps, setSequenceOfOps] = useState<string[]>([]);
+  const [taskSpecificOps, setTaskSpecificOps] = useState<string[]>([]);
+  const [location, setLocation] = useState("");
+  const [resources, setResources] = useState("");
+  const [personnel, setPersonnel] = useState("");
+  const [plantAndEquipment, setPlantAndEquipment] = useState<string[]>([]);
+  const [significantRisks, setSignificantRisks] = useState<string[]>([]);
+  const [specialTraining, setSpecialTraining] = useState("");
+  const [ppeItems, setPpeItems] = useState<string[]>([]);
+  const [riskRows, setRiskRows] = useState<string[][]>([]);
+
+  // Load job and existing RAMS doc
+  useEffect(() => {
+    if (!jobId) return;
+    const load = async () => {
+      setLoading(true);
+      const [{ data: jobData }, { data: ramsData }] = await Promise.all([
+        supabase.from("jobs").select("*, customers(name), sites(name, address)").eq("id", jobId).single(),
+        ramsId
+          ? supabase.from("rams_documents" as any).select("*").eq("id", ramsId).single()
+          : supabase.from("rams_documents" as any).select("*").eq("job_id", jobId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      ]);
+
+      setJob(jobData);
+
+      if (ramsData) {
+        const d = ramsData as any;
+        setDocId(d.id);
+        setRamsType((d.rams_type as RamsType) || "dry_riser");
+        setCoverFields({
+          contractJobName: d.contract_job_name || jobData?.name || "",
+          assessmentDate: d.assessment_date || new Date().toLocaleDateString("en-GB"),
+          client: d.client || jobData?.customers?.name || jobData?.customer || "",
+          attendanceDate: d.attendance_date || "",
+          siteLocation: d.site_location || (jobData?.sites?.address || jobData?.address || ""),
+        });
+        setDescriptionOfWork(d.description_of_work || "");
+        setSequenceOfOps(d.sequence_of_ops || []);
+        setTaskSpecificOps(d.task_specific_ops || []);
+        setLocation(d.location || "");
+        setResources(d.resources || "");
+        setPersonnel(d.personnel || "");
+        setPlantAndEquipment(d.plant_and_equipment || []);
+        setSignificantRisks(d.significant_risks || []);
+        setSpecialTraining(d.special_training || "");
+        setPpeItems(d.ppe_items || []);
+        setRiskRows(d.risk_rows || []);
+      } else {
+        // Determine type from job category
+        let type: RamsType = "dry_riser";
+        if (jobData?.category === "sprinkler") type = "sprinkler";
+        else if (jobData?.category === "fire_extinguisher") type = "fire_extinguisher";
+        else if (jobData?.category === "fire_hydrant") type = "fire_hydrant";
+        else if (jobData?.category === "installation") type = "installation";
+        loadDefaults(type, jobData);
+      }
+      setLoading(false);
+    };
+    load();
+  }, [jobId, ramsId]);
+
+  const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
+    const d = getRamsDefaults(type);
+    setRamsType(type);
+    setCoverFields({
+      contractJobName: jobData?.name || "",
+      assessmentDate: new Date().toLocaleDateString("en-GB"),
+      client: jobData?.customers?.name || jobData?.customer || "",
+      attendanceDate: "",
+      siteLocation: jobData?.sites?.name
+        ? `${jobData.sites.name}${jobData.sites.address ? ", " + jobData.sites.address : ""}`
+        : jobData?.address || "",
+    });
+    setDescriptionOfWork(d.descriptionOfWork);
+    setSequenceOfOps(d.sequenceOfOps);
+    setTaskSpecificOps(d.taskSpecificOps);
+    setLocation(d.location);
+    setResources(d.resources);
+    setPersonnel(d.personnel);
+    setPlantAndEquipment(d.plantAndEquipment);
+    setSignificantRisks(d.significantRisks);
+    setSpecialTraining(d.specialTraining);
+    setPpeItems(d.ppeItems);
+    setRiskRows(d.riskRows);
+  }, []);
+
+  const handleTypeChange = (type: RamsType) => {
+    if (window.confirm("Changing RAMS type will reset content to defaults for that type. Continue?")) {
+      loadDefaults(type, job);
+      setDocId(null); // will create a new doc on save
+    }
+  };
+
+  const save = async () => {
+    if (!jobId || !user) return;
+    setSaving(true);
+    const payload = {
+      job_id: jobId,
+      rams_type: ramsType,
+      created_by: user.id,
+      contract_job_name: coverFields.contractJobName,
+      assessment_date: coverFields.assessmentDate,
+      client: coverFields.client,
+      attendance_date: coverFields.attendanceDate,
+      site_location: coverFields.siteLocation,
+      description_of_work: descriptionOfWork,
+      sequence_of_ops: sequenceOfOps,
+      task_specific_ops: taskSpecificOps,
+      location,
+      resources,
+      personnel,
+      plant_and_equipment: plantAndEquipment,
+      significant_risks: significantRisks,
+      special_training: specialTraining,
+      ppe_items: ppeItems,
+      risk_rows: riskRows,
+    };
+
+    let error: any;
+    if (docId) {
+      ({ error } = await (supabase.from("rams_documents" as any) as any).update(payload).eq("id", docId));
+    } else {
+      const { data, error: err } = await (supabase.from("rams_documents" as any) as any).insert(payload).select().single();
+      error = err;
+      if (data) setDocId(data.id);
+    }
+
+    if (error) {
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "RAMS saved" });
+    }
+    setSaving(false);
+  };
+
+  // Build formData compatible with existing PDF generators
+  const buildFormData = () => ({
+    rams_contract_job_name: coverFields.contractJobName,
+    rams_assessment_date: coverFields.assessmentDate,
+    rams_client: coverFields.client,
+    rams_attendance_date: coverFields.attendanceDate,
+    rams_site_location: coverFields.siteLocation,
+    // Method statement overrides passed via formData
+    _descriptionOfWork: descriptionOfWork,
+    _sequenceOfOps: sequenceOfOps,
+    _taskSpecificOps: taskSpecificOps,
+    _location: location,
+    _resources: resources,
+    _personnel: personnel,
+    _plantAndEquipment: plantAndEquipment,
+    _significantRisks: significantRisks,
+    _specialTraining: specialTraining,
+    _ppeItems: ppeItems,
+    _riskRows: riskRows,
+  });
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center text-muted-foreground">
+        <Loader2 className="h-5 w-5 animate-spin mr-2" /> Loading RAMS editor…
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-5xl mx-auto pb-16">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(`/jobs/${jobId}`)}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Job
+        </Button>
+        <div className="flex-1">
+          <h1 className="text-xl font-bold">RAMS Editor</h1>
+          {job && (
+            <p className="text-sm text-muted-foreground">
+              <span className="font-mono">{job.reference_number}</span> · {job.name}
+            </p>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {docId && (
+            <RamsPdfExport
+              formData={buildFormData()}
+              jobInfo={job}
+              jobId={jobId}
+              ramsType={ramsType}
+              mode="preview"
+            />
+          )}
+          <Button onClick={save} disabled={saving} size="sm">
+            {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+            {saving ? "Saving…" : "Save RAMS"}
+          </Button>
+        </div>
+      </div>
+
+      {/* RAMS Type selector */}
+      <Card className="mb-6">
+        <CardHeader className="py-3 px-4">
+          <CardTitle className="text-sm flex items-center justify-between">
+            <span>RAMS Type</span>
+            {docId && <Badge variant="secondary" className="text-xs">Saved</Badge>}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <Select value={ramsType} onValueChange={(v) => handleTypeChange(v as RamsType)}>
+            <SelectTrigger className="w-[220px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(RAMS_TYPE_LABELS) as RamsType[]).map((t) => (
+                <SelectItem key={t} value={t}>{RAMS_TYPE_LABELS[t]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground mt-2">
+            Changing type will reset content to defaults for that type.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="cover">
+        <TabsList className="mb-4 w-full grid grid-cols-4">
+          <TabsTrigger value="cover">Cover Page</TabsTrigger>
+          <TabsTrigger value="method">Method Statement</TabsTrigger>
+          <TabsTrigger value="ppe">PPE & Risks</TabsTrigger>
+          <TabsTrigger value="risk-table">Risk Table</TabsTrigger>
+        </TabsList>
+
+        {/* ── Cover Page ── */}
+        <TabsContent value="cover">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Cover Page Fields</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Contract / Job Name</Label>
+                  <Input
+                    value={coverFields.contractJobName}
+                    onChange={(e) => setCoverFields({ ...coverFields, contractJobName: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Client</Label>
+                  <Input
+                    value={coverFields.client}
+                    onChange={(e) => setCoverFields({ ...coverFields, client: e.target.value })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Assessment Date</Label>
+                  <Input
+                    value={coverFields.assessmentDate}
+                    onChange={(e) => setCoverFields({ ...coverFields, assessmentDate: e.target.value })}
+                    className="mt-1"
+                    placeholder="e.g. 01/01/2025"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Attendance Date</Label>
+                  <Input
+                    value={coverFields.attendanceDate}
+                    onChange={(e) => setCoverFields({ ...coverFields, attendanceDate: e.target.value })}
+                    className="mt-1"
+                    placeholder="e.g. 15/03/2025"
+                  />
+                </div>
+              </div>
+              <div>
+                <Label className="text-xs">Site / Location</Label>
+                <Textarea
+                  value={coverFields.siteLocation}
+                  onChange={(e) => setCoverFields({ ...coverFields, siteLocation: e.target.value })}
+                  rows={2}
+                  className="mt-1 resize-none"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* ── Method Statement ── */}
+        <TabsContent value="method">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Description of Work</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Textarea
+                  value={descriptionOfWork}
+                  onChange={(e) => setDescriptionOfWork(e.target.value)}
+                  rows={4}
+                  className="resize-none text-sm"
+                />
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="pt-4 space-y-6">
+                <ListEditor
+                  label="2.2 Sequence of Operations"
+                  items={sequenceOfOps}
+                  onChange={setSequenceOfOps}
+                  placeholder="Add a step…"
+                />
+                <Separator />
+                <ListEditor
+                  label="2.3 Task-Specific Operations"
+                  items={taskSpecificOps}
+                  onChange={setTaskSpecificOps}
+                  placeholder="Add a task-specific step…"
+                />
+                <Separator />
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">2.4 Location</Label>
+                    <Textarea value={location} onChange={(e) => setLocation(e.target.value)} rows={2} className="mt-1 resize-none text-sm" />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">3 Resources</Label>
+                    <Textarea value={resources} onChange={(e) => setResources(e.target.value)} rows={2} className="mt-1 resize-none text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">3.1 Personnel</Label>
+                    <Textarea value={personnel} onChange={(e) => setPersonnel(e.target.value)} rows={2} className="mt-1 resize-none text-sm" />
+                  </div>
+                </div>
+                <Separator />
+                <ListEditor
+                  label="3.3 Plant and Equipment"
+                  items={plantAndEquipment}
+                  onChange={setPlantAndEquipment}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ── PPE & Risks ── */}
+        <TabsContent value="ppe">
+          <div className="space-y-6">
+            <Card>
+              <CardContent className="pt-4 space-y-6">
+                <ListEditor
+                  label="4 Significant Risks"
+                  items={significantRisks}
+                  onChange={setSignificantRisks}
+                  placeholder="Add a significant risk…"
+                />
+                <Separator />
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">4.3 Special Training</Label>
+                  <Textarea
+                    value={specialTraining}
+                    onChange={(e) => setSpecialTraining(e.target.value)}
+                    rows={3}
+                    className="mt-1 resize-none text-sm"
+                  />
+                </div>
+                <Separator />
+                <ListEditor
+                  label="5 PPE Required"
+                  items={ppeItems}
+                  onChange={setPpeItems}
+                  placeholder="Add a PPE item…"
+                />
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* ── Risk Table ── */}
+        <TabsContent value="risk-table">
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-semibold">Risk Assessment Rows</p>
+                <p className="text-xs text-muted-foreground">
+                  Rating = Likelihood × Severity. ≥15 High · 8–14 Medium · 4–7 Low-Medium · &lt;4 Low
+                </p>
+              </div>
+              <Button
+                variant="outline" size="sm" className="gap-1.5"
+                onClick={() => setRiskRows([...riskRows, ["", "", "", "", "", "", "", "", "", "", ""]])}
+              >
+                <Plus className="h-3.5 w-3.5" /> Add row
+              </Button>
+            </div>
+
+            {riskRows.length === 0 && (
+              <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-10 text-muted-foreground text-sm">
+                <AlertTriangle className="h-6 w-6 opacity-40" />
+                <p>No risk rows yet. Add your first row above.</p>
+              </div>
+            )}
+
+            {riskRows.map((row, i) => (
+              <RiskRowEditor
+                key={i}
+                index={i}
+                row={row}
+                onChange={(r) => {
+                  const next = [...riskRows];
+                  next[i] = r;
+                  setRiskRows(next);
+                }}
+                onDelete={() => setRiskRows(riskRows.filter((_, j) => j !== i))}
+              />
+            ))}
+          </div>
+        </TabsContent>
+      </Tabs>
+
+      {/* Sticky save bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-end gap-3 border-t bg-background/95 backdrop-blur px-6 py-3 shadow-lg">
+        <span className="text-sm text-muted-foreground flex-1">
+          {job ? `${job.reference_number} · ${RAMS_TYPE_LABELS[ramsType]} RAMS` : "RAMS Editor"}
+        </span>
+        {docId && (
+          <RamsPdfExport
+            formData={buildFormData()}
+            jobInfo={job}
+            jobId={jobId}
+            ramsType={ramsType}
+          />
+        )}
+        <Button onClick={save} disabled={saving} size="sm">
+          {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+          {saving ? "Saving…" : "Save RAMS"}
+        </Button>
+      </div>
+    </div>
+  );
+}
