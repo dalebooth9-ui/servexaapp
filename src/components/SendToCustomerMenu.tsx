@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award } from "lucide-react";
+import { Send, FileText, Receipt, ClipboardList, Loader2, Mail, ClipboardCheck, ShieldCheck, Award, ListChecks } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "./CustomerReportPdf";
 import { generateJobSheetPdf } from "./JobSheetPdfExport";
@@ -24,7 +24,7 @@ interface Props {
   customerEmail?: string;
 }
 
-type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs" | "coc";
+type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs" | "coc" | "prestart";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
