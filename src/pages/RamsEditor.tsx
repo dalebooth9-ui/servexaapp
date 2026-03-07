@@ -342,6 +342,7 @@ export default function RamsEditor() {
       toast({ title: "Save failed", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "RAMS saved" });
+      setIsDirty(false);
     }
     setSaving(false);
   };
