@@ -775,6 +775,14 @@ export default function Jobs() {
     );
   });
 
+  // Global select-all derived state (must come after filtered)
+  const allFilteredIds = filtered.map((j) => j.id);
+  const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedJobIds.has(id));
+  const someFilteredSelected = !allFilteredSelected && allFilteredIds.some((id) => selectedJobIds.has(id));
+  const handleSelectAllFiltered = (checked: boolean) => {
+    setSelectedJobIds(checked ? new Set(allFilteredIds) : new Set());
+  };
+
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
     const key = getCustomerName(job)?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
