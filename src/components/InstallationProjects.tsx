@@ -630,6 +630,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
             onAddPhoto={addPhoto}
             onDeletePhoto={deletePhoto}
             uploadingIssueId={uploadingIssueId}
+            initiallyExpanded={issue.id === newlyAddedIssueId}
           />
         ))}
 
