@@ -544,12 +544,16 @@ function DocRow({
           Generate
         </Button>
       )}
+      {isPreStart && (
+        <PreStartChecklistPdf jobInfo={jobInfo} />
+      )}
       {isBlankSheet && matchedTemplate && jobInfo && (
         <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
       )}
       {isBlankSheet && (!matchedTemplate || !jobInfo) && (
         <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
+
       {isUploadSlot && hasFile && (
         <Button
           variant="outline"
