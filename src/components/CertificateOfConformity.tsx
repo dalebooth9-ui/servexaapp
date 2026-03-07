@@ -280,7 +280,7 @@ export default function CertificateOfConformity({ jobId, certId, onSendReady }: 
   );
 }
 
-/** Utility: auto-create a CoC draft when a commissioning cert is submitted */
+/** Utility: auto-create a CoC draft for each dry riser commissioning cert submitted */
 export async function autoCreateConformityCert(jobId: string, userId: string, jobInfo: {
   name?: string | null;
   address?: string | null;
@@ -290,19 +290,21 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   site?: { address?: string | null; postcode?: string | null; riser_location?: string | null } | null;
   engineers?: string[];
 }) {
+  // Count existing CoCs for this job to generate a unique suffix
   const { data: existing } = await supabase
     .from("conformity_certificates" as any)
     .select("id")
-    .eq("job_id", jobId)
-    .limit(1);
-  if (existing && (existing as any[]).length > 0) return;
+    .eq("job_id", jobId);
+  const existingCount = (existing as any[] | null)?.length ?? 0;
 
   const siteAddr = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
   const today = new Date().toISOString().split("T")[0];
 
-  // Auto-generate cert number from reference number e.g. VFP-00123 → VFP00123/CoC
+  // Auto-generate cert number: VFP00123/CoC, VFP00123/CoC-2, VFP00123/CoC-3 ...
   const ref = jobInfo.reference_number || "";
-  const certNumber = ref ? `${ref.replace(/-/g, "")}/CoC` : "";
+  const baseRef = ref ? ref.replace(/-/g, "") : "";
+  const certSuffix = existingCount === 0 ? "/CoC" : `/CoC-${existingCount + 1}`;
+  const certNumber = baseRef ? `${baseRef}${certSuffix}` : "";
 
   // Load Dale Booth's profile signature automatically
   let daleSig: string | null = null;
