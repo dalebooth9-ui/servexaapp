@@ -56,6 +56,10 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
   const [certSubmissions, setCertSubmissions] = useState<{ id: string; file_name: string; file_url: string; engineer_id: string }[]>([]);
   const [selectedCerts, setSelectedCerts] = useState<Set<string>>(new Set());
 
+  // Certificate of Conformity
+  const [cocCerts, setCocCerts] = useState<any[]>([]);
+  const [cocPdfs, setCocPdfs] = useState<Record<string, { base64: string; fileName: string }>>({});
+
   const buildSubjectAndMessage = (docs: Set<DocOption>) => {
     const parts: string[] = [];
     if (docs.has("report")) parts.push("Report");
