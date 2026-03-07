@@ -295,6 +295,28 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
         }
       }
 
+      // Generate Pre-start Checklist PDF and attach
+      if (selectedDocs.has("prestart")) {
+        const { generatePreStartChecklistPdf } = await import("@/components/PreStartChecklistPdf");
+        const jobInfo = {
+          name: job.name,
+          address: job.address,
+          reference_number: job.reference_number,
+          customer: job.customer,
+          customers: job.customers,
+          site: job.sites ? {
+            name: job.sites.name,
+            address: job.sites.address,
+            postcode: job.sites.postcode,
+            contact_name: job.sites.contact_name,
+            contact_phone: job.sites.contact_phone,
+            contact_email: job.sites.contact_email,
+          } : null,
+        };
+        const { base64, fileName } = await generatePreStartChecklistPdf(jobInfo);
+        attachments.push({ filename: fileName, content: base64 });
+      }
+
       const { error } = await supabase.functions.invoke("send-customer-email", {
         body: {
           customerEmail: email.trim(),
