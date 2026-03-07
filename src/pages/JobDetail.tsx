@@ -429,6 +429,27 @@ export default function JobDetail() {
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
                   </Button>
                 </div>
+
+                {/* AI Job Brief — stored brief */}
+                {(job as any).brief && (
+                  <div className="mt-3 rounded-md border border-primary/20 bg-primary/5 p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <Sparkles className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold text-primary">AI Job Brief</span>
+                    </div>
+                    <div className="text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap line-clamp-6">
+                      {(job as any).brief.replace(/^#+\s+/gm, "").replace(/\*\*(.*?)\*\*/g, "$1")}
+                    </div>
+                    <AiJobBriefDialog
+                      job={job}
+                      trigger={
+                        <button className="mt-2 text-xs text-primary hover:underline underline-offset-2">
+                          View full brief →
+                        </button>
+                      }
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="rounded-lg border bg-card p-4 space-y-3">
