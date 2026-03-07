@@ -238,7 +238,7 @@ export default function PartsLibrary() {
 
   // Edit
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", unit_cost: "", sell_price: "", supplier: "", part_number: "" });
+  const [editForm, setEditForm] = useState({ name: "", unit_cost: "", sell_price: "", china_cost: "", uk_cost: "", supplier: "", part_number: "" });
 
   // Bulk import
   const [importOpen, setImportOpen] = useState(false);
