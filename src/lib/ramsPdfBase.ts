@@ -28,7 +28,7 @@ export const PAGE_H = 297;
 export const ML = 14;
 export const MR = 14;
 export const CONTENT_W = PAGE_W - ML - MR;
-export const SAFE_BOTTOM = PAGE_H - 44; // reserve space for 18mm accreditation logos + footer
+export const SAFE_BOTTOM = PAGE_H - 62; // reserve space for legend (14mm) + 18mm logos + footer
 
 export const RISK_FONT_SIZE = 6.5;
 export const RISK_LINE_H = 3.9;
@@ -593,7 +593,7 @@ export async function buildRiskPage(
   rC: number[]
 ): Promise<void> {
   // Reserve space for colour legend + accreditation logos + footer at bottom
-  const RISK_SAFE_BOTTOM = PAGE_H - 50;
+  const RISK_SAFE_BOTTOM = PAGE_H - 62; // stop table rows before legend zone
 
   const renderHeader = async (isNewPage: boolean) => {
     if (isNewPage) {
@@ -628,13 +628,13 @@ export async function buildRiskPage(
     }
     // If this row won't fit, start a new page with repeated header
     if (y + rowH > RISK_SAFE_BOTTOM) {
-      riskColorLegend(doc, PAGE_H - 42);
+      riskColorLegend(doc, PAGE_H - 58);
       y = await renderHeader(true);
     }
     y = riskRow(doc, row, rC, y, 0, false);
   }
 
-  riskColorLegend(doc, PAGE_H - 42);
+  riskColorLegend(doc, PAGE_H - 58);
   pageFooter(doc, pageNum, totalPages);
 }
 
@@ -677,7 +677,7 @@ export async function buildDetailBlock(
   y = para(doc, "1=Highly Unlikely, 2=Unlikely, 3=Possible, 4=Probable, 5=Common, 6=Regular, 7=Continuous", ML, y, CONTENT_W, 8); y += 3;
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Severity Ratings:", ML, y); y += 4;
   para(doc, "1=Trivial, 2=Minor, 3=Under '7-day' Injury, 4=Over '7-day' Reportable Injury, 5=Major Injury, 6=Fatality (1 person), 7=Multiple Fatality (2+ persons)", ML, y, CONTENT_W, 8);
-  riskColorLegend(doc, PAGE_H - 42);
+  riskColorLegend(doc, PAGE_H - 58);
   pageFooter(doc, pageNum, totalPages);
 }
 
