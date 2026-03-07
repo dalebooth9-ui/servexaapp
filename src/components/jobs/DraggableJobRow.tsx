@@ -96,19 +96,46 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           )}
         </div>
 
-        {/* Tags row — minimal: status + overdue date only */}
-        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+        {/* Tags row */}
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <Badge variant="secondary" className={`${statusColor(job.status)} text-[10px] uppercase h-4 px-1.5`}>
             {job.status.replace(/_/g, " ")}
           </Badge>
           {job.priority === "high" && (
             <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">High</Badge>
           )}
+          {job.result === "pass" && (
+            <Badge className="bg-green-700 text-primary-foreground text-[10px] uppercase h-4 px-1.5">Pass</Badge>
+          )}
+          {job.result === "fail" && (
+            <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">Fail</Badge>
+          )}
+          {job.category && job.category !== "general" && (
+            <span className="text-[10px] text-muted-foreground capitalize">{job.category}</span>
+          )}
           {dueDate && (
-            <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? "text-destructive font-medium" : dueToday ? "text-warning font-medium" : "text-muted-foreground"}`}>
+            <span className={`text-[10px] flex items-center gap-0.5 ${overdue ? "text-destructive font-medium" : dueToday ? "text-amber-500 font-medium" : "text-muted-foreground"}`}>
               {(overdue || dueToday) && <AlertCircle className="h-2.5 w-2.5 shrink-0" />}
               {format(dueDate, "dd MMM")}
             </span>
+          )}
+          {job.pressure_test_qty > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-primary/10 border border-primary/20 px-1 py-0 text-[10px] font-medium text-primary">
+              PT ×{job.pressure_test_qty}
+            </span>
+          )}
+          {job.visual_qty > 0 && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-secondary border border-border px-1 py-0 text-[10px] font-medium text-secondary-foreground">
+              Vis ×{job.visual_qty}
+            </span>
+          )}
+          {job.other_qty > 0 && job.other_service_type && (
+            <span className="inline-flex items-center gap-0.5 rounded bg-accent border border-border px-1 py-0 text-[10px] font-medium text-accent-foreground">
+              {job.other_service_type} ×{job.other_qty}
+            </span>
+          )}
+          {(job.submissions?.length || 0) > 0 && (
+            <span className="text-[10px] text-muted-foreground">{job.submissions.length} sub{job.submissions.length !== 1 ? "s" : ""}</span>
           )}
         </div>
       </div>
