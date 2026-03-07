@@ -32,6 +32,8 @@ interface LibraryPart {
   description: string | null;
   unit_cost: number;
   sell_price: number;
+  china_cost: number;
+  uk_cost: number;
   category: string;
   supplier: string | null;
   part_number: string | null;
