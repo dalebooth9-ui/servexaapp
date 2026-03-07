@@ -139,6 +139,15 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
   const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
+  const [pinnedOps, setPinnedOps] = useReactState<string[]>(loadPinnedOps);
+
+  const handleTogglePin = (to: string) => {
+    setPinnedOps((prev) => {
+      const next = prev.includes(to) ? prev.filter((p) => p !== to) : [...prev, to];
+      localStorage.setItem(PIN_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
