@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Zap, Building2 } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Building2 } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
