@@ -271,6 +271,32 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     document.body.removeChild(link);
   };
 
+  const handleUploadSlot = (doc: JobDoc) => {
+    pendingSlotDoc.current = doc;
+    slotUploadRef.current?.click();
+  };
+
+  const handleSlotFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const doc = pendingSlotDoc.current;
+    if (!file || !doc || !user) return;
+    e.target.value = "";
+    setUploadingSlotId(doc.id);
+    const path = `job-documents/${jobId}/${Date.now()}-${file.name}`;
+    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    if (error) {
+      toast({ title: "Upload failed", variant: "destructive" });
+    } else {
+      const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      if (urlData?.signedUrl) {
+        await supabase.from("job_documents" as any).update({ file_url: urlData.signedUrl, file_name: file.name } as any).eq("id", doc.id);
+        setDocs((prev) => prev.map((d) => d.id === doc.id ? { ...d, file_url: urlData.signedUrl, file_name: file.name } : d));
+        toast({ title: "Document uploaded" });
+      }
+    }
+    setUploadingSlotId(null);
+  };
+
   if (loading) return <p className="text-sm text-muted-foreground">Loading documents…</p>;
 
   const autoAttached = docs.filter((d) => d.source === "auto" && ["rams_pdf", "quote", "purchase_order", "site_drawing"].includes(d.document_type));
