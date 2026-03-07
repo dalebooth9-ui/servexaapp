@@ -557,40 +557,39 @@ export async function generateRamsPdf(
   // ── PAGE 1 ───────────────────────────────────────────────────────────────
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   y = await sectionH1(doc, y, logoImg, "1 Introduction");
-  y = await checkPageBreak(doc, y, paraH("This Method Statement...", CONTENT_W) + 4, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   y = para(doc,
     "This Method Statement describes the specific safe working methods which will be used to carry out the work. It gives details of how the work will be carried out and what health and safety issues and controls are involved. The content of this Method Statement reflects the finding of the relevant Risk Assessment(s).",
     ML, y, CONTENT_W);
-  y += 4;
+  y += 2;
 
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   y = await sectionH1(doc, y, logoImg, "2 Description of Work");
   y = para(doc, "Commissioning tests of Dry Riser systems", ML, y, CONTENT_W);
-  y += 3;
+  y += 2;
 
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Time", ML, y); y += 4;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Site Working Hours:", ML, y); y += 4;
+  y = await checkPageBreak(doc, y, 18, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Time", ML, y); y += 3.5;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); doc.text("Site Working Hours:", ML, y); y += 3.5;
   y = bulletList(doc, [
     "Monday to Friday: 6:00am to 8:00pm",
     "Saturday: 8:00am to 12:30pm",
     "Sunday: None (Inc. Bank Holidays)"
   ], ML + 3, y, CONTENT_W - 3);
-  y = para(doc, "Any additional hours will need to be approved by main contractor.", ML, y + 1, CONTENT_W);
-  y += 3;
+  y = para(doc, "Any additional hours will need to be approved by main contractor.", ML, y + 0.5, CONTENT_W);
+  y += 2;
 
-  y = await checkPageBreak(doc, y, 25, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.1 Duration", ML, y); y += 5;
+  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.1 Duration", ML, y); y += 4;
   y = para(doc,
     "All works will be supervised at every stage by a competent qualified supervisor. Martin Whatmough will be responsible for the day-to-day supervision of Viva Fire Protection personnel and sub-contractors on site.",
     ML, y, CONTENT_W);
-  y += 2;
+  y += 1.5;
   doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
-  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4.5;
-  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 6;
+  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4;
+  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 4;
 
-  y = await checkPageBreak(doc, y, 40, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 5;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 4;
   y = numberedList(doc, [
     "All working personnel must have received site Induction from Principal Contractor and Viva Fire the first day of attending, the operatives will also receive a RAMs briefing from the Viva Fire site supervisor following the site induction from Principal Contractor before works commence.",
     "Personnel will be required to sign in via main security. Then into the Viva Fire Daily Sign in register.",
@@ -598,10 +597,10 @@ export async function generateRamsPdf(
     "A common appreciation of plant and pedestrians (who retain priority) must be observed and followed before moving about site.",
     "All deliveries of materials must be pre booked with Principal Contractor with 48 hours' notice given.",
   ], ML + 2, y, CONTENT_W - 2);
-  y += 3;
+  y += 2;
 
-  y = await checkPageBreak(doc, y, 40, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 5;
+  y = await checkPageBreak(doc, y, 15, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 4;
   y = numberedList(doc, [
     "Check available timeslots for deliveries in the site office, with assessment of what is being delivered, what it weights, how will it be unloaded, what kind of materials are being delivered, how will it be stored, where will it be stored, do any special precautions need to be taken, will mechanical lifting aids need to be used. All deliveries will be supervised by main contractor Competent Banksman, and the delivery drivers must remain in vehicle if they do not have suitable PPE.",
     "The delivery vehicle must deploy hazard lights/flashing beacon and any audible warning system if fitted. Extra care must be taken at this time and a suitable safe zone placed around the delivery vehicle/delivery area.",
@@ -622,28 +621,28 @@ export async function generateRamsPdf(
     "Move to next area.",
     "Repeat Process.",
   ], ML + 2, y, CONTENT_W - 2);
-  y += 3;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.4 Location", ML, y); y += 4;
   y = para(doc, "Block's / Stair cores / Dry Risers", ML, y, CONTENT_W); y += 2;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.5 Access and Egress", ML, y); y += 4;
   y = para(doc,
     "Access and egress must be kept open to site at all times for authorised personnel. All Principal Contractor rules regarding access and egress must be followed by Viva Fire operatives and sub-contractors at all times whilst on site with no deviation being permitted. All Viva Fire personnel and sub-contractors must make themselves familiar with site rules and entrance/exit points at induction and ensure they sign in and out at all times, whilst always being vigilant and report any potential problems immediately to site management.",
     ML, y, CONTENT_W);
-  y += 4;
-  y = await checkPageBreak(doc, y, 15, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3 Resources", ML, y); y += 4;
   y = para(doc, "Minimum of: 2 Operatives", ML, y, CONTENT_W); y += 2;
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.1 Personnel", ML, y); y += 4;
   y = para(doc, "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith, James Ogg", ML, y, CONTENT_W);
-  y += 3;
+  y += 2;
 
   y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.2 Supervision", ML, y); y += 4;
-  y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 35, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "NAME AND CONTACT: Mr Martin Whatmough (SSSTS), Tel: 07989436509", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("3.3 Plant and Equipment", ML, y); y += 4;
   y = bulletList(doc, [
     "Hand Tools",
@@ -653,24 +652,24 @@ export async function generateRamsPdf(
     "Hydrant stand pipe and hydrant key.",
     "16 bar Pressure gauge test arrangement.",
   ], ML + 3, y, CONTENT_W - 3);
-  y += 4;
-  y = await checkPageBreak(doc, y, 30, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4 Assessment of Significant Risks for all Tasks", ML, y); y += 4;
   y = numberedList(doc, [
     "High Pressure", "Water", "Bursting", "Manual Handling", "Collisions",
     "Cuts to hands", "Noise", "Slips/trips/falls", "Other Trades", "Deliveries to site"
   ], ML + 2, y, CONTENT_W / 2 - 2);
-  y += 3;
+  y += 2;
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.1 COSHH", ML, y); y += 4;
-  y = para(doc, "N/A", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "N/A", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.2 Security", ML, y); y += 4;
   y = para(doc,
     "Site security will be Principal Contractor responsibility but all Viva Fire personnel and sub-contractors on site must play their part and cooperate fully. They must also keep all equipment/tools safe and secure.",
     ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 35, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.3 Special Training", ML, y); y += 4;
   y = para(doc, "SSSTS - Martin Whatmough", ML, y, CONTENT_W); y += 1;
   y = para(doc, "All operatives have current JIB (CSCS) working safely (inclusive of behavioural safety Module)", ML, y, CONTENT_W); y += 1;
@@ -681,11 +680,11 @@ export async function generateRamsPdf(
   y = para(doc,
     "When Viva Fire on site personnel have been allocated for the works, all operatives will produce CSCS card at the time of the induction on site.",
     ML, y, CONTENT_W);
-  y += 3;
+  y += 2;
   y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("4.4 References to Environmental Aspects and Impacts Register control measures.", ML, y); y += 4;
-  y = para(doc, "N/A.", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 30, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "N/A.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("5 PPE", ML, y); y += 4;
   y = bulletList(doc, [
     "Hard Hat EN397",
@@ -695,9 +694,9 @@ export async function generateRamsPdf(
     "Glasses EN166",
     "Goggles EN166",
   ], ML + 3, y, CONTENT_W - 3);
-  y += 3;
+  y += 2;
 
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6 Emergency Arrangements", ML, y); y += 4;
   y = para(doc,
     "All accidents must be recorded in the site accident book and reported to Principal Contractor and Viva Fire senior management team.",
@@ -706,14 +705,14 @@ export async function generateRamsPdf(
   y = para(doc,
     "Emergency arrangements will be as Principal Contractor site induction. In the event of an emergency, incident, or accident all employees must report it to Site manager of Principal Contractor management team along with Viva Fire senior management team.",
     ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6.1 Special First Aid Requirements", ML, y); y += 4;
   y = para(doc,
     "No special first aid requirements are necessary, and the principal contractor will provide suitable first aid provision as per CDM regulations 2015. Information about this will be provided at induction.",
     ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 30, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("6.2 Rescue", ML, y); y += 4;
   y = para(doc,
     "In the event of an incident requiring emergency rescue, all operatives are reminded not to put themselves at risk of harm. Any incident occurring which requires emergency rescue must be judged on its individual risk conditions by the most senior person present.",
@@ -724,61 +723,60 @@ export async function generateRamsPdf(
     ML, y, CONTENT_W);
   y += 1;
   y = para(doc, "Please note all high-risk activities must be accompanied with an individual rescue plan.", ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("7 Temporary Amended Systems", ML, y); y += 4;
   y = para(doc,
     "No amendments are anticipated on site at this stage, but provisions will be made should this become necessary, and the possibility will be at the forefront of our onsite management teams thinking. Any changes to systems will be advised accordingly by Viva Fire in line with the CDM regulations 2015.",
     ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8 Responsibilities for Safety Control & Monitoring", ML, y); y += 4;
   y = para(doc, "Work activities will be monitored on a daily basis by site supervision and reviewed accordingly.", ML, y, CONTENT_W);
-  y += 2;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 1.5;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8.1 Persons Responsible", ML, y); y += 4;
   y = para(doc, "Dale Booth & Martin Whatmough.", ML, y, CONTENT_W);
-  y += 2;
-  y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 1.5;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("8.2 Duties", ML, y); y += 4;
   y = para(doc,
     "Dale Booth will be responsible for overseeing the safe implementation of all Viva Fireworks and as well as regular visits to site will provide ongoing assistance and support to Martin Whatmough, Viva Fire supervisor.",
     ML, y, CONTENT_W);
   y += 1;
   y = para(doc, "He will carry out safety inspections of Viva Fire on site activities and approve all safe systems of work if they need to change. To monitor work activities on a daily basis.", ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 25, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9 Environment Impacts", ML, y); y += 4;
+  y += 2;
+  y = await checkPageBreak(doc, y, 14, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9 Environment Impacts", ML, y); y += 3.5;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.1 Waste Handling", ML, y); y += 4;
   y = para(doc, "All waste materials must be disposed of in the correct skips provided by Viva Fire.", ML, y, CONTENT_W); y += 1;
   y = para(doc, "Special care and attention must be taken regarding our environmental impact. If in doubt, ask.", ML, y, CONTENT_W); y += 1;
   y = para(doc,
     "Full cooperation with principal contractor on any environmental issue must be stringently followed at all times in line with Viva Fire environmental policy.",
     ML, y, CONTENT_W);
-  y += 2;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 1.5;
   y = para(doc, "Viva Fire will manage Waste Streams of COSHH Materials and will complete Principal Contractor Waste Management Form.", ML, y, CONTENT_W);
-  y += 3;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.2 Water", ML, y); y += 4;
-  y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.3 Fuel Oils", ML, y); y += 4;
-  y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "None of our working actions are anticipated to have any impact.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("9.4 Risks of Environmental Contamination", ML, y); y += 4;
-  y = para(doc, "None anticipated.", ML, y, CONTENT_W); y += 4;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10 Briefing Arrangements", ML, y); y += 4;
+  y = para(doc, "None anticipated.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10 Briefing Arrangements", ML, y); y += 3.5;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10.1 Person Responsible", ML, y); y += 4;
-  y = para(doc, "Name Dale Booth. Mob 07801269206.", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "Name Dale Booth. Mob 07801269206.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("10.2 Acknowledgement", ML, y); y += 4;
-  y = para(doc, "See signatures below.", ML, y, CONTENT_W); y += 3;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "See signatures below.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("11 Interfaces with Others", ML, y); y += 4;
-  y = para(doc, "Ensure co-ordination with other trades at all times to ensure work areas are not congested.", ML, y, CONTENT_W); y += 4;
-  y = await checkPageBreak(doc, y, 12, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
+  y = para(doc, "Ensure co-ordination with other trades at all times to ensure work areas are not congested.", ML, y, CONTENT_W); y += 2;
+  y = await checkPageBreak(doc, y, 10, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("12. Coronavirus/COVID 19", ML, y); y += 4;
   const covidItems = [
     "Extra hygiene measures to be taken into consideration e.g. wash hands regularly throughout the working day for a minimum of 20 seconds at a time.",
@@ -790,7 +788,7 @@ export async function generateRamsPdf(
     "Government enforced social distancing rule of 2 metres between all operatives must be adhered to by all.",
   ];
   for (let i = 0; i < covidItems.length; i++) {
-    const itemH = paraH(covidItems[i], CONTENT_W - 8) + 6;
+    const itemH = paraH(covidItems[i], CONTENT_W - 8) + 5;
     y = await checkPageBreak(doc, y, itemH, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text(`12.${i + 1}`, ML, y); y += 4;
     y = para(doc, covidItems[i], ML + 8, y - 1, CONTENT_W - 8);
