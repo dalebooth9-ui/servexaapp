@@ -347,8 +347,8 @@ export function signatureRow(
 /* ─────────────────────────────────────── logo loader ── */
 
 export async function loadLogoImage(_customerLogoUrl?: string | null): Promise<HTMLImageElement | null> {
-  // RAMS always use Viva Fire branding — customer logos are never applied here
-  const url = "/images/vivafire-logo-new.jpg";
+  // RAMS always use Viva Fire branding — customer logos are NEVER applied here
+  const url = `/images/vivafire-logo-new.jpg?v=${Date.now()}`;
   try {
     const img = new Image();
     img.crossOrigin = "anonymous";
