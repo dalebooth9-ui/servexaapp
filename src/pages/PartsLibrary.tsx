@@ -120,7 +120,7 @@ function SortableLibraryRow({
   part: LibraryPart;
   isAdmin: boolean;
   isEditing: boolean;
-  editForm: { name: string; unit_cost: string; sell_price: string; supplier: string; part_number: string };
+  editForm: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; supplier: string; part_number: string };
   setEditForm: (f: any) => void;
   startEdit: (p: LibraryPart) => void;
   saveEdit: () => void;
