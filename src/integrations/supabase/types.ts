@@ -1035,6 +1035,81 @@ export type Database = {
           },
         ]
       }
+      installation_handover_tokens: {
+        Row: {
+          client_email: string | null
+          client_name: string
+          created_at: string
+          created_by: string
+          expires_at: string
+          id: string
+          job_id: string
+          project_id: string
+          signature_data: string | null
+          signed_at: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          client_email?: string | null
+          client_name?: string
+          created_at?: string
+          created_by: string
+          expires_at?: string
+          id?: string
+          job_id: string
+          project_id: string
+          signature_data?: string | null
+          signed_at?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          client_email?: string | null
+          client_name?: string
+          created_at?: string
+          created_by?: string
+          expires_at?: string
+          id?: string
+          job_id?: string
+          project_id?: string
+          signature_data?: string | null
+          signed_at?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: []
+      }
+      installation_issue_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          issue_id: string
+          new_value: string | null
+          old_value: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          issue_id: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          issue_id?: string
+          new_value?: string | null
+          old_value?: string | null
+        }
+        Relationships: []
+      }
       installation_issue_photos: {
         Row: {
           created_at: string
