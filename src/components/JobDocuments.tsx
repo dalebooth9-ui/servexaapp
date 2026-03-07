@@ -8,6 +8,7 @@ import { FileText, Download, Trash2, Upload, Loader2, Zap, Building2 } from "luc
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import PreStartChecklistPdf from "@/components/PreStartChecklistPdf";
 import type { RamsType } from "@/components/RamsPdfExport";
 
 type JobDoc = {
