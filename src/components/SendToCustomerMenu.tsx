@@ -443,12 +443,12 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
                   </label>
                 )}
 
-                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors border-amber-500/20 bg-amber-500/5">
+                <label className="flex items-center gap-3 rounded-md border p-3 cursor-pointer hover:bg-muted/50 transition-colors border-primary/20 bg-primary/5">
                   <Checkbox
                     checked={selectedDocs.has("prestart")}
                     onCheckedChange={() => handleDocToggleImmediate("prestart")}
                   />
-                  <ListChecks className="h-4 w-4 text-amber-600" />
+                  <ListChecks className="h-4 w-4 text-primary" />
                   <div>
                     <p className="text-sm font-medium">Pre-start Check List</p>
                     <p className="text-xs text-muted-foreground">
