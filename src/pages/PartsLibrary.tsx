@@ -55,11 +55,11 @@ interface ParsedLibraryPart {
 // Inline add row between parts
 const InlineAddRow = forwardRef<HTMLTableRowElement, {
   isAdmin: boolean;
-  onAdd: (form: { name: string; unit_cost: string; sell_price: string; category: string; supplier: string; part_number: string }) => Promise<void>;
+  onAdd: (form: { name: string; unit_cost: string; sell_price: string; china_cost: string; uk_cost: string; category: string; supplier: string; part_number: string }) => Promise<void>;
   colSpan: number;
 }>(function InlineAddRow({ isAdmin, onAdd, colSpan }, ref) {
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+  const [form, setForm] = useState({ name: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
   const [adding, setAdding] = useState(false);
 
   if (!open) {
@@ -81,7 +81,7 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
     if (!form.name.trim()) return;
     setAdding(true);
     await onAdd(form);
-    setForm({ name: "", unit_cost: "0", sell_price: "0", category: "general", supplier: "", part_number: "" });
+    setForm({ name: "", unit_cost: "0", sell_price: "0", china_cost: "0", uk_cost: "0", category: "general", supplier: "", part_number: "" });
     setOpen(false);
     setAdding(false);
   };
@@ -94,7 +94,11 @@ const InlineAddRow = forwardRef<HTMLTableRowElement, {
           <Input placeholder="Part #" value={form.part_number} onChange={(e) => setForm({ ...form, part_number: e.target.value })} className="h-8 text-sm w-24" />
           <Input type="number" placeholder="Cost £" min="0" step="0.01" value={form.unit_cost} onChange={(e) => setForm({ ...form, unit_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
           {isAdmin && (
-            <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
+            <>
+              <Input type="number" placeholder="China £" min="0" step="0.01" value={form.china_cost} onChange={(e) => setForm({ ...form, china_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
+              <Input type="number" placeholder="UK £" min="0" step="0.01" value={form.uk_cost} onChange={(e) => setForm({ ...form, uk_cost: e.target.value })} className="h-8 text-sm w-20 text-right" />
+              <Input type="number" placeholder="Sell £" min="0" step="0.01" value={form.sell_price} onChange={(e) => setForm({ ...form, sell_price: e.target.value })} className="h-8 text-sm w-20 text-right" />
+            </>
           )}
           <Input placeholder="Supplier" value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} className="h-8 text-sm w-24" />
           <Input placeholder="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className="h-8 text-sm w-24" onKeyDown={(e) => e.key === "Enter" && handleSubmit()} />
