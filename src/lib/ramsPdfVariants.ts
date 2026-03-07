@@ -24,6 +24,12 @@ export async function generateSprinklerRamsPdf(
 ): Promise<{ base64: string; fileName: string }> {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const logoImg = await loadLogoImage(jobInfo?.customers?.logo_url);
+  const TOTAL_PAGES = 10;
+
+  // Cover
+  const { datePrepared, clientName, attendanceDate, siteLocation, engineerNames, operatives } =
+    await buildCoverPage(doc, logoImg, formData, jobInfo, {
+      title1: "Sprinkler System Inspection & Servicing",
       title2: "Sprinkler System Servicing",
       operationTask: "Inspection, testing and servicing of sprinkler systems.",
     }, assignedEngineers);
