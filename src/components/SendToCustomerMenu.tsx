@@ -62,6 +62,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("rams")) parts.push("RAMS");
     if (docs.has("certs")) parts.push("Engineer Certificates");
     if (docs.has("jobsheets")) parts.push("Job Sheets");
+    if (docs.has("coc")) parts.push("Certificate of Conformity");
     if (docs.has("quote")) parts.push("Quote");
     if (docs.has("invoice")) parts.push("Invoice");
     setSubject(parts.length === 0 ? `Documents — ${job.reference_number}` : `${parts.join(" & ")} — ${job.reference_number}`);
@@ -77,6 +78,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
     if (docs.has("rams")) items.push("the RAMS documents");
     if (docs.has("certs")) items.push("the engineer certificates");
     if (docs.has("jobsheets")) items.push("the completed job sheets");
+    if (docs.has("coc")) items.push("the Certificate of Conformity");
     if (docs.has("quote")) items.push("our quote for further works");
     if (docs.has("invoice")) items.push("your invoice");
     const itemStr = items.length > 0 ? items.join(", ") : "the documents";
