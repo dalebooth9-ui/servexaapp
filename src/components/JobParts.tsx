@@ -623,8 +623,14 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
           )}
         </>
       )}
-      <ImportPartsDialog open={importOpen} onOpenChange={setImportOpen} jobId={jobId} onImported={fetchParts} />
-      <PartsLibraryPicker open={libraryOpen} onOpenChange={setLibraryOpen} jobId={jobId} onAdded={fetchParts} />
+  <ImportPartsDialog open={importOpen} onOpenChange={setImportOpen} jobId={jobId} onImported={fetchParts} />
+      <PartsLibraryPicker
+        open={libraryOpen}
+        onOpenChange={setLibraryOpen}
+        jobId={jobId}
+        onAdded={fetchParts}
+        listType={jobCategory?.includes("install") ? "install" : "general"}
+      />
     </div>
   );
 }
