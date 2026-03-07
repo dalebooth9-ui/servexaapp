@@ -23,6 +23,7 @@ type Template = {
   id: string;
   name: string;
   description: string | null;
+  standard?: string | null;
   fields: PdfTemplateField[];
   branding?: {
     company_name?: string;
