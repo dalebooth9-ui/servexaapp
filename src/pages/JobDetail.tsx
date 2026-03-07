@@ -261,24 +261,34 @@ export default function JobDetail() {
               <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
             </div>
           )}
-          {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {job.pressure_test_qty > 0 && (
+          {job.category === "installation" ? (
+            job.other_qty > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
-                  Pressure Test <span className="font-bold">× {job.pressure_test_qty}</span>
+                  Dry Riser Systems <span className="font-bold">× {job.other_qty}</span>
                 </span>
-              )}
-              {job.visual_qty > 0 && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border px-2 py-0.5 text-xs font-medium text-secondary-foreground">
-                  Visual Inspection <span className="font-bold">× {job.visual_qty}</span>
-                </span>
-              )}
-              {job.other_qty > 0 && job.other_service_type && (
-                <span className="inline-flex items-center gap-1 rounded-md bg-accent border border-border px-2 py-0.5 text-xs font-medium text-accent-foreground">
-                  {job.other_service_type} <span className="font-bold">× {job.other_qty}</span>
-                </span>
-              )}
-            </div>
+              </div>
+            )
+          ) : (
+            (job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {job.pressure_test_qty > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 border border-primary/20 px-2 py-0.5 text-xs font-medium text-primary">
+                    Pressure Test <span className="font-bold">× {job.pressure_test_qty}</span>
+                  </span>
+                )}
+                {job.visual_qty > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-secondary border border-border px-2 py-0.5 text-xs font-medium text-secondary-foreground">
+                    Visual Inspection <span className="font-bold">× {job.visual_qty}</span>
+                  </span>
+                )}
+                {job.other_qty > 0 && job.other_service_type && (
+                  <span className="inline-flex items-center gap-1 rounded-md bg-accent border border-border px-2 py-0.5 text-xs font-medium text-accent-foreground">
+                    {job.other_service_type} <span className="font-bold">× {job.other_qty}</span>
+                  </span>
+                )}
+              </div>
+            )
           )}
           {userRole === "admin" ? (
             <div className="mt-1.5 flex items-center gap-2">
@@ -396,13 +406,19 @@ export default function JobDetail() {
                     <div><span className="text-muted-foreground">Job Name:</span> <span className="font-medium">{job.name}</span></div>
                     <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
                     <div><span className="text-muted-foreground">Site:</span> <span className="font-medium">{sites.find((s) => s.id === job.site_id)?.name || "—"}</span></div>
-                    <div className="flex gap-4">
-                      <span><span className="text-muted-foreground">Pressure Test:</span> <span className="font-medium">{job.pressure_test_qty || 0}</span></span>
-                      <span><span className="text-muted-foreground">Visual:</span> <span className="font-medium">{job.visual_qty || 0}</span></span>
-                      {((job as any).other_qty > 0) && (
-                        <span><span className="text-muted-foreground">{(job as any).other_service_type || "Other"}:</span> <span className="font-medium">{(job as any).other_qty}</span></span>
-                      )}
-                    </div>
+                    {job.category === "installation" ? (
+                      <div className="flex gap-4">
+                        <span><span className="text-muted-foreground">Dry Riser Systems:</span> <span className="font-medium">{(job as any).other_qty || 0}</span></span>
+                      </div>
+                    ) : (
+                      <div className="flex gap-4">
+                        <span><span className="text-muted-foreground">Pressure Test:</span> <span className="font-medium">{job.pressure_test_qty || 0}</span></span>
+                        <span><span className="text-muted-foreground">Visual:</span> <span className="font-medium">{job.visual_qty || 0}</span></span>
+                        {((job as any).other_qty > 0) && (
+                          <span><span className="text-muted-foreground">{(job as any).other_service_type || "Other"}:</span> <span className="font-medium">{(job as any).other_qty}</span></span>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "" }); setEditing(true); }}>
                     <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
@@ -436,26 +452,35 @@ export default function JobDetail() {
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="flex gap-4">
-                    <div className="flex-1">
-                      <Label className="text-xs">Pressure Test Qty</Label>
-                      <Input type="number" min={0} value={editForm.pressure_test_qty} onChange={(e) => setEditForm({ ...editForm, pressure_test_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
-                    </div>
-                    <div className="flex-1">
-                      <Label className="text-xs">Visual Qty</Label>
-                      <Input type="number" min={0} value={editForm.visual_qty} onChange={(e) => setEditForm({ ...editForm, visual_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <div className="flex-1">
-                      <Label className="text-xs">Other Service Type</Label>
-                      <Input placeholder="e.g. Wet Riser" value={editForm.other_service_type} onChange={(e) => setEditForm({ ...editForm, other_service_type: e.target.value })} className="mt-1" />
-                    </div>
-                    <div className="w-24">
-                      <Label className="text-xs">Other Qty</Label>
+                  {job.category === "installation" ? (
+                    <div>
+                      <Label className="text-xs">Dry Riser Systems Qty</Label>
                       <Input type="number" min={0} value={editForm.other_qty} onChange={(e) => setEditForm({ ...editForm, other_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="flex gap-4">
+                        <div className="flex-1">
+                          <Label className="text-xs">Pressure Test Qty</Label>
+                          <Input type="number" min={0} value={editForm.pressure_test_qty} onChange={(e) => setEditForm({ ...editForm, pressure_test_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-xs">Visual Qty</Label>
+                          <Input type="number" min={0} value={editForm.visual_qty} onChange={(e) => setEditForm({ ...editForm, visual_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <Label className="text-xs">Other Service Type</Label>
+                          <Input placeholder="e.g. Wet Riser" value={editForm.other_service_type} onChange={(e) => setEditForm({ ...editForm, other_service_type: e.target.value })} className="mt-1" />
+                        </div>
+                        <div className="w-24">
+                          <Label className="text-xs">Other Qty</Label>
+                          <Input type="number" min={0} value={editForm.other_qty} onChange={(e) => setEditForm({ ...editForm, other_qty: Math.max(0, parseInt(e.target.value) || 0) })} className="mt-1" />
+                        </div>
+                      </div>
+                    </>
+                  )}
                   <div>
                     <Label className="text-xs">Due Date</Label>
                     <Input type="date" value={editForm.due_date} onChange={(e) => setEditForm({ ...editForm, due_date: e.target.value })} className="mt-1" />
@@ -464,7 +489,13 @@ export default function JobDetail() {
                 <div className="flex gap-2 pt-1">
                   <Button size="sm" disabled={editSaving || !editForm.name.trim()} onClick={async () => {
                     setEditSaving(true);
-                    const { error } = await supabase.from("jobs").update({ name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, pressure_test_qty: editForm.pressure_test_qty, visual_qty: editForm.visual_qty, other_qty: editForm.other_qty, other_service_type: editForm.other_service_type || null, due_date: editForm.due_date || null } as any).eq("id", id!);
+                    const updatePayload: any = { name: editForm.name.trim(), address: editForm.address.trim() || null, site_id: editForm.site_id || null, other_qty: editForm.other_qty, due_date: editForm.due_date || null };
+                    if (job.category !== "installation") {
+                      updatePayload.pressure_test_qty = editForm.pressure_test_qty;
+                      updatePayload.visual_qty = editForm.visual_qty;
+                      updatePayload.other_service_type = editForm.other_service_type || null;
+                    }
+                    const { error } = await supabase.from("jobs").update(updatePayload).eq("id", id!);
                     if (error) { toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" }); }
                     else { toast({ title: "Job details updated" }); setEditing(false); fetchData(); }
                     setEditSaving(false);
