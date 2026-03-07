@@ -627,25 +627,60 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
           />
         ))}
 
-        {/* Add Issue */}
+        {/* Add Snag */}
         {addingIssue ? (
-          <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2">
-            <Input
-              autoFocus
-              placeholder="Issue title…"
-              value={newIssueTitle}
-              onChange={(e) => setNewIssueTitle(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && newIssueTitle.trim()) addIssue(); if (e.key === "Escape") { setAddingIssue(false); setNewIssueTitle(""); } }}
-              className="h-8 text-sm"
-            />
-            <Button size="sm" onClick={addIssue} disabled={!newIssueTitle.trim()}>Add</Button>
-            <Button size="sm" variant="ghost" onClick={() => { setAddingIssue(false); setNewIssueTitle(""); }}>
-              <X className="h-4 w-4" />
-            </Button>
+          <div className="rounded-lg border bg-card px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <Input
+                autoFocus
+                placeholder="Snag title… or tap 🎤 to dictate"
+                value={newIssueTitle}
+                onChange={(e) => setNewIssueTitle(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && newIssueTitle.trim()) addIssue(); if (e.key === "Escape") { setAddingIssue(false); setNewIssueTitle(""); setPendingPhotos([]); recognitionRef.current?.stop(); } }}
+                className={`h-8 text-sm flex-1 ${isListening ? "border-destructive ring-1 ring-destructive" : ""}`}
+              />
+              <Button
+                size="icon" variant={isListening ? "destructive" : "outline"}
+                className="h-8 w-8 shrink-0" onClick={toggleVoice}
+                title={isListening ? "Stop recording" : "Voice note – AI transcribes"}
+              >
+                {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
+              </Button>
+              <input ref={newPhotoRef} type="file" accept="image/*" multiple capture="environment" className="hidden"
+                onChange={(e) => { if (e.target.files) { setPendingPhotos(prev => [...prev, ...Array.from(e.target.files!)]); e.target.value = ""; } }} />
+              <Button size="icon" variant="outline" className="h-8 w-8 shrink-0"
+                onClick={() => newPhotoRef.current?.click()} title="Attach photo">
+                <Camera className="h-3.5 w-3.5" />
+              </Button>
+              <Button size="sm" onClick={addIssue} disabled={!newIssueTitle.trim()}>Add</Button>
+              <Button size="sm" variant="ghost" onClick={() => { setAddingIssue(false); setNewIssueTitle(""); setPendingPhotos([]); recognitionRef.current?.stop(); }}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            {isListening && (
+              <p className="text-xs text-destructive flex items-center gap-1.5 animate-pulse">
+                <span className="inline-block h-2 w-2 rounded-full bg-destructive" />
+                Listening… speak your snag description
+              </p>
+            )}
+            {pendingPhotos.length > 0 && (
+              <div className="flex gap-2 flex-wrap items-center">
+                {pendingPhotos.map((file, i) => (
+                  <div key={i} className="relative group">
+                    <img src={URL.createObjectURL(file)} alt="" className="h-12 w-12 object-cover rounded border" />
+                    <button onClick={() => setPendingPhotos(prev => prev.filter((_, j) => j !== i))}
+                      className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <X className="h-2.5 w-2.5" />
+                    </button>
+                  </div>
+                ))}
+                <span className="text-xs text-muted-foreground">{pendingPhotos.length} photo{pendingPhotos.length > 1 ? "s" : ""} ready</span>
+              </div>
+            )}
           </div>
         ) : (
           <Button variant="outline" className="w-full gap-2 text-sm border-dashed" onClick={() => setAddingIssue(true)}>
-            <Plus className="h-4 w-4" /> Add Issue
+            <Plus className="h-4 w-4" /> Add Snag
           </Button>
         )}
       </div>
