@@ -49,6 +49,8 @@ interface ParsedLibraryPart {
   name: string;
   description: string;
   unit_cost: number;
+  china_cost: number;
+  uk_cost: number;
   sell_price: number;
   category: string;
   supplier: string;
@@ -430,7 +432,18 @@ function PartsPanel({
       );
       if (!res.ok) { const err = await res.json().catch(() => ({ error: "Parse failed" })); throw new Error(err.error || "Failed to parse document"); }
       const { parts: parsed } = await res.json();
-      setParsedParts((parsed || []).map((p: any) => ({ name: p.name || p.part || p.material || "", description: p.notes || p.description || "", unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0), sell_price: parseFloat(p.sell_price ?? 0), category: p.category || "general", supplier: p.supplier || "", part_number: p.part_number || p.sku || "", selected: true })));
+      setParsedParts((parsed || []).map((p: any) => ({
+          name: p.name || p.part || p.material || "",
+          description: p.notes || p.description || "",
+          unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0),
+          china_cost: parseFloat(p.china_cost ?? 0),
+          uk_cost: parseFloat(p.uk_cost ?? 0),
+          sell_price: parseFloat(p.sell_price ?? 0),
+          category: p.category || "general",
+          supplier: p.supplier || "",
+          part_number: p.part_number || p.sku || "",
+          selected: true,
+        })));
     } catch (err: any) {
       toast({ title: "Parse Error", description: err.message, variant: "destructive" });
     } finally {
@@ -444,7 +457,7 @@ function PartsPanel({
     if (items.length === 0) { toast({ title: "No parts selected", variant: "destructive" }); return; }
     setImporting(true);
     const maxOrder = parts.length > 0 ? Math.max(...parts.map((p) => p.sort_order)) : -1;
-    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
+    const rows = items.map((p, i) => ({ name: p.name.trim(), description: p.description.trim() || null, unit_cost: p.unit_cost || 0, china_cost: p.china_cost || 0, uk_cost: p.uk_cost || 0, sell_price: p.sell_price || 0, category: p.category.trim() || "general", supplier: p.supplier.trim() || null, part_number: p.part_number.trim() || null, created_by: user.id, sort_order: maxOrder + 1 + i, list_type: listType }));
     const { error } = await supabase.from("parts_library").insert(rows as any);
     if (error) {
       toast({ title: "Import Error", description: error.message, variant: "destructive" });
@@ -623,22 +636,39 @@ function PartsPanel({
                       <TableHead className="w-10"><Checkbox checked={parsedParts.every((p) => p.selected)} onCheckedChange={(c) => setParsedParts((prev) => prev.map((p) => ({ ...p, selected: !!c })))} /></TableHead>
                       <TableHead>Part Name</TableHead>
                       <TableHead className="w-24">Part #</TableHead>
-                      <TableHead className="w-24 text-right">Cost £</TableHead>
+                      <TableHead className="w-24 text-right">Unit Cost £</TableHead>
+                      {showInstallCosts && <TableHead className="w-24 text-right">China £</TableHead>}
+                      {showInstallCosts && <TableHead className="w-24 text-right">UK £</TableHead>}
+                      {showInstallCosts && <TableHead className="w-24 text-right">Profit</TableHead>}
                       <TableHead className="w-24">Supplier</TableHead>
                       <TableHead className="w-10" />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {parsedParts.map((part, idx) => (
-                      <TableRow key={idx} className={part.selected ? "" : "opacity-50"}>
-                        <TableCell><Checkbox checked={part.selected} onCheckedChange={() => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, selected: !p.selected } : p))} /></TableCell>
-                        <TableCell><Input value={part.name} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, name: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
-                        <TableCell><Input value={part.part_number} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, part_number: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
-                        <TableCell><Input type="number" value={part.unit_cost} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, unit_cost: parseFloat(e.target.value) || 0 } : p))} className="h-8 text-sm text-right w-24" min="0" step="0.01" /></TableCell>
-                        <TableCell><Input value={part.supplier} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, supplier: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
-                        <TableCell><button onClick={() => setParsedParts((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button></TableCell>
-                      </TableRow>
-                    ))}
+                    {parsedParts.map((part, idx) => {
+                      const profit = part.uk_cost - part.china_cost;
+                      return (
+                        <TableRow key={idx} className={part.selected ? "" : "opacity-50"}>
+                          <TableCell><Checkbox checked={part.selected} onCheckedChange={() => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, selected: !p.selected } : p))} /></TableCell>
+                          <TableCell><Input value={part.name} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, name: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
+                          <TableCell><Input value={part.part_number} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, part_number: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
+                          <TableCell><Input type="number" value={part.unit_cost} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, unit_cost: parseFloat(e.target.value) || 0 } : p))} className="h-8 text-sm text-right w-24" min="0" step="0.01" /></TableCell>
+                          {showInstallCosts && (
+                            <TableCell><Input type="number" value={part.china_cost} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, china_cost: parseFloat(e.target.value) || 0 } : p))} className="h-8 text-sm text-right w-24" min="0" step="0.01" /></TableCell>
+                          )}
+                          {showInstallCosts && (
+                            <TableCell><Input type="number" value={part.uk_cost} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, uk_cost: parseFloat(e.target.value) || 0 } : p))} className="h-8 text-sm text-right w-24" min="0" step="0.01" /></TableCell>
+                          )}
+                          {showInstallCosts && (
+                            <TableCell className={`text-right text-sm font-medium ${profit > 0 ? "text-green-600" : profit < 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                              {(part.china_cost > 0 || part.uk_cost > 0) ? (profit >= 0 ? `+£${profit.toFixed(2)}` : `-£${Math.abs(profit).toFixed(2)}`) : "—"}
+                            </TableCell>
+                          )}
+                          <TableCell><Input value={part.supplier} onChange={(e) => setParsedParts((prev) => prev.map((p, i) => i === idx ? { ...p, supplier: e.target.value } : p))} className="h-8 text-sm" /></TableCell>
+                          <TableCell><button onClick={() => setParsedParts((prev) => prev.filter((_, i) => i !== idx))} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button></TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </>
