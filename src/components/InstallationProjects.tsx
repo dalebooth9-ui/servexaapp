@@ -785,7 +785,7 @@ export default function InstallationProjects({ jobId, job }: Props) {
                           </AlertDialogTrigger>
                           <AlertDialogContent onClick={(e) => e.stopPropagation()}>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Project</AlertDialogTitle>
+                              <AlertDialogTitle>Delete Snag List</AlertDialogTitle>
                               <AlertDialogDescription>Delete "{proj.title}" and all its issues and photos?</AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
