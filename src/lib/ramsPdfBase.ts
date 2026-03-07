@@ -482,9 +482,7 @@ export async function buildCoverPage(
   ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   ry += rowGap;
   ry += rowGap;
-  // Cap the box so it never overlaps the accreditation logo zone
-  const MAX_BOX_BOTTOM = PAGE_H - 44; // 253mm — logos start ~257mm
-  const detailBoxH = Math.min(ry - boxY + 3, MAX_BOX_BOTTOM - boxY);
+  const detailBoxH = ry - boxY + 3;
 
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
