@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -242,7 +242,38 @@ export default function Jobs() {
     setSelectedJobIds(new Set());
   };
 
+  const handleBulkExportCsv = () => {
+    const ids = Array.from(selectedJobIds);
+    const selectedJobs = jobs.filter((j) => ids.includes(j.id));
+    const headers = ["Reference", "Name", "Customer", "Status", "Priority", "Category", "Due Date", "Address"];
+    const rows = selectedJobs.map((j) => [
+      j.reference_number, j.name, getCustomerName(j) || "",
+      j.status, j.priority, j.category, j.due_date || "", j.address || "",
+    ]);
+    const csv = [headers, ...rows]
+      .map((r) => r.map((v: string) => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `jobs-export-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: `${ids.length} job(s) exported`, description: "CSV downloaded" });
+  };
+
+  // Escape key clears selection
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedJobIds.size > 0) setSelectedJobIds(new Set());
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [selectedJobIds]);
+
   const handleSaveTemplate = async () => {
+
     if (!templateName.trim() || !user) return;
     const { error } = await supabase.from("job_templates" as any).insert({
       name: templateName.trim(),
@@ -744,6 +775,14 @@ export default function Jobs() {
     );
   });
 
+  // Global select-all derived state (must come after filtered)
+  const allFilteredIds = filtered.map((j) => j.id);
+  const allFilteredSelected = allFilteredIds.length > 0 && allFilteredIds.every((id) => selectedJobIds.has(id));
+  const someFilteredSelected = !allFilteredSelected && allFilteredIds.some((id) => selectedJobIds.has(id));
+  const handleSelectAllFiltered = (checked: boolean) => {
+    setSelectedJobIds(checked ? new Set(allFilteredIds) : new Set());
+  };
+
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
     const key = getCustomerName(job)?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
@@ -1126,65 +1165,95 @@ export default function Jobs() {
         )}
       </div>
 
-      {isAdmin && selectedJobIds.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-muted/50 px-4 py-3">
-          <span className="text-sm font-medium mr-1">{selectedJobIds.size} selected</span>
-          <Button variant="ghost" size="sm" onClick={() => setSelectedJobIds(new Set())}>Clear</Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">Status <ChevronDown className="ml-1 h-3 w-3" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {["active","in_progress","scheduled","awaiting_parts","on_hold","requires_revisit","completed","archived"].map((s) => (
-                <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(s)}>{s.replace(/_/g, " ")}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm">Priority <ChevronDown className="ml-1 h-3 w-3" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              {["high","medium","low"].map((p) => (
-                <DropdownMenuItem key={p} onClick={() => handleBulkPriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {engineers.length > 0 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">Assign Engineer <ChevronDown className="ml-1 h-3 w-3" /></Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                {engineers.map((e) => (
-                  <DropdownMenuItem key={e.user_id} onClick={() => handleBulkAssignEngineer(e.user_id)}>{e.full_name}</DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" size="sm">
-                <Trash2 className="mr-2 h-4 w-4" /> Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete {selectedJobIds.size} job(s)?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete the selected jobs and all associated data. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete}>
-                  Delete {selectedJobIds.size} Job(s)
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+      {isAdmin && (selectedJobIds.size > 0 || filtered.length > 0) && (
+        <div className={`mb-4 rounded-lg border px-4 py-3 transition-colors ${selectedJobIds.size > 0 ? "bg-primary/5 border-primary/30" : "bg-muted/30 border-border"}`}>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Global select-all checkbox */}
+            <div className="flex items-center gap-2 mr-1">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border accent-primary cursor-pointer"
+                checked={allFilteredSelected}
+                ref={(el) => { if (el) el.indeterminate = someFilteredSelected; }}
+                onChange={(e) => handleSelectAllFiltered(e.target.checked)}
+                title="Select / deselect all visible jobs"
+              />
+              {selectedJobIds.size > 0 ? (
+                <span className="text-sm font-semibold text-primary">{selectedJobIds.size} selected</span>
+              ) : (
+                <span className="text-sm text-muted-foreground">Select all ({filtered.length})</span>
+              )}
+            </div>
+
+            {selectedJobIds.size > 0 && (
+              <>
+                <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setSelectedJobIds(new Set())}>
+                  <X className="mr-1 h-3 w-3" /> Clear <span className="ml-1 text-muted-foreground">(Esc)</span>
+                </Button>
+                <div className="h-4 w-px bg-border mx-1" />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">Status <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {["active","in_progress","scheduled","awaiting_parts","on_hold","requires_revisit","completed","archived"].map((s) => (
+                      <DropdownMenuItem key={s} onClick={() => handleBulkStatusChange(s)} className="capitalize">{s.replace(/_/g, " ")}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs">Priority <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    {["high","medium","low"].map((p) => (
+                      <DropdownMenuItem key={p} onClick={() => handleBulkPriorityChange(p)} className="capitalize">{p}</DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {engineers.length > 0 && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="h-7 text-xs">Assign Engineer <ChevronDown className="ml-1 h-3 w-3" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {engineers.map((e) => (
+                        <DropdownMenuItem key={e.user_id} onClick={() => handleBulkAssignEngineer(e.user_id)}>{e.full_name}</DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Button variant="outline" size="sm" className="h-7 text-xs" onClick={handleBulkExportCsv}>
+                  <Download className="mr-1.5 h-3 w-3" /> Export CSV
+                </Button>
+                <AlertDialog open={bulkDeleteOpen} onOpenChange={setBulkDeleteOpen}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" size="sm" className="h-7 text-xs ml-auto">
+                      <Trash2 className="mr-1.5 h-3 w-3" /> Delete {selectedJobIds.size}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {selectedJobIds.size} job(s)?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete the selected jobs and all associated data. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={handleBulkDelete}>
+                        Delete {selectedJobIds.size} Job(s)
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            )}
+          </div>
         </div>
       )}
+
+
 
       {filtered.length === 0 ? (
         <Card>
