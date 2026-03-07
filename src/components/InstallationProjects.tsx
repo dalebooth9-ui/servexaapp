@@ -378,7 +378,7 @@ function ProjectDetail({ project, onBack, onRefresh }: { project: Project; onBac
 
   const saveProjectEdit = async () => {
     await supabase.from("installation_projects" as any).update(editForm).eq("id", project.id);
-    toast({ title: "Project updated" });
+    toast({ title: "Snag list updated" });
     setEditProjectOpen(false);
     onRefresh();
   };
