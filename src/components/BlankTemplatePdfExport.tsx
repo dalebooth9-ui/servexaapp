@@ -117,7 +117,14 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
 
         const sheetTitle = template.name;
 
-        let y = await renderPdfHeader(doc, sheetTitle, branding, {
+      let y = await renderPdfHeader(doc, sheetTitle, branding, {
+          customerName,
+          siteName,
+          siteAddress,
+          refNumber,
+          dateVal,
+          riserLocation: riserLocValue,
+        }, template.standard);
           customerName,
           siteName,
           siteAddress,
