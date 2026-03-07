@@ -24,7 +24,7 @@ interface Props {
   customerEmail?: string;
 }
 
-type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs";
+type DocOption = "report" | "quote" | "invoice" | "jobsheets" | "rams" | "certs" | "coc";
 
 export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props) {
   const { toast } = useToast();
