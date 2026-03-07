@@ -39,6 +39,7 @@ const Reports = lazy(() => import("@/pages/Reports"));
 const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Servexa = lazy(() => import("@/pages/Servexa"));
+const HandoverSignOff = lazy(() => import("@/components/HandoverSignOffPage"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
@@ -113,6 +114,7 @@ const App = () => (
             <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
             <Route path="/privacy" element={<Suspense fallback={<PageFallback />}><PrivacyPolicy /></Suspense>} />
             <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
+            <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
             <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
           </Routes>
           <OfflineIndicator />

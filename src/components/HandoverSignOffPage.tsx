@@ -21,7 +21,6 @@ export default function HandoverSignOffPage() {
   useEffect(() => {
     if (!token) return;
     (async () => {
-      // Validate token via edge function (no auth required)
       const { data, error: fnErr } = await supabase.functions.invoke("handover-sign-off-validate", {
         body: { token },
       });
@@ -39,7 +38,6 @@ export default function HandoverSignOffPage() {
     })();
   }, [token]);
 
-  // Canvas drawing helpers
   const getPos = (e: React.MouseEvent | React.TouchEvent, canvas: HTMLCanvasElement) => {
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -47,7 +45,7 @@ export default function HandoverSignOffPage() {
     if ("touches" in e) {
       return { x: (e.touches[0].clientX - rect.left) * scaleX, y: (e.touches[0].clientY - rect.top) * scaleY };
     }
-    return { x: (e.clientX - rect.left) * scaleX, y: (e.clientY - rect.top) * scaleY };
+    return { x: ((e as React.MouseEvent).clientX - rect.left) * scaleX, y: ((e as React.MouseEvent).clientY - rect.top) * scaleY };
   };
 
   const startDraw = (e: React.MouseEvent | React.TouchEvent) => {
@@ -65,7 +63,7 @@ export default function HandoverSignOffPage() {
     const ctx = canvas.getContext("2d"); if (!ctx) return;
     const pos = getPos(e, canvas);
     ctx.lineTo(pos.x, pos.y);
-    ctx.strokeStyle = "#111"; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.stroke();
+    ctx.strokeStyle = "hsl(var(--foreground))"; ctx.lineWidth = 2; ctx.lineCap = "round"; ctx.stroke();
   };
   const endDraw = () => setIsDrawing(false);
   const clearSig = () => {
@@ -82,8 +80,8 @@ export default function HandoverSignOffPage() {
     const { error: fnErr } = await supabase.functions.invoke("handover-sign-off-submit", {
       body: { token, signature_data: sigData },
     });
-    if (fnErr) { setSigning(false); return; }
-    setSigned(true); setSigning(false);
+    setSigning(false);
+    if (!fnErr) setSigned(true);
   };
 
   if (loading) return (
@@ -105,7 +103,7 @@ export default function HandoverSignOffPage() {
   if (signed) return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="max-w-md text-center space-y-4">
-        <CheckCircle2 className="h-16 w-16 text-green-500 mx-auto" />
+        <CheckCircle2 className="h-16 w-16 text-green-600 mx-auto" />
         <h2 className="text-2xl font-bold">Handover Signed</h2>
         <p className="text-muted-foreground">Thank you. The handover pack has been signed and the team has been notified.</p>
       </div>
@@ -119,7 +117,6 @@ export default function HandoverSignOffPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <div className="bg-destructive text-destructive-foreground px-6 py-6">
         <p className="text-sm font-medium opacity-80 mb-1">Installation Handover</p>
         <h1 className="text-2xl font-bold">{project?.title}</h1>
@@ -135,23 +132,25 @@ export default function HandoverSignOffPage() {
               <p className="text-2xl font-bold">{issues.length}</p>
               <p className="text-xs text-muted-foreground">Total Snags</p>
             </div>
-            <div className="rounded-lg bg-green-50 py-3">
-              <p className="text-2xl font-bold text-green-700">{resolved}</p>
+            <div className="rounded-lg bg-muted/30 py-3">
+              <p className="text-2xl font-bold text-green-600">{resolved}</p>
               <p className="text-xs text-muted-foreground">Resolved</p>
             </div>
-            <div className="rounded-lg bg-amber-50 py-3">
-              <p className="text-2xl font-bold text-amber-700">{open}</p>
+            <div className="rounded-lg bg-muted/30 py-3">
+              <p className="text-2xl font-bold text-amber-600">{open}</p>
               <p className="text-xs text-muted-foreground">Outstanding</p>
             </div>
           </div>
-          {/* Progress bar */}
           <div>
             <div className="flex justify-between text-xs text-muted-foreground mb-1">
               <span>Snag completion</span>
               <span>{pct}%</span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
-              <div className={`h-full rounded-full transition-all ${pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-amber-500" : "bg-destructive"}`} style={{ width: `${pct}%` }} />
+              <div
+                className={`h-full rounded-full transition-all ${pct === 100 ? "bg-green-500" : pct >= 50 ? "bg-yellow-500" : "bg-destructive"}`}
+                style={{ width: `${pct}%` }}
+              />
             </div>
           </div>
           {checklist.length > 0 && (
@@ -159,7 +158,7 @@ export default function HandoverSignOffPage() {
           )}
         </div>
 
-        {/* Snag list summary */}
+        {/* Snag list */}
         {issues.length > 0 && (
           <div className="rounded-xl border bg-card overflow-hidden">
             <div className="px-4 py-3 border-b bg-muted/30">
@@ -171,7 +170,7 @@ export default function HandoverSignOffPage() {
                   <span className="text-xs text-muted-foreground w-6 shrink-0">#{idx + 1}</span>
                   <span className={`flex-1 text-sm ${issue.status === "resolved" ? "line-through text-muted-foreground" : ""}`}>{issue.title}</span>
                   {issue.area && <span className="text-xs text-muted-foreground">{issue.area}</span>}
-                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${issue.status === "resolved" ? "text-green-700 bg-green-50" : "text-amber-700 bg-amber-50"}`}>
+                  <span className={`text-xs font-medium px-1.5 py-0.5 rounded border ${issue.status === "resolved" ? "text-green-700 bg-green-50 border-green-200" : "text-amber-700 bg-amber-50 border-amber-200"}`}>
                     {issue.status === "resolved" ? "Done" : "Open"}
                   </span>
                 </div>
@@ -180,7 +179,7 @@ export default function HandoverSignOffPage() {
           </div>
         )}
 
-        {/* Signature block */}
+        {/* Signature */}
         <div className="rounded-xl border bg-card p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Pen className="h-4 w-4 text-primary" />
