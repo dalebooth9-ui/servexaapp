@@ -13,6 +13,8 @@ import AiHelpWizard from "@/components/AiHelpWizard";
 import ClockInButton from "@/components/ClockInButton";
 import TodaysVisitsBadge from "@/components/TodaysVisitsBadge";
 import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
+import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
+import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
 import {
   DndContext,
@@ -104,6 +106,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useEngineerLocation();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useReactState(false);
+  useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
   const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
 
@@ -256,6 +260,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       </div>
       <CommandPalette />
       <AiHelpWizard />
+      <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>);
 
 }
