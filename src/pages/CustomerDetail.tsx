@@ -110,6 +110,8 @@ export default function CustomerDetail() {
   const [docSortBy, setDocSortBy] = useState<"date" | "name">("date");
   const [docSortAsc, setDocSortAsc] = useState(false);
   const [linkedSites, setLinkedSites] = useState<LinkedSite[]>([]);
+  const [serviceReports, setServiceReports] = useState<ServiceReport[]>([]);
+  const [viewingReport, setViewingReport] = useState<ServiceReport | null>(null);
 
   // Job creation from dropped files
   const [jobDropDragging, setJobDropDragging] = useState(false);
