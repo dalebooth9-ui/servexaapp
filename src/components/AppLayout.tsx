@@ -202,10 +202,22 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     return moreRoutes.some((r) => location.pathname.startsWith(r));
   });
 
-  // Group items by section for display with section labels
+  // Group items by section — respecting pin overrides
+  // "more" items pinned to ops are shown in operations; non-core ops items can be demoted
   const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
-    acc[section] = visibleNavItems.filter((i) => i.section === section);
+    acc[section] = visibleNavItems.filter((i) => {
+      if (section === "operations") {
+        // show native ops items + pinned "more" items
+        return i.section === "operations" && !pinnedOps.includes("demote:" + i.to)
+          || (i.section === "more" && pinnedOps.includes(i.to));
+      }
+      if (section === "more") {
+        // hide "more" items that have been pinned to ops
+        return i.section === "more" && !pinnedOps.includes(i.to);
+      }
+      return i.section === section;
+    });
     return acc;
   }, {} as Record<string, typeof visibleNavItems>);
 
