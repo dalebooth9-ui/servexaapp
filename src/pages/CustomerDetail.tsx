@@ -232,18 +232,18 @@ export default function CustomerDetail() {
   useEffect(() => {
     if (!id) return;
     const fetchData = async () => {
-      const { data: cust } = await supabase
-        .from("customers")
-        .select("*")
-        .eq("id", id)
-        .single();
-      setCustomer(cust as Customer | null);
+      const [custRes] = await Promise.all([
+        supabase.from("customers").select("*").eq("id", id).single(),
+      ]);
+      const cust = custRes.data as Customer | null;
+      setCustomer(cust);
 
-      if (cust) {
-        await fetchJobs(cust.name);
-      }
-      await fetchDocuments();
-      await fetchLinkedSites();
+      // Run jobs, documents, and linked sites in parallel
+      await Promise.all([
+        cust ? fetchJobs(cust.name) : Promise.resolve(),
+        fetchDocuments(),
+        fetchLinkedSites(),
+      ]);
       setLoading(false);
     };
     fetchData();
