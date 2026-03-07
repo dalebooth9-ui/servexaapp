@@ -29,7 +29,8 @@ export async function renderPdfHeader(
   doc: jsPDF,
   templateName: string,
   branding: PdfBranding,
-  data: PdfHeaderData
+  data: PdfHeaderData,
+  standard?: string | null
 ): Promise<number> {
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
