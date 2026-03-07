@@ -61,7 +61,16 @@ function IssueCard({
   const [titleVal, setTitleVal] = useState(issue.title);
   const [descVal, setDescVal] = useState(issue.description || "");
   const fileRef = useRef<HTMLInputElement>(null);
+  const descRef = useRef<HTMLTextAreaElement>(null);
   const [lightbox, setLightbox] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initiallyExpanded && expanded) {
+      // Small delay to allow the DOM to render the textarea before focusing
+      const t = setTimeout(() => descRef.current?.focus(), 50);
+      return () => clearTimeout(t);
+    }
+  }, []);
 
   const resolved = issue.status === "resolved";
 
