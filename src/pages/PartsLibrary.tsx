@@ -423,8 +423,10 @@ function PartsPanel({
     }
   };
 
-  // Column count: grip + checkbox(admin) + name + part# + supplier + category + cost + [china+uk+profit if install+admin] + [sell+margin if admin] + actions
-  const colCount = 3 + (isAdmin ? 1 : 0) + 4 + (isAdmin && showInstallCosts ? 3 : 0) + (isAdmin ? 2 : 0);
+  // Column count: grip + checkbox(admin) + name + part# + supplier + category + [china+uk+profit if install+admin] or [cost + sell+margin if general+admin] + actions
+  const colCount = showInstallCosts
+    ? 2 + (isAdmin ? 1 : 0) + 4 + (isAdmin ? 3 : 0)   // install: 3 cost cols (admin only)
+    : 2 + (isAdmin ? 1 : 0) + 4 + 1 + (isAdmin ? 2 : 0); // general: unit cost + sell+margin (admin)
 
   // Bulk import
   const handleParse = async () => {
