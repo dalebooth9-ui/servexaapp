@@ -76,9 +76,19 @@ export function getAutoPopulatedValues(
     } else if (label === "date" || label === "inspection date" || label === "service date" || label === "visit date") {
       vals[f.id] = dateVal;
     } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category")) {
-      const categoryName = jobInfo.categoryName
-        || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
-      vals[f.id] = categoryName;
+      // For "Scope of Work" select fields on inspection templates, infer from template name
+      if (f.options && f.options.some(o => o.toLowerCase() === "pressure test") && f.options.some(o => o.toLowerCase() === "visual")) {
+        const tn = templateName.toLowerCase();
+        if (tn.includes("pressure test") || tn.includes("pressure-test")) {
+          vals[f.id] = "Pressure Test";
+        } else if (tn.includes("visual")) {
+          vals[f.id] = "Visual";
+        }
+      } else {
+        const categoryName = jobInfo.categoryName
+          || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+        vals[f.id] = categoryName;
+      }
     } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {
       vals[f.id] = engineerList;
     } else if (label === "job name" || label === "job title" || label === "job description") {
