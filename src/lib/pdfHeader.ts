@@ -28,13 +28,20 @@ const DEFAULT_ACCENT: RgbTriple = [33, 61, 99];
  *
  * Returns the y position immediately after the header block.
  */
+/**
+ * @param accentColor  Optional [r,g,b] extracted from the customer logo.
+ *                     When provided, replaces the default navy for the title
+ *                     text and separator line.
+ */
 export async function renderPdfHeader(
   doc: jsPDF,
   templateName: string,
   branding: PdfBranding,
   data: PdfHeaderData,
-  standard?: string | null
+  standard?: string | null,
+  accentColor?: RgbTriple | null
 ): Promise<number> {
+  const accent = accentColor ?? DEFAULT_ACCENT;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
