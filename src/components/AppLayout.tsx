@@ -152,7 +152,45 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       return next;
     });
   };
-...
+
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+
+  useEffect(() => {
+    supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
+      .then(({ data }) => {
+        if (data?.value && typeof data.value === "string" && data.value !== "Not configured") {
+          setWhatsappNumber(data.value);
+        }
+      });
+  }, []);
+
+  const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
+  const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
+  const allOrderedItems = [...orderedItems, ...extraItems];
+  const visibleNavItems = allOrderedItems.filter((item) => !item.adminOnly || userRole === "admin");
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const visibleIds = visibleNavItems.map((i) => i.to);
+    const oldIndex = visibleIds.indexOf(active.id as string);
+    const newIndex = visibleIds.indexOf(over.id as string);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reorderedVisible = arrayMove(visibleIds, oldIndex, newIndex);
+    let visibleCursor = 0;
+    const merged = allOrderedItems.map((item) => {
+      if (visibleIds.includes(item.to)) return reorderedVisible[visibleCursor++];
+      return item.to;
+    });
+    setNavOrder(merged);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+  };
+
+  const [moreOpen, setMoreOpen] = useReactState(() => {
+    const moreRoutes = ["/sites", "/assets", "/quotes", "/parts-library", "/compliance", "/audits"];
+    return moreRoutes.some((r) => location.pathname.startsWith(r));
+  });
+
   // Group items by section respecting user overrides
   const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
