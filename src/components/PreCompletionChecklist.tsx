@@ -112,7 +112,7 @@ export default function PreCompletionChecklist({ jobId }: Props) {
       .insert({ job_id: jobId, label: newLabel.trim(), category: newCategory, sort_order: items.length })
       .select().single();
     if (error) { toast.error("Failed to add item"); return; }
-    setItems((prev) => [...prev, data as ChecklistItem]);
+    setItems((prev) => [...prev, data as unknown as ChecklistItem]);
     setNewLabel("");
     setAddingItem(false);
     toast.success("Item added");
