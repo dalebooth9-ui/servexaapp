@@ -734,12 +734,12 @@ export default function InstallationProjects({ jobId, job }: Props) {
               <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 mb-2">
                 <FolderOpen className="h-6 w-6 text-primary" />
               </div>
-              <p className="font-medium">No installation projects yet</p>
+              <p className="font-medium">No snag lists yet</p>
               <p className="text-sm text-muted-foreground max-w-xs mx-auto">
-                Create a project to track installation issues, add photos and generate a sharable report.
+                Create a snag list to track installation issues, add photos and generate a sharable report.
               </p>
               <Button onClick={() => setCreateOpen(true)}>
-                <Plus className="mr-1.5 h-4 w-4" /> Create Project
+                <Plus className="mr-1.5 h-4 w-4" /> Create Snag List
               </Button>
             </div>
           ) : (
