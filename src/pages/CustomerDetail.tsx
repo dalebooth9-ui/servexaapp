@@ -111,6 +111,50 @@ export default function CustomerDetail() {
 
 
   const [attachingDocId, setAttachingDocId] = useState<string | null>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = async (file: File) => {
+    if (!id || !user) return;
+    const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+    if (![".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg"].includes(ext)) {
+      toast({ title: "Invalid file", description: "Please upload an image file (JPG, PNG, SVG, etc.).", variant: "destructive" });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Logo must be under 5MB.", variant: "destructive" });
+      return;
+    }
+    setLogoUploading(true);
+    // Remove old logo if exists
+    if (customer?.logo_url) {
+      const oldPath = customer.logo_url.split("/customer-logos/").pop();
+      if (oldPath) await supabase.storage.from("customer-logos").remove([decodeURIComponent(oldPath)]);
+    }
+    const path = `${id}/${Date.now()}-logo${ext}`;
+    const { error: upErr } = await supabase.storage.from("customer-logos").upload(path, file, { upsert: true });
+    if (upErr) {
+      toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
+      setLogoUploading(false);
+      return;
+    }
+    const { data: { publicUrl } } = supabase.storage.from("customer-logos").getPublicUrl(path);
+    await supabase.from("customers").update({ logo_url: publicUrl } as any).eq("id", id);
+    setCustomer((prev) => prev ? { ...prev, logo_url: publicUrl } : prev);
+    toast({ title: "Logo updated" });
+    setLogoUploading(false);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!id || !customer?.logo_url) return;
+    const oldPath = customer.logo_url.split("/customer-logos/").pop();
+    if (oldPath) await supabase.storage.from("customer-logos").remove([decodeURIComponent(oldPath)]);
+    await supabase.from("customers").update({ logo_url: null } as any).eq("id", id);
+    setCustomer((prev) => prev ? { ...prev, logo_url: null } : prev);
+    toast({ title: "Logo removed" });
+  };
+
 
   const handleAttachToJob = async (doc: CustomerDocument, jobId: string) => {
     if (!user) return;
