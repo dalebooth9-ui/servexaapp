@@ -54,6 +54,7 @@ const DEFAULT_NAV_ITEMS = [
 const SECTION_LABELS: Record<string, string> = {
   main: "",
   operations: "Operations",
+  more: "More",
   admin: "Admin"
 };
 
