@@ -52,19 +52,24 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceKey);
 
-    // ── Auth check (skip for cron calls which won't have a user token) ──
+    // ── Auth check — require valid admin JWT always (no header bypass) ──
     const authHeader = req.headers.get("Authorization");
-    const isCron = req.headers.get("x-cron-trigger") === "true";
-    let callerIsAdmin = isCron;
+    let callerIsAdmin = false;
 
-    if (!isCron && authHeader) {
+    if (authHeader?.startsWith("Bearer ")) {
       const token = authHeader.replace("Bearer ", "");
-      const { data: { user } } = await supabase.auth.getUser(token);
-      if (user) {
+      const anonClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_ANON_KEY")!,
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const { data: claimsData, error: claimsError } = await anonClient.auth.getClaims(token);
+      if (!claimsError && claimsData?.claims) {
+        const userId = claimsData.claims.sub;
         const { data: roleData } = await supabase
           .from("user_roles")
           .select("role")
-          .eq("user_id", user.id)
+          .eq("user_id", userId)
           .eq("role", "admin")
           .single();
         callerIsAdmin = !!roleData;
