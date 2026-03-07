@@ -52,6 +52,7 @@ export default function PartsLibraryPicker({
       const { data } = await supabase
         .from("parts_library")
         .select("id, name, unit_cost, sell_price, supplier, part_number, category")
+        .eq("list_type", listType)
         .order("name", { ascending: true });
       setParts((data as any) || []);
       setLoading(false);
