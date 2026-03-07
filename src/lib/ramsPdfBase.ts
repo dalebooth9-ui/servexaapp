@@ -29,6 +29,7 @@ export const ML = 14;
 export const MR = 14;
 export const CONTENT_W = PAGE_W - ML - MR;
 export const SAFE_BOTTOM = PAGE_H - 62; // reserve space for legend (14mm) + 18mm logos + footer
+export const COVER_SAFE_BOTTOM = PAGE_H - 52; // cover page content must not go below this
 
 export const RISK_FONT_SIZE = 6.5;
 export const RISK_LINE_H = 3.9;
@@ -482,7 +483,10 @@ export async function buildCoverPage(
   ry += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   ry += rowGap;
   ry += rowGap;
-  const detailBoxH = ry - boxY + 3;
+  // Clamp so box never overlaps the accreditation logo zone (logos at ~261mm, footer at 278mm)
+  const maxBoxBottom = 255;
+  const rawBoxH = ry - boxY + 3;
+  const detailBoxH = Math.min(rawBoxH, maxBoxBottom - boxY);
 
   doc.setDrawColor(180);
   doc.setLineWidth(0.3);
@@ -930,7 +934,7 @@ export async function finaliseAndReturn(
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
-  addAccreditationLogosToAllPages(doc, accredLogos, 278, 18); // above page-number footer
+  addAccreditationLogosToAllPages(doc, accredLogos, 278, 14); // above page-number footer, 14mm height
   const ref = jobInfo?.reference_number || "rams";
   const fileName = `${ref}-${suffix}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
