@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version, x-stream-mode",
 };
 
 serve(async (req) => {
@@ -26,7 +26,11 @@ serve(async (req) => {
   }
 
   try {
-    const { job } = await req.json();
+    const body = await req.json();
+    const { job } = body;
+    // Non-streaming mode is requested via header or body flag
+    const streamMode = req.headers.get("x-stream-mode") !== "false" && body.stream !== false;
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
@@ -68,7 +72,7 @@ ${job.other_service_type ? `Service Type: ${job.other_service_type}` : ""}`;
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        stream: true,
+        stream: streamMode,
       }),
     });
 
@@ -88,9 +92,19 @@ ${job.other_service_type ? `Service Type: ${job.other_service_type}` : ""}`;
       throw new Error(`AI gateway error: ${response.status}`);
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-    });
+    if (streamMode) {
+      // Return SSE stream for the interactive dialog
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
+    } else {
+      // Return full JSON for background save
+      const data = await response.json();
+      const content = data?.choices?.[0]?.message?.content ?? "";
+      return new Response(JSON.stringify({ content }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
   } catch (e) {
     console.error("ai-job-brief error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
