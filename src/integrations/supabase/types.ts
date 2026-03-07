@@ -1849,6 +1849,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           id: string
+          list_type: string
           name: string
           part_number: string | null
           sell_price: number
@@ -1865,6 +1866,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          list_type?: string
           name: string
           part_number?: string | null
           sell_price?: number
@@ -1881,6 +1883,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           id?: string
+          list_type?: string
           name?: string
           part_number?: string | null
           sell_price?: number
