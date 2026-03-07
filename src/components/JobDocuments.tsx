@@ -519,4 +519,3 @@ function DocRow({
     </div>
   );
 }
-}
