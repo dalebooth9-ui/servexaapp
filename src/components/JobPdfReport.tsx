@@ -146,17 +146,29 @@ export default function JobPdfReport({ jobId, job }: Props) {
         } catch { /* skip */ }
       }));
 
-      // Pre-load company logo
+      // Pre-load company logo — use customer logo if available
       let logoDataUrl: string | null = null;
       try {
-        const logoResp = await fetch("/images/vivafire-logo-new.jpg");
+        const logoUrl = job.customers?.logo_url || "/images/vivafire-logo-new.jpg";
+        const logoResp = await fetch(logoUrl);
         const logoBlob = await logoResp.blob();
         logoDataUrl = await new Promise<string>((resolve) => {
           const reader = new FileReader();
           reader.onloadend = () => resolve(reader.result as string);
           reader.readAsDataURL(logoBlob);
         });
-      } catch { /* logo unavailable */ }
+      } catch {
+        // Fall back to default if custom logo fails
+        try {
+          const logoResp = await fetch("/images/vivafire-logo-new.jpg");
+          const logoBlob = await logoResp.blob();
+          logoDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(logoBlob);
+          });
+        } catch { /* logo unavailable */ }
+      }
 
       const doc = new jsPDF();
       let y = 15;
