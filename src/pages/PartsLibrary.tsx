@@ -359,6 +359,8 @@ export default function PartsLibrary() {
       name: part.name,
       unit_cost: String(part.unit_cost),
       sell_price: String(part.sell_price),
+      china_cost: String(part.china_cost),
+      uk_cost: String(part.uk_cost),
       supplier: part.supplier || "",
       part_number: part.part_number || "",
     });
@@ -371,6 +373,7 @@ export default function PartsLibrary() {
     const oldPart = parts.find((p) => p.id === editingId);
     const oldPayload = oldPart ? {
       name: oldPart.name, unit_cost: oldPart.unit_cost, sell_price: oldPart.sell_price,
+      china_cost: oldPart.china_cost, uk_cost: oldPart.uk_cost,
       supplier: oldPart.supplier, part_number: oldPart.part_number,
     } : null;
     const editId = editingId;
@@ -378,6 +381,8 @@ export default function PartsLibrary() {
       name: editForm.name.trim(),
       unit_cost: parseFloat(editForm.unit_cost) || 0,
       sell_price: parseFloat(editForm.sell_price) || 0,
+      china_cost: parseFloat(editForm.china_cost) || 0,
+      uk_cost: parseFloat(editForm.uk_cost) || 0,
       supplier: editForm.supplier.trim() || null,
       part_number: editForm.part_number.trim() || null,
     } as any).eq("id", editId);
