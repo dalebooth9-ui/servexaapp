@@ -24,6 +24,7 @@ type Customer = {
   phone: string | null;
   email: string | null;
   created_at: string;
+  logo_url: string | null;
 };
 
 type CustomerForm = {
