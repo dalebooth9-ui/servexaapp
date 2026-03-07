@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Award, Loader2, FileDown, Pencil, CheckCircle2, X } from "lucide-react";
-import SignatureCapture from "@/components/SignatureCapture";
+import InlineSignaturePad from "@/components/InlineSignaturePad";
 import jsPDF from "jspdf";
 
 export type ConformityCert = {
