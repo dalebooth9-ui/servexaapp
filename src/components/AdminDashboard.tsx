@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
+import OnboardingChecklist from "@/components/OnboardingChecklist";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -174,6 +175,7 @@ export default function AdminDashboard() {
         </div>
       )}
       <h1 className="mb-6 text-2xl font-bold">Dashboard</h1>
+      <OnboardingChecklist />
 
       {isAdmin && (
         <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
