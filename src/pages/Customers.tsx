@@ -417,7 +417,14 @@ export default function Customers() {
                         </TableCell>
                       )}
                       <TableCell className="font-medium">
-                        <Link to={`/customers/${c.id}`} className="text-primary hover:underline">{c.name}</Link>
+                        <Link to={`/customers/${c.id}`} className="flex items-center gap-2 text-primary hover:underline">
+                          {c.logo_url ? (
+                            <img src={c.logo_url} alt="" className="h-6 w-6 rounded object-contain border bg-muted/20 p-0.5 flex-shrink-0" />
+                          ) : (
+                            <ImageIcon className="h-4 w-4 text-muted-foreground/40 flex-shrink-0" />
+                          )}
+                          {c.name}
+                        </Link>
                       </TableCell>
                       <TableCell>{c.email || "—"}</TableCell>
                       <TableCell>{c.phone || "—"}</TableCell>
