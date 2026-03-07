@@ -72,7 +72,7 @@ export default function JobDetail() {
   const fetchData = async () => {
     if (!id) return;
     const [jobRes, subsRes, sitesRes] = await Promise.all([
-      supabase.from("jobs").select("*, customers(id, name, email)").eq("id", id).single(),
+      supabase.from("jobs").select("*, customers(id, name, email), sites(id, name, address, postcode)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
     ]);
