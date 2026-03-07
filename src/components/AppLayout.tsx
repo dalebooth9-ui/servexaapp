@@ -159,8 +159,14 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
   };
 
+  // Collapsible "More" section
+  const [moreOpen, setMoreOpen] = useReactState(() => {
+    const moreRoutes = ["/sites", "/assets", "/quotes", "/parts-library", "/compliance", "/audits"];
+    return moreRoutes.some((r) => location.pathname.startsWith(r));
+  });
+
   // Group items by section for display with section labels
-  const sections = ["main", "operations", "admin"] as const;
+  const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
     acc[section] = visibleNavItems.filter((i) => i.section === section);
     return acc;
