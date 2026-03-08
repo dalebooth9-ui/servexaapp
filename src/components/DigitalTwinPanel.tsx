@@ -176,7 +176,7 @@ function SensorCard({
           <div className="flex items-center gap-1.5">
             {isStale
               ? <WifiOff className="h-3 w-3 text-muted-foreground/50" />
-              : <Wifi className="h-3 w-3 text-primary" " />}
+              : <Wifi className="h-3 w-3 text-primary" />}
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onSimulate(sensor.id)}>
               <RefreshCw className="h-3 w-3" />
             </Button>
