@@ -534,11 +534,24 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
-            capture="environment"
+            accept="image/*,application/pdf"
             multiple
             className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              const images = files.filter((f) => f.type.startsWith("image/"));
+              const pdfs = files.filter((f) => f.type === "application/pdf");
+              if (images.length > 0) handleFiles(images);
+              // For PDFs, trigger the same drop handler logic
+              if (pdfs.length > 0) {
+                for (const pdf of pdfs) {
+                  const dt = new DataTransfer();
+                  dt.items.add(pdf);
+                  await handleDrop({ preventDefault: () => {}, stopPropagation: () => {}, dataTransfer: dt } as any);
+                }
+              }
+              e.target.value = "";
+            }}
           />
 
           <Tabs defaultValue="upload">
