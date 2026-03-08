@@ -264,6 +264,31 @@ function DraggableScheduleCard({
   );
 }
 
+// Draggable adhoc (labour) entry card for scheduled cells
+function DraggableAdhocCard({
+  entry,
+  isAdmin,
+  onRemove,
+}: {
+  entry: AdhocEntry;
+  isAdmin: boolean;
+  onRemove: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `adhoc-${entry.id}`,
+    data: { type: "adhoc", entry },
+    disabled: !isAdmin,
+  });
+
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <div className={cn(isAdmin && "cursor-grab")} {...attributes} {...listeners}>
+        <AdhocEntryCard entry={entry} isAdmin={isAdmin} onRemove={onRemove} />
+      </div>
+    </div>
+  );
+}
+
 // Droppable unallocated sidebar
 function DroppableUnallocatedZone({ children }: { children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: "unallocated-zone" });
