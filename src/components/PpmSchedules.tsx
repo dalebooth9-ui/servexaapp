@@ -167,15 +167,20 @@ export default function PpmSchedules({ assetId }: PpmSchedulesProps) {
   const handleGenerateNow = async () => {
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-ppm-jobs");
-      if (error) throw error;
-      toast({
-        title: "PPM jobs generated",
-        description: `${data?.generated || 0} job(s) created from ${data?.checked || 0} due schedule(s).`,
+      const { data, error } = await supabase.functions.invoke("generate-ppm-jobs", {
+        body: {},
       });
+      if (error) throw error;
+      const desc = data?.generated > 0
+        ? `${data.generated} job(s) created from ${data.checked} due schedule(s).`
+        : `No jobs due yet (${data?.checked || 0} schedule(s) checked).`;
+      toast({ title: "PPM run complete", description: desc });
+      if (data?.errors?.length) {
+        console.warn("PPM generation warnings:", data.errors);
+      }
       fetchSchedules();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Error running PPM generation", description: err.message, variant: "destructive" });
     }
     setGenerating(false);
   };
