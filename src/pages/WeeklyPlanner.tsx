@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -39,6 +39,14 @@ interface ScheduleEntry {
   schedule_date: string;
   notes: string | null;
   notes_color: string | null;
+}
+
+export interface AdhocEntry {
+  id: string;
+  engineer_id: string;
+  schedule_date: string;
+  company_name: string;
+  description: string | null;
 }
 
 interface Engineer { user_id: string; full_name: string }
@@ -110,6 +118,7 @@ export default function WeeklyPlanner() {
   const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
   const [jobVisitNotes, setJobVisitNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [adhocEntries, setAdhocEntries] = useState<AdhocEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
@@ -123,6 +132,13 @@ export default function WeeklyPlanner() {
   const [addNotes, setAddNotes] = useState("");
   const [addNotesColor, setAddNotesColor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Labour-only (adhoc) entry dialog
+  const [adhocOpen, setAdhocOpen] = useState(false);
+  const [adhocDay, setAdhocDay] = useState("");
+  const [adhocEngineerId, setAdhocEngineerId] = useState("");
+  const [adhocCompany, setAdhocCompany] = useState("");
+  const [adhocDesc, setAdhocDesc] = useState("");
 
   // Batch deploy dialog
   const [batchOpen, setBatchOpen] = useState(false);
@@ -156,11 +172,12 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [engRolesRes, jobsRes, schedRes, sitesRes] = await Promise.all([
+    const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRes] = await Promise.all([
       supabase.from("user_roles").select("user_id").eq("role", "engineer"),
       supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit"]),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
+      supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
     ]);
     const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
     if (engineerIds.length > 0) {
@@ -173,6 +190,7 @@ export default function WeeklyPlanner() {
     setJobs(fetchedJobs);
     setSites(sitesRes.data || []);
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
+    setAdhocEntries((adhocRes.data as AdhocEntry[]) || []);
 
     // Fetch parts and latest comments for scheduled jobs
     const jobIds = fetchedJobs.map((j: any) => j.id);
@@ -243,6 +261,40 @@ export default function WeeklyPlanner() {
     if (isAdmin) return schedule;
     return schedule.filter((s) => s.engineer_id === user?.id);
   }, [schedule, isAdmin, user]);
+
+  // Filter adhoc entries for non-admin
+  const filteredAdhoc = useMemo(() => {
+    if (isAdmin) return adhocEntries;
+    return adhocEntries.filter((a) => a.engineer_id === user?.id);
+  }, [adhocEntries, isAdmin, user]);
+
+  // Add adhoc entry handler
+  const handleAddAdhoc = async () => {
+    if (!adhocDay || !adhocEngineerId || !adhocCompany.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from("planner_adhoc_entries").insert({
+      engineer_id: adhocEngineerId,
+      schedule_date: adhocDay,
+      company_name: adhocCompany.trim(),
+      description: adhocDesc.trim() || null,
+      created_by: user?.id,
+    } as any);
+    if (error) {
+      toast({ title: "Error", description: "Failed to add labour entry.", variant: "destructive" });
+    } else {
+      toast({ title: "Labour entry added" });
+      fetchData();
+    }
+    setAdhocOpen(false);
+    setAdhocCompany("");
+    setAdhocDesc("");
+    setSaving(false);
+  };
+
+  const handleRemoveAdhoc = async (id: string) => {
+    await supabase.from("planner_adhoc_entries").delete().eq("id", id);
+    fetchData();
+  };
 
   // Navigation
   const prevWeek = () => setWeekStart((d) => addDays(d, -7));
@@ -511,6 +563,13 @@ export default function WeeklyPlanner() {
               <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setAdhocDay(format(weekDays[0], "yyyy-MM-dd")); setAdhocEngineerId(""); setAdhocCompany(""); setAdhocDesc(""); setAdhocOpen(true); }}
+              >
+                <Briefcase className="mr-1.5 h-4 w-4" /> Labour Only
+              </Button>
               <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
                 <Users className="mr-1.5 h-4 w-4" /> Batch Deploy
               </Button>
@@ -556,10 +615,12 @@ export default function WeeklyPlanner() {
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={unallocatedJobs}
+            adhocEntries={filteredAdhoc}
             isAdmin={isAdmin}
             onAssign={handleAssign}
             onMove={handleMove}
             onRemove={handleRemove}
+            onRemoveAdhoc={handleRemoveAdhoc}
             onEngineerReorder={handleEngineerReorder}
           />
         </TabsContent>
@@ -605,6 +666,51 @@ export default function WeeklyPlanner() {
           <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} />
         </div>
       )}
+
+      {/* Labour Only (Adhoc) Entry Dialog */}
+      <Dialog open={adhocOpen} onOpenChange={setAdhocOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Labour-Only Entry</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">For work done for other companies not in our job list.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={adhocDay} onChange={(e) => setAdhocDay(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Engineer</Label>
+              <Select value={adhocEngineerId} onValueChange={setAdhocEngineerId}>
+                <SelectTrigger><SelectValue placeholder="Select engineer..." /></SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Company Name</Label>
+              <Input
+                placeholder="e.g. ABC Contractors"
+                value={adhocCompany}
+                onChange={(e) => setAdhocCompany(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Textarea
+                placeholder="e.g. Dry riser maintenance, wet riser inspection..."
+                value={adhocDesc}
+                onChange={(e) => setAdhocDesc(e.target.value)}
+                rows={2}
+                maxLength={300}
+              />
+            </div>
+            <Button onClick={handleAddAdhoc} className="w-full" disabled={!adhocDay || !adhocEngineerId || !adhocCompany.trim() || saving}>
+              {saving ? "Saving..." : "Add Labour Entry"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>

@@ -2083,6 +2083,39 @@ export type Database = {
         }
         Relationships: []
       }
+      planner_adhoc_entries: {
+        Row: {
+          company_name: string
+          created_at: string
+          created_by: string
+          description: string | null
+          engineer_id: string
+          id: string
+          schedule_date: string
+          updated_at: string
+        }
+        Insert: {
+          company_name?: string
+          created_at?: string
+          created_by: string
+          description?: string | null
+          engineer_id: string
+          id?: string
+          schedule_date: string
+          updated_at?: string
+        }
+        Update: {
+          company_name?: string
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          engineer_id?: string
+          id?: string
+          schedule_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ppm_schedules: {
         Row: {
           asset_id: string
