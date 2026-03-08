@@ -497,13 +497,6 @@ export default function PlannerMapView({
   }, [engineerLocations, engineers]);
 
   const allJobsWithAddress = scheduledJobs.length + unallocatedJobs.filter((j) => j.address).length;
-  if (allJobsWithAddress === 0 && engineerLocations.length === 0) {
-    return (
-      <div className="flex h-[500px] items-center justify-center rounded-lg border bg-muted/30 text-muted-foreground">
-        No jobs with addresses to show on the map.
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-2">
