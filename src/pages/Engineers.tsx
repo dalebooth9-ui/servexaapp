@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import TableSkeleton from "@/components/TableSkeleton";
 
 const DOC_TYPES = ["certificate", "id", "training", "insurance", "dbs", "first_aid", "other"];
 
