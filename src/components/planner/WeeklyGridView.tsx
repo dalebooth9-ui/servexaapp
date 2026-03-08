@@ -248,8 +248,11 @@ function DraggableScheduleCard({
               {entry.notes}
             </div>
           )}
-          {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+          {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
             <div className="flex flex-wrap gap-1 mt-0.5">
+              {job.category === "installation" && (
+                <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
+              )}
               {job.pressure_test_qty > 0 && (
                 <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
               )}
