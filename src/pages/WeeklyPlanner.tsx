@@ -308,10 +308,10 @@ export default function WeeklyPlanner() {
   };
 
   const handleMoveAdhoc = async (id: string, engineerId: string | null, date: string | null) => {
-    await supabase.from("planner_adhoc_entries").update({
-      engineer_id: engineerId,
-      schedule_date: date,
-    } as any).eq("id", id);
+    // engineer_id is NOT NULL — only update it when a real engineer is provided
+    const update: Record<string, any> = { schedule_date: date };
+    if (engineerId !== null) update.engineer_id = engineerId;
+    await supabase.from("planner_adhoc_entries").update(update as any).eq("id", id);
     fetchData();
   };
 
