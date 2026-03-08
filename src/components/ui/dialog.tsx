@@ -135,17 +135,17 @@ const DialogContent = React.forwardRef<
         )}
         {...props}
       >
-        {/* Drag handle bar */}
+        {/* Drag handle — top left, away from the close button */}
         <div
           onMouseDown={onDragMouseDown}
-          className="flex items-center justify-between px-6 pt-5 pb-0 cursor-grab active:cursor-grabbing select-none shrink-0"
+          className="absolute left-3 top-3 flex items-center gap-1 cursor-grab active:cursor-grabbing select-none opacity-30 hover:opacity-70 transition-opacity z-10"
           title="Drag to move"
         >
-          <div className="flex-1 min-w-0">{/* title rendered by DialogHeader below */}</div>
-          <div className="flex items-center gap-1 ml-2 text-muted-foreground/40">
-            <GripVertical className="h-4 w-4" />
-          </div>
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
         </div>
+
+        {/* Spacer so content starts below the handle row */}
+        <div className="h-5 shrink-0" />
 
         {/* Scrollable content area */}
         <div className="flex-1 overflow-y-auto px-6 pb-6 min-h-0">
