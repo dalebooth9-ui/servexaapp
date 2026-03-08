@@ -117,14 +117,8 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
 
     if (ext === ".xlsx" || ext === ".xls") {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const buffer = e.target?.result as ArrayBuffer;
-          resolve(normalizeRows(parseExcel(buffer)));
-        };
-        reader.readAsArrayBuffer(file);
-      });
+      const rows = await readExcelFile(file);
+      return normalizeRows(rows);
     } else if (ext === ".pdf" || ext === ".docx" || ext === ".doc") {
       const buffer = await file.arrayBuffer();
       const base64 = btoa(
