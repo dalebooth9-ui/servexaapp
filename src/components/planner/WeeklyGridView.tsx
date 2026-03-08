@@ -415,6 +415,8 @@ export default function WeeklyGridView({
     if (targetId === "unallocated-zone") {
       if (activeData?.type === "scheduled") {
         await onRemove(activeData.entry.id);
+      } else if (activeData?.type === "adhoc") {
+        await onMoveAdhoc(activeData.entry.id, null, null);
       }
       return;
     }
@@ -429,6 +431,8 @@ export default function WeeklyGridView({
       await onAssign(activeData.job.id, targetEngineerId, targetDate);
     } else if (activeData?.type === "scheduled") {
       await onMove(activeData.entry.id, targetEngineerId, targetDate);
+    } else if (activeData?.type === "adhoc") {
+      await onMoveAdhoc(activeData.entry.id, targetEngineerId, targetDate);
     }
   };
 
