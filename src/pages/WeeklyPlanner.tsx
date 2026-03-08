@@ -915,6 +915,16 @@ export default function WeeklyPlanner() {
         existingSchedule={schedule}
         onConfirm={handleAiSchedulerConfirm}
       />
+
+      {/* Multi-Day Schedule Dialog */}
+      <MultiDayScheduleDialog
+        open={multiDayJob !== null}
+        onOpenChange={(open) => { if (!open) setMultiDayJob(null); }}
+        job={multiDayJob}
+        engineers={sortedEngineers}
+        initialWeekStart={weekStart}
+        onConfirm={handleMultiDayAssign}
+      />
     </div>
   );
 }
