@@ -262,6 +262,40 @@ export default function WeeklyPlanner() {
     return schedule.filter((s) => s.engineer_id === user?.id);
   }, [schedule, isAdmin, user]);
 
+  // Filter adhoc entries for non-admin
+  const filteredAdhoc = useMemo(() => {
+    if (isAdmin) return adhocEntries;
+    return adhocEntries.filter((a) => a.engineer_id === user?.id);
+  }, [adhocEntries, isAdmin, user]);
+
+  // Add adhoc entry handler
+  const handleAddAdhoc = async () => {
+    if (!adhocDay || !adhocEngineerId || !adhocCompany.trim()) return;
+    setSaving(true);
+    const { error } = await supabase.from("planner_adhoc_entries").insert({
+      engineer_id: adhocEngineerId,
+      schedule_date: adhocDay,
+      company_name: adhocCompany.trim(),
+      description: adhocDesc.trim() || null,
+      created_by: user?.id,
+    } as any);
+    if (error) {
+      toast({ title: "Error", description: "Failed to add labour entry.", variant: "destructive" });
+    } else {
+      toast({ title: "Labour entry added" });
+      fetchData();
+    }
+    setAdhocOpen(false);
+    setAdhocCompany("");
+    setAdhocDesc("");
+    setSaving(false);
+  };
+
+  const handleRemoveAdhoc = async (id: string) => {
+    await supabase.from("planner_adhoc_entries").delete().eq("id", id);
+    fetchData();
+  };
+
   // Navigation
   const prevWeek = () => setWeekStart((d) => addDays(d, -7));
   const nextWeek = () => setWeekStart((d) => addDays(d, 7));
