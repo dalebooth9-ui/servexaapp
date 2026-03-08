@@ -142,6 +142,42 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     fetchDocs();
   };
 
+  const autoAttachCustomerPaperwork = async () => {
+    if (!job?.customer_id || !user) return;
+    // Fetch all auto-attach paperwork for this customer
+    const { data: paperwork } = await supabase
+      .from("customer_paperwork" as any)
+      .select("*")
+      .eq("customer_id", job.customer_id)
+      .eq("auto_attach", true);
+    if (!paperwork || (paperwork as any[]).length === 0) return;
+
+    // Get already-attached customer paperwork docs for this job
+    const { data: existingDocs } = await supabase
+      .from("job_documents" as any)
+      .select("file_name")
+      .eq("job_id", jobId)
+      .eq("source", "customer_paperwork");
+    const existingFileNames = new Set((existingDocs || []).map((d: any) => d.file_name));
+
+    const toInsert = (paperwork as any[])
+      .filter((pw) => !existingFileNames.has(pw.file_name))
+      .map((pw) => ({
+        job_id: jobId,
+        document_type: "customer_paperwork",
+        label: pw.label || pw.file_name,
+        file_url: pw.file_url,
+        file_name: pw.file_name,
+        source: "customer_paperwork",
+        created_by: user.id,
+      }));
+
+    if (toInsert.length > 0) {
+      await supabase.from("job_documents" as any).insert(toInsert as any);
+      fetchDocs();
+    }
+  };
+
   const autoAttachCategoryDocuments = async () => {
     if (!job?.category) return;
     // Fetch enabled templates for this category
