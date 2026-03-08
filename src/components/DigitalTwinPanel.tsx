@@ -176,7 +176,7 @@ function SensorCard({
           <div className="flex items-center gap-1.5">
             {isStale
               ? <WifiOff className="h-3 w-3 text-muted-foreground/50" />
-              : <Wifi className="h-3 w-3 text-chart-2" />}
+              : <Wifi className="h-3 w-3 text-chart-2/>}
             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onSimulate(sensor.id)}>
               <RefreshCw className="h-3 w-3" />
             </Button>
@@ -595,7 +595,7 @@ export default function DigitalTwinPanel({ assetId, assetName }: { assetId: stri
                   <>
                     <p className="text-sm flex-1">{health.ai_summary}</p>
                     {health.predicted_failure_at && (
-                      <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-500/10 rounded-md p-2">
+                      <div className="flex items-center gap-2 text-xs text-amchart-4 bg-chart-40 rounded-md p-2">
                         <Clock className="h-3.5 w-3.5 shrink-0" />
                         <span>
                           Predicted failure window:{" "}
