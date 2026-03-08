@@ -615,10 +615,12 @@ export default function WeeklyPlanner() {
             schedule={filteredSchedule}
             jobs={jobs}
             unallocatedJobs={unallocatedJobs}
+            adhocEntries={filteredAdhoc}
             isAdmin={isAdmin}
             onAssign={handleAssign}
             onMove={handleMove}
             onRemove={handleRemove}
+            onRemoveAdhoc={handleRemoveAdhoc}
             onEngineerReorder={handleEngineerReorder}
           />
         </TabsContent>
