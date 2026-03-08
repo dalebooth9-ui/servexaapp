@@ -12,7 +12,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera } from "lucide-react";
+import PhotoChecklistCapture from "@/components/PhotoChecklistCapture";
 import AiJobBriefDialog from "@/components/AiJobBriefDialog";
 import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
 import TechnicianAssistant from "@/components/TechnicianAssistant";
@@ -613,6 +614,25 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <JobSheet jobId={id!} job={job} />
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          <span className="flex items-center gap-2">
+            <Camera className="h-4 w-4 text-primary" />
+            Photo Documentation
+          </span>
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <PhotoChecklistCapture
+            jobId={id!}
+            jobName={job.name}
+            jobCategory={job.category || "general"}
+            customerName={job.customers?.name || job.customer || undefined}
+            siteName={job.sites?.name || undefined}
+          />
         </CollapsibleContent>
       </Collapsible>
 

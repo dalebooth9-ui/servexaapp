@@ -1746,6 +1746,121 @@ export type Database = {
           },
         ]
       }
+      job_photo_checklist_responses: {
+        Row: {
+          after_photo_url: string | null
+          before_photo_url: string | null
+          captured_at: string
+          captured_by: string | null
+          checklist_id: string
+          id: string
+          is_pass: boolean | null
+          item_id: string
+          job_id: string
+          notes: string | null
+          photo_url: string | null
+          response_type: string
+          text_value: string | null
+        }
+        Insert: {
+          after_photo_url?: string | null
+          before_photo_url?: string | null
+          captured_at?: string
+          captured_by?: string | null
+          checklist_id: string
+          id?: string
+          is_pass?: boolean | null
+          item_id: string
+          job_id: string
+          notes?: string | null
+          photo_url?: string | null
+          response_type?: string
+          text_value?: string | null
+        }
+        Update: {
+          after_photo_url?: string | null
+          before_photo_url?: string | null
+          captured_at?: string
+          captured_by?: string | null
+          checklist_id?: string
+          id?: string
+          is_pass?: boolean | null
+          item_id?: string
+          job_id?: string
+          notes?: string | null
+          photo_url?: string | null
+          response_type?: string
+          text_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_photo_checklist_responses_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "job_photo_checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_photo_checklist_responses_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "photo_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_photo_checklist_responses_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      job_photo_checklists: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string
+          status: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id: string
+          status?: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string
+          status?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_photo_checklists_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_photo_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "photo_checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_schedule: {
         Row: {
           created_at: string
@@ -2394,6 +2509,80 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      photo_checklist_items: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          item_type: string
+          label: string
+          required: boolean
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_type?: string
+          label: string
+          required?: boolean
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          item_type?: string
+          label?: string
+          required?: boolean
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photo_checklist_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "photo_checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photo_checklist_templates: {
+        Row: {
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       planner_adhoc_entries: {
         Row: {
