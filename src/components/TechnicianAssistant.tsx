@@ -36,12 +36,16 @@ const QUICK_PROMPTS = [
 
 function renderMarkdown(text: string) {
   // Minimal markdown: bold, code, bullets
-  return text
+  const raw = text
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/`([^`]+)`/g, "<code class=\"bg-muted px-1 rounded text-xs\">$1</code>")
     .replace(/^## (.+)$/gm, "<p class=\"font-semibold mt-2 mb-0.5 text-sm\">$1</p>")
     .replace(/^- (.+)$/gm, "<li class=\"ml-3 text-xs list-disc\">$1</li>")
     .replace(/\n/g, "<br/>");
+  return DOMPurify.sanitize(raw, {
+    ALLOWED_TAGS: ["strong", "code", "p", "li", "br"],
+    ALLOWED_ATTR: ["class"],
+  });
 }
 
 export default function TechnicianAssistant({ jobContext }: Props) {
