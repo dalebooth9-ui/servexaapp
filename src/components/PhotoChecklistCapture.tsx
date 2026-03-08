@@ -183,18 +183,21 @@ export default function PhotoChecklistCapture({
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Load matching templates
+  // Load templates filtered to the job's category
   useEffect(() => {
     const loadTemplates = async () => {
+      // Normalise category: "dry_riser_service" → "dry_riser_service", "dry_riser" → "dry_riser_service"
+      const normalised = jobCategory.includes("_service") ? jobCategory : `${jobCategory}_service`;
       const { data } = await supabase
         .from("photo_checklist_templates" as any)
         .select("*")
         .eq("is_active", true)
+        .eq("category", normalised)
         .order("name");
       setTemplates((data as unknown as Template[]) || []);
     };
     loadTemplates();
-  }, []);
+  }, [jobCategory]);
 
   // Load existing checklist for this job
   useEffect(() => {
