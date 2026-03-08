@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [kpis, setKpis] = useState({ completedThisMonth: 0, revenue: 0, activeEngineers: 0, completionRate: 0 });
   const [weeklyData, setWeeklyData] = useState<{ name: string; completed: number; created: number }[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
+  const [recentPhotoUrls, setRecentPhotoUrls] = useState<Record<string, string>>({});
   const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; expiry_date: string; engineer_name: string; is_expired: boolean }[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
@@ -84,9 +85,22 @@ export default function AdminDashboard() {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
         const nameMap: Record<string, string> = {};
         (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
-        setRecentSubmissions(recent.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
+        const withNames = recent.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] }));
+        setRecentSubmissions(withNames);
+
+        // Generate signed URLs for photo submissions
+        const photoSubs = withNames.filter((s: any) => s.type === "photo" && s.file_url);
+        const urlMap: Record<string, string> = {};
+        await Promise.all(
+          photoSubs.map(async (s: any) => {
+            const { data } = await supabase.storage.from("submissions").createSignedUrl(s.file_url, 300);
+            if (data?.signedUrl) urlMap[s.id] = data.signedUrl;
+          })
+        );
+        setRecentPhotoUrls(urlMap);
       } else {
         setRecentSubmissions([]);
+        setRecentPhotoUrls({});
       }
     };
 
@@ -293,12 +307,20 @@ export default function AdminDashboard() {
               {recentSubmissions.map((sub) => (
                 <div key={sub.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div className="flex items-center gap-3">
-                    <div className="rounded bg-muted p-1.5">
-                      {sub.type === "photo" && <Image className="h-4 w-4 text-accent" />}
-                      {sub.type === "document" && <FileText className="h-4 w-4 text-warning" />}
-                      {sub.type === "note" && <FileText className="h-4 w-4 text-primary" />}
-                      {sub.type === "location" && <MapPin className="h-4 w-4 text-destructive" />}
-                    </div>
+                    {sub.type === "photo" && recentPhotoUrls[sub.id] ? (
+                      <img
+                        src={recentPhotoUrls[sub.id]}
+                        alt="Photo submission thumbnail"
+                        className="h-10 w-10 rounded object-cover shrink-0 border"
+                      />
+                    ) : (
+                      <div className="rounded bg-muted p-1.5">
+                        {sub.type === "photo" && <Image className="h-4 w-4 text-accent" />}
+                        {sub.type === "document" && <FileText className="h-4 w-4 text-warning" />}
+                        {sub.type === "note" && <FileText className="h-4 w-4 text-primary" />}
+                        {sub.type === "location" && <MapPin className="h-4 w-4 text-destructive" />}
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium capitalize">{sub.type}</p>
                       <p className="text-xs text-muted-foreground">

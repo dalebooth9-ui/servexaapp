@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
+import TableSkeleton from "@/components/TableSkeleton";
 
 const DOC_TYPES = ["certificate", "id", "training", "insurance", "dbs", "first_aid", "other"];
 
@@ -35,6 +36,7 @@ export default function Engineers() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [engineers, setEngineers] = useState<any[]>([]);
+  const [engLoading, setEngLoading] = useState(true);
   const [editEng, setEditEng] = useState<any | null>(null);
   const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
   const [saving, setSaving] = useState(false);
@@ -94,8 +96,9 @@ export default function Engineers() {
   };
 
   const fetchEngineers = async () => {
+    setEngLoading(true);
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
-    if (!roles || roles.length === 0) { setEngineers([]); return; }
+    if (!roles || roles.length === 0) { setEngineers([]); setEngLoading(false); return; }
     const userIds = roles.map((r) => r.user_id);
     const [{ data: profiles }, { data: assignments }, { data: logs }] = await Promise.all([
       supabase.from("profiles").select("*").in("user_id", userIds),
@@ -111,6 +114,7 @@ export default function Engineers() {
     });
     setOnboardingLogs(logMap);
     setEngineers((profiles || []).map((p) => ({ ...p, job_count: counts[p.user_id] || 0 })));
+    setEngLoading(false);
   };
 
   useEffect(() => { fetchEngineers(); }, []);
@@ -246,6 +250,9 @@ export default function Engineers() {
 
       <Card>
         <CardContent className="p-0">
+          {engLoading ? (
+            <div className="p-4"><TableSkeleton rows={5} cols={5} showHeader={false} /></div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
@@ -347,6 +354,7 @@ export default function Engineers() {
               )}
             </TableBody>
           </Table>
+          )}
         </CardContent>
       </Card>
 

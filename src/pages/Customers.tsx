@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
 import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
+import TableSkeleton from "@/components/TableSkeleton";
 
 type Customer = {
   id: string;
@@ -379,8 +380,8 @@ export default function Customers() {
         )}
         <Card>
           <CardContent className="p-0">
-            {loading ? (
-              <p className="p-8 text-center text-muted-foreground">Loading…</p>
+          {loading ? (
+              <div className="p-4"><TableSkeleton rows={6} cols={5} showHeader={false} /></div>
             ) : filtered.length === 0 ? (
               <div className="flex flex-col items-center gap-3 p-12 text-center text-muted-foreground">
                 <Building2 className="h-10 w-10" />
