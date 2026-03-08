@@ -697,16 +697,12 @@ export default function WeeklyPlanner() {
         </div>
       )}
 
-      {/* Labour Only (Adhoc) Entry Dialog */}
+      {/* Labour (Adhoc) Entry Dialog */}
       <Dialog open={adhocOpen} onOpenChange={setAdhocOpen}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add Labour-Only Entry</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Add Labour Entry</DialogTitle></DialogHeader>
           <p className="text-sm text-muted-foreground -mt-2">For work done for other companies not in our job list.</p>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Date</Label>
-              <Input type="date" value={adhocDay} onChange={(e) => setAdhocDay(e.target.value)} />
-            </div>
             <div className="space-y-2">
               <Label>Engineer</Label>
               <Select value={adhocEngineerId} onValueChange={setAdhocEngineerId}>
@@ -725,6 +721,27 @@ export default function WeeklyPlanner() {
                 maxLength={100}
               />
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Number of Days</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  max={99}
+                  value={adhocDays}
+                  onChange={(e) => setAdhocDays(e.target.value)}
+                  placeholder="1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  Start Date{" "}
+                  <span className="text-xs text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Input type="date" value={adhocDay} onChange={(e) => setAdhocDay(e.target.value)} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground -mt-1">Leave date blank to place in Unallocated. Days may span non-consecutive dates.</p>
             <div className="space-y-2">
               <Label>Description <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
               <Textarea
@@ -735,7 +752,7 @@ export default function WeeklyPlanner() {
                 maxLength={300}
               />
             </div>
-            <Button onClick={handleAddAdhoc} className="w-full" disabled={!adhocDay || !adhocEngineerId || !adhocCompany.trim() || saving}>
+            <Button onClick={handleAddAdhoc} className="w-full" disabled={!adhocEngineerId || !adhocCompany.trim() || saving}>
               {saving ? "Saving..." : "Add Labour Entry"}
             </Button>
           </div>
