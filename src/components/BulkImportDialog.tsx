@@ -65,12 +65,7 @@ function parseCSV(text: string): string[][] {
   return lines.map((line) => parseCSVLine(line, delimiter));
 }
 
-function parseExcel(buffer: ArrayBuffer): string[][] {
-  const wb = XLSX.read(buffer, { type: "array" });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-  return data.map((row) => row.map((cell) => String(cell ?? "").trim()));
-}
+// parseExcel is replaced by readExcelFile from excelUtils
 
 function parseCSVLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
