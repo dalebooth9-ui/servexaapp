@@ -340,9 +340,9 @@ export default function DigitalTwinPanel({ assetId, assetName }: { assetId: stri
       supabase.from("digital_twin_health" as any).select("*").eq("asset_id", assetId).maybeSingle(),
     ]);
 
-    const sensorData = (sensorsRes.data as Sensor[]) || [];
+    const sensorData = ((sensorsRes.data as unknown) as Sensor[]) || [];
     setSensors(sensorData);
-    setHealth(healthRes.data as DigitalTwinHealth | null);
+    setHealth((healthRes.data as unknown) as DigitalTwinHealth | null);
 
     // Fetch recent readings for each sensor
     if (sensorData.length > 0) {
