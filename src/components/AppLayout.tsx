@@ -59,7 +59,6 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const STORAGE_KEY = "nav-order";
-// Stores { [to]: "operations" | "more" } overrides for items moved between sections
 const SECTION_OVERRIDE_KEY = "nav-section-overrides";
 
 function loadNavOrder(): string[] | null {
@@ -101,12 +100,12 @@ function SortableNavItem({
         to={item.to}
         onClick={onClick}
         className={cn(
-          "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-          isActive ?
-          "bg-sidebar-accent text-sidebar-primary" :
-          "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
+          isActive
+            ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md shadow-[hsl(25,95%,30%)]/40 font-semibold"
+            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}>
-        <item.icon className="h-4.5 w-4.5" />
+        <item.icon className={cn("h-4.5 w-4.5 shrink-0", isActive ? "text-white" : "")} />
         {item.label}
       </Link>
       <button
@@ -134,7 +133,6 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
   const [navOrder, setNavOrder] = useReactState<string[]>(() => loadNavOrder() || DEFAULT_NAV_ITEMS.map((i) => i.to));
-  // sectionOverrides: { [to]: "operations" | "more" } — user-controlled moves between sections
   const [sectionOverrides, setSectionOverrides] = useReactState<Record<string, "operations" | "more">>(loadSectionOverrides);
 
   const handleTogglePin = (to: string, currentSection: "operations" | "more") => {
@@ -143,7 +141,6 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       const next = { ...prev };
       const target = currentSection === "operations" ? "more" : "operations";
       if (target === defaultSection) {
-        // Back to default — remove override
         delete next[to];
       } else {
         next[to] = target;
@@ -191,7 +188,6 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     return moreRoutes.some((r) => location.pathname.startsWith(r));
   });
 
-  // Group items by section respecting user overrides
   const sections = ["main", "operations", "more", "admin"] as const;
   const itemsBySection = sections.reduce((acc, section) => {
     acc[section] = visibleNavItems.filter((i) => {
@@ -209,11 +205,16 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-sidebar text-sidebar-foreground transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-transform lg:static lg:translate-x-0",
+          "bg-gradient-to-b from-[hsl(213,55%,13%)] via-[hsl(213,51%,16%)] to-[hsl(213,48%,12%)]",
+          "text-sidebar-foreground",
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         )}>
-        
-        <div className="border-b border-sidebar-border border-dashed">
+
+        {/* Accent stripe at top */}
+        <div className="h-1 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(25,95%,62%)] to-[hsl(25,95%,45%)] shrink-0" />
+
+        <div className="border-b border-sidebar-border/50">
           <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-contain px-4 -mt-2 pb-0" />
           <div className="flex items-center justify-center gap-1 px-3 pb-2">
             <ClockInButton />
@@ -235,10 +236,17 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 const label = SECTION_LABELS[section];
                 const isMoreSection = section === "more";
                 const isOpsSection = section === "operations";
+
+                // Accent colour per section label
+                const sectionAccent =
+                  section === "operations" ? "text-[hsl(25,95%,60%)]" :
+                  section === "admin" ? "text-[hsl(200,80%,65%)]" :
+                  "text-sidebar-foreground/40";
+
                 return (
                   <div key={section} className="mb-1">
                     {label && !isMoreSection &&
-                    <p className="mb-1 mt-3 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 select-none">
+                    <p className={cn("mb-1 mt-3 px-4 text-[10px] font-bold uppercase tracking-widest select-none", sectionAccent)}>
                         {label}
                       </p>
                     }
@@ -246,7 +254,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                       <>
                         <button
                           onClick={() => setMoreOpen((v) => !v)}
-                          className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/40 hover:text-sidebar-foreground/70 transition-colors select-none"
+                          className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors select-none"
                         >
                           <span className="flex-1 text-left">{label}</span>
                           <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
@@ -290,22 +298,22 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
           </DndContext>
         </nav>
 
-        <div className="shrink-0 border-t border-sidebar-border px-3 py-2">
+        {/* Footer */}
+        <div className="shrink-0 border-t border-sidebar-border/50 bg-[hsl(213,55%,10%)] px-3 py-2">
           {whatsappNumber &&
           <a
             href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="mb-1.5 flex items-center gap-2 rounded-lg bg-sidebar-accent px-2 py-1.5 text-xs font-medium text-sidebar-accent-foreground transition-colors hover:opacity-80">
-            
-              <MessageCircle className="h-3.5 w-3.5 shrink-0 text-accent" />
+            className="mb-1.5 flex items-center gap-2 rounded-lg bg-[hsl(142,60%,25%)] px-2 py-1.5 text-xs font-medium text-green-100 transition-colors hover:opacity-80">
+              <MessageCircle className="h-3.5 w-3.5 shrink-0 text-green-300" />
               <span className="truncate">{whatsappNumber}</span>
             </a>
           }
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0 text-xs">
-              <p className="truncate font-medium text-sidebar-accent-foreground">{profile?.full_name || user?.email}</p>
-              <p className="text-sidebar-foreground/60 capitalize">{userRole || "user"}</p>
+              <p className="truncate font-semibold text-white">{profile?.full_name || user?.email}</p>
+              <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">{userRole || "user"}</p>
             </div>
             <Button variant="ghost" size="icon" onClick={signOut} className="h-7 w-7 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" title="Sign Out">
               <LogOut className="h-3.5 w-3.5" />
@@ -319,13 +327,16 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        <header className="flex h-14 items-center border-b bg-card px-4 lg:hidden">
-          <button onClick={() => setMobileOpen(true)}>
+        {/* Mobile header */}
+        <header className="flex h-14 items-center border-b bg-gradient-to-r from-[hsl(213,51%,16%)] to-[hsl(213,51%,20%)] px-4 lg:hidden shadow-sm">
+          <button onClick={() => setMobileOpen(true)} className="text-white">
             <Menu className="h-5 w-5" />
           </button>
           <img src={servexaLogo} alt="Servexa logo" className="ml-3 h-7 w-auto object-contain" />
         </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">{children}</main>
+        {/* Top accent bar on desktop — gives the content area a branded edge */}
+        <div className="hidden lg:block h-0.5 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(213,51%,35%)] to-transparent shrink-0" />
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">{children}</main>
       </div>
       <CommandPalette />
       <AiHelpWizard />
