@@ -299,11 +299,12 @@ export default function PlannerMapView({
 
         if (!(window as any).google?.maps) {
           const script = document.createElement("script");
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=marker`;
+          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=marker&loading=async`;
           script.async = true;
+          script.defer = true;
           await new Promise<void>((resolve, reject) => {
             script.onload = () => resolve();
-            script.onerror = reject;
+            script.onerror = () => reject(new Error("Failed to load Google Maps script"));
             document.head.appendChild(script);
           });
         }
