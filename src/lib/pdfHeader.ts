@@ -47,36 +47,52 @@ export async function renderPdfHeader(
   const maxWidth = pageWidth - margin * 2;
   let y = 8;
 
-  const companyName = branding.company_name || "Servexa";
-  const companySubtitle = branding.company_subtitle || "Fire Protection Services";
-  const logoUrl = branding.logo_url || "/servexa-logo.png";
+  const companyName = branding.company_name || "";
+  const companySubtitle = branding.company_subtitle || "";
+  const logoUrl = branding.logo_url; // no fallback — omit logo if not provided
 
-  // --- Logo ---
+  // --- Logo (only if a customer/org logo is explicitly provided) ---
   let logoBottomY = y;
-  try {
-    const logoImg = new Image();
-    logoImg.crossOrigin = "anonymous";
-    await new Promise<void>((resolve, reject) => {
-      logoImg.onload = () => resolve();
-      logoImg.onerror = () => reject();
-      logoImg.src = logoUrl;
-    });
-    const logoMaxW = 70;
-    const logoMaxH = 20;
-    const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
-    let lw = logoMaxH * aspect;
-    let lh = logoMaxH;
-    if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
-    const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
-    doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
-    logoBottomY = y + lh + 3;
-  } catch {
+  if (logoUrl) {
+    try {
+      const logoImg = new Image();
+      logoImg.crossOrigin = "anonymous";
+      await new Promise<void>((resolve, reject) => {
+        logoImg.onload = () => resolve();
+        logoImg.onerror = () => reject();
+        logoImg.src = logoUrl;
+      });
+      const logoMaxW = 70;
+      const logoMaxH = 20;
+      const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
+      let lw = logoMaxH * aspect;
+      let lh = logoMaxH;
+      if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
+      const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
+      doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
+      logoBottomY = y + lh + 3;
+    } catch {
+      if (companyName) {
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
+        if (companySubtitle) {
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+        }
+        logoBottomY = y + 12;
+      }
+    }
+  } else if (companyName) {
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+    if (companySubtitle) {
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
+    }
     logoBottomY = y + 12;
   }
 
