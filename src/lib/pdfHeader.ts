@@ -49,9 +49,10 @@ export async function renderPdfHeader(
 
   const companyName = branding.company_name || "";
   const companySubtitle = branding.company_subtitle || "";
-  const logoUrl = branding.logo_url; // no fallback — omit logo if not provided
+  // Fall back to Viva Fire logo unless a customer/org logo is explicitly set
+  const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
 
-  // --- Logo (only if a customer/org logo is explicitly provided) ---
+  // --- Logo ---
   let logoBottomY = y;
   if (logoUrl) {
     try {
