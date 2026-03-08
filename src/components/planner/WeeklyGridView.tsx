@@ -321,6 +321,7 @@ export default function WeeklyGridView({
   onMove,
   onRemove,
   onRemoveAdhoc,
+  onMoveAdhoc,
   onMultiDaySchedule,
   onEngineerReorder,
 }: {
