@@ -21,6 +21,7 @@ import MonthlyView from "@/components/planner/MonthlyView";
 import ListView from "@/components/planner/ListView";
 import PlannerMapView from "@/components/planner/PlannerMapView";
 import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
+import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
