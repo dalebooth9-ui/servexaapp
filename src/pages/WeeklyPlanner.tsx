@@ -21,6 +21,7 @@ import MonthlyView from "@/components/planner/MonthlyView";
 import ListView from "@/components/planner/ListView";
 import PlannerMapView from "@/components/planner/PlannerMapView";
 import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
+import AutonomousAgentDialog from "@/components/planner/AutonomousAgentDialog";
 import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
 
 const NOTE_COLORS = [
