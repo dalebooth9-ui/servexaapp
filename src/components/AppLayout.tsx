@@ -125,7 +125,7 @@ function SortableNavItem({
             ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md shadow-[hsl(25,95%,30%)]/40 font-semibold"
             : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}>
-        <item.icon className={cn("h-4.5 w-4.5 shrink-0", isActive ? "text-white" : "")} />
+        <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "")} />
         {item.label}
       </Link>
       <button
