@@ -44,6 +44,7 @@ const HandoverSignOff = lazy(() => import("@/components/HandoverSignOffPage"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
+const Offline = lazy(() => import("@/pages/Offline"));
 
 const queryClient = new QueryClient();
 
