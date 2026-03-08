@@ -157,6 +157,9 @@ export default function WeeklyPlanner() {
   // AI Scheduler
   const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
 
+  // Multi-day schedule
+  const [multiDayJob, setMultiDayJob] = useState<{ id: string; name: string; reference_number: string } | null>(null);
+
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
 
