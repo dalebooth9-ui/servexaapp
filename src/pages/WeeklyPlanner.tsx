@@ -172,11 +172,12 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [engRolesRes, jobsRes, schedRes, sitesRes] = await Promise.all([
+    const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRes] = await Promise.all([
       supabase.from("user_roles").select("user_id").eq("role", "engineer"),
       supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit"]),
       supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
       supabase.from("sites").select("id, name, address, postcode").order("name"),
+      supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
     ]);
     const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
     if (engineerIds.length > 0) {
@@ -189,6 +190,7 @@ export default function WeeklyPlanner() {
     setJobs(fetchedJobs);
     setSites(sitesRes.data || []);
     setSchedule((schedRes.data as ScheduleEntry[]) || []);
+    setAdhocEntries((adhocRes.data as AdhocEntry[]) || []);
 
     // Fetch parts and latest comments for scheduled jobs
     const jobIds = fetchedJobs.map((j: any) => j.id);
