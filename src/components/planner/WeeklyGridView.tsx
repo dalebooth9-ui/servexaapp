@@ -697,7 +697,7 @@ function SortableEngineerRow({
               />
             ))}
             {cellAdhoc.map((adhoc) => (
-              <AdhocEntryCard
+              <DraggableAdhocCard
                 key={adhoc.id}
                 entry={adhoc}
                 isAdmin={isAdmin}
