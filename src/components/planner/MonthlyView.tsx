@@ -33,6 +33,7 @@ interface Job {
   reference_number: string;
   priority: string;
   status: string;
+  category?: string;
   customer: string | null;
   due_date?: string | null;
   created_at?: string;
