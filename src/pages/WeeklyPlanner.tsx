@@ -118,6 +118,7 @@ export default function WeeklyPlanner() {
   const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
   const [jobVisitNotes, setJobVisitNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [adhocEntries, setAdhocEntries] = useState<AdhocEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [copying, setCopying] = useState(false);
@@ -131,6 +132,13 @@ export default function WeeklyPlanner() {
   const [addNotes, setAddNotes] = useState("");
   const [addNotesColor, setAddNotesColor] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Labour-only (adhoc) entry dialog
+  const [adhocOpen, setAdhocOpen] = useState(false);
+  const [adhocDay, setAdhocDay] = useState("");
+  const [adhocEngineerId, setAdhocEngineerId] = useState("");
+  const [adhocCompany, setAdhocCompany] = useState("");
+  const [adhocDesc, setAdhocDesc] = useState("");
 
   // Batch deploy dialog
   const [batchOpen, setBatchOpen] = useState(false);
