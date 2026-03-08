@@ -335,6 +335,7 @@ export default function WeeklyGridView({
   onMove: (entryId: string, newEngineerId: string, newDate: string) => Promise<void>;
   onRemove: (entryId: string) => Promise<void>;
   onRemoveAdhoc: (entryId: string) => Promise<void>;
+  onMoveAdhoc: (id: string, engineerId: string | null, date: string | null) => Promise<void>;
   onMultiDaySchedule: (job: Job) => void;
   onEngineerReorder: (newOrder: string[]) => void;
 }) {
