@@ -96,12 +96,12 @@ function SortableNavItem({
           onClick={onClick}
           title={item.label}
           className={cn(
-            "flex items-center justify-center rounded-lg p-2.5 transition-all duration-150",
+            "flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
             isActive
               ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md"
               : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}>
-          <item.icon className="h-4.5 w-4.5 shrink-0" />
+          <item.icon className="h-5 w-5 shrink-0" />
         </Link>
       </div>
     );
