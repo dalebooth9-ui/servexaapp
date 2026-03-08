@@ -41,6 +41,14 @@ interface ScheduleEntry {
   notes_color: string | null;
 }
 
+export interface AdhocEntry {
+  id: string;
+  engineer_id: string;
+  schedule_date: string;
+  company_name: string;
+  description: string | null;
+}
+
 interface Engineer { user_id: string; full_name: string }
 
 interface Site {
