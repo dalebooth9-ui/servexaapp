@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import * as XLSX from "xlsx";
+import { writeExcelFile } from "@/lib/excelUtils";
 import { format, addDays } from "date-fns";
 
 interface ScheduleEntry {

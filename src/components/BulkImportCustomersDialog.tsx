@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Upload, FileSpreadsheet, AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import * as XLSX from "xlsx";
+import { readExcelFile } from "@/lib/excelUtils";
 
 type ParsedCustomer = {
   name: string;

@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import { readExcelFile } from "@/lib/excelUtils";
 
 type ParsedJob = {
   customer: string;

@@ -9,7 +9,7 @@ import { Upload, FileSpreadsheet, AlertCircle, Loader2, Trash2 } from "lucide-re
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
-import * as XLSX from "xlsx";
+import { readExcelFile } from "@/lib/excelUtils";
 
 type ParsedAsset = {
   name: string;
