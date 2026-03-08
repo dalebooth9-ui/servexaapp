@@ -17,7 +17,7 @@ export default function AdhocEntryCard({
         <Briefcase className="h-3 w-3 mt-0.5 shrink-0 text-[hsl(var(--chart-3))]" />
         <div className="flex-1 min-w-0">
           <div className="font-semibold text-[10px] uppercase tracking-wide text-[hsl(var(--chart-3))] leading-none mb-0.5">
-            Labour Only
+            Labour
           </div>
           <div className="truncate text-foreground font-medium">{entry.company_name}</div>
           {entry.description && (
