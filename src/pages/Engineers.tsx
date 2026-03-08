@@ -96,8 +96,9 @@ export default function Engineers() {
   };
 
   const fetchEngineers = async () => {
+    setEngLoading(true);
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
-    if (!roles || roles.length === 0) { setEngineers([]); return; }
+    if (!roles || roles.length === 0) { setEngineers([]); setEngLoading(false); return; }
     const userIds = roles.map((r) => r.user_id);
     const [{ data: profiles }, { data: assignments }, { data: logs }] = await Promise.all([
       supabase.from("profiles").select("*").in("user_id", userIds),
@@ -113,6 +114,7 @@ export default function Engineers() {
     });
     setOnboardingLogs(logMap);
     setEngineers((profiles || []).map((p) => ({ ...p, job_count: counts[p.user_id] || 0 })));
+    setEngLoading(false);
   };
 
   useEffect(() => { fetchEngineers(); }, []);
