@@ -107,6 +107,13 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     autoAttachPreStartChecklist();
   }, [job?.category]);
 
+  // Auto-attach customer paperwork (auto_attach=true) that hasn't been attached yet
+  useEffect(() => {
+    if (!job?.customer_id || !user || userRole !== "admin") return;
+    if (job?.status === "completed" || job?.status === "cancelled") return;
+    autoAttachCustomerPaperwork();
+  }, [job?.customer_id]);
+
   const isInstallationJob = () => {
     const cat = job?.category || "";
     return cat === "installation" || cat === "dry_riser_installation";
@@ -133,6 +140,42 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       created_by: user.id,
     } as any);
     fetchDocs();
+  };
+
+  const autoAttachCustomerPaperwork = async () => {
+    if (!job?.customer_id || !user) return;
+    // Fetch all auto-attach paperwork for this customer
+    const { data: paperwork } = await supabase
+      .from("customer_paperwork" as any)
+      .select("*")
+      .eq("customer_id", job.customer_id)
+      .eq("auto_attach", true);
+    if (!paperwork || (paperwork as any[]).length === 0) return;
+
+    // Get already-attached customer paperwork docs for this job
+    const { data: existingDocs } = await supabase
+      .from("job_documents" as any)
+      .select("file_name")
+      .eq("job_id", jobId)
+      .eq("source", "customer_paperwork");
+    const existingFileNames = new Set((existingDocs || []).map((d: any) => d.file_name));
+
+    const toInsert = (paperwork as any[])
+      .filter((pw) => !existingFileNames.has(pw.file_name))
+      .map((pw) => ({
+        job_id: jobId,
+        document_type: "customer_paperwork",
+        label: pw.label || pw.file_name,
+        file_url: pw.file_url,
+        file_name: pw.file_name,
+        source: "customer_paperwork",
+        created_by: user.id,
+      }));
+
+    if (toInsert.length > 0) {
+      await supabase.from("job_documents" as any).insert(toInsert as any);
+      fetchDocs();
+    }
   };
 
   const autoAttachCategoryDocuments = async () => {
@@ -295,13 +338,13 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   const handleDownload = async (doc: JobDoc) => {
     if (!doc.file_url) return;
-    const link = document.createElement("a");
-    link.href = doc.file_url;
-    link.download = doc.file_name || doc.label;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    let url = doc.file_url;
+    // Customer paperwork stores a storage path, not a full URL — generate a signed URL
+    if (doc.source === "customer_paperwork" && !doc.file_url.startsWith("http")) {
+      const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 300);
+      if (data?.signedUrl) url = data.signedUrl;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleUploadSlot = (doc: JobDoc) => {
@@ -524,6 +567,17 @@ function DocRow({
       )}
       {isBlankSheet && (!matchedTemplate || !jobInfo) && (
         <span className="text-[10px] text-muted-foreground">Loading…</span>
+      )}
+
+      {isCustomerPaperwork && hasFile && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs px-2 gap-1 shrink-0"
+          onClick={() => onDownload(doc)}
+        >
+          <Download className="h-3 w-3" /> Open
+        </Button>
       )}
 
       {isUploadSlot && hasFile && (
