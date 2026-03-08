@@ -316,10 +316,8 @@ export function exportWorksheetXlsx(
     }
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(wsData);
-
   const baseWidths = [{ wch: 16 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 40 }, { wch: 14 }, { wch: 34 }, { wch: 30 }];
-  ws["!cols"] = hasRoute ? [{ wch: 4 }, ...baseWidths] : baseWidths;
+  const colWidths = hasRoute ? [{ wch: 4 }, ...baseWidths] : baseWidths;
 
   // Merge title + engineer group header rows
   const merges = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headers.length - 1 } }];
@@ -328,9 +326,12 @@ export function exportWorksheetXlsx(
     merges.push({ s: { r: rowIdx, c: 0 }, e: { r: rowIdx, c: headers.length - 1 } });
     rowIdx += 1 + group.rows.length;
   }
-  ws["!merges"] = merges;
 
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, "Weekly Planner");
-  XLSX.writeFile(wb, `weekly-planner-${format(weekStart, "yyyy-MM-dd")}.xlsx`);
+  await writeExcelFile(
+    wsData,
+    `weekly-planner-${format(weekStart, "yyyy-MM-dd")}.xlsx`,
+    "Weekly Planner",
+    merges,
+    colWidths
+  );
 }
