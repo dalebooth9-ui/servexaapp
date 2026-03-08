@@ -19,6 +19,7 @@ export default function AdminDashboard() {
   const [kpis, setKpis] = useState({ completedThisMonth: 0, revenue: 0, activeEngineers: 0, completionRate: 0 });
   const [weeklyData, setWeeklyData] = useState<{ name: string; completed: number; created: number }[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
+  const [recentPhotoUrls, setRecentPhotoUrls] = useState<Record<string, string>>({});
   const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; expiry_date: string; engineer_name: string; is_expired: boolean }[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
