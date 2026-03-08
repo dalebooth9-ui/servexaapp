@@ -380,12 +380,15 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         console.error("Upload error:", uploadError);
         toast({ title: "PDF downloaded locally", description: "Could not save to job submissions.", variant: "destructive" });
       } else {
-        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
+        // submissions bucket is private — create a long-lived signed URL
+        const { data: signedPdf } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
         await supabase.from("submissions").insert({
           job_id: jobId,
           engineer_id: user.id,
           type: "document",
-          file_url: urlData.publicUrl,
+          file_url: signedPdf?.signedUrl || filePath,
           file_name: fileName,
         });
 
@@ -399,12 +402,14 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             .from("submissions")
             .upload(imgPath, imgFile, { contentType: imgFile.type });
           if (!imgErr) {
-            const { data: imgUrl } = supabase.storage.from("submissions").getPublicUrl(imgPath);
+            const { data: signedImg } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(imgPath, 60 * 60 * 24 * 365 * 5);
             await supabase.from("submissions").insert({
               job_id: jobId,
               engineer_id: user.id,
               type: "photo",
-              file_url: imgUrl.publicUrl,
+              file_url: signedImg?.signedUrl || imgPath,
               file_name: imgFileName,
             });
           }
