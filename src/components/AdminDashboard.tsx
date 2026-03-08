@@ -85,9 +85,22 @@ export default function AdminDashboard() {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
         const nameMap: Record<string, string> = {};
         (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
-        setRecentSubmissions(recent.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
+        const withNames = recent.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] }));
+        setRecentSubmissions(withNames);
+
+        // Generate signed URLs for photo submissions
+        const photoSubs = withNames.filter((s: any) => s.type === "photo" && s.file_url);
+        const urlMap: Record<string, string> = {};
+        await Promise.all(
+          photoSubs.map(async (s: any) => {
+            const { data } = await supabase.storage.from("submissions").createSignedUrl(s.file_url, 300);
+            if (data?.signedUrl) urlMap[s.id] = data.signedUrl;
+          })
+        );
+        setRecentPhotoUrls(urlMap);
       } else {
         setRecentSubmissions([]);
+        setRecentPhotoUrls({});
       }
     };
 
