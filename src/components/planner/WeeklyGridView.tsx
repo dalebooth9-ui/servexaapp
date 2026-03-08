@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +24,6 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { useState } from "react";
 import AdhocEntryCard from "./AdhocEntryCard";
 import type { AdhocEntry } from "@/pages/WeeklyPlanner";
 
@@ -75,7 +74,6 @@ const STATUS_INDICATOR: Record<string, { label: string; class: string }> = {
 };
 
 function extractPostcodeArea(job: Job): string {
-  // Prefer site postcode
   if (job.site?.postcode) {
     const match = job.site.postcode.match(/([A-Z]{1,2}\d)/i);
     return match ? match[1].toUpperCase() : job.site.postcode.toUpperCase();
@@ -106,7 +104,6 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
         isDragging && "opacity-30"
       )}
     >
-      {/* Top row: ref + due date */}
       <div className="flex items-center justify-between gap-1 mb-0.5">
         <span className="font-mono font-medium text-primary">{job.reference_number}</span>
         {isOverdue ? (
@@ -196,11 +193,11 @@ function DraggableScheduleCard({
           </div>
           <div className="truncate text-foreground">{job.name}</div>
           {job.due_date && (() => {
-            const isOverdue = isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date());
-            const dueToday = isSameDay(parseISO(job.due_date), new Date());
+            const isOverdue = isPast(startOfDay(parseISO(job.due_date!))) && !isSameDay(parseISO(job.due_date!), new Date());
+            const dueToday = isSameDay(parseISO(job.due_date!), new Date());
             return (
               <div className={cn("text-[9px] font-mono font-semibold", isOverdue ? "text-destructive" : dueToday ? "text-amber-500" : "text-muted-foreground")}>
-                Due {format(parseISO(job.due_date), "dd/MM/yy")}
+                Due {format(parseISO(job.due_date!), "dd/MM/yy")}
               </div>
             );
           })()}
@@ -316,28 +313,6 @@ export default function WeeklyGridView({
   onRemoveAdhoc: (entryId: string) => Promise<void>;
   onEngineerReorder: (newOrder: string[]) => void;
 }) {
-  weekDays,
-  engineers,
-  schedule,
-  jobs,
-  unallocatedJobs,
-  isAdmin,
-  onAssign,
-  onMove,
-  onRemove,
-  onEngineerReorder,
-}: {
-  weekDays: Date[];
-  engineers: Engineer[];
-  schedule: ScheduleEntry[];
-  jobs: Job[];
-  unallocatedJobs: Job[];
-  isAdmin: boolean;
-  onAssign: (jobId: string, engineerId: string, date: string) => Promise<void>;
-  onMove: (entryId: string, newEngineerId: string, newDate: string) => Promise<void>;
-  onRemove: (entryId: string) => Promise<void>;
-  onEngineerReorder: (newOrder: string[]) => void;
-}) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -347,7 +322,6 @@ export default function WeeklyGridView({
 
   // Group unallocated jobs: overdue first (sorted by due_date asc), then by postcode area
   const groupedUnallocated = useMemo(() => {
-    const now = startOfDay(new Date());
     const overdue: Job[] = [];
     const rest: Job[] = [];
     for (const job of unallocatedJobs) {
@@ -357,9 +331,7 @@ export default function WeeklyGridView({
         rest.push(job);
       }
     }
-    // Sort overdue by due_date ascending (most overdue first)
     overdue.sort((a, b) => (a.due_date || "").localeCompare(b.due_date || ""));
-    // Group rest by postcode area, sorted by due_date then created_at
     rest.sort((a, b) => {
       const aDate = new Date(a.due_date || a.created_at || 0).getTime();
       const bDate = new Date(b.due_date || b.created_at || 0).getTime();
@@ -393,7 +365,7 @@ export default function WeeklyGridView({
 
     const targetId = over.id as string;
 
-    // Engineer row reorder (sortable items have engineer user_id as id)
+    // Engineer row reorder
     const activeData = active.data.current;
     if (!activeData || (!activeData.type && engineers.some((e) => e.user_id === String(active.id)))) {
       if (active.id !== over.id) {
@@ -506,10 +478,12 @@ export default function WeeklyGridView({
                       eng={eng}
                       weekDays={weekDays}
                       schedule={schedule}
+                      adhocEntries={adhocEntries}
                       overId={overId}
                       isAdmin={isAdmin}
                       getJob={getJob}
                       onRemove={onRemove}
+                      onRemoveAdhoc={onRemoveAdhoc}
                     />
                   ))}
                 </div>
@@ -544,18 +518,22 @@ function SortableEngineerRow({
   eng,
   weekDays,
   schedule,
+  adhocEntries,
   overId,
   isAdmin,
   getJob,
   onRemove,
+  onRemoveAdhoc,
 }: {
   eng: Engineer;
   weekDays: Date[];
   schedule: ScheduleEntry[];
+  adhocEntries: AdhocEntry[];
   overId: string | null;
   isAdmin: boolean;
   getJob: (id: string) => Job | undefined;
   onRemove: (id: string) => void;
+  onRemoveAdhoc: (id: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -625,6 +603,9 @@ function SortableEngineerRow({
           const cellEntries = schedule.filter(
             (s) => s.engineer_id === eng.user_id && s.schedule_date === dateStr
           );
+          const cellAdhoc = adhocEntries.filter(
+            (a) => a.engineer_id === eng.user_id && a.schedule_date === dateStr
+          );
           const isToday = isSameDay(d, new Date());
           return (
             <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId}>
@@ -635,6 +616,14 @@ function SortableEngineerRow({
                   job={getJob(entry.job_id)}
                   isAdmin={isAdmin}
                   onRemove={onRemove}
+                />
+              ))}
+              {cellAdhoc.map((adhoc) => (
+                <AdhocEntryCard
+                  key={adhoc.id}
+                  entry={adhoc}
+                  isAdmin={isAdmin}
+                  onRemove={onRemoveAdhoc}
                 />
               ))}
             </DroppableCell>
