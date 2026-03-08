@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Upload, FileSpreadsheet, AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
-import * as XLSX from "xlsx";
+import { readExcelFile } from "@/lib/excelUtils";
 
 type ParsedCustomer = {
   name: string;
@@ -82,16 +82,8 @@ export default function BulkImportCustomersDialog({ open, onOpenChange, onImport
   const handleFile = useCallback(async (file: File): Promise<ParsedCustomer[]> => {
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
     if (ext === ".xlsx" || ext === ".xls") {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const wb = XLSX.read(e.target?.result as ArrayBuffer, { type: "array" });
-          const sheet = wb.Sheets[wb.SheetNames[0]];
-          const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-          resolve(normalizeRows(data.map((r) => r.map((c) => String(c ?? "").trim()))));
-        };
-        reader.readAsArrayBuffer(file);
-      });
+      const rows = await readExcelFile(file);
+      return normalizeRows(rows);
     } else if (ext === ".pdf" || ext === ".docx" || ext === ".doc") {
       const buffer = await file.arrayBuffer();
       const base64 = btoa(new Uint8Array(buffer).reduce((s, b) => s + String.fromCharCode(b), ""));

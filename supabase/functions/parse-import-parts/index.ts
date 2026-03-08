@@ -108,18 +108,50 @@ serve(async (req) => {
       }
       userContent = `Extract all parts, materials, and components from this CSV/text data (${file_name}):\n\n${text}\n\nReturn as a JSON array.`;
     } else if (ext === ".xlsx" || ext === ".xls") {
-      const XLSX = await import("https://cdn.sheetjs.com/xlsx-0.20.3/package/xlsx.mjs");
+      // Use zip.js to extract sheets from xlsx (which is a zip of XML files)
+      // then convert to CSV text for the AI
       const fileBytes = Uint8Array.from(atob(file_base64), c => c.charCodeAt(0));
-      const workbook = XLSX.read(fileBytes, { type: "array" });
-
-      const sheetsText: string[] = [];
-      for (const sheetName of workbook.SheetNames) {
-        const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[sheetName]);
-        if (csv.trim()) {
-          sheetsText.push(`--- Sheet: ${sheetName} ---\n${csv}`);
+      let combinedText = "";
+      try {
+        const { ZipReader, BlobReader, TextWriter } = await import("https://deno.land/x/zipjs@v2.7.34/index.js");
+        const reader = new ZipReader(new BlobReader(new Blob([fileBytes])));
+        const entries = await reader.getEntries();
+        const sharedStringsEntry = entries.find(e => e.filename === "xl/sharedStrings.xml");
+        let sharedStrings: string[] = [];
+        if (sharedStringsEntry) {
+          const xml = await sharedStringsEntry.getData!(new TextWriter());
+          const matches = xml.matchAll(/<t[^>]*>([^<]*)<\/t>/g);
+          for (const m of matches) sharedStrings.push(m[1]);
         }
+        const sheetsText: string[] = [];
+        for (const entry of entries) {
+          if (/^xl\/worksheets\/sheet\d+\.xml$/.test(entry.filename)) {
+            const xml = await entry.getData!(new TextWriter());
+            // Extract cell values
+            const rows: string[][] = [];
+            const rowMatches = xml.matchAll(/<row[^>]*>([\s\S]*?)<\/row>/g);
+            for (const rowM of rowMatches) {
+              const cells: string[] = [];
+              const cellMatches = rowM[1].matchAll(/<c[^>]*t="s"[^>]*><v>(\d+)<\/v><\/c>|<c[^>]*><v>([^<]*)<\/v><\/c>/g);
+              for (const cm of cellMatches) {
+                if (cm[1] !== undefined) cells.push(sharedStrings[parseInt(cm[1])] || "");
+                else cells.push(cm[2] || "");
+              }
+              if (cells.length) rows.push(cells);
+            }
+            const csv = rows.map(r => r.join(",")).join("\n");
+            if (csv.trim()) sheetsText.push(csv);
+          }
+        }
+        await reader.close();
+        combinedText = sheetsText.join("\n\n");
+      } catch (e) {
+        console.error("Failed to parse xlsx:", e);
+        return new Response(JSON.stringify({ error: "Could not read Excel file" }), {
+          status: 422,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
       }
-      let combinedText = sheetsText.join("\n\n");
 
       if (!combinedText || combinedText.length < 5) {
         return new Response(JSON.stringify({ error: "Excel file appears to be empty" }), {

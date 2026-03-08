@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Upload, FileSpreadsheet, Trash2, Loader2, AlertTriangle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import * as XLSX from "xlsx";
+import { readExcelFile } from "@/lib/excelUtils";
 
 interface ParsedSite {
   name: string;
@@ -77,12 +77,10 @@ function parseRowsFromText(text: string): ParsedSite[] {
   return sites;
 }
 
-function parseRowsFromWorkbook(wb: XLSX.WorkBook): ParsedSite[] {
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+function parseRowsFromStringArray(rows: string[][]): ParsedSite[] {
   if (rows.length < 2) return [];
 
-  const headers = (rows[0] as string[]).map((h) => normalizeHeader(String(h || "")));
+  const headers = rows[0].map((h) => normalizeHeader(String(h || "")));
   const sites: ParsedSite[] = [];
 
   for (let i = 1; i < rows.length; i++) {
@@ -139,9 +137,8 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
       setParsed(await checkDuplicates(sites));
       setStep("preview");
     } else if (ext === "xlsx" || ext === "xls") {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf);
-      const sites = parseRowsFromWorkbook(wb);
+      const rows = await readExcelFile(file);
+      const sites = parseRowsFromStringArray(rows);
       if (sites.length === 0) {
         toast({ title: "No sites found", description: "Check your file has a header row with Name and Address columns.", variant: "destructive" });
         return;

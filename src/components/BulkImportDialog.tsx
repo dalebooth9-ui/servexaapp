@@ -6,7 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileSpreadsheet, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
+import { readExcelFile } from "@/lib/excelUtils";
 
 type ParsedJob = {
   customer: string;
@@ -65,12 +65,7 @@ function parseCSV(text: string): string[][] {
   return lines.map((line) => parseCSVLine(line, delimiter));
 }
 
-function parseExcel(buffer: ArrayBuffer): string[][] {
-  const wb = XLSX.read(buffer, { type: "array" });
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const data: string[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" });
-  return data.map((row) => row.map((cell) => String(cell ?? "").trim()));
-}
+// parseExcel is replaced by readExcelFile from excelUtils
 
 function parseCSVLine(line: string, delimiter = ","): string[] {
   const result: string[] = [];
@@ -122,14 +117,8 @@ export default function BulkImportDialog({ open, onOpenChange, onImported }: Bul
     const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
 
     if (ext === ".xlsx" || ext === ".xls") {
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const buffer = e.target?.result as ArrayBuffer;
-          resolve(normalizeRows(parseExcel(buffer)));
-        };
-        reader.readAsArrayBuffer(file);
-      });
+      const rows = await readExcelFile(file);
+      return normalizeRows(rows);
     } else if (ext === ".pdf" || ext === ".docx" || ext === ".doc") {
       const buffer = await file.arrayBuffer();
       const base64 = btoa(
