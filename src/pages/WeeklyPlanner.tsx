@@ -563,6 +563,13 @@ export default function WeeklyPlanner() {
               <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => { setAdhocDay(format(weekDays[0], "yyyy-MM-dd")); setAdhocEngineerId(""); setAdhocCompany(""); setAdhocDesc(""); setAdhocOpen(true); }}
+              >
+                <Briefcase className="mr-1.5 h-4 w-4" /> Labour Only
+              </Button>
               <Button variant="outline" size="sm" onClick={() => { setBatchEngineerId(""); setBatchJobIds(new Set()); setBatchDate(format(weekDays[0], "yyyy-MM-dd")); setBatchOpen(true); }}>
                 <Users className="mr-1.5 h-4 w-4" /> Batch Deploy
               </Button>
