@@ -33,6 +33,7 @@ interface Job {
   reference_number: string;
   priority: string;
   status: string;
+  category?: string;
   customer: string | null;
   due_date?: string | null;
   created_at?: string;
@@ -443,8 +444,9 @@ export default function MonthlyView({
                             <TooltipContent side="top" className="text-xs">
                               <p className="font-semibold">{job?.reference_number} — {job?.name}</p>
                               {job?.customer && <p className="text-muted-foreground">{job.customer}</p>}
-                              {(job?.pressure_test_qty > 0 || job?.visual_qty > 0 || (job?.other_qty > 0 && job?.other_service_type)) && (
+                              {(job?.category === "installation" || job?.pressure_test_qty > 0 || job?.visual_qty > 0 || (job?.other_qty > 0 && job?.other_service_type)) && (
                                 <div className="flex flex-wrap gap-1 mt-0.5">
+                                  {job?.category === "installation" && <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>}
                                   {job.pressure_test_qty > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>}
                                   {job.visual_qty > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>}
                                   {job.other_qty > 0 && job.other_service_type && <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>}
