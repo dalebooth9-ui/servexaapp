@@ -141,6 +141,7 @@ export default function WeeklyPlanner() {
   const [adhocEngineerId, setAdhocEngineerId] = useState("");
   const [adhocCompany, setAdhocCompany] = useState("");
   const [adhocDesc, setAdhocDesc] = useState("");
+  const [adhocDays, setAdhocDays] = useState("1");
 
   // Batch deploy dialog
   const [batchOpen, setBatchOpen] = useState(false);
