@@ -600,6 +600,14 @@ export default function WeeklyPlanner() {
               >
                 <Sparkles className="h-4 w-4" /> AI Schedule
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
+                onClick={() => setAgentOpen(true)}
+              >
+                <Bot className="h-4 w-4" /> Auto-Agent
+              </Button>
               <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
