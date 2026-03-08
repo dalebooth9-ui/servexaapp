@@ -225,6 +225,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <aside
+        onMouseLeave={() => setDesktopExpanded(false)}
         className={cn(
           "fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300",
           "bg-gradient-to-b from-[hsl(213,55%,13%)] via-[hsl(213,51%,16%)] to-[hsl(213,48%,12%)]",
