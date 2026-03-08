@@ -349,7 +349,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
         {/* Footer */}
         <div className="shrink-0 border-t border-sidebar-border/50 bg-[hsl(213,55%,10%)] px-3 py-2">
-          {whatsappNumber &&
+          {whatsappNumber && desktopExpanded &&
           <a
             href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
             target="_blank"
@@ -359,11 +359,13 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               <span className="truncate">{whatsappNumber}</span>
             </a>
           }
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0 text-xs">
-              <p className="truncate font-semibold text-white">{profile?.full_name || user?.email}</p>
-              <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">{userRole || "user"}</p>
-            </div>
+          <div className={cn("flex items-center gap-2", desktopExpanded ? "justify-between" : "lg:justify-center justify-between")}>
+            {desktopExpanded && (
+              <div className="min-w-0 text-xs">
+                <p className="truncate font-semibold text-white">{profile?.full_name || user?.email}</p>
+                <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">{userRole || "user"}</p>
+              </div>
+            )}
             <Button variant="ghost" size="icon" onClick={signOut} className="h-7 w-7 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" title="Sign Out">
               <LogOut className="h-3.5 w-3.5" />
             </Button>
