@@ -701,7 +701,22 @@ export default function JobDetail() {
       </Collapsible>
     </div>
 
-    {/* Technician AI Assistant — shown for engineers on job details */}
+    {/* Technician AI Assistant — floating on job detail for all roles */}
+    {job && (
+      <TechnicianAssistant
+        jobContext={{
+          job_name: job.name,
+          category: job.category,
+          customer: getCustomerName(job) ?? undefined,
+          site: job.sites?.name ?? job.address ?? undefined,
+          priority: job.priority,
+          description: job.description ?? undefined,
+        }}
+      />
+    )}
+    </>
+  );
+}
     {job && (
       <TechnicianAssistant
         jobContext={{
