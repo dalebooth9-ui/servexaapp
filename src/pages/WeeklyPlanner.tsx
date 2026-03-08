@@ -45,9 +45,10 @@ interface ScheduleEntry {
 export interface AdhocEntry {
   id: string;
   engineer_id: string;
-  schedule_date: string;
+  schedule_date: string | null;
   company_name: string;
   description: string | null;
+  allocated_days: number;
 }
 
 interface Engineer { user_id: string; full_name: string }
