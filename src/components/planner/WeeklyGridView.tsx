@@ -3,7 +3,7 @@ import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { X, GripVertical, AlertTriangle } from "lucide-react";
+import { X, GripVertical, AlertTriangle, CalendarDays } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -84,7 +84,13 @@ function extractPostcodeArea(job: Job): string {
 }
 
 // Draggable job card for the unallocated sidebar
-function DraggableUnallocatedJob({ job }: { job: Job }) {
+function DraggableUnallocatedJob({
+  job,
+  onMultiDay,
+}: {
+  job: Job;
+  onMultiDay: (job: Job) => void;
+}) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `unalloc-${job.id}`,
     data: { type: "unallocated", job },
@@ -95,51 +101,68 @@ function DraggableUnallocatedJob({ job }: { job: Job }) {
 
   return (
     <div
-      ref={setNodeRef}
-      {...attributes}
-      {...listeners}
       className={cn(
-        "relative rounded-md border-l-4 bg-card p-2 text-xs cursor-grab shadow-sm hover:shadow transition-shadow",
+        "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow",
         isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30"
       )}
     >
-      <div className="flex items-center justify-between gap-1 mb-0.5">
-        <span className="font-mono font-medium text-primary">{job.reference_number}</span>
-        {isOverdue ? (
-          <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-            <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
-          </span>
-        ) : isDueToday ? (
-          <span className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground shrink-0">
-            DUE TODAY
-          </span>
-        ) : job.due_date ? (
-          <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
-            {format(new Date(job.due_date), "dd/MM/yy")}
-          </span>
-        ) : null}
+      {/* Drag handle area */}
+      <div
+        ref={setNodeRef}
+        {...attributes}
+        {...listeners}
+        className="cursor-grab absolute inset-0 rounded-md"
+        style={{ zIndex: 0 }}
+      />
+      {/* Multi-day button */}
+      <button
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={(e) => { e.stopPropagation(); onMultiDay(job); }}
+        className="absolute top-1.5 right-1.5 z-10 rounded p-0.5 bg-card/80 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10 transition-all"
+        title="Schedule multiple days"
+      >
+        <CalendarDays className="h-3 w-3" />
+      </button>
+      {/* Content */}
+      <div className="relative z-[1] pointer-events-none">
+        <div className="flex items-center justify-between gap-1 mb-0.5 pr-5">
+          <span className="font-mono font-medium text-primary">{job.reference_number}</span>
+          {isOverdue ? (
+            <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+              <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
+            </span>
+          ) : isDueToday ? (
+            <span className="inline-flex items-center gap-0.5 rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-primary-foreground shrink-0">
+              DUE TODAY
+            </span>
+          ) : job.due_date ? (
+            <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
+              {format(new Date(job.due_date), "dd/MM/yy")}
+            </span>
+          ) : null}
+        </div>
+        <div className="truncate text-foreground">{job.name}</div>
+        {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground truncate">{(job as any).customers?.name || job.customer}</div>}
+        {(job.site?.name || job.site?.postcode) && (
+          <div className="text-muted-foreground truncate">
+            {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+          </div>
+        )}
+        {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {job.pressure_test_qty > 0 && (
+              <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
+            )}
+            {job.visual_qty > 0 && (
+              <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+            )}
+            {job.other_qty > 0 && job.other_service_type && (
+              <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
+            )}
+          </div>
+        )}
       </div>
-      <div className="truncate text-foreground">{job.name}</div>
-      {((job as any).customers?.name || job.customer) && <div className="text-muted-foreground truncate">{(job as any).customers?.name || job.customer}</div>}
-      {(job.site?.name || job.site?.postcode) && (
-        <div className="text-muted-foreground truncate">
-          {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
-        </div>
-      )}
-      {(job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-        <div className="flex flex-wrap gap-1 mt-0.5">
-          {job.pressure_test_qty > 0 && (
-            <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
-          )}
-          {job.visual_qty > 0 && (
-            <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
-          )}
-          {job.other_qty > 0 && job.other_service_type && (
-            <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
-          )}
-        </div>
-      )}
     </div>
   );
 }
@@ -298,6 +321,7 @@ export default function WeeklyGridView({
   onMove,
   onRemove,
   onRemoveAdhoc,
+  onMultiDaySchedule,
   onEngineerReorder,
 }: {
   weekDays: Date[];
@@ -311,6 +335,7 @@ export default function WeeklyGridView({
   onMove: (entryId: string, newEngineerId: string, newDate: string) => Promise<void>;
   onRemove: (entryId: string) => Promise<void>;
   onRemoveAdhoc: (entryId: string) => Promise<void>;
+  onMultiDaySchedule: (job: Job) => void;
   onEngineerReorder: (newOrder: string[]) => void;
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
@@ -434,7 +459,11 @@ export default function WeeklyGridView({
                           </div>
                           <div className="space-y-1">
                             {areaJobs.map((job) => (
-                              <DraggableUnallocatedJob key={job.id} job={job} />
+                              <DraggableUnallocatedJob
+                                key={job.id}
+                                job={job}
+                                onMultiDay={onMultiDaySchedule}
+                              />
                             ))}
                           </div>
                         </div>
@@ -545,18 +574,9 @@ function SortableEngineerRow({
   ).length;
   const available = todayJobs === 0;
 
-  const totalPT = engEntries.reduce((sum, s) => {
-    const job = getJob(s.job_id);
-    return sum + (job?.pressure_test_qty || 0);
-  }, 0);
-  const totalVis = engEntries.reduce((sum, s) => {
-    const job = getJob(s.job_id);
-    return sum + (job?.visual_qty || 0);
-  }, 0);
-  const totalOther = engEntries.reduce((sum, s) => {
-    const job = getJob(s.job_id);
-    return sum + (job?.other_qty || 0);
-  }, 0);
+  const totalPT = engEntries.reduce((sum, s) => sum + (getJob(s.job_id)?.pressure_test_qty || 0), 0);
+  const totalVis = engEntries.reduce((sum, s) => sum + (getJob(s.job_id)?.visual_qty || 0), 0);
+  const totalOther = engEntries.reduce((sum, s) => sum + (getJob(s.job_id)?.other_qty || 0), 0);
 
   return (
     <div
@@ -565,70 +585,70 @@ function SortableEngineerRow({
       className="grid gap-1"
     >
       <div className="flex items-center gap-1 px-2 text-sm font-medium truncate">
-          {isAdmin && (
-            <span
-              {...attributes}
-              {...listeners}
-              className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
-              title="Drag to reorder"
-            >
-              <GripVertical className="h-3.5 w-3.5" />
-            </span>
-          )}
-          <span className="truncate">{eng.full_name}</span>
+        {isAdmin && (
           <span
-            className={cn(
-              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-              available
-                ? "bg-green-500/20 text-green-700 dark:text-green-400"
-                : todayJobs >= 3
-                  ? "bg-destructive/20 text-destructive"
-                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-            )}
-            title={`${totalJobs} jobs this period, ${todayJobs} today`}
+            {...attributes}
+            {...listeners}
+            className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
+            title="Drag to reorder"
           >
-            {available ? "Free" : `${todayJobs} today`}
+            <GripVertical className="h-3.5 w-3.5" />
           </span>
-          {(totalPT > 0 || totalVis > 0 || totalOther > 0) && (
-            <div className="flex items-center gap-0.5 flex-wrap">
-              {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
-              {totalVis > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">Vis×{totalVis}</span>}
-              {totalOther > 0 && <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">×{totalOther}</span>}
-            </div>
+        )}
+        <span className="truncate">{eng.full_name}</span>
+        <span
+          className={cn(
+            "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+            available
+              ? "bg-green-500/20 text-green-700 dark:text-green-400"
+              : todayJobs >= 3
+                ? "bg-destructive/20 text-destructive"
+                : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
           )}
-        </div>
-        {weekDays.map((d) => {
-          const dateStr = format(d, "yyyy-MM-dd");
-          const cellId = `cell-${eng.user_id}_${dateStr}`;
-          const cellEntries = schedule.filter(
-            (s) => s.engineer_id === eng.user_id && s.schedule_date === dateStr
-          );
-          const cellAdhoc = adhocEntries.filter(
-            (a) => a.engineer_id === eng.user_id && a.schedule_date === dateStr
-          );
-          const isToday = isSameDay(d, new Date());
-          return (
-            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId}>
-              {cellEntries.map((entry) => (
-                <DraggableScheduleCard
-                  key={entry.id}
-                  entry={entry}
-                  job={getJob(entry.job_id)}
-                  isAdmin={isAdmin}
-                  onRemove={onRemove}
-                />
-              ))}
-              {cellAdhoc.map((adhoc) => (
-                <AdhocEntryCard
-                  key={adhoc.id}
-                  entry={adhoc}
-                  isAdmin={isAdmin}
-                  onRemove={onRemoveAdhoc}
-                />
-              ))}
-            </DroppableCell>
-          );
-        })}
+          title={`${totalJobs} jobs this period, ${todayJobs} today`}
+        >
+          {available ? "Free" : `${todayJobs} today`}
+        </span>
+        {(totalPT > 0 || totalVis > 0 || totalOther > 0) && (
+          <div className="flex items-center gap-0.5 flex-wrap">
+            {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
+            {totalVis > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">Vis×{totalVis}</span>}
+            {totalOther > 0 && <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">×{totalOther}</span>}
+          </div>
+        )}
+      </div>
+      {weekDays.map((d) => {
+        const dateStr = format(d, "yyyy-MM-dd");
+        const cellId = `cell-${eng.user_id}_${dateStr}`;
+        const cellEntries = schedule.filter(
+          (s) => s.engineer_id === eng.user_id && s.schedule_date === dateStr
+        );
+        const cellAdhoc = adhocEntries.filter(
+          (a) => a.engineer_id === eng.user_id && a.schedule_date === dateStr
+        );
+        const isToday = isSameDay(d, new Date());
+        return (
+          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId}>
+            {cellEntries.map((entry) => (
+              <DraggableScheduleCard
+                key={entry.id}
+                entry={entry}
+                job={getJob(entry.job_id)}
+                isAdmin={isAdmin}
+                onRemove={onRemove}
+              />
+            ))}
+            {cellAdhoc.map((adhoc) => (
+              <AdhocEntryCard
+                key={adhoc.id}
+                entry={adhoc}
+                isAdmin={isAdmin}
+                onRemove={onRemoveAdhoc}
+              />
+            ))}
+          </DroppableCell>
+        );
+      })}
     </div>
   );
 }
