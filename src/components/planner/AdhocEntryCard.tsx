@@ -1,13 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Briefcase, X } from "lucide-react";
-
-interface AdhocEntry {
-  id: string;
-  engineer_id: string;
-  schedule_date: string;
-  company_name: string;
-  description: string | null;
-}
+import type { AdhocEntry } from "@/pages/WeeklyPlanner";
 
 export default function AdhocEntryCard({
   entry,
@@ -19,15 +12,11 @@ export default function AdhocEntryCard({
   onRemove?: (id: string) => void;
 }) {
   return (
-    <div
-      className={cn(
-        "group relative rounded-md border-l-4 border-l-violet-500 bg-violet-500/5 p-1.5 text-[11px] shadow-sm"
-      )}
-    >
+    <div className="group relative rounded-md border-l-4 border-l-[hsl(var(--chart-3))] bg-[hsl(var(--chart-3)/0.07)] p-1.5 text-[11px] shadow-sm">
       <div className="flex items-start gap-1">
-        <Briefcase className="h-3 w-3 mt-0.5 shrink-0 text-violet-500" />
+        <Briefcase className="h-3 w-3 mt-0.5 shrink-0 text-[hsl(var(--chart-3))]" />
         <div className="flex-1 min-w-0">
-          <div className="font-semibold text-violet-700 dark:text-violet-400 truncate">
+          <div className="font-semibold text-[10px] uppercase tracking-wide text-[hsl(var(--chart-3))] leading-none mb-0.5">
             Labour Only
           </div>
           <div className="truncate text-foreground font-medium">{entry.company_name}</div>
