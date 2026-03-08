@@ -25,6 +25,8 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { useState } from "react";
+import AdhocEntryCard from "./AdhocEntryCard";
+import type { AdhocEntry } from "@/pages/WeeklyPlanner";
 
 interface ScheduleEntry {
   id: string;
