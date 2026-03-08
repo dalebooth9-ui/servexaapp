@@ -110,6 +110,36 @@
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
   }
+
+  /* Give cards a subtle left-border accent on hover */
+  .card-accent-hover {
+    border-left: 3px solid transparent;
+    transition: border-color 0.15s;
+  }
+  .card-accent-hover:hover {
+    border-left-color: hsl(25 95% 53%);
+  }
+}
+
+@layer utilities {
+  /* Gradient heading utility */
+  .text-gradient-brand {
+    background: linear-gradient(135deg, hsl(213 51% 24%), hsl(25 95% 53%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Vivid stat card accent bar */
+  .stat-card-accent::before {
+    content: '';
+    display: block;
+    height: 3px;
+    width: 100%;
+    border-radius: 9999px 9999px 0 0;
+    background: linear-gradient(90deg, hsl(25 95% 53%), hsl(213 51% 40%));
+    margin-bottom: 0;
+  }
 }
 
 /* Servexa orange scrollbars */
