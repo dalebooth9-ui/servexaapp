@@ -68,3 +68,12 @@ verify_jwt = false
 
 [functions.ai-predictive-maintenance]
 verify_jwt = false
+
+[functions.auto-schedule-agent]
+verify_jwt = false
+
+[functions.voice-photo-workorder]
+verify_jwt = false
+
+[functions.technician-assistant]
+verify_jwt = false

@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles } from "lucide-react";
 import AiJobBriefDialog from "@/components/AiJobBriefDialog";
 import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
+import TechnicianAssistant from "@/components/TechnicianAssistant";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
@@ -228,6 +229,7 @@ export default function JobDetail() {
     || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null);
 
   return (
+    <>
     <div>
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
@@ -698,5 +700,20 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
     </div>
+
+    {/* Technician AI Assistant — floating on job detail for all roles */}
+    {job && (
+      <TechnicianAssistant
+        jobContext={{
+          job_name: job.name,
+          category: job.category,
+          customer: getCustomerName(job) ?? undefined,
+          site: job.sites?.name ?? job.address ?? undefined,
+          priority: job.priority,
+          description: job.description ?? undefined,
+        }}
+      />
+    )}
+    </>
   );
 }

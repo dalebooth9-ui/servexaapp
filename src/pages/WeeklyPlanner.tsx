@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { exportWorksheetPdf, exportWorksheetXlsx } from "@/components/planner/PlannerWorksheetExport";
 import { format, addDays, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from "date-fns";
@@ -21,6 +21,7 @@ import MonthlyView from "@/components/planner/MonthlyView";
 import ListView from "@/components/planner/ListView";
 import PlannerMapView from "@/components/planner/PlannerMapView";
 import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
+import AutonomousAgentDialog from "@/components/planner/AutonomousAgentDialog";
 import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
 
 const NOTE_COLORS = [
@@ -158,6 +159,8 @@ export default function WeeklyPlanner() {
 
   // AI Scheduler
   const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
+  // Autonomous Agent
+  const [agentOpen, setAgentOpen] = useState(false);
 
   // Multi-day schedule
   const [multiDayJob, setMultiDayJob] = useState<{ id: string; name: string; reference_number: string } | null>(null);
@@ -597,6 +600,14 @@ export default function WeeklyPlanner() {
               >
                 <Sparkles className="h-4 w-4" /> AI Schedule
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 border-primary/40 text-primary hover:bg-primary/5"
+                onClick={() => setAgentOpen(true)}
+              >
+                <Bot className="h-4 w-4" /> Auto-Agent
+              </Button>
               <Button size="sm" onClick={() => { setAddDay(format(weekDays[0], "yyyy-MM-dd")); setAddEngineerId(""); setAddJobId(""); setAddSiteId(""); setAddNotes(""); setAddOpen(true); }}>
                 <Plus className="mr-1.5 h-4 w-4" /> Add Entry
               </Button>
@@ -949,6 +960,29 @@ export default function WeeklyPlanner() {
         weekStart={weekStart}
         existingSchedule={schedule}
         onConfirm={handleAiSchedulerConfirm}
+      />
+
+      {/* Autonomous Agent Dialog */}
+      <AutonomousAgentDialog
+        open={agentOpen}
+        onOpenChange={setAgentOpen}
+        jobs={jobs.map((j) => ({
+          id: j.id,
+          name: j.name,
+          reference_number: j.reference_number,
+          status: j.status,
+          priority: j.priority,
+          due_date: (j as any).due_date ?? null,
+          customer: (j as any).customer ?? null,
+          postcode: (j as any).site?.postcode ?? extractPostcode((j as any).address ?? ""),
+        }))}
+        engineers={sortedEngineers.map((e) => ({
+          user_id: e.user_id,
+          full_name: e.full_name,
+          job_count: schedule.filter((s) => s.engineer_id === e.user_id).length,
+        }))}
+        weekStart={weekStart}
+        onRefresh={fetchData}
       />
 
       {/* Multi-Day Schedule Dialog */}
