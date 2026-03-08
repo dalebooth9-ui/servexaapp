@@ -77,3 +77,6 @@ verify_jwt = false
 
 [functions.technician-assistant]
 verify_jwt = false
+
+[functions.generate-ppm-jobs]
+verify_jwt = false
