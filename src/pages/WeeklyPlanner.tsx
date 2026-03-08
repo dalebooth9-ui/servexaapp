@@ -159,6 +159,8 @@ export default function WeeklyPlanner() {
 
   // AI Scheduler
   const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
+  // Autonomous Agent
+  const [agentOpen, setAgentOpen] = useState(false);
 
   // Multi-day schedule
   const [multiDayJob, setMultiDayJob] = useState<{ id: string; name: string; reference_number: string } | null>(null);
