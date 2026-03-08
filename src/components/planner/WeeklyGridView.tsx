@@ -264,6 +264,31 @@ function DraggableScheduleCard({
   );
 }
 
+// Draggable adhoc (labour) entry card for scheduled cells
+function DraggableAdhocCard({
+  entry,
+  isAdmin,
+  onRemove,
+}: {
+  entry: AdhocEntry;
+  isAdmin: boolean;
+  onRemove: (id: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `adhoc-${entry.id}`,
+    data: { type: "adhoc", entry },
+    disabled: !isAdmin,
+  });
+
+  return (
+    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
+      <div className={cn(isAdmin && "cursor-grab")} {...attributes} {...listeners}>
+        <AdhocEntryCard entry={entry} isAdmin={isAdmin} onRemove={onRemove} />
+      </div>
+    </div>
+  );
+}
+
 // Droppable unallocated sidebar
 function DroppableUnallocatedZone({ children }: { children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: "unallocated-zone" });
@@ -321,6 +346,7 @@ export default function WeeklyGridView({
   onMove,
   onRemove,
   onRemoveAdhoc,
+  onMoveAdhoc,
   onMultiDaySchedule,
   onEngineerReorder,
 }: {
@@ -335,6 +361,7 @@ export default function WeeklyGridView({
   onMove: (entryId: string, newEngineerId: string, newDate: string) => Promise<void>;
   onRemove: (entryId: string) => Promise<void>;
   onRemoveAdhoc: (entryId: string) => Promise<void>;
+  onMoveAdhoc: (id: string, engineerId: string | null, date: string | null) => Promise<void>;
   onMultiDaySchedule: (job: Job) => void;
   onEngineerReorder: (newOrder: string[]) => void;
 }) {
@@ -413,6 +440,8 @@ export default function WeeklyGridView({
     if (targetId === "unallocated-zone") {
       if (activeData?.type === "scheduled") {
         await onRemove(activeData.entry.id);
+      } else if (activeData?.type === "adhoc") {
+        await onMoveAdhoc(activeData.entry.id, null, null);
       }
       return;
     }
@@ -427,6 +456,8 @@ export default function WeeklyGridView({
       await onAssign(activeData.job.id, targetEngineerId, targetDate);
     } else if (activeData?.type === "scheduled") {
       await onMove(activeData.entry.id, targetEngineerId, targetDate);
+    } else if (activeData?.type === "adhoc") {
+      await onMoveAdhoc(activeData.entry.id, targetEngineerId, targetDate);
     }
   };
 
@@ -558,6 +589,12 @@ export default function WeeklyGridView({
             <div className="truncate">{activeItem.job.name}</div>
           </div>
         )}
+        {activeItem?.type === "adhoc" && activeItem.entry && (
+          <div className="rounded-md border-l-4 border-l-[hsl(var(--chart-3))] bg-card p-2 text-xs shadow-lg w-[180px]">
+            <div className="font-semibold text-[10px] uppercase tracking-wide text-[hsl(var(--chart-3))]">Labour</div>
+            <div className="truncate font-medium">{activeItem.entry.company_name}</div>
+          </div>
+        )}
       </DragOverlay>
     </DndContext>
   );
@@ -660,7 +697,7 @@ function SortableEngineerRow({
               />
             ))}
             {cellAdhoc.map((adhoc) => (
-              <AdhocEntryCard
+              <DraggableAdhocCard
                 key={adhoc.id}
                 entry={adhoc}
                 isAdmin={isAdmin}
