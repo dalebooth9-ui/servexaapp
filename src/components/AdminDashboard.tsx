@@ -249,13 +249,19 @@ export default function AdminDashboard() {
 
       {isAdmin && (
         <div className="mb-6 flex flex-wrap gap-3">
-          <Button onClick={() => navigate("/jobs")} variant="default">
+          <Button
+            onClick={() => {
+              navigate("/jobs");
+              setTimeout(() => window.dispatchEvent(new Event("shortcut:new-job")), 150);
+            }}
+            variant="default"
+          >
             <Plus className="mr-2 h-4 w-4" /> Create Job
           </Button>
           <Button onClick={() => navigate("/customers")} variant="outline">
             <Building2 className="mr-2 h-4 w-4" /> New Customer
           </Button>
-          <Button onClick={() => { setFolderImportOpen(true); }} variant="outline">
+          <Button onClick={() => setFolderImportOpen(true)} variant="outline">
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
           <AiMaintenanceAlerts />
