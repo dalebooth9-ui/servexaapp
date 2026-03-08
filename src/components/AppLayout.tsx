@@ -206,21 +206,40 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300",
           "bg-gradient-to-b from-[hsl(213,55%,13%)] via-[hsl(213,51%,16%)] to-[hsl(213,48%,12%)]",
           "text-sidebar-foreground",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          /* mobile */
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          /* desktop */
+          "lg:static lg:translate-x-0",
+          desktopExpanded ? "lg:w-64" : "lg:w-14"
         )}>
 
         {/* Accent stripe at top */}
         <div className="h-1 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(25,95%,62%)] to-[hsl(25,95%,45%)] shrink-0" />
 
         <div className="border-b border-sidebar-border/50">
-          <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-contain px-4 -mt-2 pb-0" />
-          <div className="flex items-center justify-center gap-1 px-3 pb-2">
-            <ClockInButton />
-            <TodaysVisitsBadge />
-            <UnreadMessagesBadge />
+          {/* Desktop hamburger — hover to expand */}
+          <div className="hidden lg:flex items-center px-3 pt-2 pb-1">
+            <button
+              onMouseEnter={() => setDesktopExpanded(true)}
+              onClick={() => setDesktopExpanded((v) => !v)}
+              className="p-1.5 rounded-md text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent transition-colors"
+              title={desktopExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            {desktopExpanded && (
+              <img src={servexaLogo} alt="Servexa logo" className="h-8 w-auto object-contain ml-2" />
+            )}
+          </div>
+          {/* Mobile logo */}
+          <img src={servexaLogo} alt="Servexa logo" className="lg:hidden w-full h-auto object-contain px-4 -mt-2 pb-0" />
+          <div className={cn("flex items-center gap-1 px-3 pb-2", desktopExpanded ? "justify-center" : "lg:justify-center")}>
+            {desktopExpanded && <ClockInButton />}
+            {desktopExpanded && <TodaysVisitsBadge />}
+            {desktopExpanded && <UnreadMessagesBadge />}
             <NotificationBell />
             <button onClick={() => setMobileOpen(false)} className="lg:hidden">
               <X className="h-5 w-5" />
