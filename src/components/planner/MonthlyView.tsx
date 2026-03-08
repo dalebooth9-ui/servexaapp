@@ -147,7 +147,7 @@ function DraggableEntryChip({
     <div
       ref={setNodeRef}
       className={cn(
-        "group relative flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px] cursor-grab",
+        "group relative flex items-center gap-1 rounded px-1 py-0.5 text-[10px] cursor-grab",
         isOverdue ? "bg-destructive/10 text-destructive" : dueToday ? "bg-amber-500/10 text-amber-700" : "bg-muted/60 text-foreground",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab"
@@ -162,11 +162,22 @@ function DraggableEntryChip({
       >
         {job.reference_number}
       </Link>
-      <span className="truncate">{job.name}</span>
+      <span className="truncate flex-1 min-w-0">{job.name}</span>
+      {job.due_date && (() => {
+        return isOverdue ? (
+          <span className="inline-flex items-center rounded bg-destructive px-1 py-0.5 text-[8px] font-bold text-destructive-foreground shrink-0 ml-auto">OD</span>
+        ) : dueToday ? (
+          <span className="inline-flex items-center rounded bg-amber-500 px-1 py-0.5 text-[8px] font-bold text-white shrink-0 ml-auto">TODAY</span>
+        ) : (
+          <span className="inline-flex items-center rounded bg-muted border border-border px-1 py-0.5 text-[8px] font-mono text-muted-foreground shrink-0 ml-auto">
+            {format(parseISO(job.due_date), "dd/MM")}
+          </span>
+        );
+      })()}
       {isAdmin && (
         <button
           onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-          className="ml-auto shrink-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+          className="shrink-0 opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
         >
           <X className="h-2.5 w-2.5" />
         </button>

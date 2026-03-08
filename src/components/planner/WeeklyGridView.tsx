@@ -204,26 +204,36 @@ function DraggableScheduleCard({
           </span>
         )}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1">
-            <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline">
-              {job.reference_number}
-            </Link>
-            {STATUS_INDICATOR[job.status] && (
-              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none", STATUS_INDICATOR[job.status].class)}>
-                {STATUS_INDICATOR[job.status].label}
-              </span>
-            )}
+          <div className="flex items-center justify-between gap-1 mb-0.5">
+            <div className="flex items-center gap-1 min-w-0">
+              <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline shrink-0">
+                {job.reference_number}
+              </Link>
+              {STATUS_INDICATOR[job.status] && (
+                <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
+                  {STATUS_INDICATOR[job.status].label}
+                </span>
+              )}
+            </div>
+            {job.due_date && (() => {
+              const isOverdue = isPast(startOfDay(parseISO(job.due_date!))) && !isSameDay(parseISO(job.due_date!), new Date()) && job.status !== "completed";
+              const dueToday = isSameDay(parseISO(job.due_date!), new Date());
+              return isOverdue ? (
+                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+                  <AlertTriangle className="h-2 w-2" /> OVERDUE
+                </span>
+              ) : dueToday ? (
+                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">
+                  TODAY
+                </span>
+              ) : (
+                <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
+                  {format(parseISO(job.due_date!), "dd/MM/yy")}
+                </span>
+              );
+            })()}
           </div>
           <div className="truncate text-foreground">{job.name}</div>
-          {job.due_date && (() => {
-            const isOverdue = isPast(startOfDay(parseISO(job.due_date!))) && !isSameDay(parseISO(job.due_date!), new Date());
-            const dueToday = isSameDay(parseISO(job.due_date!), new Date());
-            return (
-              <div className={cn("text-[9px] font-mono font-semibold", isOverdue ? "text-destructive" : dueToday ? "text-amber-500" : "text-muted-foreground")}>
-                Due {format(parseISO(job.due_date!), "dd/MM/yy")}
-              </div>
-            );
-          })()}
           {(job.site?.name || job.site?.postcode) && (
             <div className="truncate text-muted-foreground text-[10px]">
               📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
