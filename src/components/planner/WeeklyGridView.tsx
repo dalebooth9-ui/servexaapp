@@ -374,6 +374,12 @@ export default function WeeklyGridView({
       : areaGroups;
   }, [unallocatedJobs]);
 
+  // Unallocated labour entries (no schedule_date)
+  const unallocatedAdhoc = useMemo(() =>
+    adhocEntries.filter((a) => !a.schedule_date),
+    [adhocEntries]
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveItem(event.active.data.current);
   };
