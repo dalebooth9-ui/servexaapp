@@ -699,5 +699,20 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
     </div>
+
+    {/* Technician AI Assistant — shown for engineers on job details */}
+    {job && (
+      <TechnicianAssistant
+        jobContext={{
+          job_name: job.name,
+          category: job.category,
+          customer: getCustomerName(job) ?? undefined,
+          site: job.sites?.name ?? job.address ?? undefined,
+          priority: job.priority,
+          description: job.description ?? undefined,
+        }}
+      />
+    )}
+  </>
   );
 }

@@ -962,6 +962,29 @@ export default function WeeklyPlanner() {
         onConfirm={handleAiSchedulerConfirm}
       />
 
+      {/* Autonomous Agent Dialog */}
+      <AutonomousAgentDialog
+        open={agentOpen}
+        onOpenChange={setAgentOpen}
+        jobs={jobs.map((j) => ({
+          id: j.id,
+          name: j.name,
+          reference_number: j.reference_number,
+          status: j.status,
+          priority: j.priority,
+          due_date: (j as any).due_date ?? null,
+          customer: (j as any).customer ?? null,
+          postcode: (j as any).site?.postcode ?? extractPostcode((j as any).address ?? ""),
+        }))}
+        engineers={sortedEngineers.map((e) => ({
+          user_id: e.user_id,
+          full_name: e.full_name,
+          job_count: schedule.filter((s) => s.engineer_id === e.user_id).length,
+        }))}
+        weekStart={weekStart}
+        onRefresh={fetchData}
+      />
+
       {/* Multi-Day Schedule Dialog */}
       <MultiDayScheduleDialog
         open={multiDayJob !== null}
