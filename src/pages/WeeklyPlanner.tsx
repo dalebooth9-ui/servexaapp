@@ -658,6 +658,7 @@ export default function WeeklyPlanner() {
             onMove={handleMove}
             onRemove={handleRemove}
             onRemoveAdhoc={handleRemoveAdhoc}
+            onMoveAdhoc={handleMoveAdhoc}
             onMultiDaySchedule={(job) => setMultiDayJob(job)}
             onEngineerReorder={handleEngineerReorder}
           />
