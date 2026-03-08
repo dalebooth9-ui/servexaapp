@@ -19,15 +19,13 @@ export default function UnreadMessagesBadge() {
 
   const fetchUnread = async () => {
     if (!user || userRole !== "admin") return;
-    const { data } = await supabase
+    // Use a filter to only count messages not yet read by this user
+    // read_by is a uuid[] so we use the @> (contains) operator negated
+    const { count } = await supabase
       .from("job_messages")
-      .select("id, read_by")
-      .limit(200);
-    if (!data) return;
-    const unread = data.filter(
-      (m) => !Array.isArray(m.read_by) || !m.read_by.includes(user.id)
-    );
-    setCount(unread.length);
+      .select("id", { count: "exact", head: true })
+      .not("read_by", "cs", `{${user.id}}`);
+    setCount(count ?? 0);
   };
 
   useEffect(() => {
