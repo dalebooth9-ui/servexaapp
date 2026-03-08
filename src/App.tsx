@@ -84,43 +84,46 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/auth" element={<AuthRoute />} />
-            <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
-            <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
-            <Route path="/jobs/:jobId/rams" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
-            <Route path="/jobs/:jobId/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
-            <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
-            <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-            <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
-            <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
-            <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
-            <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
-            <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
-            <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
-            <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-            <Route path="/parts-library" element={<ProtectedRoute><PartsLibrary /></ProtectedRoute>} />
-            <Route path="/industry-templates" element={<ProtectedRoute><IndustryTemplates /></ProtectedRoute>} />
-            <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
-            <Route path="/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
-            <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
-            <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
-            <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
-            <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
-            <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
-            <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
-            <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
-            <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
-            <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
-            <Route path="/privacy" element={<Suspense fallback={<PageFallback />}><PrivacyPolicy /></Suspense>} />
-            <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
-            <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
-            <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
-          </Routes>
-          <OfflineIndicator />
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <Routes>
+              <Route path="/auth" element={<AuthRoute />} />
+              <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
+              <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
+              <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/rams" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
+              <Route path="/jobs/:jobId/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
+              <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
+              <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+              <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+              <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
+              <Route path="/invoices" element={<ProtectedRoute><Invoices /></ProtectedRoute>} />
+              <Route path="/invoices/:id" element={<ProtectedRoute><InvoiceDetail /></ProtectedRoute>} />
+              <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
+              <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
+              <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
+              <Route path="/parts-library" element={<ProtectedRoute><PartsLibrary /></ProtectedRoute>} />
+              <Route path="/industry-templates" element={<ProtectedRoute><IndustryTemplates /></ProtectedRoute>} />
+              <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
+              <Route path="/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
+              <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
+              <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+              <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
+              <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
+              <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
+              <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
+              <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+              <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
+              <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
+              <Route path="/privacy" element={<Suspense fallback={<PageFallback />}><PrivacyPolicy /></Suspense>} />
+              <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
+              <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
+              <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
+            </Routes>
+            <OfflineIndicator />
+          </AuthProvider>
+        </ErrorBoundary>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
