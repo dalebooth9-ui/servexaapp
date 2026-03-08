@@ -517,7 +517,7 @@ export default function WeeklyGridView({
                     </div>
                     <div className="space-y-1">
                       {unallocatedAdhoc.map((entry) => (
-                        <AdhocEntryCard key={entry.id} entry={entry} isAdmin={true} onRemove={onRemoveAdhoc} />
+                        <DraggableAdhocCard key={entry.id} entry={entry} isAdmin={true} onRemove={onRemoveAdhoc} />
                       ))}
                     </div>
                   </div>
