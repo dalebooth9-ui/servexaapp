@@ -229,6 +229,7 @@ export default function JobDetail() {
     || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null);
 
   return (
+    <>
     <div>
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
