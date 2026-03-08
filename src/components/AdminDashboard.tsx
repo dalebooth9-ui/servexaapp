@@ -307,12 +307,20 @@ export default function AdminDashboard() {
               {recentSubmissions.map((sub) => (
                 <div key={sub.id} className="flex items-center justify-between rounded-lg border p-3">
                   <div className="flex items-center gap-3">
-                    <div className="rounded bg-muted p-1.5">
-                      {sub.type === "photo" && <Image className="h-4 w-4 text-accent" />}
-                      {sub.type === "document" && <FileText className="h-4 w-4 text-warning" />}
-                      {sub.type === "note" && <FileText className="h-4 w-4 text-primary" />}
-                      {sub.type === "location" && <MapPin className="h-4 w-4 text-destructive" />}
-                    </div>
+                    {sub.type === "photo" && recentPhotoUrls[sub.id] ? (
+                      <img
+                        src={recentPhotoUrls[sub.id]}
+                        alt="Photo submission thumbnail"
+                        className="h-10 w-10 rounded object-cover shrink-0 border"
+                      />
+                    ) : (
+                      <div className="rounded bg-muted p-1.5">
+                        {sub.type === "photo" && <Image className="h-4 w-4 text-accent" />}
+                        {sub.type === "document" && <FileText className="h-4 w-4 text-warning" />}
+                        {sub.type === "note" && <FileText className="h-4 w-4 text-primary" />}
+                        {sub.type === "location" && <MapPin className="h-4 w-4 text-destructive" />}
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-medium capitalize">{sub.type}</p>
                       <p className="text-xs text-muted-foreground">
