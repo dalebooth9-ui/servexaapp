@@ -77,12 +77,10 @@ function parseRowsFromText(text: string): ParsedSite[] {
   return sites;
 }
 
-function parseRowsFromWorkbook(wb: XLSX.WorkBook): ParsedSite[] {
-  const sheet = wb.Sheets[wb.SheetNames[0]];
-  const rows: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+function parseRowsFromStringArray(rows: string[][]): ParsedSite[] {
   if (rows.length < 2) return [];
 
-  const headers = (rows[0] as string[]).map((h) => normalizeHeader(String(h || "")));
+  const headers = rows[0].map((h) => normalizeHeader(String(h || "")));
   const sites: ParsedSite[] = [];
 
   for (let i = 1; i < rows.length; i++) {
