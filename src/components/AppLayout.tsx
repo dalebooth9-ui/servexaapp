@@ -76,16 +76,36 @@ function loadSectionOverrides(): Record<string, "operations" | "more"> {
 }
 
 function SortableNavItem({
-  item, isActive, onClick, inOps, onTogglePin,
+  item, isActive, onClick, inOps, onTogglePin, collapsed,
 }: {
   item: typeof DEFAULT_NAV_ITEMS[number];
   isActive: boolean;
   onClick: () => void;
   inOps: boolean;
   onTogglePin: () => void;
+  collapsed?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  if (collapsed) {
+    return (
+      <div ref={setNodeRef} style={style}>
+        <Link
+          to={item.to}
+          onClick={onClick}
+          title={item.label}
+          className={cn(
+            "flex items-center justify-center rounded-lg p-2.5 transition-all duration-150",
+            isActive
+              ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}>
+          <item.icon className="h-4.5 w-4.5 shrink-0" />
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-1 group">
