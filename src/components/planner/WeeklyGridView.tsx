@@ -589,6 +589,12 @@ export default function WeeklyGridView({
             <div className="truncate">{activeItem.job.name}</div>
           </div>
         )}
+        {activeItem?.type === "adhoc" && activeItem.entry && (
+          <div className="rounded-md border-l-4 border-l-[hsl(var(--chart-3))] bg-card p-2 text-xs shadow-lg w-[180px]">
+            <div className="font-semibold text-[10px] uppercase tracking-wide text-[hsl(var(--chart-3))]">Labour</div>
+            <div className="truncate font-medium">{activeItem.entry.company_name}</div>
+          </div>
+        )}
       </DragOverlay>
     </DndContext>
   );
