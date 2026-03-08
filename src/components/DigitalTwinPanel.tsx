@@ -360,7 +360,7 @@ export default function DigitalTwinPanel({ assetId, assetName }: { assetId: stri
 
       const byId: Record<string, SensorReading[]> = {};
       sensorIds.forEach(id => { byId[id] = []; });
-      (rdData as SensorReading[] || []).forEach(r => {
+      ((rdData as unknown as SensorReading[]) || []).forEach(r => {
         if (!byId[r.sensor_id]) byId[r.sensor_id] = [];
         byId[r.sensor_id].push(r);
       });
