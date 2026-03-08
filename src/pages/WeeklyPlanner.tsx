@@ -21,6 +21,7 @@ import MonthlyView from "@/components/planner/MonthlyView";
 import ListView from "@/components/planner/ListView";
 import PlannerMapView from "@/components/planner/PlannerMapView";
 import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
+import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
@@ -155,6 +156,9 @@ export default function WeeklyPlanner() {
 
   // AI Scheduler
   const [aiSchedulerOpen, setAiSchedulerOpen] = useState(false);
+
+  // Multi-day schedule
+  const [multiDayJob, setMultiDayJob] = useState<{ id: string; name: string; reference_number: string } | null>(null);
 
   const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)), [weekStart]);
@@ -312,12 +316,30 @@ export default function WeeklyPlanner() {
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
     } else {
-      // If the job was in 'scheduled' status, promote it to 'active' now it has an engineer assigned
       const job = jobs.find((j) => j.id === jobId);
       if (job?.status === "scheduled") {
         await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
       }
       toast({ title: "Assigned" });
+      fetchData();
+    }
+  };
+
+  const handleMultiDayAssign = async (jobId: string, engineerId: string, dates: string[]) => {
+    const rows = dates.map((date) => ({
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+    }));
+    const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
+      onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
+    });
+    if (error) {
+      toast({ title: "Error", description: "Some dates may already be scheduled.", variant: "destructive" });
+    } else {
+      const job = jobs.find((j) => j.id === jobId);
+      if (job?.status === "scheduled") {
+        await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
+      }
+      toast({ title: "Scheduled", description: `Job added to ${dates.length} day${dates.length !== 1 ? "s" : ""}.` });
       fetchData();
     }
   };
@@ -621,6 +643,7 @@ export default function WeeklyPlanner() {
             onMove={handleMove}
             onRemove={handleRemove}
             onRemoveAdhoc={handleRemoveAdhoc}
+            onMultiDaySchedule={(job) => setMultiDayJob(job)}
             onEngineerReorder={handleEngineerReorder}
           />
         </TabsContent>
@@ -893,6 +916,16 @@ export default function WeeklyPlanner() {
         weekStart={weekStart}
         existingSchedule={schedule}
         onConfirm={handleAiSchedulerConfirm}
+      />
+
+      {/* Multi-Day Schedule Dialog */}
+      <MultiDayScheduleDialog
+        open={multiDayJob !== null}
+        onOpenChange={(open) => { if (!open) setMultiDayJob(null); }}
+        job={multiDayJob}
+        engineers={sortedEngineers}
+        initialWeekStart={weekStart}
+        onConfirm={handleMultiDayAssign}
       />
     </div>
   );
