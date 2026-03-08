@@ -599,6 +599,13 @@ export default function WeeklyPlanner() {
         </TabsContent>
       </Tabs>
 
+      {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
+      {isAdmin && view !== "map" && (
+        <div className="mt-4">
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} />
+        </div>
+      )}
+
       {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
