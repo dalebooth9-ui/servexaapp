@@ -34,7 +34,7 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
-    const systemPrompt = `You are an expert field service operations manager for a fire safety company. 
+    const systemPrompt = `You are an expert field service operations manager for a UK fire safety company specialising in dry risers, sprinkler systems, fire extinguishers, and fire hydrants.
 Generate a clear, professional job brief for engineers attending a job.
 Format your response in clean markdown with sections:
 ## Overview
@@ -43,7 +43,16 @@ Format your response in clean markdown with sections:
 ## Access & Site Information
 ## Equipment & Parts
 ## Completion Criteria
-Keep it concise but actionable. Engineers should know exactly what to do.`;
+Keep it concise but actionable. Engineers should know exactly what to do.
+
+CRITICAL DOMAIN RULES — you must follow these exactly:
+- Dry riser pressure tests are ALWAYS hydraulic (water-filled) tests in accordance with BS 9990:2015. NEVER reference air pressure tests for dry risers — air pressure testing is NOT part of BS 9990:2015 and must never be mentioned.
+- Dry riser annual service and pressure test: test pressure is typically 12 bar for 15 minutes per BS 9990:2015 clause 7.
+- Dry riser visual inspection: no pressure test involved — visual checks only per BS 9990:2015.
+- Sprinkler systems: reference BS EN 12845:2015.
+- Fire extinguishers: reference BS 5306-3:2017.
+- Fire hydrants: reference BS 9990:2015 / NFCC Guidelines (bi-annual check).
+- Always use UK English spelling and British Standards references.`;
 
     const userPrompt = `Generate a job brief for the following job:
 
