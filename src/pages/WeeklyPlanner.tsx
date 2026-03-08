@@ -667,6 +667,51 @@ export default function WeeklyPlanner() {
         </div>
       )}
 
+      {/* Labour Only (Adhoc) Entry Dialog */}
+      <Dialog open={adhocOpen} onOpenChange={setAdhocOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Add Labour-Only Entry</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground -mt-2">For work done for other companies not in our job list.</p>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Date</Label>
+              <Input type="date" value={adhocDay} onChange={(e) => setAdhocDay(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Engineer</Label>
+              <Select value={adhocEngineerId} onValueChange={setAdhocEngineerId}>
+                <SelectTrigger><SelectValue placeholder="Select engineer..." /></SelectTrigger>
+                <SelectContent>
+                  {engineers.map((e) => <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Company Name</Label>
+              <Input
+                placeholder="e.g. ABC Contractors"
+                value={adhocCompany}
+                onChange={(e) => setAdhocCompany(e.target.value)}
+                maxLength={100}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description <span className="text-xs text-muted-foreground font-normal">(optional)</span></Label>
+              <Textarea
+                placeholder="e.g. Dry riser maintenance, wet riser inspection..."
+                value={adhocDesc}
+                onChange={(e) => setAdhocDesc(e.target.value)}
+                rows={2}
+                maxLength={300}
+              />
+            </div>
+            <Button onClick={handleAddAdhoc} className="w-full" disabled={!adhocDay || !adhocEngineerId || !adhocCompany.trim() || saving}>
+              {saving ? "Saving..." : "Add Labour Entry"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Entry Dialog */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
