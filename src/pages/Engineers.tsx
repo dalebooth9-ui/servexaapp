@@ -250,6 +250,9 @@ export default function Engineers() {
 
       <Card>
         <CardContent className="p-0">
+          {engLoading ? (
+            <div className="p-4"><TableSkeleton rows={5} cols={5} showHeader={false} /></div>
+          ) : (
           <Table>
             <TableHeader>
               <TableRow>
