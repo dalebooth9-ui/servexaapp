@@ -374,6 +374,12 @@ export default function WeeklyGridView({
       : areaGroups;
   }, [unallocatedJobs]);
 
+  // Unallocated labour entries (no schedule_date)
+  const unallocatedAdhoc = useMemo(() =>
+    adhocEntries.filter((a) => !a.schedule_date),
+    [adhocEntries]
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveItem(event.active.data.current);
   };
@@ -471,11 +477,26 @@ export default function WeeklyGridView({
                     })}
                   </div>
                 )}
+                {/* Unallocated Labour entries */}
+                {unallocatedAdhoc.length > 0 && (
+                  <div className="mt-3 pr-2">
+                    <div className="mb-1 flex items-center gap-1.5">
+                      <Badge variant="outline" className="text-[10px] font-semibold text-[hsl(var(--chart-3))] border-[hsl(var(--chart-3)/0.4)]">Labour</Badge>
+                      <span className="text-[10px] text-muted-foreground">{unallocatedAdhoc.length}</span>
+                    </div>
+                    <div className="space-y-1">
+                      {unallocatedAdhoc.map((entry) => (
+                        <AdhocEntryCard key={entry.id} entry={entry} isAdmin={true} onRemove={onRemoveAdhoc} />
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <ScrollBar orientation="vertical" />
               </ScrollArea>
             </DroppableUnallocatedZone>
           </div>
         )}
+
 
         {/* Grid */}
         <div className="flex-1 overflow-x-auto">

@@ -2085,33 +2085,36 @@ export type Database = {
       }
       planner_adhoc_entries: {
         Row: {
+          allocated_days: number
           company_name: string
           created_at: string
           created_by: string
           description: string | null
           engineer_id: string
           id: string
-          schedule_date: string
+          schedule_date: string | null
           updated_at: string
         }
         Insert: {
+          allocated_days?: number
           company_name?: string
           created_at?: string
           created_by: string
           description?: string | null
           engineer_id: string
           id?: string
-          schedule_date: string
+          schedule_date?: string | null
           updated_at?: string
         }
         Update: {
+          allocated_days?: number
           company_name?: string
           created_at?: string
           created_by?: string
           description?: string | null
           engineer_id?: string
           id?: string
-          schedule_date?: string
+          schedule_date?: string | null
           updated_at?: string
         }
         Relationships: []
