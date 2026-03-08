@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { Wrench, CheckCircle2, ClipboardList, MapPin } from "lucide-react";
+import { Wrench, CheckCircle2 } from "lucide-react";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -19,22 +19,6 @@ const signupSchema = loginSchema.extend({
 });
 
 type Mode = "login" | "signup" | "forgot";
-
-const FEATURES = [
-  { icon: Briefcase, text: "Manage jobs, engineers & customers" },
-  { icon: ClipboardList, text: "Digital job sheets & compliance docs" },
-  { icon: MapPin, text: "Live engineer tracking & scheduling" },
-  { icon: CheckCircle2, text: "Customer sign-off & instant reports" },
-];
-
-function Briefcase({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7H4a2 2 0 00-2 2v10a2 2 0 002 2h16a2 2 0 002-2V9a2 2 0 00-2-2z" />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2" />
-    </svg>
-  );
-}
 
 export default function Auth() {
   const [mode, setMode] = useState<Mode>("login");
