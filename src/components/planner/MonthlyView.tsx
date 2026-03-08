@@ -431,18 +431,13 @@ export default function MonthlyView({
                         return (
                           <Tooltip key={entry.id}>
                             <TooltipTrigger asChild>
-                              <div className="space-y-0">
+                              <div>
                                 <DraggableEntryChip
                                   entry={entry}
                                   job={job}
                                   isAdmin={isAdmin}
                                   onRemove={(id) => onRemove?.(id)}
                                 />
-                                {job?.due_date && (
-                                  <div className={cn("text-[9px] font-mono ml-2.5", isOverdue ? "text-destructive font-semibold" : dueToday ? "text-amber-500 font-semibold" : "text-muted-foreground")}>
-                                    Due {format(parseISO(job.due_date), "dd/MM/yy")}
-                                  </div>
-                                )}
                               </div>
                             </TooltipTrigger>
                             <TooltipContent side="top" className="text-xs">
