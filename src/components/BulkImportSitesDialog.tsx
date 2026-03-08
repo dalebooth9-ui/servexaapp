@@ -137,9 +137,8 @@ export default function BulkImportSitesDialog({ open, onOpenChange, onImported }
       setParsed(await checkDuplicates(sites));
       setStep("preview");
     } else if (ext === "xlsx" || ext === "xls") {
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf);
-      const sites = parseRowsFromWorkbook(wb);
+      const rows = await readExcelFile(file);
+      const sites = parseRowsFromStringArray(rows);
       if (sites.length === 0) {
         toast({ title: "No sites found", description: "Check your file has a header row with Name and Address columns.", variant: "destructive" });
         return;
