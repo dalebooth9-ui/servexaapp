@@ -36,6 +36,7 @@ export default function Engineers() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [engineers, setEngineers] = useState<any[]>([]);
+  const [engLoading, setEngLoading] = useState(true);
   const [editEng, setEditEng] = useState<any | null>(null);
   const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
   const [saving, setSaving] = useState(false);
