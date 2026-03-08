@@ -130,6 +130,65 @@ export type Database = {
           },
         ]
       }
+      asset_sensors: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          last_reading_at: string | null
+          last_value: number | null
+          max_critical: number | null
+          max_normal: number | null
+          min_critical: number | null
+          min_normal: number | null
+          name: string
+          sensor_type: string
+          unit: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_reading_at?: string | null
+          last_value?: number | null
+          max_critical?: number | null
+          max_normal?: number | null
+          min_critical?: number | null
+          min_normal?: number | null
+          name: string
+          sensor_type?: string
+          unit?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          last_reading_at?: string | null
+          last_value?: number | null
+          max_critical?: number | null
+          max_normal?: number | null
+          min_critical?: number | null
+          min_normal?: number | null
+          name?: string
+          sensor_type?: string
+          unit?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_sensors_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_tag: string | null
@@ -895,6 +954,53 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      digital_twin_health: {
+        Row: {
+          ai_summary: string | null
+          anomalies: Json
+          asset_id: string
+          created_at: string
+          failure_probability: number | null
+          health_score: number
+          id: string
+          last_analysed_at: string
+          predicted_failure_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          ai_summary?: string | null
+          anomalies?: Json
+          asset_id: string
+          created_at?: string
+          failure_probability?: number | null
+          health_score?: number
+          id?: string
+          last_analysed_at?: string
+          predicted_failure_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ai_summary?: string | null
+          anomalies?: Json
+          asset_id?: string
+          created_at?: string
+          failure_probability?: number | null
+          health_score?: number
+          id?: string
+          last_analysed_at?: string
+          predicted_failure_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "digital_twin_health_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: true
+            referencedRelation: "assets"
             referencedColumns: ["id"]
           },
         ]
@@ -2560,6 +2666,48 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sensor_readings: {
+        Row: {
+          asset_id: string
+          id: string
+          recorded_at: string
+          sensor_id: string
+          status: string
+          value: number
+        }
+        Insert: {
+          asset_id: string
+          id?: string
+          recorded_at?: string
+          sensor_id: string
+          status?: string
+          value: number
+        }
+        Update: {
+          asset_id?: string
+          id?: string
+          recorded_at?: string
+          sensor_id?: string
+          status?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sensor_readings_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sensor_readings_sensor_id_fkey"
+            columns: ["sensor_id"]
+            isOneToOne: false
+            referencedRelation: "asset_sensors"
             referencedColumns: ["id"]
           },
         ]
