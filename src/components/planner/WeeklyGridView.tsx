@@ -295,6 +295,32 @@ export default function WeeklyGridView({
   schedule,
   jobs,
   unallocatedJobs,
+  adhocEntries,
+  isAdmin,
+  onAssign,
+  onMove,
+  onRemove,
+  onRemoveAdhoc,
+  onEngineerReorder,
+}: {
+  weekDays: Date[];
+  engineers: Engineer[];
+  schedule: ScheduleEntry[];
+  jobs: Job[];
+  unallocatedJobs: Job[];
+  adhocEntries: AdhocEntry[];
+  isAdmin: boolean;
+  onAssign: (jobId: string, engineerId: string, date: string) => Promise<void>;
+  onMove: (entryId: string, newEngineerId: string, newDate: string) => Promise<void>;
+  onRemove: (entryId: string) => Promise<void>;
+  onRemoveAdhoc: (entryId: string) => Promise<void>;
+  onEngineerReorder: (newOrder: string[]) => void;
+}) {
+  weekDays,
+  engineers,
+  schedule,
+  jobs,
+  unallocatedJobs,
   isAdmin,
   onAssign,
   onMove,
