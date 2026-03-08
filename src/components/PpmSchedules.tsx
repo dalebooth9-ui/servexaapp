@@ -194,14 +194,17 @@ export default function PpmSchedules({ assetId }: PpmSchedulesProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <CalendarClock className="h-4 w-4" /> PPM Schedules ({schedules.length})
-          </CardTitle>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <CalendarClock className="h-4 w-4" /> PPM Schedules ({schedules.length})
+            </CardTitle>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Auto-runs daily at 07:00 UTC</p>
+          </div>
           <div className="flex gap-2">
-            {userRole === "admin" && schedules.some((s) => s.status === "active" && isDue(s.next_due_date)) && (
+            {userRole === "admin" && (
               <Button size="sm" variant="outline" onClick={handleGenerateNow} disabled={generating}>
-                <Zap className="mr-1.5 h-3.5 w-3.5" /> {generating ? "Generating..." : "Generate Now"}
+                <Zap className="mr-1.5 h-3.5 w-3.5" /> {generating ? "Running..." : "Run Now"}
               </Button>
             )}
             {userRole === "admin" && (
