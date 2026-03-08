@@ -186,8 +186,24 @@ export default function PhotoChecklistCapture({
   // Load templates filtered to the job's category
   useEffect(() => {
     const loadTemplates = async () => {
-      // Normalise category: "dry_riser_service" → "dry_riser_service", "dry_riser" → "dry_riser_service"
-      const normalised = jobCategory.includes("_service") ? jobCategory : `${jobCategory}_service`;
+      // Map any dry_riser_* variant → dry_riser_service
+      // Map any sprinkler_* variant → sprinkler_service, etc.
+      const SERVICE_MAP: Record<string, string> = {
+        dry_riser: "dry_riser_service",
+        dry_riser_service: "dry_riser_service",
+        dry_riser_pressure_test: "dry_riser_service",
+        dry_riser_visual: "dry_riser_service",
+        dry_riser_installation: "dry_riser_service",
+        sprinkler: "sprinkler_service",
+        sprinkler_service: "sprinkler_service",
+        fire_extinguisher: "fire_extinguisher_service",
+        fire_extinguisher_service: "fire_extinguisher_service",
+        fire_hydrant: "fire_hydrant_service",
+        fire_hydrant_service: "fire_hydrant_service",
+      };
+      const normalised =
+        SERVICE_MAP[jobCategory] ||
+        (jobCategory.includes("_service") ? jobCategory : `${jobCategory}_service`);
       const { data } = await supabase
         .from("photo_checklist_templates" as any)
         .select("*")
