@@ -644,7 +644,6 @@ export default function WeeklyPlanner() {
             onRemove={handleRemove}
             onRemoveAdhoc={handleRemoveAdhoc}
             onMultiDaySchedule={(job) => setMultiDayJob(job)}
-            weekStart={weekStart}
             onEngineerReorder={handleEngineerReorder}
           />
         </TabsContent>
