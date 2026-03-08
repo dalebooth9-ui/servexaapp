@@ -338,6 +338,7 @@ export default function AssetDetail() {
         </Card>
       </div>
 
+
       {asset.notes && (
         <Card>
           <CardContent className="p-4">
@@ -347,188 +348,213 @@ export default function AssetDetail() {
         </Card>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Linked Jobs */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Briefcase className="h-4 w-4" /> Linked Jobs ({jobs.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {jobs.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">No jobs linked to this asset.</p>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Ref</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Date</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {jobs.map((j) => (
-                    <TableRow key={j.id}>
-                      <TableCell>
-                        <Link to={`/jobs/${j.id}`} className="text-primary hover:underline font-mono text-xs">
-                          {j.reference_number}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm max-w-[160px] truncate">{j.name}</TableCell>
-                      <TableCell>
-                        <Badge variant={j.status === "completed" ? "default" : j.status === "active" ? "secondary" : "outline"} className="text-[10px] capitalize">
-                          {j.status}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(j.created_at), "dd MMM yy")}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+      {/* Tabbed lower sections */}
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList className="flex-wrap h-auto gap-1">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="digital-twin" className="gap-1.5">
+            <span className="relative flex h-2 w-2 mr-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
+            Digital Twin
+          </TabsTrigger>
+          <TabsTrigger value="documents">Documents ({docs.length})</TabsTrigger>
+          <TabsTrigger value="ppm">PPM Schedules</TabsTrigger>
+        </TabsList>
 
-        {/* Activity / Maintenance History */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="h-4 w-4" /> Maintenance History
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activities.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">No activity yet. Link jobs to this asset to see history.</p>
-            ) : (
-              <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
-                {activities.map((a) => (
-                  <div key={a.id} className="flex gap-3 text-sm">
-                    <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full border bg-card flex items-center justify-center">
-                      <Clock className="h-3 w-3 text-muted-foreground" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium capitalize text-xs">{a.action.replace("_", " ")}</span>
-                        {a.user_id && profiles[a.user_id] && (
-                          <span className="text-[10px] text-muted-foreground">by {profiles[a.user_id]}</span>
-                        )}
-                      </div>
-                      {a.details && <p className="text-xs text-muted-foreground mt-0.5">{a.details}</p>}
-                      <span className="text-[10px] text-muted-foreground/70">
-                        {format(new Date(a.created_at), "dd MMM yyyy, HH:mm")}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+        {/* Overview: jobs + activity */}
+        <TabsContent value="overview" className="space-y-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Linked Jobs */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" /> Linked Jobs ({jobs.length})
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {jobs.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No jobs linked to this asset.</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Ref</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Date</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {jobs.map((j) => (
+                        <TableRow key={j.id}>
+                          <TableCell>
+                            <Link to={`/jobs/${j.id}`} className="text-primary hover:underline font-mono text-xs">
+                              {j.reference_number}
+                            </Link>
+                          </TableCell>
+                          <TableCell className="text-sm max-w-[160px] truncate">{j.name}</TableCell>
+                          <TableCell>
+                            <Badge variant={j.status === "completed" ? "default" : j.status === "active" ? "secondary" : "outline"} className="text-[10px] capitalize">
+                              {j.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(j.created_at), "dd MMM yy")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </CardContent>
+            </Card>
 
-      {/* PPM Schedules */}
-      <PpmSchedules assetId={asset.id} />
-
-      {/* Compliance Documents */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Shield className="h-4 w-4" /> Compliance Documents ({docs.length})
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Upload area */}
-          <div className="flex flex-wrap items-end gap-3 p-3 border border-dashed rounded-lg bg-muted/30">
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">Type</label>
-              <Select value={docType} onValueChange={setDocType}>
-                <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {DOC_TYPES.map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {t.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium">Expiry Date</label>
-              <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-[150px] h-9 text-xs" />
-            </div>
-            <div>
-              <input ref={fileRef} type="file" onChange={handleUpload} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" />
-              <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
-                <Upload className="mr-1.5 h-3.5 w-3.5" /> {uploading ? "Uploading..." : "Upload Document"}
-              </Button>
-            </div>
-          </div>
-
-          {/* Documents table */}
-          {docs.length === 0 ? (
-            <p className="py-4 text-center text-sm text-muted-foreground">No documents uploaded yet.</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>File</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Expiry</TableHead>
-                  <TableHead>Uploaded</TableHead>
-                  <TableHead className="w-20" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {docs.map((doc) => {
-                  const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
-                  const isExpiring = doc.expiry_date && !isExpired && (new Date(doc.expiry_date).getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000;
-                  return (
-                    <TableRow key={doc.id}>
-                      <TableCell>
-                        <button onClick={() => handleDownload(doc)} className="text-primary hover:underline text-sm flex items-center gap-1.5">
-                          <FileText className="h-3.5 w-3.5" /> {doc.file_name}
-                        </button>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline" className="text-[10px] capitalize">{doc.document_type.replace("_", " ")}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        {doc.expiry_date ? (
-                          <span className={`text-xs ${isExpired ? "text-destructive font-medium" : isExpiring ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
-                            {isExpired ? "⚠ " : isExpiring ? "⏳ " : ""}
-                            {format(new Date(doc.expiry_date), "dd MMM yyyy")}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {format(new Date(doc.created_at), "dd MMM yy")}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(doc)}>
-                            <Download className="h-3.5 w-3.5" />
-                          </Button>
-                          {userRole === "admin" && (
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteDoc(doc)}>
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
-                          )}
+            {/* Activity / Maintenance History */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Activity className="h-4 w-4" /> Maintenance History
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {activities.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">No activity yet. Link jobs to this asset to see history.</p>
+                ) : (
+                  <div className="space-y-3 max-h-[360px] overflow-y-auto pr-1">
+                    {activities.map((a) => (
+                      <div key={a.id} className="flex gap-3 text-sm">
+                        <div className="mt-0.5 h-6 w-6 shrink-0 rounded-full border bg-card flex items-center justify-center">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
                         </div>
-                      </TableCell>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium capitalize text-xs">{a.action.replace("_", " ")}</span>
+                            {a.user_id && profiles[a.user_id] && (
+                              <span className="text-[10px] text-muted-foreground">by {profiles[a.user_id]}</span>
+                            )}
+                          </div>
+                          {a.details && <p className="text-xs text-muted-foreground mt-0.5">{a.details}</p>}
+                          <span className="text-[10px] text-muted-foreground/70">
+                            {format(new Date(a.created_at), "dd MMM yyyy, HH:mm")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Digital Twin Tab */}
+        <TabsContent value="digital-twin">
+          <DigitalTwinPanel assetId={asset.id} assetName={asset.name} />
+        </TabsContent>
+
+        {/* Documents Tab */}
+        <TabsContent value="documents">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Shield className="h-4 w-4" /> Compliance Documents ({docs.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap items-end gap-3 p-3 border border-dashed rounded-lg bg-muted/30">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium">Type</label>
+                  <Select value={docType} onValueChange={setDocType}>
+                    <SelectTrigger className="w-[150px] h-9 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DOC_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t.replace("_", " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium">Expiry Date</label>
+                  <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="w-[150px] h-9 text-xs" />
+                </div>
+                <div>
+                  <input ref={fileRef} type="file" onChange={handleUpload} className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" />
+                  <Button size="sm" variant="outline" onClick={() => fileRef.current?.click()} disabled={uploading}>
+                    <Upload className="mr-1.5 h-3.5 w-3.5" /> {uploading ? "Uploading..." : "Upload Document"}
+                  </Button>
+                </div>
+              </div>
+              {docs.length === 0 ? (
+                <p className="py-4 text-center text-sm text-muted-foreground">No documents uploaded yet.</p>
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>File</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Expiry</TableHead>
+                      <TableHead>Uploaded</TableHead>
+                      <TableHead className="w-20" />
                     </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {docs.map((doc) => {
+                      const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
+                      const isExpiring = doc.expiry_date && !isExpired && (new Date(doc.expiry_date).getTime() - Date.now()) < 30 * 24 * 60 * 60 * 1000;
+                      return (
+                        <TableRow key={doc.id}>
+                          <TableCell>
+                            <button onClick={() => handleDownload(doc)} className="text-primary hover:underline text-sm flex items-center gap-1.5">
+                              <FileText className="h-3.5 w-3.5" /> {doc.file_name}
+                            </button>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className="text-[10px] capitalize">{doc.document_type.replace("_", " ")}</Badge>
+                          </TableCell>
+                          <TableCell>
+                            {doc.expiry_date ? (
+                              <span className={`text-xs ${isExpired ? "text-destructive font-medium" : isExpiring ? "text-amber-600 font-medium" : "text-muted-foreground"}`}>
+                                {isExpired ? "⚠ " : isExpiring ? "⏳ " : ""}
+                                {format(new Date(doc.expiry_date), "dd MMM yyyy")}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {format(new Date(doc.created_at), "dd MMM yy")}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex gap-1">
+                              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDownload(doc)}>
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                              {userRole === "admin" && (
+                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => handleDeleteDoc(doc)}>
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </Button>
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* PPM Tab */}
+        <TabsContent value="ppm">
+          <PpmSchedules assetId={asset.id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
