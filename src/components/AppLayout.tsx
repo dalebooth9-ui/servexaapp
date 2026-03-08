@@ -268,7 +268,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
           </div>
         </div>
 
-        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+        <nav className={cn("flex-1 min-h-0 overflow-y-auto py-2", desktopExpanded ? "px-3" : "lg:px-1 px-3")}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleNavItems.map((i) => i.to)} strategy={verticalListSortingStrategy}>
               {sections.map((section) => {
@@ -277,6 +277,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 const label = SECTION_LABELS[section];
                 const isMoreSection = section === "more";
                 const isOpsSection = section === "operations";
+                const sidebarCollapsed = !desktopExpanded;
 
                 // Accent colour per section label
                 const sectionAccent =
@@ -286,21 +287,26 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
                 return (
                   <div key={section} className="mb-1">
-                    {label && !isMoreSection &&
+                    {label && !isMoreSection && !sidebarCollapsed &&
                     <p className={cn("mb-1 mt-3 px-4 text-[10px] font-bold uppercase tracking-widest select-none", sectionAccent)}>
                         {label}
                       </p>
                     }
+                    {sidebarCollapsed && label && !isMoreSection && (
+                      <div className="my-2 h-px bg-sidebar-border/30 mx-1" />
+                    )}
                     {isMoreSection ? (
                       <>
-                        <button
-                          onClick={() => setMoreOpen((v) => !v)}
-                          className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors select-none"
-                        >
-                          <span className="flex-1 text-left">{label}</span>
-                          <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
-                        </button>
-                        {moreOpen && (
+                        {!sidebarCollapsed && (
+                          <button
+                            onClick={() => setMoreOpen((v) => !v)}
+                            className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors select-none"
+                          >
+                            <span className="flex-1 text-left">{label}</span>
+                            <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
+                          </button>
+                        )}
+                        {(moreOpen || sidebarCollapsed) && (
                           <div className="space-y-0.5">
                             {items.map((item) => {
                               const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
@@ -311,6 +317,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   isActive={isActive}
                                   onClick={() => setMobileOpen(false)}
                                   inOps={false}
+                                  collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")} />
                               );
                             })}
@@ -328,6 +335,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               isActive={isActive}
                               onClick={() => setMobileOpen(false)}
                               inOps={isOpsSection}
+                              collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")} />
                           );
                         })}
