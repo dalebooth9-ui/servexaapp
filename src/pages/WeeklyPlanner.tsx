@@ -277,13 +277,15 @@ export default function WeeklyPlanner() {
 
   // Add adhoc entry handler
   const handleAddAdhoc = async () => {
-    if (!adhocDay || !adhocEngineerId || !adhocCompany.trim()) return;
+    if (!adhocEngineerId || !adhocCompany.trim()) return;
     setSaving(true);
+    const numDays = Math.max(1, parseInt(adhocDays) || 1);
     const { error } = await supabase.from("planner_adhoc_entries").insert({
       engineer_id: adhocEngineerId,
-      schedule_date: adhocDay,
+      schedule_date: adhocDay || null,
       company_name: adhocCompany.trim(),
       description: adhocDesc.trim() || null,
+      allocated_days: numDays,
       created_by: user?.id,
     } as any);
     if (error) {
@@ -293,8 +295,10 @@ export default function WeeklyPlanner() {
       fetchData();
     }
     setAdhocOpen(false);
+    setAdhocDay("");
     setAdhocCompany("");
     setAdhocDesc("");
+    setAdhocDays("1");
     setSaving(false);
   };
 
