@@ -107,6 +107,13 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     autoAttachPreStartChecklist();
   }, [job?.category]);
 
+  // Auto-attach customer paperwork (auto_attach=true) that hasn't been attached yet
+  useEffect(() => {
+    if (!job?.customer_id || !user || userRole !== "admin") return;
+    if (job?.status === "completed" || job?.status === "cancelled") return;
+    autoAttachCustomerPaperwork();
+  }, [job?.customer_id]);
+
   const isInstallationJob = () => {
     const cat = job?.category || "";
     return cat === "installation" || cat === "dry_riser_installation";
