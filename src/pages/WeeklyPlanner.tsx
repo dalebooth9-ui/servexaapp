@@ -307,6 +307,14 @@ export default function WeeklyPlanner() {
     fetchData();
   };
 
+  const handleMoveAdhoc = async (id: string, engineerId: string | null, date: string | null) => {
+    await supabase.from("planner_adhoc_entries").update({
+      engineer_id: engineerId,
+      schedule_date: date,
+    } as any).eq("id", id);
+    fetchData();
+  };
+
   // Navigation
   const prevWeek = () => setWeekStart((d) => addDays(d, -7));
   const nextWeek = () => setWeekStart((d) => addDays(d, 7));
