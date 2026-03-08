@@ -338,13 +338,13 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   const handleDownload = async (doc: JobDoc) => {
     if (!doc.file_url) return;
-    const link = document.createElement("a");
-    link.href = doc.file_url;
-    link.download = doc.file_name || doc.label;
-    link.target = "_blank";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    let url = doc.file_url;
+    // Customer paperwork stores a storage path, not a full URL — generate a signed URL
+    if (doc.source === "customer_paperwork" && !doc.file_url.startsWith("http")) {
+      const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 300);
+      if (data?.signedUrl) url = data.signedUrl;
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
   };
 
   const handleUploadSlot = (doc: JobDoc) => {
