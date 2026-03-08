@@ -280,7 +280,7 @@ export function exportWorksheetPdf(
 }
 
 // ─── XLSX export ─────────────────────────────────────────────────────────────
-export function exportWorksheetXlsx(
+export async function exportWorksheetXlsx(
   weekStart: Date,
   schedule: ScheduleEntry[],
   jobs: Job[],
