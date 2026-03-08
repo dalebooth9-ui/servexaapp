@@ -717,18 +717,3 @@ export default function JobDetail() {
     </>
   );
 }
-    {job && (
-      <TechnicianAssistant
-        jobContext={{
-          job_name: job.name,
-          category: job.category,
-          customer: getCustomerName(job) ?? undefined,
-          site: job.sites?.name ?? job.address ?? undefined,
-          priority: job.priority,
-          description: job.description ?? undefined,
-        }}
-      />
-    )}
-  </>
-  );
-}
