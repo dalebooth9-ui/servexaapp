@@ -36,7 +36,7 @@ const PRIORITY_PIN: Record<string, string> = {
 // Distinct highlight colour when filtering by engineer
 const ENGINEER_HIGHLIGHT = "#8b5cf6";
 
-const PlannerMapView = forwardRef<HTMLDivElement, {
+export default function PlannerMapView({
   schedule,
   jobs,
   engineers,
