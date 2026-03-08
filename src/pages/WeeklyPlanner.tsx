@@ -312,12 +312,30 @@ export default function WeeklyPlanner() {
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
     } else {
-      // If the job was in 'scheduled' status, promote it to 'active' now it has an engineer assigned
       const job = jobs.find((j) => j.id === jobId);
       if (job?.status === "scheduled") {
         await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
       }
       toast({ title: "Assigned" });
+      fetchData();
+    }
+  };
+
+  const handleMultiDayAssign = async (jobId: string, engineerId: string, dates: string[]) => {
+    const rows = dates.map((date) => ({
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+    }));
+    const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
+      onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
+    });
+    if (error) {
+      toast({ title: "Error", description: "Some dates may already be scheduled.", variant: "destructive" });
+    } else {
+      const job = jobs.find((j) => j.id === jobId);
+      if (job?.status === "scheduled") {
+        await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
+      }
+      toast({ title: "Scheduled", description: `Job added to ${dates.length} day${dates.length !== 1 ? "s" : ""}.` });
       fetchData();
     }
   };
