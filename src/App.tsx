@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { ReactNode, lazy, Suspense } from "react";
 
