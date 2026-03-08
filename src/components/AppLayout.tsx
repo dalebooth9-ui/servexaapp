@@ -76,16 +76,36 @@ function loadSectionOverrides(): Record<string, "operations" | "more"> {
 }
 
 function SortableNavItem({
-  item, isActive, onClick, inOps, onTogglePin,
+  item, isActive, onClick, inOps, onTogglePin, collapsed,
 }: {
   item: typeof DEFAULT_NAV_ITEMS[number];
   isActive: boolean;
   onClick: () => void;
   inOps: boolean;
   onTogglePin: () => void;
+  collapsed?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+
+  if (collapsed) {
+    return (
+      <div ref={setNodeRef} style={style}>
+        <Link
+          to={item.to}
+          onClick={onClick}
+          title={item.label}
+          className={cn(
+            "flex items-center justify-center rounded-lg p-2.5 transition-all duration-150",
+            isActive
+              ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md"
+              : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          )}>
+          <item.icon className="h-4.5 w-4.5 shrink-0" />
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} className="flex items-center gap-1 group">
@@ -129,6 +149,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   useEngineerLocation();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [desktopExpanded, setDesktopExpanded] = useReactState(true);
   const [shortcutsOpen, setShortcutsOpen] = useReactState(false);
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
@@ -204,22 +225,42 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     <div className="flex h-screen overflow-hidden">
       {/* Sidebar */}
       <aside
+        onMouseLeave={() => setDesktopExpanded(false)}
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col transition-transform lg:static lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex flex-col transition-all duration-300",
           "bg-gradient-to-b from-[hsl(213,55%,13%)] via-[hsl(213,51%,16%)] to-[hsl(213,48%,12%)]",
           "text-sidebar-foreground",
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
+          /* mobile */
+          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          /* desktop */
+          "lg:static lg:translate-x-0",
+          desktopExpanded ? "lg:w-64" : "lg:w-14"
         )}>
 
         {/* Accent stripe at top */}
         <div className="h-1 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(25,95%,62%)] to-[hsl(25,95%,45%)] shrink-0" />
 
         <div className="border-b border-sidebar-border/50">
-          <img src={servexaLogo} alt="Servexa logo" className="w-full h-auto object-contain px-4 -mt-2 pb-0" />
-          <div className="flex items-center justify-center gap-1 px-3 pb-2">
-            <ClockInButton />
-            <TodaysVisitsBadge />
-            <UnreadMessagesBadge />
+          {/* Desktop hamburger — hover to expand */}
+          <div className="hidden lg:flex items-center px-3 pt-2 pb-1">
+            <button
+              onMouseEnter={() => setDesktopExpanded(true)}
+              onClick={() => setDesktopExpanded((v) => !v)}
+              className="p-1.5 rounded-md text-sidebar-foreground/70 hover:text-white hover:bg-sidebar-accent transition-colors"
+              title={desktopExpanded ? "Collapse sidebar" : "Expand sidebar"}
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            {desktopExpanded && (
+              <img src={servexaLogo} alt="Servexa logo" className="h-8 w-auto object-contain ml-2" />
+            )}
+          </div>
+          {/* Mobile logo */}
+          <img src={servexaLogo} alt="Servexa logo" className="lg:hidden w-full h-auto object-contain px-4 -mt-2 pb-0" />
+          <div className={cn("flex items-center gap-1 px-3 pb-2", desktopExpanded ? "justify-center" : "lg:justify-center")}>
+            {desktopExpanded && <ClockInButton />}
+            {desktopExpanded && <TodaysVisitsBadge />}
+            {desktopExpanded && <UnreadMessagesBadge />}
             <NotificationBell />
             <button onClick={() => setMobileOpen(false)} className="lg:hidden">
               <X className="h-5 w-5" />
@@ -227,7 +268,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
           </div>
         </div>
 
-        <nav className="flex-1 min-h-0 overflow-y-auto px-3 py-2">
+        <nav className={cn("flex-1 min-h-0 overflow-y-auto py-2", desktopExpanded ? "px-3" : "lg:px-1 px-3")}>
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={visibleNavItems.map((i) => i.to)} strategy={verticalListSortingStrategy}>
               {sections.map((section) => {
@@ -236,6 +277,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                 const label = SECTION_LABELS[section];
                 const isMoreSection = section === "more";
                 const isOpsSection = section === "operations";
+                const sidebarCollapsed = !desktopExpanded;
 
                 // Accent colour per section label
                 const sectionAccent =
@@ -245,21 +287,26 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
                 return (
                   <div key={section} className="mb-1">
-                    {label && !isMoreSection &&
+                    {label && !isMoreSection && !sidebarCollapsed &&
                     <p className={cn("mb-1 mt-3 px-4 text-[10px] font-bold uppercase tracking-widest select-none", sectionAccent)}>
                         {label}
                       </p>
                     }
+                    {sidebarCollapsed && label && !isMoreSection && (
+                      <div className="my-2 h-px bg-sidebar-border/30 mx-1" />
+                    )}
                     {isMoreSection ? (
                       <>
-                        <button
-                          onClick={() => setMoreOpen((v) => !v)}
-                          className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors select-none"
-                        >
-                          <span className="flex-1 text-left">{label}</span>
-                          <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
-                        </button>
-                        {moreOpen && (
+                        {!sidebarCollapsed && (
+                          <button
+                            onClick={() => setMoreOpen((v) => !v)}
+                            className="mt-3 mb-1 flex w-full items-center gap-1 px-4 text-[10px] font-bold uppercase tracking-widest text-sidebar-foreground/50 hover:text-sidebar-foreground/80 transition-colors select-none"
+                          >
+                            <span className="flex-1 text-left">{label}</span>
+                            <ChevronDown className={cn("h-3 w-3 transition-transform", moreOpen && "rotate-180")} />
+                          </button>
+                        )}
+                        {(moreOpen || sidebarCollapsed) && (
                           <div className="space-y-0.5">
                             {items.map((item) => {
                               const isActive = location.pathname === item.to || item.to !== "/" && location.pathname.startsWith(item.to);
@@ -270,6 +317,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   isActive={isActive}
                                   onClick={() => setMobileOpen(false)}
                                   inOps={false}
+                                  collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")} />
                               );
                             })}
@@ -287,6 +335,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               isActive={isActive}
                               onClick={() => setMobileOpen(false)}
                               inOps={isOpsSection}
+                              collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")} />
                           );
                         })}
@@ -300,7 +349,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
         {/* Footer */}
         <div className="shrink-0 border-t border-sidebar-border/50 bg-[hsl(213,55%,10%)] px-3 py-2">
-          {whatsappNumber &&
+          {whatsappNumber && desktopExpanded &&
           <a
             href={`https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}`}
             target="_blank"
@@ -310,11 +359,13 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               <span className="truncate">{whatsappNumber}</span>
             </a>
           }
-          <div className="flex items-center justify-between gap-2">
-            <div className="min-w-0 text-xs">
-              <p className="truncate font-semibold text-white">{profile?.full_name || user?.email}</p>
-              <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">{userRole || "user"}</p>
-            </div>
+          <div className={cn("flex items-center gap-2", desktopExpanded ? "justify-between" : "lg:justify-center justify-between")}>
+            {desktopExpanded && (
+              <div className="min-w-0 text-xs">
+                <p className="truncate font-semibold text-white">{profile?.full_name || user?.email}</p>
+                <p className="text-[hsl(25,95%,60%)] capitalize text-[10px] font-medium">{userRole || "user"}</p>
+              </div>
+            )}
             <Button variant="ghost" size="icon" onClick={signOut} className="h-7 w-7 shrink-0 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" title="Sign Out">
               <LogOut className="h-3.5 w-3.5" />
             </Button>
