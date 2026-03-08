@@ -380,12 +380,15 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         console.error("Upload error:", uploadError);
         toast({ title: "PDF downloaded locally", description: "Could not save to job submissions.", variant: "destructive" });
       } else {
-        const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
+        // submissions bucket is private — create a long-lived signed URL
+        const { data: signedPdf } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
         await supabase.from("submissions").insert({
           job_id: jobId,
           engineer_id: user.id,
           type: "document",
-          file_url: urlData.publicUrl,
+          file_url: signedPdf?.signedUrl || filePath,
           file_name: fileName,
         });
 
@@ -399,12 +402,14 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             .from("submissions")
             .upload(imgPath, imgFile, { contentType: imgFile.type });
           if (!imgErr) {
-            const { data: imgUrl } = supabase.storage.from("submissions").getPublicUrl(imgPath);
+            const { data: signedImg } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(imgPath, 60 * 60 * 24 * 365 * 5);
             await supabase.from("submissions").insert({
               job_id: jobId,
               engineer_id: user.id,
               type: "photo",
-              file_url: imgUrl.publicUrl,
+              file_url: signedImg?.signedUrl || imgPath,
               file_name: imgFileName,
             });
           }
@@ -534,11 +539,24 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
           <input
             ref={fileRef}
             type="file"
-            accept="image/*"
-            capture="environment"
+            accept="image/*,application/pdf"
             multiple
             className="hidden"
-            onChange={(e) => handleFiles(e.target.files)}
+            onChange={async (e) => {
+              const files = Array.from(e.target.files || []);
+              const images = files.filter((f) => f.type.startsWith("image/"));
+              const pdfs = files.filter((f) => f.type === "application/pdf");
+              if (images.length > 0) handleFiles(images);
+              // For PDFs, trigger the same drop handler logic
+              if (pdfs.length > 0) {
+                for (const pdf of pdfs) {
+                  const dt = new DataTransfer();
+                  dt.items.add(pdf);
+                  await handleDrop({ preventDefault: () => {}, stopPropagation: () => {}, dataTransfer: dt } as any);
+                }
+              }
+              e.target.value = "";
+            }}
           />
 
           <Tabs defaultValue="upload">
