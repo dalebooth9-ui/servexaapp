@@ -569,6 +569,17 @@ function DocRow({
         <span className="text-[10px] text-muted-foreground">Loading…</span>
       )}
 
+      {isCustomerPaperwork && hasFile && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-7 text-xs px-2 gap-1 shrink-0"
+          onClick={() => onDownload(doc)}
+        >
+          <Download className="h-3 w-3" /> Open
+        </Button>
+      )}
+
       {isUploadSlot && hasFile && (
         <Button
           variant="outline"
