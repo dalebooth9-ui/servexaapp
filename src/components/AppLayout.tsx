@@ -359,6 +359,27 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               <span className="truncate">{whatsappNumber}</span>
             </a>
           }
+          {desktopExpanded && (
+            <div className="mb-2 flex flex-wrap gap-x-2 gap-y-0.5">
+              {[
+                { to: "/terms", label: "Terms" },
+                { to: "/privacy", label: "Privacy" },
+                { to: "/dpa", label: "DPA" },
+                { to: "/aup", label: "AUP" },
+                { to: "/sla", label: "SLA" },
+                { to: "/cookies", label: "Cookies" },
+                { to: "/fire-liability", label: "Fire Liability" },
+              ].map(({ to, label }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className="text-[10px] text-sidebar-foreground/35 hover:text-sidebar-foreground/70 transition-colors"
+                >
+                  {label}
+                </Link>
+              ))}
+            </div>
+          )}
           <div className={cn("flex items-center gap-2", desktopExpanded ? "justify-between" : "lg:justify-center justify-between")}>
             {desktopExpanded && (
               <div className="min-w-0 text-xs">
