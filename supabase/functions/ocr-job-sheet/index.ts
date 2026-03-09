@@ -125,43 +125,28 @@ serve(async (req) => {
       },
     };
 
-    const systemPrompt = `You are an expert OCR assistant specialising in handwritten fire safety inspection forms, especially BS9990 dry riser pressure test sheets.
+    const systemPrompt = `You are an expert OCR assistant reading a handwritten BS9990 Dry Riser Pressure Test form.
 
-== THIS IS A BS9990 DRY RISER PRESSURE TEST FORM ==
+RULE 1 — HEADER: Read the printed labels and copy the handwritten values next to them:
+  "Customer:" "Site:" "Riser Location:" "DATE:" "PO/REF:"
 
-HEADER SECTION — Extract all fields from the top table:
-  - "Customer:" → customer name
-  - "Site:" → site name
-  - "Riser Location:" → riser_location (ALWAYS look for this label and extract the handwritten value next to it)
-  - "DATE:" → date
-  - "PO/REF:" → po_ref
+RULE 2 — YES/NO CHECKBOXES: Each inspection row has two boxes: [ ] YES  [ ] NO
+  The engineer ticked ONE of them. Read which word is next to the tick.
+  tick next to YES → "pass"
+  tick next to NO  → "fail"
+  Important: A tick (✓) does NOT automatically mean pass. A tick next to NO means the answer is NO = fail.
 
-== CRITICAL RULE: HOW TO READ YES/NO COLUMNS ==
+RULE 3 — P / F / N/A CHECKBOXES (used for overall equipment results and pressure test):
+  tick next to P → "pass"
+  tick next to F → "fail"    ← F means FAIL. A tick next to F = fail.
+  tick next to N/A → "n/a"
 
-This form has a RESULT column on the RIGHT side of each row.
-Each row shows two options side by side: [ ] YES   [ ] NO
-The tick (✓) or checkmark appears INSIDE or NEXT TO the option that was selected.
+RULE 4 — PRESSURE TEST RESULT row: Find "Pressure test result:" near the bottom.
+  It has three boxes: P    F    N/A
+  Look carefully — which box has the tick? If tick is by F → return "fail". If by P → return "pass".
+  Do NOT be influenced by the word "pass" in any field name — read the actual form.
 
-KEY: Look at WHICH WORD (YES or NO) the tick is physically next to or inside the box of.
-  • Tick next to / inside "YES" box → value = "pass"
-  • Tick next to / inside "NO" box  → value = "fail"   ← A TICK IN THE NO BOX = FAIL!
-
-COMMON MISTAKE TO AVOID: Do NOT assume every tick means "pass".
-  Example: If you see "[ ] YES  [✓] NO" — this means FAIL because the tick is in the NO box.
-  The tick ✓ simply marks which answer was selected — it does NOT mean "yes/good/pass" by itself.
-
-SOME ROWS USE P / F / N/A INSTEAD OF YES/NO:
-  • Tick in P box → "pass"
-  • Tick in F box → "fail"   ← F = FAIL
-  • Tick in N/A box → "n/a"
-
-== PRESSURE TEST RESULT SECTION ==
-  Look for "Pressure test result:" row with P / F / N/A boxes.
-  Also look for "Leaks Detected?" with Yes / No boxes.
-
-== EXTERNAL vs INTERNAL SECTIONS ==
-  The form has separate EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections.
-  Process each section independently — do not mix their results.
+RULE 5 — Keep EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections separate.
 
 Use the extract_job_sheet tool to return your findings.`;
 
