@@ -56,14 +56,14 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold mb-3">6. Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Service and its original content, features, and functionality are owned by FieldReport and are protected by international copyright, trademark, and other intellectual property laws. You retain ownership of any data or content you upload to the Service.
+              The Service and its original content, features, and functionality are owned by Servexa and are protected by international copyright, trademark, and other intellectual property laws. You retain ownership of any data or content you upload to the Service.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">7. Limitation of Liability</h2>
             <p className="text-muted-foreground leading-relaxed">
-              To the fullest extent permitted by applicable law, FieldReport shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of the Service. Our total liability to you for any claim shall not exceed the amount paid by you to us in the twelve months preceding the claim.
+              To the fullest extent permitted by applicable law, Servexa shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of the Service. Our total liability to you for any claim shall not exceed the amount paid by you to us in the twelve months preceding the claim.
             </p>
           </section>
 
