@@ -102,12 +102,13 @@ serve(async (req) => {
             header: {
               type: "object",
               description: "Header information from the top of the form.",
-              properties: {
+                properties: {
                 customer: { type: "string", description: "Customer or client name" },
                 site: { type: "string", description: "Site name and/or address" },
                 date: { type: "string", description: "Date on the form" },
                 po_ref: { type: "string", description: "PO number, reference number, or job reference" },
-                riser_location: { type: "string", description: "Riser location if present" },
+                riser_location: { type: "string", description: "Riser location — look for 'Riser Location:', 'Location:', 'Address:' fields at the top of the form or in the header section. Always extract this if present." },
+                engineer: { type: "string", description: "Engineer name if present on the form" },
               },
               required: [],
             },
