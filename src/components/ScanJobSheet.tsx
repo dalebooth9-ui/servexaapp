@@ -35,6 +35,7 @@ type Template = {
 type JobInfo = {
   reference_number?: string;
   customer?: string | null;
+  customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
   engineers?: string[];
@@ -238,7 +239,12 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const maxWidth = pageWidth - margin * 2;
 
       // --- BRANDED HEADER ---
-      const branding = template.branding || {};
+      // Use customer logo if available, otherwise fall back to template branding
+      const customerLogoUrl = jobInfo?.customers?.logo_url;
+      const baseBranding = template.branding || {};
+      const branding = customerLogoUrl
+        ? { ...baseBranding, logo_url: customerLogoUrl }
+        : baseBranding;
       const footerText = getDefaultFooterText(template.name, branding);
 
       // Prefer AI-extracted header, fall back to job data
