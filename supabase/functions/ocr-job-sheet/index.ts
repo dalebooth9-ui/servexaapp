@@ -64,22 +64,55 @@ serve(async (req) => {
     // Build the extraction prompt
     const fieldList = fields.map((f: any) => {
       let desc = `- "${f.id}" (label: "${f.label}", type: ${f.type})`;
-      if (f.type === "pass_fail") desc += ` — value must be exactly "pass", "fail", or "n/a". A tick/checkmark in a PASS column = "pass". A tick/checkmark in a FAIL column = "fail". A cross or "X" = "fail". "YES" written = "pass". "NO" written = "fail". Do NOT default to "pass" — look carefully at which column the mark is in.`;
-      if (f.type === "checkbox") desc += ` — value must be true or false. A tick/checkmark = true. A cross, "X", or "NO" = false. An empty box = false.`;
+      if (f.type === "pass_fail") desc += ` — value must be exactly "pass", "fail", or "n/a". TWO-COLUMN FORMS: a tick in the LEFT/PASS/YES column = "pass"; a tick in the RIGHT/FAIL/NO column = "fail". SINGLE-COLUMN FORMS: a tick = "pass", a cross/X = "fail". A handwritten "NO" or circled "NO" = "fail". A handwritten "YES" = "pass". DO NOT default to "pass" — carefully identify which column the mark is in before deciding.`;
+      if (f.type === "checkbox") desc += ` — value must be true or false. A tick/checkmark = true. A cross, "X", "NO", or circled "NO" = false. An empty box = false.`;
       if (f.options?.length) desc += ` — options: ${f.options.join(", ")}`;
       return desc;
     }).join("\n");
 
     const systemPrompt = `You are an expert OCR system that reads handwritten job sheet forms. You extract data from photos of filled-in inspection/service sheets and return structured JSON matching the template fields.
 
-CRITICAL ACCURACY RULES for pass/fail and yes/no fields:
-- Many forms have TWO columns: one for PASS/YES and one for FAIL/NO. You MUST identify which column the tick or mark is in.
-- A tick/checkmark in the FAIL or NO column means the answer is "fail" or false — do NOT convert it to "pass" or true.
-- A tick/checkmark in the PASS or YES column means the answer is "pass" or true.
-- If a handwritten "NO" or "N" appears next to a question, the value is "fail" or false.
-- If a handwritten "YES" or "Y" appears, the value is "pass" or true.
-- Section summary rows (e.g. "External equipment:", "Internal equipment:") follow the same rule — read the actual mark in the result column carefully.
-- When in doubt, look at surrounding context (other answers in the same section) but NEVER guess or default to "pass".
+CRITICAL ACCURACY RULES — READ CAREFULLY BEFORE EXTRACTING PASS/FAIL FIELDS:
+
+1. TWO-COLUMN YES/NO or PASS/FAIL LAYOUT (most common on BS9990 dry riser forms):
+   - The form has a question on the left, then a YES column and a NO column (or PASS and FAIL columns).
+   - A tick/checkmark in the YES/PASS column → "pass" (or true for checkbox).
+   - A tick/checkmark in the NO/FAIL column → "fail" (or false for checkbox). THIS IS CRITICAL — a tick means fail if it is in the NO/FAIL column.
+   - Do NOT treat every tick as a pass. You MUST determine which column the tick appears in.
+
+2. IDENTIFYING COLUMNS:
+   - The YES/PASS column is typically on the LEFT side of the result area.
+   - The NO/FAIL column is typically on the RIGHT side of the result area.
+   - Look for column headers like "YES", "NO", "PASS", "FAIL", "✓", "✗" at the top of each section.
+   - If the tick is clearly closer to or under the NO/FAIL column header, it is a FAIL.
+
+3. SPECIFIC EXAMPLES:
+   - "Is the Breeching Inlet in good condition?" ticked in the NO column → "fail"
+   - "Is the system in good working order?" ticked in the YES column → "pass"
+   - A tick followed by "NO" annotation → "fail"
+
+4. HANDWRITTEN ANNOTATIONS:
+   - "NO" written next to or instead of a tick → "fail" or false.
+   - "YES" or "Y" written → "pass" or true.
+   - A cross "X" or strike-through → "fail" or false.
+
+5. SECTION SUMMARY ROWS:
+   - Section headers like "External equipment:", "Internal equipment:", "General:" also have result columns. Apply the same column-reading rules.
+
+6. WHEN IN DOUBT: Do not default to "pass". If you genuinely cannot tell, omit the field from the response.
+
+General rules:
+- Return ONLY a JSON object with two top-level keys: "header" and "fields"
+- "header" must contain these keys (use empty string if not found/readable):
+  - "customer": the customer or client name
+  - "site": the site name and/or address
+  - "date": the date on the form
+  - "po_ref": the PO number, reference number, or job reference
+  - "riser_location": the riser location if present
+- "fields" must be a JSON object with field IDs as keys and extracted values
+- For text/number fields, transcribe the handwritten text as accurately as possible
+- If a field appears blank or unreadable, omit it from the response
+- Do not include any explanation, only the JSON object`;
 
 General rules:
 - Return ONLY a JSON object with two top-level keys: "header" and "fields"
