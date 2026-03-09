@@ -364,21 +364,14 @@ export default function SettingsPage() {
                 { label: "Restricted to your domain", done: true, detail: "Google Cloud Console HTTP referrer restriction" },
                 { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString()}` : "Not yet logged" },
               ].map(({ label, done, detail }) => (
-                <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-green-500/30 bg-green-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
-                  <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-green-600" : "text-muted-foreground/40"}`} />
-                  <div>
-                    <p className="text-xs font-medium">{label}</p>
-                    <p className="text-[11px] text-muted-foreground">{detail}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
+                <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5"}`}>
+                  <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
+...
             {/* Rotation countdown */}
             <div className={`flex items-center justify-between rounded-lg border p-4 ${
               rotationInfo.status === "overdue" ? "border-destructive/40 bg-destructive/5"
-              : rotationInfo.status === "due_soon" ? "border-amber-500/40 bg-amber-500/5"
-              : rotationInfo.status === "ok" ? "border-green-500/30 bg-green-500/5"
+              : rotationInfo.status === "due_soon" ? "border-warning/40 bg-warning/5"
+              : rotationInfo.status === "ok" ? "border-success/30 bg-success/5"
               : "border-border bg-muted/30"
             }`}>
               <div className="flex items-center gap-3">
