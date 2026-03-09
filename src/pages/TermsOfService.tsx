@@ -104,8 +104,9 @@ export default function TermsOfService() {
             </p>
           </section>
 
-          <div className="border-t pt-6 text-xs text-muted-foreground">
+          <div className="border-t pt-6 space-y-3 text-xs text-muted-foreground">
             <p>⚠️ <strong>Important notice:</strong> These are placeholder terms provided for convenience. You should have these reviewed and finalised by a qualified solicitor before commercial use. Services like <a href="https://www.iubenda.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">iubenda</a> or <a href="https://termly.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Termly</a> can also generate compliant legal documents.</p>
+            <p>Related documents: <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a> · <a href="/dpa" className="text-primary hover:underline">Data Processing Agreement</a></p>
           </div>
         </div>
       </div>
