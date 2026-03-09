@@ -65,7 +65,7 @@ serve(async (req) => {
         fieldProperties[f.id] = {
           type: "string",
           enum: ["pass", "fail", "n/a"],
-          description: `"${f.label}" — Look at where the mark/tick is relative to the column headers. YES/PASS column = "pass". NO/FAIL column = "fail". If unreadable, omit this field.`,
+          description: `"${f.label}" — READ THE COLUMN HEADER above the tick mark. If the header says YES or PASS → "pass". If the header says NO or FAIL → "fail". A tick/checkmark in the NO column = "fail" NOT "pass". If you cannot confidently read which column the mark is in, omit this field entirely.`,
         };
       } else if (f.type === "checkbox") {
         fieldProperties[f.id] = {
