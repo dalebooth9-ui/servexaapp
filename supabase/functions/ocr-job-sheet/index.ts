@@ -65,7 +65,7 @@ serve(async (req) => {
         fieldProperties[f.id] = {
           type: "string",
           enum: ["pass", "fail", "n/a"],
-          description: `"${f.label}" — READ THE COLUMN HEADER above the tick mark. If the header says YES or PASS → "pass". If the header says NO or FAIL → "fail". A tick/checkmark in the NO column = "fail" NOT "pass". If you cannot confidently read which column the mark is in, omit this field entirely.`,
+          description: `"${f.label}" — Look at the LABEL of the box/column the tick is in. If the label is YES or P or PASS → return "pass". If the label is NO or F or FAIL → return "fail". WARNING: The word "pass" in this field name does NOT mean the answer is pass — read the form. For the Pressure Test Result row specifically, look for a tick next to P (pass) or F (fail): a tick next to F = "fail". If unclear, omit.`,
         };
       } else if (f.type === "checkbox") {
         fieldProperties[f.id] = {
@@ -125,61 +125,45 @@ serve(async (req) => {
       },
     };
 
-    const systemPrompt = `You are an expert OCR assistant specialising in handwritten fire safety inspection forms, especially BS9990 dry riser pressure test sheets.
+    const systemPrompt = `You are an expert OCR assistant reading a handwritten BS9990 Dry Riser Pressure Test form.
 
-== THIS IS A BS9990 DRY RISER PRESSURE TEST FORM ==
+RULE 1 — HEADER: Read the printed labels and copy the handwritten values next to them:
+  "Customer:" "Site:" "Riser Location:" "DATE:" "PO/REF:"
 
-HEADER SECTION — Extract all fields from the top table:
-  - "Customer:" → customer name
-  - "Site:" → site name
-  - "Riser Location:" → riser_location (ALWAYS look for this label and extract the handwritten value next to it)
-  - "DATE:" → date
-  - "PO/REF:" → po_ref
+RULE 2 — YES/NO CHECKBOXES: Each inspection row has two boxes: [ ] YES  [ ] NO
+  The engineer ticked ONE of them. Read which word is next to the tick.
+  tick next to YES → "pass"
+  tick next to NO  → "fail"
+  Important: A tick (✓) does NOT automatically mean pass. A tick next to NO means the answer is NO = fail.
 
-== CRITICAL RULE: HOW TO READ YES/NO COLUMNS ==
+RULE 3 — P / F / N/A CHECKBOXES (used for overall equipment results and pressure test):
+  tick next to P → "pass"
+  tick next to F → "fail"    ← F means FAIL. A tick next to F = fail.
+  tick next to N/A → "n/a"
 
-This form has a RESULT column on the RIGHT side of each row.
-Each row shows two options side by side: [ ] YES   [ ] NO
-The tick (✓) or checkmark appears INSIDE or NEXT TO the option that was selected.
+RULE 4 — PRESSURE TEST RESULT row: Find "Pressure test result:" near the bottom.
+  It has three boxes: P    F    N/A
+  Look carefully — which box has the tick? If tick is by F → return "fail". If by P → return "pass".
+  Do NOT be influenced by the word "pass" in any field name — read the actual form.
 
-KEY: Look at WHICH WORD (YES or NO) the tick is physically next to or inside the box of.
-  • Tick next to / inside "YES" box → value = "pass"
-  • Tick next to / inside "NO" box  → value = "fail"   ← A TICK IN THE NO BOX = FAIL!
-
-COMMON MISTAKE TO AVOID: Do NOT assume every tick means "pass".
-  Example: If you see "[ ] YES  [✓] NO" — this means FAIL because the tick is in the NO box.
-  The tick ✓ simply marks which answer was selected — it does NOT mean "yes/good/pass" by itself.
-
-SOME ROWS USE P / F / N/A INSTEAD OF YES/NO:
-  • Tick in P box → "pass"
-  • Tick in F box → "fail"   ← F = FAIL
-  • Tick in N/A box → "n/a"
-
-== PRESSURE TEST RESULT SECTION ==
-  Look for "Pressure test result:" row with P / F / N/A boxes.
-  Also look for "Leaks Detected?" with Yes / No boxes.
-
-== EXTERNAL vs INTERNAL SECTIONS ==
-  The form has separate EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections.
-  Process each section independently — do not mix their results.
+RULE 5 — Keep EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections separate.
 
 Use the extract_job_sheet tool to return your findings.`;
 
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet.
+        text: `Read this "${template_name}" job sheet photo carefully.
 
-STEP 1: Read the header table first. Find "Riser Location:" and extract the handwritten text next to it.
+For each checkbox row: find the tick mark and read the label next to it.
+  - Tick next to YES → "pass"
+  - Tick next to NO → "fail"
+  - Tick next to P → "pass"
+  - Tick next to F → "fail"  (F means FAIL, not pass)
 
-STEP 2: For every YES/NO result row, find the tick mark (✓) and check which word it is next to:
-  - If tick is next to YES → "pass"
-  - If tick is next to NO → "fail"  (A tick next to NO means FAIL — this is NOT a pass)
-  - If tick is in P box → "pass", in F box → "fail", in N/A box → "n/a"
+For the Pressure Test Result row near the bottom: look at the P / F / N/A boxes — which one is ticked? If F is ticked, return "fail".
 
-STEP 3: Process EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections separately.
-
-Remember: the tick ✓ is just a selection marker. A ✓ next to "NO" means the answer is NO = fail.`,
+Extract header: Customer, Site, Riser Location, Date, PO/REF.`,
       },
     ];
     for (const img of images) {
@@ -189,7 +173,9 @@ Remember: the tick ✓ is just a selection marker. A ✓ next to "NO" means the 
       });
     }
 
-    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash", "openai/gpt-5-mini"];
+    // Use gemini-2.5-pro only — best vision model for handwritten form analysis
+    // Only fall back on rate limit errors, not on quality failures
+    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash"];
     let aiResponse: Response | null = null;
     for (const model of models) {
       aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
