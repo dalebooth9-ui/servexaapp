@@ -239,8 +239,16 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const maxWidth = pageWidth - margin * 2;
 
       // --- BRANDED HEADER ---
-      // Use customer logo if available, otherwise fall back to template branding
-      const customerLogoUrl = jobInfo?.customers?.logo_url;
+      // Always do a fresh query to get the most up-to-date customer logo_url
+      let customerLogoUrl: string | null | undefined = jobInfo?.customers?.logo_url;
+      if (!customerLogoUrl && jobId) {
+        const { data: freshJob } = await supabase
+          .from("jobs")
+          .select("customers(logo_url)")
+          .eq("id", jobId)
+          .single();
+        customerLogoUrl = (freshJob as any)?.customers?.logo_url || null;
+      }
       const baseBranding = template.branding || {};
       const branding = customerLogoUrl
         ? { ...baseBranding, logo_url: customerLogoUrl }
