@@ -930,7 +930,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           </Label>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
-                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id))}
+                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions)}
                         </div>
                       </div>
                       {field.allow_notes && (
