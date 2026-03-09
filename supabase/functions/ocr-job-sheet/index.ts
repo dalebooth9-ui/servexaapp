@@ -173,7 +173,9 @@ Extract header: Customer, Site, Riser Location, Date, PO/REF.`,
       });
     }
 
-    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash", "openai/gpt-5-mini"];
+    // Use gemini-2.5-pro only — best vision model for handwritten form analysis
+    // Only fall back on rate limit errors, not on quality failures
+    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash"];
     let aiResponse: Response | null = null;
     for (const model of models) {
       aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
