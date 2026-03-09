@@ -88,8 +88,9 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
-      const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
+      // Customer logo always takes priority over the template's stored branding logo
+      const customerLogoUrl: string | null = jobInfo?.customers?.logo_url || null;
+      const branding = { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
       const footerText = getDefaultFooterText(template.name, branding);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
