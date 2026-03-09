@@ -65,7 +65,7 @@ serve(async (req) => {
         fieldProperties[f.id] = {
           type: "string",
           enum: ["pass", "fail", "n/a"],
-          description: `"${f.label}" — Look at where the mark/tick is relative to the column headers. YES/PASS column = "pass". NO/FAIL column = "fail". If unreadable, omit this field.`,
+          description: `"${f.label}" — READ THE COLUMN HEADER above the tick mark. If the header says YES or PASS → "pass". If the header says NO or FAIL → "fail". A tick/checkmark in the NO column = "fail" NOT "pass". If you cannot confidently read which column the mark is in, omit this field entirely.`,
         };
       } else if (f.type === "checkbox") {
         fieldProperties[f.id] = {
@@ -102,12 +102,13 @@ serve(async (req) => {
             header: {
               type: "object",
               description: "Header information from the top of the form.",
-              properties: {
+                properties: {
                 customer: { type: "string", description: "Customer or client name" },
                 site: { type: "string", description: "Site name and/or address" },
                 date: { type: "string", description: "Date on the form" },
                 po_ref: { type: "string", description: "PO number, reference number, or job reference" },
-                riser_location: { type: "string", description: "Riser location if present" },
+                riser_location: { type: "string", description: "Riser location — look for 'Riser Location:', 'Location:', 'Address:' fields at the top of the form or in the header section. Always extract this if present." },
+                engineer: { type: "string", description: "Engineer name if present on the form" },
               },
               required: [],
             },
@@ -124,23 +125,50 @@ serve(async (req) => {
       },
     };
 
-    const systemPrompt = `You are an expert at reading handwritten fire safety inspection forms, including BS9990 dry riser service sheets.
+    const systemPrompt = `You are an expert OCR assistant specialising in handwritten fire safety inspection forms, especially BS9990 dry riser service sheets.
 
-KEY RULE FOR PASS/FAIL FIELDS ON BS9990 FORMS:
-These forms have two result columns per row — YES on the left, NO on the right (or PASS/FAIL).
-- A tick/checkmark in the YES column means the answer is YES → value = "pass"
-- A tick/checkmark in the NO column means the answer is NO → value = "fail"
-- A tick is NOT automatically a positive result. Its column position determines the value.
-- Before assigning any pass_fail value, look at the column headers at the top of the section to confirm which side is YES and which is NO.
-- A handwritten "NO", circled "NO", or a cross (X) always = "fail".
-- If you cannot confidently determine the column, omit the field entirely — do NOT guess "pass".
+== CRITICAL RULE: PASS/FAIL COLUMN READING ==
+
+STEP 1 — Read the column headers FIRST.
+  Look at the top of the checklist table. Identify the exact text written above each result column.
+  Common layouts:
+    • "YES" on the left, "NO" on the right
+    • "PASS" on the left, "FAIL" on the right
+    • Sometimes reversed: "NO" on the left, "YES" on the right
+  DO NOT ASSUME which side is YES/PASS. Read the actual header text.
+
+STEP 2 — For each row, find which column the tick/mark is in.
+  A tick (✓), checkmark, or X written in a cell means that option was chosen.
+  The value is determined by the HEADER TEXT of that column — NOT by the tick shape.
+  Examples:
+    • Tick under "YES" → "pass"
+    • Tick under "NO" → "fail"  ← This is a FAIL even though it's a tick!
+    • Tick under "FAIL" → "fail"
+    • Tick under "PASS" → "pass"
+    • Handwritten "NO", circle around "NO", or a cross in the NO column → "fail"
+
+STEP 3 — When in doubt, omit the field. NEVER default to "pass" if you cannot read the column position clearly.
+
+== LOCATION FIELD ==
+On BS9990 dry riser forms, "Riser Location" or "Location" is typically found:
+  • In the header section at the top (e.g. "Location:", "Riser Location:", "Address:")
+  • Sometimes per-row in a table (each riser tested may have its own location)
+Always extract location text even if it appears handwritten or abbreviated.
+
+== EXTERNAL vs INTERNAL TESTS ==
+Many BS9990 forms have separate sections for EXTERNAL (breeching inlet side) and INTERNAL (outlet/landing valve side) checks.
+These are distinct sections — extract them independently. Do not mix up which tick belongs to which section.
 
 Use the extract_job_sheet tool to return your findings.`;
 
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet. Extract all visible header information and field values. For every pass/fail field, carefully identify which column (YES or NO) the tick is in before deciding the value.`,
+        text: `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet.
+
+IMPORTANT: Before assigning any pass/fail value, look at the column header directly above the tick mark to determine if it says YES/PASS (→ "pass") or NO/FAIL (→ "fail"). A tick in the NO column = FAIL.
+
+Extract all visible header info (customer, site, date, PO ref, riser location) and all field values. Pay special attention to separate EXTERNAL and INTERNAL sections — do not mix their results.`,
       },
     ];
     for (const img of images) {
