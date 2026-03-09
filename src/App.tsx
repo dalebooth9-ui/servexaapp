@@ -44,6 +44,10 @@ const HandoverSignOff = lazy(() => import("@/components/HandoverSignOffPage"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const DataProcessingAgreement = lazy(() => import("@/pages/DataProcessingAgreement"));
+const AcceptableUsePolicy = lazy(() => import("@/pages/AcceptableUsePolicy"));
+const ServiceLevelAgreement = lazy(() => import("@/pages/ServiceLevelAgreement"));
+const CookiePolicy = lazy(() => import("@/pages/CookiePolicy"));
+const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiability"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const Offline = lazy(() => import("@/pages/Offline"));
 
