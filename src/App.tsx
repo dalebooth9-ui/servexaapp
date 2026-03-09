@@ -43,6 +43,7 @@ const Servexa = lazy(() => import("@/pages/Servexa"));
 const HandoverSignOff = lazy(() => import("@/components/HandoverSignOffPage"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
+const DataProcessingAgreement = lazy(() => import("@/pages/DataProcessingAgreement"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const Offline = lazy(() => import("@/pages/Offline"));
 
