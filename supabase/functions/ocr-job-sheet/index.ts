@@ -153,13 +153,36 @@ Return a JSON object with "header" and "fields" keys.`;
     const result = await response.json();
     const content = result.choices?.[0]?.message?.content || "";
     
-    // Parse JSON from the response (handle markdown code blocks)
+    // Robust JSON extraction from AI response
     let parsed: any = {};
     try {
-      const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, content];
-      const jsonStr = (jsonMatch[1] || content).trim();
-      parsed = JSON.parse(jsonStr);
-    } catch {
+      // Strip markdown code blocks
+      let cleaned = content
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+
+      // Find JSON boundaries
+      const jsonStart = cleaned.search(/[\{\[]/);
+      const jsonEnd = cleaned.lastIndexOf(jsonStart !== -1 && cleaned[jsonStart] === '[' ? ']' : '}');
+
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error("No JSON object found in response");
+      }
+
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+      try {
+        parsed = JSON.parse(cleaned);
+      } catch {
+        // Fix common issues: trailing commas, control characters
+        cleaned = cleaned
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x1F\x7F]/g, "");
+        parsed = JSON.parse(cleaned);
+      }
+    } catch (parseErr) {
       console.error("Failed to parse AI response as JSON:", content);
       return new Response(JSON.stringify({ error: "Could not parse handwriting", raw: content }), {
         status: 200,
