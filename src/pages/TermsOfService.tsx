@@ -1,10 +1,12 @@
+import servexaLogo from "@/assets/servexa-logo.png";
+
 export default function TermsOfService() {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <img src="/favicon.png" alt="Servexa" className="h-10 w-10 rounded-xl" />
+            <img src={servexaLogo} alt="Servexa" className="h-10 rounded-lg" />
             <span className="text-xl font-bold">Servexa</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Terms of Service</h1>
