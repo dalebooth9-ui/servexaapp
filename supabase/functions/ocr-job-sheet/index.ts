@@ -65,7 +65,7 @@ serve(async (req) => {
         fieldProperties[f.id] = {
           type: "string",
           enum: ["pass", "fail", "n/a"],
-          description: `"${f.label}" — READ THE COLUMN HEADER above the tick mark. If the header says YES or PASS → "pass". If the header says NO or FAIL → "fail". A tick/checkmark in the NO column = "fail" NOT "pass". If you cannot confidently read which column the mark is in, omit this field entirely.`,
+          description: `"${f.label}" — Look at the LABEL of the box/column the tick is in. If the label is YES or P or PASS → return "pass". If the label is NO or F or FAIL → return "fail". WARNING: The word "pass" in this field name does NOT mean the answer is pass — read the form. For the Pressure Test Result row specifically, look for a tick next to P (pass) or F (fail): a tick next to F = "fail". If unclear, omit.`,
         };
       } else if (f.type === "checkbox") {
         fieldProperties[f.id] = {
