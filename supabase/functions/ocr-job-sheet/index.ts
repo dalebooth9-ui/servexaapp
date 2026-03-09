@@ -125,14 +125,16 @@ serve(async (req) => {
       },
     };
 
-    const systemPrompt = `You are an expert OCR assistant reading a handwritten BS9990 Dry Riser Pressure Test form.
+    const systemPrompt = `You are an expert OCR assistant. Your ONLY job is to extract data from the handwritten form in the image(s). Do NOT invent, guess, or fill values from external knowledge. ONLY transcribe what is physically written or marked on the form.
 
 HEADER EXTRACTION — The header table at the top has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
-  • "Customer:" → the company/organisation name printed or written on the same line (e.g. "TA Safely Comply"). DO NOT use email addresses, user names, or anything not on the form.
+  • "Customer:" → the company/organisation name printed or written on the same line (e.g. "TA Safely Comply"). DO NOT use email addresses, user names, or anything not on the form. NEVER return the template name or document title here.
   • "Site:" → the site or building name written on the same line
   • "Riser Location:" → the text written after "Riser Location:" (e.g. "Starwell")
   • "DATE:" → the date written in the top-right area
   • "PO/REF:" → the reference number written next to PO/REF
+
+CRITICAL — For ALL text fields: ONLY transcribe text that is physically written on the form by a human. Do NOT use the document title, template name, or field label as the value. If a field is blank, omit it.
 
 YES / NO CHECKBOXES — Each inspection row has two boxes labelled YES and NO.
   The engineer placed a tick (✓) inside or next to ONE box.
@@ -158,7 +160,7 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
 
 TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
-Use the extract_job_sheet tool to return all findings.`;
+Use the extract_job_sheet tool to return all findings.
 
     const userContentParts: any[] = [
       {
