@@ -70,53 +70,56 @@ serve(async (req) => {
       return desc;
     }).join("\n");
 
-    const systemPrompt = `You are an expert OCR system that reads handwritten job sheet forms. You extract data from photos of filled-in inspection/service sheets and return structured JSON matching the template fields.
+    const systemPrompt = `You are an expert OCR system that reads handwritten job sheet forms, specialising in fire safety inspection sheets including BS9990 dry riser forms.
 
-CRITICAL ACCURACY RULES — READ CAREFULLY BEFORE EXTRACTING PASS/FAIL FIELDS:
+##  STEP 1 — ANALYSE THE FORM LAYOUT BEFORE EXTRACTING ANY VALUES
 
-1. TWO-COLUMN YES/NO or PASS/FAIL LAYOUT (most common on BS9990 dry riser forms):
-   - The form has a question on the left, then a YES column and a NO column (or PASS and FAIL columns).
-   - A tick/checkmark in the YES/PASS column → "pass" (or true for checkbox).
-   - A tick/checkmark in the NO/FAIL column → "fail" (or false for checkbox). THIS IS CRITICAL — a tick means fail if it is in the NO/FAIL column.
-   - Do NOT treat every tick as a pass. You MUST determine which column the tick appears in.
+Before reading any field values, you MUST first identify the column structure of the form:
+- Look at the top of each section/table for column headers. Common headers: YES / NO, PASS / FAIL, ✓ / ✗, Y / N, SATISFACTORY / UNSATISFACTORY.
+- Count how many result columns there are and identify the position (left/right) of each.
+- The POSITIVE column (YES/PASS/SATISFACTORY) is almost always on the LEFT.
+- The NEGATIVE column (NO/FAIL/UNSATISFACTORY) is almost always on the RIGHT.
+- Note: on BS9990 forms the result columns are usually on the far right of each row, with YES on the left of the pair and NO on the right.
 
-2. IDENTIFYING COLUMNS:
-   - The YES/PASS column is typically on the LEFT side of the result area.
-   - The NO/FAIL column is typically on the RIGHT side of the result area.
-   - Look for column headers like "YES", "NO", "PASS", "FAIL", "✓", "✗" at the top of each section.
-   - If the tick is clearly closer to or under the NO/FAIL column header, it is a FAIL.
+## STEP 2 — READ EACH TICK'S COLUMN POSITION
 
-3. SPECIFIC EXAMPLES:
-   - "Is the Breeching Inlet in good condition?" ticked in the NO column → "fail"
-   - "Is the system in good working order?" ticked in the YES column → "pass"
-   - A tick followed by "NO" annotation → "fail"
+For every row with a tick/checkmark:
+- Determine the x-position of the tick relative to the column headers identified in Step 1.
+- If the tick falls under or nearest to the YES/PASS column → value is "pass".
+- If the tick falls under or nearest to the NO/FAIL column → value is "fail".
+- A TICK IN THE NO/FAIL COLUMN MEANS FAIL — it is not a positive result just because it is a tick.
+- A handwritten "NO", circled "NO", or a cross "X" always means "fail".
 
-4. HANDWRITTEN ANNOTATIONS:
-   - "NO" written next to or instead of a tick → "fail" or false.
-   - "YES" or "Y" written → "pass" or true.
-   - A cross "X" or strike-through → "fail" or false.
+## STEP 3 — DO NOT DEFAULT TO "pass"
 
-5. SECTION SUMMARY ROWS:
-   - Section headers like "External equipment:", "Internal equipment:", "General:" also have result columns. Apply the same column-reading rules.
+- If you cannot clearly determine which column a mark is in, OMIT the field entirely.
+- NEVER assume "pass" when uncertain. An omitted field is safer than a wrong "pass".
 
-6. WHEN IN DOUBT: Do not default to "pass". If you genuinely cannot tell, omit the field from the response.
+## SPECIFIC KNOWN CASES ON BS9990 DRY RISER FORMS:
+- "Is the Breeching Inlet in good condition?" — a tick in the NO column = "fail". Do not return "pass" for this field unless the tick is unambiguously in the YES column.
+- "Is the system in good working order?" — same column rules apply.
+- Section summary rows (e.g. "External equipment:", "Internal equipment:") follow the same YES/NO column structure.
 
-General rules:
+## GENERAL OUTPUT RULES:
 - Return ONLY a JSON object with two top-level keys: "header" and "fields"
-- "header" must contain these keys (use empty string if not found/readable):
+- "header" must contain these keys (use empty string if not found):
   - "customer": the customer or client name
   - "site": the site name and/or address
   - "date": the date on the form
   - "po_ref": the PO number, reference number, or job reference
   - "riser_location": the riser location if present
 - "fields" must be a JSON object with field IDs as keys and extracted values
-- For text/number fields, transcribe the handwritten text as accurately as possible
-- If a field appears blank or unreadable, omit it from the response
-- Do not include any explanation, only the JSON object`;
+- For pass_fail fields: value must be exactly "pass", "fail", or "n/a"
+- For checkbox fields: value must be exactly true or false
+- For text/number fields: transcribe handwritten text as accurately as possible
+- If a field is blank or unreadable, omit it
+- Do not include any explanation — only the JSON object`;
 
-    const userPrompt = `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet form. Each image may show different pages or sections of the same sheet.
+    const userPrompt = `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet form.
 
-First, extract the header information (Customer, Site/Address, Date, PO/REF, Riser Location) from the top of the form.
+IMPORTANT: Before extracting values, study the column headers carefully to understand which column means YES/PASS and which means NO/FAIL.
+
+Extract the header information (Customer, Site/Address, Date, PO/REF, Riser Location) from the top of the form.
 
 Then extract the handwritten values for these template fields:
 ${fieldList}
@@ -132,7 +135,8 @@ Return a JSON object with "header" and "fields" keys.`;
       });
     }
 
-    const models = ["google/gemini-2.5-flash", "openai/gpt-5-mini"];
+    // Use gemini-2.5-pro as primary for best vision accuracy, fall back to flash then gpt
+    const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash", "openai/gpt-5-mini"];
     let response: Response | null = null;
     for (const model of models) {
       response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
