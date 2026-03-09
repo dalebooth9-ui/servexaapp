@@ -93,6 +93,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [engineerOptions, setEngineerOptions] = useState<string[]>([]);
   const [importOpen, setImportOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
@@ -104,6 +105,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
+
+  // Fetch all engineer names once for dynamic dropdown population
+  useEffect(() => {
+    const fetchEngineers = async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "engineer");
+      if (data && data.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .in("user_id", data.map((r: any) => r.user_id));
+        setEngineerOptions(
+          (profs || []).map((p: any) => p.full_name).filter(Boolean).sort()
+        );
+      }
+    };
+    fetchEngineers();
+  }, []);
 
   const fetchData = async () => {
     const [tplRes, respRes, jobRes, schedRes] = await Promise.all([
