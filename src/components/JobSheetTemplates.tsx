@@ -1160,6 +1160,7 @@ function renderFormField(
           </SelectContent>
         </Select>
       );
+    }
     case "photo":
       return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
     case "signature":
