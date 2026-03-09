@@ -86,7 +86,7 @@ serve(async (req) => {
       } else {
         fieldProperties[f.id] = {
           type: "string",
-          description: `"${f.label}" — transcribe the handwritten text exactly.`,
+          description: `"${f.label}" — transcribe the handwritten text exactly, character by character. Pay close attention to technical terms, part numbers, and specifications (e.g. "PN16", "DN80", "bar" values). Do not guess or substitute — if a character could be a letter or number, look at the full word context. For example "PN16" is a pipe standard — a P followed by N followed by 1 followed by 6.`,
         };
       }
     }
@@ -155,6 +155,8 @@ SECTION SEPARATION — The form has two distinct equipment sections. Extract the
 
 PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   F   N/A"
   Find which of P, F, or N/A has the tick and return that. Ignore the word "pass" appearing in field IDs.
+
+TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
 Use the extract_job_sheet tool to return all findings.`;
 
