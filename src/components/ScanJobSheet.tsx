@@ -35,6 +35,7 @@ type Template = {
 type JobInfo = {
   reference_number?: string;
   customer?: string | null;
+  customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
   engineers?: string[];
