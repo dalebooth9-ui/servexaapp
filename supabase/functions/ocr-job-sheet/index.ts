@@ -127,43 +127,48 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert OCR assistant reading a handwritten BS9990 Dry Riser Pressure Test form.
 
-RULE 1 — HEADER: Read the printed labels and copy the handwritten values next to them:
-  "Customer:" "Site:" "Riser Location:" "DATE:" "PO/REF:"
+HEADER EXTRACTION — The header table at the top has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
+  • "Customer:" → the company/organisation name printed or written on the same line (e.g. "TA Safely Comply"). DO NOT use email addresses, user names, or anything not on the form.
+  • "Site:" → the site or building name written on the same line
+  • "Riser Location:" → the text written after "Riser Location:" (e.g. "Starwell")
+  • "DATE:" → the date written in the top-right area
+  • "PO/REF:" → the reference number written next to PO/REF
 
-RULE 2 — YES/NO CHECKBOXES: Each inspection row has two boxes: [ ] YES  [ ] NO
-  The engineer ticked ONE of them. Read which word is next to the tick.
-  tick next to YES → "pass"
-  tick next to NO  → "fail"
-  Important: A tick (✓) does NOT automatically mean pass. A tick next to NO means the answer is NO = fail.
+YES / NO CHECKBOXES — Each inspection row has two boxes labelled YES and NO.
+  The engineer placed a tick (✓) inside or next to ONE box.
+  • Tick inside/next to the YES box → return "pass"
+  • Tick inside/next to the NO box  → return "fail"
+  CRITICAL: The tick mark itself means nothing — what matters is WHICH LABEL (YES or NO) the tick is physically beside. A tick beside NO = "fail".
 
-RULE 3 — P / F / N/A CHECKBOXES (used for overall equipment results and pressure test):
-  tick next to P → "pass"
-  tick next to F → "fail"    ← F means FAIL. A tick next to F = fail.
-  tick next to N/A → "n/a"
+P / F / N/A CHECKBOXES — Used for "External equipment:", "Internal equipment:", and "Pressure test result:".
+  Each has three options: P   F   N/A
+  • Tick beside P   → "pass"
+  • Tick beside F   → "fail"   ← F = FAIL. A tick beside F must return "fail".
+  • Tick beside N/A → "n/a"
 
-RULE 4 — PRESSURE TEST RESULT row: Find "Pressure test result:" near the bottom.
-  It has three boxes: P    F    N/A
-  Look carefully — which box has the tick? If tick is by F → return "fail". If by P → return "pass".
-  Do NOT be influenced by the word "pass" in any field name — read the actual form.
+SECTION SEPARATION — The form has two distinct equipment sections. Extract them independently:
+  1. EXTERNAL EQUIPMENT section — rows about Breeching Inlet, cabinet keys, signs, etc.
+     The overall result for this section is labelled "External equipment:" with P / F / N/A boxes.
+  2. INTERNAL EQUIPMENT section — rows about landing valves, outlet cabinets, washers, etc.
+     The overall result for this section is labelled "Internal equipment:" with P / F / N/A boxes.
+  Do NOT mix results from one section into the other.
 
-RULE 5 — Keep EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections separate.
+PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   F   N/A"
+  Find which of P, F, or N/A has the tick and return that. Ignore the word "pass" appearing in field IDs.
 
-Use the extract_job_sheet tool to return your findings.`;
+Use the extract_job_sheet tool to return all findings.`;
 
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `Read this "${template_name}" job sheet photo carefully.
+        text: `Extract data from this "${template_name}" form image.
 
-For each checkbox row: find the tick mark and read the label next to it.
-  - Tick next to YES → "pass"
-  - Tick next to NO → "fail"
-  - Tick next to P → "pass"
-  - Tick next to F → "fail"  (F means FAIL, not pass)
+IMPORTANT for the header:
+- "Customer" field: read ONLY the text printed next to "Customer:" label on the form. It is a company name like "TA Safely Comply". Do NOT use any email address.
+- "Riser Location" field: read the text next to "Riser Location:" label (e.g. "Starwell").
 
-For the Pressure Test Result row near the bottom: look at the P / F / N/A boxes — which one is ticked? If F is ticked, return "fail".
-
-Extract header: Customer, Site, Riser Location, Date, PO/REF.`,
+For every YES/NO checkbox row: the tick tells you which answer was selected. Tick beside YES = "pass". Tick beside NO = "fail".
+For P/F/N/A rows: tick beside F = "fail", tick beside P = "pass".`,
       },
     ];
     for (const img of images) {
