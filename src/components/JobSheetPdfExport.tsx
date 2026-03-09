@@ -145,8 +145,20 @@ export async function generateJobSheetPdf(
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
 
-  const customerLogoUrl = jobInfo?.customers?.logo_url ?? null;
-  const branding = { ...(template.branding || {}), logo_url: template.branding?.logo_url || customerLogoUrl || undefined };
+  // Always do a fresh DB fetch for the customer logo in case jobInfo is stale or missing the join
+  let customerLogoUrl: string | null = jobInfo?.customers?.logo_url ?? null;
+  if (!customerLogoUrl && jobId) {
+    try {
+      const { data: freshJob } = await supabase
+        .from("jobs")
+        .select("customers(logo_url)")
+        .eq("id", jobId)
+        .single();
+      customerLogoUrl = (freshJob as any)?.customers?.logo_url || null;
+    } catch { /* use null */ }
+  }
+  // Customer logo always takes priority over the template's stored branding logo
+  const branding = { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
   const footerText = getDefaultFooterText(template.name, branding);
 
   // --- Load customer logo and extract dominant brand colour ---
