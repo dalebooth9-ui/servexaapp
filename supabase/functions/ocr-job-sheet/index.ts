@@ -170,9 +170,16 @@ Use the extract_job_sheet tool to return your findings.`;
         type: "text",
         text: `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet.
 
-IMPORTANT: Before assigning any pass/fail value, look at the column header directly above the tick mark to determine if it says YES/PASS (→ "pass") or NO/FAIL (→ "fail"). A tick in the NO column = FAIL.
+STEP 1: Read the header table first. Find "Riser Location:" and extract the handwritten text next to it.
 
-Extract all visible header info (customer, site, date, PO ref, riser location) and all field values. Pay special attention to separate EXTERNAL and INTERNAL sections — do not mix their results.`,
+STEP 2: For every YES/NO result row, find the tick mark (✓) and check which word it is next to:
+  - If tick is next to YES → "pass"
+  - If tick is next to NO → "fail"  (A tick next to NO means FAIL — this is NOT a pass)
+  - If tick is in P box → "pass", in F box → "fail", in N/A box → "n/a"
+
+STEP 3: Process EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections separately.
+
+Remember: the tick ✓ is just a selection marker. A ✓ next to "NO" means the answer is NO = fail.`,
       },
     ];
     for (const img of images) {
