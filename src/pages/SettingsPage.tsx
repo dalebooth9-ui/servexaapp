@@ -385,9 +385,9 @@ export default function SettingsPage() {
                 {rotationInfo.status === "overdue" ? (
                   <AlertTriangle className="h-5 w-5 text-destructive" />
                 ) : rotationInfo.status === "due_soon" ? (
-                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  <AlertTriangle className="h-5 w-5 text-warning" />
                 ) : rotationInfo.status === "ok" ? (
-                  <ShieldCheck className="h-5 w-5 text-green-600" />
+                  <ShieldCheck className="h-5 w-5 text-success" />
                 ) : (
                   <Calendar className="h-5 w-5 text-muted-foreground" />
                 )}
@@ -400,13 +400,13 @@ export default function SettingsPage() {
                   )}
                   {rotationInfo.status === "ok" && (
                     <>
-                      <p className="text-sm font-medium text-green-700 dark:text-green-400">{rotationInfo.daysLeft} days until next rotation</p>
+                      <p className="text-sm font-medium text-success">{rotationInfo.daysLeft} days until next rotation</p>
                       <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()}</p>
                     </>
                   )}
                   {rotationInfo.status === "due_soon" && (
                     <>
-                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Rotation due in {rotationInfo.daysLeft} days</p>
+                      <p className="text-sm font-medium text-warning">Rotation due in {rotationInfo.daysLeft} days</p>
                       <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()} — rotate soon</p>
                     </>
                   )}
