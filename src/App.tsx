@@ -118,6 +118,7 @@ const App = () => (
               <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
               <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
               <Route path="/privacy" element={<Suspense fallback={<PageFallback />}><PrivacyPolicy /></Suspense>} />
+              <Route path="/dpa" element={<Suspense fallback={<PageFallback />}><DataProcessingAgreement /></Suspense>} />
               <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
               <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
               <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
