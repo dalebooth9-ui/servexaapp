@@ -103,7 +103,7 @@ serve(async (req) => {
               type: "object",
               description: "Header information from the top of the form.",
                 properties: {
-                customer: { type: "string", description: "Customer or client name" },
+                customer: { type: "string", description: "The company or organisation name written next to the 'Customer:' label on the form. This is always a company name (e.g. 'TA Safely Comply'). NEVER return an email address here." },
                 site: { type: "string", description: "Site name and/or address" },
                 date: { type: "string", description: "Date on the form" },
                 po_ref: { type: "string", description: "PO number, reference number, or job reference" },
