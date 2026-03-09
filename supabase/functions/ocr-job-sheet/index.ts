@@ -75,7 +75,7 @@ serve(async (req) => {
       } else if (f.type === "number") {
         fieldProperties[f.id] = {
           type: "number",
-          description: `"${f.label}" — numeric value from the form.`,
+          description: `"${f.label}" — numeric value from the form. CRITICAL: If this field is blank, empty, or not filled in on the form, do NOT include it in the response at all. Only return a number if a value is clearly written on the form.`,
         };
       } else if (f.type === "select" && f.options?.length) {
         fieldProperties[f.id] = {
