@@ -2,8 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail } from "lucide-react";
-import { useState } from "react";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { QRCodeSVG } from "qrcode.react";
@@ -21,6 +21,18 @@ import { supabase } from "@/integrations/supabase/client";
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://field-aid-box.lovable.app/install";
 
+const API_KEY_ROTATION_DAYS = 90;
+
+function getRotationStatus(lastRotatedIso: string | null) {
+  if (!lastRotatedIso) return { daysLeft: 0, status: "unknown" as const };
+  const last = new Date(lastRotatedIso);
+  const due = new Date(last.getTime() + API_KEY_ROTATION_DAYS * 24 * 60 * 60 * 1000);
+  const today = new Date();
+  const daysLeft = Math.ceil((due.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  const status = daysLeft <= 0 ? "overdue" : daysLeft <= 14 ? "due_soon" : "ok";
+  return { daysLeft, status: status as "overdue" | "due_soon" | "ok" | "unknown", dueDate: due };
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -30,6 +42,19 @@ export default function SettingsPage() {
   const [onboardingEmail, setOnboardingEmail] = useState("");
   const [onboardingName, setOnboardingName] = useState("");
   const [sendingOnboarding, setSendingOnboarding] = useState(false);
+
+  const [lastRotated, setLastRotated] = useState<string | null>(() =>
+    localStorage.getItem("api_key_last_rotated")
+  );
+
+  const markRotated = () => {
+    const now = new Date().toISOString();
+    localStorage.setItem("api_key_last_rotated", now);
+    setLastRotated(now);
+    toast.success("API key rotation logged. Next rotation due in 90 days.");
+  };
+
+  const rotationInfo = getRotationStatus(lastRotated);
 
   const copyWebhookUrl = () => {
     navigator.clipboard.writeText(WEBHOOK_URL);
@@ -320,6 +345,98 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* API Key Security */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">API Key Security</CardTitle>
+            </div>
+            <CardDescription>
+              Track and manage your 90-day API key rotation schedule. Rotating keys regularly limits exposure if a key is ever compromised.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { label: "Stored in environment secrets", done: true, detail: "Google Maps, Twilio, Resend, Xero" },
+                { label: "Restricted to your domain", done: true, detail: "Google Cloud Console HTTP referrer restriction" },
+                { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString()}` : "Not yet logged" },
+              ].map(({ label, done, detail }) => (
+                <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5"}`}>
+                  <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
+                  <div>
+                    <p className="text-xs font-medium">{label}</p>
+                    <p className="text-[11px] text-muted-foreground">{detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Rotation countdown */}
+            <div className={`flex items-center justify-between rounded-lg border p-4 ${
+              rotationInfo.status === "overdue" ? "border-destructive/40 bg-destructive/5"
+              : rotationInfo.status === "due_soon" ? "border-warning/40 bg-warning/5"
+              : rotationInfo.status === "ok" ? "border-success/30 bg-success/5"
+              : "border-border bg-muted/30"
+            }`}>
+              <div className="flex items-center gap-3">
+                {rotationInfo.status === "overdue" ? (
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                ) : rotationInfo.status === "due_soon" ? (
+                  <AlertTriangle className="h-5 w-5 text-warning" />
+                ) : rotationInfo.status === "ok" ? (
+                  <ShieldCheck className="h-5 w-5 text-success" />
+                ) : (
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                )}
+                <div>
+                  {rotationInfo.status === "unknown" && (
+                    <>
+                      <p className="text-sm font-medium">No rotation logged yet</p>
+                      <p className="text-xs text-muted-foreground">Click "Mark as Rotated" after you rotate your keys in Google Cloud Console, Twilio, and Resend.</p>
+                    </>
+                  )}
+                  {rotationInfo.status === "ok" && (
+                    <>
+                      <p className="text-sm font-medium text-success">{rotationInfo.daysLeft} days until next rotation</p>
+                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()}</p>
+                    </>
+                  )}
+                  {rotationInfo.status === "due_soon" && (
+                    <>
+                      <p className="text-sm font-medium text-warning">Rotation due in {rotationInfo.daysLeft} days</p>
+                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()} — rotate soon</p>
+                    </>
+                  )}
+                  {rotationInfo.status === "overdue" && (
+                    <>
+                      <p className="text-sm font-medium text-destructive">Rotation overdue!</p>
+                      <p className="text-xs text-muted-foreground">Last rotated {lastRotated ? new Date(lastRotated).toLocaleDateString() : "never"}. Rotate your keys now.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={markRotated} className="shrink-0 gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Mark as Rotated
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-dashed p-4 space-y-2">
+              <p className="text-xs font-medium">Keys to rotate every 90 days</p>
+              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                <li><strong>Google Maps API key</strong> — Google Cloud Console → APIs &amp; Services → Credentials</li>
+                <li><strong>Resend API key</strong> — resend.com → API Keys</li>
+                <li><strong>Twilio Auth Token</strong> — console.twilio.com → Account Info</li>
+                <li><strong>Xero Client Secret</strong> — developer.xero.com → My Apps</li>
+              </ul>
+              <p className="text-[11px] text-muted-foreground mt-2">After rotating each key, update it in Settings → Lovable Cloud → Secrets, then click "Mark as Rotated" above.</p>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
