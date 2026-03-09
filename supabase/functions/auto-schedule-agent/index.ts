@@ -25,6 +25,15 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 
+  // Require admin role for all actions (execute uses service role key for side-effects)
+  const { data: isAdmin } = await supabase.rpc("has_role", {
+    _user_id: claimsData.claims.sub,
+    _role: "admin",
+  });
+  if (!isAdmin) {
+    return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  }
+
   try {
     const body = await req.json();
     const { action, jobs, engineers, weekStart, context } = body;
