@@ -4,8 +4,8 @@ export default function PrivacyPolicy() {
       <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <img src="/favicon.png" alt="FieldReport" className="h-10 w-10 rounded-xl" />
-            <span className="text-xl font-bold">FieldReport</span>
+            <img src="/favicon.png" alt="Servexa" className="h-10 w-10 rounded-xl" />
+            <span className="text-xl font-bold">Servexa</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
           <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
@@ -16,7 +16,7 @@ export default function PrivacyPolicy() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
             <p className="text-muted-foreground leading-relaxed">
-              FieldReport ("we", "us", "our") is committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our field service management platform. We comply with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
+              Servexa ("we", "us", "our") is committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our field service management platform. We comply with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
             </p>
           </section>
 

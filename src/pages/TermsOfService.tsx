@@ -4,8 +4,8 @@ export default function TermsOfService() {
       <div className="mx-auto max-w-3xl px-6 py-12">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <img src="/favicon.png" alt="FieldReport" className="h-10 w-10 rounded-xl" />
-            <span className="text-xl font-bold">FieldReport</span>
+            <img src="/favicon.png" alt="Servexa" className="h-10 w-10 rounded-xl" />
+            <span className="text-xl font-bold">Servexa</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Terms of Service</h1>
           <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
@@ -16,14 +16,14 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Agreement to Terms</h2>
             <p className="text-muted-foreground leading-relaxed">
-              By accessing or using FieldReport ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service. These terms constitute a legally binding agreement between you and FieldReport.
+              By accessing or using Servexa ("the Service"), you agree to be bound by these Terms of Service. If you do not agree to these terms, please do not use the Service. These terms constitute a legally binding agreement between you and Servexa.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">2. Description of Service</h2>
             <p className="text-muted-foreground leading-relaxed">
-              FieldReport is a field service management platform designed for fire protection and maintenance businesses. The Service enables job management, engineer scheduling, compliance documentation, digital job sheets, customer communications, and related field service workflows.
+              Servexa is a field service management platform designed for fire protection and maintenance businesses. The Service enables job management, engineer scheduling, compliance documentation, digital job sheets, customer communications, and related field service workflows.
             </p>
           </section>
 
@@ -56,14 +56,14 @@ export default function TermsOfService() {
           <section>
             <h2 className="text-xl font-semibold mb-3">6. Intellectual Property</h2>
             <p className="text-muted-foreground leading-relaxed">
-              The Service and its original content, features, and functionality are owned by FieldReport and are protected by international copyright, trademark, and other intellectual property laws. You retain ownership of any data or content you upload to the Service.
+              The Service and its original content, features, and functionality are owned by Servexa and are protected by international copyright, trademark, and other intellectual property laws. You retain ownership of any data or content you upload to the Service.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">7. Limitation of Liability</h2>
             <p className="text-muted-foreground leading-relaxed">
-              To the fullest extent permitted by applicable law, FieldReport shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of the Service. Our total liability to you for any claim shall not exceed the amount paid by you to us in the twelve months preceding the claim.
+              To the fullest extent permitted by applicable law, Servexa shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, or goodwill, arising from your use of the Service. Our total liability to you for any claim shall not exceed the amount paid by you to us in the twelve months preceding the claim.
             </p>
           </section>
 
