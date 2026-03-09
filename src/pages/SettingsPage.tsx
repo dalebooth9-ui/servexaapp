@@ -345,6 +345,98 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* API Key Security */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              <CardTitle className="text-lg">API Key Security</CardTitle>
+            </div>
+            <CardDescription>
+              Track and manage your 90-day API key rotation schedule. Rotating keys regularly limits exposure if a key is ever compromised.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {[
+                { label: "Stored in environment secrets", done: true, detail: "Google Maps, Twilio, Resend, Xero" },
+                { label: "Restricted to your domain", done: true, detail: "Google Cloud Console HTTP referrer restriction" },
+                { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString()}` : "Not yet logged" },
+              ].map(({ label, done, detail }) => (
+                <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-green-500/30 bg-green-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+                  <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-green-600" : "text-muted-foreground/40"}`} />
+                  <div>
+                    <p className="text-xs font-medium">{label}</p>
+                    <p className="text-[11px] text-muted-foreground">{detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Rotation countdown */}
+            <div className={`flex items-center justify-between rounded-lg border p-4 ${
+              rotationInfo.status === "overdue" ? "border-destructive/40 bg-destructive/5"
+              : rotationInfo.status === "due_soon" ? "border-amber-500/40 bg-amber-500/5"
+              : rotationInfo.status === "ok" ? "border-green-500/30 bg-green-500/5"
+              : "border-border bg-muted/30"
+            }`}>
+              <div className="flex items-center gap-3">
+                {rotationInfo.status === "overdue" ? (
+                  <AlertTriangle className="h-5 w-5 text-destructive" />
+                ) : rotationInfo.status === "due_soon" ? (
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                ) : rotationInfo.status === "ok" ? (
+                  <ShieldCheck className="h-5 w-5 text-green-600" />
+                ) : (
+                  <Calendar className="h-5 w-5 text-muted-foreground" />
+                )}
+                <div>
+                  {rotationInfo.status === "unknown" && (
+                    <>
+                      <p className="text-sm font-medium">No rotation logged yet</p>
+                      <p className="text-xs text-muted-foreground">Click "Mark as Rotated" after you rotate your keys in Google Cloud Console, Twilio, and Resend.</p>
+                    </>
+                  )}
+                  {rotationInfo.status === "ok" && (
+                    <>
+                      <p className="text-sm font-medium text-green-700 dark:text-green-400">{rotationInfo.daysLeft} days until next rotation</p>
+                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()}</p>
+                    </>
+                  )}
+                  {rotationInfo.status === "due_soon" && (
+                    <>
+                      <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Rotation due in {rotationInfo.daysLeft} days</p>
+                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()} — rotate soon</p>
+                    </>
+                  )}
+                  {rotationInfo.status === "overdue" && (
+                    <>
+                      <p className="text-sm font-medium text-destructive">Rotation overdue!</p>
+                      <p className="text-xs text-muted-foreground">Last rotated {lastRotated ? new Date(lastRotated).toLocaleDateString() : "never"}. Rotate your keys now.</p>
+                    </>
+                  )}
+                </div>
+              </div>
+              <Button size="sm" variant="outline" onClick={markRotated} className="shrink-0 gap-1.5">
+                <RotateCcw className="h-3.5 w-3.5" />
+                Mark as Rotated
+              </Button>
+            </div>
+
+            <div className="rounded-lg border border-dashed p-4 space-y-2">
+              <p className="text-xs font-medium">Keys to rotate every 90 days</p>
+              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                <li><strong>Google Maps API key</strong> — Google Cloud Console → APIs &amp; Services → Credentials</li>
+                <li><strong>Resend API key</strong> — resend.com → API Keys</li>
+                <li><strong>Twilio Auth Token</strong> — console.twilio.com → Account Info</li>
+                <li><strong>Xero Client Secret</strong> — developer.xero.com → My Apps</li>
+              </ul>
+              <p className="text-[11px] text-muted-foreground mt-2">After rotating each key, update it in Settings → Lovable Cloud → Secrets, then click "Mark as Rotated" above.</p>
+            </div>
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
