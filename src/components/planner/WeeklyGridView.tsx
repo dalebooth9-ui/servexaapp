@@ -125,9 +125,16 @@ function DraggableUnallocatedJob({
         <CalendarDays className="h-3 w-3" />
       </button>
       {/* Content */}
-      <div className="relative z-[1] pointer-events-none">
+      <div className="relative z-[1]">
         <div className="flex items-center justify-between gap-1 mb-0.5 pr-5">
-          <span className="font-mono font-medium text-primary">{job.reference_number}</span>
+          <Link
+            to={`/jobs/${job.id}`}
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="font-mono font-medium text-primary hover:underline z-10"
+          >
+            {job.reference_number}
+          </Link>
           {isOverdue ? (
             <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
               <AlertTriangle className="h-2.5 w-2.5" /> OVERDUE
