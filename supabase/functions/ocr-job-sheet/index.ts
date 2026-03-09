@@ -153,18 +153,17 @@ Use the extract_job_sheet tool to return your findings.`;
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet.
+        text: `Read this "${template_name}" job sheet photo carefully.
 
-STEP 1: Read the header table first. Find "Riser Location:" and extract the handwritten text next to it.
+For each checkbox row: find the tick mark and read the label next to it.
+  - Tick next to YES → "pass"
+  - Tick next to NO → "fail"
+  - Tick next to P → "pass"
+  - Tick next to F → "fail"  (F means FAIL, not pass)
 
-STEP 2: For every YES/NO result row, find the tick mark (✓) and check which word it is next to:
-  - If tick is next to YES → "pass"
-  - If tick is next to NO → "fail"  (A tick next to NO means FAIL — this is NOT a pass)
-  - If tick is in P box → "pass", in F box → "fail", in N/A box → "n/a"
+For the Pressure Test Result row near the bottom: look at the P / F / N/A boxes — which one is ticked? If F is ticked, return "fail".
 
-STEP 3: Process EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections separately.
-
-Remember: the tick ✓ is just a selection marker. A ✓ next to "NO" means the answer is NO = fail.`,
+Extract header: Customer, Site, Riser Location, Date, PO/REF.`,
       },
     ];
     for (const img of images) {
