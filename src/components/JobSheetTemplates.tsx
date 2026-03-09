@@ -1138,14 +1138,23 @@ function renderFormField(
           </Button>
         </div>
       );
-    case "select":
+    case "select": {
+      // Dynamically replace options for engineer/technician fields
+      const isEngineerField =
+        field.id === "technician_name" ||
+        field.label.toLowerCase().includes("engineer") ||
+        field.label.toLowerCase().includes("technician");
+      const options =
+        isEngineerField && engineerOptions && engineerOptions.length > 0
+          ? engineerOptions
+          : field.options || [];
       return (
         <Select value={value || ""} onValueChange={onChange} disabled={locked}>
           <SelectTrigger className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}>
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
-            {(field.options || []).map((opt) => (
+            {options.map((opt) => (
               <SelectItem key={opt} value={opt}>{opt}</SelectItem>
             ))}
           </SelectContent>
