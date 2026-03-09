@@ -125,39 +125,43 @@ serve(async (req) => {
       },
     };
 
-    const systemPrompt = `You are an expert OCR assistant specialising in handwritten fire safety inspection forms, especially BS9990 dry riser service sheets.
+    const systemPrompt = `You are an expert OCR assistant specialising in handwritten fire safety inspection forms, especially BS9990 dry riser pressure test sheets.
 
-== CRITICAL RULE: PASS/FAIL COLUMN READING ==
+== THIS IS A BS9990 DRY RISER PRESSURE TEST FORM ==
 
-STEP 1 — Read the column headers FIRST.
-  Look at the top of the checklist table. Identify the exact text written above each result column.
-  Common layouts:
-    • "YES" on the left, "NO" on the right
-    • "PASS" on the left, "FAIL" on the right
-    • Sometimes reversed: "NO" on the left, "YES" on the right
-  DO NOT ASSUME which side is YES/PASS. Read the actual header text.
+HEADER SECTION — Extract all fields from the top table:
+  - "Customer:" → customer name
+  - "Site:" → site name
+  - "Riser Location:" → riser_location (ALWAYS look for this label and extract the handwritten value next to it)
+  - "DATE:" → date
+  - "PO/REF:" → po_ref
 
-STEP 2 — For each row, find which column the tick/mark is in.
-  A tick (✓), checkmark, or X written in a cell means that option was chosen.
-  The value is determined by the HEADER TEXT of that column — NOT by the tick shape.
-  Examples:
-    • Tick under "YES" → "pass"
-    • Tick under "NO" → "fail"  ← This is a FAIL even though it's a tick!
-    • Tick under "FAIL" → "fail"
-    • Tick under "PASS" → "pass"
-    • Handwritten "NO", circle around "NO", or a cross in the NO column → "fail"
+== CRITICAL RULE: HOW TO READ YES/NO COLUMNS ==
 
-STEP 3 — When in doubt, omit the field. NEVER default to "pass" if you cannot read the column position clearly.
+This form has a RESULT column on the RIGHT side of each row.
+Each row shows two options side by side: [ ] YES   [ ] NO
+The tick (✓) or checkmark appears INSIDE or NEXT TO the option that was selected.
 
-== LOCATION FIELD ==
-On BS9990 dry riser forms, "Riser Location" or "Location" is typically found:
-  • In the header section at the top (e.g. "Location:", "Riser Location:", "Address:")
-  • Sometimes per-row in a table (each riser tested may have its own location)
-Always extract location text even if it appears handwritten or abbreviated.
+KEY: Look at WHICH WORD (YES or NO) the tick is physically next to or inside the box of.
+  • Tick next to / inside "YES" box → value = "pass"
+  • Tick next to / inside "NO" box  → value = "fail"   ← A TICK IN THE NO BOX = FAIL!
 
-== EXTERNAL vs INTERNAL TESTS ==
-Many BS9990 forms have separate sections for EXTERNAL (breeching inlet side) and INTERNAL (outlet/landing valve side) checks.
-These are distinct sections — extract them independently. Do not mix up which tick belongs to which section.
+COMMON MISTAKE TO AVOID: Do NOT assume every tick means "pass".
+  Example: If you see "[ ] YES  [✓] NO" — this means FAIL because the tick is in the NO box.
+  The tick ✓ simply marks which answer was selected — it does NOT mean "yes/good/pass" by itself.
+
+SOME ROWS USE P / F / N/A INSTEAD OF YES/NO:
+  • Tick in P box → "pass"
+  • Tick in F box → "fail"   ← F = FAIL
+  • Tick in N/A box → "n/a"
+
+== PRESSURE TEST RESULT SECTION ==
+  Look for "Pressure test result:" row with P / F / N/A boxes.
+  Also look for "Leaks Detected?" with Yes / No boxes.
+
+== EXTERNAL vs INTERNAL SECTIONS ==
+  The form has separate EXTERNAL EQUIPMENT and INTERNAL EQUIPMENT sections.
+  Process each section independently — do not mix their results.
 
 Use the extract_job_sheet tool to return your findings.`;
 
