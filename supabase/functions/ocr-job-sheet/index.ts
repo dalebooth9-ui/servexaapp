@@ -64,15 +64,24 @@ serve(async (req) => {
     // Build the extraction prompt
     const fieldList = fields.map((f: any) => {
       let desc = `- "${f.id}" (label: "${f.label}", type: ${f.type})`;
-      if (f.type === "pass_fail") desc += ` — value must be "pass", "fail", or "n/a"`;
-      if (f.type === "checkbox") desc += ` — value must be true or false`;
+      if (f.type === "pass_fail") desc += ` — value must be exactly "pass", "fail", or "n/a". A tick/checkmark in a PASS column = "pass". A tick/checkmark in a FAIL column = "fail". A cross or "X" = "fail". "YES" written = "pass". "NO" written = "fail". Do NOT default to "pass" — look carefully at which column the mark is in.`;
+      if (f.type === "checkbox") desc += ` — value must be true or false. A tick/checkmark = true. A cross, "X", or "NO" = false. An empty box = false.`;
       if (f.options?.length) desc += ` — options: ${f.options.join(", ")}`;
       return desc;
     }).join("\n");
 
     const systemPrompt = `You are an expert OCR system that reads handwritten job sheet forms. You extract data from photos of filled-in inspection/service sheets and return structured JSON matching the template fields.
 
-Rules:
+CRITICAL ACCURACY RULES for pass/fail and yes/no fields:
+- Many forms have TWO columns: one for PASS/YES and one for FAIL/NO. You MUST identify which column the tick or mark is in.
+- A tick/checkmark in the FAIL or NO column means the answer is "fail" or false — do NOT convert it to "pass" or true.
+- A tick/checkmark in the PASS or YES column means the answer is "pass" or true.
+- If a handwritten "NO" or "N" appears next to a question, the value is "fail" or false.
+- If a handwritten "YES" or "Y" appears, the value is "pass" or true.
+- Section summary rows (e.g. "External equipment:", "Internal equipment:") follow the same rule — read the actual mark in the result column carefully.
+- When in doubt, look at surrounding context (other answers in the same section) but NEVER guess or default to "pass".
+
+General rules:
 - Return ONLY a JSON object with two top-level keys: "header" and "fields"
 - "header" must contain these keys (use empty string if not found/readable):
   - "customer": the customer or client name
@@ -81,8 +90,6 @@ Rules:
   - "po_ref": the PO number, reference number, or job reference
   - "riser_location": the riser location if present
 - "fields" must be a JSON object with field IDs as keys and extracted values
-- For pass_fail fields, determine if the mark indicates "pass", "fail", or "n/a"
-- For checkbox fields, return true or false
 - For text/number fields, transcribe the handwritten text as accurately as possible
 - If a field appears blank or unreadable, omit it from the response
 - Do not include any explanation, only the JSON object`;
