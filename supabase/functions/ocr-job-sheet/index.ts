@@ -156,6 +156,8 @@ SECTION SEPARATION — The form has two distinct equipment sections. Extract the
 PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   F   N/A"
   Find which of P, F, or N/A has the tick and return that. Ignore the word "pass" appearing in field IDs.
 
+TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
+
 Use the extract_job_sheet tool to return all findings.`;
 
     const userContentParts: any[] = [
