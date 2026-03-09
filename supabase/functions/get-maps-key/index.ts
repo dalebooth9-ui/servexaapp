@@ -43,8 +43,6 @@ Deno.serve(async (req) => {
     );
   }
 
-  // Proxy mode: if a geocode address is passed, resolve it server-side
-  // to avoid exposing the raw API key to the browser.
   let body: Record<string, string> = {};
   try {
     if (req.headers.get("content-type")?.includes("application/json")) {
@@ -52,6 +50,7 @@ Deno.serve(async (req) => {
     }
   } catch { /* no body */ }
 
+  // Proxy mode: geocode an address server-side (never exposes the key)
   if (body.address) {
     const encoded = encodeURIComponent(body.address);
     const mapsRes = await fetch(
@@ -64,9 +63,31 @@ Deno.serve(async (req) => {
     });
   }
 
-  // For the Maps JavaScript SDK (map rendering), we still need to return the key
-  // so the script tag can be loaded. Restrict this key in Google Cloud Console to
-  // your domain (HTTP referrer restriction) to prevent abuse.
+  // Proxy mode: fetch a static map image server-side and stream it back
+  if (body.staticmap) {
+    // body.staticmap is the full query string (without the key)
+    const mapsRes = await fetch(
+      `https://maps.googleapis.com/maps/api/staticmap?${body.staticmap}&key=${apiKey}`
+    );
+    if (!mapsRes.ok) {
+      return new Response(JSON.stringify({ error: "Static map fetch failed" }), {
+        status: mapsRes.status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const imgBuffer = await mapsRes.arrayBuffer();
+    return new Response(imgBuffer, {
+      status: 200,
+      headers: {
+        ...corsHeaders,
+        "Content-Type": mapsRes.headers.get("content-type") || "image/png",
+      },
+    });
+  }
+
+  // Maps JavaScript SDK key — required so the <script> tag can load the SDK.
+  // Restrict this key in Google Cloud Console to your domain (HTTP referrer
+  // restriction) and to Maps JS API only to prevent abuse.
   return new Response(
     JSON.stringify({ apiKey }),
     { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }

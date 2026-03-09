@@ -204,14 +204,16 @@ export default function PlannerMapView({
 
   // Save a static map pin image to a job's folder
   const saveMapPinToJob = useCallback(async (jobId: string, address: string, lat: number, lng: number, refNumber: string, customerName: string) => {
-    if (!user?.id || !mapsApiKeyRef.current) return;
+    if (!user?.id) return;
     setSavingPin(jobId);
     try {
-      const apiKey = mapsApiKeyRef.current;
-      const staticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x400&scale=2&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
-      const res = await fetch(staticUrl);
-      if (!res.ok) throw new Error("Failed to fetch map image");
-      const imgBlob = await res.blob();
+      // Fetch static map via server-side proxy so the API key is never in the browser
+      const staticmapQs = `center=${lat},${lng}&zoom=15&size=600x400&scale=2&markers=color:red%7C${lat},${lng}`;
+      const { data: imgData, error: imgErr } = await supabase.functions.invoke("get-maps-key", {
+        body: { staticmap: staticmapQs },
+      });
+      if (imgErr || !imgData) throw new Error("Failed to fetch map image");
+      const imgBlob = imgData instanceof Blob ? imgData : new Blob([imgData], { type: "image/png" });
 
       // Draw text overlay on canvas
       const img = new Image();
