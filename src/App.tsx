@@ -44,6 +44,10 @@ const HandoverSignOff = lazy(() => import("@/components/HandoverSignOffPage"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const DataProcessingAgreement = lazy(() => import("@/pages/DataProcessingAgreement"));
+const AcceptableUsePolicy = lazy(() => import("@/pages/AcceptableUsePolicy"));
+const ServiceLevelAgreement = lazy(() => import("@/pages/ServiceLevelAgreement"));
+const CookiePolicy = lazy(() => import("@/pages/CookiePolicy"));
+const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiability"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const Offline = lazy(() => import("@/pages/Offline"));
 
@@ -119,6 +123,10 @@ const App = () => (
               <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
               <Route path="/privacy" element={<Suspense fallback={<PageFallback />}><PrivacyPolicy /></Suspense>} />
               <Route path="/dpa" element={<Suspense fallback={<PageFallback />}><DataProcessingAgreement /></Suspense>} />
+              <Route path="/aup" element={<Suspense fallback={<PageFallback />}><AcceptableUsePolicy /></Suspense>} />
+              <Route path="/sla" element={<Suspense fallback={<PageFallback />}><ServiceLevelAgreement /></Suspense>} />
+              <Route path="/cookies" element={<Suspense fallback={<PageFallback />}><CookiePolicy /></Suspense>} />
+              <Route path="/fire-liability" element={<Suspense fallback={<PageFallback />}><FireProtectionLiability /></Suspense>} />
               <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
               <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
               <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />

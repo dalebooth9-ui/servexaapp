@@ -146,8 +146,9 @@ export default function DataProcessingAgreement() {
             </p>
           </section>
 
-          <div className="border-t pt-6 text-xs text-muted-foreground">
+          <div className="border-t pt-6 space-y-3 text-xs text-muted-foreground">
             <p>⚠️ <strong>Important notice:</strong> This is a template DPA provided for convenience. You should have this reviewed and finalised by a qualified solicitor or data protection officer before commercial use. Consider appointing a Data Protection Officer (DPO) if required by UK GDPR Article 37.</p>
+            <p>Related documents: <a href="/terms" className="text-primary hover:underline">Terms of Service</a> · <a href="/privacy" className="text-primary hover:underline">Privacy Policy</a> · <a href="/aup" className="text-primary hover:underline">Acceptable Use Policy</a> · <a href="/sla" className="text-primary hover:underline">Service Level Agreement</a> · <a href="/cookies" className="text-primary hover:underline">Cookie Policy</a> · <a href="/fire-liability" className="text-primary hover:underline">Fire Protection Liability</a></p>
           </div>
         </div>
       </div>
