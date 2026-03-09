@@ -114,19 +114,6 @@ General rules:
 - If a field appears blank or unreadable, omit it from the response
 - Do not include any explanation, only the JSON object`;
 
-General rules:
-- Return ONLY a JSON object with two top-level keys: "header" and "fields"
-- "header" must contain these keys (use empty string if not found/readable):
-  - "customer": the customer or client name
-  - "site": the site name and/or address
-  - "date": the date on the form
-  - "po_ref": the PO number, reference number, or job reference
-  - "riser_location": the riser location if present
-- "fields" must be a JSON object with field IDs as keys and extracted values
-- For text/number fields, transcribe the handwritten text as accurately as possible
-- If a field appears blank or unreadable, omit it from the response
-- Do not include any explanation, only the JSON object`;
-
     const userPrompt = `These are ${images.length} photo(s) of a filled-in "${template_name}" job sheet form. Each image may show different pages or sections of the same sheet.
 
 First, extract the header information (Customer, Site/Address, Date, PO/REF, Riser Location) from the top of the form.
