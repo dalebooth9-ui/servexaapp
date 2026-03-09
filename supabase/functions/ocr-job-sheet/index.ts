@@ -125,14 +125,16 @@ serve(async (req) => {
       },
     };
 
-    const systemPrompt = `You are an expert OCR assistant reading a handwritten BS9990 Dry Riser Pressure Test form.
+    const systemPrompt = `You are an expert OCR assistant. Your ONLY job is to extract data from the handwritten form in the image(s). Do NOT invent, guess, or fill values from external knowledge. ONLY transcribe what is physically written or marked on the form.
 
 HEADER EXTRACTION — The header table at the top has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
-  • "Customer:" → the company/organisation name printed or written on the same line (e.g. "TA Safely Comply"). DO NOT use email addresses, user names, or anything not on the form.
+  • "Customer:" → the company/organisation name printed or written on the same line (e.g. "TA Safely Comply"). DO NOT use email addresses, user names, or anything not on the form. NEVER return the template name or document title here.
   • "Site:" → the site or building name written on the same line
   • "Riser Location:" → the text written after "Riser Location:" (e.g. "Starwell")
   • "DATE:" → the date written in the top-right area
   • "PO/REF:" → the reference number written next to PO/REF
+
+CRITICAL — For ALL text fields: ONLY transcribe text that is physically written on the form by a human. Do NOT use the document title, template name, or field label as the value. If a field is blank, omit it.
 
 YES / NO CHECKBOXES — Each inspection row has two boxes labelled YES and NO.
   The engineer placed a tick (✓) inside or next to ONE box.
@@ -163,11 +165,12 @@ Use the extract_job_sheet tool to return all findings.`;
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `Extract data from this "${template_name}" form image.
+        text: `Extract data from this form image. Template: "${template_name}".
 
 IMPORTANT for the header:
-- "Customer" field: read ONLY the text printed next to "Customer:" label on the form. It is a company name like "TA Safely Comply". Do NOT use any email address.
+- "Customer" field: read ONLY the company/organisation name physically written next to the "Customer:" label on the form. It is a company name (NOT the template name, NOT an email address, NOT a username).
 - "Riser Location" field: read the text next to "Riser Location:" label (e.g. "Starwell").
+- For any text field: ONLY transcribe text that is handwritten or typed by a human on the form. NEVER use the template name or document title as a field value.
 
 For every YES/NO checkbox row: the tick tells you which answer was selected. Tick beside YES = "pass". Tick beside NO = "fail".
 For P/F/N/A rows: tick beside F = "fail", tick beside P = "pass".`,
