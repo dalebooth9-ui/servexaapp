@@ -21,6 +21,18 @@ import { supabase } from "@/integrations/supabase/client";
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://field-aid-box.lovable.app/install";
 
+const API_KEY_ROTATION_DAYS = 90;
+
+function getRotationStatus(lastRotatedIso: string | null) {
+  if (!lastRotatedIso) return { daysLeft: 0, status: "unknown" as const };
+  const last = new Date(lastRotatedIso);
+  const due = new Date(last.getTime() + API_KEY_ROTATION_DAYS * 24 * 60 * 60 * 1000);
+  const today = new Date();
+  const daysLeft = Math.ceil((due.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+  const status = daysLeft <= 0 ? "overdue" : daysLeft <= 14 ? "due_soon" : "ok";
+  return { daysLeft, status: status as "overdue" | "due_soon" | "ok" | "unknown", dueDate: due };
+}
+
 export default function SettingsPage() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
@@ -30,6 +42,19 @@ export default function SettingsPage() {
   const [onboardingEmail, setOnboardingEmail] = useState("");
   const [onboardingName, setOnboardingName] = useState("");
   const [sendingOnboarding, setSendingOnboarding] = useState(false);
+
+  const [lastRotated, setLastRotated] = useState<string | null>(() =>
+    localStorage.getItem("api_key_last_rotated")
+  );
+
+  const markRotated = () => {
+    const now = new Date().toISOString();
+    localStorage.setItem("api_key_last_rotated", now);
+    setLastRotated(now);
+    toast.success("API key rotation logged. Next rotation due in 90 days.");
+  };
+
+  const rotationInfo = getRotationStatus(lastRotated);
 
   const copyWebhookUrl = () => {
     navigator.clipboard.writeText(WEBHOOK_URL);
