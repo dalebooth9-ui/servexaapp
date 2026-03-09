@@ -214,9 +214,6 @@ export default function PlannerMapView({
       });
       if (imgErr || !imgData) throw new Error("Failed to fetch map image");
       const imgBlob = imgData instanceof Blob ? imgData : new Blob([imgData], { type: "image/png" });
-      const res = { ok: true }; // proxy already validated
-      void res;
-      const imgBlob = await res.blob();
 
       // Draw text overlay on canvas
       const img = new Image();
