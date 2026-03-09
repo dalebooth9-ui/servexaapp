@@ -127,14 +127,21 @@ serve(async (req) => {
 
     const systemPrompt = `You are an expert OCR assistant. Your ONLY job is to extract data from the handwritten form in the image(s). Do NOT invent, guess, or fill values from external knowledge. ONLY transcribe what is physically written or marked on the form.
 
+⚠️ TEMPLATE NAME WARNING: You will be told the template name for reference only. The template name (e.g. "Field Report", "Dry Riser Inspection") is NEVER a valid value for any field. Do NOT copy it into any field. It is metadata, not form data.
+
 HEADER EXTRACTION — The header table at the top has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
-  • "Customer:" → the company/organisation name printed or written on the same line (e.g. "TA Safely Comply"). DO NOT use email addresses, user names, or anything not on the form. NEVER return the template name or document title here.
+  • "Customer:" → the company/organisation name HANDWRITTEN on the same line. It is always a company name (e.g. "TA Safely Comply"). NEVER use the template name, document title, email, or username here. If blank, omit.
   • "Site:" → the site or building name written on the same line
   • "Riser Location:" → the text written after "Riser Location:" (e.g. "Starwell")
   • "DATE:" → the date written in the top-right area
   • "PO/REF:" → the reference number written next to PO/REF
 
-CRITICAL — For ALL text fields: ONLY transcribe text that is physically written on the form by a human. Do NOT use the document title, template name, or field label as the value. If a field is blank, omit it.
+CRITICAL — For ALL fields (header and body): ONLY return values that are physically handwritten or typed by a human on the paper form. The following are NEVER valid field values:
+  - The template name or document title
+  - Any pre-printed label text
+  - Any field ID or field label
+  - Any value you infer from context without seeing it written on the form
+  If a field is blank or not filled in, omit it entirely from the response.
 
 YES / NO CHECKBOXES — Each inspection row has two boxes labelled YES and NO.
   The engineer placed a tick (✓) inside or next to ONE box.
@@ -165,15 +172,14 @@ Use the extract_job_sheet tool to return all findings.`;
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `Extract data from this form image. Template: "${template_name}".
+        text: `Extract data from this handwritten form. The template name is "${template_name}" — this is for your reference ONLY and must NEVER appear as a value in any extracted field.
 
-IMPORTANT for the header:
-- "Customer" field: read ONLY the company/organisation name physically written next to the "Customer:" label on the form. It is a company name (NOT the template name, NOT an email address, NOT a username).
-- "Riser Location" field: read the text next to "Riser Location:" label (e.g. "Starwell").
-- For any text field: ONLY transcribe text that is handwritten or typed by a human on the form. NEVER use the template name or document title as a field value.
-
-For every YES/NO checkbox row: the tick tells you which answer was selected. Tick beside YES = "pass". Tick beside NO = "fail".
-For P/F/N/A rows: tick beside F = "fail", tick beside P = "pass".`,
+RULES:
+- Every field value must come from handwriting or typed text physically present on the paper form.
+- If a field is blank on the form, omit it. Do not guess or default.
+- "Customer" = the company name handwritten next to the "Customer:" label — never the template name.
+- For YES/NO rows: tick beside YES = "pass", tick beside NO = "fail".
+- For P/F/N/A rows: tick beside F = "fail", tick beside P = "pass".`,
       },
     ];
     for (const img of images) {
