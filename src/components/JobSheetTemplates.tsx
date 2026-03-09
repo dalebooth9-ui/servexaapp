@@ -93,6 +93,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [templates, setTemplates] = useState<Template[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
+  const [engineerOptions, setEngineerOptions] = useState<string[]>([]);
   const [importOpen, setImportOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
@@ -104,6 +105,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
+
+  // Fetch all engineer names once for dynamic dropdown population
+  useEffect(() => {
+    const fetchEngineers = async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "engineer");
+      if (data && data.length > 0) {
+        const { data: profs } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .in("user_id", data.map((r: any) => r.user_id));
+        setEngineerOptions(
+          (profs || []).map((p: any) => p.full_name).filter(Boolean).sort()
+        );
+      }
+    };
+    fetchEngineers();
+  }, []);
 
   const fetchData = async () => {
     const [tplRes, respRes, jobRes, schedRes] = await Promise.all([
@@ -909,7 +930,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           </Label>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
-                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id))}
+                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions)}
                         </div>
                       </div>
                       {field.allow_notes && (
@@ -1031,7 +1052,8 @@ function renderFormField(
   field: TemplateField,
   value: any,
   onChange: (value: any) => void,
-  locked?: boolean
+  locked?: boolean,
+  engineerOptions?: string[]
 ) {
   switch (field.type) {
     case "text":
@@ -1116,19 +1138,29 @@ function renderFormField(
           </Button>
         </div>
       );
-    case "select":
+    case "select": {
+      // Dynamically replace options for engineer/technician fields
+      const isEngineerField =
+        field.id === "technician_name" ||
+        field.label.toLowerCase().includes("engineer") ||
+        field.label.toLowerCase().includes("technician");
+      const options =
+        isEngineerField && engineerOptions && engineerOptions.length > 0
+          ? engineerOptions
+          : field.options || [];
       return (
         <Select value={value || ""} onValueChange={onChange} disabled={locked}>
           <SelectTrigger className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}>
             <SelectValue placeholder="Select..." />
           </SelectTrigger>
           <SelectContent>
-            {(field.options || []).map((opt) => (
+            {options.map((opt) => (
               <SelectItem key={opt} value={opt}>{opt}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       );
+    }
     case "photo":
       return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
     case "signature":
