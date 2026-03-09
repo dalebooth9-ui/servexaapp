@@ -160,16 +160,17 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
 
 TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
-Use the extract_job_sheet tool to return all findings.
+Use the extract_job_sheet tool to return all findings.`;
 
     const userContentParts: any[] = [
       {
         type: "text",
-        text: `Extract data from this "${template_name}" form image.
+        text: `Extract data from this form image. Template: "${template_name}".
 
 IMPORTANT for the header:
-- "Customer" field: read ONLY the text printed next to "Customer:" label on the form. It is a company name like "TA Safely Comply". Do NOT use any email address.
+- "Customer" field: read ONLY the company/organisation name physically written next to the "Customer:" label on the form. It is a company name (NOT the template name, NOT an email address, NOT a username).
 - "Riser Location" field: read the text next to "Riser Location:" label (e.g. "Starwell").
+- For any text field: ONLY transcribe text that is handwritten or typed by a human on the form. NEVER use the template name or document title as a field value.
 
 For every YES/NO checkbox row: the tick tells you which answer was selected. Tick beside YES = "pass". Tick beside NO = "fail".
 For P/F/N/A rows: tick beside F = "fail", tick beside P = "pass".`,
