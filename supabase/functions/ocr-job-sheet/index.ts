@@ -86,7 +86,7 @@ serve(async (req) => {
       } else {
         fieldProperties[f.id] = {
           type: "string",
-          description: `"${f.label}" — transcribe the handwritten text exactly.`,
+          description: `"${f.label}" — transcribe the handwritten text exactly, character by character. Pay close attention to technical terms, part numbers, and specifications (e.g. "PN16", "DN80", "bar" values). Do not guess or substitute — if a character could be a letter or number, look at the full word context. For example "PN16" is a pipe standard — a P followed by N followed by 1 followed by 6.`,
         };
       }
     }
