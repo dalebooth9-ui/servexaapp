@@ -64,8 +64,8 @@ serve(async (req) => {
     // Build the extraction prompt
     const fieldList = fields.map((f: any) => {
       let desc = `- "${f.id}" (label: "${f.label}", type: ${f.type})`;
-      if (f.type === "pass_fail") desc += ` — value must be "pass", "fail", or "n/a"`;
-      if (f.type === "checkbox") desc += ` — value must be true or false`;
+      if (f.type === "pass_fail") desc += ` — value must be exactly "pass", "fail", or "n/a". A tick/checkmark in a PASS column = "pass". A tick/checkmark in a FAIL column = "fail". A cross or "X" = "fail". "YES" written = "pass". "NO" written = "fail". Do NOT default to "pass" — look carefully at which column the mark is in.`;
+      if (f.type === "checkbox") desc += ` — value must be true or false. A tick/checkmark = true. A cross, "X", or "NO" = false. An empty box = false.`;
       if (f.options?.length) desc += ` — options: ${f.options.join(", ")}`;
       return desc;
     }).join("\n");
