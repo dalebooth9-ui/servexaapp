@@ -366,7 +366,14 @@ export default function SettingsPage() {
               ].map(({ label, done, detail }) => (
                 <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5"}`}>
                   <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
-...
+                  <div>
+                    <p className="text-xs font-medium">{label}</p>
+                    <p className="text-[11px] text-muted-foreground">{detail}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* Rotation countdown */}
             <div className={`flex items-center justify-between rounded-lg border p-4 ${
               rotationInfo.status === "overdue" ? "border-destructive/40 bg-destructive/5"
