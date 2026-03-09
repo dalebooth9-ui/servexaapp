@@ -1,9 +1,10 @@
 import { supabase } from "@/integrations/supabase/client";
 
 /**
- * Geocode an address via Google Maps Geocoding API, fetch a static map image
- * with a text overlay (ref number + customer), and upload it to the job's
- * submissions folder.  Runs fire-and-forget — callers don't need to await.
+ * Geocode an address via the server-side Maps proxy, fetch a static map image
+ * through the same proxy (so the API key is never exposed to the browser),
+ * draw a text overlay, and upload it to the job's submissions folder.
+ * Runs fire-and-forget — callers don't need to await.
  */
 export async function saveMapPinForJob({
   jobId,
@@ -19,28 +20,27 @@ export async function saveMapPinForJob({
   userId: string;
 }) {
   try {
-    // 1. Get API key
-    const { data: keyData, error: keyErr } = await supabase.functions.invoke("get-maps-key");
-    const apiKey = keyData?.apiKey;
-    if (keyErr || !apiKey) return;
-
-    // 2. Geocode the address
-    const geoRes = await fetch(
-      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`
-    );
-    const geoJson = await geoRes.json();
-    const loc = geoJson.results?.[0]?.geometry?.location;
+    // 1. Geocode the address via server-side proxy (no API key in browser)
+    const { data: geoData, error: geoErr } = await supabase.functions.invoke("get-maps-key", {
+      body: { address },
+    });
+    if (geoErr || !geoData) return;
+    const loc = geoData.results?.[0]?.geometry?.location;
     if (!loc) return;
 
     const { lat, lng } = loc;
 
-    // 3. Fetch static map
-    const staticUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=15&size=600x400&scale=2&markers=color:red%7C${lat},${lng}&key=${apiKey}`;
-    const imgRes = await fetch(staticUrl);
-    if (!imgRes.ok) return;
-    const imgBlob = await imgRes.blob();
+    // 2. Fetch static map via server-side proxy (API key stays on the server)
+    const staticmapQs = `center=${lat},${lng}&zoom=15&size=600x400&scale=2&markers=color:red%7C${lat},${lng}`;
+    const { data: imgData, error: imgErr } = await supabase.functions.invoke("get-maps-key", {
+      body: { staticmap: staticmapQs },
+    });
+    if (imgErr || !imgData) return;
 
-    // 4. Draw text overlay on canvas
+    // The edge function returns an ArrayBuffer for binary responses
+    const imgBlob = imgData instanceof Blob ? imgData : new Blob([imgData], { type: "image/png" });
+
+    // 3. Draw text overlay on canvas
     const finalBlob: Blob = await new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = "anonymous";
@@ -74,7 +74,7 @@ export async function saveMapPinForJob({
       img.src = bitmapUrl;
     });
 
-    // 5. Upload to storage
+    // 4. Upload to storage
     const fileName = `map-pin-${Date.now()}.png`;
     const filePath = `${jobId}/${fileName}`;
     const { error: uploadError } = await supabase.storage
@@ -82,7 +82,7 @@ export async function saveMapPinForJob({
       .upload(filePath, finalBlob, { contentType: "image/png" });
     if (uploadError) return;
 
-    // 6. Create submission record
+    // 5. Create submission record
     const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
     await supabase.from("submissions").insert({
       job_id: jobId,
