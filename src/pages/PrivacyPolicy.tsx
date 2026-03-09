@@ -131,8 +131,9 @@ export default function PrivacyPolicy() {
             </p>
           </section>
 
-          <div className="border-t pt-6 text-xs text-muted-foreground">
+          <div className="border-t pt-6 space-y-3 text-xs text-muted-foreground">
             <p>⚠️ <strong>Important notice:</strong> These are placeholder privacy policies for convenience. You should have these reviewed by a qualified solicitor or data protection officer before commercial use, particularly if processing employee or customer personal data at scale.</p>
+            <p>Related documents: <a href="/terms" className="text-primary hover:underline">Terms of Service</a> · <a href="/dpa" className="text-primary hover:underline">Data Processing Agreement</a></p>
           </div>
         </div>
       </div>
