@@ -749,13 +749,14 @@ const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; co
   water_mist:          { label: "Water Mist",            icon: Droplets,     color: "bg-sky-500/10 text-sky-700 border-sky-200" },
   hose_reel:           { label: "Hose Reel",             icon: Wrench,       color: "bg-slate-500/10 text-slate-700 border-slate-200" },
   fire_risk_assessment: { label: "Fire Risk Assessment", icon: Shield,       color: "bg-rose-500/10 text-rose-700 border-rose-200" },
+  installation:        { label: "Installation",          icon: FileText,     color: "bg-indigo-500/10 text-indigo-700 border-indigo-200" },
 };
 
 const CATEGORY_ORDER = [
   "dry_riser", "wet_riser", "fire_extinguisher", "fire_hydrant",
   "sprinkler", "fire_alarm", "emergency_lighting", "aov_smoke_control",
   "passive_fire", "gas_suppression", "kitchen_suppression", "water_mist",
-  "hose_reel", "fire_risk_assessment",
+  "hose_reel", "fire_risk_assessment", "installation",
 ];
 
 
