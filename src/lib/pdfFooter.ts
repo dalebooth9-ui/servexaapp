@@ -92,13 +92,16 @@ export function renderPdfSignatures(
   doc.setFont("helvetica", "bold");
   doc.text("Customer:", cx, sigY + 7);
   doc.setFont("helvetica", "normal");
-  doc.text(data.customerSig?.signer_name || data.customerName, cx + 18, sigY + 7);
+  const customerDisplayName = data.customerSig?.signer_name || data.customerName;
+  if (customerDisplayName) doc.text(customerDisplayName, cx + 18, sigY + 7);
   if (data.customerSig && sigImages[data.customerSig.id]) {
     doc.addImage(sigImages[data.customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
-  } else {
+  } else if (data.customerSig) {
+    // Has a sig record but image failed to load — show underline
     doc.text("Signature:", cx, sigY + 11);
     doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
   }
+  // If no customerSig record at all, omit the signature line entirely
 
   return sigY + 15;
 }
