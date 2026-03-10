@@ -199,7 +199,9 @@ export function drawCell(
     doc.setTextColor(...((opts.textColor ?? [0, 0, 0]) as [number, number, number]));
     const lines = splitCell(doc, text, cw, opts.bold);
     const textX = opts.center ? cx + cw / 2 : cx + RISK_PAD_H;
-    const textY = cy + RISK_PAD_V + RISK_LINE_H * 0.75;
+    // Vertically centre the text block within the cell to prevent clipping
+    const textBlockH = lines.length * RISK_LINE_H;
+    const textY = cy + (ch - textBlockH) / 2 + RISK_LINE_H * 0.75;
     doc.text(lines, textX, textY, opts.center ? { align: "center" } : {});
   }
 }
