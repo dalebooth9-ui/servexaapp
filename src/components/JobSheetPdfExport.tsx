@@ -295,10 +295,12 @@ export async function generateJobSheetPdf(
   }
 
   // --- Bottom stack layout (calculated from bottom up) ---
-  // margin(10) + footer box(9) + gap(3) + accred logos(14) + gap(4) + sigs(17)
-  const declarationFooterY = pageHeight - margin - 9;          // 278mm
-  const footerYForLogos    = declarationFooterY - 14 - 3;      // 261mm  (logos 14mm tall, 3mm gap)
-  const sigY = Math.max(y + 2, footerYForLogos - 17 - 2);      // 242mm  (sigs ~17mm tall, 2mm gap)
+  // addAccreditationLogosToAllPages internally does: rowY = footerY - logoH - 3
+  // So passing declarationFooterY places logos at declarationFooterY - logoH - 3
+  const logoH = 12;
+  const declarationFooterY = pageHeight - margin - 9;                    // e.g. 278mm
+  const logoRowY = declarationFooterY - logoH - 3;                       // e.g. 263mm
+  const sigY = Math.max(y + 2, logoRowY - 18);                           // e.g. 245mm (18mm for sig block)
 
   const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
@@ -324,7 +326,8 @@ export async function generateJobSheetPdf(
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 14);
+  // Pass declarationFooterY so internal calc places logos at: declarationFooterY - logoH - 3 = logoRowY
+  addAccreditationLogosToAllPages(doc, accredLogos, declarationFooterY, logoH);
 
   const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
