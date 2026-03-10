@@ -126,14 +126,15 @@ export async function pageHeader(
     doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
+  // Right-side header text: only one subtitle line to avoid duplication
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(33, 61, 99);
-  doc.text(subtitle || "Method Statement & Risk Assessment", PAGE_W - MR, y + 5, { align: "right" });
+  const headerSubtitle = subtitle || "Method Statement & Risk Assessment";
+  doc.text(headerSubtitle, PAGE_W - MR, y + 6, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("Method Statement & Risk Assessment", PAGE_W - MR, y + 10, { align: "right" });
-  doc.text("Fire Protection Ltd", PAGE_W - MR, y + 14, { align: "right" });
+  doc.text("VIVA Fire Protection Ltd", PAGE_W - MR, y + 11, { align: "right" });
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 17, 60);
   return y + 21;
