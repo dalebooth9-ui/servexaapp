@@ -280,7 +280,7 @@ export function renderFilledFieldRow(
     const displayVal = strVal === "yes" ? "YES" : strVal === "no" ? "NO" : strVal === "n/a" ? "N/A" : value ? String(value).toUpperCase() : "—";
     // Only colour NO red; YES stays neutral (only pass_fail "PASS" should be green)
     if (strVal === "no") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-    else if (strVal === "yes") { doc.setFont("helvetica", "bold"); }
+    // YES stays neutral weight — no bold
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {
     doc.text(value ? "✓ Captured" : "—", margin + colSplit + 1, y + 3);
