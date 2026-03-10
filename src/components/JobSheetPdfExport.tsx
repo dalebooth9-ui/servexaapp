@@ -244,7 +244,8 @@ export async function generateJobSheetPdf(
 
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
-  const footerSpace = 50;
+  // Bottom stack (from bottom up): margin(10) + footer box(9) + gap(3) + accred logos(14) + gap(4) + sigs(17) = 57mm
+  const footerSpace = 57;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
   const sections = getSections(template.fields);
@@ -293,10 +294,12 @@ export async function generateJobSheetPdf(
     y += Math.max(4, wrappedMaterials.length * 3) + 1;
   }
 
-  // --- Signature blocks ---
-  // sigY must sit above logos (footerYForLogos ≈ pageHeight - margin - 9 - 12 - 3 = 263mm)
-  // Sigs are ~15mm tall, so anchor them at pageHeight - footerSpace (= 297 - 44 = 253mm)
-  const sigY = Math.max(y + 2, pageHeight - footerSpace + 2);
+  // --- Bottom stack layout (calculated from bottom up) ---
+  // margin(10) + footer box(9) + gap(3) + accred logos(14) + gap(4) + sigs(17)
+  const declarationFooterY = pageHeight - margin - 9;          // 278mm
+  const footerYForLogos    = declarationFooterY - 14 - 3;      // 261mm  (logos 14mm tall, 3mm gap)
+  const sigY = Math.max(y + 2, footerYForLogos - 17 - 2);      // 242mm  (sigs ~17mm tall, 2mm gap)
+
   const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
 
   const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
@@ -305,7 +308,7 @@ export async function generateJobSheetPdf(
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
   const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
 
-  const footerY = renderPdfSignatures(doc, sigY, {
+  renderPdfSignatures(doc, sigY, {
     dateStr,
     technicianName: techName,
     customerName: jobInfo?.customers?.name || jobInfo?.customer || "",
@@ -314,8 +317,6 @@ export async function generateJobSheetPdf(
     customerSig,
   });
 
-  // Declaration footer sits at very bottom; logos sit just above it
-  const declarationFooterY = pageHeight - margin - 9;
   renderPdfFooter(doc, declarationFooterY, footerText);
 
   const [watermark, accredLogos] = await Promise.all([
@@ -323,9 +324,7 @@ export async function generateJobSheetPdf(
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-  // Logos: 12mm tall, 3mm gap above declaration footer
-  const footerYForLogos = declarationFooterY - 12 - 3;
-  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 12);
+  addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, 14);
 
   const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
