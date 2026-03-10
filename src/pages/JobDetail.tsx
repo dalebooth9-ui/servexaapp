@@ -708,11 +708,16 @@ export default function JobDetail() {
 
           <div className="flex items-center justify-between">
             <SubmissionFilters filters={filters} onChange={setFilters} engineers={engineers} />
-            {fileCount > 0 && (
-              <Button size="sm" variant="outline" onClick={handleBatchDownload} disabled={downloading}>
-                <Download className="mr-1.5 h-4 w-4" /> {downloading ? "Downloading..." : `Download ${fileCount} file(s)`}
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => setQrOpen(true)} title="Open job on mobile via QR code">
+                <QrCode className="h-4 w-4 mr-1.5" /> Upload via Mobile
               </Button>
-            )}
+              {fileCount > 0 && (
+                <Button size="sm" variant="outline" onClick={handleBatchDownload} disabled={downloading}>
+                  <Download className="mr-1.5 h-4 w-4" /> {downloading ? "Downloading..." : `Download ${fileCount} file(s)`}
+                </Button>
+              )}
+            </div>
           </div>
 
           <SubmissionList
@@ -725,6 +730,34 @@ export default function JobDetail() {
           />
         </CollapsibleContent>
       </Collapsible>
+
+      {/* QR Code Dialog for mobile upload */}
+      <QrDialog open={qrOpen} onOpenChange={setQrOpen}>
+        <QrDialogContent className="max-w-sm">
+          <QrDialogHeader>
+            <QrDialogTitle className="flex items-center gap-2">
+              <QrCode className="h-4 w-4 text-primary" /> Upload Photos from Mobile
+            </QrDialogTitle>
+          </QrDialogHeader>
+          <div className="flex flex-col items-center gap-4 py-2">
+            <p className="text-sm text-muted-foreground text-center">
+              Scan this QR code with your mobile device. Log in if prompted, then take or select photos to upload directly to this job.
+            </p>
+            <div className="rounded-xl border bg-white p-4 shadow-sm">
+              <QRCodeSVG value={jobUploadUrl} size={200} includeMargin={false} />
+            </div>
+            <p className="text-xs text-muted-foreground text-center break-all">{jobUploadUrl}</p>
+            <Button
+              size="sm"
+              variant="outline"
+              className="w-full"
+              onClick={() => { navigator.clipboard.writeText(jobUploadUrl); }}
+            >
+              Copy Link
+            </Button>
+          </div>
+        </QrDialogContent>
+      </QrDialog>
     </div>
 
     {/* Technician AI Assistant — floating on job detail for all roles */}
