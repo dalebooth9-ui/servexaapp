@@ -331,8 +331,38 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const engineerSig = (signatures || []).find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
       const customerSig = (signatures || []).find((s: any) => s.signer_role === "customer");
 
-      // Load signature images
+      // Use extracted header values if available, fall back to job data
+      const sigDateStr = extractedHeader.date || new Date().toLocaleDateString("en-GB");
+      const techName = extractedHeader.engineer || jobInfo?.engineers?.join(", ") || engineerSig?.signer_name || "";
+
+      // Load signature images — prefer profile signature matched by extracted engineer name
       const sigImages: Record<string, HTMLImageElement> = {};
+
+      // Try to load profile signature for the technician (by extracted name or assigned engineer)
+      let profileSigId: string | null = null;
+      let profileSigImg: HTMLImageElement | null = null;
+      if (techName) {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("user_id, signature_data")
+          .ilike("full_name", `%${techName.split(" ")[0]}%`)
+          .limit(1)
+          .maybeSingle();
+        if (profileData?.signature_data) {
+          const img = new Image();
+          await new Promise<void>((resolve) => {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+            img.src = profileData.signature_data;
+          });
+          if (img.naturalWidth > 0) {
+            profileSigId = `profile-${profileData.user_id}`;
+            profileSigImg = img;
+            sigImages[profileSigId] = img;
+          }
+        }
+      }
+
       for (const sig of [engineerSig, customerSig].filter(Boolean)) {
         if (!sig) continue;
         try {
@@ -350,18 +380,22 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         } catch { /* skip */ }
       }
 
+      // Resolve the engineer sig to use: prefer job signature, fall back to profile
+      const resolvedEngineerSig = engineerSig
+        ? engineerSig
+        : profileSigId
+        ? { id: profileSigId, signer_name: techName, signer_role: "engineer" }
+        : null;
+
       // --- SIGNATURE BLOCKS on last page ---
-      const dateStr2 = new Date().toLocaleDateString("en-GB");
       const sigY = pageHeight - 35;
 
-      const techName = jobInfo?.engineers?.length ? jobInfo.engineers.join(", ") : (engineerSig?.signer_name || "");
-
       const footerStartY = renderPdfSignatures(doc, sigY, {
-        dateStr: dateStr2,
+        dateStr: sigDateStr,
         technicianName: techName,
         customerName,
         sigImages,
-        engineerSig,
+        engineerSig: resolvedEngineerSig,
         customerSig,
       });
 
