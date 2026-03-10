@@ -336,10 +336,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
-      // --- Fetch job signatures (include signature_data for inline base64 sigs) ---
+      // --- Fetch job signatures ---
       const { data: signatures } = await supabase
         .from("job_signatures")
-        .select("id, signer_name, signer_role, file_path, signature_data")
+        .select("id, signer_name, signer_role, file_path")
         .eq("job_id", jobId);
 
       const engineerSig = (signatures || []).find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
