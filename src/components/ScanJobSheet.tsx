@@ -391,11 +391,11 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const sigY = pageHeight - 35;
 
       const footerStartY = renderPdfSignatures(doc, sigY, {
-        dateStr: dateStr2,
+        dateStr: sigDateStr,
         technicianName: techName,
         customerName,
         sigImages,
-        engineerSig,
+        engineerSig: resolvedEngineerSig,
         customerSig,
       });
 
