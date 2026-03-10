@@ -186,18 +186,22 @@ export async function generateJobSheetPdf(
   };
 
   const customerName = findFormVal("customer detail", "customer name", "client") || jobInfo?.customers?.name || jobInfo?.customer || "";
-  const siteFormVal = findFormVal("site detail", "site info", "site name", "site address");
+  const siteFormVal = findFormVal("site detail", "site info", "site name", "site address", "location");
   const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
   const siteName = jobInfo?.site?.name || "";
+  // Also try to pull site from the job address if no site linked
+  const siteDisplay = siteFormVal || siteName || siteAddress || jobInfo?.address || "";
   const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
   const dateVal = formData["date"] || formData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-  const riserLocValue = riserField && formData[riserField.id] ? String(formData[riserField.id]) : "";
+  const riserLocValue = riserField && formData[riserField.id]
+    ? String(formData[riserField.id])
+    : (jobInfo?.site as any)?.riser_location || "";
 
   let y = await renderPdfHeader(doc, template.name, branding, {
     customerName,
-    siteName: siteFormVal || siteName,
-    siteAddress: siteFormVal ? "" : siteAddress,
+    siteName: siteDisplay,
+    siteAddress: "",
     refNumber,
     dateVal,
     riserLocation: riserLocValue,
@@ -214,9 +218,10 @@ export async function generateJobSheetPdf(
     doc.setFontSize(7.5);
     doc.setTextColor(...accentColor);
     doc.text(`Service Scope: `, margin, y + 3.5);
+    const labelWidth = doc.getTextWidth("Service Scope: ");
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
-    doc.text(scopeParts, margin + doc.getTextWidth("Service Scope: "), y + 3.5);
+    doc.text(scopeParts, margin + labelWidth, y + 3.5);
     y += 6;
   }
 
