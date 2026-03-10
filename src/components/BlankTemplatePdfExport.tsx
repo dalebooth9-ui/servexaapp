@@ -88,9 +88,8 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
-      // Customer logo always takes priority over the template's stored branding logo
-      const customerLogoUrl: string | null = jobInfo?.customers?.logo_url || null;
-      const branding = { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
+      const customerLogoUrl = jobInfo?.customers?.logo_url || null;
+      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
@@ -156,43 +155,75 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
           const sectionFields = getSectionFields(template.fields, section, skipIds);
           if (sectionFields.length === 0) continue;
 
-          // Render "Pressure Test Results" as a single compact inline row
+          // Render "Pressure Test Results" as a compact inline row (wraps to new lines if too wide)
           if (section.toLowerCase().includes("pressure test result")) {
             const inlineH = layout.rowH;
-            if (y + layout.sectionHeaderH + inlineH > pageHeight - footerSpace) {
+            const rightEdge = margin + maxWidth;
+
+            // Pre-calculate rows by wrapping fields that would overflow
+            type InlineRow = { field: (typeof sectionFields)[0]; x: number }[];
+            const rows: InlineRow[] = [];
+            let currentRow: InlineRow = [];
+            let ox = margin + 1;
+
+            for (const field of sectionFields) {
+              doc.setFontSize(7);
+              doc.setFont("helvetica", "bold");
+              const labelW = doc.getTextWidth(field.label) + 1;
+              let fieldW = labelW;
+              if (field.type === "pass_fail") fieldW += 32;
+              else if (field.type === "number") fieldW += 14;
+              else if (field.type === "select" && field.options) {
+                for (const opt of field.options) fieldW += 4 + doc.getTextWidth(opt) + 2;
+                fieldW += 4;
+              }
+              fieldW += 2; // gap
+
+              if (ox + fieldW > rightEdge - 1 && currentRow.length > 0) {
+                rows.push(currentRow);
+                currentRow = [];
+                ox = margin + 1;
+              }
+              currentRow.push({ field, x: ox });
+              ox += fieldW;
+            }
+            if (currentRow.length > 0) rows.push(currentRow);
+
+            const totalH = rows.length * inlineH;
+            if (y + layout.sectionHeaderH + totalH > pageHeight - footerSpace) {
               doc.addPage();
               y = margin;
             }
             y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false });
-            doc.setDrawColor(180);
-            doc.rect(margin, y, maxWidth, inlineH);
-            doc.setFontSize(7);
-            let ox = margin + 1;
-            for (const field of sectionFields) {
-              doc.setFont("helvetica", "bold");
-              doc.text(field.label, ox, y + 3.5);
-              ox += doc.getTextWidth(field.label) + 1;
-              if (field.type === "pass_fail") {
+
+            for (const row of rows) {
+              doc.setDrawColor(180);
+              doc.rect(margin, y, maxWidth, inlineH);
+              doc.setFontSize(7);
+              for (const { field, x: startX } of row) {
+                let ox2 = startX;
+                doc.setFont("helvetica", "bold");
+                doc.text(field.label, ox2, y + 3.5);
+                ox2 += doc.getTextWidth(field.label) + 1;
                 doc.setFont("helvetica", "normal");
-                doc.rect(ox, y + 1, 3, 3); doc.text("P", ox + 4, y + 3.5);
-                doc.rect(ox + 10, y + 1, 3, 3); doc.text("F", ox + 14, y + 3.5);
-                doc.rect(ox + 20, y + 1, 3, 3); doc.text("N/A", ox + 24, y + 3.5);
-                ox += 32;
-              } else if (field.type === "number") {
-                doc.line(ox, y + 3.5, ox + 10, y + 3.5);
-                ox += 12;
-              } else if (field.type === "select" && field.options) {
-                doc.setFont("helvetica", "normal");
-                for (const opt of field.options) {
-                  doc.rect(ox, y + 1, 3, 3);
-                  doc.text(opt, ox + 4, y + 3.5);
-                  ox += 4 + doc.getTextWidth(opt) + 2;
+                if (field.type === "pass_fail") {
+                  doc.rect(ox2, y + 1, 3, 3); doc.text("P", ox2 + 4, y + 3.5);
+                  doc.rect(ox2 + 10, y + 1, 3, 3); doc.text("F", ox2 + 14, y + 3.5);
+                  doc.rect(ox2 + 20, y + 1, 3, 3); doc.text("N/A", ox2 + 24, y + 3.5);
+                } else if (field.type === "number") {
+                  doc.line(ox2, y + 3.5, ox2 + 10, y + 3.5);
+                } else if (field.type === "select" && field.options) {
+                  for (const opt of field.options) {
+                    const optLabel = opt.length > 8 ? opt.slice(0, 7) + "…" : opt;
+                    doc.rect(ox2, y + 1, 3, 3);
+                    doc.text(optLabel, ox2 + 4, y + 3.5);
+                    ox2 += 4 + doc.getTextWidth(optLabel) + 2;
+                  }
                 }
-                ox += 2;
               }
-              ox += 2;
+              y += inlineH;
             }
-            y += inlineH + 1;
+            y += 1;
             continue;
           }
 

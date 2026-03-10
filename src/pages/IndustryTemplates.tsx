@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText } from "lucide-react";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import { RamsType } from "@/lib/ramsDefaults";
 
 // ─── Industry-standard template definitions ──────────────────────────────────
 
@@ -24,26 +26,39 @@ type IndustryTemplate = {
   name: string;
   standard: string;
   description: string;
-  category: "dry_riser" | "fire_extinguisher" | "fire_hydrant" | "sprinkler";
-  job_category?: string; // override for more specific job type matching
+  category: string;
+  job_category?: string;
   fields: FieldDef[];
 };
 
+const SITE_DETAIL_FIELDS: FieldDef[] = [
+  { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
+  { id: "site_address", label: "Site Address", type: "textarea", section: "Site Details", required: true },
+  { id: "reference", label: "Reference / Job Number", type: "text", section: "Site Details", required: true },
+  { id: "date", label: "Inspection Date", type: "date", section: "Site Details", required: true },
+  { id: "engineer", label: "Engineer Name", type: "text", section: "Site Details", required: true },
+];
+
+const RESULT_FIELDS: FieldDef[] = [
+  { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
+  { id: "remedial_required", label: "Remedial Action Required", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+  { id: "comments", label: "Comments / Defects", type: "textarea", section: "Result", required: false },
+];
+
 const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
-  // ── DRY RISER ───────────────────────────────────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════
+  // DRY RISER
+  // ══════════════════════════════════════════════════════════
   {
     id: "dr-pressure-test",
     name: "Dry Riser — Annual Pressure Test",
-    standard: "BS EN 9990",
-    description: "Full 12-bar pressure test with flow and outlet checks, as required annually under BS EN 9990.",
+    standard: "BS 9990:2015",
+    description: "Full 12-bar pressure test with flow and outlet checks, as required annually under BS 9990:2015.",
     category: "dry_riser",
     fields: [
-      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
-      { id: "site_address", label: "Site Address", type: "textarea", section: "Site Details", required: true },
-      { id: "reference", label: "Reference / Job Number", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "riser_location", label: "Riser Location", type: "text", section: "Site Details", required: false },
-      { id: "date", label: "Inspection Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Engineer Name", type: "text", section: "Site Details", required: true },
       { id: "riser_type", label: "Riser Type", type: "select", section: "System Details", required: true, options: ["Wet", "Dry"] },
       { id: "no_of_outlets", label: "Number of Outlets", type: "number", section: "System Details", required: true },
       { id: "inlet_breeching", label: "Inlet Breeching Condition", type: "select", section: "Inlet Checks", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
@@ -59,26 +74,47 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "test_result", label: "Pressure Test Result", type: "pass_fail", section: "Pressure Test Results", required: true },
       { id: "signage_visible", label: "Signage Visible & Correct", type: "select", section: "General Checks", required: true, options: ["Yes", "No"] },
       { id: "access_clear", label: "Access / Clearance Adequate", type: "select", section: "General Checks", required: true, options: ["Yes", "No"] },
-      { id: "remedial_required", label: "Remedial Action Required", type: "select", section: "General Checks", required: true, options: ["Yes", "No"] },
-      { id: "remedial_details", label: "Remedial Action Details", type: "textarea", section: "General Checks", required: false },
-      { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
-      { id: "comments", label: "Comments / Observations", type: "textarea", section: "Result", required: false },
-      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015 — Dry Riser Systems — Code of Practice for the use of dry riser systems", type: "checkbox", section: "Declaration", required: true },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+  {
+    id: "dr-visual-live",
+    name: "Dry Riser — Visual Inspection",
+    standard: "BS 9990:2015",
+    description: "Visual inspection of dry riser system covering external and internal equipment checks per BS 9990:2015.",
+    category: "dry_riser",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "riser_location", label: "Riser Location", type: "text", section: "Site Details", required: false },
+      { id: "cabinet_keys", label: "Cabinet Key Type", type: "text", section: "External Equipment", required: true },
+      { id: "breeching_inlet_condition", label: "BS9990:2015 7.4.3.1 Breeching Inlet Condition", type: "select", section: "External Equipment", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "breeching_blank_plug", label: "Blank Plug & Chain Present", type: "select", section: "External Equipment", required: true, options: ["Yes", "No"] },
+      { id: "breeching_glass", label: "Breeching Inlet Glass Condition", type: "select", section: "External Equipment", required: true, options: ["Satisfactory", "Broken", "N/A"] },
+      { id: "signage_in_place", label: "BS9990:2015 8.1 All Relevant Signs in Place", type: "select", section: "External Equipment", required: true, options: ["Yes", "No"] },
+      { id: "breeching_cabinet", label: "Breeching Inlet Cabinet Condition", type: "select", section: "External Equipment", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+      { id: "external_result", label: "External Equipment Result", type: "pass_fail", section: "External Equipment", required: true },
+      { id: "no_of_outlets", label: "Number of Outlets", type: "number", section: "Internal Equipment", required: true },
+      { id: "landing_valve_condition", label: "Landing Valve Condition", type: "select", section: "Internal Equipment", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "landing_valve_cap", label: "Landing Valve Blank Cap & Chain", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No"] },
+      { id: "washers_condition", label: "Instantaneous Washers Condition", type: "select", section: "Internal Equipment", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "padlock_strap", label: "BS9990:2015 4.1.5 Padlock & Strap", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "outlet_cabinets", label: "Outlet Cabinets Condition", type: "select", section: "Internal Equipment", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+      { id: "internal_result", label: "Internal Equipment Result", type: "pass_fail", section: "Internal Equipment", required: true },
+      { id: "air_release_valve", label: "Air Release Valve at Highest Point", type: "select", section: "Air Release Valve", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "air_release_condition", label: "Air Release Valve Condition", type: "select", section: "Air Release Valve", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+      ...RESULT_FIELDS,
     ],
   },
   {
     id: "dr-commissioning",
     name: "Dry Riser — Commissioning Certificate",
-    standard: "BS EN 9990",
+    standard: "BS 9990:2015",
     description: "New installation commissioning record confirming system is fit for purpose before handover.",
     category: "dry_riser",
     job_category: "dry_riser_installation",
     fields: [
-      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
-      { id: "site_address", label: "Site Address", type: "textarea", section: "Site Details", required: true },
-      { id: "reference", label: "Job / Certificate Reference", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Commissioning Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Commissioning Engineer", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "installer_company", label: "Installing Company", type: "text", section: "Installation Details", required: true },
       { id: "riser_type", label: "Riser Type", type: "select", section: "Installation Details", required: true, options: ["Wet", "Dry"] },
       { id: "number_of_floors", label: "Number of Floors", type: "number", section: "Installation Details", required: true },
@@ -92,155 +128,143 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "test_duration", label: "Duration (minutes)", type: "number", section: "Pressure Test", required: true },
       { id: "pressure_drop", label: "Pressure Drop (bar)", type: "number", section: "Pressure Test", required: true },
       { id: "test_result", label: "Pressure Test Result", type: "pass_fail", section: "Pressure Test", required: true },
-      { id: "overall_result", label: "System Commissioned & Accepted", type: "pass_fail", section: "Result", required: true },
-      { id: "comments", label: "Additional Notes", type: "textarea", section: "Result", required: false },
-      { id: "bs_declaration", label: "This commissioning has been carried out in accordance with BS 9990:2015 — Dry Riser Systems — Code of Practice for the use of dry riser systems", type: "checkbox", section: "Declaration", required: true },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This commissioning has been carried out in accordance with BS 9990:2015", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // WET RISER
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "wr-annual",
+    name: "Wet Riser — Annual Service & Test",
+    standard: "BS 9990:2015",
+    description: "Annual service and pressure test of wet riser systems including pump test and landing valve checks.",
+    category: "wet_riser",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "system_ref", label: "System Reference", type: "text", section: "System Details", required: true },
+      { id: "no_of_landing_valves", label: "Number of Landing Valves", type: "number", section: "System Details", required: true },
+      { id: "pump_set", label: "Pump Set Manufacturer / Model", type: "text", section: "System Details", required: false },
+      { id: "pump_start_test", label: "Pump Auto-Start Test", type: "pass_fail", section: "Pump Checks", required: true },
+      { id: "pump_duty_pressure", label: "Pump Duty Pressure (bar)", type: "number", section: "Pump Checks", required: true },
+      { id: "pump_standby_ok", label: "Standby Pump Operational", type: "select", section: "Pump Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "jockey_pump_ok", label: "Jockey Pump Operational", type: "select", section: "Pump Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "tank_level", label: "Break Tank Level Adequate", type: "select", section: "Pump Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "landing_valves_ok", label: "All Landing Valves Operational", type: "select", section: "Landing Valve Checks", required: true, options: ["Yes", "No"] },
+      { id: "hose_reels_ok", label: "Hose Reels Present & Serviceable", type: "select", section: "Landing Valve Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "signage_ok", label: "Signage Correct & Visible", type: "select", section: "Landing Valve Checks", required: true, options: ["Yes", "No"] },
+      { id: "test_pressure", label: "System Test Pressure (bar)", type: "number", section: "Pressure Test", required: true },
+      { id: "test_duration", label: "Duration (minutes)", type: "number", section: "Pressure Test", required: true },
+      { id: "pressure_drop", label: "Pressure Drop (bar)", type: "number", section: "Pressure Test", required: true },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 9990:2015 — Code of Practice for the Use of Fire-Fighting Water Systems (Wet Riser)", type: "checkbox", section: "Declaration", required: true },
     ],
   },
   {
-    id: "dr-visual-live",
-    name: "Dry Riser Visual",
+    id: "wr-visual",
+    name: "Wet Riser — Visual Inspection",
     standard: "BS 9990:2015",
-    description: "Visual inspection of dry riser system covering external and internal equipment checks per BS 9990:2015.",
-    category: "dry_riser",
+    description: "Routine visual check of wet riser components, valves, signage and pump room.",
+    category: "wet_riser",
     fields: [
-      { id: "scope_of_work", label: "Scope of works:", type: "select", section: "Site Details", required: true, options: ["Pressure Test", "Visual"] },
-      { id: "customer_details", label: "Customer Details:", type: "text", section: "Site Details", required: true },
-      { id: "site_details", label: "Site Details:", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Date:", type: "date", section: "Site Details", required: true },
-      { id: "po_number", label: "PO Number:", type: "text", section: "Site Details", required: true },
-      { id: "riser_location", label: "Riser Location:", type: "text", section: "Site Details", required: true },
-      { id: "cabinet_keys", label: "Cabinet key type:", type: "text", section: "External Equipment", required: true },
-      { id: "breeching_inlet_good_condition", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet in good condition?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "breeching_inlet_blank_plug_chain", label: "BS9990:2015 7.4.3.1 Does the breeching inlet have a blank plug & chain?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "breeching_inlet_glass_good_condition", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet glass in good condition?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "relevant_signs_in_place", label: "BS9990:2015 8.1 Are all relevant signs in place?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "breeching_inlet_cabinet_good_condition", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet cabinet in good condition?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "external_equipment_pass", label: "External equipment:", type: "pass_fail", section: "External Equipment", required: true },
-      { id: "number_of_outlets", label: "Number of outlets:", type: "number", section: "Internal Equipment", required: true },
-      { id: "landing_valve_good_condition", label: "BS9990:2015 7.4.3.1 Is the landing valve in good condition?", type: "checkbox", section: "Internal Equipment", required: true },
-      { id: "landing_valve_blank_cap_chain", label: "BS9990:2015 7.4.3.1 Does the landing valve have a blank cap & chain?", type: "checkbox", section: "Internal Equipment", required: true },
-      { id: "instantaneous_washers", label: "BS9990:2015 7.4.3.1 Are the instantaneous washers in good condition?", type: "checkbox", section: "Internal Equipment", required: true },
-      { id: "landing_valve_padlock_strap", label: "BS9990:2015 4.1.5 Does the landing valve have a padlock & strap?", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
-      { id: "outlet_cabinets_condition", label: "BS9990:2015 4.1.5 Outlet cabinets in good condition?", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
-      { id: "internal_equipment_pass", label: "Internal equipment:", type: "pass_fail", section: "Internal Equipment", required: true },
-      { id: "air_release_valve_vertical_point", label: "BS9990:2015 4.1.3.4 Is an air release valve installed at the most vertical point of the riser?", type: "checkbox", section: "Air Release Valve", required: true },
-      { id: "air_release_valve_good_condition", label: "BS9990:2015 4.1.3.4 Is the air release valve in good condition?", type: "checkbox", section: "Air Release Valve", required: true },
-      { id: "site_left_clean_tidy", label: "Site left clean & tidy?", type: "checkbox", section: "Result", required: true },
-      { id: "customer_name", label: "Customer Name:", type: "text", section: "Result", required: true },
-      { id: "comments", label: "Comments:", type: "textarea", section: "Result", required: true },
-      { id: "materials_required", label: "Materials required:", type: "textarea", section: "Result", required: true },
+      ...SITE_DETAIL_FIELDS,
+      { id: "pump_room_access", label: "Pump Room Access Clear", type: "select", section: "Pump Room", required: true, options: ["Yes", "No"] },
+      { id: "pump_condition", label: "Pump Set Condition", type: "select", section: "Pump Room", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "no_leaks", label: "No Visible Leaks", type: "select", section: "Pump Room", required: true, options: ["Yes — no leaks", "No — leaks found"] },
+      { id: "no_of_landing_valves", label: "Number of Landing Valves", type: "number", section: "Riser Checks", required: true },
+      { id: "landing_valves_condition", label: "Landing Valves Condition", type: "select", section: "Riser Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "hose_reels_present", label: "Hose Reels Present & Undamaged", type: "select", section: "Riser Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "cabinets_condition", label: "Valve Cabinets Condition", type: "select", section: "Riser Checks", required: true, options: ["Satisfactory", "Damaged", "N/A"] },
+      { id: "signage_ok", label: "Signage Visible & Correct", type: "select", section: "Riser Checks", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015 — Code of Practice for the Use of Fire-Fighting Water Systems (Wet Riser)", type: "checkbox", section: "Declaration", required: true },
     ],
   },
-  {
-    id: "dr-pressure-test-live",
-    name: "Dry Riser Pressure Test",
-    standard: "BS 9990:2015",
-    description: "Pressure test of dry riser system with full internal and external equipment checks per BS 9990:2015.",
-    category: "dry_riser",
-    fields: [
-      { id: "scope_of_work", label: "Scope of Work:", type: "select", section: "Site Details", required: true, options: ["Pressure Test", "Visual"] },
-      { id: "customer_details", label: "Customer Details:", type: "text", section: "Site Details", required: true },
-      { id: "site_details", label: "Site Details:", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Date:", type: "date", section: "Site Details", required: true },
-      { id: "po_number", label: "PO Number:", type: "text", section: "Site Details", required: true },
-      { id: "riser_location", label: "Riser Location:", type: "text", section: "Site Details", required: true },
-      { id: "cabinet_keys", label: "Cabinet Keys:", type: "text", section: "External Equipment", required: true },
-      { id: "breeching_inlet_good_condition", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet in good condition?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "breeching_inlet_blank_plug_chain", label: "BS9990:2015 7.4.3.1 Does the breeching inlet have a blank plug & chain?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "breeching_inlet_glass_good_condition", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet glass in good condition?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "relevant_signs_in_place", label: "BS9990:2015 8.1 Are all relevant signs in place?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "breeching_inlet_cabinet_good_condition", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet cabinet in good condition?", type: "checkbox", section: "External Equipment", required: true },
-      { id: "external_equipment_pass", label: "External equipment:", type: "pass_fail", section: "External Equipment", required: true },
-      { id: "number_of_outlets", label: "Number of outlets:", type: "number", section: "Internal Equipment", required: true },
-      { id: "landing_valve_good_condition", label: "BS9990:2015 7.4.3.1 Is the landing valve in good condition?", type: "checkbox", section: "Internal Equipment", required: true },
-      { id: "landing_valve_blank_cap_chain", label: "BS9990:2015 7.4.3.1 Does the landing valve have a blank cap & chain?", type: "checkbox", section: "Internal Equipment", required: true },
-      { id: "instantaneous_washers", label: "BS9990:2015 7.4.3.1 Are the instantaneous washers in good condition?", type: "checkbox", section: "Internal Equipment", required: true },
-      { id: "landing_valve_padlock_strap", label: "BS9990:2015 4.1.5 Does the landing valve have a padlock & strap?", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
-      { id: "outlet_cabinets_condition", label: "BS9990:2015 4.1.5 Outlet cabinets in good condition?", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
-      { id: "internal_equipment_pass", label: "Internal equipment:", type: "pass_fail", section: "Internal Equipment", required: true },
-      { id: "air_release_valve_vertical_point", label: "BS9990:2015 4.1.3.4 Is an air release valve installed at the most vertical point of the riser?", type: "checkbox", section: "Air Release Valve", required: true },
-      { id: "air_release_valve_good_condition", label: "BS9990:2015 4.1.3.4 Is the air release valve in good condition?", type: "checkbox", section: "Air Release Valve", required: true },
-      { id: "pump_pressure", label: "Pump Pressure (bar):", type: "number", section: "Pressure Test Results", required: true },
-      { id: "static_pressure", label: "Static Test Pressure (bar):", type: "number", section: "Pressure Test Results", required: true },
-      { id: "duration_mins", label: "Duration (minutes):", type: "number", section: "Pressure Test Results", required: true },
-      { id: "pressure_drop", label: "Pressure Drop (bar):", type: "number", section: "Pressure Test Results", required: true },
-      { id: "test_result", label: "Pressure Test Result:", type: "pass_fail", section: "Pressure Test Results", required: true },
-      { id: "site_left_clean_tidy", label: "Site left clean & tidy?", type: "checkbox", section: "Result", required: true },
-      { id: "customer_name", label: "Customer Name:", type: "text", section: "Result", required: true },
-      { id: "comments", label: "Comments:", type: "textarea", section: "Result", required: true },
-      { id: "materials_required", label: "Materials required:", type: "textarea", section: "Result", required: true },
-    ],
-  },
-  // ── FIRE EXTINGUISHER ───────────────────────────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════
+  // FIRE EXTINGUISHER
+  // ══════════════════════════════════════════════════════════
   {
     id: "fe-annual",
     name: "Fire Extinguisher — Annual Service",
-    standard: "BS 5306-3",
-    description: "Comprehensive annual service record for all extinguisher types per BS 5306-3.",
+    standard: "BS 5306-3:2017",
+    description: "Comprehensive annual service record for all extinguisher types per BS 5306-3:2017.",
     category: "fire_extinguisher",
     fields: [
-      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
-      { id: "site_address", label: "Site Address", type: "textarea", section: "Site Details", required: true },
-      { id: "reference", label: "Reference Number", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Service Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Technician Name", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "location", label: "Extinguisher Location", type: "text", section: "Extinguisher Details", required: true },
-      { id: "type", label: "Extinguisher Type", type: "select", section: "Extinguisher Details", required: true, options: ["Water", "Foam", "CO2", "Dry Powder", "Wet Chemical", "Halon"] },
+      { id: "type", label: "Extinguisher Type", type: "select", section: "Extinguisher Details", required: true, options: ["Water", "Foam (AFFF)", "CO2", "Dry Powder", "Wet Chemical", "Water Mist", "Halon"] },
       { id: "serial_number", label: "Serial Number", type: "text", section: "Extinguisher Details", required: true },
       { id: "manufacture_date", label: "Manufacture Date", type: "text", section: "Extinguisher Details", required: false },
-      { id: "capacity", label: "Capacity (kg/L)", type: "text", section: "Extinguisher Details", required: false },
+      { id: "capacity", label: "Capacity (kg / L)", type: "text", section: "Extinguisher Details", required: false },
       { id: "weight_check", label: "Weight / Pressure Correct", type: "select", section: "Service Checks", required: true, options: ["Yes", "No"] },
       { id: "pressure_indicator", label: "Pressure Indicator in Green Zone", type: "select", section: "Service Checks", required: true, options: ["Yes", "No", "N/A"] },
       { id: "safety_pin", label: "Safety Pin & Tamper Seal Present", type: "select", section: "Service Checks", required: true, options: ["Yes", "No"] },
       { id: "hose_horn", label: "Hose / Horn Undamaged", type: "select", section: "Service Checks", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
-      { id: "body_condition", label: "Body Condition (no corrosion/damage)", type: "select", section: "Service Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "body_condition", label: "Body Condition (no corrosion / damage)", type: "select", section: "Service Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
       { id: "service_label", label: "New Service Label Fitted", type: "select", section: "Service Checks", required: true, options: ["Yes", "No"] },
-      { id: "discharge_required", label: "Discharge / Extended Service Required", type: "select", section: "Service Checks", required: true, options: ["Yes", "No"] },
-      { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
+      { id: "discharge_required", label: "Discharge / Extended Service Required", type: "select", section: "Service Checks", required: true, options: ["No", "Yes — next year", "Yes — now"] },
+      ...RESULT_FIELDS,
       { id: "next_service_date", label: "Next Service Date", type: "date", section: "Result", required: false },
-      { id: "comments", label: "Comments", type: "textarea", section: "Result", required: false },
     ],
   },
   {
     id: "fe-extended",
     name: "Fire Extinguisher — Extended Service",
-    standard: "BS 5306-3",
-    description: "Extended service (5-year discharge/overhaul) record for water, foam, powder, and CO2 types.",
+    standard: "BS 5306-3:2017",
+    description: "5-year extended service / discharge and overhaul record per BS 5306-3:2017.",
     category: "fire_extinguisher",
     fields: [
-      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
-      { id: "reference", label: "Reference Number", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Service Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Technician Name", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "location", label: "Extinguisher Location", type: "text", section: "Extinguisher Details", required: true },
-      { id: "type", label: "Extinguisher Type", type: "select", section: "Extinguisher Details", required: true, options: ["Water", "Foam", "CO2", "Dry Powder", "Wet Chemical"] },
+      { id: "type", label: "Extinguisher Type", type: "select", section: "Extinguisher Details", required: true, options: ["Water", "Foam (AFFF)", "CO2", "Dry Powder", "Wet Chemical", "Water Mist"] },
       { id: "serial_number", label: "Serial Number", type: "text", section: "Extinguisher Details", required: true },
       { id: "date_last_extended", label: "Date of Last Extended Service", type: "text", section: "Extinguisher Details", required: false },
       { id: "internal_inspection", label: "Internal Inspection Carried Out", type: "select", section: "Extended Checks", required: true, options: ["Yes", "No"] },
       { id: "orings_replaced", label: "O-Rings / Seals Replaced", type: "select", section: "Extended Checks", required: true, options: ["Yes", "No", "N/A"] },
       { id: "recharged_weight", label: "Recharged to Correct Weight / Pressure", type: "select", section: "Extended Checks", required: true, options: ["Yes", "No"] },
-      { id: "body_test", label: "Body / Hydraulic Test Required", type: "select", section: "Extended Checks", required: true, options: ["Yes", "No"] },
+      { id: "body_test", label: "Hydraulic Body Test Required", type: "select", section: "Extended Checks", required: true, options: ["Yes", "No"] },
       { id: "body_test_result", label: "Hydraulic Test Result", type: "pass_fail", section: "Extended Checks", required: false },
       { id: "new_label_fitted", label: "Extended Service Label Fitted", type: "select", section: "Extended Checks", required: true, options: ["Yes", "No"] },
       { id: "condemned", label: "Extinguisher Condemned / Replaced", type: "select", section: "Extended Checks", required: true, options: ["No", "Condemned", "Replaced"] },
-      { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
+      ...RESULT_FIELDS,
       { id: "next_extended_date", label: "Next Extended Service Due", type: "text", section: "Result", required: false },
-      { id: "notes", label: "Notes", type: "textarea", section: "Result", required: false },
     ],
   },
-  // ── FIRE HYDRANT ────────────────────────────────────────────────────────────
+  {
+    id: "fe-new-install",
+    name: "Fire Extinguisher — Installation Record",
+    standard: "BS 5306-3:2017 / BS 5306-8",
+    description: "Record of new fire extinguisher installation including siting, type selection and commissioning.",
+    category: "fire_extinguisher",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "risk_class", label: "Fire Risk Class", type: "select", section: "Risk & Selection", required: true, options: ["Class A", "Class B", "Class C", "Class D", "Class F", "Electrical"] },
+      { id: "type_selected", label: "Extinguisher Type Selected", type: "select", section: "Risk & Selection", required: true, options: ["Water", "Foam (AFFF)", "CO2", "Dry Powder", "Wet Chemical", "Water Mist"] },
+      { id: "capacity", label: "Capacity (kg / L)", type: "text", section: "Risk & Selection", required: true },
+      { id: "quantity", label: "Quantity Installed", type: "number", section: "Risk & Selection", required: true },
+      { id: "location_description", label: "Installation Location", type: "text", section: "Installation", required: true },
+      { id: "height_installed", label: "Installed at Correct Height (max 1m handle)", type: "select", section: "Installation", required: true, options: ["Yes", "No"] },
+      { id: "visible_accessible", label: "Visible & Accessible", type: "select", section: "Installation", required: true, options: ["Yes", "No"] },
+      { id: "signage_fitted", label: "Identification Signage Fitted", type: "select", section: "Installation", required: true, options: ["Yes", "No"] },
+      { id: "service_label", label: "Service Label Fitted", type: "select", section: "Installation", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // FIRE HYDRANT
+  // ══════════════════════════════════════════════════════════
   {
     id: "fh-annual",
-    name: "Fire Hydrant — Annual Inspection",
-    standard: "BS 9990 / NFCC",
-    description: "Full annual inspection including flow test, pressure readings, and marker post check.",
+    name: "Fire Hydrant — Annual Inspection & Flow Test",
+    standard: "BS 9990:2015 / BS 750:2006",
+    description: "Full annual inspection including flow test, pressure readings, and marker post check per BS 9990:2015 and BS 750:2006.",
     category: "fire_hydrant",
     fields: [
-      { id: "site_name", label: "Site Name / Location", type: "text", section: "Site Details", required: true },
-      { id: "reference", label: "Hydrant Reference", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Inspection Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Inspector Name", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "hydrant_type", label: "Hydrant Type", type: "select", section: "Hydrant Details", required: true, options: ["Surface Box", "Pillar", "Underground"] },
       { id: "hydrant_location", label: "Exact Location / Map Reference", type: "text", section: "Hydrant Details", required: true },
       { id: "valve_condition", label: "Main Valve Condition", type: "select", section: "Inspection Checks", required: true, options: ["Satisfactory", "Stiff", "Leaking", "Inoperable"] },
@@ -252,15 +276,14 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "residual_pressure", label: "Residual Pressure at Flow (bar)", type: "number", section: "Flow Test", required: false },
       { id: "flow_rate", label: "Flow Rate (L/min)", type: "number", section: "Flow Test", required: false },
       { id: "flow_result", label: "Flow Test Result", type: "pass_fail", section: "Flow Test", required: true },
-      { id: "remedial_required", label: "Remedial Action Required", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
-      { id: "overall_result", label: "Overall Inspection Result", type: "pass_fail", section: "Result", required: true },
-      { id: "comments", label: "Comments / Remedial Details", type: "textarea", section: "Result", required: false },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015 and BS 750:2006 — Underground Fire Hydrants", type: "checkbox", section: "Declaration", required: true },
     ],
   },
   {
     id: "fh-biannual",
     name: "Fire Hydrant — Bi-Annual Visual Check",
-    standard: "BS 9990 / NFCC",
+    standard: "BS 9990:2015 / NFCC",
     description: "Bi-annual visual check confirming hydrant is accessible, signed, and undamaged.",
     category: "fire_hydrant",
     fields: [
@@ -272,26 +295,25 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "cover_lid", label: "Cover / Lid Condition", type: "select", section: "Visual Checks", required: true, options: ["Satisfactory", "Damaged", "Missing"] },
       { id: "access_obstruction", label: "Access Obstruction Present", type: "select", section: "Visual Checks", required: true, options: ["No", "Yes — minor", "Yes — major"] },
       { id: "visible_damage", label: "Visible Physical Damage", type: "select", section: "Visual Checks", required: true, options: ["None", "Minor", "Significant"] },
-      { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
-      { id: "comments", label: "Comments", type: "textarea", section: "Result", required: false },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015 — Code of Practice for the Use of Fire-Fighting Water Systems", type: "checkbox", section: "Declaration", required: true },
     ],
   },
-  // ── SPRINKLER ───────────────────────────────────────────────────────────────
+
+  // ══════════════════════════════════════════════════════════
+  // SPRINKLER SYSTEM
+  // ══════════════════════════════════════════════════════════
   {
     id: "sp-annual",
     name: "Sprinkler System — Annual Service",
-    standard: "BS EN 12845",
+    standard: "BS EN 12845:2015",
     description: "Full annual service including pump test, alarm valve checks, and flow test per BS EN 12845.",
     category: "sprinkler",
     fields: [
-      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
-      { id: "site_address", label: "Site Address", type: "textarea", section: "Site Details", required: true },
-      { id: "reference", label: "System Reference", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Service Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Engineer Name", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "system_type", label: "System Type", type: "select", section: "System Details", required: true, options: ["Wet", "Dry", "Alternate", "Pre-Action", "Deluge", "ESFR"] },
       { id: "number_of_heads", label: "Approximate Number of Heads", type: "number", section: "System Details", required: false },
-      { id: "water_supply", label: "Water Supply Check", type: "select", section: "System Details", required: true, options: ["Town Main", "Tank", "Reservoir", "Combined"] },
+      { id: "water_supply", label: "Water Supply Type", type: "select", section: "System Details", required: true, options: ["Town Main", "Tank", "Reservoir", "Combined"] },
       { id: "control_valve", label: "Control Valve Status", type: "select", section: "Valve Checks", required: true, options: ["Open", "Closed", "Locked Open"] },
       { id: "alarm_valve", label: "Alarm Valve Test", type: "pass_fail", section: "Valve Checks", required: true },
       { id: "pressure_gauge_1", label: "Supply Pressure Gauge (bar)", type: "number", section: "Pressure Readings", required: true },
@@ -300,24 +322,20 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "pump_pressure", label: "Pump Pressure at Test Flow (bar)", type: "number", section: "Pump / Flow", required: false },
       { id: "flow_test", label: "Flow Test Carried Out", type: "select", section: "Pump / Flow", required: true, options: ["Yes", "No"] },
       { id: "drain_test", label: "Drain Test Satisfactory", type: "select", section: "Pump / Flow", required: true, options: ["Yes", "No", "N/A"] },
-      { id: "heads_visual", label: "All Sprinkler Heads Visual Check", type: "select", section: "Visual Checks", required: true, options: ["Satisfactory", "Heads Obstructed", "Heads Corroded"] },
+      { id: "heads_visual", label: "Sprinkler Heads Visual Check", type: "select", section: "Visual Checks", required: true, options: ["Satisfactory", "Heads Obstructed", "Heads Corroded"] },
       { id: "pipework_condition", label: "Pipework Condition", type: "select", section: "Visual Checks", required: true, options: ["Satisfactory", "Corrosion Present", "Physical Damage"] },
-      { id: "system_restored", label: "System Fully Restored", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
-      { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
-      { id: "comments", label: "Comments / Defects", type: "textarea", section: "Result", required: false },
+      { id: "system_restored", label: "System Fully Restored After Test", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
     ],
   },
   {
     id: "sp-quarterly",
-    name: "Sprinkler System — Quarterly Inspection",
-    standard: "BS EN 12845",
-    description: "Routine quarterly inspection covering valve status, pressure gauges, and alarm test.",
+    name: "Sprinkler System — Bi-annual Inspection",
+    standard: "BS EN 12845:2015",
+    description: "Routine bi-annual inspection covering valve status, pressure gauges, and alarm test.",
     category: "sprinkler",
     fields: [
-      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
-      { id: "reference", label: "System Reference", type: "text", section: "Site Details", required: true },
-      { id: "date", label: "Inspection Date", type: "date", section: "Site Details", required: true },
-      { id: "engineer", label: "Engineer Name", type: "text", section: "Site Details", required: true },
+      ...SITE_DETAIL_FIELDS,
       { id: "system_type", label: "System Type", type: "select", section: "System Details", required: true, options: ["Wet", "Dry", "Alternate", "Pre-Action", "Deluge"] },
       { id: "control_valve_status", label: "Control Valve — Open & Secured", type: "select", section: "Checks", required: true, options: ["Yes", "No"] },
       { id: "pressure_gauges", label: "Pressure Gauges Within Range", type: "select", section: "Checks", required: true, options: ["Yes", "No"] },
@@ -325,28 +343,449 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "water_supply", label: "Water Supply Confirmed Available", type: "select", section: "Checks", required: true, options: ["Yes", "No"] },
       { id: "heads_clear", label: "Sprinkler Heads Unobstructed", type: "select", section: "Checks", required: true, options: ["Yes", "No"] },
       { id: "overall_condition", label: "Overall System Condition", type: "select", section: "Result", required: true, options: ["Good", "Fair", "Poor"] },
-      { id: "overall_result", label: "Inspection Result", type: "pass_fail", section: "Result", required: true },
-      { id: "comments", label: "Comments", type: "textarea", section: "Result", required: false },
+      ...RESULT_FIELDS,
+    ],
+  },
+  {
+    id: "sp-commissioning",
+    name: "Sprinkler System — Commissioning",
+    standard: "BS EN 12845:2015",
+    description: "Commissioning certificate for new or modified sprinkler installation.",
+    category: "sprinkler",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "installer", label: "Installing Company", type: "text", section: "System Details", required: true },
+      { id: "system_type", label: "System Type", type: "select", section: "System Details", required: true, options: ["Wet", "Dry", "Pre-Action", "Deluge", "ESFR"] },
+      { id: "hazard_class", label: "Hazard Classification", type: "select", section: "System Details", required: true, options: ["Light Hazard", "Ordinary Hazard Group 1", "Ordinary Hazard Group 2", "Extra Hazard Group 1", "Extra Hazard Group 2"] },
+      { id: "no_of_heads", label: "Total Number of Sprinkler Heads", type: "number", section: "System Details", required: true },
+      { id: "design_density", label: "Design Density (mm/min)", type: "number", section: "System Details", required: false },
+      { id: "hydraulic_calc", label: "Hydraulic Calculations Approved", type: "select", section: "Design Verification", required: true, options: ["Yes", "No"] },
+      { id: "third_party_cert", label: "Third Party Certification Provided", type: "select", section: "Design Verification", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "pump_test", label: "Pump Acceptance Test Satisfactory", type: "pass_fail", section: "Commissioning Tests", required: true },
+      { id: "alarm_valve_test", label: "Alarm Valve Test Satisfactory", type: "pass_fail", section: "Commissioning Tests", required: true },
+      { id: "flow_switch_test", label: "Flow Switch / Alarm Test", type: "pass_fail", section: "Commissioning Tests", required: true },
+      { id: "pressure_test", label: "System Pressure Test (bar)", type: "number", section: "Commissioning Tests", required: true },
+      { id: "system_flushed", label: "Pipework Flushed Before Commissioning", type: "select", section: "Commissioning Tests", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This commissioning has been carried out in accordance with BS EN 12845:2015 — Fixed Firefighting Systems — Design, Installation and Maintenance of Automatic Sprinkler Systems", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // FIRE ALARM
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "fa-periodic",
+    name: "Fire Alarm — Periodic Inspection & Test",
+    standard: "BS 5839-1:2017",
+    description: "Periodic inspection and testing of fire detection and alarm systems per BS 5839-1:2017.",
+    category: "fire_alarm",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "system_type", label: "System Category", type: "select", section: "System Details", required: true, options: ["Category L1", "Category L2", "Category L3", "Category L4", "Category L5", "Category M", "Category P1", "Category P2"] },
+      { id: "panel_manufacturer", label: "Control Panel Manufacturer", type: "text", section: "System Details", required: false },
+      { id: "panel_model", label: "Panel Model / Serial", type: "text", section: "System Details", required: false },
+      { id: "no_of_zones", label: "Number of Zones", type: "number", section: "System Details", required: true },
+      { id: "no_of_detectors", label: "Number of Detectors", type: "number", section: "System Details", required: true },
+      { id: "no_of_call_points", label: "Number of Manual Call Points", type: "number", section: "System Details", required: true },
+      { id: "panel_fault_free", label: "Control Panel — No Faults or Disablements", type: "select", section: "Panel Checks", required: true, options: ["Yes", "No"] },
+      { id: "battery_test", label: "Standby Battery Test Satisfactory", type: "select", section: "Panel Checks", required: true, options: ["Yes", "No"] },
+      { id: "battery_voltage", label: "Battery Voltage (V)", type: "number", section: "Panel Checks", required: false },
+      { id: "zones_tested", label: "All Zones Tested", type: "select", section: "Detector & Zone Tests", required: true, options: ["Yes", "No — partial"] },
+      { id: "detector_types_tested", label: "Detector Types Tested", type: "select", section: "Detector & Zone Tests", required: true, options: ["Smoke only", "Heat only", "Both smoke & heat", "Multi-sensor", "Beam detectors included"] },
+      { id: "call_points_tested", label: "Manual Call Points Tested", type: "select", section: "Detector & Zone Tests", required: true, options: ["All", "Sample", "None"] },
+      { id: "sounder_test", label: "Sounders / Beacons Satisfactory", type: "select", section: "Detector & Zone Tests", required: true, options: ["Yes", "No"] },
+      { id: "alarm_routing", label: "ARC / CIE Link Functional", type: "select", section: "Detector & Zone Tests", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "dirty_detectors", label: "Dirty / Defective Detectors Found", type: "select", section: "Detector & Zone Tests", required: true, options: ["None", "1–5", "6–10", "More than 10"] },
+      { id: "log_updated", label: "System Log Book Updated", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 5839-1:2017", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+  {
+    id: "fa-weekly",
+    name: "Fire Alarm — Weekly Test Record",
+    standard: "BS 5839-1:2017",
+    description: "Weekly call point test record as required by BS 5839-1:2017 clause 45.",
+    category: "fire_alarm",
+    fields: [
+      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
+      { id: "date", label: "Test Date", type: "date", section: "Site Details", required: true },
+      { id: "engineer", label: "Person Carrying Out Test", type: "text", section: "Site Details", required: true },
+      { id: "call_point_ref", label: "Call Point Reference Tested", type: "text", section: "Test Details", required: true },
+      { id: "zone", label: "Zone", type: "text", section: "Test Details", required: true },
+      { id: "alarm_activated", label: "Alarm Activated Throughout Building", type: "select", section: "Test Details", required: true, options: ["Yes", "No"] },
+      { id: "panel_response", label: "Panel Indicated Correct Zone", type: "select", section: "Test Details", required: true, options: ["Yes", "No"] },
+      { id: "arc_notified", label: "ARC / Monitoring Station Notified", type: "select", section: "Test Details", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "faults_found", label: "Any Faults Found", type: "select", section: "Test Details", required: true, options: ["No", "Yes — see comments"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This test has been carried out in accordance with BS 5839-1:2017 cl.45 — Weekly Test of Manual Call Points", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+  {
+    id: "fa-commissioning",
+    name: "Fire Alarm — Commissioning Certificate",
+    standard: "BS 5839-1:2017",
+    description: "Commissioning record for new fire alarm installation including verification of all devices.",
+    category: "fire_alarm",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "installer", label: "Installing Company", type: "text", section: "Installation Details", required: true },
+      { id: "system_category", label: "System Category", type: "select", section: "Installation Details", required: true, options: ["L1", "L2", "L3", "L4", "L5", "M", "P1", "P2"] },
+      { id: "panel_manufacturer", label: "Control Panel Manufacturer & Model", type: "text", section: "Installation Details", required: true },
+      { id: "no_zones", label: "Number of Zones", type: "number", section: "Installation Details", required: true },
+      { id: "no_detectors", label: "Total Detectors", type: "number", section: "Installation Details", required: true },
+      { id: "no_call_points", label: "Total Manual Call Points", type: "number", section: "Installation Details", required: true },
+      { id: "no_sounders", label: "Total Sounders / Beacons", type: "number", section: "Installation Details", required: true },
+      { id: "all_devices_verified", label: "All Devices Verified on Commission", type: "select", section: "Commissioning Tests", required: true, options: ["Yes", "No"] },
+      { id: "battery_backup", label: "Battery Backup Duration Tested (72hr standby)", type: "select", section: "Commissioning Tests", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "arc_connected", label: "ARC / Monitoring Connected & Tested", type: "select", section: "Commissioning Tests", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "cause_effect", label: "Cause & Effect Verified", type: "select", section: "Commissioning Tests", required: true, options: ["Yes", "No"] },
+      { id: "log_book_issued", label: "Log Book Issued to Responsible Person", type: "select", section: "Commissioning Tests", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This commissioning has been carried out in accordance with BS 5839-1:2017", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // EMERGENCY LIGHTING
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "el-annual",
+    name: "Emergency Lighting — Annual Full Duration Test",
+    standard: "BS 5266-1:2016",
+    description: "Annual 3-hour full duration test of emergency lighting installation per BS 5266-1:2016.",
+    category: "emergency_lighting",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "system_type", label: "System Type", type: "select", section: "System Details", required: true, options: ["Maintained", "Non-maintained", "Sustained", "Combined"] },
+      { id: "no_luminaires", label: "Total Number of Luminaires", type: "number", section: "System Details", required: true },
+      { id: "central_battery", label: "Central Battery System", type: "select", section: "System Details", required: true, options: ["Yes", "No — self-contained units"] },
+      { id: "test_duration", label: "Test Duration (hours)", type: "number", section: "Test Details", required: true },
+      { id: "test_start_time", label: "Test Start Time", type: "text", section: "Test Details", required: true },
+      { id: "all_luminaires_lit", label: "All Luminaires Illuminated During Test", type: "select", section: "Test Results", required: true, options: ["Yes", "No — see defects"] },
+      { id: "no_failed", label: "Number of Failed / Defective Units", type: "number", section: "Test Results", required: true },
+      { id: "failed_locations", label: "Failed Unit Locations", type: "textarea", section: "Test Results", required: false },
+      { id: "exit_signs_illuminated", label: "All Exit / Escape Route Signs Illuminated", type: "select", section: "Test Results", required: true, options: ["Yes", "No"] },
+      { id: "system_restored", label: "System Restored to Normal Mode After Test", type: "select", section: "Test Results", required: true, options: ["Yes", "No"] },
+      { id: "log_updated", label: "Log Book / Certificate Updated", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This test has been carried out in accordance with BS 5266-1:2016", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+  {
+    id: "el-monthly",
+    name: "Emergency Lighting — Monthly Flick Test",
+    standard: "BS 5266-1:2016",
+    description: "Monthly brief flick test to confirm emergency luminaires energise correctly.",
+    category: "emergency_lighting",
+    fields: [
+      { id: "site_name", label: "Site Name", type: "text", section: "Site Details", required: true },
+      { id: "date", label: "Test Date", type: "date", section: "Site Details", required: true },
+      { id: "engineer", label: "Person Carrying Out Test", type: "text", section: "Site Details", required: true },
+      { id: "no_luminaires", label: "Total Luminaires", type: "number", section: "Test Details", required: true },
+      { id: "all_energised", label: "All Units Energised on Test", type: "select", section: "Test Details", required: true, options: ["Yes", "No — failures found"] },
+      { id: "no_failed", label: "Number of Failures", type: "number", section: "Test Details", required: false },
+      { id: "failed_locations", label: "Failure Locations (if any)", type: "textarea", section: "Test Details", required: false },
+      ...RESULT_FIELDS,
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // AOV / SMOKE CONTROL
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "aov-annual",
+    name: "AOV / Smoke Control — Annual Service",
+    standard: "BS 7346-8:2013",
+    description: "Annual service and functional test of automatic opening vent and smoke control systems per BS 7346-8.",
+    category: "aov_smoke_control",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "system_type", label: "System Type", type: "select", section: "System Details", required: true, options: ["Natural AOV", "Mechanical Extract", "Combined", "Pressure Differential"] },
+      { id: "control_panel_make", label: "Control Panel Make / Model", type: "text", section: "System Details", required: false },
+      { id: "no_of_vents", label: "Number of Vents / Dampers", type: "number", section: "System Details", required: true },
+      { id: "panel_faults", label: "Control Panel — No Faults", type: "select", section: "Panel & Control Checks", required: true, options: ["Yes", "No"] },
+      { id: "battery_ok", label: "Backup Battery / Power Supply OK", type: "select", section: "Panel & Control Checks", required: true, options: ["Yes", "No"] },
+      { id: "manual_override", label: "Manual Override / Trigger Functional", type: "select", section: "Panel & Control Checks", required: true, options: ["Yes", "No"] },
+      { id: "auto_trigger", label: "Automatic Trigger (detector / alarm input) Tested", type: "select", section: "Panel & Control Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "vents_open_correctly", label: "All Vents / Dampers Open Correctly", type: "select", section: "Vent / Damper Checks", required: true, options: ["Yes", "No"] },
+      { id: "vents_close_correctly", label: "All Vents / Dampers Reset & Close Correctly", type: "select", section: "Vent / Damper Checks", required: true, options: ["Yes", "No"] },
+      { id: "actuators_ok", label: "Actuators / Motors Condition", type: "select", section: "Vent / Damper Checks", required: true, options: ["Satisfactory", "Worn", "Failed"] },
+      { id: "ductwork_clear", label: "Ductwork / Shafts Clear of Obstruction", type: "select", section: "Vent / Damper Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "system_reset", label: "System Reset to Normal After Test", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 7346-8:2013", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // PASSIVE FIRE PROTECTION
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "pfp-inspection",
+    name: "Passive Fire Protection — Inspection",
+    standard: "BS 9999:2017 / ASFP",
+    description: "Inspection of passive fire protection measures including fire doors, compartmentation, and intumescent seals.",
+    category: "passive_fire",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "area_inspected", label: "Area / Floor Inspected", type: "text", section: "Scope", required: true },
+      { id: "no_fire_doors", label: "Number of Fire Doors Inspected", type: "number", section: "Scope", required: true },
+      { id: "no_service_penetrations", label: "Number of Service Penetrations Inspected", type: "number", section: "Scope", required: true },
+      { id: "door_closers_ok", label: "Door Closers Functioning on All Doors", type: "select", section: "Fire Doors", required: true, options: ["Yes", "No — failures", "N/A"] },
+      { id: "door_seals_ok", label: "Intumescent Seals & Smoke Seals Intact", type: "select", section: "Fire Doors", required: true, options: ["Yes", "No — defects found"] },
+      { id: "door_gaps_ok", label: "Gaps Within Tolerance (max 3mm sides/top, 8mm base)", type: "select", section: "Fire Doors", required: true, options: ["Yes", "No — excessive gaps"] },
+      { id: "door_certification", label: "Door Certification / Labelling Present", type: "select", section: "Fire Doors", required: true, options: ["Yes", "No", "Partial"] },
+      { id: "no_doors_failed", label: "Number of Doors with Defects", type: "number", section: "Fire Doors", required: false },
+      { id: "service_seals_ok", label: "Service Penetration Seals Intact & Correctly Applied", type: "select", section: "Compartmentation", required: true, options: ["Yes", "No — defects found"] },
+      { id: "bulkheads_ok", label: "Fire Walls / Bulkheads Unbreached", type: "select", section: "Compartmentation", required: true, options: ["Yes", "No — breaches found"] },
+      { id: "cavity_barriers", label: "Cavity Barriers in Place (where required)", type: "select", section: "Compartmentation", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "defect_schedule", label: "Defect Schedule / Remediation Required", type: "textarea", section: "Result", required: false },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9999:2017 — Fire Safety in the Design, Management and Use of Buildings", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+  {
+    id: "pfp-fire-door-survey",
+    name: "Fire Door Survey",
+    standard: "BS 8214:2016 / BS EN 1634-1",
+    description: "Individual fire door survey and assessment in accordance with BS 8214:2016 and BS EN 1634-1.",
+    category: "passive_fire",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "door_ref", label: "Door Reference / Number", type: "text", section: "Door Details", required: true },
+      { id: "door_location", label: "Door Location", type: "text", section: "Door Details", required: true },
+      { id: "fire_rating", label: "Required Fire Rating", type: "select", section: "Door Details", required: true, options: ["FD30", "FD30S", "FD60", "FD60S", "FD90", "FD120", "Unknown"] },
+      { id: "door_type", label: "Door Type", type: "select", section: "Door Details", required: true, options: ["Single leaf", "Double leaf", "Sliding", "Roller shutter"] },
+      { id: "label_present", label: "Certification Label / Third-Party Mark Present", type: "select", section: "Assessment", required: true, options: ["Yes", "No"] },
+      { id: "frame_condition", label: "Frame Condition", type: "select", section: "Assessment", required: true, options: ["Satisfactory", "Minor defects", "Major defects"] },
+      { id: "leaf_condition", label: "Leaf / Panel Condition", type: "select", section: "Assessment", required: true, options: ["Satisfactory", "Minor defects", "Major defects"] },
+      { id: "intumescent_seal", label: "Intumescent Seal Present & Continuous", type: "select", section: "Assessment", required: true, options: ["Yes", "No", "Partial"] },
+      { id: "smoke_seal", label: "Smoke Seal Present (FD_S rating)", type: "select", section: "Assessment", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "closer_present", label: "Self-Closing Device Fitted", type: "select", section: "Assessment", required: true, options: ["Yes", "No"] },
+      { id: "closer_functional", label: "Self-Closer Functional (door closes & latches)", type: "select", section: "Assessment", required: true, options: ["Yes", "No"] },
+      { id: "gap_top", label: "Gap — Top (mm)", type: "number", section: "Gap Measurements", required: false },
+      { id: "gap_hinge", label: "Gap — Hinge Side (mm)", type: "number", section: "Gap Measurements", required: false },
+      { id: "gap_latch", label: "Gap — Latch Side (mm)", type: "number", section: "Gap Measurements", required: false },
+      { id: "gap_threshold", label: "Gap — Threshold (mm)", type: "number", section: "Gap Measurements", required: false },
+      { id: "hold_open_device", label: "Hold-Open Device Fitted (if applicable)", type: "select", section: "Hardware", required: true, options: ["No", "Yes — acoustic", "Yes — electromagnetic", "Yes — manual"] },
+      { id: "hinges_ok", label: "Hinges — Minimum 3, Correctly Fitted", type: "select", section: "Hardware", required: true, options: ["Yes", "No"] },
+      { id: "action_required", label: "Action Required", type: "select", section: "Result", required: true, options: ["None", "Maintenance", "Replace components", "Replace door"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This survey has been carried out in accordance with BS 8214:2016 — Timber-Based Fire Door Assemblies and BS EN 1634-1 — Fire Resistance and Smoke Control Tests", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // GAS SUPPRESSION
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "gas-annual",
+    name: "Gas Suppression System — Annual Service",
+    standard: "ISO 14520 / BS EN 15004",
+    description: "Annual service of gaseous fire suppression systems (CO2, FM-200, Novec, Inergen, Argonite) per ISO 14520.",
+    category: "gas_suppression",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "agent_type", label: "Suppression Agent", type: "select", section: "System Details", required: true, options: ["CO2", "FM-200 (HFC-227ea)", "Novec 1230 (FK-5-1-12)", "Inergen (IG-541)", "Argonite (IG-55)", "Other inert gas"] },
+      { id: "protected_area", label: "Protected Area / Room", type: "text", section: "System Details", required: true },
+      { id: "no_of_cylinders", label: "Number of Cylinders", type: "number", section: "System Details", required: true },
+      { id: "cylinder_weights", label: "All Cylinder Weights / Pressures Within Tolerance (±5%)", type: "select", section: "Cylinder Checks", required: true, options: ["Yes", "No — low agent found"] },
+      { id: "cylinder_condition", label: "Cylinder Condition — No Corrosion / Physical Damage", type: "select", section: "Cylinder Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "valve_condition", label: "Cylinder Valves & Actuators Condition", type: "select", section: "Cylinder Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "discharge_nozzles", label: "Discharge Nozzles Unobstructed", type: "select", section: "Distribution", required: true, options: ["Yes", "No"] },
+      { id: "pipe_condition", label: "Pipework Condition — No Damage or Corrosion", type: "select", section: "Distribution", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "control_panel_faults", label: "Control Panel — No Faults", type: "select", section: "Control & Detection", required: true, options: ["Yes", "No"] },
+      { id: "detectors_tested", label: "Detectors Tested Satisfactory", type: "select", section: "Control & Detection", required: true, options: ["Yes", "No"] },
+      { id: "abort_override", label: "Abort / Manual Override Functional", type: "select", section: "Control & Detection", required: true, options: ["Yes", "No"] },
+      { id: "room_integrity", label: "Room Integrity — Door / Damper Seals OK", type: "select", section: "Control & Detection", required: true, options: ["Satisfactory", "Compromised"] },
+      { id: "pre_discharge_alarm", label: "Pre-Discharge Warning Devices Tested", type: "select", section: "Control & Detection", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "iso_declaration", label: "This service has been carried out in accordance with ISO 14520 / BS EN 15004", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // KITCHEN SUPPRESSION
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "kitchen-annual",
+    name: "Kitchen Suppression — Annual Service",
+    standard: "BS EN 15493:2009",
+    description: "Annual service of commercial kitchen fire suppression system (wet chemical / CO2) per BS EN 15493:2009.",
+    category: "kitchen_suppression",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "system_make", label: "System Make / Model", type: "text", section: "System Details", required: true },
+      { id: "agent_type", label: "Suppression Agent", type: "select", section: "System Details", required: true, options: ["Wet Chemical (Class F)", "CO2", "Dry Chemical", "Water Mist"] },
+      { id: "protected_appliances", label: "Protected Cooking Appliances", type: "textarea", section: "System Details", required: true },
+      { id: "cylinder_weight", label: "Cylinder Weight / Charge Within Tolerance", type: "select", section: "Cylinder & Agent", required: true, options: ["Yes", "No"] },
+      { id: "cylinder_condition", label: "Cylinder Condition", type: "select", section: "Cylinder & Agent", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "fusible_links", label: "Fusible Links Replaced / Within Date", type: "select", section: "Detection", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "detectors_ok", label: "Automatic Detectors Tested (if fitted)", type: "select", section: "Detection", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "manual_pull", label: "Manual Pull Station / Remote Actuator Tested", type: "select", section: "Detection", required: true, options: ["Yes", "No"] },
+      { id: "nozzles_ok", label: "All Nozzles Unobstructed & Correct Position", type: "select", section: "Distribution", required: true, options: ["Yes", "No"] },
+      { id: "nozzle_caps", label: "Nozzle Caps / Blow-Off Caps in Place", type: "select", section: "Distribution", required: true, options: ["Yes", "No"] },
+      { id: "gas_isolation", label: "Fuel Gas Isolation Device Functional", type: "select", section: "Interlocks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "ventilation_interlock", label: "Ventilation Interlock Functional", type: "select", section: "Interlocks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "ansul_tag", label: "New Service Tag Fitted", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This service has been carried out in accordance with BS EN 15493:2009 — Kitchen Fire Suppression Systems", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // FIRE RISK ASSESSMENT
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "pas79-fra",
+    name: "Fire Risk Assessment — PAS 79 Compliant",
+    standard: "PAS 79:2020",
+    description: "Full fire risk assessment structured to comply with PAS 79:2020, the UK code of practice.",
+    category: "fire_risk_assessment",
+    fields: [
+      { id: "premises_name", label: "Premises Name", type: "text", section: "Premises Details", required: true },
+      { id: "premises_address", label: "Premises Address", type: "textarea", section: "Premises Details", required: true },
+      { id: "premises_type", label: "Premises Type", type: "select", section: "Premises Details", required: true, options: ["Office", "Retail", "Industrial / Warehouse", "Healthcare", "Educational", "Residential — HMO", "Residential — Purpose Built", "Hospitality", "Licensed Premises", "Other"] },
+      { id: "floors", label: "Number of Storeys", type: "number", section: "Premises Details", required: true },
+      { id: "approx_floor_area", label: "Approximate Floor Area (m²)", type: "number", section: "Premises Details", required: false },
+      { id: "occupants_max", label: "Maximum Occupancy", type: "number", section: "Premises Details", required: true },
+      { id: "sleeping_risk", label: "Sleeping Risk Present", type: "select", section: "Premises Details", required: true, options: ["Yes", "No"] },
+      { id: "responsible_person", label: "Responsible Person (Name & Role)", type: "text", section: "Responsible Person", required: true },
+      { id: "assessor_name", label: "Assessor Name", type: "text", section: "Assessment Details", required: true },
+      { id: "assessor_company", label: "Assessor Company", type: "text", section: "Assessment Details", required: true },
+      { id: "assessment_date", label: "Date of Assessment", type: "date", section: "Assessment Details", required: true },
+      { id: "next_review_date", label: "Next Review Date", type: "date", section: "Assessment Details", required: true },
+      { id: "ignition_sources", label: "Ignition Sources Identified", type: "textarea", section: "Fire Hazards", required: true },
+      { id: "fuel_sources", label: "Fuel Sources Identified", type: "textarea", section: "Fire Hazards", required: true },
+      { id: "escape_routes_adequate", label: "Escape Routes Adequate & Unobstructed", type: "select", section: "Means of Escape", required: true, options: ["Yes", "No", "Improvement Required"] },
+      { id: "emergency_lighting", label: "Emergency Lighting Installed & Tested", type: "select", section: "Means of Escape", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "exit_signage", label: "Fire Exit Signage Correct & Visible", type: "select", section: "Means of Escape", required: true, options: ["Yes", "No", "Partially"] },
+      { id: "assembly_point", label: "Assembly Point Designated & Signed", type: "select", section: "Means of Escape", required: true, options: ["Yes", "No"] },
+      { id: "detection_system", label: "Fire Detection System Type", type: "select", section: "Fire Detection & Warning", required: true, options: ["Automatic — L1", "Automatic — L2", "Automatic — M", "Automatic — P1", "Automatic — P2", "Manual only", "None"] },
+      { id: "detection_maintained", label: "Detection System Maintained (BS 5839-1)", type: "select", section: "Fire Detection & Warning", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "alarm_audible", label: "Alarm Audible Throughout Premises", type: "select", section: "Fire Detection & Warning", required: true, options: ["Yes", "No"] },
+      { id: "extinguishers_present", label: "Portable Fire Extinguishers Present", type: "select", section: "Fire Fighting Equipment", required: true, options: ["Yes", "No"] },
+      { id: "extinguishers_maintained", label: "Extinguishers Maintained (BS 5306-3)", type: "select", section: "Fire Fighting Equipment", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "hose_reels", label: "Hose Reels / Risers Present", type: "select", section: "Fire Fighting Equipment", required: false, options: ["Yes", "No", "N/A"] },
+      { id: "fire_policy_in_place", label: "Written Fire Safety Policy in Place", type: "select", section: "Fire Safety Management", required: true, options: ["Yes", "No"] },
+      { id: "fire_drill_date", label: "Date of Last Fire Drill", type: "text", section: "Fire Safety Management", required: false },
+      { id: "staff_training", label: "Staff Fire Safety Training Up to Date", type: "select", section: "Fire Safety Management", required: true, options: ["Yes", "No", "Partially"] },
+      { id: "fire_log_maintained", label: "Fire Safety Log Book Maintained", type: "select", section: "Fire Safety Management", required: true, options: ["Yes", "No"] },
+      { id: "overall_risk_rating", label: "Overall Risk Rating", type: "select", section: "Risk Rating & Outcome", required: true, options: ["Trivial", "Tolerable", "Moderate", "Substantial", "Intolerable"] },
+      { id: "action_plan_required", label: "Action Plan Required", type: "select", section: "Risk Rating & Outcome", required: true, options: ["Yes — Immediate", "Yes — Within 1 month", "Yes — Within 3 months", "No"] },
+      { id: "action_plan_details", label: "Action Plan / Recommendations", type: "textarea", section: "Risk Rating & Outcome", required: false },
+      { id: "pas79_declaration", label: "This assessment has been carried out in accordance with PAS 79:2020", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // FIRE SUPPRESSION — WATER MIST
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "wm-annual",
+    name: "Water Mist System — Annual Service",
+    standard: "BS 8489:2016",
+    description: "Annual service and test of water mist fire suppression systems per BS 8489:2016.",
+    category: "water_mist",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "system_type", label: "System Type", type: "select", section: "System Details", required: true, options: ["High pressure", "Intermediate pressure", "Low pressure"] },
+      { id: "protected_area", label: "Protected Area", type: "text", section: "System Details", required: true },
+      { id: "no_nozzles", label: "Total Number of Nozzles", type: "number", section: "System Details", required: true },
+      { id: "water_supply_ok", label: "Water Supply Adequate & Operational", type: "select", section: "Water Supply", required: true, options: ["Yes", "No"] },
+      { id: "tank_level", label: "Storage Tank Level Satisfactory", type: "select", section: "Water Supply", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "pump_test", label: "Pump Test Satisfactory", type: "pass_fail", section: "Pump Checks", required: true },
+      { id: "system_pressure", label: "System Operating Pressure (bar)", type: "number", section: "Pump Checks", required: true },
+      { id: "nozzles_clear", label: "All Nozzles Unobstructed", type: "select", section: "Nozzle Checks", required: true, options: ["Yes", "No"] },
+      { id: "nozzle_condition", label: "Nozzle Condition", type: "select", section: "Nozzle Checks", required: true, options: ["Satisfactory", "Corroded / damaged"] },
+      { id: "control_panel_ok", label: "Control Panel — No Faults", type: "select", section: "Control", required: true, options: ["Yes", "No"] },
+      { id: "system_restored", label: "System Fully Restored After Test", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 8489:2016 — Fixed Fire Protection Systems — Water Mist Systems", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
+  // HOSE REEL
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "hr-annual",
+    name: "Hose Reel — Annual Inspection & Test",
+    standard: "BS 5306-1:2006 / BS EN 671-1:2012",
+    description: "Annual inspection and flow test of fixed hose reel installations per BS 5306-1:2006 and BS EN 671-1:2012.",
+    category: "hose_reel",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "no_of_reels", label: "Number of Hose Reels Inspected", type: "number", section: "System Details", required: true },
+      { id: "reel_location", label: "Reel Location(s)", type: "text", section: "System Details", required: true },
+      { id: "hose_condition", label: "Hose Condition — No Perishing / Damage", type: "select", section: "Inspection Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
+      { id: "reel_swings_freely", label: "Reel Swings Freely Through 180°", type: "select", section: "Inspection Checks", required: true, options: ["Yes", "No"] },
+      { id: "nozzle_ok", label: "Nozzle — Jet / Spray / Off Positions Functional", type: "select", section: "Inspection Checks", required: true, options: ["Yes", "No"] },
+      { id: "shutoff_valve", label: "Stop Valve Open & Operational", type: "select", section: "Inspection Checks", required: true, options: ["Yes", "No"] },
+      { id: "flow_test", label: "Flow Test Carried Out", type: "select", section: "Flow Test", required: true, options: ["Yes", "No"] },
+      { id: "flow_result", label: "Flow Test Result", type: "pass_fail", section: "Flow Test", required: true },
+      { id: "signage_ok", label: "Signage Present & Correct", type: "select", section: "Inspection Checks", required: true, options: ["Yes", "No"] },
+      { id: "cabinet_ok", label: "Cabinet / Recess in Good Condition", type: "select", section: "Inspection Checks", required: true, options: ["Yes", "No", "N/A"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 5306-1:2006 / BS EN 671-1:2012 — Fixed Firefighting Systems — Hose Systems", type: "checkbox", section: "Declaration", required: true },
     ],
   },
 ];
 
 const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  dry_riser: { label: "Dry Riser", icon: Droplets, color: "bg-accent/20 text-accent-foreground border-accent/30" },
-  fire_extinguisher: { label: "Fire Extinguisher", icon: Flame, color: "bg-destructive/10 text-destructive border-destructive/20" },
-  fire_hydrant: { label: "Fire Hydrant", icon: Wrench, color: "bg-secondary text-secondary-foreground border-border" },
-  sprinkler: { label: "Sprinkler", icon: Shield, color: "bg-primary/10 text-primary border-primary/20" },
+  dry_riser:           { label: "Dry Riser",            icon: Droplets,     color: "bg-blue-500/10 text-blue-700 border-blue-200" },
+  wet_riser:           { label: "Wet Riser",             icon: Droplets,     color: "bg-cyan-500/10 text-cyan-700 border-cyan-200" },
+  fire_extinguisher:   { label: "Fire Extinguisher",     icon: Flame,        color: "bg-destructive/10 text-destructive border-destructive/20" },
+  fire_hydrant:        { label: "Fire Hydrant",          icon: Wrench,       color: "bg-secondary text-secondary-foreground border-border" },
+  sprinkler:           { label: "Sprinkler",             icon: Droplets,     color: "bg-primary/10 text-primary border-primary/20" },
+  fire_alarm:          { label: "Fire Alarm",            icon: Zap,          color: "bg-yellow-500/10 text-yellow-700 border-yellow-200" },
+  emergency_lighting:  { label: "Emergency Lighting",    icon: Eye,          color: "bg-amber-500/10 text-amber-700 border-amber-200" },
+  aov_smoke_control:   { label: "AOV / Smoke Control",  icon: Wind,         color: "bg-teal-500/10 text-teal-700 border-teal-200" },
+  passive_fire:        { label: "Passive Fire",          icon: Shield,       color: "bg-orange-500/10 text-orange-700 border-orange-200" },
+  gas_suppression:     { label: "Gas Suppression",       icon: AlertTriangle, color: "bg-purple-500/10 text-purple-700 border-purple-200" },
+  kitchen_suppression: { label: "Kitchen Suppression",   icon: Flame,        color: "bg-red-500/10 text-red-700 border-red-200" },
+  water_mist:          { label: "Water Mist",            icon: Droplets,     color: "bg-sky-500/10 text-sky-700 border-sky-200" },
+  hose_reel:           { label: "Hose Reel",             icon: Wrench,       color: "bg-slate-500/10 text-slate-700 border-slate-200" },
+  fire_risk_assessment: { label: "Fire Risk Assessment", icon: Shield,       color: "bg-rose-500/10 text-rose-700 border-rose-200" },
 };
 
-const CATEGORY_ORDER = ["dry_riser", "fire_extinguisher", "fire_hydrant", "sprinkler"];
+const CATEGORY_ORDER = [
+  "dry_riser", "wet_riser", "fire_extinguisher", "fire_hydrant",
+  "sprinkler", "fire_alarm", "emergency_lighting", "aov_smoke_control",
+  "passive_fire", "gas_suppression", "kitchen_suppression", "water_mist",
+  "hose_reel", "fire_risk_assessment",
+];
+
+
 
 export default function IndustryTemplates() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [importing, setImporting] = useState<string | null>(null);
   const [imported, setImported] = useState<Set<string>>(new Set());
+
+  // Map template category → RAMS type
+  const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
+    dry_riser: "dry_riser",
+    wet_riser: "wet_riser",
+    fire_extinguisher: "fire_extinguisher",
+    fire_hydrant: "fire_hydrant",
+    sprinkler: "sprinkler",
+    fire_alarm: "fire_alarm",
+    emergency_lighting: "emergency_lighting",
+    aov_smoke_control: "aov_smoke_control",
+    passive_fire: "passive_fire",
+    gas_suppression: "gas_suppression",
+    kitchen_suppression: "kitchen_suppression",
+    water_mist: "water_mist",
+    hose_reel: "hose_reel",
+    fire_risk_assessment: "fire_risk_assessment",
+  };
 
   const filtered = INDUSTRY_TEMPLATES.filter((t) => {
     const matchesSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.standard.toLowerCase().includes(search.toLowerCase());
@@ -392,6 +831,9 @@ export default function IndustryTemplates() {
         </p>
       </div>
 
+
+
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1 max-w-sm">
@@ -429,7 +871,14 @@ export default function IndustryTemplates() {
       {Object.keys(grouped).length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
           <Search className="h-8 w-8 mb-3 opacity-40" />
-          <p className="text-sm">No templates match your search.</p>
+          <p className="text-sm font-medium">No templates match your search.</p>
+          <p className="text-xs mt-1 opacity-70">Try a different keyword or clear the category filter.</p>
+          <button
+            onClick={() => { setSearch(""); setActiveCategory("all"); }}
+            className="mt-4 text-xs text-primary hover:underline"
+          >
+            Clear filters
+          </button>
         </div>
       ) : (
         Object.entries(grouped).map(([cat, templates]) => {
@@ -461,7 +910,7 @@ export default function IndustryTemplates() {
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-foreground leading-snug">{tpl.name}</p>
-                          <Badge variant="outline" className="text-xs shrink-0 font-bold">{tpl.standard}</Badge>
+                          <span title={tpl.standard} className="text-[10px] shrink-0 font-semibold border rounded px-1.5 py-0.5 bg-secondary text-muted-foreground border-border truncate max-w-[110px] cursor-default">{tpl.standard.split(" — ")[0]}</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                           {tpl.description.split(/(BS(?:\s+EN)?\s+[\d][\d\-.:]*(?::\d{4})?)/g).map((part, i) =>
@@ -476,6 +925,18 @@ export default function IndustryTemplates() {
                         {/* Blank PDF download */}
                         <BlankTemplatePdfExport template={mockTemplate} jobInfo={null} />
                         <span className="text-xs text-muted-foreground">Blank PDF</span>
+
+                        {/* Create RAMS */}
+                        {CATEGORY_TO_RAMS_TYPE[tpl.category] && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs gap-1.5"
+                            onClick={() => navigate(`/rams/new?type=${CATEGORY_TO_RAMS_TYPE[tpl.category]}`)}
+                          >
+                            <FileText className="h-3.5 w-3.5" /> RAMS
+                          </Button>
+                        )}
 
                         {/* Import as editable template */}
                         <Button

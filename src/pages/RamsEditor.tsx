@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -20,9 +20,19 @@ import RamsPdfExport from "@/components/RamsPdfExport";
 
 const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   dry_riser: "Dry Riser",
+  wet_riser: "Wet Riser",
   sprinkler: "Sprinkler",
   fire_extinguisher: "Fire Extinguisher",
   fire_hydrant: "Fire Hydrant",
+  fire_alarm: "Fire Alarm",
+  emergency_lighting: "Emergency Lighting",
+  aov_smoke_control: "AOV / Smoke Control",
+  passive_fire: "Passive Fire Protection",
+  gas_suppression: "Gas Suppression",
+  kitchen_suppression: "Kitchen Suppression",
+  water_mist: "Water Mist",
+  hose_reel: "Hose Reel",
+  fire_risk_assessment: "Fire Risk Assessment",
   installation: "Installation",
 };
 
@@ -180,6 +190,7 @@ function RiskRowEditor({
 
 export default function RamsEditor() {
   const { jobId, ramsId } = useParams<{ jobId: string; ramsId?: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -192,8 +203,9 @@ export default function RamsEditor() {
 
   useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
 
-  // Form state
-  const [ramsType, setRamsType] = useState<RamsType>("dry_riser");
+  // Form state — honour ?type= query param for pre-selection from Industry Templates
+  const queryType = searchParams.get("type") as RamsType | null;
+  const [ramsType, setRamsType] = useState<RamsType>(queryType ?? "dry_riser");
   const [coverFields, setCoverFields] = useState({
     contractJobName: "", assessmentDate: new Date().toLocaleDateString("en-GB"),
     client: "", attendanceDate: "", siteLocation: "",
@@ -212,7 +224,13 @@ export default function RamsEditor() {
 
   // Load job and existing RAMS doc
   useEffect(() => {
-    if (!jobId) return;
+    // If no jobId, we're coming from Industry Templates — just load defaults for the query type
+    if (!jobId) {
+      const type = queryType ?? "dry_riser";
+      loadDefaults(type);
+      setLoading(false);
+      return;
+    }
     const load = async () => {
       setLoading(true);
       const [{ data: jobData }, { data: ramsData }] = await Promise.all([
@@ -247,12 +265,18 @@ export default function RamsEditor() {
         setPpeItems(d.ppe_items || []);
         setRiskRows(d.risk_rows || []);
       } else {
-        // Determine type from job category
-        let type: RamsType = "dry_riser";
-        if (jobData?.category === "sprinkler") type = "sprinkler";
-        else if (jobData?.category === "fire_extinguisher") type = "fire_extinguisher";
-        else if (jobData?.category === "fire_hydrant") type = "fire_hydrant";
-        else if (jobData?.category === "installation") type = "installation";
+        // Auto-detect type from job category (all categories)
+        const catMap: Record<string, RamsType> = {
+          dry_riser: "dry_riser", wet_riser: "wet_riser",
+          sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
+          fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
+          emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
+          passive_fire: "passive_fire", gas_suppression: "gas_suppression",
+          kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
+          hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
+          installation: "installation",
+        };
+        const type: RamsType = (jobData?.category && catMap[jobData.category]) || queryType || "dry_riser";
         loadDefaults(type, jobData);
       }
       setIsDirty(false);
