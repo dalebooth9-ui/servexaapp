@@ -92,23 +92,40 @@ export async function generateJobSheetPdf(
   const signatures = (sigData || []) as any[];
   const sigImages: Record<string, HTMLImageElement> = {};
 
-  // If no job-specific engineer signature, pull profile signature from assigned engineers
+  // If no job-specific engineer signature, pull profile signature from the submitting engineer (matched by name)
   const hasEngineerSig = signatures.some((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
   if (!hasEngineerSig) {
-    const { data: assigns } = await supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId).limit(1);
-    if (assigns && assigns.length > 0) {
-      const { data: prof } = await supabase.from("profiles").select("user_id, full_name, signature_data").eq("user_id", assigns[0].engineer_id).single();
-      if ((prof as any)?.signature_data) {
-        // Inject a synthetic signature record so existing render logic picks it up
-        signatures.unshift({
-          id: `profile-${prof!.user_id}`,
-          signer_id: prof!.user_id,
-          signer_name: prof!.full_name,
-          signer_role: "engineer",
-          file_path: null,
-          _profileSigData: (prof as any).signature_data,
-        });
+    // Try to find the profile of the submitting engineer by matching submittedBy name first
+    let submittingProfile: any = null;
+    if (submittedBy) {
+      const { data: profByName } = await supabase
+        .from("profiles")
+        .select("user_id, full_name, signature_data")
+        .ilike("full_name", submittedBy.trim())
+        .maybeSingle();
+      if (profByName) submittingProfile = profByName;
+    }
+    // Fall back to the engineer_id from the submission record itself
+    if (!submittingProfile) {
+      const { data: assigns } = await supabase.from("job_assignments").select("engineer_id, profiles(user_id, full_name, signature_data)").eq("job_id", jobId);
+      if (assigns && assigns.length > 0) {
+        // Prefer the one whose name matches submittedBy
+        const match = submittedBy
+          ? assigns.find((a: any) => a.profiles?.full_name?.toLowerCase() === submittedBy.toLowerCase())
+          : null;
+        const pick = match ?? assigns[0];
+        if (pick?.profiles) submittingProfile = pick.profiles;
       }
+    }
+    if (submittingProfile?.signature_data) {
+      signatures.unshift({
+        id: `profile-${submittingProfile.user_id}`,
+        signer_id: submittingProfile.user_id,
+        signer_name: submittingProfile.full_name,
+        signer_role: "engineer",
+        file_path: null,
+        _profileSigData: submittingProfile.signature_data,
+      });
     }
   }
 
@@ -286,7 +303,7 @@ export async function generateJobSheetPdf(
   const customerSig = signatures.find((s: any) => s.signer_role === "customer");
 
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
-  const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
+  const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
 
   const footerY = renderPdfSignatures(doc, sigY, {
     dateStr,
