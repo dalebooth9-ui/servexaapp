@@ -732,6 +732,35 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 5306-1:2006 / BS EN 671-1:2012 — Fixed Firefighting Systems — Hose Systems", type: "checkbox", section: "Declaration", required: true },
     ],
   },
+  // ══════════════════════════════════════════════════════════
+  // INSTALLATION RAMS
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "inst-rams",
+    name: "Dry Riser Installation — RAMS",
+    standard: "BS 9990:2015",
+    description: "Risk Assessment and Method Statement for dry riser system installation, covering working at height, silica dust/HAVS, and a 24-step task sequence in accordance with BS 9990:2015.",
+    category: "installation",
+    job_category: "dry_riser_installation",
+    fields: [
+      { id: "project_name", label: "Project / Contract Name", type: "text", section: "Project Details", required: true },
+      { id: "site_address", label: "Site Address", type: "textarea", section: "Project Details", required: true },
+      { id: "client_name", label: "Client Name", type: "text", section: "Project Details", required: true },
+      { id: "contract_manager", label: "Contract Manager", type: "text", section: "Project Details", required: true },
+      { id: "start_date", label: "Planned Start Date", type: "date", section: "Project Details", required: true },
+      { id: "no_of_systems", label: "Number of Dry Riser Systems", type: "number", section: "Scope of Works", required: true },
+      { id: "no_of_floors", label: "Number of Floors", type: "number", section: "Scope of Works", required: false },
+      { id: "description_of_work", label: "Description of Work", type: "textarea", section: "Scope of Works", required: true },
+      { id: "method_statement", label: "Method Statement", type: "textarea", section: "Method Statement", required: true },
+      { id: "working_at_height", label: "Working at Height Risk — Controlled", type: "select", section: "Risk Assessment", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "silica_dust", label: "Silica Dust / HAVS Risk — Controlled", type: "select", section: "Risk Assessment", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "ppe_required", label: "PPE Required", type: "textarea", section: "Risk Assessment", required: true },
+      { id: "emergency_plan", label: "Emergency & Evacuation Plan in Place", type: "select", section: "Risk Assessment", required: true, options: ["Yes", "No"] },
+      { id: "author_name", label: "Method Statement Written By", type: "text", section: "Authorisation", required: true },
+      { id: "review_date", label: "Review Date", type: "date", section: "Authorisation", required: false },
+      { id: "bs_declaration", label: "This RAMS has been prepared in accordance with BS 9990:2015", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
 ];
 
 const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
