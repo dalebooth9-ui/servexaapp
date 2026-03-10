@@ -50,11 +50,15 @@ export function hr(doc: jsPDF, y: number, color = 180): void {
 }
 
 export function labelValue(doc: jsPDF, label: string, value: string, x: number, y: number, labelW = 52): void {
+  const maxW = PAGE_W - MR - x - labelW - 1;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text(label, x, y);
   doc.setFont("helvetica", "normal");
-  doc.text(value, x + labelW, y);
+  if (value) {
+    const lines = doc.splitTextToSize(value, maxW);
+    doc.text(lines[0], x + labelW, y); // single line only — callers handle multi-line themselves
+  }
 }
 
 export function para(doc: jsPDF, text: string, x: number, y: number, maxW: number, size = 8.5): number {
