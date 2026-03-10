@@ -352,33 +352,20 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       // Load signature images — prefer profile signature matched by extracted engineer name
       const sigImages: Record<string, HTMLImageElement> = {};
 
-      // Helper: load an image from a data URL or signed storage URL
+      // Helper: load an image from a signed storage URL
       const loadSigImage = async (sig: any): Promise<void> => {
         try {
-          // 1. Inline base64 data (signature_data column)
-          if (sig.signature_data) {
-            const img = new Image();
+          if (!sig?.file_path) return;
+          const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
+          if (urlData?.signedUrl) {
+            const sigImg = new Image();
+            sigImg.crossOrigin = "anonymous";
             await new Promise<void>((resolve) => {
-              img.onload = () => resolve();
-              img.onerror = () => resolve();
-              img.src = sig.signature_data;
+              sigImg.onload = () => resolve();
+              sigImg.onerror = () => resolve();
+              sigImg.src = urlData.signedUrl;
             });
-            if (img.naturalWidth > 0) sigImages[sig.id] = img;
-            return;
-          }
-          // 2. File stored in signatures bucket (file_path column)
-          if (sig.file_path) {
-            const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
-            if (urlData?.signedUrl) {
-              const sigImg = new Image();
-              sigImg.crossOrigin = "anonymous";
-              await new Promise<void>((resolve) => {
-                sigImg.onload = () => resolve();
-                sigImg.onerror = () => resolve();
-                sigImg.src = urlData.signedUrl;
-              });
-              if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
-            }
+            if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
           }
         } catch { /* skip */ }
       };
