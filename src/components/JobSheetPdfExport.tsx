@@ -244,7 +244,8 @@ export async function generateJobSheetPdf(
 
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
-  const footerSpace = 50;
+  // Bottom stack (from bottom up): margin(10) + footer box(9) + gap(3) + accred logos(14) + gap(4) + sigs(17) = 57mm
+  const footerSpace = 57;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
   const sections = getSections(template.fields);
