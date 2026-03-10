@@ -364,16 +364,16 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       }
 
       for (const sig of [engineerSig, customerSig].filter(Boolean)) {
-        if (!sig) continue;
+        if (!sig?.file_path) continue;
         try {
-          const { data: urlData } = supabase.storage.from("signatures").getPublicUrl(sig.file_path);
-          if (urlData?.publicUrl) {
+          const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
+          if (urlData?.signedUrl) {
             const sigImg = new Image();
             sigImg.crossOrigin = "anonymous";
             await new Promise<void>((resolve) => {
               sigImg.onload = () => resolve();
               sigImg.onerror = () => resolve();
-              sigImg.src = urlData.publicUrl;
+              sigImg.src = urlData.signedUrl;
             });
             if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
           }
