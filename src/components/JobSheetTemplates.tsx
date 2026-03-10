@@ -106,18 +106,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
 
-  // Fetch all engineer names once for dynamic dropdown population
+  // Fetch all engineer + admin names once for dynamic dropdown population
   useEffect(() => {
     const fetchEngineers = async () => {
       const { data } = await supabase
         .from("user_roles")
         .select("user_id")
-        .eq("role", "engineer");
+        .in("role", ["engineer", "admin"]);
       if (data && data.length > 0) {
+        // De-duplicate user_ids (a user may have both roles)
+        const uniqueIds = [...new Set(data.map((r: any) => r.user_id))];
         const { data: profs } = await supabase
           .from("profiles")
           .select("full_name")
-          .in("user_id", data.map((r: any) => r.user_id));
+          .in("user_id", uniqueIds);
         setEngineerOptions(
           (profs || []).map((p: any) => p.full_name).filter(Boolean).sort()
         );

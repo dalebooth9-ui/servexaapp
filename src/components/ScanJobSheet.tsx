@@ -352,9 +352,26 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       // Load signature images — prefer profile signature matched by extracted engineer name
       const sigImages: Record<string, HTMLImageElement> = {};
 
+      // Helper: load an image from a signed storage URL
+      const loadSigImage = async (sig: any): Promise<void> => {
+        try {
+          if (!sig?.file_path) return;
+          const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
+          if (urlData?.signedUrl) {
+            const sigImg = new Image();
+            sigImg.crossOrigin = "anonymous";
+            await new Promise<void>((resolve) => {
+              sigImg.onload = () => resolve();
+              sigImg.onerror = () => resolve();
+              sigImg.src = urlData.signedUrl;
+            });
+            if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
+          }
+        } catch { /* skip */ }
+      };
+
       // Try to load profile signature for the technician (by extracted name or assigned engineer)
       let profileSigId: string | null = null;
-      let profileSigImg: HTMLImageElement | null = null;
       if (techName) {
         const { data: profileData } = await supabase
           .from("profiles")
@@ -371,28 +388,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
           });
           if (img.naturalWidth > 0) {
             profileSigId = `profile-${profileData.user_id}`;
-            profileSigImg = img;
             sigImages[profileSigId] = img;
           }
         }
       }
 
-      const sigsToLoad = [engineerSig, customerSig].filter((s): s is NonNullable<typeof s> => !!s?.file_path);
-      await Promise.all(sigsToLoad.map(async (sig) => {
-        try {
-          const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path!, 3600);
-          if (urlData?.signedUrl) {
-            const sigImg = new Image();
-            sigImg.crossOrigin = "anonymous";
-            await new Promise<void>((resolve) => {
-              sigImg.onload = () => resolve();
-              sigImg.onerror = () => resolve();
-              sigImg.src = urlData.signedUrl;
-            });
-            if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
-          }
-        } catch { /* skip */ }
-      }));
+      // Load engineer + customer sig images in parallel (both file_path and inline data)
+      await Promise.all([engineerSig, customerSig].filter(Boolean).map(loadSigImage));
 
       // Resolve the engineer sig to use: prefer job signature, fall back to profile
       const resolvedEngineerSig = engineerSig
