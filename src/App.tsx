@@ -99,6 +99,8 @@ const App = () => (
               <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
               <Route path="/jobs/:jobId/rams" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
               <Route path="/jobs/:jobId/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
+              <Route path="/rams/new" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
+              <Route path="/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
               <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
               <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
               <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
