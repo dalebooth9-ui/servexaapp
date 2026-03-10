@@ -815,6 +815,7 @@ export default function IndustryTemplates() {
     water_mist: "water_mist",
     hose_reel: "hose_reel",
     fire_risk_assessment: "fire_risk_assessment",
+    installation: "installation",
   };
 
   const filtered = INDUSTRY_TEMPLATES.filter((t) => {
