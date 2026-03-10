@@ -205,9 +205,9 @@ export async function generateJobSheetPdf(
 
   // --- Service scope line (PT / Visual / Other) ---
   const scopeParts = [
-    (jobInfo?.pressure_test_qty ?? 0) > 0 ? `PT x${jobInfo!.pressure_test_qty}` : null,
-    (jobInfo?.visual_qty ?? 0) > 0 ? `Vis x${jobInfo!.visual_qty}` : null,
-    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
+    (jobInfo?.pressure_test_qty ?? 0) > 0 ? `PT x ${jobInfo!.pressure_test_qty}` : null,
+    (jobInfo?.visual_qty ?? 0) > 0 ? `Vis x ${jobInfo!.visual_qty}` : null,
+    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x ${jobInfo!.other_qty}` : null,
   ].filter(Boolean).join("  |  ");
   if (scopeParts) {
     doc.setFont("helvetica", "bold");
