@@ -138,6 +138,12 @@ HEADER EXTRACTION — The header table at the top has these printed labels. Copy
   • "DATE:" → the date written in the top-right area
   • "PO/REF:" → the reference number written next to PO/REF
 
+SIGNATURE BLOCK EXTRACTION — At the BOTTOM of the form there is usually a signature section with two columns: one for the Technician and one for the Customer. Each column has:
+  • A "Date:" line — extract the date written there into customer_sign_date
+  • A "Customer:" or "Name:" line (or space below the signature) — a person's handwritten name (e.g. "Calvin", "John Smith") — extract into customer_signed_name
+  • A handwritten signature mark (the ink scrawl) — ignore this, do not try to extract it
+  IMPORTANT: customer_signed_name is a PERSON'S NAME, NOT a company name. It belongs to the person who physically signed the form at the bottom. It may be printed clearly below the signature.
+
 CRITICAL — For ALL fields (header and body): ONLY return values that are physically handwritten or typed by a human on the paper form. The following are NEVER valid field values:
   - The template name or document title
   - Any pre-printed label text
