@@ -186,13 +186,17 @@ export async function generateJobSheetPdf(
   };
 
   const customerName = findFormVal("customer detail", "customer name", "client") || jobInfo?.customers?.name || jobInfo?.customer || "";
-  const siteFormVal = findFormVal("site detail", "site info", "site name", "site address");
+  const siteFormVal = findFormVal("site detail", "site info", "site name", "site address", "location");
   const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
   const siteName = jobInfo?.site?.name || "";
+  // Also try to pull site from the job address if no site linked
+  const siteDisplay = siteFormVal || siteName || siteAddress || jobInfo?.address || "";
   const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
   const dateVal = formData["date"] || formData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-  const riserLocValue = riserField && formData[riserField.id] ? String(formData[riserField.id]) : "";
+  const riserLocValue = riserField && formData[riserField.id]
+    ? String(formData[riserField.id])
+    : (jobInfo?.site as any)?.riser_location || "";
 
   let y = await renderPdfHeader(doc, template.name, branding, {
     customerName,
