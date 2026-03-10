@@ -661,14 +661,12 @@ export default function RamsEditor() {
         <span className="text-sm text-muted-foreground flex-1">
           {job ? `${job.reference_number} · ${RAMS_TYPE_LABELS[ramsType]} RAMS` : "RAMS Editor"}
         </span>
-        {docId && (
-          <RamsPdfExport
-            formData={buildFormData()}
-            jobInfo={job}
-            jobId={jobId}
-            ramsType={ramsType}
-          />
-        )}
+        <RamsPdfExport
+          formData={buildFormData()}
+          jobInfo={job}
+          jobId={jobId ?? undefined}
+          ramsType={ramsType}
+        />
         <Button onClick={save} disabled={saving} size="sm">
           {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
           {saving ? "Saving…" : "Save RAMS"}
