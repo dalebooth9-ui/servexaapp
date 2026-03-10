@@ -60,15 +60,17 @@ function hr(doc: jsPDF, y: number, color = 180): void {
   doc.line(ML, y, PAGE_W - MR, y);
 }
 
-/** Bold label + normal value on same line, value wraps within page */
+/** Bold label + normal value on same line, value truncated to one line to avoid overlap */
 function labelValue(doc: jsPDF, label: string, value: string, x: number, y: number, labelW = 52): void {
   const maxValueW = PAGE_W - MR - x - labelW - 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text(label, x, y);
   doc.setFont("helvetica", "normal");
-  const lines = doc.splitTextToSize(value, maxValueW);
-  doc.text(lines, x + labelW, y);
+  if (value) {
+    const lines = doc.splitTextToSize(value, maxValueW);
+    doc.text(lines[0], x + labelW, y); // single line — prevents overlap with rows below
+  }
 }
 
 /** Wrapped paragraph */
