@@ -50,11 +50,15 @@ export function hr(doc: jsPDF, y: number, color = 180): void {
 }
 
 export function labelValue(doc: jsPDF, label: string, value: string, x: number, y: number, labelW = 52): void {
+  const maxW = PAGE_W - MR - x - labelW - 1;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text(label, x, y);
   doc.setFont("helvetica", "normal");
-  doc.text(value, x + labelW, y);
+  if (value) {
+    const lines = doc.splitTextToSize(value, maxW);
+    doc.text(lines[0], x + labelW, y); // single line only — callers handle multi-line themselves
+  }
 }
 
 export function para(doc: jsPDF, text: string, x: number, y: number, maxW: number, size = 8.5): number {
@@ -126,14 +130,15 @@ export async function pageHeader(
     doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
+  // Right-side header text: only one subtitle line to avoid duplication
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(33, 61, 99);
-  doc.text(subtitle || "Method Statement & Risk Assessment", PAGE_W - MR, y + 5, { align: "right" });
+  const headerSubtitle = subtitle || "Method Statement & Risk Assessment";
+  doc.text(headerSubtitle, PAGE_W - MR, y + 6, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("Method Statement & Risk Assessment", PAGE_W - MR, y + 10, { align: "right" });
-  doc.text("Fire Protection Ltd", PAGE_W - MR, y + 14, { align: "right" });
+  doc.text("VIVA Fire Protection Ltd", PAGE_W - MR, y + 11, { align: "right" });
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 17, 60);
   return y + 21;
@@ -194,7 +199,9 @@ export function drawCell(
     doc.setTextColor(...((opts.textColor ?? [0, 0, 0]) as [number, number, number]));
     const lines = splitCell(doc, text, cw, opts.bold);
     const textX = opts.center ? cx + cw / 2 : cx + RISK_PAD_H;
-    const textY = cy + RISK_PAD_V + RISK_LINE_H * 0.75;
+    // Vertically centre the text block within the cell to prevent clipping
+    const textBlockH = lines.length * RISK_LINE_H;
+    const textY = cy + (ch - textBlockH) / 2 + RISK_LINE_H * 0.75;
     doc.text(lines, textX, textY, opts.center ? { align: "center" } : {});
   }
 }

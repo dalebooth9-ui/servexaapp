@@ -60,15 +60,17 @@ function hr(doc: jsPDF, y: number, color = 180): void {
   doc.line(ML, y, PAGE_W - MR, y);
 }
 
-/** Bold label + normal value on same line, value wraps within page */
+/** Bold label + normal value on same line, value truncated to one line to avoid overlap */
 function labelValue(doc: jsPDF, label: string, value: string, x: number, y: number, labelW = 52): void {
   const maxValueW = PAGE_W - MR - x - labelW - 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text(label, x, y);
   doc.setFont("helvetica", "normal");
-  const lines = doc.splitTextToSize(value, maxValueW);
-  doc.text(lines, x + labelW, y);
+  if (value) {
+    const lines = doc.splitTextToSize(value, maxValueW);
+    doc.text(lines[0], x + labelW, y); // single line — prevents overlap with rows below
+  }
 }
 
 /** Wrapped paragraph */
@@ -138,18 +140,18 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(33, 61, 99);
-    doc.text("Servexa", ML, y + 8);
+    doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
-  // right-side subtitle stack
+  // Right-side header: one subtitle line only
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(33, 61, 99);
-  doc.text("Pressure Testing Pipework and Associated Fittings", PAGE_W - MR, y + 5, { align: "right" });
+  const headerSubtitle = title || "Method Statement & Risk Assessment";
+  doc.text(headerSubtitle, PAGE_W - MR, y + 6, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("Method Statement & Risk Assessment", PAGE_W - MR, y + 10, { align: "right" });
-  doc.text("Fire Protection Ltd", PAGE_W - MR, y + 14, { align: "right" });
+  doc.text("VIVA Fire Protection Ltd", PAGE_W - MR, y + 11, { align: "right" });
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 17, 60);
   return y + 21;
@@ -195,8 +197,9 @@ function drawCell(
     doc.setTextColor(...(opts.textColor ?? [0, 0, 0] as [number,number,number]));
     const lines = splitCell(doc, text, cw, opts.bold);
     const textX = opts.center ? cx + cw / 2 : cx + RISK_PAD_H;
-    // Place baseline of first line: pad from top + ~75% of line height for ascender
-    const textY = cy + RISK_PAD_V + RISK_LINE_H * 0.75;
+    // Vertically centre text block within cell to prevent clipping
+    const textBlockH = lines.length * RISK_LINE_H;
+    const textY = cy + (ch - textBlockH) / 2 + RISK_LINE_H * 0.75;
     doc.text(lines, textX, textY, opts.center ? { align: "center" } : {});
   }
 }
