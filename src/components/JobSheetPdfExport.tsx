@@ -200,8 +200,8 @@ export async function generateJobSheetPdf(
 
   let y = await renderPdfHeader(doc, template.name, branding, {
     customerName,
-    siteName: siteFormVal || siteName,
-    siteAddress: siteFormVal ? "" : siteAddress,
+    siteName: siteDisplay,
+    siteAddress: "",
     refNumber,
     dateVal,
     riserLocation: riserLocValue,
@@ -218,9 +218,10 @@ export async function generateJobSheetPdf(
     doc.setFontSize(7.5);
     doc.setTextColor(...accentColor);
     doc.text(`Service Scope: `, margin, y + 3.5);
+    const labelWidth = doc.getTextWidth("Service Scope: ");
     doc.setFont("helvetica", "normal");
     doc.setTextColor(0, 0, 0);
-    doc.text(scopeParts, margin + doc.getTextWidth("Service Scope: "), y + 3.5);
+    doc.text(scopeParts, margin + labelWidth, y + 3.5);
     y += 6;
   }
 
