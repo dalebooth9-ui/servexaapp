@@ -346,8 +346,16 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const customerSig = (signatures || []).find((s: any) => s.signer_role === "customer");
 
       // Use extracted header values if available, fall back to job data
-      const sigDateStr = extractedHeader.date ? parseExtractedDate(extractedHeader.date) : new Date().toLocaleDateString("en-GB");
+      // For the signature date: prefer the extracted customer sign date, then form date, then today
+      const sigDateStr = extractedHeader.customer_sign_date
+        ? parseExtractedDate(extractedHeader.customer_sign_date)
+        : extractedHeader.date
+        ? parseExtractedDate(extractedHeader.date)
+        : new Date().toLocaleDateString("en-GB");
       const techName = extractedHeader.engineer || jobInfo?.engineers?.join(", ") || engineerSig?.signer_name || "";
+
+      // The person who physically signed the customer block (e.g. "Calvin")
+      const customerSignedName = extractedHeader.customer_signed_name || customerSig?.signer_name || "";
 
       // Load signature images — prefer profile signature matched by extracted engineer name
       const sigImages: Record<string, HTMLImageElement> = {};
@@ -403,16 +411,24 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         ? { id: profileSigId, signer_name: techName, signer_role: "engineer" }
         : null;
 
+      // Build a synthetic customer sig record from OCR-extracted name if no digital sig exists
+      // This ensures the customer name (e.g. "Calvin") always appears in the PDF signature block
+      const resolvedCustomerSig = customerSig
+        ? customerSig
+        : customerSignedName
+        ? { id: `ocr-customer`, signer_name: customerSignedName, signer_role: "customer", file_path: null }
+        : null;
+
       // --- SIGNATURE BLOCKS on last page ---
       const sigY = pageHeight - 35;
 
       const footerStartY = renderPdfSignatures(doc, sigY, {
         dateStr: sigDateStr,
         technicianName: techName,
-        customerName,
+        customerName: customerSignedName || customerName,
         sigImages,
         engineerSig: resolvedEngineerSig,
-        customerSig,
+        customerSig: resolvedCustomerSig,
       });
 
       // --- FOOTER DECLARATION on last page ---
