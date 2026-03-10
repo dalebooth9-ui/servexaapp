@@ -141,7 +141,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
                   <div className="space-y-1">
                     {result.controls.map((c, i) => (
                       <div key={i} className="flex items-start gap-2 text-sm">
-                        <Check className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
+                        <Check className="h-3.5 w-3.5 text-success mt-0.5 shrink-0" />
                         <span className="text-muted-foreground">{c}</span>
                       </div>
                     ))}

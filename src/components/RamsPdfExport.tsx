@@ -6,7 +6,7 @@ import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import { supabase } from "@/integrations/supabase/client";
 
-export type RamsType = "dry_riser" | "sprinkler" | "fire_extinguisher" | "fire_hydrant" | "installation";
+export type RamsType = "dry_riser" | "sprinkler" | "fire_extinguisher" | "fire_hydrant" | "installation" | "wet_riser" | "fire_alarm" | "emergency_lighting" | "aov_smoke_control" | "passive_fire" | "gas_suppression" | "kitchen_suppression" | "water_mist" | "hose_reel" | "fire_risk_assessment";
 
 interface Props {
   formData: Record<string, any>;
