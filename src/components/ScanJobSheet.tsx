@@ -475,8 +475,30 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       if (error) throw error;
 
       if (data?.extracted) {
-        if (data.header) setExtractedHeader(data.header);
-        onExtracted(data.extracted);
+        const header = data.header || {};
+        if (header) setExtractedHeader(header);
+
+        // Map extracted header values into matching template form fields by label
+        const headerFieldMap: Record<string, string> = {};
+        for (const field of template.fields) {
+          const lbl = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+          if ((lbl.includes("site") || lbl === "site name" || lbl === "site address" || lbl === "location") && header.site) {
+            headerFieldMap[field.id] = header.site;
+          } else if ((lbl.includes("customer") || lbl.includes("client")) && header.customer) {
+            headerFieldMap[field.id] = header.customer;
+          } else if ((lbl.includes("riser location") || lbl === "riser" || lbl === "location") && header.riser_location) {
+            headerFieldMap[field.id] = header.riser_location;
+          } else if ((lbl.includes("date") || lbl === "inspection date" || lbl === "service date" || lbl === "visit date") && header.date) {
+            headerFieldMap[field.id] = header.date;
+          } else if ((lbl.includes("po") || lbl.includes("ref") || lbl.includes("reference") || lbl.includes("order number")) && header.po_ref) {
+            headerFieldMap[field.id] = header.po_ref;
+          } else if ((lbl.includes("engineer") || lbl.includes("technician")) && header.engineer) {
+            headerFieldMap[field.id] = header.engineer;
+          }
+        }
+
+        // Merge: header field mappings first, then body fields (body takes priority if both present)
+        onExtracted({ ...headerFieldMap, ...data.extracted });
         toast({
           title: "Fields extracted",
           description: `Handwritten data read from ${images.length} image(s) and populated into the form.`,
