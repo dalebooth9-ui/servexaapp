@@ -98,7 +98,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
             )}
 
             {!loading && !result && (
-              <div className="flex items-center gap-2 text-yellow-600 dark:text-yellow-400 py-4 text-sm">
+              <div className="flex items-center gap-2 text-warning py-4 text-sm">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 No content generated yet.
               </div>
