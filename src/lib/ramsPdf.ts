@@ -138,18 +138,18 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(33, 61, 99);
-    doc.text("Servexa", ML, y + 8);
+    doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
-  // right-side subtitle stack
+  // Right-side header: one subtitle line only
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   doc.setTextColor(33, 61, 99);
-  doc.text("Pressure Testing Pipework and Associated Fittings", PAGE_W - MR, y + 5, { align: "right" });
+  const headerSubtitle = title || "Method Statement & Risk Assessment";
+  doc.text(headerSubtitle, PAGE_W - MR, y + 6, { align: "right" });
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8);
-  doc.text("Method Statement & Risk Assessment", PAGE_W - MR, y + 10, { align: "right" });
-  doc.text("Fire Protection Ltd", PAGE_W - MR, y + 14, { align: "right" });
+  doc.text("VIVA Fire Protection Ltd", PAGE_W - MR, y + 11, { align: "right" });
   doc.setTextColor(0, 0, 0);
   hr(doc, y + 17, 60);
   return y + 21;
