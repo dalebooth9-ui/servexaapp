@@ -73,6 +73,8 @@ export default function JobDetail() {
   const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
+  const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
 
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
 
