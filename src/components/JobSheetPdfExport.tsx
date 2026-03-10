@@ -303,7 +303,7 @@ export async function generateJobSheetPdf(
   const customerSig = signatures.find((s: any) => s.signer_role === "customer");
 
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
-  const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (engineerSig?.signer_name || submittedBy || "");
+  const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
 
   const footerY = renderPdfSignatures(doc, sigY, {
     dateStr,
