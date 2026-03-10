@@ -346,7 +346,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const customerSig = (signatures || []).find((s: any) => s.signer_role === "customer");
 
       // Use extracted header values if available, fall back to job data
-      const sigDateStr = extractedHeader.date || new Date().toLocaleDateString("en-GB");
+      const sigDateStr = extractedHeader.date ? parseExtractedDate(extractedHeader.date) : new Date().toLocaleDateString("en-GB");
       const techName = extractedHeader.engineer || jobInfo?.engineers?.join(", ") || engineerSig?.signer_name || "";
 
       // Load signature images — prefer profile signature matched by extracted engineer name
