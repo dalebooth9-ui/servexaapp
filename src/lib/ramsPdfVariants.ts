@@ -40,10 +40,10 @@ export async function generateSprinklerRamsPdf(
   // Method statement pages 1–5
   const pageRef = { num: 1 };
   await buildSharedMethodSections(doc, logoImg, {
-    descriptionOfWork: "Inspection, testing and annual/quarterly servicing of wet pipe and dry pipe sprinkler systems in accordance with BS EN 12845 and LPS 1048.",
+    descriptionOfWork: "Inspection, testing and annual/bi-annual servicing of wet pipe and dry pipe sprinkler systems in accordance with BS EN 12845 and LPS 1048.",
     sequenceOfOps: [
-      "All working personnel must have received site induction from Principal Contractor and Viva Fire the first day of attending, and a RAMS briefing from the Viva Fire site supervisor before works commence.",
-      "Personnel will sign in via main security and into the Viva Fire Daily Sign-In register.",
+      "All working personnel must have received site induction from Principal Contractor and a RAMS briefing from the site supervisor before works commence.",
+      "Personnel will sign in via main security and into the Daily Sign-In register.",
       "All working personnel must demonstrate they have the correct certification (e.g. FIA/BAFE SP203) before works commence.",
       "Notify the monitoring centre and building occupants before any alarm bypass is put in place.",
       "All deliveries of materials must be pre-booked with Principal Contractor with 48 hours' notice.",
@@ -67,7 +67,7 @@ export async function generateSprinklerRamsPdf(
     ],
     location: "Plant rooms, riser cupboards, ceiling voids, protected areas throughout the building.",
     resources: "Minimum of: 2 Operatives (FIA/BAFE SP203 trained).",
-    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    personnel: "",
     plantAndEquipment: [
       "Hand tools and pipe wrenches",
       "Pressure test gauge (calibrated)",
@@ -82,7 +82,7 @@ export async function generateSprinklerRamsPdf(
       "False alarm activation", "Electrical components", "Manual handling",
       "Slips/trips/falls (wet floors)", "Lone working",
     ],
-    specialTraining: "SSSTS – Martin Whatmough. FIA / BAFE SP203 trained operatives. All operatives hold current CSCS cards.",
+    specialTraining: "FIA / BAFE SP203 trained operatives. All operatives hold current CSCS cards.",
   }, pageRef, TOTAL_PAGES);
 
   // Risk table pages 6–9
@@ -249,7 +249,7 @@ export async function generateExtinguisherRamsPdf(
     descriptionOfWork: "Annual service and extended service of all portable fire extinguisher types (water, foam, CO2, dry powder, wet chemical, water mist) in accordance with BS 5306-3 and manufacturer's guidelines.",
     sequenceOfOps: [
       "All working personnel must have received site induction and a RAMS briefing before works commence.",
-      "Personnel will sign in via main security and the Viva Fire Daily Sign-In register.",
+      "Personnel will sign in via main security and into the Daily Sign-In register.",
       "All operatives must hold a current BAFE SP101 (or equivalent) fire extinguisher service qualification.",
       "Obtain a site plan or schedule of extinguisher locations before commencing.",
       "All deliveries of replacement extinguishers/charges must be pre-booked with 48 hours' notice.",
@@ -448,8 +448,8 @@ export async function generateHydrantRamsPdf(
   await buildSharedMethodSections(doc, logoImg, {
     descriptionOfWork: "Annual inspection, operational check and flow test of underground fire hydrants in accordance with BS 750, Water Industry Act 1991 and relevant water authority specifications.",
     sequenceOfOps: [
-      "All working personnel must have received site induction and a RAMS briefing from the Viva Fire supervisor before works commence.",
-      "Personnel will sign in via main security and the Viva Fire Daily Sign-In register.",
+      "All working personnel must have received site induction and a RAMS briefing from the site supervisor before works commence.",
+      "Personnel will sign in via main security and into the Daily Sign-In register.",
       "All operatives must be competent in hydrant operation and aware of water main locations.",
       "Notify the relevant water authority and site management before commencing work on any hydrant.",
       "Check for and comply with any Road Traffic Regulation Act requirements. Apply for a road opening notice if required.",
@@ -650,9 +650,9 @@ export async function generateInstallationRamsPdf(
   // Method statement pages 1–5
   const pageRef = { num: 1 };
   await buildSharedMethodSections(doc, logoImg, {
-    descriptionOfWork: `Supply, install and commission dry riser system(s) in accordance with BS 9990:2015 and the latest revision of the Viva Fire working drawings.`,
+    descriptionOfWork: `Supply, install and commission dry riser system(s) in accordance with BS 9990:2015 and the latest revision of the approved working drawings.`,
     sequenceOfOps: [
-      "All working personnel must have received site induction from the Principal Contractor and a RAMS briefing from the Viva Fire site supervisor before works commence.",
+      "All working personnel must have received site induction from the Principal Contractor and a RAMS briefing from the site supervisor before works commence.",
       "Personnel will be required to sign in via main security following the Principal Contractor procedures in place, then into the daily sign-in register.",
       "All working personnel must be able to demonstrate they have the correct skill set and certification before works commence.",
       "A common appreciation of plant and pedestrians (who retain priority) must be observed and followed before moving about site.",
@@ -666,10 +666,10 @@ export async function generateInstallationRamsPdf(
     ],
     taskSpecificOps: [
       "Ensure that all drawings are to construction status prior to commencing with any site works.",
-      "Viva Fire will have a storage area on site (location TBC). On a daily basis, pipework and materials shall be taken into the building and stored as close as practical to the work area on each floor.",
+      "The contractor will have a storage area on site (location TBC). On a daily basis, pipework and materials shall be taken into the building and stored as close as practical to the work area on each floor.",
       "Erect the tower scaffold or 2-wheel podium platform for work at height.",
       "The holes through walls and floors shall be pre-drilled by others prior to installation of the pipework.",
-      "The dry riser pipework, fittings, couplings and valves shall be installed in accordance with the latest revision of the Viva Fire working drawings.",
+      "The dry riser pipework, fittings, couplings and valves shall be installed in accordance with the latest revision of the approved working drawings.",
       "All pipework shall be installed in individual sections and connected using mechanical couplings and fittings.",
       "Each pipe shall be correctly connected and securely fixed into position with pipe brackets prior to the installation of the next pipe.",
       "All pipework shall be supported from structural floors/ceilings using brackets independent of other services unless otherwise agreed.",
@@ -686,13 +686,13 @@ export async function generateInstallationRamsPdf(
       "Using a test pump with all ends sealed, charge the pipework with water to 12 bar standing pressure for 15 minutes. Monitor pressure and inspect joints for leaks.",
       "Where leaks are detected, drain the system, rectify leaks, and repeat the pressure test.",
       "When testing is complete, fully drain the system, close drain valves, and remove hose.",
-      "Issue the Viva Fire 'Pipework Test Report' sheet for each test. Certificate to be signed by the senior operative and the Principal Contractor's responsible person.",
+      "Issue the 'Pipework Test Report' sheet for each test. Certificate to be signed by the senior operative and the Principal Contractor's responsible person.",
       "Descend Mobile Tower/Podium on completion of each task.",
       "Leave work area clean and tidy on a progressive basis. Inspection check by supervisor.",
     ],
     location: "Ground floor and all levels stair lobbies / riser routes throughout the building.",
     resources: "Minimum of: 1 operative & 1 supervisor per working sequence. Some tasks (e.g. installing valves and boxes) can be carried out by 1 supervisor.",
-    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    personnel: "",
     plantAndEquipment: [
       "Mobile Scaffold Tower, Podium platforms",
       "Chop saw (dry diamond tip)",
@@ -716,7 +716,7 @@ export async function generateInstallationRamsPdf(
       "Unloading/loading of vehicles",
       "Hazardous substances (COSHH)",
     ],
-    specialTraining: "IOSH Managing Safely – Managers. SSSTS – Supervisors. PASMA – Mobile Tower Erectors. IPAF 1a 1b – Where applicable. CSCS – All operatives. Manual Handling – All operatives. Dale Booth: IOSH MSC, CSCS, IPAF. Martin Whatmough: SSSTS, IOSH passport to work, CSCS, IPAF.",
+    specialTraining: "IOSH Managing Safely – Managers. SSSTS – Supervisors. PASMA – Mobile Tower Erectors. IPAF 1a 1b – Where applicable. CSCS – All operatives. Manual Handling – All operatives.",
   }, pageRef, TOTAL_PAGES);
 
   // Risk assessment pages 6–9

@@ -60,13 +60,15 @@ function hr(doc: jsPDF, y: number, color = 180): void {
   doc.line(ML, y, PAGE_W - MR, y);
 }
 
-/** Bold label + normal value on same line */
+/** Bold label + normal value on same line, value wraps within page */
 function labelValue(doc: jsPDF, label: string, value: string, x: number, y: number, labelW = 52): void {
+  const maxValueW = PAGE_W - MR - x - labelW - 2;
   doc.setFont("helvetica", "bold");
   doc.setFontSize(9);
   doc.text(label, x, y);
   doc.setFont("helvetica", "normal");
-  doc.text(value, x + labelW, y);
+  const lines = doc.splitTextToSize(value, maxValueW);
+  doc.text(lines, x + labelW, y);
 }
 
 /** Wrapped paragraph */
@@ -136,7 +138,7 @@ async function pageHeader(doc: jsPDF, logoImg: HTMLImageElement | null, title: s
     doc.setFont("helvetica", "bold");
     doc.setFontSize(11);
     doc.setTextColor(33, 61, 99);
-    doc.text("VIVA FIRE PROTECTION LTD", ML, y + 8);
+    doc.text("Servexa", ML, y + 8);
     doc.setTextColor(0, 0, 0);
   }
   // right-side subtitle stack
@@ -539,7 +541,7 @@ export async function generateRamsPdf(
   doc.text(reviewLines, ML + 3, ry2);
   ry2 += reviewLines.length * (8.5 * 0.352778 + 1.2) + 2;
   doc.setFontSize(9);
-  labelValue(doc, "Method Statement Written by:", "Dale Booth", ML + 3, ry2); ry2 += rowGap;
+  labelValue(doc, "Method Statement Written by:", "", ML + 3, ry2); ry2 += rowGap;
   labelValue(doc, "Method Statement Approved by:", "", ML + 3, ry2);
 
   y = boxY + detailBoxH + 8;
@@ -581,18 +583,15 @@ export async function generateRamsPdf(
   y = await checkPageBreak(doc, y, 20, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.1 Duration", ML, y); y += 4;
   y = para(doc,
-    "All works will be supervised at every stage by a competent qualified supervisor. Martin Whatmough will be responsible for the day-to-day supervision of Viva Fire Protection personnel and sub-contractors on site.",
+    "All works will be supervised at every stage by a competent qualified supervisor, who will be responsible for the day-to-day supervision of personnel and sub-contractors on site.",
     ML, y, CONTENT_W);
-  y += 1.5;
-  doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
-  doc.text("Name: Dale Booth   Mob: 07801269206   Email: sales@vivafire.co.uk", ML, y); y += 4;
-  doc.text("Name: Martin Whatmough   Mob: 07989436509   Email: martin.whatmough@vivafire.co.uk", ML, y); y += 4;
+  y += 2;
 
   y = await checkPageBreak(doc, y, 15, logoImg, currentPage, 10); if (doc.getNumberOfPages() > currentPage) currentPage++;
   doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.2 Sequence of Operations", ML, y); y += 4;
   y = numberedList(doc, [
-    "All working personnel must have received site Induction from Principal Contractor and Viva Fire the first day of attending, the operatives will also receive a RAMs briefing from the Viva Fire site supervisor following the site induction from Principal Contractor before works commence.",
-    "Personnel will be required to sign in via main security. Then into the Viva Fire Daily Sign in register.",
+    "All working personnel must have received site induction from the Principal Contractor, and a RAMS briefing from the site supervisor before works commence.",
+    "Personnel will be required to sign in via main security and into the Daily Sign-In register.",
     "All working personnel must be able to demonstrate they have the correct skill set/certification before works commence.",
     "A common appreciation of plant and pedestrians (who retain priority) must be observed and followed before moving about site.",
     "All deliveries of materials must be pre booked with Principal Contractor with 48 hours' notice given.",
@@ -605,8 +604,8 @@ export async function generateRamsPdf(
     "Check available timeslots for deliveries in the site office, with assessment of what is being delivered, what it weights, how will it be unloaded, what kind of materials are being delivered, how will it be stored, where will it be stored, do any special precautions need to be taken, will mechanical lifting aids need to be used. All deliveries will be supervised by main contractor Competent Banksman, and the delivery drivers must remain in vehicle if they do not have suitable PPE.",
     "The delivery vehicle must deploy hazard lights/flashing beacon and any audible warning system if fitted. Extra care must be taken at this time and a suitable safe zone placed around the delivery vehicle/delivery area.",
     "All personnel must be familiar and competent with manual handling techniques and never lift beyond personnel capability. If in doubt, ask and refer to risk assessment included on page 14/15. The materials being used on this job are not envisaged to require mechanical lifting assistance.",
-    "Proceed to the work area and carry out a site safety check with regards the working area. Remove any debris or obstructions with the express permission of Viva Fire.",
-    "Set up working area in an agreed and safe position after consultation with Viva Fire site supervisor/manager.",
+    "Proceed to the work area and carry out a site safety check with regards the working area. Remove any debris or obstructions with the express permission of the site supervisor.",
+    "Set up working area in an agreed and safe position after consultation with the site supervisor/manager.",
     "Testing of the systems will be in accordance with BS9990 2006.",
     "Hydraulic testing/commissioning will be applied on all pipework for a period of 15 minutes at a pressure of 12 Bar, water to be made freely available by the main contractor.",
     "Access for a vehicle carrying tank and all testing equipment will be needed close to the dry riser inlet locations.",
