@@ -260,7 +260,21 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const customerName = extractedHeader.customer || jobInfo?.customer || "";
       const siteName = extractedHeader.site || jobInfo?.site?.name || "";
       const siteAddress = !extractedHeader.site ? (jobInfo?.site?.address || jobInfo?.address || "") : "";
-      const dateStr = extractedHeader.date || new Date().toLocaleDateString("en-GB");
+
+      // Parse extracted date — handle short formats like "9/3/26" (DD/MM/YY) → "09/03/2026"
+      const parseExtractedDate = (raw: string): string => {
+        if (!raw) return new Date().toLocaleDateString("en-GB");
+        const parts = raw.trim().split(/[\/\-\.]/);
+        if (parts.length === 3) {
+          const [a, b, c] = parts.map(p => p.trim());
+          const year = c.length === 2 ? `20${c}` : c;
+          const day = a.padStart(2, "0");
+          const month = b.padStart(2, "0");
+          return `${day}/${month}/${year}`;
+        }
+        return raw;
+      };
+      const dateStr = extractedHeader.date ? parseExtractedDate(extractedHeader.date) : new Date().toLocaleDateString("en-GB");
 
       // Find riser location — prefer extracted header, then existing responses
       let riserLocValue = extractedHeader.riser_location || "";
