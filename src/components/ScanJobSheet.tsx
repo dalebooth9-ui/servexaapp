@@ -377,10 +377,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
       }
 
-      for (const sig of [engineerSig, customerSig].filter(Boolean)) {
-        if (!sig?.file_path) continue;
+      const sigsToLoad = [engineerSig, customerSig].filter((s): s is NonNullable<typeof s> => !!s?.file_path);
+      await Promise.all(sigsToLoad.map(async (sig) => {
         try {
-          const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 3600);
+          const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path!, 3600);
           if (urlData?.signedUrl) {
             const sigImg = new Image();
             sigImg.crossOrigin = "anonymous";
@@ -392,7 +392,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             if (sigImg.naturalWidth > 0) sigImages[sig.id] = sigImg;
           }
         } catch { /* skip */ }
-      }
+      }));
 
       // Resolve the engineer sig to use: prefer job signature, fall back to profile
       const resolvedEngineerSig = engineerSig
