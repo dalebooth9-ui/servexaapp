@@ -833,9 +833,11 @@ function ProjectDetail({
   const addPhoto = useCallback(async (issueId: string, files: FileList, annotatedDataUrl?: string) => {
     setUploadingIssueId(issueId);
     const newPhotos: Photo[] = [];
+    const uid = user?.id || "unknown";
     for (const file of Array.from(files)) {
       const ext = file.name.split(".").pop();
-      const path = `${issueId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      // Path: {issueId}/{userId}/filename — userId at position [2] matches RLS foldername check
+      const path = `${issueId}/${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: upErr } = await supabase.storage.from("installation-photos").upload(path, file);
       if (upErr) { toast({ title: `Upload failed: ${file.name}`, variant: "destructive" }); continue; }
       const { data: photoRow, error: dbErr } = await supabase
@@ -848,7 +850,7 @@ function ProjectDetail({
     }
     setIssues((prev) => prev.map((i) => i.id === issueId ? { ...i, photos: [...i.photos, ...newPhotos] } : i));
     setUploadingIssueId(null);
-  }, [toast]);
+  }, [toast, user]);
 
   const deletePhoto = useCallback(async (issueId: string, photoId: string, photoUrl: string) => {
     const path = photoUrl.includes("installation-photos/") ? photoUrl.split("installation-photos/")[1] : photoUrl;
@@ -859,8 +861,10 @@ function ProjectDetail({
 
   const addResolutionPhoto = useCallback(async (issueId: string, file: File) => {
     setUploadingIssueId(issueId);
+    const uid = user?.id || "unknown";
     const ext = file.name.split(".").pop();
-    const path = `${issueId}/resolution-${Date.now()}.${ext}`;
+    // Path: {issueId}/{userId}/resolution — userId at position [2] matches RLS foldername check
+    const path = `${issueId}/${uid}/resolution-${Date.now()}.${ext}`;
     const { error: upErr } = await supabase.storage.from("installation-photos").upload(path, file);
     if (upErr) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingIssueId(null); return; }
     await supabase.from("installation_issues" as any).update({ resolution_photo_url: path, resolution_photo_file_name: file.name }).eq("id", issueId);
