@@ -36,6 +36,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/", label: "Dashboard", icon: LayoutDashboard, section: "main" },
 { to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
 { to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
+{ to: "/leave", label: "Leave", icon: Palmtree, section: "operations" },
 { to: "/customers", label: "Customers", icon: Building2, section: "operations" },
 { to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
 { to: "/sites", label: "Sites", icon: MapPin, section: "more" },
