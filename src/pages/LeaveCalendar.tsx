@@ -39,6 +39,11 @@ interface LeaveEntry {
   profiles?: { full_name: string } | null;
 }
 
+interface BankHoliday {
+  date: string;
+  name: string;
+}
+
 interface Engineer {
   user_id: string;
   full_name: string;
@@ -80,6 +85,7 @@ export default function LeaveCalendar() {
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bankHolidays, setBankHolidays] = useState<BankHoliday[]>([]);
   const [selectedEngineer, setSelectedEngineer] = useState<string>("all");
 
   const [requestOpen, setRequestOpen] = useState(false);
@@ -100,7 +106,7 @@ export default function LeaveCalendar() {
     const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-    const [leaveRes, profilesRes, rolesRes] = await Promise.all([
+    const [leaveRes, profilesRes, rolesRes, bankHolRes] = await Promise.all([
       supabase
         .from("engineer_leave" as any)
         .select("*, profiles(full_name)")
@@ -109,12 +115,19 @@ export default function LeaveCalendar() {
         .order("start_date"),
       supabase.from("profiles").select("user_id, full_name").order("full_name"),
       supabase.from("user_roles").select("user_id").eq("role", "engineer"),
+      supabase
+        .from("bank_holidays" as any)
+        .select("date, name")
+        .gte("date", monthStart)
+        .lte("date", monthEnd)
+        .order("date"),
     ]);
 
     const engineerIds = new Set(((rolesRes.data as any[]) || []).map((r: any) => r.user_id));
     const engList = ((profilesRes.data as any[]) || []).filter((p: any) => engineerIds.has(p.user_id));
     setEngineers(engList);
     setLeaveEntries(((leaveRes.data as any[]) || []) as LeaveEntry[]);
+    setBankHolidays(((bankHolRes.data as any[]) || []) as BankHoliday[]);
     setLoading(false);
   }, [currentMonth]);
 
@@ -284,13 +297,14 @@ export default function LeaveCalendar() {
                   const dayLeave = getLeaveForDay(day);
                   const isToday = isSameDay(day, new Date());
                   const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                  const bankHol = bankHolidays.find((b) => b.date === format(day, "yyyy-MM-dd"));
                   return (
                     <div
                       key={day.toISOString()}
                       className={cn(
                         "min-h-[72px] rounded-lg border p-1.5 text-xs transition-colors",
-                        isToday ? "border-primary bg-primary/5" : "border-border",
-                        isWeekend ? "bg-muted/30" : "bg-card",
+                        isToday ? "border-primary bg-primary/5" : bankHol ? "border-amber-500/40 bg-amber-500/8" : "border-border",
+                        !bankHol && isWeekend ? "bg-muted/30" : "",
                         dayLeave.length > 0 && "cursor-pointer hover:border-primary/50"
                       )}
                       onClick={() => dayLeave.length === 1 && setSelectedLeave(dayLeave[0])}
@@ -302,7 +316,15 @@ export default function LeaveCalendar() {
                         {format(day, "d")}
                       </div>
                       <div className="space-y-0.5">
-                        {dayLeave.slice(0, 3).map((l) => {
+                        {bankHol && (
+                          <div
+                            className="truncate rounded px-1 py-0.5 border text-[10px] font-semibold bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300"
+                            title={bankHol.name}
+                          >
+                            🏦 {bankHol.name}
+                          </div>
+                        )}
+                        {dayLeave.slice(0, bankHol ? 2 : 3).map((l) => {
                           const cfg = LEAVE_TYPE_CONFIG[l.leave_type];
                           return (
                             <div
@@ -319,8 +341,8 @@ export default function LeaveCalendar() {
                             </div>
                           );
                         })}
-                        {dayLeave.length > 3 && (
-                          <div className="text-[10px] text-muted-foreground text-center">+{dayLeave.length - 3}</div>
+                        {dayLeave.length > (bankHol ? 2 : 3) && (
+                          <div className="text-[10px] text-muted-foreground text-center">+{dayLeave.length - (bankHol ? 2 : 3)}</div>
                         )}
                       </div>
                     </div>
@@ -331,6 +353,10 @@ export default function LeaveCalendar() {
           </Card>
 
           <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-amber-500/60" />
+              Bank Holiday
+            </div>
             {Object.entries(LEAVE_TYPE_CONFIG).map(([key, cfg]) => (
               <div key={key} className="flex items-center gap-1.5">
                 <span className={cn("h-2.5 w-2.5 rounded-sm", cfg.dot)} />
@@ -346,10 +372,28 @@ export default function LeaveCalendar() {
 
         <TabsContent value="list" className="mt-4">
           <div className="space-y-2">
+            {/* Bank holidays for this month */}
+            {bankHolidays.length > 0 && (
+              <div className="space-y-1.5 pb-2 border-b border-border mb-3">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide px-1">Bank Holidays</p>
+                {bankHolidays.map((b) => (
+                  <div key={b.date} className="flex items-center gap-3 rounded-lg border bg-amber-500/8 border-amber-500/30 px-4 py-2.5">
+                    <div className="p-2 rounded-md border bg-amber-500/15 border-amber-500/30 shrink-0 text-base leading-none">🏦</div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-sm">{b.name}</div>
+                      <div className="text-xs text-muted-foreground">{format(parseISO(b.date), "EEEE dd MMM yyyy")}</div>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 text-[10px] bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300 ml-auto">
+                      England & Wales
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
             {loading ? (
               <div className="text-center py-12 text-muted-foreground text-sm">Loading...</div>
             ) : filteredLeave.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground text-sm">No leave entries for this month.</div>
+              <div className="text-center py-8 text-muted-foreground text-sm">No leave entries for this month.</div>
             ) : (
               [...filteredLeave]
                 .sort((a, b) => a.start_date.localeCompare(b.start_date))
