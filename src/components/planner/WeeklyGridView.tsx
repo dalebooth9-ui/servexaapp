@@ -608,13 +608,16 @@ export default function WeeklyGridView({
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Engineer</div>
               {weekDays.map((d) => {
                 const isToday = isSameDay(d, new Date());
+                const dateStr = format(d, "yyyy-MM-dd");
+                const isBankHoliday = bankHolidayDates.has(dateStr);
                 return (
                   <div key={d.toISOString()} className={cn(
                     "rounded-md px-2 py-1 text-center text-xs font-semibold",
-                    isToday ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                    isToday ? "bg-primary text-primary-foreground" : isBankHoliday ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30" : "text-muted-foreground"
                   )}>
                     <div>{format(d, "EEE")}</div>
                     <div className="text-[10px]">{format(d, "dd/MM")}</div>
+                    {isBankHoliday && <div className="text-[9px] font-normal truncate">🏦 Bank Hol</div>}
                   </div>
                 );
               })}
@@ -637,6 +640,7 @@ export default function WeeklyGridView({
                       onRemove={onRemove}
                       onRemoveAdhoc={onRemoveAdhoc}
                       leaveDates={leaveMap.get(eng.user_id) || []}
+                      bankHolidayDates={bankHolidayDates}
                     />
                   ))}
                 </div>
