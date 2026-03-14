@@ -1,5 +1,6 @@
-import { useMemo, useState } from "react";
-import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
+import { useMemo, useState, useEffect } from "react";
+import { format, isSameDay, isPast, parseISO, startOfDay, isWithinInterval, endOfDay } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
