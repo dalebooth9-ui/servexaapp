@@ -123,7 +123,7 @@ export default function AutoAssignSuggestion({ jobLat, jobLng, onSelect, schedul
             title={s.onLeave ? "Engineer is on approved leave on this date" : undefined}
           >
             <span className="font-medium flex items-center gap-1.5">
-              {s.onLeave && <Palmtree className="h-3 w-3 text-amber-500 shrink-0" title="On leave" />}
+              {s.onLeave && <span title="On leave"><Palmtree className="h-3 w-3 text-amber-500 shrink-0" /></span>}
               {s.full_name}
             </span>
             <div className="flex items-center gap-2">
