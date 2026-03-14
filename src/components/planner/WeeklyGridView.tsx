@@ -389,6 +389,39 @@ export default function WeeklyGridView({
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map()); // engineerId -> ["2025-03-14", ...]
+
+  // Fetch approved leave for the displayed week
+  useEffect(() => {
+    const weekStart = format(weekDays[0], "yyyy-MM-dd");
+    const weekEnd = format(weekDays[weekDays.length - 1], "yyyy-MM-dd");
+    supabase
+      .from("engineer_leave" as any)
+      .select("engineer_id, start_date, end_date, leave_type")
+      .eq("status", "approved")
+      .lte("start_date", weekEnd)
+      .gte("end_date", weekStart)
+      .then(({ data }) => {
+        const map = new Map<string, string[]>();
+        ((data as any[]) || []).forEach((l: any) => {
+          // Expand leave into individual dates within the week
+          weekDays.forEach((d) => {
+            const dateStr = format(d, "yyyy-MM-dd");
+            try {
+              if (isWithinInterval(startOfDay(d), {
+                start: startOfDay(parseISO(l.start_date)),
+                end: endOfDay(parseISO(l.end_date)),
+              })) {
+                const existing = map.get(l.engineer_id) || [];
+                if (!existing.includes(dateStr)) existing.push(dateStr);
+                map.set(l.engineer_id, existing);
+              }
+            } catch { /* skip */ }
+          });
+        });
+        setLeaveMap(map);
+      });
+  }, [weekDays]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
