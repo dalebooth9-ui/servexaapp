@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, AlertTriangle, Palmtree } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 
 interface QuickScheduleDialogProps {
   job: { id: string; name: string; reference_number: string } | null;
@@ -28,6 +29,15 @@ const NOTE_COLORS = [
   { value: "#a855f7", label: "Purple",   swatch: "bg-purple-500" },
 ];
 
+interface LeaveEntry {
+  id: string;
+  engineer_id: string;
+  leave_type: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+}
+
 export default function QuickScheduleDialog({ job, open, onOpenChange, onScheduled }: QuickScheduleDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -37,6 +47,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
   const [notes, setNotes] = useState("");
   const [notesColor, setNotesColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -50,7 +61,27 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           setEngineers(profiles.filter((p) => engIds.has(p.user_id)));
         });
       });
+    // Fetch approved leave around the selected date ±30 days
+    supabase
+      .from("engineer_leave" as any)
+      .select("id, engineer_id, leave_type, start_date, end_date, status")
+      .eq("status", "approved")
+      .then(({ data }) => setLeaveEntries((data as any[] || []) as LeaveEntry[]));
   }, [open]);
+
+  // Check if selected engineer is on leave on the selected date
+  const leaveConflict = engineerId && scheduleDate
+    ? leaveEntries.find((l) => {
+        if (l.engineer_id !== engineerId) return false;
+        try {
+          const day = startOfDay(parseISO(scheduleDate));
+          return isWithinInterval(day, {
+            start: startOfDay(parseISO(l.start_date)),
+            end: endOfDay(parseISO(l.end_date)),
+          });
+        } catch { return false; }
+      })
+    : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,6 +122,12 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
     }
   };
 
+  const LEAVE_LABELS: Record<string, string> = {
+    holiday: "Holiday",
+    sick: "Sick Leave",
+    bank_holiday: "Bank Holiday",
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-sm">
@@ -113,9 +150,28 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
                 <SelectValue placeholder="Select engineer" />
               </SelectTrigger>
               <SelectContent>
-                {engineers.map((e) => (
-                  <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>
-                ))}
+                {engineers.map((e) => {
+                  const onLeave = scheduleDate
+                    ? leaveEntries.some((l) => {
+                        if (l.engineer_id !== e.user_id) return false;
+                        try {
+                          return isWithinInterval(startOfDay(parseISO(scheduleDate)), {
+                            start: startOfDay(parseISO(l.start_date)),
+                            end: endOfDay(parseISO(l.end_date)),
+                          });
+                        } catch { return false; }
+                      })
+                    : false;
+                  return (
+                    <SelectItem key={e.user_id} value={e.user_id}>
+                      <span className="flex items-center gap-1.5">
+                        {onLeave && <Palmtree className="h-3 w-3 text-amber-500 shrink-0" />}
+                        {e.full_name}
+                        {onLeave && <span className="text-amber-600 text-xs">(on leave)</span>}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>
@@ -123,6 +179,17 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
             <Label>Date</Label>
             <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
           </div>
+
+          {/* Leave conflict warning */}
+          {leaveConflict && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                This engineer has <strong>{LEAVE_LABELS[leaveConflict.leave_type] || leaveConflict.leave_type}</strong> booked on this date. You can still schedule but they may be unavailable.
+              </span>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
             <Textarea
