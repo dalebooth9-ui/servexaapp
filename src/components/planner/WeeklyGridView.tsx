@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { X, GripVertical, AlertTriangle, CalendarDays } from "lucide-react";
+import { GripVertical, AlertTriangle, CalendarDays, Palmtree } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
