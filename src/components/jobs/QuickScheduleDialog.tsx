@@ -53,6 +53,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
   const [notesColor, setNotesColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
+  const [bankHolidays, setBankHolidays] = useState<BankHoliday[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -66,12 +67,17 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           setEngineers(profiles.filter((p) => engIds.has(p.user_id)));
         });
       });
-    // Fetch approved leave around the selected date ±30 days
+    // Fetch approved leave
     supabase
       .from("engineer_leave" as any)
       .select("id, engineer_id, leave_type, start_date, end_date, status")
       .eq("status", "approved")
       .then(({ data }) => setLeaveEntries((data as any[] || []) as LeaveEntry[]));
+    // Fetch bank holidays
+    supabase
+      .from("bank_holidays" as any)
+      .select("date, name")
+      .then(({ data }) => setBankHolidays((data as any[] || []) as BankHoliday[]));
   }, [open]);
 
   // Check if selected engineer is on leave on the selected date
@@ -86,6 +92,11 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           });
         } catch { return false; }
       })
+    : null;
+
+  // Check if selected date is a bank holiday
+  const bankHolidayConflict = scheduleDate
+    ? bankHolidays.find((b) => b.date === scheduleDate)
     : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
