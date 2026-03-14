@@ -2,13 +2,15 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Zap } from "lucide-react";
+import { MapPin, Zap, Palmtree } from "lucide-react";
+import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 
 interface EngineerSuggestion {
   user_id: string;
   full_name: string;
   distance_km: number | null;
   workload: number;
+  onLeave: boolean;
 }
 
 function haversineKm(lat1: number, lng1: number, lat2: number, lng2: number) {
@@ -37,36 +39,39 @@ export default function AutoAssignSuggestion({ jobLat, jobLng, onSelect, schedul
     const calculate = async () => {
       setLoading(true);
 
-      // Get all engineer profiles
-      const { data: engineers } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .order("full_name");
+      const [engineersRes, rolesRes, locationsRes, schedulesRes, leaveRes] = await Promise.all([
+        supabase.from("profiles").select("user_id, full_name").order("full_name"),
+        supabase.from("user_roles").select("user_id").eq("role", "engineer"),
+        supabase.from("engineer_locations" as any).select("*"),
+        supabase.from("job_schedule").select("engineer_id").eq("schedule_date", scheduleDate || new Date().toISOString().split("T")[0]),
+        supabase.from("engineer_leave" as any).select("engineer_id, start_date, end_date").eq("status", "approved"),
+      ]);
 
-      // Get engineer roles to filter only engineers
-      const { data: roles } = await supabase
-        .from("user_roles")
-        .select("user_id")
-        .eq("role", "engineer");
-      const engineerIds = new Set((roles || []).map((r) => r.user_id));
-
-      // Get live locations
-      const { data: locations } = await supabase.from("engineer_locations" as any).select("*");
+      const engineerIds = new Set((rolesRes.data || []).map((r: any) => r.user_id));
       const locMap = new Map<string, { latitude: number; longitude: number }>();
-      ((locations || []) as any[]).forEach((l) => locMap.set(l.user_id, l));
+      ((locationsRes.data || []) as any[]).forEach((l) => locMap.set(l.user_id, l));
 
-      // Get workload for today/target date
       const targetDate = scheduleDate || new Date().toISOString().split("T")[0];
-      const { data: schedules } = await supabase
-        .from("job_schedule")
-        .select("engineer_id")
-        .eq("schedule_date", targetDate);
       const workloadMap = new Map<string, number>();
-      (schedules || []).forEach((s) => {
+      (schedulesRes.data || []).forEach((s) => {
         workloadMap.set(s.engineer_id, (workloadMap.get(s.engineer_id) || 0) + 1);
       });
 
-      const results: EngineerSuggestion[] = (engineers || [])
+      // Build set of engineers on leave on target date
+      const onLeaveSet = new Set<string>();
+      ((leaveRes.data || []) as any[]).forEach((l) => {
+        try {
+          const day = startOfDay(parseISO(targetDate));
+          if (isWithinInterval(day, {
+            start: startOfDay(parseISO(l.start_date)),
+            end: endOfDay(parseISO(l.end_date)),
+          })) {
+            onLeaveSet.add(l.engineer_id);
+          }
+        } catch { /* skip */ }
+      });
+
+      const results: EngineerSuggestion[] = (engineersRes.data || [])
         .filter((e) => engineerIds.has(e.user_id))
         .map((e) => {
           const loc = locMap.get(e.user_id);
@@ -79,17 +84,19 @@ export default function AutoAssignSuggestion({ jobLat, jobLng, onSelect, schedul
             full_name: e.full_name,
             distance_km,
             workload: workloadMap.get(e.user_id) || 0,
+            onLeave: onLeaveSet.has(e.user_id),
           };
         })
-        // Sort: nearest first (nulls last), then by lowest workload
+        // Sort: available first, then nearest, then lowest workload
         .sort((a, b) => {
+          if (a.onLeave !== b.onLeave) return a.onLeave ? 1 : -1;
           if (a.distance_km !== null && b.distance_km !== null) return a.distance_km - b.distance_km;
           if (a.distance_km !== null) return -1;
           if (b.distance_km !== null) return 1;
           return a.workload - b.workload;
         });
 
-      setSuggestions(results.slice(0, 5));
+      setSuggestions(results.slice(0, 6));
       setLoading(false);
     };
 
@@ -108,19 +115,36 @@ export default function AutoAssignSuggestion({ jobLat, jobLng, onSelect, schedul
         {suggestions.map((s) => (
           <div
             key={s.user_id}
-            className="flex items-center justify-between rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50 cursor-pointer"
-            onClick={() => onSelect(s.user_id)}
+            className={
+              "flex items-center justify-between rounded-md border px-3 py-1.5 text-sm hover:bg-muted/50 cursor-pointer" +
+              (s.onLeave ? " opacity-60" : "")
+            }
+            onClick={() => !s.onLeave && onSelect(s.user_id)}
+            title={s.onLeave ? "Engineer is on approved leave on this date" : undefined}
           >
-            <span className="font-medium">{s.full_name}</span>
+            <span className="font-medium flex items-center gap-1.5">
+              {s.onLeave && <span title="On leave"><Palmtree className="h-3 w-3 text-amber-500 shrink-0" /></span>}
+              {s.full_name}
+            </span>
             <div className="flex items-center gap-2">
-              {s.distance_km !== null && (
+              {s.onLeave && (
+                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                  On leave
+                </Badge>
+              )}
+              {s.distance_km !== null && !s.onLeave && (
                 <Badge variant="outline" className="text-[10px] gap-1">
                   <MapPin className="h-2.5 w-2.5" /> {s.distance_km} km
                 </Badge>
               )}
-              <Badge variant={s.workload === 0 ? "default" : s.workload <= 2 ? "secondary" : "destructive"} className="text-[10px]">
-                {s.workload} jobs today
-              </Badge>
+              {!s.onLeave && (
+                <Badge
+                  variant={s.workload === 0 ? "default" : s.workload <= 2 ? "secondary" : "destructive"}
+                  className="text-[10px]"
+                >
+                  {s.workload} jobs today
+                </Badge>
+              )}
             </div>
           </div>
         ))}

@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { format, isSameDay, isPast, parseISO, startOfDay } from "date-fns";
+import { useMemo, useState, useEffect } from "react";
+import { format, isSameDay, isPast, parseISO, startOfDay, isWithinInterval, endOfDay } from "date-fns";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { X, GripVertical, AlertTriangle, CalendarDays } from "lucide-react";
+import { X, GripVertical, AlertTriangle, CalendarDays, Palmtree } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -332,11 +333,13 @@ function DroppableCell({
   children,
   isToday,
   isOver,
+  isLeave,
 }: {
   id: string;
   children: React.ReactNode;
   isToday: boolean;
   isOver: boolean;
+  isLeave?: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
@@ -347,7 +350,8 @@ function DroppableCell({
         "min-h-[80px] rounded-md border p-1.5 space-y-1 transition-colors",
         isToday && "bg-primary/5 border-primary/20",
         isOver && "bg-primary/10 border-primary ring-1 ring-primary/30",
-        !isToday && !isOver && "bg-card"
+        isLeave && !isOver && "bg-blue-500/5 border-blue-500/20",
+        !isToday && !isOver && !isLeave && "bg-card"
       )}
     >
       {children}
@@ -388,6 +392,39 @@ export default function WeeklyGridView({
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map()); // engineerId -> ["2025-03-14", ...]
+
+  // Fetch approved leave for the displayed week
+  useEffect(() => {
+    const weekStart = format(weekDays[0], "yyyy-MM-dd");
+    const weekEnd = format(weekDays[weekDays.length - 1], "yyyy-MM-dd");
+    supabase
+      .from("engineer_leave" as any)
+      .select("engineer_id, start_date, end_date, leave_type")
+      .eq("status", "approved")
+      .lte("start_date", weekEnd)
+      .gte("end_date", weekStart)
+      .then(({ data }) => {
+        const map = new Map<string, string[]>();
+        ((data as any[]) || []).forEach((l: any) => {
+          // Expand leave into individual dates within the week
+          weekDays.forEach((d) => {
+            const dateStr = format(d, "yyyy-MM-dd");
+            try {
+              if (isWithinInterval(startOfDay(d), {
+                start: startOfDay(parseISO(l.start_date)),
+                end: endOfDay(parseISO(l.end_date)),
+              })) {
+                const existing = map.get(l.engineer_id) || [];
+                if (!existing.includes(dateStr)) existing.push(dateStr);
+                map.set(l.engineer_id, existing);
+              }
+            } catch { /* skip */ }
+          });
+        });
+        setLeaveMap(map);
+      });
+  }, [weekDays]);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -574,7 +611,7 @@ export default function WeeklyGridView({
             <ScrollArea className="h-[calc(100vh-320px)]">
               <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1">
-                  {engineers.map((eng) => (
+                   {engineers.map((eng) => (
                     <SortableEngineerRow
                       key={eng.user_id}
                       eng={eng}
@@ -586,6 +623,7 @@ export default function WeeklyGridView({
                       getJob={getJob}
                       onRemove={onRemove}
                       onRemoveAdhoc={onRemoveAdhoc}
+                      leaveDates={leaveMap.get(eng.user_id) || []}
                     />
                   ))}
                 </div>
@@ -632,6 +670,7 @@ function SortableEngineerRow({
   getJob,
   onRemove,
   onRemoveAdhoc,
+  leaveDates,
 }: {
   eng: Engineer;
   weekDays: Date[];
@@ -642,6 +681,7 @@ function SortableEngineerRow({
   getJob: (id: string) => Job | undefined;
   onRemove: (id: string) => void;
   onRemoveAdhoc: (id: string) => void;
+  leaveDates: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -706,8 +746,19 @@ function SortableEngineerRow({
           (a) => a.engineer_id === eng.user_id && a.schedule_date === dateStr
         );
         const isToday = isSameDay(d, new Date());
+        const isOnLeave = leaveDates.includes(dateStr);
         return (
-          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId}>
+          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave}>
+            {isOnLeave && cellEntries.length === 0 && cellAdhoc.length === 0 && (
+              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-600 dark:text-blue-300 font-medium">
+                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+              </div>
+            )}
+            {isOnLeave && (cellEntries.length > 0 || cellAdhoc.length > 0) && (
+              <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-300 font-medium mb-0.5 px-0.5">
+                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+              </div>
+            )}
             {cellEntries.map((entry) => (
               <DraggableScheduleCard
                 key={entry.id}

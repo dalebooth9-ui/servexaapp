@@ -50,6 +50,7 @@ const CookiePolicy = lazy(() => import("@/pages/CookiePolicy"));
 const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiability"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const Offline = lazy(() => import("@/pages/Offline"));
+const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,7 @@ const App = () => (
               <Route path="/rams/new" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
               <Route path="/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
               <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
+              <Route path="/leave" element={<ProtectedRoute><LeaveCalendar /></ProtectedRoute>} />
               <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
               <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
               <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
