@@ -196,6 +196,16 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
             <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
           </div>
 
+          {/* Bank holiday warning */}
+          {bankHolidayConflict && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                <strong>{bankHolidayConflict.name}</strong> — this is a UK bank holiday. Engineers may be unavailable.
+              </span>
+            </div>
+          )}
+
           {/* Leave conflict warning */}
           {leaveConflict && (
             <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
