@@ -667,6 +667,7 @@ function SortableEngineerRow({
   getJob,
   onRemove,
   onRemoveAdhoc,
+  leaveDates,
 }: {
   eng: Engineer;
   weekDays: Date[];
@@ -677,6 +678,7 @@ function SortableEngineerRow({
   getJob: (id: string) => Job | undefined;
   onRemove: (id: string) => void;
   onRemoveAdhoc: (id: string) => void;
+  leaveDates: string[];
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -741,8 +743,19 @@ function SortableEngineerRow({
           (a) => a.engineer_id === eng.user_id && a.schedule_date === dateStr
         );
         const isToday = isSameDay(d, new Date());
+        const isOnLeave = leaveDates.includes(dateStr);
         return (
-          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId}>
+          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave}>
+            {isOnLeave && cellEntries.length === 0 && cellAdhoc.length === 0 && (
+              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-600 dark:text-blue-300 font-medium">
+                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+              </div>
+            )}
+            {isOnLeave && (cellEntries.length > 0 || cellAdhoc.length > 0) && (
+              <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-300 font-medium mb-0.5 px-0.5">
+                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+              </div>
+            )}
             {cellEntries.map((entry) => (
               <DraggableScheduleCard
                 key={entry.id}
