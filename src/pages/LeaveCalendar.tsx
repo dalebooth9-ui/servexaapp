@@ -297,13 +297,14 @@ export default function LeaveCalendar() {
                   const dayLeave = getLeaveForDay(day);
                   const isToday = isSameDay(day, new Date());
                   const isWeekend = day.getDay() === 0 || day.getDay() === 6;
+                  const bankHol = bankHolidays.find((b) => b.date === format(day, "yyyy-MM-dd"));
                   return (
                     <div
                       key={day.toISOString()}
                       className={cn(
                         "min-h-[72px] rounded-lg border p-1.5 text-xs transition-colors",
-                        isToday ? "border-primary bg-primary/5" : "border-border",
-                        isWeekend ? "bg-muted/30" : "bg-card",
+                        isToday ? "border-primary bg-primary/5" : bankHol ? "border-amber-500/40 bg-amber-500/8" : "border-border",
+                        !bankHol && isWeekend ? "bg-muted/30" : "",
                         dayLeave.length > 0 && "cursor-pointer hover:border-primary/50"
                       )}
                       onClick={() => dayLeave.length === 1 && setSelectedLeave(dayLeave[0])}
@@ -315,7 +316,15 @@ export default function LeaveCalendar() {
                         {format(day, "d")}
                       </div>
                       <div className="space-y-0.5">
-                        {dayLeave.slice(0, 3).map((l) => {
+                        {bankHol && (
+                          <div
+                            className="truncate rounded px-1 py-0.5 border text-[10px] font-semibold bg-amber-500/15 text-amber-700 border-amber-500/30 dark:text-amber-300"
+                            title={bankHol.name}
+                          >
+                            🏦 {bankHol.name}
+                          </div>
+                        )}
+                        {dayLeave.slice(0, bankHol ? 2 : 3).map((l) => {
                           const cfg = LEAVE_TYPE_CONFIG[l.leave_type];
                           return (
                             <div
@@ -332,8 +341,8 @@ export default function LeaveCalendar() {
                             </div>
                           );
                         })}
-                        {dayLeave.length > 3 && (
-                          <div className="text-[10px] text-muted-foreground text-center">+{dayLeave.length - 3}</div>
+                        {dayLeave.length > (bankHol ? 2 : 3) && (
+                          <div className="text-[10px] text-muted-foreground text-center">+{dayLeave.length - (bankHol ? 2 : 3)}</div>
                         )}
                       </div>
                     </div>
