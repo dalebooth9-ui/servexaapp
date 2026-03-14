@@ -333,11 +333,13 @@ function DroppableCell({
   children,
   isToday,
   isOver,
+  isLeave,
 }: {
   id: string;
   children: React.ReactNode;
   isToday: boolean;
   isOver: boolean;
+  isLeave?: boolean;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
@@ -348,7 +350,8 @@ function DroppableCell({
         "min-h-[80px] rounded-md border p-1.5 space-y-1 transition-colors",
         isToday && "bg-primary/5 border-primary/20",
         isOver && "bg-primary/10 border-primary ring-1 ring-primary/30",
-        !isToday && !isOver && "bg-card"
+        isLeave && !isOver && "bg-blue-500/5 border-blue-500/20",
+        !isToday && !isOver && !isLeave && "bg-card"
       )}
     >
       {children}
