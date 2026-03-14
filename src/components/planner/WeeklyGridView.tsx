@@ -393,11 +393,14 @@ export default function WeeklyGridView({
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map()); // engineerId -> ["2025-03-14", ...]
+  const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
 
-  // Fetch approved leave for the displayed week
+  // Fetch approved leave + bank holidays for the displayed week
   useEffect(() => {
     const weekStart = format(weekDays[0], "yyyy-MM-dd");
     const weekEnd = format(weekDays[weekDays.length - 1], "yyyy-MM-dd");
+
+    // Leave
     supabase
       .from("engineer_leave" as any)
       .select("engineer_id, start_date, end_date, leave_type")
@@ -407,7 +410,6 @@ export default function WeeklyGridView({
       .then(({ data }) => {
         const map = new Map<string, string[]>();
         ((data as any[]) || []).forEach((l: any) => {
-          // Expand leave into individual dates within the week
           weekDays.forEach((d) => {
             const dateStr = format(d, "yyyy-MM-dd");
             try {
@@ -423,6 +425,17 @@ export default function WeeklyGridView({
           });
         });
         setLeaveMap(map);
+      });
+
+    // Bank holidays
+    supabase
+      .from("bank_holidays" as any)
+      .select("date, name")
+      .gte("date", weekStart)
+      .lte("date", weekEnd)
+      .then(({ data }) => {
+        const dates = new Set<string>((data as any[] || []).map((b: any) => b.date));
+        setBankHolidayDates(dates);
       });
   }, [weekDays]);
 
