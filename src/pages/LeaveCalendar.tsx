@@ -353,6 +353,10 @@ export default function LeaveCalendar() {
           </Card>
 
           <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 rounded-sm bg-amber-500/60" />
+              Bank Holiday
+            </div>
             {Object.entries(LEAVE_TYPE_CONFIG).map(([key, cfg]) => (
               <div key={key} className="flex items-center gap-1.5">
                 <span className={cn("h-2.5 w-2.5 rounded-sm", cfg.dot)} />
