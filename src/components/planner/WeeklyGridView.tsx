@@ -608,7 +608,7 @@ export default function WeeklyGridView({
             <ScrollArea className="h-[calc(100vh-320px)]">
               <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1">
-                  {engineers.map((eng) => (
+                   {engineers.map((eng) => (
                     <SortableEngineerRow
                       key={eng.user_id}
                       eng={eng}
@@ -620,6 +620,7 @@ export default function WeeklyGridView({
                       getJob={getJob}
                       onRemove={onRemove}
                       onRemoveAdhoc={onRemoveAdhoc}
+                      leaveDates={leaveMap.get(eng.user_id) || []}
                     />
                   ))}
                 </div>
