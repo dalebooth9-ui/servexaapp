@@ -12,6 +12,11 @@ import { CalendarDays, AlertTriangle, Palmtree } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 
+interface BankHoliday {
+  date: string;
+  name: string;
+}
+
 interface QuickScheduleDialogProps {
   job: { id: string; name: string; reference_number: string } | null;
   open: boolean;
