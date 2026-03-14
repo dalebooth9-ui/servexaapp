@@ -12,6 +12,11 @@ import { CalendarDays, AlertTriangle, Palmtree } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { parseISO, isWithinInterval, startOfDay, endOfDay } from "date-fns";
 
+interface BankHoliday {
+  date: string;
+  name: string;
+}
+
 interface QuickScheduleDialogProps {
   job: { id: string; name: string; reference_number: string } | null;
   open: boolean;
@@ -48,6 +53,7 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
   const [notesColor, setNotesColor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
+  const [bankHolidays, setBankHolidays] = useState<BankHoliday[]>([]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,12 +67,17 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           setEngineers(profiles.filter((p) => engIds.has(p.user_id)));
         });
       });
-    // Fetch approved leave around the selected date ±30 days
+    // Fetch approved leave
     supabase
       .from("engineer_leave" as any)
       .select("id, engineer_id, leave_type, start_date, end_date, status")
       .eq("status", "approved")
       .then(({ data }) => setLeaveEntries((data as any[] || []) as LeaveEntry[]));
+    // Fetch bank holidays
+    supabase
+      .from("bank_holidays" as any)
+      .select("date, name")
+      .then(({ data }) => setBankHolidays((data as any[] || []) as BankHoliday[]));
   }, [open]);
 
   // Check if selected engineer is on leave on the selected date
@@ -81,6 +92,11 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
           });
         } catch { return false; }
       })
+    : null;
+
+  // Check if selected date is a bank holiday
+  const bankHolidayConflict = scheduleDate
+    ? bankHolidays.find((b) => b.date === scheduleDate)
     : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -179,6 +195,16 @@ export default function QuickScheduleDialog({ job, open, onOpenChange, onSchedul
             <Label>Date</Label>
             <Input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} required />
           </div>
+
+          {/* Bank holiday warning */}
+          {bankHolidayConflict && (
+            <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+              <span>
+                <strong>{bankHolidayConflict.name}</strong> — this is a UK bank holiday. Engineers may be unavailable.
+              </span>
+            </div>
+          )}
 
           {/* Leave conflict warning */}
           {leaveConflict && (

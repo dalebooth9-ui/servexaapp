@@ -393,11 +393,14 @@ export default function WeeklyGridView({
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map()); // engineerId -> ["2025-03-14", ...]
+  const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
 
-  // Fetch approved leave for the displayed week
+  // Fetch approved leave + bank holidays for the displayed week
   useEffect(() => {
     const weekStart = format(weekDays[0], "yyyy-MM-dd");
     const weekEnd = format(weekDays[weekDays.length - 1], "yyyy-MM-dd");
+
+    // Leave
     supabase
       .from("engineer_leave" as any)
       .select("engineer_id, start_date, end_date, leave_type")
@@ -407,7 +410,6 @@ export default function WeeklyGridView({
       .then(({ data }) => {
         const map = new Map<string, string[]>();
         ((data as any[]) || []).forEach((l: any) => {
-          // Expand leave into individual dates within the week
           weekDays.forEach((d) => {
             const dateStr = format(d, "yyyy-MM-dd");
             try {
@@ -423,6 +425,17 @@ export default function WeeklyGridView({
           });
         });
         setLeaveMap(map);
+      });
+
+    // Bank holidays
+    supabase
+      .from("bank_holidays" as any)
+      .select("date, name")
+      .gte("date", weekStart)
+      .lte("date", weekEnd)
+      .then(({ data }) => {
+        const dates = new Set<string>((data as any[] || []).map((b: any) => b.date));
+        setBankHolidayDates(dates);
       });
   }, [weekDays]);
 
@@ -595,13 +608,16 @@ export default function WeeklyGridView({
               <div className="text-xs font-semibold text-muted-foreground px-2 py-1">Engineer</div>
               {weekDays.map((d) => {
                 const isToday = isSameDay(d, new Date());
+                const dateStr = format(d, "yyyy-MM-dd");
+                const isBankHoliday = bankHolidayDates.has(dateStr);
                 return (
                   <div key={d.toISOString()} className={cn(
                     "rounded-md px-2 py-1 text-center text-xs font-semibold",
-                    isToday ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                    isToday ? "bg-primary text-primary-foreground" : isBankHoliday ? "bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30" : "text-muted-foreground"
                   )}>
                     <div>{format(d, "EEE")}</div>
                     <div className="text-[10px]">{format(d, "dd/MM")}</div>
+                    {isBankHoliday && <div className="text-[9px] font-normal truncate">🏦 Bank Hol</div>}
                   </div>
                 );
               })}
@@ -624,6 +640,7 @@ export default function WeeklyGridView({
                       onRemove={onRemove}
                       onRemoveAdhoc={onRemoveAdhoc}
                       leaveDates={leaveMap.get(eng.user_id) || []}
+                      bankHolidayDates={bankHolidayDates}
                     />
                   ))}
                 </div>
@@ -671,6 +688,7 @@ function SortableEngineerRow({
   onRemove,
   onRemoveAdhoc,
   leaveDates,
+  bankHolidayDates,
 }: {
   eng: Engineer;
   weekDays: Date[];
@@ -682,6 +700,7 @@ function SortableEngineerRow({
   onRemove: (id: string) => void;
   onRemoveAdhoc: (id: string) => void;
   leaveDates: string[];
+  bankHolidayDates: Set<string>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
@@ -747,15 +766,26 @@ function SortableEngineerRow({
         );
         const isToday = isSameDay(d, new Date());
         const isOnLeave = leaveDates.includes(dateStr);
+        const isBankHoliday = bankHolidayDates.has(dateStr);
         return (
-          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave}>
-            {isOnLeave && cellEntries.length === 0 && cellAdhoc.length === 0 && (
-              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-600 dark:text-blue-300 font-medium">
-                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave || isBankHoliday}>
+            {isBankHoliday && cellEntries.length === 0 && cellAdhoc.length === 0 && !isOnLeave && (
+              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                🏦 Bank Holiday
               </div>
             )}
-            {isOnLeave && (cellEntries.length > 0 || cellAdhoc.length > 0) && (
-              <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-300 font-medium mb-0.5 px-0.5">
+            {isBankHoliday && (cellEntries.length > 0 || cellAdhoc.length > 0 || isOnLeave) && (
+              <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">
+                🏦 Bank Hol
+              </div>
+            )}
+            {isOnLeave && (
+              <div className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium",
+                cellEntries.length === 0 && cellAdhoc.length === 0 && !isBankHoliday
+                  ? "bg-primary/10 border border-primary/20 text-primary"
+                  : "text-primary mb-0.5 px-0.5"
+              )}>
                 <Palmtree className="h-3 w-3 shrink-0" /> On leave
               </div>
             )}

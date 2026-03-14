@@ -494,6 +494,30 @@ export type Database = {
           },
         ]
       }
+      bank_holidays: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          name: string
+          region: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          id?: string
+          name: string
+          region?: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          name?: string
+          region?: string
+        }
+        Relationships: []
+      }
       category_document_templates: {
         Row: {
           category_slug: string
