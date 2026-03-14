@@ -39,6 +39,11 @@ interface LeaveEntry {
   profiles?: { full_name: string } | null;
 }
 
+interface BankHoliday {
+  date: string;
+  name: string;
+}
+
 interface Engineer {
   user_id: string;
   full_name: string;
