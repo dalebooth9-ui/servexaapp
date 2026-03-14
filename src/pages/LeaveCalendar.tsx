@@ -85,6 +85,7 @@ export default function LeaveCalendar() {
   const [leaveEntries, setLeaveEntries] = useState<LeaveEntry[]>([]);
   const [engineers, setEngineers] = useState<Engineer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bankHolidays, setBankHolidays] = useState<BankHoliday[]>([]);
   const [selectedEngineer, setSelectedEngineer] = useState<string>("all");
 
   const [requestOpen, setRequestOpen] = useState(false);
