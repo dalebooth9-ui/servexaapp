@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -15,15 +15,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   format, addMonths, subMonths, startOfMonth, endOfMonth,
-  eachDayOfInterval, isSameMonth, isSameDay, parseISO, isWithinInterval,
-  startOfDay, endOfDay, addDays,
+  eachDayOfInterval, isSameDay, parseISO, isWithinInterval,
+  startOfDay, endOfDay,
 } from "date-fns";
 import {
   ChevronLeft, ChevronRight, CalendarDays, Plus, Check, X,
-  AlertTriangle, Palmtree, Stethoscope, Building, CalendarIcon,
+  AlertTriangle, Palmtree, Stethoscope, Building2, Calendar as CalendarIcon,
   Trash2,
 } from "lucide-react";
-import { format as dateFnsFormat } from "date-fns";
 
 interface LeaveEntry {
   id: string;
@@ -46,15 +45,30 @@ interface Engineer {
 }
 
 const LEAVE_TYPE_CONFIG = {
-  holiday: { label: "Holiday", icon: Palmtree, color: "bg-blue-500/20 text-blue-700 border-blue-500/30 dark:text-blue-300" },
-  sick: { label: "Sick Leave", icon: Stethoscope, color: "bg-red-500/20 text-red-700 border-red-500/30 dark:text-red-300" },
-  bank_holiday: { label: "Bank Holiday", icon: Building, color: "bg-purple-500/20 text-purple-700 border-purple-500/30 dark:text-purple-300" },
+  holiday: {
+    label: "Holiday",
+    icon: Palmtree,
+    color: "bg-blue-500/15 text-blue-700 border-blue-500/30 dark:text-blue-300",
+    dot: "bg-blue-500",
+  },
+  sick: {
+    label: "Sick Leave",
+    icon: Stethoscope,
+    color: "bg-destructive/10 text-destructive border-destructive/30",
+    dot: "bg-destructive",
+  },
+  bank_holiday: {
+    label: "Bank Holiday",
+    icon: Building2,
+    color: "bg-purple-500/15 text-purple-700 border-purple-500/30 dark:text-purple-300",
+    dot: "bg-purple-500",
+  },
 };
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", class: "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30" },
-  approved: { label: "Approved", class: "bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30" },
-  rejected: { label: "Rejected", class: "bg-red-500/20 text-red-700 dark:text-red-300 border-red-500/30" },
+  approved: { label: "Approved", class: "bg-green-600/15 text-green-700 dark:text-green-300 border-green-600/30" },
+  rejected: { label: "Rejected", class: "bg-destructive/15 text-destructive border-destructive/30" },
 };
 
 export default function LeaveCalendar() {
@@ -68,7 +82,6 @@ export default function LeaveCalendar() {
   const [loading, setLoading] = useState(true);
   const [selectedEngineer, setSelectedEngineer] = useState<string>("all");
 
-  // Request dialog
   const [requestOpen, setRequestOpen] = useState(false);
   const [reqEngineerId, setReqEngineerId] = useState("");
   const [reqLeaveType, setReqLeaveType] = useState<"holiday" | "sick" | "bank_holiday">("holiday");
@@ -79,7 +92,6 @@ export default function LeaveCalendar() {
   const [reqEndOpen, setReqEndOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  // Detail / review dialog
   const [selectedLeave, setSelectedLeave] = useState<LeaveEntry | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
 
@@ -99,17 +111,15 @@ export default function LeaveCalendar() {
       supabase.from("user_roles").select("user_id").eq("role", "engineer"),
     ]);
 
-    const engineerIds = new Set((rolesRes.data || []).map((r: any) => r.user_id));
-    const engList = (profilesRes.data || []).filter((p: any) => engineerIds.has(p.user_id));
+    const engineerIds = new Set(((rolesRes.data as any[]) || []).map((r: any) => r.user_id));
+    const engList = ((profilesRes.data as any[]) || []).filter((p: any) => engineerIds.has(p.user_id));
     setEngineers(engList);
-
-    setLeaveEntries((leaveRes.data as any[] || []) as LeaveEntry[]);
+    setLeaveEntries(((leaveRes.data as any[]) || []) as LeaveEntry[]);
     setLoading(false);
   }, [currentMonth]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Set default engineer for non-admin
   useEffect(() => {
     if (!isAdmin && user) setReqEngineerId(user.id);
   }, [isAdmin, user]);
@@ -134,7 +144,10 @@ export default function LeaveCalendar() {
     if (error) {
       toast({ title: "Error", description: "Failed to submit leave request.", variant: "destructive" });
     } else {
-      toast({ title: isAdmin ? "Leave added" : "Request submitted", description: isAdmin ? "Leave has been added." : "Your request is pending approval." });
+      toast({
+        title: isAdmin ? "Leave added" : "Request submitted",
+        description: isAdmin ? "Leave has been added." : "Your request is pending approval.",
+      });
       setRequestOpen(false);
       setReqStartDate(undefined);
       setReqEndDate(undefined);
@@ -151,9 +164,9 @@ export default function LeaveCalendar() {
       .eq("id", selectedLeave.id);
     setReviewLoading(false);
     if (error) {
-      toast({ title: "Error", description: "Failed to update leave status.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to update leave.", variant: "destructive" });
     } else {
-      toast({ title: `Leave ${status}`, description: `The leave request has been ${status}.` });
+      toast({ title: `Leave ${status}` });
       setSelectedLeave(null);
       fetchData();
     }
@@ -162,7 +175,7 @@ export default function LeaveCalendar() {
   const handleDelete = async (id: string) => {
     const { error } = await (supabase.from("engineer_leave" as any) as any).delete().eq("id", id);
     if (error) {
-      toast({ title: "Error", description: "Failed to delete leave.", variant: "destructive" });
+      toast({ title: "Error", description: "Failed to remove leave.", variant: "destructive" });
     } else {
       toast({ title: "Leave removed" });
       setSelectedLeave(null);
@@ -170,16 +183,11 @@ export default function LeaveCalendar() {
     }
   };
 
-  // Calendar helpers
-  const monthDays = eachDayOfInterval({
-    start: startOfMonth(currentMonth),
-    end: endOfMonth(currentMonth),
-  });
+  const monthDays = eachDayOfInterval({ start: startOfMonth(currentMonth), end: endOfMonth(currentMonth) });
 
-  const filteredLeave = leaveEntries.filter((l) => {
-    if (selectedEngineer !== "all" && l.engineer_id !== selectedEngineer) return false;
-    return true;
-  });
+  const filteredLeave = leaveEntries.filter((l) =>
+    selectedEngineer === "all" || l.engineer_id === selectedEngineer
+  );
 
   const getLeaveForDay = (day: Date) =>
     filteredLeave.filter((l) => {
@@ -194,13 +202,11 @@ export default function LeaveCalendar() {
 
   const pendingCount = leaveEntries.filter((l) => l.status === "pending").length;
 
-  // Padding days before month starts
-  const firstDayOfWeek = startOfMonth(currentMonth).getDay(); // 0=Sun
-  const paddingDays = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; // Mon start
+  const firstDayDow = startOfMonth(currentMonth).getDay();
+  const paddingDays = firstDayDow === 0 ? 6 : firstDayDow - 1;
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
@@ -227,20 +233,23 @@ export default function LeaveCalendar() {
       <Tabs defaultValue="calendar">
         <TabsList>
           <TabsTrigger value="calendar">Calendar</TabsTrigger>
-          <TabsTrigger value="list">
-            List {isAdmin && pendingCount > 0 && <span className="ml-1 rounded-full bg-destructive text-destructive-foreground text-[10px] px-1.5">{pendingCount}</span>}
+          <TabsTrigger value="list" className="gap-1.5">
+            List
+            {isAdmin && pendingCount > 0 && (
+              <span className="rounded-full bg-destructive text-destructive-foreground text-[10px] px-1.5 py-0.5 leading-none">
+                {pendingCount}
+              </span>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        {/* Calendar Tab */}
         <TabsContent value="calendar" className="mt-4 space-y-4">
-          {/* Controls */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="font-semibold text-lg min-w-[150px] text-center">
+              <span className="font-semibold text-lg min-w-[160px] text-center">
                 {format(currentMonth, "MMMM yyyy")}
               </span>
               <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
@@ -262,21 +271,15 @@ export default function LeaveCalendar() {
             )}
           </div>
 
-          {/* Calendar Grid */}
           <Card>
             <CardContent className="p-4">
-              {/* Day headers */}
               <div className="grid grid-cols-7 mb-2">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
                   <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>
                 ))}
               </div>
-              {/* Days */}
               <div className="grid grid-cols-7 gap-1">
-                {/* Padding */}
-                {Array.from({ length: paddingDays }).map((_, i) => (
-                  <div key={`pad-${i}`} />
-                ))}
+                {Array.from({ length: paddingDays }).map((_, i) => <div key={`pad-${i}`} />)}
                 {monthDays.map((day) => {
                   const dayLeave = getLeaveForDay(day);
                   const isToday = isSameDay(day, new Date());
@@ -290,9 +293,7 @@ export default function LeaveCalendar() {
                         isWeekend ? "bg-muted/30" : "bg-card",
                         dayLeave.length > 0 && "cursor-pointer hover:border-primary/50"
                       )}
-                      onClick={() => {
-                        if (dayLeave.length === 1) setSelectedLeave(dayLeave[0]);
-                      }}
+                      onClick={() => dayLeave.length === 1 && setSelectedLeave(dayLeave[0])}
                     >
                       <div className={cn(
                         "font-semibold mb-1 text-center h-5 w-5 rounded-full flex items-center justify-center mx-auto text-[11px]",
@@ -310,16 +311,16 @@ export default function LeaveCalendar() {
                               className={cn(
                                 "truncate rounded px-1 py-0.5 border text-[10px] font-medium cursor-pointer hover:opacity-80",
                                 cfg.color,
-                                l.status === "pending" && "opacity-60 italic"
+                                l.status === "pending" && "opacity-55 italic"
                               )}
-                              title={`${l.profiles?.full_name || "Engineer"} - ${cfg.label}${l.status === "pending" ? " (pending)" : ""}`}
+                              title={`${l.profiles?.full_name || "Engineer"} – ${cfg.label}${l.status === "pending" ? " (pending)" : ""}`}
                             >
                               {isAdmin ? (l.profiles?.full_name?.split(" ")[0] || "Eng") : cfg.label}
                             </div>
                           );
                         })}
                         {dayLeave.length > 3 && (
-                          <div className="text-[10px] text-muted-foreground text-center">+{dayLeave.length - 3} more</div>
+                          <div className="text-[10px] text-muted-foreground text-center">+{dayLeave.length - 3}</div>
                         )}
                       </div>
                     </div>
@@ -329,22 +330,20 @@ export default function LeaveCalendar() {
             </CardContent>
           </Card>
 
-          {/* Legend */}
           <div className="flex items-center gap-4 flex-wrap text-xs text-muted-foreground">
             {Object.entries(LEAVE_TYPE_CONFIG).map(([key, cfg]) => (
               <div key={key} className="flex items-center gap-1.5">
-                <span className={cn("h-3 w-3 rounded border", cfg.color)} />
+                <span className={cn("h-2.5 w-2.5 rounded-sm", cfg.dot)} />
                 {cfg.label}
               </div>
             ))}
-            <div className="flex items-center gap-1.5">
-              <span className="h-3 w-3 rounded border opacity-60 bg-muted" />
+            <div className="flex items-center gap-1.5 italic">
+              <span className="h-2.5 w-2.5 rounded-sm bg-muted border border-border" />
               Pending (italic)
             </div>
           </div>
         </TabsContent>
 
-        {/* List Tab */}
         <TabsContent value="list" className="mt-4">
           <div className="space-y-2">
             {loading ? (
@@ -368,31 +367,33 @@ export default function LeaveCalendar() {
                       onClick={() => setSelectedLeave(l)}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className={cn("p-2 rounded-md border", cfg.color)}>
+                        <div className={cn("p-2 rounded-md border shrink-0", cfg.color)}>
                           <Icon className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
                           <div className="font-medium text-sm truncate">
-                            {l.profiles?.full_name || "Engineer"}
+                            {isAdmin ? (l.profiles?.full_name || "Engineer") : cfg.label}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {format(parseISO(l.start_date), "dd MMM yyyy")}
                             {l.start_date !== l.end_date && ` → ${format(parseISO(l.end_date), "dd MMM yyyy")}`}
                             {" · "}{days} day{days !== 1 ? "s" : ""}
                           </div>
-                          {l.notes && <div className="text-xs text-muted-foreground truncate mt-0.5 italic">{l.notes}</div>}
+                          {l.notes && (
+                            <div className="text-xs text-muted-foreground truncate mt-0.5 italic">{l.notes}</div>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
-                        <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>
+                        {isAdmin && <Badge variant="outline" className={cn("text-[10px]", cfg.color)}>{cfg.label}</Badge>}
                         <Badge variant="outline" className={cn("text-[10px]", statusCfg.class)}>{statusCfg.label}</Badge>
                         {isAdmin && l.status === "pending" && (
                           <div className="flex gap-1">
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:text-green-700 hover:bg-green-50"
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-green-600 hover:bg-green-50 dark:hover:bg-green-950"
                               onClick={(e) => { e.stopPropagation(); setSelectedLeave(l); }}>
                               <Check className="h-3.5 w-3.5" />
                             </Button>
-                            <Button size="icon" variant="ghost" className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive hover:bg-destructive/10"
                               onClick={(e) => { e.stopPropagation(); setSelectedLeave(l); }}>
                               <X className="h-3.5 w-3.5" />
                             </Button>
@@ -421,9 +422,7 @@ export default function LeaveCalendar() {
               <div className="space-y-2">
                 <Label>Engineer</Label>
                 <Select value={reqEngineerId} onValueChange={setReqEngineerId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select engineer" />
-                  </SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Select engineer" /></SelectTrigger>
                   <SelectContent>
                     {engineers.map((e) => (
                       <SelectItem key={e.user_id} value={e.user_id}>{e.full_name}</SelectItem>
@@ -435,9 +434,7 @@ export default function LeaveCalendar() {
             <div className="space-y-2">
               <Label>Leave Type</Label>
               <Select value={reqLeaveType} onValueChange={(v) => setReqLeaveType(v as any)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(LEAVE_TYPE_CONFIG).map(([key, cfg]) => (
                     <SelectItem key={key} value={key}>{cfg.label}</SelectItem>
@@ -450,18 +447,15 @@ export default function LeaveCalendar() {
                 <Label>Start Date</Label>
                 <Popover open={reqStartOpen} onOpenChange={setReqStartOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reqStartDate && "text-muted-foreground")}>
-                      <CalendarIcon className="h-4 w-4 mr-2" />
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-sm", !reqStartDate && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3.5 w-3.5 mr-2 shrink-0" />
                       {reqStartDate ? format(reqStartDate, "dd/MM/yyyy") : "Pick date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={reqStartDate}
+                    <Calendar mode="single" selected={reqStartDate}
                       onSelect={(d) => { setReqStartDate(d); setReqStartOpen(false); }}
-                      className="pointer-events-auto"
-                    />
+                      className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
@@ -469,40 +463,30 @@ export default function LeaveCalendar() {
                 <Label>End Date</Label>
                 <Popover open={reqEndOpen} onOpenChange={setReqEndOpen}>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !reqEndDate && "text-muted-foreground")}>
-                      <CalendarIcon className="h-4 w-4 mr-2" />
+                    <Button variant="outline" className={cn("w-full justify-start text-left font-normal text-sm", !reqEndDate && "text-muted-foreground")}>
+                      <CalendarIcon className="h-3.5 w-3.5 mr-2 shrink-0" />
                       {reqEndDate ? format(reqEndDate, "dd/MM/yyyy") : "Pick date"}
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={reqEndDate}
+                    <Calendar mode="single" selected={reqEndDate}
                       onSelect={(d) => { setReqEndDate(d); setReqEndOpen(false); }}
                       disabled={(d) => reqStartDate ? d < reqStartDate : false}
-                      className="pointer-events-auto"
-                    />
+                      className="pointer-events-auto" />
                   </PopoverContent>
                 </Popover>
               </div>
             </div>
             <div className="space-y-2">
               <Label>Notes <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Textarea
-                placeholder="Any additional details..."
-                value={reqNotes}
-                onChange={(e) => setReqNotes(e.target.value)}
-                rows={2}
-                className="resize-none"
-              />
+              <Textarea placeholder="Any additional details..." value={reqNotes}
+                onChange={(e) => setReqNotes(e.target.value)} rows={2} className="resize-none" />
             </div>
           </div>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setRequestOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleRequestLeave}
-              disabled={submitting || !reqEngineerId || !reqStartDate || !reqEndDate}
-            >
+            <Button onClick={handleRequestLeave}
+              disabled={submitting || !reqEngineerId || !reqStartDate || !reqEndDate}>
               {submitting ? "Submitting..." : isAdmin ? "Add Leave" : "Submit Request"}
             </Button>
           </DialogFooter>
@@ -511,7 +495,7 @@ export default function LeaveCalendar() {
 
       {/* Leave Detail / Review Dialog */}
       {selectedLeave && (
-        <Dialog open={!!selectedLeave} onOpenChange={(o) => !o && setSelectedLeave(null)}>
+        <Dialog open onOpenChange={(o) => !o && setSelectedLeave(null)}>
           <DialogContent className="sm:max-w-sm">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -529,10 +513,10 @@ export default function LeaveCalendar() {
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Dates</span>
-                <span className="font-medium">
+                <span className="font-medium text-right">
                   {format(parseISO(selectedLeave.start_date), "dd MMM yyyy")}
                   {selectedLeave.start_date !== selectedLeave.end_date &&
-                    ` → ${format(parseISO(selectedLeave.end_date), "dd MMM yyyy")}`}
+                    <><br />{format(parseISO(selectedLeave.end_date), "dd MMM yyyy")}</>}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -541,7 +525,7 @@ export default function LeaveCalendar() {
                   {Math.round((parseISO(selectedLeave.end_date).getTime() - parseISO(selectedLeave.start_date).getTime()) / 86400000) + 1} day(s)
                 </span>
               </div>
-              <div className="flex justify-between">
+              <div className="flex justify-between items-center">
                 <span className="text-muted-foreground">Status</span>
                 <Badge variant="outline" className={cn("text-[10px]", STATUS_CONFIG[selectedLeave.status].class)}>
                   {STATUS_CONFIG[selectedLeave.status].label}
@@ -554,39 +538,25 @@ export default function LeaveCalendar() {
             <DialogFooter className="flex-col gap-2 sm:flex-row">
               {isAdmin && selectedLeave.status === "pending" && (
                 <>
-                  <Button
-                    variant="outline"
-                    className="text-red-600 border-red-200 hover:bg-red-50 flex-1"
-                    onClick={() => handleReview("rejected")}
-                    disabled={reviewLoading}
-                  >
+                  <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10 flex-1"
+                    onClick={() => handleReview("rejected")} disabled={reviewLoading}>
                     <X className="h-4 w-4 mr-1" /> Reject
                   </Button>
-                  <Button
-                    className="flex-1 bg-green-600 hover:bg-green-700"
-                    onClick={() => handleReview("approved")}
-                    disabled={reviewLoading}
-                  >
+                  <Button className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    onClick={() => handleReview("approved")} disabled={reviewLoading}>
                     <Check className="h-4 w-4 mr-1" /> Approve
                   </Button>
                 </>
               )}
               {isAdmin && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => handleDelete(selectedLeave.id)}
-                >
+                <Button variant="ghost" size="sm" className="text-destructive hover:bg-destructive/10 w-full sm:w-auto"
+                  onClick={() => handleDelete(selectedLeave.id)}>
                   <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
                 </Button>
               )}
               {!isAdmin && selectedLeave.status === "pending" && selectedLeave.engineer_id === user?.id && (
-                <Button
-                  variant="outline"
-                  className="text-red-600 border-red-200 hover:bg-red-50"
-                  onClick={() => handleDelete(selectedLeave.id)}
-                >
+                <Button variant="outline" className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                  onClick={() => handleDelete(selectedLeave.id)}>
                   <Trash2 className="h-4 w-4 mr-1" /> Cancel Request
                 </Button>
               )}
