@@ -766,15 +766,26 @@ function SortableEngineerRow({
         );
         const isToday = isSameDay(d, new Date());
         const isOnLeave = leaveDates.includes(dateStr);
+        const isBankHoliday = bankHolidayDates.has(dateStr);
         return (
-          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave}>
-            {isOnLeave && cellEntries.length === 0 && cellAdhoc.length === 0 && (
-              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-blue-500/10 border border-blue-500/20 text-[10px] text-blue-600 dark:text-blue-300 font-medium">
-                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave || isBankHoliday}>
+            {isBankHoliday && cellEntries.length === 0 && cellAdhoc.length === 0 && !isOnLeave && (
+              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                🏦 Bank Holiday
               </div>
             )}
-            {isOnLeave && (cellEntries.length > 0 || cellAdhoc.length > 0) && (
-              <div className="flex items-center gap-1 text-[10px] text-blue-600 dark:text-blue-300 font-medium mb-0.5 px-0.5">
+            {isBankHoliday && (cellEntries.length > 0 || cellAdhoc.length > 0 || isOnLeave) && (
+              <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">
+                🏦 Bank Hol
+              </div>
+            )}
+            {isOnLeave && (
+              <div className={cn(
+                "flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium",
+                cellEntries.length === 0 && cellAdhoc.length === 0 && !isBankHoliday
+                  ? "bg-primary/10 border border-primary/20 text-primary"
+                  : "text-primary mb-0.5 px-0.5"
+              )}>
                 <Palmtree className="h-3 w-3 shrink-0" /> On leave
               </div>
             )}
