@@ -688,6 +688,7 @@ function SortableEngineerRow({
   onRemove,
   onRemoveAdhoc,
   leaveDates,
+  bankHolidayDates,
 }: {
   eng: Engineer;
   weekDays: Date[];
@@ -699,6 +700,7 @@ function SortableEngineerRow({
   onRemove: (id: string) => void;
   onRemoveAdhoc: (id: string) => void;
   leaveDates: string[];
+  bankHolidayDates: Set<string>;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
