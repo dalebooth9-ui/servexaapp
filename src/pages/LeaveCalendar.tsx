@@ -106,7 +106,7 @@ export default function LeaveCalendar() {
     const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
     const monthEnd = format(endOfMonth(currentMonth), "yyyy-MM-dd");
 
-    const [leaveRes, profilesRes, rolesRes] = await Promise.all([
+    const [leaveRes, profilesRes, rolesRes, bankHolRes] = await Promise.all([
       supabase
         .from("engineer_leave" as any)
         .select("*, profiles(full_name)")
@@ -115,12 +115,19 @@ export default function LeaveCalendar() {
         .order("start_date"),
       supabase.from("profiles").select("user_id, full_name").order("full_name"),
       supabase.from("user_roles").select("user_id").eq("role", "engineer"),
+      supabase
+        .from("bank_holidays" as any)
+        .select("date, name")
+        .gte("date", monthStart)
+        .lte("date", monthEnd)
+        .order("date"),
     ]);
 
     const engineerIds = new Set(((rolesRes.data as any[]) || []).map((r: any) => r.user_id));
     const engList = ((profilesRes.data as any[]) || []).filter((p: any) => engineerIds.has(p.user_id));
     setEngineers(engList);
     setLeaveEntries(((leaveRes.data as any[]) || []) as LeaveEntry[]);
+    setBankHolidays(((bankHolRes.data as any[]) || []) as BankHoliday[]);
     setLoading(false);
   }, [currentMonth]);
 
