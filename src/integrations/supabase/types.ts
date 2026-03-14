@@ -1088,6 +1088,51 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_leave: {
+        Row: {
+          created_at: string
+          end_date: string
+          engineer_id: string
+          id: string
+          leave_type: string
+          notes: string | null
+          requested_by: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          end_date: string
+          engineer_id: string
+          id?: string
+          leave_type?: string
+          notes?: string | null
+          requested_by: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          end_date?: string
+          engineer_id?: string
+          id?: string
+          leave_type?: string
+          notes?: string | null
+          requested_by?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       engineer_locations: {
         Row: {
           accuracy: number | null
