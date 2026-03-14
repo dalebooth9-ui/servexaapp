@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.generate-ppm-jobs]
 verify_jwt = false
+
+[functions.sync-bank-holidays]
+verify_jwt = false
