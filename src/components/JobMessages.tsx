@@ -9,6 +9,7 @@ import { MessageSquare, Send, Paperclip, X, FileText } from "lucide-react";
 import { isImageFile } from "@/lib/fileUtils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import VoiceDictationButton from "@/components/VoiceDictationButton";
 
 interface JobMessagesProps {
   jobId: string;
@@ -246,10 +247,14 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
           <Button size="icon" variant="outline" className="self-end shrink-0" onClick={() => fileInputRef.current?.click()}>
             <Paperclip className="h-4 w-4" />
           </Button>
+          <VoiceDictationButton
+            onTranscript={(text) => setContent((prev) => prev ? `${prev} ${text}` : text)}
+            className="self-end"
+          />
           <Textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="Type a message..."
+            placeholder="Type a message or tap 🎤 to dictate…"
             rows={2}
             className="resize-none"
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); } }}

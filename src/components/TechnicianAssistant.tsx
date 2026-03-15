@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, X, Minimize2, Maximize2, Loader2, Wrench, Package } from "lucide-react";
+import { Bot, Send, X, Minimize2, Maximize2, Loader2 } from "lucide-react";
+import VoiceDictationButton from "@/components/VoiceDictationButton";
 
 interface Message {
   role: "user" | "assistant";
@@ -223,12 +224,16 @@ export default function TechnicianAssistant({ jobContext }: Props) {
             <div ref={bottomRef} />
           </ScrollArea>
 
-          <div className="px-3 py-2 border-t flex items-end gap-2">
+          <div className="px-3 py-2 border-t flex items-end gap-1.5">
+            <VoiceDictationButton
+              onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
+              className="h-8 w-8"
+            />
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask about diagnosis, parts…"
+              placeholder="Ask or dictate…"
               className="min-h-[2rem] max-h-24 resize-none text-xs flex-1"
               rows={1}
             />
