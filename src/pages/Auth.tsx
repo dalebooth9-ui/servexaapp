@@ -100,8 +100,8 @@ export default function Auth() {
   };
 
   const subtitleMap: Record<Mode, string> = {
-    login: "Sign in to your FieldReport account",
-    signup: "Get started with FieldReport",
+    login: "Sign in to your Servexa account",
+    signup: "Get started with Servexa",
     forgot: "We'll email you a reset link",
   };
 
@@ -110,8 +110,8 @@ export default function Auth() {
       {/* Branded left panel — hidden on small screens */}
       <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
         <div className="flex items-center gap-3">
-          <img src="/favicon.png" alt="FieldReport logo" className="h-10 w-10 rounded-xl" />
-          <span className="text-xl font-bold text-sidebar-primary-foreground">FieldReport</span>
+          <img src="/images/vivafire-logo-new.jpg" alt="Servexa logo" className="h-10 w-auto" />
+          <span className="text-xl font-bold text-sidebar-primary-foreground">Servexa</span>
         </div>
 
         <div className="space-y-8">
@@ -141,7 +141,7 @@ export default function Auth() {
         </div>
 
         <div className="space-y-1">
-          <p className="text-sm text-sidebar-foreground/40">© {new Date().getFullYear()} FieldReport. All rights reserved.</p>
+          <p className="text-sm text-sidebar-foreground/40">© {new Date().getFullYear()} Servexa. All rights reserved.</p>
           <div className="flex gap-3 text-xs text-sidebar-foreground/30">
             <a href="/terms" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Terms of Service</a>
             <a href="/privacy" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Privacy Policy</a>
@@ -154,8 +154,8 @@ export default function Auth() {
         <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="mb-8 flex items-center justify-center gap-2.5 lg:hidden">
-            <img src="/favicon.png" alt="FieldReport logo" className="h-10 w-10 rounded-xl" />
-            <span className="text-xl font-bold">FieldReport</span>
+            <img src="/images/vivafire-logo-new.jpg" alt="Servexa logo" className="h-10 w-auto" />
+            <span className="text-xl font-bold">Servexa</span>
           </div>
 
           <Card className="border-border/60 shadow-lg">
