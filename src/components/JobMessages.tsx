@@ -9,6 +9,7 @@ import { MessageSquare, Send, Paperclip, X, FileText } from "lucide-react";
 import { isImageFile } from "@/lib/fileUtils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import VoiceDictationButton from "@/components/VoiceDictationButton";
 
 interface JobMessagesProps {
   jobId: string;

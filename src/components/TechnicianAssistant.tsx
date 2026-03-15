@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Bot, Send, X, Minimize2, Maximize2, Loader2, Wrench, Package } from "lucide-react";
+import { Bot, Send, X, Minimize2, Maximize2, Loader2 } from "lucide-react";
+import VoiceDictationButton from "@/components/VoiceDictationButton";
 
 interface Message {
   role: "user" | "assistant";
