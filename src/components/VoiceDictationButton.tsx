@@ -1,5 +1,5 @@
 import { useCallback, useEffect } from "react";
-import { useScribe } from "@elevenlabs/react";
+import { useScribe, CommitStrategy } from "@elevenlabs/react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
