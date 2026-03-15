@@ -24,7 +24,7 @@ export default function VoiceDictationButton({
 
   const scribe = useScribe({
     modelId: "scribe_v2_realtime",
-    commitStrategy: "vad",
+    commitStrategy: CommitStrategy.VAD,
     onCommittedTranscript: (data) => {
       if (data.text?.trim()) {
         onTranscript(data.text.trim());
