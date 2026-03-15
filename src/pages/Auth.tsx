@@ -100,8 +100,8 @@ export default function Auth() {
   };
 
   const subtitleMap: Record<Mode, string> = {
-    login: "Sign in to your FieldReport account",
-    signup: "Get started with FieldReport",
+    login: "Sign in to your Servexa account",
+    signup: "Get started with Servexa",
     forgot: "We'll email you a reset link",
   };
 
