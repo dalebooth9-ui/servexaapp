@@ -297,6 +297,9 @@ export default function SettingsPage() {
         <RamsTemplateSettings />
         <XeroSettings />
 
+        {/* Quote Hound Integration */}
+        <QuoteHoundIntegrationCard />
+
         {/* Weekly Report Settings */}
         <Card>
           <CardHeader>
