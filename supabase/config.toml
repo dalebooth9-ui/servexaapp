@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.sync-bank-holidays]
 verify_jwt = false
+
+[functions.receive-quote-hound]
+verify_jwt = false
