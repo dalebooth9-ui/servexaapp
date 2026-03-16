@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, CheckCircle2, Link2, ExternalLink, ArrowRight } from "lucide-react";
+import { Copy, CheckCircle2, Link2, ExternalLink, ArrowRight, Code2 } from "lucide-react";
 import { toast } from "sonner";
 
 const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/receive-quote-hound`;
@@ -44,13 +44,13 @@ export default function QuoteHoundIntegrationCard() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            This is the receiving endpoint in Servexa. Quote Hound is already configured to call it.
+            This endpoint receives Won quotes from Quote Hound and creates jobs automatically.
           </p>
         </div>
 
-        {/* How to connect */}
+        {/* Activation steps */}
         <div className="rounded-lg border border-dashed p-4 space-y-3">
-          <p className="text-sm font-semibold">How to activate the integration</p>
+          <p className="text-sm font-semibold">How to activate</p>
           <ol className="space-y-2.5 text-xs text-muted-foreground list-none pl-0">
             <li className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">1</span>
@@ -63,15 +63,27 @@ export default function QuoteHoundIntegrationCard() {
             </li>
             <li className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">2</span>
-              <span>Click the <strong>Company Settings</strong> popover (top-right ⚙️ icon on the pipeline view)</span>
+              <span>Go to <strong>Settings</strong> → open the <strong>Company Settings</strong> popover (⚙️ icon in the top bar)</span>
             </li>
             <li className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">3</span>
-              <span>In the <strong>Servexa API Key</strong> field, enter the <code className="bg-muted px-1 rounded text-[11px]">QUOTEHOUND_WEBHOOK_SECRET</code> value you set up in Servexa's backend secrets</span>
+              <span>In the <strong>Servexa API Key</strong> field, paste the value of <code className="bg-muted px-1 rounded text-[11px]">QUOTEHOUND_WEBHOOK_SECRET</code> from your Servexa backend secrets</span>
             </li>
             <li className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">4</span>
-              <span>Click <strong>Save</strong> — the next quote marked Won will automatically push a job here</span>
+              <div className="flex flex-col gap-1">
+                <span>In Quote Hound's code, open <code className="bg-muted px-1 rounded text-[11px]">supabase/functions/create-servexa-job/index.ts</code> and update the <code className="bg-muted px-1 rounded text-[11px]">SERVEXA_BASE_URL</code> line to:</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <code className="bg-muted px-2 py-1 rounded text-[11px] flex-1 break-all">
+                    {`const SERVEXA_BASE_URL = "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1";`}
+                  </code>
+                </div>
+                <span className="text-[11px]">And change the fetch path from <code className="bg-muted px-1 rounded">/v1/jobs</code> to <code className="bg-muted px-1 rounded">/receive-quote-hound</code></span>
+              </div>
+            </li>
+            <li className="flex gap-3">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">5</span>
+              <span>Mark any quote as Won in Quote Hound — the job will appear here automatically ✅</span>
             </li>
           </ol>
         </div>
@@ -85,7 +97,7 @@ export default function QuoteHoundIntegrationCard() {
             <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Quote value &amp; notes</span>
             <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Job reference (prefixed QH-)</span>
             <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Customer auto-created if new</span>
-            <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Duplicate protection (idempotent)</span>
+            <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Duplicate-safe (won't double-create)</span>
           </div>
         </div>
 
