@@ -149,17 +149,6 @@ serve(async (req) => {
         address: jobAddress || null,
         priority: "medium",
         category: jobType || "general",
-        notes: [
-          `Imported from Quote Hound`,
-          quoteNumber     ? `Quote #: ${quoteNumber}`                                                                                   : null,
-          contactName     ? `Contact: ${contactName}`                                                                                   : null,
-          contactEmail    ? `Email: ${contactEmail}`                                                                                    : null,
-          contactPhone    ? `Phone: ${contactPhone}`                                                                                    : null,
-          value != null   ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
-          notes           ? `Notes: ${notes}`                                                                                           : null,
-        ]
-          .filter(Boolean)
-          .join("\n"),
       } as any)
       .select("id")
       .single();
@@ -173,10 +162,20 @@ serve(async (req) => {
     }
 
     // ── 4. Log activity ───────────────────────────────────────────────────────
+    const detailLines = [
+      `Imported from Quote Hound (action: ${action})`,
+      quoteNumber  ? `Quote #: ${quoteNumber}` : null,
+      contactName  ? `Contact: ${contactName}` : null,
+      contactEmail ? `Email: ${contactEmail}` : null,
+      contactPhone ? `Phone: ${contactPhone}` : null,
+      value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
+      notes        ? `Notes: ${notes}` : null,
+    ].filter(Boolean).join(" | ");
+
     await supabase.from("job_activity_log").insert({
       job_id: newJob.id,
       action: "quote_hound_import",
-      details: `Job created from Quote Hound (quote #${quoteNumber ?? "N/A"}, action: ${action})`,
+      details: detailLines,
     } as any);
 
     return new Response(
