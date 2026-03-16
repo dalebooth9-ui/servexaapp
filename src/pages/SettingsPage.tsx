@@ -17,6 +17,7 @@ import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
 import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
 import { supabase } from "@/integrations/supabase/client";
+import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://field-aid-box.lovable.app/install";
