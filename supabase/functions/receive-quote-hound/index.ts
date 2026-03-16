@@ -149,17 +149,6 @@ serve(async (req) => {
         address: jobAddress || null,
         priority: "medium",
         category: jobType || "general",
-        notes: [
-          `Imported from Quote Hound`,
-          quoteNumber     ? `Quote #: ${quoteNumber}`                                                                                   : null,
-          contactName     ? `Contact: ${contactName}`                                                                                   : null,
-          contactEmail    ? `Email: ${contactEmail}`                                                                                    : null,
-          contactPhone    ? `Phone: ${contactPhone}`                                                                                    : null,
-          value != null   ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
-          notes           ? `Notes: ${notes}`                                                                                           : null,
-        ]
-          .filter(Boolean)
-          .join("\n"),
       } as any)
       .select("id")
       .single();
