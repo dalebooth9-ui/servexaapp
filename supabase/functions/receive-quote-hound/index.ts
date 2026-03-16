@@ -19,8 +19,9 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // Validate the shared webhook secret sent by Quote Hound
-    const incomingSecret = req.headers.get("x-quotehound-secret");
+    // Accept the shared secret via either:
+    //  - x-quotehound-secret header (custom webhook approach)
+    //  - Authorization: Bearer <secret> (Quote Hound's create-servexa-job approach)
     const expectedSecret = Deno.env.get("QUOTEHOUND_WEBHOOK_SECRET");
 
     if (!expectedSecret) {
@@ -31,7 +32,12 @@ serve(async (req) => {
       );
     }
 
-    if (!incomingSecret || incomingSecret !== expectedSecret) {
+    const customHeader = req.headers.get("x-quotehound-secret");
+    const authHeader = req.headers.get("Authorization");
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    const providedSecret = customHeader ?? bearerToken;
+
+    if (!providedSecret || providedSecret !== expectedSecret) {
       return new Response(
         JSON.stringify({ error: "Unauthorized — invalid webhook secret" }),
         { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -39,7 +45,12 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { quote, action } = body;
+
+    // Support both formats:
+    //   - Quote Hound's create-servexa-job: { reference, client_name, contact_name, ... }
+    //   - Generic webhook: { quote: { ... }, action: "..." }
+    const quote = body.quote ?? body;
+    const action = body.action ?? "push";
 
     if (!quote) {
       return new Response(
@@ -48,28 +59,47 @@ serve(async (req) => {
       );
     }
 
+    // Normalise field names — Quote Hound's payload uses snake_case directly
+    const clientName   = quote.client_name   ?? quote.clientName   ?? null;
+    const contactEmail = quote.contact_email ?? quote.contactEmail ?? null;
+    const contactPhone = quote.contact_phone ?? quote.contactPhone ?? null;
+    const contactName  = quote.contact_name  ?? quote.contactName  ?? null;
+    const jobAddress   = quote.job_address   ?? quote.jobAddress   ?? null;
+    const jobType      = quote.job_type      ?? quote.jobType      ?? null;
+    const quoteNumber  = quote.reference     ?? quote.quote_number ?? quote.quoteNumber ?? null;
+    const value        = quote.value         ?? null;
+    const notes        = quote.description   ?? quote.notes        ?? null;
+
     // ── 1. Upsert customer ────────────────────────────────────────────────────
     let customerId: string | null = null;
 
-    if (quote.clientName) {
-      // Try to find existing customer by name (case-insensitive)
+    if (clientName) {
       const { data: existingCustomers } = await supabase
         .from("customers")
         .select("id, name")
-        .ilike("name", quote.clientName.trim())
+        .ilike("name", clientName.trim())
         .limit(1);
 
       if (existingCustomers && existingCustomers.length > 0) {
         customerId = existingCustomers[0].id;
+
+        // Update contact details if available
+        await supabase
+          .from("customers")
+          .update({
+            ...(contactEmail ? { email: contactEmail } : {}),
+            ...(contactPhone ? { phone: contactPhone } : {}),
+            ...(jobAddress ? { address: jobAddress } : {}),
+          })
+          .eq("id", customerId);
       } else {
-        // Create new customer
         const { data: newCustomer, error: custErr } = await supabase
           .from("customers")
           .insert({
-            name: quote.clientName.trim(),
-            email: quote.contactEmail || null,
-            phone: quote.contactPhone || null,
-            address: quote.jobAddress || null,
+            name: clientName.trim(),
+            email: contactEmail || null,
+            phone: contactPhone || null,
+            address: jobAddress || null,
           })
           .select("id")
           .single();
@@ -82,16 +112,11 @@ serve(async (req) => {
       }
     }
 
-    // ── 2. Create job ─────────────────────────────────────────────────────────
-    const jobName = quote.jobType
-      ? `${quote.jobType}${quote.clientName ? ` — ${quote.clientName}` : ""}`
-      : `Quote Hound Import — ${quote.quoteNumber ?? "Unknown"}`;
-
-    const refNum = quote.quoteNumber
-      ? `QH-${quote.quoteNumber}`
+    // ── 2. Build ref and check for duplicate ──────────────────────────────────
+    const refNum = quoteNumber
+      ? (String(quoteNumber).startsWith("QH-") ? quoteNumber : `QH-${quoteNumber}`)
       : `QH-${Date.now()}`;
 
-    // Check for duplicate (idempotent push)
     const { data: existing } = await supabase
       .from("jobs")
       .select("id, reference_number")
@@ -110,24 +135,28 @@ serve(async (req) => {
       );
     }
 
+    // ── 3. Create job ─────────────────────────────────────────────────────────
+    const jobName = jobType
+      ? `${jobType}${clientName ? ` — ${clientName}` : ""}`
+      : `Quote Hound Import — ${quoteNumber ?? "Unknown"}`;
+
     const { data: newJob, error: jobErr } = await supabase
       .from("jobs")
       .insert({
         reference_number: refNum,
         name: jobName,
-        customer: quote.clientName || null,
-        address: quote.jobAddress || null,
+        customer: clientName || null,
+        address: jobAddress || null,
         priority: "medium",
-        category: quote.jobType || "general",
-        // Store source metadata in notes
+        category: jobType || "general",
         notes: [
           `Imported from Quote Hound`,
-          quote.quoteNumber ? `Quote #: ${quote.quoteNumber}` : null,
-          quote.contactName ? `Contact: ${quote.contactName}` : null,
-          quote.contactEmail ? `Email: ${quote.contactEmail}` : null,
-          quote.contactPhone ? `Phone: ${quote.contactPhone}` : null,
-          quote.value ? `Quote Value: £${Number(quote.value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
-          quote.notes ? `Notes: ${quote.notes}` : null,
+          quoteNumber     ? `Quote #: ${quoteNumber}`                                                                                   : null,
+          contactName     ? `Contact: ${contactName}`                                                                                   : null,
+          contactEmail    ? `Email: ${contactEmail}`                                                                                    : null,
+          contactPhone    ? `Phone: ${contactPhone}`                                                                                    : null,
+          value != null   ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
+          notes           ? `Notes: ${notes}`                                                                                           : null,
         ]
           .filter(Boolean)
           .join("\n"),
@@ -143,11 +172,11 @@ serve(async (req) => {
       );
     }
 
-    // ── 3. Log activity ───────────────────────────────────────────────────────
+    // ── 4. Log activity ───────────────────────────────────────────────────────
     await supabase.from("job_activity_log").insert({
       job_id: newJob.id,
       action: "quote_hound_import",
-      details: `Job created from Quote Hound (quote #${quote.quoteNumber ?? "N/A"}, action: ${action ?? "push"})`,
+      details: `Job created from Quote Hound (quote #${quoteNumber ?? "N/A"}, action: ${action})`,
     } as any);
 
     return new Response(

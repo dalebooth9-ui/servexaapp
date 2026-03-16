@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar } from "lucide-react";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -17,6 +17,7 @@ import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
 import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
 import { supabase } from "@/integrations/supabase/client";
+import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://field-aid-box.lovable.app/install";
@@ -296,6 +297,9 @@ export default function SettingsPage() {
         <CategoryDocumentTemplateSettings />
         <RamsTemplateSettings />
         <XeroSettings />
+
+        {/* Quote Hound Integration */}
+        <QuoteHoundIntegrationCard />
 
         {/* Weekly Report Settings */}
         <Card>
