@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar } from "lucide-react";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
