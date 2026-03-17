@@ -112,10 +112,28 @@ serve(async (req) => {
       }
     }
 
-    // ── 2. Build ref and check for duplicate ──────────────────────────────────
+    // ── 2. Build ref and check for duplicate / deleted blocklist ─────────────
     const refNum = quoteNumber
       ? (String(quoteNumber).startsWith("QH-") ? quoteNumber : `QH-${quoteNumber}`)
       : `QH-${Date.now()}`;
+
+    // Check if this reference was previously deleted (blocklist)
+    const { data: blocked } = await supabase
+      .from("mellor_deleted_references")
+      .select("reference_number")
+      .eq("reference_number", refNum)
+      .maybeSingle();
+
+    if (blocked) {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: "Job was previously deleted — skipped",
+          customerId,
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     const { data: existing } = await supabase
       .from("jobs")
