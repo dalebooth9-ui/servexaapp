@@ -175,7 +175,12 @@ export default function Jobs() {
           setJobs((prev) => [...prev, deletedJob]);
         }
       },
-      onUndo: () => setJobs((prev) => [...prev, deletedJob]),
+      onUndo: async () => {
+        // Re-insert the job so it comes back after undo
+        const { id, customers, ...jobData } = deletedJob;
+        await supabase.from("jobs").insert({ ...jobData, id } as any);
+        setJobs((prev) => [...prev, deletedJob]);
+      },
     });
   };
 
@@ -189,7 +194,6 @@ export default function Jobs() {
       key: `bulk-${ids.join(",")}`,
       label: `${ids.length} job(s) deleted`,
       onConfirm: async () => {
-        // Block any QH references so The Mellor can't re-create them
         await Promise.all(deletedJobs.map((j) => blockMellorRef(j.reference_number)));
         const { error } = await supabase.from("jobs").delete().in("id", ids);
         if (error) {
@@ -197,7 +201,13 @@ export default function Jobs() {
           setJobs((prev) => [...prev, ...deletedJobs]);
         }
       },
-      onUndo: () => setJobs((prev) => [...prev, ...deletedJobs]),
+      onUndo: async () => {
+        for (const job of deletedJobs) {
+          const { id, customers, ...jobData } = job;
+          await supabase.from("jobs").insert({ ...jobData, id } as any);
+        }
+        setJobs((prev) => [...prev, ...deletedJobs]);
+      },
     });
   };
 

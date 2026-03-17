@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from "react";
+import React, { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
 
@@ -9,7 +9,6 @@ import { ToastAction } from "@/components/ui/toast";
  */
 export function useUndoAction() {
   const { toast, dismiss } = useToast();
-  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   /**
    * Perform a deletable action with undo support.
@@ -25,23 +24,17 @@ export function useUndoAction() {
       label,
       onConfirm,
       onUndo,
-      delay = 5000,
     }: {
       key: string;
       label: string;
       onConfirm: () => Promise<void> | void;
       onUndo: () => void;
-      delay?: number;
+      delay?: number; // kept for API compat, no longer used
     }) => {
-      // Cancel any existing timer for this key
-      const existing = pendingTimers.current.get(key);
-      if (existing) clearTimeout(existing);
-
-      const timer = setTimeout(async () => {
-        pendingTimers.current.delete(key);
+      // Delete immediately so navigating away doesn't resurrect the item
+      (async () => {
         await onConfirm();
-      }, delay);
-      pendingTimers.current.set(key, timer);
+      })();
 
       toast({
         title: label,
@@ -49,14 +42,7 @@ export function useUndoAction() {
         action: (
           <ToastAction
             altText="Undo"
-            onClick={() => {
-              const t = pendingTimers.current.get(key);
-              if (t) {
-                clearTimeout(t);
-                pendingTimers.current.delete(key);
-              }
-              onUndo();
-            }}
+            onClick={() => onUndo()}
           >
             Undo
           </ToastAction>
