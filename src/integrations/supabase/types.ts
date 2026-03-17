@@ -2430,6 +2430,21 @@ export type Database = {
           },
         ]
       }
+      mellor_deleted_references: {
+        Row: {
+          deleted_at: string
+          reference_number: string
+        }
+        Insert: {
+          deleted_at?: string
+          reference_number: string
+        }
+        Update: {
+          deleted_at?: string
+          reference_number?: string
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
