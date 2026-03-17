@@ -154,6 +154,12 @@ export default function Jobs() {
     return () => window.removeEventListener("shortcut:new-job" as any, handler);
   }, []);
 
+  const blockMellorRef = async (refNum: string) => {
+    if (refNum?.startsWith("QH-")) {
+      await supabase.from("mellor_deleted_references" as any).upsert({ reference_number: refNum });
+    }
+  };
+
   const handleDeleteJob = async (jobId: string) => {
     const deletedJob = jobs.find((j) => j.id === jobId);
     if (!deletedJob) return;
@@ -162,6 +168,7 @@ export default function Jobs() {
       key: jobId,
       label: "Job deleted",
       onConfirm: async () => {
+        await blockMellorRef(deletedJob.reference_number);
         const { error } = await supabase.from("jobs").delete().eq("id", jobId);
         if (error) {
           toast({ title: "Error", description: "Failed to delete job.", variant: "destructive" });
@@ -169,6 +176,28 @@ export default function Jobs() {
         }
       },
       onUndo: () => setJobs((prev) => [...prev, deletedJob]),
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = Array.from(selectedJobIds);
+    const deletedJobs = jobs.filter((j) => ids.includes(j.id));
+    setJobs((prev) => prev.filter((j) => !selectedJobIds.has(j.id)));
+    setSelectedJobIds(new Set());
+    setBulkDeleteOpen(false);
+    deleteWithUndo({
+      key: `bulk-${ids.join(",")}`,
+      label: `${ids.length} job(s) deleted`,
+      onConfirm: async () => {
+        // Block any QH references so The Mellor can't re-create them
+        await Promise.all(deletedJobs.map((j) => blockMellorRef(j.reference_number)));
+        const { error } = await supabase.from("jobs").delete().in("id", ids);
+        if (error) {
+          toast({ title: "Error", description: "Failed to delete jobs.", variant: "destructive" });
+          setJobs((prev) => [...prev, ...deletedJobs]);
+        }
+      },
+      onUndo: () => setJobs((prev) => [...prev, ...deletedJobs]),
     });
   };
 
@@ -189,26 +218,6 @@ export default function Jobs() {
         else updated.delete(id);
       }
       return updated;
-    });
-  };
-
-  const handleBulkDelete = async () => {
-    const ids = Array.from(selectedJobIds);
-    const deletedJobs = jobs.filter((j) => ids.includes(j.id));
-    setJobs((prev) => prev.filter((j) => !selectedJobIds.has(j.id)));
-    setSelectedJobIds(new Set());
-    setBulkDeleteOpen(false);
-    deleteWithUndo({
-      key: `bulk-${ids.join(",")}`,
-      label: `${ids.length} job(s) deleted`,
-      onConfirm: async () => {
-        const { error } = await supabase.from("jobs").delete().in("id", ids);
-        if (error) {
-          toast({ title: "Error", description: "Failed to delete jobs.", variant: "destructive" });
-          setJobs((prev) => [...prev, ...deletedJobs]);
-        }
-      },
-      onUndo: () => setJobs((prev) => [...prev, ...deletedJobs]),
     });
   };
 
