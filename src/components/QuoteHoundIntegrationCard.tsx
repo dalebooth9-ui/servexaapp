@@ -7,7 +7,7 @@ import { Copy, CheckCircle2, Link2, ExternalLink, ArrowRight, Code2 } from "luci
 import { toast } from "sonner";
 
 const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/receive-quote-hound`;
-const QUOTE_HOUND_URL = "https://spark-chaser-pro.lovable.app";
+const THE_MELLOR_URL = "https://spark-chaser-pro.lovable.app";
 
 export default function QuoteHoundIntegrationCard() {
   const [copiedUrl, setCopiedUrl] = useState(false);
