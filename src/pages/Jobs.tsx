@@ -201,6 +201,26 @@ export default function Jobs() {
     });
   };
 
+  const handleSelectJob = (id: string, checked: boolean) => {
+    setSelectedJobIds((prev) => {
+      const updated = new Set(prev);
+      if (checked) updated.add(id);
+      else updated.delete(id);
+      return updated;
+    });
+  };
+
+  const handleSelectAll = (jobIds: string[], checked: boolean) => {
+    setSelectedJobIds((prev) => {
+      const updated = new Set(prev);
+      for (const id of jobIds) {
+        if (checked) updated.add(id);
+        else updated.delete(id);
+      }
+      return updated;
+    });
+  };
+
   const handleBulkStatusChange = async (status: string) => {
     const ids = Array.from(selectedJobIds);
     const { error } = await supabase.from("jobs").update({ status } as any).in("id", ids);
