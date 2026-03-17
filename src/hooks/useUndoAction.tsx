@@ -9,7 +9,6 @@ import { ToastAction } from "@/components/ui/toast";
  */
 export function useUndoAction() {
   const { toast, dismiss } = useToast();
-  const pendingTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   /**
    * Perform a deletable action with undo support.
