@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Copy, CheckCircle2, Link2, ExternalLink, ArrowRight, Code2 } from "lucide-react";
+import { Copy, CheckCircle2, Link2, ExternalLink, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 const WEBHOOK_URL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/receive-quote-hound`;
@@ -24,10 +24,10 @@ export default function QuoteHoundIntegrationCard() {
       <CardHeader>
         <div className="flex items-center gap-2">
           <Link2 className="h-5 w-5 text-primary" />
-          <CardTitle className="text-lg">Quote Hound Integration</CardTitle>
+          <CardTitle className="text-lg">The Mellor Integration</CardTitle>
         </div>
         <CardDescription>
-          When a quote is marked as <strong>Won</strong> in Quote Hound, it automatically creates a job and syncs the customer here in Servexa.
+          When a quote is marked as <strong>Won</strong> in The Mellor, it automatically creates a job and syncs the customer here in Servexa.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -44,7 +44,7 @@ export default function QuoteHoundIntegrationCard() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            This endpoint receives Won quotes from Quote Hound and creates jobs automatically.
+            This endpoint receives Won quotes from The Mellor and creates jobs automatically.
           </p>
         </div>
 
@@ -56,8 +56,8 @@ export default function QuoteHoundIntegrationCard() {
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">1</span>
               <span>
                 Open{" "}
-                <a href={QUOTE_HOUND_URL} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-0.5">
-                  Quote Hound <ExternalLink className="h-3 w-3" />
+                <a href={THE_MELLOR_URL} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-0.5">
+                  The Mellor <ExternalLink className="h-3 w-3" />
                 </a>
               </span>
             </li>
@@ -72,7 +72,7 @@ export default function QuoteHoundIntegrationCard() {
             <li className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">4</span>
               <div className="flex flex-col gap-1">
-                <span>In Quote Hound's code, open <code className="bg-muted px-1 rounded text-[11px]">supabase/functions/create-servexa-job/index.ts</code> and update the <code className="bg-muted px-1 rounded text-[11px]">SERVEXA_BASE_URL</code> line to:</span>
+                <span>In The Mellor's code, open <code className="bg-muted px-1 rounded text-[11px]">supabase/functions/create-servexa-job/index.ts</code> and update the <code className="bg-muted px-1 rounded text-[11px]">SERVEXA_BASE_URL</code> line to:</span>
                 <div className="flex items-center gap-2 mt-1">
                   <code className="bg-muted px-2 py-1 rounded text-[11px] flex-1 break-all">
                     {`const SERVEXA_BASE_URL = "https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1";`}
@@ -83,14 +83,14 @@ export default function QuoteHoundIntegrationCard() {
             </li>
             <li className="flex gap-3">
               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">5</span>
-              <span>Mark any quote as Won in Quote Hound — the job will appear here automatically ✅</span>
+              <span>Mark any quote as Won in The Mellor — the job will appear here automatically ✅</span>
             </li>
           </ol>
         </div>
 
         {/* Data synced */}
         <div className="rounded-lg border bg-muted/30 p-4 space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What syncs from Quote Hound → Servexa</p>
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">What syncs from The Mellor → Servexa</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-xs text-muted-foreground">
             <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Customer name &amp; contact details</span>
             <span className="flex items-center gap-1.5"><ArrowRight className="h-3 w-3 text-primary shrink-0" /> Job type &amp; site address</span>
