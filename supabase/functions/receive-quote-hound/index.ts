@@ -7,6 +7,158 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-quotehound-secret",
 };
 
+// Known job categories with their slugs — used for AI mapping fallback
+const KNOWN_CATEGORIES = [
+  { slug: "dry_riser_installation", keywords: ["dry riser install", "installation", "new dry riser", "dr install", "install dry"] },
+  { slug: "dry_riser_pressure_test", keywords: ["pressure test", "hydraulic test", "pt ", "full pressure", "dry riser test", "annual test", "dr pt"] },
+  { slug: "dry_riser_visual", keywords: ["visual inspection", "visual check", "6 month", "six month", "interim", "dr visual"] },
+  { slug: "wet_riser_annual_service", keywords: ["wet riser annual", "wet riser service", "wr annual"] },
+  { slug: "wet_riser_visual", keywords: ["wet riser visual", "wr visual"] },
+  { slug: "sprinkler_service", keywords: ["sprinkler", "sprinkler annual", "sprinkler service", "sprinkler inspection"] },
+  { slug: "fire_hydrant_service", keywords: ["hydrant", "fire hydrant", "hydrant service", "hydrant inspection"] },
+  { slug: "fire_extinguishers", keywords: ["extinguisher", "fire extinguisher", "fe ", "ext service"] },
+  { slug: "site_survey", keywords: ["survey", "site survey", "site visit", "survey only"] },
+];
+
+/**
+ * Map job description / type to a category slug using keyword matching,
+ * with an optional AI fallback via the Lovable AI proxy.
+ */
+async function inferCategorySlug(jobType: string | null, description: string | null): Promise<string> {
+  const text = `${jobType || ""} ${description || ""}`.toLowerCase();
+
+  // Fast keyword match first
+  for (const cat of KNOWN_CATEGORIES) {
+    if (cat.keywords.some((kw) => text.includes(kw))) {
+      return cat.slug;
+    }
+  }
+
+  // AI fallback — ask GPT to classify
+  const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (lovableApiKey && text.trim().length > 3) {
+    try {
+      const prompt = `You are a fire protection job classifier. Given this job description, respond with ONLY the most appropriate category slug from this list (no explanation):
+
+dry_riser_installation, dry_riser_pressure_test, dry_riser_visual, wet_riser_annual_service, wet_riser_visual, sprinkler_service, fire_hydrant_service, fire_extinguishers, site_survey
+
+Job description: "${text}"
+
+Respond with only the slug, nothing else.`;
+
+      const aiRes = await fetch("https://api.lovable.app/v1/ai/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${lovableApiKey}`,
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-5-mini",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 30,
+        }),
+      });
+
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        const slug = aiData?.choices?.[0]?.message?.content?.trim().toLowerCase().replace(/[^a-z_]/g, "");
+        if (slug && KNOWN_CATEGORIES.some((c) => c.slug === slug)) {
+          console.log(`AI classified category: ${slug}`);
+          return slug;
+        }
+      }
+    } catch (e) {
+      console.warn("AI category inference failed, using general fallback:", e);
+    }
+  }
+
+  // If job_type itself matches a slug directly, use it
+  if (jobType) {
+    const normalized = jobType.toLowerCase().replace(/\s+/g, "_").replace(/[^a-z_]/g, "");
+    if (KNOWN_CATEGORIES.some((c) => c.slug === normalized)) return normalized;
+  }
+
+  return "general";
+}
+
+/**
+ * Auto-attach job_documents from category_document_templates and customer paperwork,
+ * mirroring what JobDocuments.tsx does on the client side.
+ */
+async function autoAttachDocuments(
+  supabase: ReturnType<typeof createClient>,
+  jobId: string,
+  categorySlug: string,
+  customerId: string | null,
+  isInstallation: boolean,
+): Promise<void> {
+  const docsToInsert: any[] = [];
+
+  // ── 1. Category document templates ──────────────────────────────────────────
+  if (categorySlug && categorySlug !== "general") {
+    const { data: catTemplates } = await supabase
+      .from("category_document_templates")
+      .select("*")
+      .eq("category_slug", categorySlug)
+      .eq("enabled", true)
+      .order("sort_order");
+
+    if (catTemplates && catTemplates.length > 0) {
+      for (const t of catTemplates as any[]) {
+        docsToInsert.push({
+          job_id: jobId,
+          document_type: t.document_type,
+          label: t.label,
+          file_url: t.document_type === "uploaded_file" ? t.file_url : null,
+          file_name: t.document_type === "uploaded_file" ? t.file_name : null,
+          source: "auto",
+          category_template_id: t.id,
+        });
+      }
+    }
+  }
+
+  // ── 2. Pre-start checklist for installation jobs ─────────────────────────────
+  if (isInstallation) {
+    docsToInsert.push({
+      job_id: jobId,
+      document_type: "pre_start_checklist",
+      label: "Pre-start Check List",
+      file_url: null,
+      file_name: null,
+      source: "auto",
+    });
+  }
+
+  // ── 3. Customer auto-attach paperwork ────────────────────────────────────────
+  if (customerId) {
+    const { data: paperwork } = await supabase
+      .from("customer_paperwork")
+      .select("*")
+      .eq("customer_id", customerId)
+      .eq("auto_attach", true);
+
+    if (paperwork && paperwork.length > 0) {
+      for (const pw of paperwork as any[]) {
+        docsToInsert.push({
+          job_id: jobId,
+          document_type: "customer_paperwork",
+          label: pw.label || pw.file_name,
+          file_url: pw.file_url,
+          file_name: pw.file_name,
+          source: "customer_paperwork",
+        });
+      }
+    }
+  }
+
+  if (docsToInsert.length > 0) {
+    const { error } = await supabase.from("job_documents").insert(docsToInsert as any);
+    if (error) console.error("Auto-attach documents error:", error);
+    else console.log(`Auto-attached ${docsToInsert.length} document(s) to job ${jobId}`);
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -19,9 +171,6 @@ serve(async (req) => {
       auth: { persistSession: false },
     });
 
-    // Accept the shared secret via either:
-    //  - x-quotehound-secret header (custom webhook approach)
-    //  - Authorization: Bearer <secret> (Quote Hound's create-servexa-job approach)
     const expectedSecret = Deno.env.get("QUOTEHOUND_WEBHOOK_SECRET");
 
     if (!expectedSecret) {
@@ -46,9 +195,6 @@ serve(async (req) => {
 
     const body = await req.json();
 
-    // Support both formats:
-    //   - Quote Hound's create-servexa-job: { reference, client_name, contact_name, ... }
-    //   - Generic webhook: { quote: { ... }, action: "..." }
     const quote = body.quote ?? body;
     const action = body.action ?? "push";
 
@@ -59,7 +205,7 @@ serve(async (req) => {
       );
     }
 
-    // Normalise field names — Quote Hound's payload uses snake_case directly
+    // Normalise field names
     const clientName   = quote.client_name   ?? quote.clientName   ?? null;
     const contactEmail = quote.contact_email ?? quote.contactEmail ?? null;
     const contactPhone = quote.contact_phone ?? quote.contactPhone ?? null;
@@ -68,9 +214,14 @@ serve(async (req) => {
     const jobType      = quote.job_type      ?? quote.jobType      ?? null;
     const quoteNumber  = quote.reference     ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value        = quote.value         ?? null;
-    const notes        = quote.description   ?? quote.notes        ?? null;
+    const description  = quote.description   ?? quote.notes        ?? quote.scope_of_work ?? quote.scope ?? null;
 
-    // ── 1. Upsert customer ────────────────────────────────────────────────────
+    // ── 1. AI-powered category mapping ───────────────────────────────────────
+    const categorySlug = await inferCategorySlug(jobType, description);
+    const isInstallation = categorySlug === "dry_riser_installation" || categorySlug === "installation";
+    console.log(`Mapped to category: ${categorySlug}`);
+
+    // ── 2. Upsert customer ────────────────────────────────────────────────────
     let customerId: string | null = null;
 
     if (clientName) {
@@ -82,8 +233,6 @@ serve(async (req) => {
 
       if (existingCustomers && existingCustomers.length > 0) {
         customerId = existingCustomers[0].id;
-
-        // Update contact details if available
         await supabase
           .from("customers")
           .update({
@@ -112,12 +261,11 @@ serve(async (req) => {
       }
     }
 
-    // ── 2. Build ref and check for duplicate / deleted blocklist ─────────────
+    // ── 3. Build ref and check blocklist / duplicate ──────────────────────────
     const refNum = quoteNumber
       ? (String(quoteNumber).startsWith("QH-") ? quoteNumber : `QH-${quoteNumber}`)
       : `QH-${Date.now()}`;
 
-    // Check if this reference was previously deleted (blocklist)
     const { data: blocked } = await supabase
       .from("mellor_deleted_references")
       .select("reference_number")
@@ -126,11 +274,7 @@ serve(async (req) => {
 
     if (blocked) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Job was previously deleted — skipped",
-          customerId,
-        }),
+        JSON.stringify({ success: true, message: "Job was previously deleted — skipped", customerId }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -143,30 +287,29 @@ serve(async (req) => {
 
     if (existing) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Job already exists (duplicate skipped)",
-          jobId: existing.id,
-          customerId,
-        }),
+        JSON.stringify({ success: true, message: "Job already exists (duplicate skipped)", jobId: existing.id, customerId }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // ── 3. Create job ─────────────────────────────────────────────────────────
+    // ── 4. Build a clean job name ─────────────────────────────────────────────
     const jobName = jobType
       ? `${jobType}${clientName ? ` — ${clientName}` : ""}`
-      : `Quote Hound Import — ${quoteNumber ?? "Unknown"}`;
+      : (description
+          ? `${description.slice(0, 80)}${description.length > 80 ? "…" : ""}${clientName ? ` — ${clientName}` : ""}`
+          : `The Mellor Import — ${quoteNumber ?? "Unknown"}`);
 
+    // ── 5. Create job with correct category ───────────────────────────────────
     const { data: newJob, error: jobErr } = await supabase
       .from("jobs")
       .insert({
         reference_number: refNum,
         name: jobName,
         customer: clientName || null,
+        customer_id: customerId || null,
         address: jobAddress || null,
         priority: "medium",
-        category: jobType || "general",
+        category: categorySlug,
       } as any)
       .select("id")
       .single();
@@ -179,20 +322,24 @@ serve(async (req) => {
       );
     }
 
-    // ── 4. Log activity ───────────────────────────────────────────────────────
+    // ── 6. Auto-attach documents (category templates + customer paperwork) ────
+    await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
+
+    // ── 7. Log activity ───────────────────────────────────────────────────────
     const detailLines = [
-      `Imported from Quote Hound (action: ${action})`,
+      `Imported from The Mellor (action: ${action})`,
+      `Category mapped: ${categorySlug}`,
       quoteNumber  ? `Quote #: ${quoteNumber}` : null,
       contactName  ? `Contact: ${contactName}` : null,
       contactEmail ? `Email: ${contactEmail}` : null,
       contactPhone ? `Phone: ${contactPhone}` : null,
       value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
-      notes        ? `Notes: ${notes}` : null,
+      description  ? `Scope: ${description}` : null,
     ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({
       job_id: newJob.id,
-      action: "quote_hound_import",
+      action: "mellor_import",
       details: detailLines,
     } as any);
 
@@ -201,7 +348,8 @@ serve(async (req) => {
         success: true,
         jobId: newJob.id,
         customerId,
-        message: `Job ${refNum} created successfully`,
+        category: categorySlug,
+        message: `Job ${refNum} created with category "${categorySlug}"`,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
