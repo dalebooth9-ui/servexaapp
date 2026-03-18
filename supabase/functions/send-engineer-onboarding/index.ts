@@ -87,7 +87,7 @@ serve(async (req) => {
             <td style="padding:32px;">
               <p style="margin:0 0 16px;font-size:15px;color:#1e293b;">${greeting}</p>
               <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-                You've been added to the <strong>FieldReport</strong> team. Install the app on your phone to receive job assignments, submit reports, and share your live location — all from your home screen.
+                You've been added to the <strong>Servexa</strong> team. Install the app on your phone to receive job assignments, submit reports, and share your live location — all from your home screen.
               </p>
 
               <!-- CTA Button -->
