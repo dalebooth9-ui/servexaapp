@@ -94,35 +94,145 @@ const KNOWN_CATEGORIES = [
 ];
 
 /**
- * Attempt to fetch the Excel quote file and extract all text cell values.
- * This is the key fix: The Mellor sends job_type="General" but the line items
- * in the Excel contain the real description (e.g. "Dry Riser Installation").
+ * Fetch Excel costing sheet and return CSV text of all sheets combined.
  */
 async function fetchExcelText(excelUrl: string | null): Promise<string> {
   if (!excelUrl) return "";
   try {
-    const res = await fetch(excelUrl, { signal: AbortSignal.timeout(8000) });
+    const res = await fetch(excelUrl, { signal: AbortSignal.timeout(10000) });
     if (!res.ok) {
       console.warn(`Excel fetch failed: ${res.status}`);
       return "";
     }
     const buffer = await res.arrayBuffer();
-    // Use xlsx via npm: specifier for edge-runtime compatibility
     const XLSX = await import("npm:xlsx@0.18.5");
     const wb = XLSX.read(new Uint8Array(buffer), { type: "array" });
     const texts: string[] = [];
     for (const sheetName of wb.SheetNames) {
       const sheet = wb.Sheets[sheetName];
       const csv = XLSX.utils.sheet_to_csv(sheet);
-      texts.push(csv);
+      texts.push(`=== Sheet: ${sheetName} ===\n${csv}`);
     }
-    const combined = texts.join(" ").toLowerCase();
-    console.log(`Excel extracted (first 300 chars): "${combined.slice(0, 300)}"`);
+    const combined = texts.join("\n\n");
+    console.log(`Excel extracted (first 500 chars): "${combined.slice(0, 500)}"`);
     return combined;
   } catch (e) {
     console.warn("Excel parse failed:", e);
     return "";
   }
+}
+
+/**
+ * Use Gemini AI to extract a structured materials/parts list from Excel CSV text.
+ * Returns an array of { name, quantity, unit_cost, sell_price } objects.
+ */
+async function extractPartsFromExcel(csvText: string, lovableApiKey: string): Promise<Array<{
+  name: string;
+  quantity: number;
+  unit_cost: number;
+  sell_price: number;
+}>> {
+  if (!csvText.trim()) return [];
+
+  const prompt = `You are a data extraction assistant for a fire protection company.
+
+Below is CSV data from a costing/quote spreadsheet sent by a supplier (The Mellor).
+Extract ALL line items that represent materials, parts, or labour from this spreadsheet.
+
+Rules:
+- Extract only actual materials, components, labour, or services with a description and quantity
+- Skip header rows, total rows, VAT rows, blank rows, and administrative entries
+- For each item extract: description/name, quantity, unit cost (supply/trade price), sell price (if present, otherwise use unit cost)
+- Quantities should be numbers (default 1 if not specified)
+- Costs should be numbers in GBP (strip £ symbols, commas etc). Use 0 if not present.
+- If only one price column exists, use it for both unit_cost and sell_price
+- Keep descriptions concise but complete (don't truncate part numbers or specifications)
+
+Respond with ONLY valid JSON array, no explanation, no markdown. Example format:
+[
+  {"name": "65mm BS EN 14384 Dry Riser Inlet Box", "quantity": 1, "unit_cost": 145.00, "sell_price": 195.00},
+  {"name": "100mm Landing Valve", "quantity": 4, "unit_cost": 62.50, "sell_price": 85.00}
+]
+
+CSV data:
+${csvText.slice(0, 6000)}`;
+
+  try {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableApiKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!aiRes.ok) {
+      const errText = await aiRes.text();
+      console.warn(`AI parts extraction failed ${aiRes.status}: ${errText.slice(0, 200)}`);
+      return [];
+    }
+
+    const aiData = await aiRes.json();
+    const raw = aiData?.choices?.[0]?.message?.content ?? "";
+    // Strip any markdown code fences if present
+    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+
+    if (!Array.isArray(parsed)) {
+      console.warn("AI returned non-array for parts:", cleaned.slice(0, 200));
+      return [];
+    }
+
+    const parts = parsed
+      .filter((p: any) => p?.name && typeof p.name === "string" && p.name.trim().length > 0)
+      .map((p: any) => ({
+        name: String(p.name).trim(),
+        quantity: Math.max(Number(p.quantity) || 1, 1),
+        unit_cost: Math.max(Number(p.unit_cost) || 0, 0),
+        sell_price: Math.max(Number(p.sell_price) || Number(p.unit_cost) || 0, 0),
+      }));
+
+    console.log(`AI extracted ${parts.length} part(s) from Excel`);
+    return parts;
+  } catch (e) {
+    console.warn("Parts extraction parse error:", e);
+    return [];
+  }
+}
+
+/**
+ * Insert extracted parts as job_parts records.
+ */
+async function insertJobParts(
+  supabase: ReturnType<typeof createClient>,
+  jobId: string,
+  parts: Array<{ name: string; quantity: number; unit_cost: number; sell_price: number }>,
+): Promise<number> {
+  if (parts.length === 0) return 0;
+
+  const rows = parts.map((p, i) => ({
+    job_id: jobId,
+    name: p.name,
+    quantity: p.quantity,
+    unit_cost: p.unit_cost,
+    sell_price: p.sell_price,
+    total_cost: p.quantity * p.unit_cost,
+    added_by: "mellor_import",
+    sort_order: i,
+  }));
+
+  const { error } = await supabase.from("job_parts").insert(rows as any);
+  if (error) {
+    console.error("job_parts insert error:", error);
+    return 0;
+  }
+  console.log(`Inserted ${rows.length} parts for job ${jobId}`);
+  return rows.length;
 }
 
 /**
@@ -473,7 +583,27 @@ serve(async (req) => {
     // ── 6. Auto-attach documents ───────────────────────────────────────────────
     await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
 
-    // ── 7. Log activity ────────────────────────────────────────────────────────
+    // ── 7. Parse Excel costing sheet → Job Parts ──────────────────────────────
+    let partsCount = 0;
+    if (excelUrl) {
+      console.log(`Excel URL found — fetching costing sheet: ${excelUrl.slice(0, 80)}...`);
+      const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+      if (lovableApiKey) {
+        const csvText = await fetchExcelText(excelUrl);
+        if (csvText.trim()) {
+          const parts = await extractPartsFromExcel(csvText, lovableApiKey);
+          partsCount = await insertJobParts(supabase, newJob.id, parts);
+        } else {
+          console.log("Excel text was empty — skipping parts extraction");
+        }
+      } else {
+        console.warn("LOVABLE_API_KEY not set — skipping parts extraction");
+      }
+    } else {
+      console.log("No excel_url in payload — skipping parts extraction");
+    }
+
+    // ── 8. Log activity ────────────────────────────────────────────────────────
     const detailLines = [
       `Imported from The Mellor (action: ${action})`,
       `Category mapped: ${categorySlug}`,
@@ -483,6 +613,7 @@ serve(async (req) => {
       contactPhone ? `Phone: ${contactPhone}` : null,
       value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
       description ? `Scope: ${description}` : null,
+      partsCount > 0 ? `Materials imported: ${partsCount} item(s) from costing sheet` : null,
     ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({
@@ -497,7 +628,8 @@ serve(async (req) => {
         jobId: newJob.id,
         customerId,
         category: categorySlug,
-        message: `Job ${refNum} created with category "${categorySlug}"`,
+        partsImported: partsCount,
+        message: `Job ${refNum} created with category "${categorySlug}"${partsCount > 0 ? ` and ${partsCount} material(s)` : ""}`,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
