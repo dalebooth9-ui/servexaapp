@@ -7,6 +7,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-quotehound-secret",
 };
 
+// Maps job_categories slug → category_document_templates slug
+// (the two tables use different slugs)
+const JOB_TO_TEMPLATE_SLUG: Record<string, string> = {
+  dry_riser_installation: "dry_riser_installation",
+  dry_riser_pressure_test: "pressure_test",
+  dry_riser_visual: "visual",
+  wet_riser_annual_service: "visual",   // closest match available
+  wet_riser_visual: "visual",
+  sprinkler_service: "sprinkler_service",
+  fire_hydrant_service: "hydrant_service",
+  fire_extinguishers: "fire_extinguisher",
+  site_survey: null, // no template for site surveys
+};
+
 // All known job category slugs with comprehensive keyword lists
 const KNOWN_CATEGORIES = [
   {
@@ -165,11 +179,15 @@ async function autoAttachDocuments(
   const docsToInsert: any[] = [];
 
   // 1. Category document templates
-  if (categorySlug && categorySlug !== "general") {
+  // Map the job category slug to the template slug (they differ in the DB)
+  const templateSlug = JOB_TO_TEMPLATE_SLUG[categorySlug] ?? null;
+  console.log(`Job category: "${categorySlug}" → template slug: "${templateSlug}"`);
+
+  if (templateSlug) {
     const { data: catTemplates, error: catErr } = await supabase
       .from("category_document_templates")
       .select("*")
-      .eq("category_slug", categorySlug)
+      .eq("category_slug", templateSlug)
       .eq("enabled", true)
       .order("sort_order");
 
@@ -177,7 +195,7 @@ async function autoAttachDocuments(
       console.error("Error fetching category templates:", catErr);
     } else if (catTemplates && catTemplates.length > 0) {
       console.log(
-        `Found ${catTemplates.length} category template(s) for slug "${categorySlug}"`,
+        `Found ${catTemplates.length} category template(s) for template slug "${templateSlug}"`,
       );
       for (const t of catTemplates as any[]) {
         docsToInsert.push({
@@ -191,8 +209,10 @@ async function autoAttachDocuments(
         });
       }
     } else {
-      console.log(`No enabled category templates found for slug "${categorySlug}"`);
+      console.log(`No enabled category templates found for template slug "${templateSlug}"`);
     }
+  } else {
+    console.log(`No template slug mapping for job category "${categorySlug}" — skipping templates`);
   }
 
   // 2. Pre-start checklist for installation jobs
