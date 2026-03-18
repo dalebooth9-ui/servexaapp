@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-quotehound-secret",
 };
 
-// Maps job_categories slug → category_document_templates slug(s) to try in order
+// Maps job_categories slug → template slugs to try in order
 const JOB_TO_TEMPLATE_SLUGS: Record<string, string[]> = {
   dry_riser_installation: ["dry_riser_installation"],
   dry_riser_pressure_test: ["pressure_test"],
@@ -17,19 +17,18 @@ const JOB_TO_TEMPLATE_SLUGS: Record<string, string[]> = {
   sprinkler_service: ["sprinkler_service"],
   fire_hydrant_service: ["hydrant_service", "fire_hydrant"],
   fire_extinguishers: ["fire_extinguisher"],
-  site_survey: [], // no templates
+  site_survey: [],
 };
 
-// All known job category slugs with comprehensive keyword lists
-// NOTE: order matters — more specific entries FIRST (PT/visual before generic dry riser)
+// NOTE: order matters — PT/visual must come BEFORE the generic "dry riser" catch-all
 const KNOWN_CATEGORIES = [
   {
     slug: "dry_riser_pressure_test",
     keywords: [
-      "pressure test", "hydraulic test", " pt ", "\tpt\t", "full pressure",
+      "pressure test", "hydraulic test", "full pressure",
       "dry riser test", "annual test", "dr pt", "annual pressure", "dry riser annual",
-      "pro defend", "prodefend", "annual inspection dry", "dr annual",
-      "pro-defend", "annual service dry",
+      "pro defend", "prodefend", "pro-defend", "annual inspection dry", "dr annual",
+      "annual service dry",
     ],
   },
   {
@@ -48,8 +47,7 @@ const KNOWN_CATEGORIES = [
       "dry riser fitting", "fit dry riser", "supply and install", "supply & install",
       "new installation", "install and commission", "dri install", "dr commission",
       "supply/install", "dry riser supply", "supply dry riser",
-      // broad catch-all: any mention of "dry riser" not already caught above
-      "dry riser",
+      "dry riser",   // broad catch-all — must be after PT/visual
     ],
   },
   {
@@ -82,27 +80,56 @@ const KNOWN_CATEGORIES = [
   {
     slug: "fire_extinguishers",
     keywords: [
-      "extinguisher", "fire extinguisher", "fe ", "ext service", "extinguisher service",
+      "extinguisher", "fire extinguisher", "ext service", "extinguisher service",
       "extinguisher annual", "extinguisher inspect", "extinguisher check",
     ],
   },
   {
     slug: "site_survey",
     keywords: [
-      "survey", "site survey", "site visit", "survey only", "initial survey",
+      "site survey", "site visit", "survey only", "initial survey",
       "pre-install survey", "pre install survey", "feasibility", "scoping visit",
     ],
   },
 ];
 
 /**
+ * Attempt to fetch the Excel quote file and extract all text cell values.
+ * This is the key fix: The Mellor sends job_type="General" but the line items
+ * in the Excel contain the real description (e.g. "Dry Riser Installation").
+ */
+async function fetchExcelText(excelUrl: string | null): Promise<string> {
+  if (!excelUrl) return "";
+  try {
+    const res = await fetch(excelUrl, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) {
+      console.warn(`Excel fetch failed: ${res.status}`);
+      return "";
+    }
+    const buffer = await res.arrayBuffer();
+    // Use xlsx via npm: specifier for edge-runtime compatibility
+    const XLSX = await import("npm:xlsx@0.18.5");
+    const wb = XLSX.read(new Uint8Array(buffer), { type: "array" });
+    const texts: string[] = [];
+    for (const sheetName of wb.SheetNames) {
+      const sheet = wb.Sheets[sheetName];
+      const csv = XLSX.utils.sheet_to_csv(sheet);
+      texts.push(csv);
+    }
+    const combined = texts.join(" ").toLowerCase();
+    console.log(`Excel extracted (first 300 chars): "${combined.slice(0, 300)}"`);
+    return combined;
+  } catch (e) {
+    console.warn("Excel parse failed:", e);
+    return "";
+  }
+}
+
+/**
  * Extract all useful text from the raw webhook payload for classification.
- * Reads every plausible field name The Mellor might use.
  */
 function extractClassificationText(quote: Record<string, any>, body: Record<string, any>): string {
   const parts: string[] = [];
-
-  // Top-level fields from quote object
   const fields = [
     "job_type", "jobType", "type",
     "title", "name", "job_name", "jobName",
@@ -113,33 +140,26 @@ function extractClassificationText(quote: Record<string, any>, body: Record<stri
   for (const f of fields) {
     if (quote[f] && typeof quote[f] === "string") parts.push(quote[f]);
   }
-
-  // Also check top-level body fields (in case payload isn't nested under "quote")
   for (const f of ["title", "name", "job_name", "jobName", "service_type", "serviceType"]) {
     if (body[f] && typeof body[f] === "string" && body[f] !== quote[f]) parts.push(body[f]);
   }
-
-  // line_items / items arrays — extract description/name from each
   for (const arrKey of ["line_items", "lineItems", "items", "services"]) {
     const arr = quote[arrKey] ?? body[arrKey];
     if (Array.isArray(arr)) {
       for (const item of arr) {
         if (item?.description) parts.push(String(item.description));
         if (item?.name) parts.push(String(item.name));
-        if (item?.item_description) parts.push(String(item.item_description));
       }
     }
   }
-
   return parts.filter(Boolean).join(" ").toLowerCase();
 }
 
 /**
- * Map job description / type to a category slug using keyword matching,
- * with an AI fallback via the Lovable AI Gateway.
+ * Map text to a category slug using keyword matching, then AI fallback.
  */
 async function inferCategorySlug(text: string): Promise<string> {
-  // 1. Fast keyword match (order matters — PT/visual before generic "dry riser")
+  // 1. Fast keyword match
   for (const cat of KNOWN_CATEGORIES) {
     if (cat.keywords.some((kw) => text.includes(kw))) {
       console.log(`Keyword matched category: ${cat.slug} (text: "${text.slice(0, 120)}")`);
@@ -147,29 +167,22 @@ async function inferCategorySlug(text: string): Promise<string> {
     }
   }
 
-  // 2. AI fallback via Lovable AI Gateway
+  // 2. AI fallback
   const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
   if (lovableApiKey && text.trim().length > 3) {
     try {
       const slugList = KNOWN_CATEGORIES.map((c) => c.slug).join(", ");
-      const prompt =
-        `You are a fire protection job classifier. Given this job description, respond with ONLY the single most appropriate category slug from this list (no explanation, no punctuation, just the slug):\n\n${slugList}\n\nJob description: "${text.slice(0, 400)}"\n\nRespond with only one slug from the list above, nothing else.`;
+      const prompt = `You are a fire protection job classifier. Given this job description, respond with ONLY the single most appropriate category slug from this list (no explanation, no punctuation, just the slug):\n\n${slugList}\n\nJob description: "${text.slice(0, 400)}"\n\nRespond with only one slug from the list above, nothing else.`;
 
-      const aiRes = await fetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${lovableApiKey}`,
-          },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash",
-            messages: [{ role: "user", content: prompt }],
-            max_tokens: 30,
-          }),
-        },
-      );
+      const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${lovableApiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 30,
+        }),
+      });
 
       if (aiRes.ok) {
         const aiData = await aiRes.json();
@@ -195,7 +208,6 @@ async function inferCategorySlug(text: string): Promise<string> {
 
 /**
  * Auto-attach job_documents from category_document_templates and customer paperwork.
- * Tries each template slug in order until documents are found.
  */
 async function autoAttachDocuments(
   supabase: ReturnType<typeof createClient>,
@@ -205,10 +217,8 @@ async function autoAttachDocuments(
   isInstallation: boolean,
 ): Promise<void> {
   const docsToInsert: any[] = [];
-
-  // 1. Category document templates — try each mapped slug in order
   const templateSlugs = JOB_TO_TEMPLATE_SLUGS[categorySlug] ?? [];
-  console.log(`Job category: "${categorySlug}" → template slugs to try: [${templateSlugs.join(", ")}]`);
+  console.log(`Job category: "${categorySlug}" → template slugs: [${templateSlugs.join(", ")}]`);
 
   for (const templateSlug of templateSlugs) {
     const { data: catTemplates, error: catErr } = await supabase
@@ -218,10 +228,7 @@ async function autoAttachDocuments(
       .eq("enabled", true)
       .order("sort_order");
 
-    if (catErr) {
-      console.error(`Error fetching templates for slug "${templateSlug}":`, catErr);
-      continue;
-    }
+    if (catErr) { console.error(`Error fetching templates for "${templateSlug}":`, catErr); continue; }
 
     if (catTemplates && catTemplates.length > 0) {
       console.log(`Found ${catTemplates.length} template(s) under slug "${templateSlug}"`);
@@ -236,17 +243,12 @@ async function autoAttachDocuments(
           category_template_id: t.id,
         });
       }
-      break; // found templates — stop trying other slugs
+      break;
     } else {
-      console.log(`No enabled templates found for slug "${templateSlug}", trying next...`);
+      console.log(`No enabled templates for slug "${templateSlug}", trying next...`);
     }
   }
 
-  if (templateSlugs.length === 0) {
-    console.log(`No template slugs configured for job category "${categorySlug}" — skipping templates`);
-  }
-
-  // 2. Pre-start checklist for installation jobs
   if (isInstallation) {
     docsToInsert.push({
       job_id: jobId,
@@ -258,7 +260,6 @@ async function autoAttachDocuments(
     });
   }
 
-  // 3. Customer auto-attach paperwork
   if (customerId) {
     const { data: paperwork, error: pwErr } = await supabase
       .from("customer_paperwork")
@@ -284,9 +285,7 @@ async function autoAttachDocuments(
   }
 
   if (docsToInsert.length > 0) {
-    const { error } = await supabase
-      .from("job_documents")
-      .insert(docsToInsert as any);
+    const { error } = await supabase.from("job_documents").insert(docsToInsert as any);
     if (error) console.error("Auto-attach documents error:", error);
     else console.log(`Auto-attached ${docsToInsert.length} document(s) to job ${jobId}`);
   } else {
@@ -302,13 +301,10 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey, {
-      auth: { persistSession: false },
-    });
+    const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
     const expectedSecret = Deno.env.get("QUOTEHOUND_WEBHOOK_SECRET");
     if (!expectedSecret) {
-      console.error("QUOTEHOUND_WEBHOOK_SECRET not configured");
       return new Response(
         JSON.stringify({ error: "Webhook secret not configured on server" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -328,8 +324,6 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-
-    // ── Full payload log for debugging misclassifications ──────────────────────
     console.log("Raw payload:", JSON.stringify(body).slice(0, 800));
 
     const quote = body.quote ?? body;
@@ -351,21 +345,30 @@ serve(async (req) => {
     const jobType = quote.job_type ?? quote.jobType ?? quote.type ?? null;
     const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
-    const description =
-      quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
+    const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
+    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? null;
 
-    // ── 1. Widen text extraction and classify ──────────────────────────────────
-    const classificationText = extractClassificationText(quote, body);
-    console.log(`Classification text (first 200 chars): "${classificationText.slice(0, 200)}"`);
+    // ── 1. Classify: payload text first, then Excel line items ────────────────
+    let classificationText = extractClassificationText(quote, body);
+    console.log(`Classification text from payload: "${classificationText.slice(0, 200)}"`);
+
+    // If payload gives us nothing useful (just "general"), fetch the Excel
+    const isGeneric = !classificationText.trim() || classificationText.trim() === "general";
+    if (isGeneric && excelUrl) {
+      console.log("Payload text is generic — fetching Excel for line-item descriptions...");
+      const excelText = await fetchExcelText(excelUrl);
+      if (excelText) {
+        classificationText = classificationText + " " + excelText;
+        console.log(`Combined text after Excel (first 300): "${classificationText.slice(0, 300)}"`);
+      }
+    }
 
     const categorySlug = await inferCategorySlug(classificationText);
-    const isInstallation =
-      categorySlug === "dry_riser_installation" || categorySlug === "installation";
+    const isInstallation = categorySlug === "dry_riser_installation" || categorySlug === "installation";
     console.log(`Final category: ${categorySlug} | isInstallation: ${isInstallation}`);
 
     // ── 2. Upsert customer ─────────────────────────────────────────────────────
     let customerId: string | null = null;
-
     if (clientName) {
       const { data: existingCustomers } = await supabase
         .from("customers")
@@ -375,31 +378,19 @@ serve(async (req) => {
 
       if (existingCustomers && existingCustomers.length > 0) {
         customerId = existingCustomers[0].id;
-        await supabase
-          .from("customers")
-          .update({
-            ...(contactEmail ? { email: contactEmail } : {}),
-            ...(contactPhone ? { phone: contactPhone } : {}),
-            ...(jobAddress ? { address: jobAddress } : {}),
-          })
-          .eq("id", customerId);
+        await supabase.from("customers").update({
+          ...(contactEmail ? { email: contactEmail } : {}),
+          ...(contactPhone ? { phone: contactPhone } : {}),
+          ...(jobAddress ? { address: jobAddress } : {}),
+        }).eq("id", customerId);
       } else {
         const { data: newCustomer, error: custErr } = await supabase
           .from("customers")
-          .insert({
-            name: clientName.trim(),
-            email: contactEmail || null,
-            phone: contactPhone || null,
-            address: jobAddress || null,
-          })
+          .insert({ name: clientName.trim(), email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null })
           .select("id")
           .single();
-
-        if (custErr) {
-          console.error("Customer insert error:", custErr);
-        } else {
-          customerId = newCustomer.id;
-        }
+        if (custErr) console.error("Customer insert error:", custErr);
+        else customerId = newCustomer.id;
       }
     }
 
@@ -436,12 +427,8 @@ serve(async (req) => {
     }
 
     // ── 4. Build a clean job name ──────────────────────────────────────────────
-    // Prefer title/name from the payload over job_type "General"
-    const preferredTitle =
-      quote.title ?? quote.name ?? quote.job_name ?? quote.jobName ?? null;
-    const effectiveType =
-      (jobType && jobType.toLowerCase() !== "general") ? jobType : (preferredTitle ?? jobType);
-
+    const preferredTitle = quote.title ?? quote.name ?? quote.job_name ?? null;
+    const effectiveType = (jobType && jobType.toLowerCase() !== "general") ? jobType : (preferredTitle ?? jobType);
     const jobName = effectiveType
       ? `${effectiveType}${clientName ? ` — ${clientName}` : ""}`
       : description
@@ -482,13 +469,9 @@ serve(async (req) => {
       contactName ? `Contact: ${contactName}` : null,
       contactEmail ? `Email: ${contactEmail}` : null,
       contactPhone ? `Phone: ${contactPhone}` : null,
-      value != null
-        ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}`
-        : null,
+      value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
       description ? `Scope: ${description}` : null,
-    ]
-      .filter(Boolean)
-      .join(" | ");
+    ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({
       job_id: newJob.id,
