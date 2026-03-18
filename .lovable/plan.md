@@ -1,45 +1,68 @@
 
-## Root Cause
+## UX & App Review — FieldReport
 
-The edge function logs show the job name arriving as **"General — CCG"** and **"General — Pro Defend"**. This means The Mellor is sending `job_type: "General"` with no description in the fields the function currently reads (`description`, `notes`, `scope_of_work`, `scope`).
+I've reviewed the full codebase, session replay (shows a user browsing the admin dashboard bar chart), the screenshot (showing the login page), and the key pages. Here's an honest assessment with specific, actionable improvements.
 
-The actual job content — "Dry Riser Installation" — is almost certainly in a field the function is ignoring, such as `title`, `name`, `line_items`, `items`, or `scope_of_works`.
+---
 
-The AI then sees the text `"general"` and correctly picks `site_survey` as the closest match (wrong, but logical given the input).
+### What's Working Well
+- Clean dark sidebar with good contrast
+- Engineer dashboard is well-designed for mobile (large touch targets, tab navigation, clock in/out)
+- KPI cards and weekly chart on the admin dashboard are useful
+- Drag-to-reorder nav items is a clever power-user feature
+- AI Help Wizard with voice input is a strong differentiator
 
-**Secondary issue**: Even when the category IS correct, there are slug mismatches in `JOB_TO_TEMPLATE_SLUG` — e.g. `fire_hydrant_service` maps to `hydrant_service` but the DB also has `fire_hydrant` slug with templates. The `pressure_test` mapping for dry_riser_pressure_test only has RAMS (no job sheet).
+---
 
-## The Fix
+### Issues Found & Proposed Improvements
 
-### 1. Widen field extraction from the webhook payload
-Capture every possible field name The Mellor might use for the job description/title, including fields like `title`, `name`, `line_items`, `items`, `works`, `scope_of_works`, `job_description`. Log the full raw payload on first receipt so we can see exactly what's coming in.
+**1. Login page — plain and off-brand**
+- The auth page is a basic centered card with no branding beyond a small favicon
+- No "Forgot password?" link — users are stuck if they forget credentials
+- Improvement: Add a subtle branded background panel (like the sidebar gradient colour), a "Forgot password?" flow, and make the card feel more polished
 
-### 2. Add broad "dry riser" + "installation" fallback keywords
-Currently `dry_riser_installation` keywords only match compound phrases like `"dry riser install"`. If `job_type` is `"General"` and the title/description says `"Supply and install dry riser system"`, the word order won't match. Add broader single-word triggers: `"install"` when `"dry riser"` or `"dry"` is also present, plus standalone `"dry riser"` as a catch-all that maps to installation when no PT/visual keyword is present.
+**2. Admin Dashboard — quick actions are confusing**
+- Three outline buttons ("Create Job", "Create Customer", "Upload Files") all navigate to `/jobs` — "Upload Files" does not actually trigger an upload
+- "Create Customer" should go to `/customers`, not `/jobs`
+- "Upload Files" button should open the folder import dialog directly
+- The buttons lack visual hierarchy — a primary "Create Job" button would stand out better
 
-### 3. Fix the slug mapping table
-Update `JOB_TO_TEMPLATE_SLUG` to match what actually exists in `category_document_templates`:
-- `dry_riser_installation` → `"dry_riser_installation"` ✓ (already correct, has 4 templates)
-- `dry_riser_pressure_test` → `"pressure_test"` ✓  
-- `dry_riser_visual` → `"visual"` ✓  
-- `fire_hydrant_service` → try both `"hydrant_service"` AND `"fire_hydrant"` (DB has templates under both)
-- `fire_extinguishers` → `"fire_extinguisher"` ✓
+**3. Sidebar — 15 nav items is overwhelming**
+- Many items are rarely used (Industry Templates, Parts Library, Audits, Compliance, Sites, Assets all visible at once)
+- The drag-to-reorder feature is useful but most users won't discover the grip handle (it only appears on hover)
+- Improvement: Group items into collapsible sections (e.g. "Field Ops", "Management", "Reports") or add a "pin/unpin" mechanism
 
-### 4. Log the full raw payload
-Add `console.log("Raw payload:", JSON.stringify(body).slice(0, 500))` so next time a misclassified job arrives we can see exactly what fields The Mellor sent.
+**4. Navigation — two identical icons**
+- Both "Audits" and "Industry Templates" use the `ClipboardCheck` icon — this makes the sidebar visually confusing
+- Improvement: Use distinct icons (e.g. `ListChecks` for Audits, `BookOpen` for Templates)
 
-## Changes to make
+**5. Jobs page — high complexity**
+- The Jobs page is 1,406 lines with many dialogs, filters, and drag-and-drop
+- New users will struggle to find "Create Job" — consider a floating action button (FAB) on mobile views
+- The filter/search bar could benefit from a clearer visual separation from the job list
 
-**`supabase/functions/receive-quote-hound/index.ts`**:
+**6. Dashboard "Recent Activity" — low signal**
+- Shows submission type ("photo", "document") without a thumbnail or detail — clicking requires going to the job
+- Improvement: Show a small thumbnail for photo submissions inline
 
-- Add full payload logging at the top of the handler
-- Expand field extraction to read `title`, `name`, `line_items[].description`, `items[].description`, `works`, `scope_of_works`, `job_description` and concatenate them all into the text used for classification
-- Add broader dry riser keywords — including standalone `"dry riser"` (when not matched by PT/visual keywords first), `"supply and install"`, `"new installation"`, `"commission"`, `"dri"`
-- Update `JOB_TO_TEMPLATE_SLUG` to also try `fire_hydrant` as a fallback for hydrant jobs
-- Redeploy the function
+---
 
-## What this solves
+### Plan
 
-When `job_type` is `"General"` but the quote title says `"Dry Riser Installation - 123 High Street"`, the widened field extraction will pick up that title and keyword-match it to `dry_riser_installation`, attaching the correct Quote, PO, RAMS, and Site Drawings documents automatically.
+1. **Fix the three quick-action buttons** on AdminDashboard — correct the navigation targets and wire "Upload Files" to the folder import dialog
+2. **Fix duplicate icons** in the sidebar (Audits vs Templates)
+3. **Add "Forgot password?" link** to the Auth page with a Supabase password reset flow
+4. **Improve sidebar grouping** — add subtle section labels ("Operations", "Admin") to break up the 15-item list visually without removing any items
+5. **Polish the auth page** — add a branded left panel with the app description for a more professional first impression
 
-For the two existing mis-categorised jobs (TM-CEB1592/1504 and TM-SC/2067), you'll need to manually update their category in the job detail — but all future imports will be handled correctly.
+---
+
+### Files to Change
+
+```text
+src/components/AdminDashboard.tsx     — fix quick action buttons
+src/components/AppLayout.tsx          — fix icons, add section labels to nav
+src/pages/Auth.tsx                    — add forgot password + branded panel
+```
+
+No database changes required.
