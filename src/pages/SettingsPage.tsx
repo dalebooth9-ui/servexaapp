@@ -302,6 +302,9 @@ export default function SettingsPage() {
         {/* The Mellor Integration */}
         <QuoteHoundIntegrationCard />
 
+        {/* Document Re-attach Tool */}
+        <JobDocumentReattachSettings />
+
         {/* Weekly Report Settings */}
         <Card>
           <CardHeader>
