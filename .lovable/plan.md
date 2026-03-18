@@ -1,68 +1,60 @@
 
-## UX & App Review — FieldReport
+## Root Cause (Confirmed by Logs)
 
-I've reviewed the full codebase, session replay (shows a user browsing the admin dashboard bar chart), the screenshot (showing the login page), and the key pages. Here's an honest assessment with specific, actionable improvements.
+The logs show exactly what's happening:
 
----
-
-### What's Working Well
-- Clean dark sidebar with good contrast
-- Engineer dashboard is well-designed for mobile (large touch targets, tab navigation, clock in/out)
-- KPI cards and weekly chart on the admin dashboard are useful
-- Drag-to-reorder nav items is a clever power-user feature
-- AI Help Wizard with voice input is a strong differentiator
-
----
-
-### Issues Found & Proposed Improvements
-
-**1. Login page — plain and off-brand**
-- The auth page is a basic centered card with no branding beyond a small favicon
-- No "Forgot password?" link — users are stuck if they forget credentials
-- Improvement: Add a subtle branded background panel (like the sidebar gradient colour), a "Forgot password?" flow, and make the card feel more polished
-
-**2. Admin Dashboard — quick actions are confusing**
-- Three outline buttons ("Create Job", "Create Customer", "Upload Files") all navigate to `/jobs` — "Upload Files" does not actually trigger an upload
-- "Create Customer" should go to `/customers`, not `/jobs`
-- "Upload Files" button should open the folder import dialog directly
-- The buttons lack visual hierarchy — a primary "Create Job" button would stand out better
-
-**3. Sidebar — 15 nav items is overwhelming**
-- Many items are rarely used (Industry Templates, Parts Library, Audits, Compliance, Sites, Assets all visible at once)
-- The drag-to-reorder feature is useful but most users won't discover the grip handle (it only appears on hover)
-- Improvement: Group items into collapsible sections (e.g. "Field Ops", "Management", "Reports") or add a "pin/unpin" mechanism
-
-**4. Navigation — two identical icons**
-- Both "Audits" and "Industry Templates" use the `ClipboardCheck` icon — this makes the sidebar visually confusing
-- Improvement: Use distinct icons (e.g. `ListChecks` for Audits, `BookOpen` for Templates)
-
-**5. Jobs page — high complexity**
-- The Jobs page is 1,406 lines with many dialogs, filters, and drag-and-drop
-- New users will struggle to find "Create Job" — consider a floating action button (FAB) on mobile views
-- The filter/search bar could benefit from a clearer visual separation from the job list
-
-**6. Dashboard "Recent Activity" — low signal**
-- Shows submission type ("photo", "document") without a thumbnail or detail — clicking requires going to the job
-- Improvement: Show a small thumbnail for photo submissions inline
-
----
-
-### Plan
-
-1. **Fix the three quick-action buttons** on AdminDashboard — correct the navigation targets and wire "Upload Files" to the folder import dialog
-2. **Fix duplicate icons** in the sidebar (Audits vs Templates)
-3. **Add "Forgot password?" link** to the Auth page with a Supabase password reset flow
-4. **Improve sidebar grouping** — add subtle section labels ("Operations", "Admin") to break up the 15-item list visually without removing any items
-5. **Polish the auth page** — add a branded left panel with the app description for a more professional first impression
-
----
-
-### Files to Change
-
-```text
-src/components/AdminDashboard.tsx     — fix quick action buttons
-src/components/AppLayout.tsx          — fix icons, add section labels to nav
-src/pages/Auth.tsx                    — add forgot password + branded panel
+```
+Classification text: "general"
+AI classified category: site_survey
 ```
 
-No database changes required.
+The Mellor sends **only** `job_type: "General"` with no title, description, scope, or line items. CCG has `excel_url: null` — no spreadsheet either. The AI sees the word "general" and picks `site_survey` as the closest match.
+
+The current "isGeneric + Excel fallback" logic was the right idea, but it only helps when an Excel URL is present. Most Mellor jobs send nothing useful.
+
+**You've confirmed all jobs from The Mellor are wet & dry riser installations.** The correct fix is simple: stop trying to classify Mellor jobs and just default them to `dry_riser_installation`.
+
+---
+
+## The Fix
+
+One change in `receive-quote-hound/index.ts`:
+
+**Replace the entire classify → keyword match → AI fallback chain** with a direct default. Since The Mellor only ever sends installation work, skip classification entirely and hardcode `dry_riser_installation` as the category for all Mellor imports.
+
+Keep the keyword/AI logic as a commented-out block so it can be re-enabled later if The Mellor ever sends varied job types (e.g. pressure tests).
+
+The `isInstallation` flag will be `true`, so the pre-start checklist also auto-attaches — giving each new job its full set of 5 documents: Quote, Purchase Order, RAMS, Site Drawings, Pre-start Checklist.
+
+**Also fix the job name**: Currently arriving as `"General — CCG"`. Since we know it's an installation, build the name as `"Dry Riser Installation — CCG"` when `job_type` is `"General"`.
+
+---
+
+## Changes
+
+**`supabase/functions/receive-quote-hound/index.ts`**:
+
+1. After extracting `clientName`, `jobType`, etc — replace the `inferCategorySlug` call with:
+   ```ts
+   const categorySlug = "dry_riser_installation";
+   const isInstallation = true;
+   ```
+2. Fix the job name builder: when `jobType` is `"General"` (or null), use `"Dry Riser Installation"` as the display name instead:
+   ```ts
+   const effectiveType = (jobType && jobType.toLowerCase() !== "general")
+     ? jobType
+     : "Dry Riser Installation";
+   ```
+3. Keep the Excel fetch and keyword/AI functions in the file (commented out) for future use.
+4. Redeploy.
+
+---
+
+## Result
+
+Every future Mellor import will:
+- Land as `dry_riser_installation`
+- Be named `"Dry Riser Installation — [Client]"` instead of `"General — [Client]"`
+- Auto-attach: Quote, Purchase Order, RAMS, Site Drawings, Pre-start Checklist
+
+The two existing mis-categorised jobs (TM-CEB1592/1504 CCG and TM-SC/2067 Pro Defend) will still need their category manually corrected in the job detail, then use the **Re-attach Job Documents** tool in Settings to pull in the correct documents.
