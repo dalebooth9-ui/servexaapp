@@ -78,7 +78,7 @@ serve(async (req) => {
           <!-- Header -->
           <tr>
             <td style="background:#1e293b;padding:28px 32px;text-align:center;">
-              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">FieldReport</p>
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">Servexa</p>
               <p style="margin:6px 0 0;font-size:13px;color:#94a3b8;">Fire Safety Field Service</p>
             </td>
           </tr>
