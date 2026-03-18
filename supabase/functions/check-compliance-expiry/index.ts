@@ -11,7 +11,7 @@ function buildEmailHtml(title: string, bodyHtml: string): string {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff;">
       <div style="background: #1e40af; color: #ffffff; padding: 18px 24px; border-radius: 8px 8px 0 0;">
-        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">FieldReport</h2>
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Servexa</h2>
         <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.75;">Compliance & Fire Safety Management</p>
       </div>
       <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
@@ -19,7 +19,7 @@ function buildEmailHtml(title: string, bodyHtml: string): string {
         ${bodyHtml}
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 20px 0;" />
         <p style="font-size: 11px; color: #9ca3af; margin: 0;">
-          This is an automated notification from FieldReport. Log in to manage your compliance records.
+          This is an automated notification from Servexa. Log in to manage your compliance records.
         </p>
       </div>
     </div>
