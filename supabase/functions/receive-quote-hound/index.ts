@@ -457,6 +457,8 @@ serve(async (req) => {
     const value = quote.value ?? null;
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
     const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? null;
+    const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
+    const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
 
     // ── 1. Category — all Mellor jobs are dry riser installations ────────────
     // The Mellor only ever sends wet & dry riser installation work.
@@ -583,6 +585,23 @@ serve(async (req) => {
     // ── 6. Auto-attach documents ───────────────────────────────────────────────
     await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
 
+    // ── 6b. Fill document slots with actual files from The Mellor ─────────────
+    // The Mellor sends pdf_url (quote PDF) and po_url (purchase order PDF).
+    // Backfill the pre-created 'quote' and 'purchase_order' slots with real URLs.
+    const fileSlotUpdates: Array<{ type: string; url: string; name: string }> = [];
+    if (pdfUrl) fileSlotUpdates.push({ type: "quote", url: pdfUrl, name: `Quote-${refNum}.pdf` });
+    if (poUrl) fileSlotUpdates.push({ type: "purchase_order", url: poUrl, name: `PO-${refNum}.pdf` });
+
+    for (const slot of fileSlotUpdates) {
+      const { error: slotErr } = await supabase
+        .from("job_documents")
+        .update({ file_url: slot.url, file_name: slot.name } as any)
+        .eq("job_id", newJob.id)
+        .eq("document_type", slot.type);
+      if (slotErr) console.error(`Error filling ${slot.type} slot:`, slotErr);
+      else console.log(`Filled ${slot.type} slot with URL: ${slot.url.slice(0, 80)}`);
+    }
+
     // ── 7. Parse Excel costing sheet → Job Parts ──────────────────────────────
     let partsCount = 0;
     if (excelUrl) {
@@ -614,6 +633,8 @@ serve(async (req) => {
       value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
       description ? `Scope: ${description}` : null,
       partsCount > 0 ? `Materials imported: ${partsCount} item(s) from costing sheet` : null,
+      pdfUrl ? `Quote PDF attached` : null,
+      poUrl ? `PO PDF attached` : null,
     ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({
