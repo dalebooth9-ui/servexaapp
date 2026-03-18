@@ -3433,6 +3433,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_admin_direct: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
       nextval_ppm_seq: { Args: never; Returns: number }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
