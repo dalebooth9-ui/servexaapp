@@ -87,7 +87,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "FieldReport <noreply@vivafire.co.uk>",
+        from: "Servexa <noreply@vivafire.co.uk>",
         to: [customerEmail],
         subject: `Invoice ${invoiceNumber} - £${Number(total).toFixed(2)}`,
         html: `
@@ -96,7 +96,7 @@ serve(async (req) => {
             <p>Dear ${customerName || "Customer"},</p>
             <p>Please find attached your invoice for <strong>£${Number(total).toFixed(2)}</strong>.</p>
             <p>If you have any questions, please don't hesitate to get in touch.</p>
-            <p>Kind regards,<br/>FieldReport</p>
+            <p>Kind regards,<br/>Servexa</p>
           </div>
         `,
         attachments: pdfBase64 ? [{

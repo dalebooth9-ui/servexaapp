@@ -147,7 +147,7 @@ export default function SettingsPage() {
               <CardTitle className="text-lg">Engineer App Install</CardTitle>
             </div>
             <CardDescription>
-              Share this QR code or link with engineers to install the FieldReport app on their phone.
+              Share this QR code or link with engineers to install the Servexa app on their phone.
             </CardDescription>
           </CardHeader>
           <CardContent>

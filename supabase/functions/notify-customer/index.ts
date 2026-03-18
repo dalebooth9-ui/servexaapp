@@ -76,7 +76,7 @@ serve(async (req) => {
           <p>A new job has been created for you: <strong>${job.reference_number}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We will keep you updated on progress.</p>
-          <p>Thank you,<br/>FieldReport</p>`,
+          <p>Thank you,<br/>Servexa</p>`,
       },
       engineer_dispatched: {
         subject: `Engineer dispatched — ${job.reference_number}`,
@@ -84,7 +84,7 @@ serve(async (req) => {
           <p>An engineer has been dispatched for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We'll notify you once the work is completed.</p>
-          <p>Thank you,<br/>FieldReport</p>`,
+          <p>Thank you,<br/>Servexa</p>`,
       },
       job_completed: {
         subject: `Job completed — ${job.reference_number}`,
@@ -92,14 +92,14 @@ serve(async (req) => {
           <p>We're pleased to confirm that job <strong>${job.reference_number}</strong> — ${job.name} has been completed.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>If you have any questions or require follow-up, please don't hesitate to contact us.</p>
-          <p>Thank you,<br/>FieldReport</p>`,
+          <p>Thank you,<br/>Servexa</p>`,
       },
       certificate_issued: {
         subject: `Certificate issued — ${job.reference_number}`,
         body: `<h2>Certificate Issued</h2>
           <p>A compliance certificate has been issued for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
           <p>Please contact us if you require a copy of the documentation.</p>
-          <p>Thank you,<br/>FieldReport</p>`,
+          <p>Thank you,<br/>Servexa</p>`,
       },
     };
 
@@ -114,7 +114,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "FieldReport <onboarding@resend.dev>",
+        from: "Servexa <onboarding@resend.dev>",
         to: [customerEmail],
         subject: template.subject,
         html: template.body,

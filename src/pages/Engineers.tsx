@@ -580,7 +580,7 @@ export default function Engineers() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <p className="text-sm text-muted-foreground">
-              Send <strong>{onboardingEng?.full_name}</strong> the app install link with a QR code so they can add FieldReport to their home screen.
+              Send <strong>{onboardingEng?.full_name}</strong> the app install link with a QR code so they can add Servexa to their home screen.
             </p>
             <div className="space-y-2">
               <Label htmlFor="onboarding-email">Engineer's Email *</Label>

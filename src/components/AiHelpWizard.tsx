@@ -576,7 +576,7 @@ export default function AiHelpWizard() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={isListening ? "Listening…" : "Ask anything about FieldReport…"}
+                placeholder={isListening ? "Listening…" : "Ask anything about Servexa…"}
                 rows={1}
                 className={cn(
                   "resize-none text-sm min-h-[38px] max-h-[100px] py-2 leading-relaxed transition-all",
