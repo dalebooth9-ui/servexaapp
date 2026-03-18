@@ -7,36 +7,29 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-quotehound-secret",
 };
 
-// Maps job_categories slug → category_document_templates slug
-// (the two tables use different slugs)
-const JOB_TO_TEMPLATE_SLUG: Record<string, string> = {
-  dry_riser_installation: "dry_riser_installation",
-  dry_riser_pressure_test: "pressure_test",
-  dry_riser_visual: "visual",
-  wet_riser_annual_service: "visual",   // closest match available
-  wet_riser_visual: "visual",
-  sprinkler_service: "sprinkler_service",
-  fire_hydrant_service: "hydrant_service",
-  fire_extinguishers: "fire_extinguisher",
-  site_survey: null, // no template for site surveys
+// Maps job_categories slug → category_document_templates slug(s) to try in order
+const JOB_TO_TEMPLATE_SLUGS: Record<string, string[]> = {
+  dry_riser_installation: ["dry_riser_installation"],
+  dry_riser_pressure_test: ["pressure_test"],
+  dry_riser_visual: ["visual"],
+  wet_riser_annual_service: ["visual"],
+  wet_riser_visual: ["visual"],
+  sprinkler_service: ["sprinkler_service"],
+  fire_hydrant_service: ["hydrant_service", "fire_hydrant"],
+  fire_extinguishers: ["fire_extinguisher"],
+  site_survey: [], // no templates
 };
 
 // All known job category slugs with comprehensive keyword lists
+// NOTE: order matters — more specific entries FIRST (PT/visual before generic dry riser)
 const KNOWN_CATEGORIES = [
-  {
-    slug: "dry_riser_installation",
-    keywords: [
-      "dry riser install", "dr install", "install dry riser", "new dry riser",
-      "dry riser new", "install dr", "dry riser commission", "commission dry riser",
-      "dry riser fitting", "fit dry riser",
-    ],
-  },
   {
     slug: "dry_riser_pressure_test",
     keywords: [
-      "pressure test", "hydraulic test", "pt ", " pt\t", "full pressure",
+      "pressure test", "hydraulic test", " pt ", "\tpt\t", "full pressure",
       "dry riser test", "annual test", "dr pt", "annual pressure", "dry riser annual",
       "pro defend", "prodefend", "annual inspection dry", "dr annual",
+      "pro-defend", "annual service dry",
     ],
   },
   {
@@ -45,6 +38,18 @@ const KNOWN_CATEGORIES = [
       "visual inspection", "visual check", "6 month", "six month", "interim",
       "dr visual", "6month", "half year", "6-month", "interim inspection",
       "visual only", "dr vis",
+    ],
+  },
+  {
+    slug: "dry_riser_installation",
+    keywords: [
+      "dry riser install", "dr install", "install dry riser", "new dry riser",
+      "dry riser new", "install dr", "dry riser commission", "commission dry riser",
+      "dry riser fitting", "fit dry riser", "supply and install", "supply & install",
+      "new installation", "install and commission", "dri install", "dr commission",
+      "supply/install", "dry riser supply", "supply dry riser",
+      // broad catch-all: any mention of "dry riser" not already caught above
+      "dry riser",
     ],
   },
   {
@@ -91,19 +96,53 @@ const KNOWN_CATEGORIES = [
 ];
 
 /**
+ * Extract all useful text from the raw webhook payload for classification.
+ * Reads every plausible field name The Mellor might use.
+ */
+function extractClassificationText(quote: Record<string, any>, body: Record<string, any>): string {
+  const parts: string[] = [];
+
+  // Top-level fields from quote object
+  const fields = [
+    "job_type", "jobType", "type",
+    "title", "name", "job_name", "jobName",
+    "description", "notes", "scope_of_work", "scope",
+    "scope_of_works", "works", "job_description", "jobDescription",
+    "service_type", "serviceType", "category", "work_type", "workType",
+  ];
+  for (const f of fields) {
+    if (quote[f] && typeof quote[f] === "string") parts.push(quote[f]);
+  }
+
+  // Also check top-level body fields (in case payload isn't nested under "quote")
+  for (const f of ["title", "name", "job_name", "jobName", "service_type", "serviceType"]) {
+    if (body[f] && typeof body[f] === "string" && body[f] !== quote[f]) parts.push(body[f]);
+  }
+
+  // line_items / items arrays — extract description/name from each
+  for (const arrKey of ["line_items", "lineItems", "items", "services"]) {
+    const arr = quote[arrKey] ?? body[arrKey];
+    if (Array.isArray(arr)) {
+      for (const item of arr) {
+        if (item?.description) parts.push(String(item.description));
+        if (item?.name) parts.push(String(item.name));
+        if (item?.item_description) parts.push(String(item.item_description));
+      }
+    }
+  }
+
+  return parts.filter(Boolean).join(" ").toLowerCase();
+}
+
+/**
  * Map job description / type to a category slug using keyword matching,
  * with an AI fallback via the Lovable AI Gateway.
  */
-async function inferCategorySlug(
-  jobType: string | null,
-  description: string | null,
-): Promise<string> {
-  const text = `${jobType ?? ""} ${description ?? ""}`.toLowerCase();
-
-  // 1. Fast keyword match
+async function inferCategorySlug(text: string): Promise<string> {
+  // 1. Fast keyword match (order matters — PT/visual before generic "dry riser")
   for (const cat of KNOWN_CATEGORIES) {
     if (cat.keywords.some((kw) => text.includes(kw))) {
-      console.log(`Keyword matched category: ${cat.slug} (text: "${text.slice(0, 80)}")`);
+      console.log(`Keyword matched category: ${cat.slug} (text: "${text.slice(0, 120)}")`);
       return cat.slug;
     }
   }
@@ -114,7 +153,7 @@ async function inferCategorySlug(
     try {
       const slugList = KNOWN_CATEGORIES.map((c) => c.slug).join(", ");
       const prompt =
-        `You are a fire protection job classifier. Given this job description, respond with ONLY the single most appropriate category slug from this list (no explanation, no punctuation, just the slug):\n\n${slugList}\n\nJob description: "${text}"\n\nRespond with only one slug from the list above, nothing else.`;
+        `You are a fire protection job classifier. Given this job description, respond with ONLY the single most appropriate category slug from this list (no explanation, no punctuation, just the slug):\n\n${slugList}\n\nJob description: "${text.slice(0, 400)}"\n\nRespond with only one slug from the list above, nothing else.`;
 
       const aiRes = await fetch(
         "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -142,32 +181,21 @@ async function inferCategorySlug(
         }
         console.warn(`AI returned unrecognised slug: "${raw}" — falling back`);
       } else {
-        console.warn(`AI gateway responded ${aiRes.status}`);
+        const errText = await aiRes.text();
+        console.warn(`AI gateway responded ${aiRes.status}: ${errText.slice(0, 200)}`);
       }
     } catch (e) {
       console.warn("AI category inference failed:", e);
     }
   }
 
-  // 3. Direct slug match on job_type
-  if (jobType) {
-    const normalized = jobType.toLowerCase().replace(/\s+/g, "_").replace(
-      /[^a-z_]/g,
-      "",
-    );
-    if (KNOWN_CATEGORIES.some((c) => c.slug === normalized)) {
-      console.log(`Direct slug match: ${normalized}`);
-      return normalized;
-    }
-  }
-
-  console.log(`No category matched for text: "${text.slice(0, 80)}" — using general`);
+  console.log(`No category matched for text: "${text.slice(0, 120)}" — using general`);
   return "general";
 }
 
 /**
- * Auto-attach job_documents from category_document_templates and customer paperwork,
- * mirroring what JobDocuments.tsx does on the client side.
+ * Auto-attach job_documents from category_document_templates and customer paperwork.
+ * Tries each template slug in order until documents are found.
  */
 async function autoAttachDocuments(
   supabase: ReturnType<typeof createClient>,
@@ -178,12 +206,11 @@ async function autoAttachDocuments(
 ): Promise<void> {
   const docsToInsert: any[] = [];
 
-  // 1. Category document templates
-  // Map the job category slug to the template slug (they differ in the DB)
-  const templateSlug = JOB_TO_TEMPLATE_SLUG[categorySlug] ?? null;
-  console.log(`Job category: "${categorySlug}" → template slug: "${templateSlug}"`);
+  // 1. Category document templates — try each mapped slug in order
+  const templateSlugs = JOB_TO_TEMPLATE_SLUGS[categorySlug] ?? [];
+  console.log(`Job category: "${categorySlug}" → template slugs to try: [${templateSlugs.join(", ")}]`);
 
-  if (templateSlug) {
+  for (const templateSlug of templateSlugs) {
     const { data: catTemplates, error: catErr } = await supabase
       .from("category_document_templates")
       .select("*")
@@ -192,11 +219,12 @@ async function autoAttachDocuments(
       .order("sort_order");
 
     if (catErr) {
-      console.error("Error fetching category templates:", catErr);
-    } else if (catTemplates && catTemplates.length > 0) {
-      console.log(
-        `Found ${catTemplates.length} category template(s) for template slug "${templateSlug}"`,
-      );
+      console.error(`Error fetching templates for slug "${templateSlug}":`, catErr);
+      continue;
+    }
+
+    if (catTemplates && catTemplates.length > 0) {
+      console.log(`Found ${catTemplates.length} template(s) under slug "${templateSlug}"`);
       for (const t of catTemplates as any[]) {
         docsToInsert.push({
           job_id: jobId,
@@ -208,11 +236,14 @@ async function autoAttachDocuments(
           category_template_id: t.id,
         });
       }
+      break; // found templates — stop trying other slugs
     } else {
-      console.log(`No enabled category templates found for template slug "${templateSlug}"`);
+      console.log(`No enabled templates found for slug "${templateSlug}", trying next...`);
     }
-  } else {
-    console.log(`No template slug mapping for job category "${categorySlug}" — skipping templates`);
+  }
+
+  if (templateSlugs.length === 0) {
+    console.log(`No template slugs configured for job category "${categorySlug}" — skipping templates`);
   }
 
   // 2. Pre-start checklist for installation jobs
@@ -257,11 +288,7 @@ async function autoAttachDocuments(
       .from("job_documents")
       .insert(docsToInsert as any);
     if (error) console.error("Auto-attach documents error:", error);
-    else {
-      console.log(
-        `Auto-attached ${docsToInsert.length} document(s) to job ${jobId}`,
-      );
-    }
+    else console.log(`Auto-attached ${docsToInsert.length} document(s) to job ${jobId}`);
   } else {
     console.log(`No documents to auto-attach for job ${jobId}`);
   }
@@ -284,69 +311,59 @@ serve(async (req) => {
       console.error("QUOTEHOUND_WEBHOOK_SECRET not configured");
       return new Response(
         JSON.stringify({ error: "Webhook secret not configured on server" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const customHeader = req.headers.get("x-quotehound-secret");
     const authHeader = req.headers.get("Authorization");
-    const bearerToken = authHeader?.startsWith("Bearer ")
-      ? authHeader.slice(7)
-      : null;
+    const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
     const providedSecret = customHeader ?? bearerToken;
 
     if (!providedSecret || providedSecret !== expectedSecret) {
       return new Response(
         JSON.stringify({ error: "Unauthorized — invalid webhook secret" }),
-        {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     const body = await req.json();
+
+    // ── Full payload log for debugging misclassifications ──────────────────────
+    console.log("Raw payload:", JSON.stringify(body).slice(0, 800));
+
     const quote = body.quote ?? body;
     const action = body.action ?? "push";
 
     if (!quote) {
       return new Response(
         JSON.stringify({ error: "Missing quote payload" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // Normalise field names
+    // ── Normalise field names ──────────────────────────────────────────────────
     const clientName = quote.client_name ?? quote.clientName ?? null;
     const contactEmail = quote.contact_email ?? quote.contactEmail ?? null;
     const contactPhone = quote.contact_phone ?? quote.contactPhone ?? null;
     const contactName = quote.contact_name ?? quote.contactName ?? null;
-    const jobAddress = quote.job_address ?? quote.jobAddress ?? null;
-    const jobType = quote.job_type ?? quote.jobType ?? null;
-    const quoteNumber =
-      quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
+    const jobAddress = quote.job_address ?? quote.jobAddress ?? quote.address ?? null;
+    const jobType = quote.job_type ?? quote.jobType ?? quote.type ?? null;
+    const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
     const description =
-      quote.description ??
-      quote.notes ??
-      quote.scope_of_work ??
-      quote.scope ??
-      null;
+      quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
 
-    // ── 1. AI-powered category mapping ─────────────────────────────────────────
-    const categorySlug = await inferCategorySlug(jobType, description);
+    // ── 1. Widen text extraction and classify ──────────────────────────────────
+    const classificationText = extractClassificationText(quote, body);
+    console.log(`Classification text (first 200 chars): "${classificationText.slice(0, 200)}"`);
+
+    const categorySlug = await inferCategorySlug(classificationText);
     const isInstallation =
-      categorySlug === "dry_riser_installation" ||
-      categorySlug === "installation";
+      categorySlug === "dry_riser_installation" || categorySlug === "installation";
     console.log(`Final category: ${categorySlug} | isInstallation: ${isInstallation}`);
 
-    // ── 2. Upsert customer ──────────────────────────────────────────────────────
+    // ── 2. Upsert customer ─────────────────────────────────────────────────────
     let customerId: string | null = null;
 
     if (clientName) {
@@ -389,9 +406,7 @@ serve(async (req) => {
     // ── 3. Build TM- reference and check blocklist / duplicate ─────────────────
     const rawRef = quoteNumber ? String(quoteNumber) : null;
     const refNum = rawRef
-      ? rawRef.startsWith("TM-")
-        ? rawRef
-        : `TM-${rawRef}`
+      ? rawRef.startsWith("TM-") ? rawRef : `TM-${rawRef}`
       : `TM-${Date.now()}`;
 
     const { data: blocked } = await supabase
@@ -402,15 +417,8 @@ serve(async (req) => {
 
     if (blocked) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Job was previously deleted — skipped",
-          customerId,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        JSON.stringify({ success: true, message: "Job was previously deleted — skipped", customerId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -422,27 +430,25 @@ serve(async (req) => {
 
     if (existing) {
       return new Response(
-        JSON.stringify({
-          success: true,
-          message: "Job already exists (duplicate skipped)",
-          jobId: existing.id,
-          customerId,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        JSON.stringify({ success: true, message: "Job already exists (duplicate skipped)", jobId: existing.id, customerId }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // ── 4. Build a clean job name ───────────────────────────────────────────────
-    const jobName = jobType
-      ? `${jobType}${clientName ? ` — ${clientName}` : ""}`
+    // ── 4. Build a clean job name ──────────────────────────────────────────────
+    // Prefer title/name from the payload over job_type "General"
+    const preferredTitle =
+      quote.title ?? quote.name ?? quote.job_name ?? quote.jobName ?? null;
+    const effectiveType =
+      (jobType && jobType.toLowerCase() !== "general") ? jobType : (preferredTitle ?? jobType);
+
+    const jobName = effectiveType
+      ? `${effectiveType}${clientName ? ` — ${clientName}` : ""}`
       : description
       ? `${description.slice(0, 80)}${description.length > 80 ? "…" : ""}${clientName ? ` — ${clientName}` : ""}`
       : `The Mellor Import — ${quoteNumber ?? "Unknown"}`;
 
-    // ── 5. Create job ───────────────────────────────────────────────────────────
+    // ── 5. Create job ──────────────────────────────────────────────────────────
     const { data: newJob, error: jobErr } = await supabase
       .from("jobs")
       .insert({
@@ -461,23 +467,14 @@ serve(async (req) => {
       console.error("Job insert error:", jobErr);
       return new Response(
         JSON.stringify({ error: jobErr.message }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // ── 6. Auto-attach documents ────────────────────────────────────────────────
-    await autoAttachDocuments(
-      supabase,
-      newJob.id,
-      categorySlug,
-      customerId,
-      isInstallation,
-    );
+    // ── 6. Auto-attach documents ───────────────────────────────────────────────
+    await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
 
-    // ── 7. Log activity ─────────────────────────────────────────────────────────
+    // ── 7. Log activity ────────────────────────────────────────────────────────
     const detailLines = [
       `Imported from The Mellor (action: ${action})`,
       `Category mapped: ${categorySlug}`,
@@ -507,19 +504,13 @@ serve(async (req) => {
         category: categorySlug,
         message: `Job ${refNum} created with category "${categorySlug}"`,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
     console.error("receive-quote-hound error:", err);
     return new Response(
       JSON.stringify({ error: err.message }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });
