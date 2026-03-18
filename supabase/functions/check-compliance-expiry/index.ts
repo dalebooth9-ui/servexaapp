@@ -205,7 +205,7 @@ serve(async (req) => {
             </thead>
             <tbody>${rows}</tbody>
           </table>
-          <p style="margin: 0; font-size: 13px; color: #6b7280;">Please log in to FieldReport to renew or update these records.</p>
+          <p style="margin: 0; font-size: 13px; color: #6b7280;">Please log in to Servexa to renew or update these records.</p>
         `;
 
         for (const admin of adminEmails) {
