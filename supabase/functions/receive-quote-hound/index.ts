@@ -7,6 +7,20 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-quotehound-secret",
 };
 
+// Maps job_categories slug → category_document_templates slug
+// (the two tables use different slugs)
+const JOB_TO_TEMPLATE_SLUG: Record<string, string> = {
+  dry_riser_installation: "dry_riser_installation",
+  dry_riser_pressure_test: "pressure_test",
+  dry_riser_visual: "visual",
+  wet_riser_annual_service: "visual",   // closest match available
+  wet_riser_visual: "visual",
+  sprinkler_service: "sprinkler_service",
+  fire_hydrant_service: "hydrant_service",
+  fire_extinguishers: "fire_extinguisher",
+  site_survey: null, // no template for site surveys
+};
+
 // All known job category slugs with comprehensive keyword lists
 const KNOWN_CATEGORIES = [
   {
