@@ -633,6 +633,8 @@ serve(async (req) => {
       value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
       description ? `Scope: ${description}` : null,
       partsCount > 0 ? `Materials imported: ${partsCount} item(s) from costing sheet` : null,
+      pdfUrl ? `Quote PDF attached` : null,
+      poUrl ? `PO PDF attached` : null,
     ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({
