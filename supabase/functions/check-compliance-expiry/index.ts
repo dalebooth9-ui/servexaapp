@@ -329,7 +329,7 @@ serve(async (req) => {
               </thead>
               <tbody>${rows}</tbody>
             </table>
-            <p style="margin: 0; font-size: 13px; color: #6b7280;">Log in to FieldReport to review and renew these certificates before they expire.</p>
+            <p style="margin: 0; font-size: 13px; color: #6b7280;">Log in to Servexa to review and renew these certificates before they expire.</p>
           `;
 
           const subject = `🔔 ${sortedRecords.length} Compliance Record${sortedRecords.length > 1 ? "s" : ""} Expiring Within ${threshold} Days`;
