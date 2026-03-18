@@ -437,7 +437,10 @@ serve(async (req) => {
 
     // ── 4. Build a clean job name ──────────────────────────────────────────────
     const preferredTitle = quote.title ?? quote.name ?? quote.job_name ?? null;
-    const effectiveType = (jobType && jobType.toLowerCase() !== "general") ? jobType : (preferredTitle ?? jobType);
+    // When Mellor sends "General" (or nothing), use the resolved category name instead
+    const effectiveType = (jobType && jobType.toLowerCase() !== "general")
+      ? jobType
+      : (preferredTitle ?? "Dry Riser Installation");
     const jobName = effectiveType
       ? `${effectiveType}${clientName ? ` — ${clientName}` : ""}`
       : description
