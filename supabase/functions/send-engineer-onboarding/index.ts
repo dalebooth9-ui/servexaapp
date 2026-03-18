@@ -182,7 +182,7 @@ serve(async (req) => {
         body: JSON.stringify({
           from: "onboarding@resend.dev",
           to: [to_email],
-          subject: "Install the FieldReport app on your phone",
+          subject: "Install the Servexa app on your phone",
           html,
         }),
       });
