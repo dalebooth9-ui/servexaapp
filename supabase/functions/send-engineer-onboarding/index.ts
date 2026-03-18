@@ -164,7 +164,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "noreply@vivafire.co.uk",
         to: [to_email],
-        subject: "Install the FieldReport app on your phone",
+        subject: "Install the Servexa app on your phone",
         html,
       }),
     });
