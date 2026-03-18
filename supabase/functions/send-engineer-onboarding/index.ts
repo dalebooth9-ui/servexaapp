@@ -145,7 +145,7 @@ serve(async (req) => {
           <!-- Footer -->
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#94a3b8;">Sent by FieldReport · Fire Safety Field Service Management</p>
+              <p style="margin:0;font-size:12px;color:#94a3b8;">Sent by Servexa · Fire Safety Field Service Management</p>
             </td>
           </tr>
         </table>
