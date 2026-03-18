@@ -67,10 +67,16 @@ interface Props {
 function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined): number {
   if (!jobInfo) return 1;
   const n = templateName.toLowerCase();
-  if (
-    n.includes("pressure test") || n.includes("dry riser") ||
-    n.includes("wet riser") || n.includes("sprinkler") || n.includes("hydrant")
-  ) {
+  // Commissioning certificates: 1 sheet per installed system
+  // For installation jobs use other_qty (systems installed) if set, else 1
+  if (n.includes("commission")) {
+    const cat = jobInfo.category || "";
+    if (cat === "dry_riser_installation" || cat === "installation") {
+      return Math.max(jobInfo.other_qty || 1, 1);
+    }
+    return Math.max(jobInfo.pressure_test_qty || 1, 1);
+  }
+  if (n.includes("pressure test") || n.includes("dry riser") || n.includes("wet riser") || n.includes("sprinkler") || n.includes("hydrant")) {
     return Math.max(jobInfo.pressure_test_qty || 1, 1);
   }
   if (n.includes("visual")) {
