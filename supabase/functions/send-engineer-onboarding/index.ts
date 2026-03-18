@@ -138,7 +138,7 @@ serve(async (req) => {
               </table>
 
               <p style="margin:0;font-size:13px;color:#94a3b8;">
-                Once installed you'll find FieldReport on your home screen like any native app — and it works offline too.
+                Once installed you'll find Servexa on your home screen like any native app — and it works offline too.
               </p>
             </td>
           </tr>
