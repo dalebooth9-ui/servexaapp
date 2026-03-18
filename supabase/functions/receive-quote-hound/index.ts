@@ -457,6 +457,8 @@ serve(async (req) => {
     const value = quote.value ?? null;
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
     const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? null;
+    const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
+    const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
 
     // ── 1. Category — all Mellor jobs are dry riser installations ────────────
     // The Mellor only ever sends wet & dry riser installation work.
