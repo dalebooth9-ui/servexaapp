@@ -348,11 +348,20 @@ serve(async (req) => {
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
     const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? null;
 
-    // ── 1. Classify: payload text first, then Excel line items ────────────────
+    // ── 1. Category — all Mellor jobs are dry riser installations ────────────
+    // The Mellor only ever sends wet & dry riser installation work.
+    // Payload arrives as job_type:"General" with no useful descriptive text,
+    // so classification is skipped entirely and we hardcode the correct category.
+    // The keyword/AI classification code below is preserved (commented out) and
+    // can be re-enabled later if The Mellor begins sending varied job types.
+    const categorySlug = "dry_riser_installation";
+    const isInstallation = true;
+    console.log(`Mellor import — fixed category: ${categorySlug} | isInstallation: ${isInstallation}`);
+
+    /*
+    // ── CLASSIFICATION (disabled — re-enable if Mellor sends varied job types) ──
     let classificationText = extractClassificationText(quote, body);
     console.log(`Classification text from payload: "${classificationText.slice(0, 200)}"`);
-
-    // If payload gives us nothing useful (just "general"), fetch the Excel
     const isGeneric = !classificationText.trim() || classificationText.trim() === "general";
     if (isGeneric && excelUrl) {
       console.log("Payload text is generic — fetching Excel for line-item descriptions...");
@@ -362,10 +371,10 @@ serve(async (req) => {
         console.log(`Combined text after Excel (first 300): "${classificationText.slice(0, 300)}"`);
       }
     }
-
     const categorySlug = await inferCategorySlug(classificationText);
     const isInstallation = categorySlug === "dry_riser_installation" || categorySlug === "installation";
     console.log(`Final category: ${categorySlug} | isInstallation: ${isInstallation}`);
+    */
 
     // ── 2. Upsert customer ─────────────────────────────────────────────────────
     let customerId: string | null = null;
