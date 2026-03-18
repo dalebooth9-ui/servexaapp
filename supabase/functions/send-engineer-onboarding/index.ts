@@ -106,7 +106,7 @@ serve(async (req) => {
                 <tr>
                   <td align="center" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;">
                     <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Or scan with your phone</p>
-                    <img src="${QR_IMAGE_URL}" width="160" height="160" alt="QR code to install FieldReport" style="display:block;border-radius:6px;" />
+                    <img src="${QR_IMAGE_URL}" width="160" height="160" alt="QR code to install Servexa" style="display:block;border-radius:6px;" />
                     <p style="margin:10px 0 0;font-size:11px;color:#94a3b8;">${INSTALL_URL}</p>
                   </td>
                 </tr>
