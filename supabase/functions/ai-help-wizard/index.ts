@@ -37,7 +37,7 @@ The user tells you which page they're on as "currentPage". Use this to suggest t
 - If they're on /engineers and ask about settings → suggest url="/settings"
 
 ## App overview
-FieldReport is a web app for managing field service operations. Key sections:
+Servexa is a web app for managing field service operations. Key sections:
 
 **Dashboard (/)** — Overview of today's jobs, upcoming visits, engineer activity, and stats.
 

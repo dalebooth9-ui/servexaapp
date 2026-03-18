@@ -55,8 +55,8 @@ export default function ResetPassword() {
     <div className="flex min-h-screen items-center justify-center bg-background p-6">
       <div className="w-full max-w-md">
         <div className="mb-8 flex items-center justify-center gap-2.5">
-          <img src="/favicon.png" alt="FieldReport logo" className="h-10 w-10 rounded-xl" />
-          <span className="text-xl font-bold">FieldReport</span>
+          <img src="/favicon.png" alt="Servexa logo" className="h-10 w-10 rounded-xl" />
+          <span className="text-xl font-bold">Servexa</span>
         </div>
         <Card className="border-border/60 shadow-lg">
           <CardHeader>

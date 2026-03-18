@@ -11,7 +11,7 @@ function buildEmailHtml(title: string, bodyHtml: string): string {
   return `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff;">
       <div style="background: #1e40af; color: #ffffff; padding: 18px 24px; border-radius: 8px 8px 0 0;">
-        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">FieldReport</h2>
+        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Servexa</h2>
         <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.75;">Compliance & Fire Safety Management</p>
       </div>
       <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
@@ -19,7 +19,7 @@ function buildEmailHtml(title: string, bodyHtml: string): string {
         ${bodyHtml}
         <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 20px 0;" />
         <p style="font-size: 11px; color: #9ca3af; margin: 0;">
-          This is an automated notification from FieldReport. Log in to manage your compliance records.
+          This is an automated notification from Servexa. Log in to manage your compliance records.
         </p>
       </div>
     </div>
@@ -39,7 +39,7 @@ async function sendEmail(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "FieldReport <noreply@vivafire.co.uk>",
+      from: "Servexa <noreply@vivafire.co.uk>",
       to: [to],
       subject,
       html,
@@ -205,7 +205,7 @@ serve(async (req) => {
             </thead>
             <tbody>${rows}</tbody>
           </table>
-          <p style="margin: 0; font-size: 13px; color: #6b7280;">Please log in to FieldReport to renew or update these records.</p>
+          <p style="margin: 0; font-size: 13px; color: #6b7280;">Please log in to Servexa to renew or update these records.</p>
         `;
 
         for (const admin of adminEmails) {
@@ -329,7 +329,7 @@ serve(async (req) => {
               </thead>
               <tbody>${rows}</tbody>
             </table>
-            <p style="margin: 0; font-size: 13px; color: #6b7280;">Log in to FieldReport to review and renew these certificates before they expire.</p>
+            <p style="margin: 0; font-size: 13px; color: #6b7280;">Log in to Servexa to review and renew these certificates before they expire.</p>
           `;
 
           const subject = `🔔 ${sortedRecords.length} Compliance Record${sortedRecords.length > 1 ? "s" : ""} Expiring Within ${threshold} Days`;

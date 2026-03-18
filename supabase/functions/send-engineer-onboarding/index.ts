@@ -68,7 +68,7 @@ serve(async (req) => {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Install FieldReport</title>
+  <title>Install Servexa</title>
 </head>
 <body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px;">
@@ -78,7 +78,7 @@ serve(async (req) => {
           <!-- Header -->
           <tr>
             <td style="background:#1e293b;padding:28px 32px;text-align:center;">
-              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">FieldReport</p>
+              <p style="margin:0;font-size:22px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">Servexa</p>
               <p style="margin:6px 0 0;font-size:13px;color:#94a3b8;">Fire Safety Field Service</p>
             </td>
           </tr>
@@ -87,7 +87,7 @@ serve(async (req) => {
             <td style="padding:32px;">
               <p style="margin:0 0 16px;font-size:15px;color:#1e293b;">${greeting}</p>
               <p style="margin:0 0 24px;font-size:15px;color:#475569;line-height:1.6;">
-                You've been added to the <strong>FieldReport</strong> team. Install the app on your phone to receive job assignments, submit reports, and share your live location — all from your home screen.
+                You've been added to the <strong>Servexa</strong> team. Install the app on your phone to receive job assignments, submit reports, and share your live location — all from your home screen.
               </p>
 
               <!-- CTA Button -->
@@ -106,7 +106,7 @@ serve(async (req) => {
                 <tr>
                   <td align="center" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:20px;">
                     <p style="margin:0 0 12px;font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;">Or scan with your phone</p>
-                    <img src="${QR_IMAGE_URL}" width="160" height="160" alt="QR code to install FieldReport" style="display:block;border-radius:6px;" />
+                    <img src="${QR_IMAGE_URL}" width="160" height="160" alt="QR code to install Servexa" style="display:block;border-radius:6px;" />
                     <p style="margin:10px 0 0;font-size:11px;color:#94a3b8;">${INSTALL_URL}</p>
                   </td>
                 </tr>
@@ -138,14 +138,14 @@ serve(async (req) => {
               </table>
 
               <p style="margin:0;font-size:13px;color:#94a3b8;">
-                Once installed you'll find FieldReport on your home screen like any native app — and it works offline too.
+                Once installed you'll find Servexa on your home screen like any native app — and it works offline too.
               </p>
             </td>
           </tr>
           <!-- Footer -->
           <tr>
             <td style="background:#f8fafc;border-top:1px solid #e2e8f0;padding:16px 32px;text-align:center;">
-              <p style="margin:0;font-size:12px;color:#94a3b8;">Sent by FieldReport · Fire Safety Field Service Management</p>
+              <p style="margin:0;font-size:12px;color:#94a3b8;">Sent by Servexa · Fire Safety Field Service Management</p>
             </td>
           </tr>
         </table>
@@ -164,7 +164,7 @@ serve(async (req) => {
       body: JSON.stringify({
         from: "noreply@vivafire.co.uk",
         to: [to_email],
-        subject: "Install the FieldReport app on your phone",
+        subject: "Install the Servexa app on your phone",
         html,
       }),
     });
@@ -182,7 +182,7 @@ serve(async (req) => {
         body: JSON.stringify({
           from: "onboarding@resend.dev",
           to: [to_email],
-          subject: "Install the FieldReport app on your phone",
+          subject: "Install the Servexa app on your phone",
           html,
         }),
       });

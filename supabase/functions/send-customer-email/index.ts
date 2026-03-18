@@ -111,7 +111,7 @@ serve(async (req) => {
     const styledHtml = `
       <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #1e40af; color: white; padding: 16px 20px; border-radius: 6px 6px 0 0;">
-          <h2 style="margin: 0; font-size: 18px;">FieldReport</h2>
+          <h2 style="margin: 0; font-size: 18px;">Servexa</h2>
           <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.8;">Fire Safety & Compliance Solutions</p>
         </div>
         <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 6px 6px;">
@@ -119,7 +119,7 @@ serve(async (req) => {
           <div>${htmlBody}</div>
         </div>
         <div style="padding: 12px 20px; font-size: 11px; color: #6b7280; text-align: center;">
-          Sent via FieldReport
+          Sent via Servexa
         </div>
       </div>
     `;
@@ -131,7 +131,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "FieldReport <noreply@vivafire.co.uk>",
+        from: "Servexa <noreply@vivafire.co.uk>",
         to: [customerEmail],
         subject,
         html: styledHtml,
