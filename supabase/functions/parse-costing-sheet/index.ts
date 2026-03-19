@@ -175,7 +175,6 @@ serve(async (req) => {
           quantity: p.quantity,
           unit_cost: p.unit_cost,
           sell_price: p.sell_price,
-          total_cost: p.quantity * p.unit_cost,
           added_by: user_id || "costing_import",
           sort_order: i,
         }));
