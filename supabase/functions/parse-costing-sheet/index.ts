@@ -7,10 +7,48 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-async function fetchExcelText(excelUrl: string): Promise<string> {
-  const res = await fetch(excelUrl, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`Failed to fetch file: ${res.status}`);
-  const buffer = await res.arrayBuffer();
+/**
+ * Extract the storage object path from a Supabase signed or public URL.
+ * e.g. ".../object/sign/submissions/costing-sheets/abc/file.xlsx?token=..."
+ *      → "costing-sheets/abc/file.xlsx"
+ */
+function extractStoragePath(url: string, bucket: string): string | null {
+  try {
+    const u = new URL(url);
+    const re = new RegExp(`/object/(?:sign|public)/${bucket}/(.+?)(?:\\?|$)`);
+    const m = u.pathname.match(re);
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchExcelBytes(
+  fileUrl: string,
+  bucket: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<ArrayBuffer> {
+  // Prefer service-role storage download — bypasses RLS entirely
+  const storagePath = extractStoragePath(fileUrl, bucket);
+  if (storagePath) {
+    console.log("Downloading via storage service role:", storagePath);
+    const { data, error } = await supabase.storage.from(bucket).download(storagePath);
+    if (!error && data) return await data.arrayBuffer();
+    console.warn("Storage download failed, falling back to fetch:", error?.message);
+  }
+  // Fallback: plain fetch (works for signed / public URLs)
+  console.log("Downloading via fetch:", fileUrl.slice(0, 100));
+  const res = await fetch(fileUrl, { signal: AbortSignal.timeout(20000) });
+  if (!res.ok) throw new Error(`Failed to fetch file: ${res.status} ${res.statusText}`);
+  return await res.arrayBuffer();
+}
+
+async function fetchExcelText(
+  excelUrl: string,
+  bucket: string,
+  supabase: ReturnType<typeof createClient>,
+): Promise<string> {
+  const buffer = await fetchExcelBytes(excelUrl, bucket, supabase);
   const XLSX = await import("npm:xlsx@0.18.5");
   const wb = XLSX.read(new Uint8Array(buffer), { type: "array" });
   const texts: string[] = [];
@@ -22,7 +60,10 @@ async function fetchExcelText(excelUrl: string): Promise<string> {
   return texts.join("\n\n");
 }
 
-async function extractPartsAndDays(csvText: string, lovableApiKey: string): Promise<{
+async function extractPartsAndDays(
+  csvText: string,
+  lovableApiKey: string,
+): Promise<{
   parts: Array<{ name: string; quantity: number; unit_cost: number; sell_price: number }>;
   allocated_days: number | null;
 }> {
@@ -110,14 +151,19 @@ serve(async (req) => {
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!lovableApiKey) throw new Error("LOVABLE_API_KEY not configured");
 
-    const { file_url, job_id, user_id } = await req.json();
+    const body = await req.json();
+    const { file_url, job_id, user_id, bucket = "submissions" } = body;
     if (!file_url) throw new Error("file_url is required");
 
-    // 1. Fetch & parse Excel
-    const csvText = await fetchExcelText(file_url);
+    console.log("parse-costing-sheet called, job_id:", job_id, "file_url prefix:", file_url.slice(0, 80));
+
+    // 1. Fetch & parse Excel (service role bypasses RLS on private buckets)
+    const csvText = await fetchExcelText(file_url, bucket, supabase);
+    console.log("CSV text length:", csvText.length);
 
     // 2. AI extraction
     const { parts, allocated_days } = await extractPartsAndDays(csvText, lovableApiKey);
+    console.log("Extracted parts:", parts.length, "allocated_days:", allocated_days);
 
     // 3. If job_id provided, persist results
     if (job_id) {
@@ -133,24 +179,31 @@ serve(async (req) => {
           added_by: user_id || "costing_import",
           sort_order: i,
         }));
-        await supabase.from("job_parts").insert(rows as any);
+        const { error: partsError } = await supabase.from("job_parts").insert(rows as any);
+        if (partsError) console.error("parts insert error:", partsError.message);
       }
 
       // Update allocated_days if found
       if (allocated_days != null) {
-        await supabase.from("jobs").update({ allocated_days } as any).eq("id", job_id);
+        const { error: daysError } = await supabase
+          .from("jobs")
+          .update({ allocated_days } as any)
+          .eq("id", job_id);
+        if (daysError) console.error("allocated_days update error:", daysError.message);
       }
 
-      // Attach costing sheet as a document
-      await supabase.from("job_documents").insert({
+      // Attach costing sheet as a document in the job folder
+      const fileName = file_url.split("/").pop()?.split("?")[0] || "CostingSheet.xlsx";
+      const { error: docError } = await supabase.from("job_documents").insert({
         job_id,
         document_type: "uploaded_file",
         label: "Costing Sheet",
         file_url,
-        file_name: `CostingSheet.xlsx`,
+        file_name: fileName,
         source: "auto",
         created_by: user_id || null,
       } as any);
+      if (docError) console.error("doc insert error:", docError.message);
 
       // Log activity
       await supabase.from("job_activity_log").insert({
