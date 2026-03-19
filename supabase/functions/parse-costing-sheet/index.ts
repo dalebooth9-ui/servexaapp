@@ -135,12 +135,17 @@ ${csvText.slice(0, 10000)}`;
 
   const parts = (Array.isArray(parsed.parts) ? parsed.parts : [])
     .filter((p: any) => p?.name && typeof p.name === "string" && p.name.trim().length > 0)
-    .map((p: any) => ({
-      name: String(p.name).trim(),
-      quantity: Math.max(Number(p.quantity) || 1, 1),
-      unit_cost: Math.max(Number(p.unit_cost) || 0, 0),
-      sell_price: Math.max(Number(p.sell_price) || Number(p.unit_cost) || 0, 0),
-    }));
+    .map((p: any) => {
+      // Only default to 1 if quantity is genuinely absent (null/undefined), not if it's 0
+      const rawQty = p.quantity;
+      const qty = rawQty == null || rawQty === "" ? 1 : Math.max(Number(rawQty) || 0, 0);
+      return {
+        name: String(p.name).trim(),
+        quantity: qty,
+        unit_cost: Math.max(Number(p.unit_cost) || 0, 0),
+        sell_price: Math.max(Number(p.sell_price) || Number(p.unit_cost) || 0, 0),
+      };
+    });
 
   const days = parsed?.allocated_days;
   const allocated_days =
