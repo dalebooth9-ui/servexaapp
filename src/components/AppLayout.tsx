@@ -44,10 +44,10 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
 { to: "/parts-library", label: "Parts Library", icon: Library, section: "more" },
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more" },
-{ to: "/audits", label: "Audits", icon: ListChecks, section: "more" },
+{ to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more" },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
-{ to: "/reports/engineers", label: "Performance", icon: BarChart2, section: "admin", adminOnly: true },
+{ to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
