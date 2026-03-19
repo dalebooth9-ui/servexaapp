@@ -788,6 +788,7 @@ serve(async (req) => {
       allocatedDays != null ? `Allocated days: ${allocatedDays}` : null,
       pdfUrl ? `Quote PDF attached` : null,
       poUrl ? `PO PDF attached` : null,
+      excelUrl ? `Costing Sheet attached` : null,
     ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({
