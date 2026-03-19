@@ -219,7 +219,7 @@ function SortablePartRow({
   );
 }
 
-export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCategory?: string }) {
+export default function JobParts({ jobId, jobCategory, jobName }: { jobId: string; jobCategory?: string; jobName?: string }) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
