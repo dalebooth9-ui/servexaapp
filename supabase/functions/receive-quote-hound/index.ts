@@ -279,13 +279,15 @@ async function insertJobParts(
 ): Promise<number> {
   if (parts.length === 0) return 0;
 
+  // Use nil UUID as system actor for automated imports (added_by is NOT NULL uuid)
+  const SYSTEM_UUID = "00000000-0000-0000-0000-000000000000";
   const rows = parts.map((p, i) => ({
     job_id: jobId,
     name: p.name,
     quantity: p.quantity,
     unit_cost: p.unit_cost,
     sell_price: p.sell_price,
-    added_by: "mellor_import",
+    added_by: SYSTEM_UUID,
     sort_order: i,
   }));
 
