@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Building2 } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Building2, FileSpreadsheet } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
@@ -37,7 +37,9 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [uploadingManual, setUploadingManual] = useState(false);
   const [uploadingSlotId, setUploadingSlotId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploadingCostingSheet, setUploadingCostingSheet] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const costingSheetInputRef = useRef<HTMLInputElement>(null);
   const slotUploadRef = useRef<HTMLInputElement>(null);
   const pendingSlotDoc = useRef<JobDoc | null>(null);
   const [jobInfo, setJobInfo] = useState<any | null>(null);
@@ -328,6 +330,46 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     setUploadingManual(false);
   };
 
+  const handleCostingSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    e.target.value = "";
+    setUploadingCostingSheet(true);
+
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `costing-sheets/${jobId}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("submissions")
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+      const { data: signedData, error: signError } = await supabase.storage
+        .from("submissions")
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
+      if (signError || !signedData?.signedUrl) throw new Error("Could not generate signed URL");
+
+      toast({ title: "Processing costing sheet…", description: "Extracting materials, please wait." });
+
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("parse-costing-sheet", {
+        body: { file_url: signedData.signedUrl, job_id: jobId, user_id: user.id, bucket: "submissions" },
+      });
+      if (fnError) throw new Error(fnError.message);
+
+      const count = fnData?.parts?.length ?? 0;
+      const days = fnData?.allocated_days;
+      toast({
+        title: "Costing sheet processed ✓",
+        description: `${count} material(s) added to Parts tab${days ? `, ${days} allocated day(s) set` : ""}.`,
+      });
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: "Costing sheet processing failed", description: err.message || "Could not extract materials.", variant: "destructive" });
+    } finally {
+      setUploadingCostingSheet(false);
+    }
+  };
+
   const handleDelete = async (doc: JobDoc) => {
     setDeletingId(doc.id);
     await supabase.from("job_documents" as any).delete().eq("id", doc.id);
@@ -454,8 +496,9 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
       {/* Admin actions */}
       {userRole === "admin" && (
-        <div className="flex items-center gap-2 pt-2 border-t">
+        <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
           <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleManualUpload} />
+          <input ref={costingSheetInputRef} type="file" className="hidden" accept=".xls,.xlsx" onChange={handleCostingSheetUpload} />
           <Button
             variant="outline"
             size="sm"
@@ -465,6 +508,16 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
           >
             {uploadingManual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             Attach Document
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => costingSheetInputRef.current?.click()}
+            disabled={uploadingCostingSheet}
+          >
+            {uploadingCostingSheet ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+            Upload Costing Sheet
           </Button>
         </div>
       )}
