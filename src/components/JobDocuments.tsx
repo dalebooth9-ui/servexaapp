@@ -331,8 +331,14 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const handleDelete = async (doc: JobDoc) => {
     setDeletingId(doc.id);
     await supabase.from("job_documents" as any).delete().eq("id", doc.id);
+
+    // If deleting a Costing Sheet, also remove the parts that were extracted from it
+    if (doc.label === "Costing Sheet" || doc.document_type === "costing_sheet") {
+      await supabase.from("job_parts").delete().eq("job_id", jobId);
+    }
+
     setDocs((prev) => prev.filter((d) => d.id !== doc.id));
-    toast({ title: "Document removed" });
+    toast({ title: doc.label === "Costing Sheet" ? "Costing sheet and extracted materials removed" : "Document removed" });
     setDeletingId(null);
   };
 
