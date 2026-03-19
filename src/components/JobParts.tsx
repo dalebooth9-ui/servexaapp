@@ -522,6 +522,61 @@ export default function JobParts({ jobId, jobCategory }: { jobId: string; jobCat
             <Download className="mr-1 h-4 w-4" /> Export CSV
           </Button>
         )}
+        {parts.length > 0 && (
+          <Button variant="outline" size="sm" onClick={() => {
+            // Build a printer-friendly materials list without prices
+            const rows = parts.map((p, i) =>
+              `<tr style="border-bottom:1px solid #e5e7eb;">
+                <td style="padding:8px 12px;font-size:14px;">${i + 1}</td>
+                <td style="padding:8px 12px;font-size:14px;">${(p.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                <td style="padding:8px 12px;font-size:14px;text-align:center;font-weight:600;">${p.quantity}</td>
+                <td style="padding:8px 12px;font-size:14px;color:#6b7280;">${(p.notes || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+              </tr>`
+            ).join("");
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Materials Pick List</title>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
+    h1 { font-size: 20px; margin-bottom: 4px; }
+    p { font-size: 13px; color: #6b7280; margin: 0 0 20px; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: #f3f4f6; }
+    th { padding: 10px 12px; font-size: 13px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
+    th:nth-child(3) { text-align: center; }
+    tr:last-child td { border-bottom: none; }
+    @media print { body { margin: 16px; } }
+  </style>
+</head>
+<body>
+  <h1>Materials Pick List</h1>
+  <p>Printed: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} — ${parts.length} item(s)</p>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:40px">#</th>
+        <th>Item / Material</th>
+        <th style="width:70px;text-align:center;">Qty</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+</body>
+</html>`;
+            const win = window.open("", "_blank");
+            if (win) {
+              win.document.write(html);
+              win.document.close();
+              win.focus();
+              setTimeout(() => win.print(), 300);
+            }
+          }}>
+            <Printer className="mr-1 h-4 w-4" /> Print Pick List
+          </Button>
+        )}
       </div>
 
       {parts.length === 0 ? (
