@@ -550,9 +550,20 @@ serve(async (req) => {
     const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
-    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? null;
+    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? body.excelUrl
+      ?? quote.costing_sheet_url ?? quote.costingSheetUrl ?? body.costing_sheet_url
+      ?? quote.costing_url ?? quote.costingUrl ?? body.costing_url
+      ?? quote.spreadsheet_url ?? quote.spreadsheetUrl ?? body.spreadsheet_url
+      ?? quote.materials_url ?? quote.materialsUrl ?? body.materials_url
+      ?? null;
     const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
     const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
+    // Log all top-level keys in the payload to help debug missing fields
+    console.log("Payload top-level keys:", Object.keys(body).join(", "));
+    console.log("Quote top-level keys:", Object.keys(quote).join(", "));
+    console.log(`excel_url resolved: ${excelUrl ? excelUrl.slice(0, 80) : "null"}`);
+    console.log(`pdf_url resolved: ${pdfUrl ? pdfUrl.slice(0, 80) : "null"}`);
+    console.log(`po_url resolved: ${poUrl ? poUrl.slice(0, 80) : "null"}`);
 
     // ── 1. Category — all Mellor jobs are dry riser installations ────────────
     // The Mellor only ever sends wet & dry riser installation work.
@@ -680,9 +691,9 @@ serve(async (req) => {
     await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
 
     // ── 6b. Fill document slots with actual files from The Mellor ─────────────
-    // The Mellor sends pdf_url (quote PDF) and po_url (purchase order PDF).
-    // Backfill the pre-created 'quote' and 'purchase_order' slots with real URLs.
-    const fileSlotUpdates: Array<{ type: string; url: string; name: string }> = [];
+    // The Mellor sends pdf_url (quote PDF), po_url (purchase order PDF), and
+    // excel_url (costing spreadsheet). Backfill pre-created slots with real URLs.
+    const fileSlotUpdates: Array<{ type: string; url: string; name: string; label?: string }> = [];
     if (pdfUrl) fileSlotUpdates.push({ type: "quote", url: pdfUrl, name: `Quote-${refNum}.pdf` });
     if (poUrl) fileSlotUpdates.push({ type: "purchase_order", url: poUrl, name: `PO-${refNum}.pdf` });
 
@@ -694,6 +705,38 @@ serve(async (req) => {
         .eq("document_type", slot.type);
       if (slotErr) console.error(`Error filling ${slot.type} slot:`, slotErr);
       else console.log(`Filled ${slot.type} slot with URL: ${slot.url.slice(0, 80)}`);
+    }
+
+    // Attach Excel costing sheet as a document — update the pre-created 'Costing Sheet' slot
+    // or insert a new record if it doesn't exist yet.
+    if (excelUrl) {
+      const excelFileName = `CostingSheet-${refNum}.xlsx`;
+      // Try to update the existing 'Costing Sheet' uploaded_file slot first
+      const { data: existingSlot } = await supabase
+        .from("job_documents")
+        .select("id")
+        .eq("job_id", newJob.id)
+        .eq("label", "Costing Sheet")
+        .maybeSingle() as any;
+
+      if (existingSlot) {
+        await supabase
+          .from("job_documents")
+          .update({ file_url: excelUrl, file_name: excelFileName } as any)
+          .eq("id", existingSlot.id);
+        console.log(`Updated Costing Sheet slot with Excel URL`);
+      } else {
+        // Insert fresh if the template slot wasn't pre-created
+        await supabase.from("job_documents").insert({
+          job_id: newJob.id,
+          document_type: "uploaded_file",
+          label: "Costing Sheet",
+          file_url: excelUrl,
+          file_name: excelFileName,
+          source: "auto",
+        } as any);
+        console.log(`Inserted Costing Sheet document with Excel URL`);
+      }
     }
 
     // ── 7. Parse Excel costing sheet → Job Parts + Allocated Days ────────────
@@ -745,6 +788,7 @@ serve(async (req) => {
       allocatedDays != null ? `Allocated days: ${allocatedDays}` : null,
       pdfUrl ? `Quote PDF attached` : null,
       poUrl ? `PO PDF attached` : null,
+      excelUrl ? `Costing Sheet attached` : null,
     ].filter(Boolean).join(" | ");
 
     await supabase.from("job_activity_log").insert({

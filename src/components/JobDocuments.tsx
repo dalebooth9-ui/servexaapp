@@ -506,7 +506,7 @@ function DocRow({
   const DOC_TYPE_BADGE: Record<string, string> = {
     rams_pdf: "RAMS PDF",
     blank_job_sheet: "Blank Job Sheet",
-    uploaded_file: "File",
+    uploaded_file: doc.label === "Costing Sheet" ? "Costing Sheet" : "File",
     quote: "Quote",
     purchase_order: "Purchase Order",
     site_drawing: "Site Drawing",
