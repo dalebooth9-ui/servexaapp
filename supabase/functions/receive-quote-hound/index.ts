@@ -206,6 +206,70 @@ ${csvText.slice(0, 6000)}`;
 }
 
 /**
+ * Extract the number of allocated days from the Excel costing sheet.
+ * Looks for a field like "Days on site", "Allocated days", "Labour days", etc.
+ * Returns null if not found.
+ */
+async function extractAllocatedDaysFromExcel(csvText: string, lovableApiKey: string): Promise<number | null> {
+  if (!csvText.trim()) return null;
+
+  const prompt = `You are a data extraction assistant for a fire protection company.
+
+Below is CSV data from a costing/quote spreadsheet sent by a supplier (The Mellor).
+Find the number of allocated days / days on site / labour days for this job.
+
+Look for fields like:
+- "Days on site", "Allocated days", "Days", "No. of days", "Labour days", "Installation days", "Site days", "Working days"
+- A labour row where the description mentions "day" and has a quantity (e.g. "2 days labour")
+- Any cell explicitly stating how many days the job will take
+
+Rules:
+- Return ONLY a single JSON object: {"allocated_days": <integer or null>}
+- If you find a clear days value, return it as an integer (round up if decimal)
+- If nothing is found, return {"allocated_days": null}
+- Do not include any explanation, markdown, or extra text
+
+CSV data:
+${csvText.slice(0, 6000)}`;
+
+  try {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableApiKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 50,
+      }),
+    });
+
+    if (!aiRes.ok) {
+      console.warn(`AI allocated days extraction failed ${aiRes.status}`);
+      return null;
+    }
+
+    const aiData = await aiRes.json();
+    const raw = aiData?.choices?.[0]?.message?.content ?? "";
+    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+    const days = parsed?.allocated_days;
+    if (days != null && !isNaN(Number(days)) && Number(days) > 0) {
+      const result = Math.ceil(Number(days));
+      console.log(`AI extracted allocated_days: ${result}`);
+      return result;
+    }
+    console.log("No allocated_days found in Excel");
+    return null;
+  } catch (e) {
+    console.warn("Allocated days extraction parse error:", e);
+    return null;
+  }
+}
+
+/**
  * Insert extracted parts as job_parts records.
  */
 async function insertJobParts(
