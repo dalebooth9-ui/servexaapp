@@ -1130,6 +1130,42 @@ export default function Jobs() {
                     <Input type="number" min={1} placeholder="e.g. 5" value={form.allocated_days} onChange={(e) => setForm({ ...form, allocated_days: e.target.value })} />
                   </div>
                 </div>
+                {/* Costing Sheet Upload */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
+                    Costing Sheet <span className="text-muted-foreground text-xs font-normal">(optional — Excel, auto-extracts materials &amp; days)</span>
+                  </Label>
+                  {costingSheetFile ? (
+                    <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                      <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate flex-1 font-medium text-foreground">{costingSheetFile.name}</span>
+                      <button type="button" onClick={() => setCostingSheetFile(null)} className="ml-auto text-muted-foreground hover:text-destructive">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 px-3 py-2.5 text-sm text-muted-foreground hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                      <Upload className="h-4 w-4 shrink-0" />
+                      <span>Click to attach Excel costing sheet (.xlsx, .xls)</span>
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) setCostingSheetFile(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                  {costingSheetProcessing && (
+                    <p className="flex items-center gap-1.5 text-xs text-primary animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Processing costing sheet in background…
+                    </p>
+                  )}
+                </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1" disabled={loading}>
                     {loading ? "Creating..." : "Create Job"}
