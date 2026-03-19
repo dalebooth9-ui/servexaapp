@@ -71,22 +71,26 @@ async function extractPartsAndDays(
 
   const prompt = `You are a precise data extraction assistant for a fire protection company.
 
-Below is CSV data from a costing/quote spreadsheet. Your job is to extract materials/parts/labour line items with ACCURATE quantities.
+Below is CSV data from a costing/quote spreadsheet. Your job is to extract materials/parts/labour line items with ACCURATE quantities and PER-UNIT prices.
 
 CRITICAL RULES FOR QUANTITY EXTRACTION:
 - The quantity column is typically labelled "Qty", "No.", "No. Off", "Quantity", "Nos", "Nr" or similar
 - Quantities are WHOLE NUMBERS of physical items (e.g. 4, 8, 16, 32)
 - DO NOT confuse quantity with unit cost, sell price, or total price columns
-- If a row shows: "Flanges | 4 | £14.50 | £58.00" → quantity=4, unit_cost=14.50, sell_price=58.00
-- If a row shows: "Brackets | 32 | £4.00 | £128.00" → quantity=32, unit_cost=4.00, sell_price=128.00
-- If you see a column that contains large prices (hundreds/thousands of £), that is NOT the quantity column
-- The total/extended price column = quantity × unit_cost — use this to cross-check: if quantity × unit_cost = total, you have the right columns
+- If a row shows: "Flanges | 4 | £14.50 | £58.00" → quantity=4, unit_cost=14.50, sell_price=14.50 (per unit)
+- If a row shows: "Labour | 8 days | £750 | £6,000 total" → quantity=8, unit_cost=750, sell_price=750 (per unit, NOT 6000)
+- The total/extended price column = quantity × unit_cost. Use this to cross-check columns.
 - Only default to quantity=1 if genuinely no quantity is specified
+
+CRITICAL RULES FOR PRICES — ALWAYS PER UNIT:
+- unit_cost and sell_price MUST be the price for ONE unit/item, never the total
+- If the sheet shows a "Total" or "Extended" column, that is quantity × unit price — do NOT use it as sell_price
+- To get per-unit sell price from a total: sell_price_per_unit = total_sell ÷ quantity
+- Example: 8 days labour, total sell £6,000 → sell_price = £6,000 ÷ 8 = £750 per day
 
 EXTRACTION RULES:
 - Extract ALL line items: materials, components, fittings, labour, services
 - Skip header rows, total/subtotal rows, VAT rows, blank rows, section headings
-- For each item: description/name, quantity (integer), unit_cost (trade/supply price in GBP), sell_price (if present, else use unit_cost)
 - Strip £ symbols and commas from costs. Use 0 if cost genuinely absent.
 - Keep descriptions concise but complete
 
