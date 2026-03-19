@@ -691,9 +691,9 @@ serve(async (req) => {
     await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
 
     // ── 6b. Fill document slots with actual files from The Mellor ─────────────
-    // The Mellor sends pdf_url (quote PDF) and po_url (purchase order PDF).
-    // Backfill the pre-created 'quote' and 'purchase_order' slots with real URLs.
-    const fileSlotUpdates: Array<{ type: string; url: string; name: string }> = [];
+    // The Mellor sends pdf_url (quote PDF), po_url (purchase order PDF), and
+    // excel_url (costing spreadsheet). Backfill pre-created slots with real URLs.
+    const fileSlotUpdates: Array<{ type: string; url: string; name: string; label?: string }> = [];
     if (pdfUrl) fileSlotUpdates.push({ type: "quote", url: pdfUrl, name: `Quote-${refNum}.pdf` });
     if (poUrl) fileSlotUpdates.push({ type: "purchase_order", url: poUrl, name: `PO-${refNum}.pdf` });
 
@@ -705,6 +705,38 @@ serve(async (req) => {
         .eq("document_type", slot.type);
       if (slotErr) console.error(`Error filling ${slot.type} slot:`, slotErr);
       else console.log(`Filled ${slot.type} slot with URL: ${slot.url.slice(0, 80)}`);
+    }
+
+    // Attach Excel costing sheet as a document — update the pre-created 'Costing Sheet' slot
+    // or insert a new record if it doesn't exist yet.
+    if (excelUrl) {
+      const excelFileName = `CostingSheet-${refNum}.xlsx`;
+      // Try to update the existing 'Costing Sheet' uploaded_file slot first
+      const { data: existingSlot } = await supabase
+        .from("job_documents")
+        .select("id")
+        .eq("job_id", newJob.id)
+        .eq("label", "Costing Sheet")
+        .maybeSingle() as any;
+
+      if (existingSlot) {
+        await supabase
+          .from("job_documents")
+          .update({ file_url: excelUrl, file_name: excelFileName } as any)
+          .eq("id", existingSlot.id);
+        console.log(`Updated Costing Sheet slot with Excel URL`);
+      } else {
+        // Insert fresh if the template slot wasn't pre-created
+        await supabase.from("job_documents").insert({
+          job_id: newJob.id,
+          document_type: "uploaded_file",
+          label: "Costing Sheet",
+          file_url: excelUrl,
+          file_name: excelFileName,
+          source: "auto",
+        } as any);
+        console.log(`Inserted Costing Sheet document with Excel URL`);
+      }
     }
 
     // ── 7. Parse Excel costing sheet → Job Parts + Allocated Days ────────────
