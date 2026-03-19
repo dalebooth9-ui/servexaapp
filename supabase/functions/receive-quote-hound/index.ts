@@ -206,6 +206,70 @@ ${csvText.slice(0, 6000)}`;
 }
 
 /**
+ * Extract the number of allocated days from the Excel costing sheet.
+ * Looks for a field like "Days on site", "Allocated days", "Labour days", etc.
+ * Returns null if not found.
+ */
+async function extractAllocatedDaysFromExcel(csvText: string, lovableApiKey: string): Promise<number | null> {
+  if (!csvText.trim()) return null;
+
+  const prompt = `You are a data extraction assistant for a fire protection company.
+
+Below is CSV data from a costing/quote spreadsheet sent by a supplier (The Mellor).
+Find the number of allocated days / days on site / labour days for this job.
+
+Look for fields like:
+- "Days on site", "Allocated days", "Days", "No. of days", "Labour days", "Installation days", "Site days", "Working days"
+- A labour row where the description mentions "day" and has a quantity (e.g. "2 days labour")
+- Any cell explicitly stating how many days the job will take
+
+Rules:
+- Return ONLY a single JSON object: {"allocated_days": <integer or null>}
+- If you find a clear days value, return it as an integer (round up if decimal)
+- If nothing is found, return {"allocated_days": null}
+- Do not include any explanation, markdown, or extra text
+
+CSV data:
+${csvText.slice(0, 6000)}`;
+
+  try {
+    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${lovableApiKey}`,
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 50,
+      }),
+    });
+
+    if (!aiRes.ok) {
+      console.warn(`AI allocated days extraction failed ${aiRes.status}`);
+      return null;
+    }
+
+    const aiData = await aiRes.json();
+    const raw = aiData?.choices?.[0]?.message?.content ?? "";
+    const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+    const parsed = JSON.parse(cleaned);
+    const days = parsed?.allocated_days;
+    if (days != null && !isNaN(Number(days)) && Number(days) > 0) {
+      const result = Math.ceil(Number(days));
+      console.log(`AI extracted allocated_days: ${result}`);
+      return result;
+    }
+    console.log("No allocated_days found in Excel");
+    return null;
+  } catch (e) {
+    console.warn("Allocated days extraction parse error:", e);
+    return null;
+  }
+}
+
+/**
  * Insert extracted parts as job_parts records.
  */
 async function insertJobParts(
@@ -632,16 +696,31 @@ serve(async (req) => {
       else console.log(`Filled ${slot.type} slot with URL: ${slot.url.slice(0, 80)}`);
     }
 
-    // ── 7. Parse Excel costing sheet → Job Parts ──────────────────────────────
+    // ── 7. Parse Excel costing sheet → Job Parts + Allocated Days ────────────
     let partsCount = 0;
+    let allocatedDays: number | null = null;
     if (excelUrl) {
       console.log(`Excel URL found — fetching costing sheet: ${excelUrl.slice(0, 80)}...`);
       const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
       if (lovableApiKey) {
         const csvText = await fetchExcelText(excelUrl);
         if (csvText.trim()) {
-          const parts = await extractPartsFromExcel(csvText, lovableApiKey);
+          // Run parts extraction and allocated days extraction in parallel
+          const [parts, days] = await Promise.all([
+            extractPartsFromExcel(csvText, lovableApiKey),
+            extractAllocatedDaysFromExcel(csvText, lovableApiKey),
+          ]);
           partsCount = await insertJobParts(supabase, newJob.id, parts);
+          allocatedDays = days;
+          // Patch allocated_days onto the job if found
+          if (allocatedDays != null) {
+            const { error: daysErr } = await supabase
+              .from("jobs")
+              .update({ allocated_days: allocatedDays } as any)
+              .eq("id", newJob.id);
+            if (daysErr) console.error("Error setting allocated_days:", daysErr);
+            else console.log(`Set allocated_days = ${allocatedDays} on job ${newJob.id}`);
+          }
         } else {
           console.log("Excel text was empty — skipping parts extraction");
         }
@@ -663,6 +742,7 @@ serve(async (req) => {
       value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
       description ? `Scope: ${description}` : null,
       partsCount > 0 ? `Materials imported: ${partsCount} item(s) from costing sheet` : null,
+      allocatedDays != null ? `Allocated days: ${allocatedDays}` : null,
       pdfUrl ? `Quote PDF attached` : null,
       poUrl ? `PO PDF attached` : null,
     ].filter(Boolean).join(" | ");
