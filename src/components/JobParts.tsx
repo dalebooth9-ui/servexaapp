@@ -524,42 +524,62 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         )}
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
-            // Build a printer-friendly materials list without prices
             const rows = parts.map((p, i) =>
-              `<tr style="border-bottom:1px solid #e5e7eb;">
-                <td style="padding:8px 12px;font-size:14px;">${i + 1}</td>
-                <td style="padding:8px 12px;font-size:14px;">${(p.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
-                <td style="padding:8px 12px;font-size:14px;text-align:center;font-weight:600;">${p.quantity}</td>
-                <td style="padding:8px 12px;font-size:14px;color:#6b7280;">${(p.notes || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+              `<tr>
+                <td>${i + 1}</td>
+                <td>${(p.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                <td class="center">${p.quantity}</td>
+                <td class="notes">${(p.notes || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
+                <td class="check"></td>
               </tr>`
             ).join("");
+            const displayName = jobName || "Job";
             const html = `<!DOCTYPE html>
 <html>
 <head>
-  <title>Materials Pick List</title>
+  <title>Pick List — ${displayName.replace(/</g, "&lt;")}</title>
   <meta charset="utf-8">
   <style>
-    body { font-family: Arial, sans-serif; margin: 32px; color: #111; }
-    h1 { font-size: 20px; margin-bottom: 4px; }
-    p { font-size: 13px; color: #6b7280; margin: 0 0 20px; }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 14px 18px; color: #111; font-size: 11px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; border-bottom: 2px solid #111; padding-bottom: 6px; }
+    .header h1 { font-size: 15px; margin: 0 0 2px; }
+    .header .meta { font-size: 10px; color: #555; }
+    .header .right { text-align: right; font-size: 10px; color: #555; }
     table { width: 100%; border-collapse: collapse; }
     thead tr { background: #f3f4f6; }
-    th { padding: 10px 12px; font-size: 13px; text-align: left; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
-    th:nth-child(3) { text-align: center; }
+    th { padding: 5px 7px; font-size: 10px; font-weight: 700; text-align: left; border-bottom: 1.5px solid #ccc; text-transform: uppercase; letter-spacing: 0.04em; }
+    td { padding: 4px 7px; border-bottom: 1px solid #e5e7eb; vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    @media print { body { margin: 16px; } }
+    .center { text-align: center; font-weight: 700; font-size: 12px; }
+    .notes { color: #6b7280; font-size: 10px; }
+    .check { width: 28px; text-align: center; }
+    .check-box { display: inline-block; width: 14px; height: 14px; border: 1.5px solid #999; border-radius: 2px; }
+    @media print {
+      body { padding: 10px 14px; }
+      @page { margin: 10mm; size: A4 portrait; }
+    }
   </style>
 </head>
 <body>
-  <h1>Materials Pick List</h1>
-  <p>Printed: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} — ${parts.length} item(s)</p>
+  <div class="header">
+    <div>
+      <h1>Materials Pick List</h1>
+      <div class="meta">${displayName.replace(/</g, "&lt;")}</div>
+    </div>
+    <div class="right">
+      Printed: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}<br>
+      ${parts.length} item(s)
+    </div>
+  </div>
   <table>
     <thead>
       <tr>
-        <th style="width:40px">#</th>
+        <th style="width:28px">#</th>
         <th>Item / Material</th>
-        <th style="width:70px;text-align:center;">Qty</th>
+        <th style="width:44px;text-align:center;">Qty</th>
         <th>Notes</th>
+        <th style="width:28px;text-align:center;">✓</th>
       </tr>
     </thead>
     <tbody>${rows}</tbody>
