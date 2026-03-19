@@ -80,7 +80,9 @@ CRITICAL RULES FOR QUANTITY EXTRACTION:
 - If a row shows: "Flanges | 4 | £14.50 | £58.00" → quantity=4, unit_cost=14.50, sell_price=14.50 (per unit)
 - If a row shows: "Labour | 8 days | £750 | £6,000 total" → quantity=8, unit_cost=750, sell_price=750 (per unit, NOT 6000)
 - The total/extended price column = quantity × unit_cost. Use this to cross-check columns.
-- Only default to quantity=1 if genuinely no quantity is specified
+- IMPORTANT: If the quantity cell is blank or genuinely absent, use null (NOT 1) — the system will default to 1 for null
+- IMPORTANT: If the spreadsheet shows a quantity of 0, return 0. Do NOT change 0 to 1.
+- Use the total ÷ unit_cost cross-check to infer the correct quantity when the quantity column is unclear
 
 CRITICAL RULES FOR PRICES — ALWAYS PER UNIT:
 - unit_cost and sell_price MUST be the price for ONE unit/item, never the total
