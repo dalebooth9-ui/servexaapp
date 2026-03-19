@@ -69,26 +69,34 @@ async function extractPartsAndDays(
 }> {
   if (!csvText.trim()) return { parts: [], allocated_days: null };
 
-  const prompt = `You are a data extraction assistant for a fire protection company.
+  const prompt = `You are a precise data extraction assistant for a fire protection company.
 
-Below is CSV data from a costing/quote spreadsheet.
+Below is CSV data from a costing/quote spreadsheet. Your job is to extract materials/parts/labour line items with ACCURATE quantities.
 
-Extract TWO things:
+CRITICAL RULES FOR QUANTITY EXTRACTION:
+- The quantity column is typically labelled "Qty", "No.", "No. Off", "Quantity", "Nos", "Nr" or similar
+- Quantities are WHOLE NUMBERS of physical items (e.g. 4, 8, 16, 32)
+- DO NOT confuse quantity with unit cost, sell price, or total price columns
+- If a row shows: "Flanges | 4 | £14.50 | £58.00" → quantity=4, unit_cost=14.50, sell_price=58.00
+- If a row shows: "Brackets | 32 | £4.00 | £128.00" → quantity=32, unit_cost=4.00, sell_price=128.00
+- If you see a column that contains large prices (hundreds/thousands of £), that is NOT the quantity column
+- The total/extended price column = quantity × unit_cost — use this to cross-check: if quantity × unit_cost = total, you have the right columns
+- Only default to quantity=1 if genuinely no quantity is specified
 
-1. ALL line items that represent materials, parts, or labour. Rules:
-   - Extract only actual materials, components, labour, or services with a description and quantity
-   - Skip header rows, total rows, VAT rows, blank rows, and administrative entries
-   - For each item extract: description/name, quantity, unit cost (supply/trade price), sell price (if present, otherwise use unit cost)
-   - Quantities should be numbers (default 1 if not specified)
-   - Costs should be numbers in GBP (strip £ symbols, commas etc). Use 0 if not present.
-   - Keep descriptions concise but complete
+EXTRACTION RULES:
+- Extract ALL line items: materials, components, fittings, labour, services
+- Skip header rows, total/subtotal rows, VAT rows, blank rows, section headings
+- For each item: description/name, quantity (integer), unit_cost (trade/supply price in GBP), sell_price (if present, else use unit_cost)
+- Strip £ symbols and commas from costs. Use 0 if cost genuinely absent.
+- Keep descriptions concise but complete
 
-2. The number of allocated days / days on site. Look for "Days on site", "Allocated days", "Labour days", "Installation days", or a labour row with day quantities.
+ALSO EXTRACT:
+- The number of allocated days / days on site. Look for "Days on site", "Allocated days", "Labour days", "Installation days", or labour rows with day quantities.
 
-Respond with ONLY valid JSON (no markdown), in this exact format:
+Respond with ONLY valid JSON (no markdown, no explanation), in this exact format:
 {
   "parts": [
-    {"name": "65mm Dry Riser Inlet Box", "quantity": 1, "unit_cost": 145.00, "sell_price": 195.00}
+    {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "unit_cost": 145.00, "sell_price": 195.00}
   ],
   "allocated_days": 3
 }
@@ -96,7 +104,7 @@ Respond with ONLY valid JSON (no markdown), in this exact format:
 If no days found, use null for allocated_days. If no parts found, use empty array.
 
 CSV data:
-${csvText.slice(0, 8000)}`;
+${csvText.slice(0, 10000)}`;
 
   const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
