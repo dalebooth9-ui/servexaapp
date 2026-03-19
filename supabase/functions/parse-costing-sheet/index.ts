@@ -175,7 +175,7 @@ serve(async (req) => {
           quantity: p.quantity,
           unit_cost: p.unit_cost,
           sell_price: p.sell_price,
-          added_by: user_id || "costing_import",
+          added_by: user_id || null,
           sort_order: i,
         }));
         const { error: partsError } = await supabase.from("job_parts").insert(rows as any);
