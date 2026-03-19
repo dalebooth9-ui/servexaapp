@@ -318,6 +318,7 @@ async function inferCategorySlug(text: string): Promise<string> {
 
 /**
  * Auto-attach job_documents from category_document_templates and customer paperwork.
+ * Also pre-creates draft job_sheet_responses for all matching job_sheet_templates.
  */
 async function autoAttachDocuments(
   supabase: ReturnType<typeof createClient>,
@@ -400,6 +401,35 @@ async function autoAttachDocuments(
     else console.log(`Auto-attached ${docsToInsert.length} document(s) to job ${jobId}`);
   } else {
     console.log(`No documents to auto-attach for job ${jobId}`);
+  }
+
+  // ── Pre-create draft job_sheet_responses for all matching job_sheet_templates ──
+  // This ensures fillable forms (e.g. Commissioning Certificate) appear pre-loaded
+  // in the Worksheets tab, just like manually created jobs.
+  const { data: matchingSheetTpls, error: sheetTplErr } = await supabase
+    .from("job_sheet_templates")
+    .select("id, name")
+    .eq("job_category", categorySlug);
+
+  if (sheetTplErr) {
+    console.error("Error fetching job_sheet_templates:", sheetTplErr);
+  } else if (matchingSheetTpls && matchingSheetTpls.length > 0) {
+    const sheetResponsesToInsert = (matchingSheetTpls as any[]).map((tpl) => ({
+      job_id: jobId,
+      template_id: tpl.id,
+      responses: {},
+      status: "draft",
+      engineer_id: null,
+      submitted_by: null,
+      submitted_at: null,
+    }));
+    const { error: srErr } = await supabase
+      .from("job_sheet_responses")
+      .insert(sheetResponsesToInsert as any);
+    if (srErr) console.error("Error pre-creating sheet responses:", srErr);
+    else console.log(`Pre-created ${sheetResponsesToInsert.length} draft worksheet(s) for job ${jobId}`);
+  } else {
+    console.log(`No job_sheet_templates found for category "${categorySlug}"`);
   }
 }
 
