@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Package, Upload, Download, Pencil, Library, GripVertical } from "lucide-react";
+import { Plus, Trash2, Package, Upload, Download, Pencil, Library, GripVertical, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
