@@ -496,8 +496,9 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
       {/* Admin actions */}
       {userRole === "admin" && (
-        <div className="flex items-center gap-2 pt-2 border-t">
+        <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
           <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleManualUpload} />
+          <input ref={costingSheetInputRef} type="file" className="hidden" accept=".xls,.xlsx" onChange={handleCostingSheetUpload} />
           <Button
             variant="outline"
             size="sm"
@@ -507,6 +508,16 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
           >
             {uploadingManual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
             Attach Document
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => costingSheetInputRef.current?.click()}
+            disabled={uploadingCostingSheet}
+          >
+            {uploadingCostingSheet ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+            Upload Costing Sheet
           </Button>
         </div>
       )}
