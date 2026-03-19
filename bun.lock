@@ -297,11 +297,11 @@
 
     "@dnd-kit/utilities": ["@dnd-kit/utilities@3.2.2", "", { "dependencies": { "tslib": "^2.0.0" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-+MKAJEOfaBe5SmV6t34p80MMKhjvUz0vRrvVJbPT0WElzaOJ/1xs+D+KDv+tD/NE5ujfrChEcshd4fLn0wpiqg=="],
 
-    "@elevenlabs/client": ["@elevenlabs/client@0.15.1", "", { "dependencies": { "@elevenlabs/types": "0.6.0", "livekit-client": "^2.11.4" } }, "sha512-3iHSdwNTmPGvZcNxJSyqF7MOjFMpSJv09oB2Vut+23oXRLE6is2yQn1ypAqNDIGuwG3IsW0S7gU2SEdaKV+SJg=="],
+    "@elevenlabs/client": ["@elevenlabs/client@0.15.2", "", { "dependencies": { "@elevenlabs/types": "0.6.1", "livekit-client": "^2.11.4" } }, "sha512-IKEs0OUHol9ZQ/gKBh5ThN5udRp6bnU70DxyRxprWop3zA8oYUdBa+LE+2tlWho9A4UKubD5UjvjCBJLh2cDVw=="],
 
-    "@elevenlabs/react": ["@elevenlabs/react@0.14.2", "", { "dependencies": { "@elevenlabs/client": "0.15.1" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-/YGT92kcPICVU8/0NlwPci3NL8R3fyE7wpa+zfER+BIHdkgW5yxU+5f0KwnPKohhfFIj2oo+bRvxddVj/KUvjA=="],
+    "@elevenlabs/react": ["@elevenlabs/react@0.14.3", "", { "dependencies": { "@elevenlabs/client": "0.15.2" }, "peerDependencies": { "react": ">=16.8.0" } }, "sha512-nb+8pbbWGVCA/J7P8F5MckVYvKCOIi48I0chu5XkuAPOl4UPq4lw5RjrPQk10hDuoVtq7ccHl44F4652yh8hoA=="],
 
-    "@elevenlabs/types": ["@elevenlabs/types@0.6.0", "", {}, "sha512-2FihOiGf+KlTH1EYQoYsvnhSCMMaHZMDSXMYI25NUtv0NmWi86bB9Hp4BAHbNeEkCksPXKbPiX3b6KgP2JIg2g=="],
+    "@elevenlabs/types": ["@elevenlabs/types@0.6.1", "", {}, "sha512-SNFrKWw5w/JHy9QGt3WWBj0kc71diPRuXHc/7/hdr46ghYz8mTPlFZJBmSPGwXQAfS29jxYXojEmBfKKfgoPCQ=="],
 
     "@esbuild/aix-ppc64": ["@esbuild/aix-ppc64@0.25.0", "", { "os": "aix", "cpu": "ppc64" }, "sha512-O7vun9Sf8DFjH2UtqK8Ku3LkquL9SZL8OLY1T5NZkA34+wG3OQF7cl4Ql8vdNzM6fzBbYfLaiRLIOZ+2FOCgBQ=="],
 
@@ -1333,7 +1333,7 @@
 
     "jiti": ["jiti@1.21.6", "", { "bin": "bin/jiti.js" }, "sha512-2yTgeWTWzMWkHu6Jp9NKgePDaYHbntiwvYuuJLbbN9vl7DC9DvXKOB2BC3ZZ92D3cvV/aflH0osDfwpHepQ53w=="],
 
-    "jose": ["jose@6.2.1", "", {}, "sha512-jUaKr1yrbfaImV7R2TN/b3IcZzsw38/chqMpo2XJ7i2F8AfM/lA4G1goC3JVEwg0H7UldTmSt3P68nt31W7/mw=="],
+    "jose": ["jose@6.2.2", "", {}, "sha512-d7kPDd34KO/YnzaDOlikGpOurfF0ByC2sEV4cANCtdqLlTfBlw2p14O/5d/zv40gJPbIQxfES3nSx1/oYNyuZQ=="],
 
     "js-tokens": ["js-tokens@4.0.0", "", {}, "sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ=="],
 

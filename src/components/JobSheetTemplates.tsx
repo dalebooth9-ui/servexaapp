@@ -159,8 +159,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
       branding: t.branding || {},
     }));
-    // Only show templates that are global (no job_category) or match the job's canonical category
-    const filteredTpls = allTpls.filter((t: any) => !t.job_category || normalizeCategory(t.job_category) === jobCategory);
+    // Only show templates that match the job's canonical category (or global "rams" category which spans all jobs)
+    const filteredTpls = allTpls.filter((t: any) => {
+      if (!t.job_category) return t.category === "rams"; // RAMS templates are global; uncategorised non-RAMS templates are hidden
+      return normalizeCategory(t.job_category) === jobCategory;
+    });
     setTemplates(filteredTpls);
     setResponses((respRes.data || []) as Response[]);
 
