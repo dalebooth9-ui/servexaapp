@@ -561,8 +561,46 @@ export default function Jobs() {
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
       setDialogParsedFile(null);
+      const capturedCostingSheet = costingSheetFile;
+      setCostingSheetFile(null);
       setLoading(false);
       fetchJobs();
+
+      if (createdJob && capturedCostingSheet) {
+        // Upload costing sheet and process it
+        const processCosting = async () => {
+          try {
+            setCostingSheetProcessing(true);
+            const filePath = `costing-sheets/${createdJob.id}/${capturedCostingSheet.name}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("submissions")
+              .upload(filePath, capturedCostingSheet, { upsert: true });
+            if (uploadError) throw uploadError;
+            const { data: signedData } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(filePath, 3600);
+            const fileUrl = signedData?.signedUrl;
+            if (!fileUrl) throw new Error("Could not get file URL");
+            const { data: fnData, error: fnError } = await supabase.functions.invoke("parse-costing-sheet", {
+              body: { file_url: fileUrl, job_id: createdJob.id, user_id: user?.id },
+            });
+            if (fnError) throw fnError;
+            const count = fnData?.parts?.length ?? 0;
+            const days = fnData?.allocated_days;
+            toast({
+              title: "Costing sheet processed",
+              description: `${count} material(s) imported${days ? `, ${days} allocated day(s) set` : ""}.`,
+            });
+          } catch (err: any) {
+            toast({ title: "Costing sheet processing failed", description: err.message || "Could not extract materials.", variant: "destructive" });
+          } finally {
+            setCostingSheetProcessing(false);
+            fetchJobs();
+          }
+        };
+        processCosting();
+      }
+
 
       if (createdJob) {
         // Fetch templates for the job category, plus pressure_test/visual if quantities are set
