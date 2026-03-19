@@ -567,35 +567,53 @@ export default function Jobs() {
       fetchJobs();
 
       if (createdJob && capturedCostingSheet) {
-        // Upload costing sheet and process it
+        // Upload costing sheet and process it asynchronously
         const processCosting = async () => {
           try {
             setCostingSheetProcessing(true);
-            const filePath = `costing-sheets/${createdJob.id}/${capturedCostingSheet.name}`;
-            const { data: uploadData, error: uploadError } = await supabase.storage
+            // Sanitise filename — remove spaces & special chars to avoid URL issues
+            const safeName = capturedCostingSheet.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+            const filePath = `costing-sheets/${createdJob.id}/${safeName}`;
+            const { error: uploadError } = await supabase.storage
               .from("submissions")
               .upload(filePath, capturedCostingSheet, { upsert: true });
-            if (uploadError) throw uploadError;
-            const { data: signedData } = await supabase.storage
+            if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+            // Create a long-lived signed URL (24 h) so the edge function can fetch it
+            const { data: signedData, error: signedError } = await supabase.storage
               .from("submissions")
-              .createSignedUrl(filePath, 3600);
-            const fileUrl = signedData?.signedUrl;
-            if (!fileUrl) throw new Error("Could not get file URL");
+              .createSignedUrl(filePath, 86400);
+            if (signedError || !signedData?.signedUrl) {
+              throw new Error(`Could not create signed URL: ${signedError?.message ?? "unknown"}`);
+            }
+            const fileUrl = signedData.signedUrl;
+
             const { data: fnData, error: fnError } = await supabase.functions.invoke("parse-costing-sheet", {
-              body: { file_url: fileUrl, job_id: createdJob.id, user_id: user?.id },
+              body: {
+                file_url: fileUrl,
+                job_id: createdJob.id,
+                user_id: user?.id,
+                bucket: "submissions",
+              },
             });
-            if (fnError) throw fnError;
+            if (fnError) throw new Error(fnError.message);
+            if (fnData?.error) throw new Error(fnData.error);
+
             const count = fnData?.parts?.length ?? 0;
             const days = fnData?.allocated_days;
             toast({
-              title: "Costing sheet processed",
-              description: `${count} material(s) imported${days ? `, ${days} allocated day(s) set` : ""}.`,
+              title: "Costing sheet processed ✓",
+              description: `${count} material(s) added to Parts tab${days ? `, ${days} allocated day(s) set` : ""}.`,
             });
+            fetchJobs();
           } catch (err: any) {
-            toast({ title: "Costing sheet processing failed", description: err.message || "Could not extract materials.", variant: "destructive" });
+            toast({
+              title: "Costing sheet processing failed",
+              description: err.message || "Could not extract materials.",
+              variant: "destructive",
+            });
           } finally {
             setCostingSheetProcessing(false);
-            fetchJobs();
           }
         };
         processCosting();
