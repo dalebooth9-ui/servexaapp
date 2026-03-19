@@ -696,16 +696,31 @@ serve(async (req) => {
       else console.log(`Filled ${slot.type} slot with URL: ${slot.url.slice(0, 80)}`);
     }
 
-    // ── 7. Parse Excel costing sheet → Job Parts ──────────────────────────────
+    // ── 7. Parse Excel costing sheet → Job Parts + Allocated Days ────────────
     let partsCount = 0;
+    let allocatedDays: number | null = null;
     if (excelUrl) {
       console.log(`Excel URL found — fetching costing sheet: ${excelUrl.slice(0, 80)}...`);
       const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
       if (lovableApiKey) {
         const csvText = await fetchExcelText(excelUrl);
         if (csvText.trim()) {
-          const parts = await extractPartsFromExcel(csvText, lovableApiKey);
+          // Run parts extraction and allocated days extraction in parallel
+          const [parts, days] = await Promise.all([
+            extractPartsFromExcel(csvText, lovableApiKey),
+            extractAllocatedDaysFromExcel(csvText, lovableApiKey),
+          ]);
           partsCount = await insertJobParts(supabase, newJob.id, parts);
+          allocatedDays = days;
+          // Patch allocated_days onto the job if found
+          if (allocatedDays != null) {
+            const { error: daysErr } = await supabase
+              .from("jobs")
+              .update({ allocated_days: allocatedDays } as any)
+              .eq("id", newJob.id);
+            if (daysErr) console.error("Error setting allocated_days:", daysErr);
+            else console.log(`Set allocated_days = ${allocatedDays} on job ${newJob.id}`);
+          }
         } else {
           console.log("Excel text was empty — skipping parts extraction");
         }
@@ -727,6 +742,7 @@ serve(async (req) => {
       value != null ? `Quote Value: £${Number(value).toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : null,
       description ? `Scope: ${description}` : null,
       partsCount > 0 ? `Materials imported: ${partsCount} item(s) from costing sheet` : null,
+      allocatedDays != null ? `Allocated days: ${allocatedDays}` : null,
       pdfUrl ? `Quote PDF attached` : null,
       poUrl ? `PO PDF attached` : null,
     ].filter(Boolean).join(" | ");
