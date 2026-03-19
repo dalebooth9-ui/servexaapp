@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.receive-quote-hound]
 verify_jwt = false
+
+[functions.parse-costing-sheet]
+verify_jwt = false

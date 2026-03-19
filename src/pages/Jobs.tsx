@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -64,6 +64,8 @@ export default function Jobs() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [loading, setLoading] = useState(false);
+  const [costingSheetFile, setCostingSheetFile] = useState<File | null>(null);
+  const [costingSheetProcessing, setCostingSheetProcessing] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
@@ -559,8 +561,46 @@ export default function Jobs() {
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
       setDialogParsedFile(null);
+      const capturedCostingSheet = costingSheetFile;
+      setCostingSheetFile(null);
       setLoading(false);
       fetchJobs();
+
+      if (createdJob && capturedCostingSheet) {
+        // Upload costing sheet and process it
+        const processCosting = async () => {
+          try {
+            setCostingSheetProcessing(true);
+            const filePath = `costing-sheets/${createdJob.id}/${capturedCostingSheet.name}`;
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from("submissions")
+              .upload(filePath, capturedCostingSheet, { upsert: true });
+            if (uploadError) throw uploadError;
+            const { data: signedData } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(filePath, 3600);
+            const fileUrl = signedData?.signedUrl;
+            if (!fileUrl) throw new Error("Could not get file URL");
+            const { data: fnData, error: fnError } = await supabase.functions.invoke("parse-costing-sheet", {
+              body: { file_url: fileUrl, job_id: createdJob.id, user_id: user?.id },
+            });
+            if (fnError) throw fnError;
+            const count = fnData?.parts?.length ?? 0;
+            const days = fnData?.allocated_days;
+            toast({
+              title: "Costing sheet processed",
+              description: `${count} material(s) imported${days ? `, ${days} allocated day(s) set` : ""}.`,
+            });
+          } catch (err: any) {
+            toast({ title: "Costing sheet processing failed", description: err.message || "Could not extract materials.", variant: "destructive" });
+          } finally {
+            setCostingSheetProcessing(false);
+            fetchJobs();
+          }
+        };
+        processCosting();
+      }
+
 
       if (createdJob) {
         // Fetch templates for the job category, plus pressure_test/visual if quantities are set
@@ -938,7 +978,7 @@ export default function Jobs() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); } }}>
+            <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); setCostingSheetFile(null); } }}>
               <DialogTrigger asChild>
                 <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
@@ -1089,6 +1129,42 @@ export default function Jobs() {
                     <Label>Allocated Days <span className="text-muted-foreground text-xs font-normal">(optional)</span></Label>
                     <Input type="number" min={1} placeholder="e.g. 5" value={form.allocated_days} onChange={(e) => setForm({ ...form, allocated_days: e.target.value })} />
                   </div>
+                </div>
+                {/* Costing Sheet Upload */}
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-1.5">
+                    <FileSpreadsheet className="h-3.5 w-3.5 text-muted-foreground" />
+                    Costing Sheet <span className="text-muted-foreground text-xs font-normal">(optional — Excel, auto-extracts materials &amp; days)</span>
+                  </Label>
+                  {costingSheetFile ? (
+                    <div className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                      <FileSpreadsheet className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate flex-1 font-medium text-foreground">{costingSheetFile.name}</span>
+                      <button type="button" onClick={() => setCostingSheetFile(null)} className="ml-auto text-muted-foreground hover:text-destructive">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-muted-foreground/30 px-3 py-2.5 text-sm text-muted-foreground hover:border-primary/50 hover:bg-primary/5 transition-colors">
+                      <Upload className="h-4 w-4 shrink-0" />
+                      <span>Click to attach Excel costing sheet (.xlsx, .xls)</span>
+                      <input
+                        type="file"
+                        accept=".xlsx,.xls,.csv"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) setCostingSheetFile(f);
+                          e.target.value = "";
+                        }}
+                      />
+                    </label>
+                  )}
+                  {costingSheetProcessing && (
+                    <p className="flex items-center gap-1.5 text-xs text-primary animate-pulse">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Processing costing sheet in background…
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <Button type="submit" className="flex-1" disabled={loading}>
