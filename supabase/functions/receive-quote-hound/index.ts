@@ -550,9 +550,20 @@ serve(async (req) => {
     const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
-    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? null;
+    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? body.excelUrl
+      ?? quote.costing_sheet_url ?? quote.costingSheetUrl ?? body.costing_sheet_url
+      ?? quote.costing_url ?? quote.costingUrl ?? body.costing_url
+      ?? quote.spreadsheet_url ?? quote.spreadsheetUrl ?? body.spreadsheet_url
+      ?? quote.materials_url ?? quote.materialsUrl ?? body.materials_url
+      ?? null;
     const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
     const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
+    // Log all top-level keys in the payload to help debug missing fields
+    console.log("Payload top-level keys:", Object.keys(body).join(", "));
+    console.log("Quote top-level keys:", Object.keys(quote).join(", "));
+    console.log(`excel_url resolved: ${excelUrl ? excelUrl.slice(0, 80) : "null"}`);
+    console.log(`pdf_url resolved: ${pdfUrl ? pdfUrl.slice(0, 80) : "null"}`);
+    console.log(`po_url resolved: ${poUrl ? poUrl.slice(0, 80) : "null"}`);
 
     // ── 1. Category — all Mellor jobs are dry riser installations ────────────
     // The Mellor only ever sends wet & dry riser installation work.
