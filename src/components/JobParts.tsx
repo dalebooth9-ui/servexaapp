@@ -524,7 +524,8 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         )}
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
-            const rows = parts.map((p, i) =>
+            const pickParts = parts.filter(p => (p.quantity ?? 0) > 0);
+            const rows = pickParts.map((p, i) =>
               `<tr>
                 <td>${i + 1}</td>
                 <td>${(p.name || "").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</td>
@@ -569,7 +570,7 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
     </div>
     <div class="right">
       Printed: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}<br>
-      ${parts.length} item(s)
+      ${pickParts.length} item(s)
     </div>
   </div>
   <table>
