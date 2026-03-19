@@ -330,6 +330,46 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     setUploadingManual(false);
   };
 
+  const handleCostingSheetUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+    e.target.value = "";
+    setUploadingCostingSheet(true);
+
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const filePath = `costing-sheets/${jobId}/${Date.now()}-${safeName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("submissions")
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+
+      const { data: signedData, error: signError } = await supabase.storage
+        .from("submissions")
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
+      if (signError || !signedData?.signedUrl) throw new Error("Could not generate signed URL");
+
+      toast({ title: "Processing costing sheet…", description: "Extracting materials, please wait." });
+
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("parse-costing-sheet", {
+        body: { file_url: signedData.signedUrl, job_id: jobId, user_id: user.id, bucket: "submissions" },
+      });
+      if (fnError) throw new Error(fnError.message);
+
+      const count = fnData?.parts?.length ?? 0;
+      const days = fnData?.allocated_days;
+      toast({
+        title: "Costing sheet processed ✓",
+        description: `${count} material(s) added to Parts tab${days ? `, ${days} allocated day(s) set` : ""}.`,
+      });
+      fetchDocs();
+    } catch (err: any) {
+      toast({ title: "Costing sheet processing failed", description: err.message || "Could not extract materials.", variant: "destructive" });
+    } finally {
+      setUploadingCostingSheet(false);
+    }
+  };
+
   const handleDelete = async (doc: JobDoc) => {
     setDeletingId(doc.id);
     await supabase.from("job_documents" as any).delete().eq("id", doc.id);
