@@ -667,7 +667,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
 
                                     {/* Status indicator */}
                                     {status && (
-                                      <div className="shrink-0 mt-0.5">
+                                      <div className="shrink-0 mt-0.5" aria-label={status.message}>
                                         {status.status === "creating" && (
                                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                         )}
@@ -675,7 +675,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                           <CheckCircle2 className="h-4 w-4 text-green-500" />
                                         )}
                                         {status.status === "error" && (
-                                          <AlertCircle className="h-4 w-4 text-destructive" title={status.message} />
+                                          <AlertCircle className="h-4 w-4 text-destructive" />
                                         )}
                                       </div>
                                     )}
