@@ -134,6 +134,36 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
   },
 
   // ══════════════════════════════════════════════════════════
+  // DRY RISER REMEDIAL
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "dr-remedial",
+    name: "Dry Riser — Remedial / Repair Works",
+    standard: "BS 9990:2015",
+    description: "Remedial and repair works to dry riser systems including valve replacement, pipework repairs, cabinet rectification and system re-commissioning in accordance with BS 9990:2015.",
+    category: "dry_riser_remedial",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "defect_source", label: "Defect Source (e.g. previous inspection report)", type: "text", section: "Works Details", required: false },
+      { id: "system_isolation_notified", label: "Building Management Notified of System Isolation", type: "select", section: "Works Details", required: true, options: ["Yes", "No"] },
+      { id: "works_description", label: "Description of Remedial Works Carried Out", type: "textarea", section: "Works Details", required: true },
+      { id: "components_replaced", label: "Components Replaced / Repaired", type: "textarea", section: "Works Details", required: true, },
+      { id: "inlet_condition", label: "Breeching Inlet — Post-Repair Condition", type: "select", section: "Post-Works Checks", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+      { id: "outlet_caps_ok", label: "All Outlet Caps & Chains Fitted", type: "select", section: "Post-Works Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "valves_operational", label: "All Valves Operational Post-Repair", type: "select", section: "Post-Works Checks", required: true, options: ["Yes", "No"] },
+      { id: "signage_ok", label: "Signage Correct & Visible", type: "select", section: "Post-Works Checks", required: true, options: ["Yes", "No"] },
+      { id: "pressure_test_carried_out", label: "Hydraulic Pressure Test Carried Out", type: "select", section: "Post-Works Pressure Test", required: true, options: ["Yes", "No"] },
+      { id: "test_pressure", label: "Test Pressure (bar)", type: "number", section: "Post-Works Pressure Test", required: false },
+      { id: "test_duration", label: "Duration (minutes)", type: "number", section: "Post-Works Pressure Test", required: false },
+      { id: "pressure_drop", label: "Pressure Drop (bar)", type: "number", section: "Post-Works Pressure Test", required: false },
+      { id: "test_result", label: "Pressure Test Result", type: "pass_fail", section: "Post-Works Pressure Test", required: false },
+      { id: "system_restored", label: "System Restored to Full Operational Service", type: "select", section: "Completion", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "Remedial works have been carried out in accordance with BS 9990:2015", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
   // WET RISER
   // ══════════════════════════════════════════════════════════
   {
