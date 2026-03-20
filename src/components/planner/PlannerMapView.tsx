@@ -376,7 +376,7 @@ export default function PlannerMapView({
         for (const job of unallocatedJobs) {
           if (!job.address || scheduledIds.has(job.id)) continue;
           try {
-            const result = await geocoder.geocode({ address: job.address });
+            const result = await geocoder.geocode({ address: job.address, region: "GB", componentRestrictions: { country: "GB" } });
             if (result.results[0]) {
               const pos = result.results[0].geometry.location;
               bounds.extend(pos);
