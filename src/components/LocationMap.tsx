@@ -19,7 +19,7 @@ function loadGoogleMaps(apiKey: string): Promise<void> {
 
   googleMapsPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&region=GB&language=en-GB`;
     script.async = true;
     script.defer = true;
     script.onload = () => {
