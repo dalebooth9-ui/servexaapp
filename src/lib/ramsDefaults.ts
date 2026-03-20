@@ -101,6 +101,51 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     ],
   },
 
+  dry_riser_remedial: {
+    descriptionOfWork:
+      "Remedial repair works to dry riser systems including valve replacement, pipework repairs, cabinet rectification, and system restoration in accordance with BS 9990:2015 — Code of Practice for the Use of Dry Riser Systems.",
+    sequenceOfOps: [
+      ...COMMON_SEQUENCE,
+      "Obtain a permit to work from building management before commencing any remedial works.",
+      "Notify building management that the dry riser system will be temporarily out of service during works.",
+    ],
+    taskSpecificOps: [
+      "Review the defect report / previous inspection certificate to confirm scope of remedial works.",
+      "Notify building management and, where required, the local fire authority of any system isolation.",
+      "Isolate the system at the breeching inlet and depressurise before any dismantling.",
+      "Replace defective components as identified: inlet/outlet valves, landing valves, caps, chains, pipework, or cabinets.",
+      "Re-test all repaired or replaced components on completion.",
+      "Carry out a hydraulic pressure test at 10 bar for 15 minutes using a calibrated gauge to verify repair integrity.",
+      "Drain the system fully after pressure testing.",
+      "Inspect all signage; replace any missing or damaged identification signs.",
+      "Restore the system to full operational service.",
+      "Issue a written completion/remedial works certificate confirming system is fit for service.",
+      "Leave work area clean and tidy.",
+    ],
+    location: "Riser cupboards, stairwells, landing areas, breeching inlet positions throughout the building.",
+    resources: "Minimum of: 2 Operatives.",
+    personnel: "",
+    plantAndEquipment: [
+      ...COMMON_PLANT,
+      "Pressure test pump (manual or motorised)",
+      "Dry riser test kit (hoses, adaptors)",
+      "Pipe cutting and threading equipment",
+      "Replacement valves, caps, chains, and fittings",
+    ],
+    significantRisks: [
+      "Water discharge / flooding", "High pressure water", "Working at height",
+      "Manual handling (pipe and valves)", "Slips/trips/falls (wet floors)", "Lone working",
+    ],
+    specialTraining: "All operatives hold current CSCS cards.",
+    ppeItems: COMMON_PPE,
+    riskRows: [
+      ["Pressure testing post-repair","High pressure water / burst connection","Injury from pressurised water. Water damage to building and contents.","3","5","15","Use calibrated gauges. Inspect all replaced connections before pressurising. Operate from a safe distance.","2","3","6",""],
+      ["Component replacement (valves/pipework)","Manual handling of pipe and valve assemblies","Musculoskeletal injury from awkward lifts in confined riser cupboards.","3","4","12","Use correct manual handling techniques. Two-person lift for heavy assemblies. Plan lift route before commencing.","2","3","6",""],
+      ["Working at height (upper floor landings)","Falls from ladders","Falls causing injury. Falling tools/debris striking persons below.","3","5","15","Use correct access equipment. Inspect before use. Exclusion zone beneath. Wear hard hat.","2","3","6",""],
+      ...COMMON_RISK_ROWS,
+    ],
+  },
+
   wet_riser: {
     descriptionOfWork:
       "Inspection, testing and annual servicing of wet riser systems in accordance with BS 9990:2015 — Code of Practice for the Use of Fire-Fighting Water Systems (Wet Riser).",
