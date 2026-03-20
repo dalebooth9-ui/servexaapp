@@ -504,7 +504,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                         ) : (
                           <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
-                        <FolderOpen className="h-4 w-4 text-amber-500 shrink-0" />
+                        <FolderOpen className="h-4 w-4 text-warning shrink-0" />
                         <span className="font-semibold text-sm flex-1">{customer.folderName}</span>
                         {customer.resolvedCustomerName ? (
                           <Badge variant="secondary" className="text-xs shrink-0">
