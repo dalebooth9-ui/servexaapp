@@ -611,7 +611,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                         </div>
                                       ) : (
                                         <div className="flex items-start gap-1.5">
-                                          <MapPin className="h-3.5 w-3.5 text-green-500 mt-0.5 shrink-0" />
+                                          <MapPin className="h-3.5 w-3.5 text-primary mt-0.5 shrink-0" />
                                           <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium leading-tight">
                                               {site.editName || site.site_name}
