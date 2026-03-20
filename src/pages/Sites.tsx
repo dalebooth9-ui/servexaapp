@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
+import FolderSiteImportDialog from "@/components/FolderSiteImportDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
@@ -129,6 +130,7 @@ export default function Sites() {
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customerFolders, setCustomerFolders] = useState<CustomerFolder[]>([]);
   const [openFolders, setOpenFolders] = useState<string[]>([]);
@@ -748,6 +750,7 @@ export default function Sites() {
             {selected.size > 0 && (
               <Button variant="destructive" onClick={handleBulkDelete}><Trash2 className="mr-2 h-4 w-4" /> Delete {selected.size} Selected</Button>
             )}
+            <Button variant="outline" onClick={() => setFolderImportOpen(true)}><FolderOpen className="mr-2 h-4 w-4" /> Import from Folders</Button>
             <Button variant="outline" onClick={() => setBulkOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Import</Button>
             <Button onClick={() => openCreate(null, "region")}><Plus className="mr-2 h-4 w-4" /> Add Region</Button>
           </div>
@@ -1206,6 +1209,12 @@ export default function Sites() {
       </Dialog>
 
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
+
+      <FolderSiteImportDialog
+        open={folderImportOpen}
+        onOpenChange={setFolderImportOpen}
+        onImported={() => { fetchSites(); fetchCustomerFolders(); }}
+      />
 
       {/* Cascade delete confirmation dialog */}
       {confirmDeleteId && (() => {
