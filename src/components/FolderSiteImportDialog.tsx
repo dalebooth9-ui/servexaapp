@@ -672,7 +672,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                           <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                         )}
                                         {status.status === "done" && (
-                                          <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                          <CheckCircle2 className="h-4 w-4 text-primary" />
                                         )}
                                         {status.status === "error" && (
                                           <AlertCircle className="h-4 w-4 text-destructive" />
