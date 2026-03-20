@@ -20,6 +20,7 @@ import RamsPdfExport from "@/components/RamsPdfExport";
 
 const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   dry_riser: "Dry Riser",
+  dry_riser_remedial: "Dry Riser — Remedial / Repairs",
   wet_riser: "Wet Riser",
   sprinkler: "Sprinkler",
   fire_extinguisher: "Fire Extinguisher",
