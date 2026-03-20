@@ -5,6 +5,7 @@
 
 export type RamsType =
   | "dry_riser"
+  | "dry_riser_remedial"
   | "wet_riser"
   | "sprinkler"
   | "fire_extinguisher"
