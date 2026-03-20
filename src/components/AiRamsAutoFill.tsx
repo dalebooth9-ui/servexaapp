@@ -64,6 +64,7 @@ export default function AiRamsAutoFill({ jobName, category, address, customer, r
 
   const ramsTypeLabel: Record<string, string> = {
     dry_riser: "Dry Riser",
+    dry_riser_remedial: "Dry Riser — Remedial / Repairs",
     sprinkler: "Sprinkler",
     fire_extinguisher: "Fire Extinguisher",
     fire_hydrant: "Fire Hydrant",
