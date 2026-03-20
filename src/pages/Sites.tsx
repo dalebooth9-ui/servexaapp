@@ -130,6 +130,7 @@ export default function Sites() {
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
   const [bulkOpen, setBulkOpen] = useState(false);
+  const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [customerFolders, setCustomerFolders] = useState<CustomerFolder[]>([]);
   const [openFolders, setOpenFolders] = useState<string[]>([]);
