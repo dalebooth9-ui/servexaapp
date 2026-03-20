@@ -300,11 +300,11 @@ export default function PlannerMapView({
         mapsApiKeyRef.current = data.apiKey;
 
         if (!(window as any).google?.maps) {
-          const script = document.createElement("script");
-          script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=marker&loading=async&region=GB&language=en-GB`;
-          script.async = true;
-          script.defer = true;
           await new Promise<void>((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=marker&region=GB&language=en-GB`;
+            script.async = true;
+            script.defer = true;
             script.onload = () => resolve();
             script.onerror = () => reject(new Error("Failed to load Google Maps script"));
             document.head.appendChild(script);
@@ -313,7 +313,8 @@ export default function PlannerMapView({
 
         if (cancelled || !mapRef.current) return;
 
-        const map = new google.maps.Map(mapRef.current, {
+        const { Map: GMap } = await (window as any).google.maps.importLibrary("maps");
+        const map = new GMap(mapRef.current, {
           center: { lat: 52.5, lng: -1.5 },
           zoom: 6,
           mapId: "planner-map",
