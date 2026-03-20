@@ -833,6 +833,7 @@ export default function IndustryTemplates() {
   // Map template category → RAMS type
   const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
     dry_riser: "dry_riser",
+    dry_riser_remedial: "dry_riser_remedial",
     wet_riser: "wet_riser",
     fire_extinguisher: "fire_extinguisher",
     fire_hydrant: "fire_hydrant",
