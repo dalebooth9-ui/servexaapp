@@ -1210,6 +1210,12 @@ export default function Sites() {
 
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
 
+      <FolderSiteImportDialog
+        open={folderImportOpen}
+        onOpenChange={setFolderImportOpen}
+        onImported={() => { fetchSites(); fetchCustomerFolders(); }}
+      />
+
       {/* Cascade delete confirmation dialog */}
       {confirmDeleteId && (() => {
         const site = sites.find((s) => s.id === confirmDeleteId);
