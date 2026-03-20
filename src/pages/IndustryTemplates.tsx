@@ -134,6 +134,36 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
   },
 
   // ══════════════════════════════════════════════════════════
+  // DRY RISER REMEDIAL
+  // ══════════════════════════════════════════════════════════
+  {
+    id: "dr-remedial",
+    name: "Dry Riser — Remedial / Repair Works",
+    standard: "BS 9990:2015",
+    description: "Remedial and repair works to dry riser systems including valve replacement, pipework repairs, cabinet rectification and system re-commissioning in accordance with BS 9990:2015.",
+    category: "dry_riser_remedial",
+    fields: [
+      ...SITE_DETAIL_FIELDS,
+      { id: "defect_source", label: "Defect Source (e.g. previous inspection report)", type: "text", section: "Works Details", required: false },
+      { id: "system_isolation_notified", label: "Building Management Notified of System Isolation", type: "select", section: "Works Details", required: true, options: ["Yes", "No"] },
+      { id: "works_description", label: "Description of Remedial Works Carried Out", type: "textarea", section: "Works Details", required: true },
+      { id: "components_replaced", label: "Components Replaced / Repaired", type: "textarea", section: "Works Details", required: true, },
+      { id: "inlet_condition", label: "Breeching Inlet — Post-Repair Condition", type: "select", section: "Post-Works Checks", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+      { id: "outlet_caps_ok", label: "All Outlet Caps & Chains Fitted", type: "select", section: "Post-Works Checks", required: true, options: ["Yes", "No", "N/A"] },
+      { id: "valves_operational", label: "All Valves Operational Post-Repair", type: "select", section: "Post-Works Checks", required: true, options: ["Yes", "No"] },
+      { id: "signage_ok", label: "Signage Correct & Visible", type: "select", section: "Post-Works Checks", required: true, options: ["Yes", "No"] },
+      { id: "pressure_test_carried_out", label: "Hydraulic Pressure Test Carried Out", type: "select", section: "Post-Works Pressure Test", required: true, options: ["Yes", "No"] },
+      { id: "test_pressure", label: "Test Pressure (bar)", type: "number", section: "Post-Works Pressure Test", required: false },
+      { id: "test_duration", label: "Duration (minutes)", type: "number", section: "Post-Works Pressure Test", required: false },
+      { id: "pressure_drop", label: "Pressure Drop (bar)", type: "number", section: "Post-Works Pressure Test", required: false },
+      { id: "test_result", label: "Pressure Test Result", type: "pass_fail", section: "Post-Works Pressure Test", required: false },
+      { id: "system_restored", label: "System Restored to Full Operational Service", type: "select", section: "Completion", required: true, options: ["Yes", "No"] },
+      ...RESULT_FIELDS,
+      { id: "bs_declaration", label: "Remedial works have been carried out in accordance with BS 9990:2015", type: "checkbox", section: "Declaration", required: true },
+    ],
+  },
+
+  // ══════════════════════════════════════════════════════════
   // WET RISER
   // ══════════════════════════════════════════════════════════
   {
@@ -764,25 +794,26 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
 ];
 
 const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
-  dry_riser:           { label: "Dry Riser",            icon: Droplets,     color: "bg-blue-500/10 text-blue-700 border-blue-200" },
-  wet_riser:           { label: "Wet Riser",             icon: Droplets,     color: "bg-cyan-500/10 text-cyan-700 border-cyan-200" },
-  fire_extinguisher:   { label: "Fire Extinguisher",     icon: Flame,        color: "bg-destructive/10 text-destructive border-destructive/20" },
-  fire_hydrant:        { label: "Fire Hydrant",          icon: Wrench,       color: "bg-secondary text-secondary-foreground border-border" },
-  sprinkler:           { label: "Sprinkler",             icon: Droplets,     color: "bg-primary/10 text-primary border-primary/20" },
-  fire_alarm:          { label: "Fire Alarm",            icon: Zap,          color: "bg-yellow-500/10 text-yellow-700 border-yellow-200" },
-  emergency_lighting:  { label: "Emergency Lighting",    icon: Eye,          color: "bg-amber-500/10 text-amber-700 border-amber-200" },
-  aov_smoke_control:   { label: "AOV / Smoke Control",  icon: Wind,         color: "bg-teal-500/10 text-teal-700 border-teal-200" },
-  passive_fire:        { label: "Passive Fire",          icon: Shield,       color: "bg-orange-500/10 text-orange-700 border-orange-200" },
-  gas_suppression:     { label: "Gas Suppression",       icon: AlertTriangle, color: "bg-purple-500/10 text-purple-700 border-purple-200" },
-  kitchen_suppression: { label: "Kitchen Suppression",   icon: Flame,        color: "bg-red-500/10 text-red-700 border-red-200" },
-  water_mist:          { label: "Water Mist",            icon: Droplets,     color: "bg-sky-500/10 text-sky-700 border-sky-200" },
-  hose_reel:           { label: "Hose Reel",             icon: Wrench,       color: "bg-slate-500/10 text-slate-700 border-slate-200" },
-  fire_risk_assessment: { label: "Fire Risk Assessment", icon: Shield,       color: "bg-rose-500/10 text-rose-700 border-rose-200" },
-  installation:        { label: "Installation",          icon: FileText,     color: "bg-indigo-500/10 text-indigo-700 border-indigo-200" },
+  dry_riser:           { label: "Dry Riser",                    icon: Droplets,     color: "bg-blue-500/10 text-blue-700 border-blue-200" },
+  dry_riser_remedial:  { label: "Dry Riser Remedial",           icon: Wrench,       color: "bg-blue-600/10 text-blue-800 border-blue-300" },
+  wet_riser:           { label: "Wet Riser",                    icon: Droplets,     color: "bg-cyan-500/10 text-cyan-700 border-cyan-200" },
+  fire_extinguisher:   { label: "Fire Extinguisher",            icon: Flame,        color: "bg-destructive/10 text-destructive border-destructive/20" },
+  fire_hydrant:        { label: "Fire Hydrant",                 icon: Wrench,       color: "bg-secondary text-secondary-foreground border-border" },
+  sprinkler:           { label: "Sprinkler",                    icon: Droplets,     color: "bg-primary/10 text-primary border-primary/20" },
+  fire_alarm:          { label: "Fire Alarm",                   icon: Zap,          color: "bg-yellow-500/10 text-yellow-700 border-yellow-200" },
+  emergency_lighting:  { label: "Emergency Lighting",           icon: Eye,          color: "bg-amber-500/10 text-amber-700 border-amber-200" },
+  aov_smoke_control:   { label: "AOV / Smoke Control",         icon: Wind,         color: "bg-teal-500/10 text-teal-700 border-teal-200" },
+  passive_fire:        { label: "Passive Fire",                 icon: Shield,       color: "bg-orange-500/10 text-orange-700 border-orange-200" },
+  gas_suppression:     { label: "Gas Suppression",              icon: AlertTriangle, color: "bg-purple-500/10 text-purple-700 border-purple-200" },
+  kitchen_suppression: { label: "Kitchen Suppression",          icon: Flame,        color: "bg-red-500/10 text-red-700 border-red-200" },
+  water_mist:          { label: "Water Mist",                   icon: Droplets,     color: "bg-sky-500/10 text-sky-700 border-sky-200" },
+  hose_reel:           { label: "Hose Reel",                    icon: Wrench,       color: "bg-slate-500/10 text-slate-700 border-slate-200" },
+  fire_risk_assessment:{ label: "Fire Risk Assessment",         icon: Shield,       color: "bg-rose-500/10 text-rose-700 border-rose-200" },
+  installation:        { label: "Installation",                 icon: FileText,     color: "bg-indigo-500/10 text-indigo-700 border-indigo-200" },
 };
 
 const CATEGORY_ORDER = [
-  "dry_riser", "wet_riser", "fire_extinguisher", "fire_hydrant",
+  "dry_riser", "dry_riser_remedial", "wet_riser", "fire_extinguisher", "fire_hydrant",
   "sprinkler", "fire_alarm", "emergency_lighting", "aov_smoke_control",
   "passive_fire", "gas_suppression", "kitchen_suppression", "water_mist",
   "hose_reel", "fire_risk_assessment", "installation",
@@ -802,6 +833,7 @@ export default function IndustryTemplates() {
   // Map template category → RAMS type
   const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
     dry_riser: "dry_riser",
+    dry_riser_remedial: "dry_riser_remedial",
     wet_riser: "wet_riser",
     fire_extinguisher: "fire_extinguisher",
     fire_hydrant: "fire_hydrant",

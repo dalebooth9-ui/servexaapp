@@ -20,6 +20,7 @@ import RamsPdfExport from "@/components/RamsPdfExport";
 
 const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   dry_riser: "Dry Riser",
+  dry_riser_remedial: "Dry Riser — Remedial / Repairs",
   wet_riser: "Wet Riser",
   sprinkler: "Sprinkler",
   fire_extinguisher: "Fire Extinguisher",
@@ -267,7 +268,7 @@ export default function RamsEditor() {
       } else {
         // Auto-detect type from job category (all categories)
         const catMap: Record<string, RamsType> = {
-          dry_riser: "dry_riser", wet_riser: "wet_riser",
+          dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
           sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
           fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
           emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
