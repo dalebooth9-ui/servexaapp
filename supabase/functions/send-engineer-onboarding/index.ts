@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const INSTALL_URL = "https://field-aid-box.lovable.app/install";
+const INSTALL_URL = "https://servexaapp.lovable.app/install";
 const QR_IMAGE_URL = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(INSTALL_URL)}&bgcolor=ffffff&color=1e293b&margin=10`;
 
 serve(async (req) => {
