@@ -107,18 +107,20 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Branded left panel — hidden on small screens */}
-      <div className="hidden lg:flex lg:w-1/2 flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
+      {/* Branded left panel */}
+      <div className="hidden md:flex md:w-1/2 flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
         <div className="flex items-center gap-3">
-          <img src="/images/vivafire-logo-new.jpg" alt="Servexa logo" className="h-10 w-auto" />
-          <span className="text-xl font-bold text-sidebar-primary-foreground">Servexa</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
+            <span className="text-lg font-black text-sidebar-primary-foreground">S</span>
+          </div>
+          <span className="text-2xl font-black tracking-tight text-sidebar-primary-foreground">Servexa</span>
         </div>
 
         <div className="space-y-8">
           <div>
             <h1 className="text-4xl font-bold leading-tight text-sidebar-primary-foreground">
               Field service management,<br />
-              <span className="text-primary">built for engineers.</span>
+              <span className="text-sidebar-primary">built for engineers.</span>
             </h1>
             <p className="mt-4 text-sidebar-foreground/70 text-lg leading-relaxed">
               From job creation to customer sign-off — manage your entire field operation in one place.
@@ -133,7 +135,7 @@ export default function Auth() {
               { text: "Customer sign-off & instant reports" },
             ].map(({ text }) => (
               <li key={text} className="flex items-center gap-3 text-sidebar-foreground/80">
-                <CheckCircle2 className="h-5 w-5 shrink-0 text-primary" />
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-sidebar-primary" />
                 <span>{text}</span>
               </li>
             ))}
@@ -153,9 +155,11 @@ export default function Auth() {
       <div className="flex flex-1 items-center justify-center bg-background p-6">
         <div className="w-full max-w-md">
           {/* Mobile logo */}
-          <div className="mb-8 flex items-center justify-center gap-2.5 lg:hidden">
-            <img src="/images/vivafire-logo-new.jpg" alt="Servexa logo" className="h-10 w-auto" />
-            <span className="text-xl font-bold">Servexa</span>
+          <div className="mb-8 flex items-center justify-center gap-2.5 md:hidden">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
+              <span className="text-base font-black text-primary-foreground">S</span>
+            </div>
+            <span className="text-xl font-black tracking-tight">Servexa</span>
           </div>
 
           <Card className="border-border/60 shadow-lg">
