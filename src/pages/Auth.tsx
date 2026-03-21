@@ -107,15 +107,53 @@ export default function Auth() {
 
   return (
     <div className="flex min-h-screen">
-      {/* Branded left panel — hidden on small screens */}
+      {/* Branded left panel */}
       <div className="hidden md:flex md:w-1/2 flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary">
-            <span className="text-lg font-black text-primary-foreground">S</span>
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
+            <span className="text-lg font-black text-sidebar-primary-foreground">S</span>
           </div>
           <span className="text-2xl font-black tracking-tight text-sidebar-primary-foreground">Servexa</span>
         </div>
-...
+
+        <div className="space-y-8">
+          <div>
+            <h1 className="text-4xl font-bold leading-tight text-sidebar-primary-foreground">
+              Field service management,<br />
+              <span className="text-sidebar-primary">built for engineers.</span>
+            </h1>
+            <p className="mt-4 text-sidebar-foreground/70 text-lg leading-relaxed">
+              From job creation to customer sign-off — manage your entire field operation in one place.
+            </p>
+          </div>
+
+          <ul className="space-y-4">
+            {[
+              { text: "Manage jobs, engineers & customers" },
+              { text: "Digital job sheets & compliance docs" },
+              { text: "Live engineer tracking & scheduling" },
+              { text: "Customer sign-off & instant reports" },
+            ].map(({ text }) => (
+              <li key={text} className="flex items-center gap-3 text-sidebar-foreground/80">
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-sidebar-primary" />
+                <span>{text}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="space-y-1">
+          <p className="text-sm text-sidebar-foreground/40">© {new Date().getFullYear()} Servexa. All rights reserved.</p>
+          <div className="flex gap-3 text-xs text-sidebar-foreground/30">
+            <a href="/terms" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Terms of Service</a>
+            <a href="/privacy" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Privacy Policy</a>
+          </div>
+        </div>
+      </div>
+
+      {/* Right panel — auth form */}
+      <div className="flex flex-1 items-center justify-center bg-background p-6">
+        <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="mb-8 flex items-center justify-center gap-2.5 md:hidden">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
