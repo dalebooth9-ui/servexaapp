@@ -151,6 +151,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useReactState(true);
+  // Sidebar is always expanded on desktop — remove auto-collapse on mouse leave
   const [shortcutsOpen, setShortcutsOpen] = useReactState(false);
   useKeyboardShortcuts(() => setShortcutsOpen(true));
   const [whatsappNumber, setWhatsappNumber] = useReactState<string | null>(null);
