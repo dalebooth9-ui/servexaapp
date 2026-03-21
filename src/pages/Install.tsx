@@ -67,7 +67,7 @@ export default function Install() {
           <div className="flex flex-col items-center gap-2 rounded-xl border bg-muted/40 p-4">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Scan to open on your phone</p>
             <QRCodeSVG
-              value="https://field-aid-box.lovable.app/install"
+              value="https://servexaapp.lovable.app/install"
               size={152}
               bgColor="transparent"
               fgColor="hsl(var(--foreground))"
