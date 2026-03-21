@@ -253,13 +253,11 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               <Menu className="h-4 w-4" />
             </button>
             {desktopExpanded && (
-              <span className="ml-2 text-lg font-bold tracking-wide text-white">Servexa</span>
+              <img src={servexaLogo} alt="Servexa logo" className="h-8 w-auto object-contain ml-2" />
             )}
           </div>
           {/* Mobile logo */}
-          <div className="lg:hidden flex items-center px-4 py-3">
-            <span className="text-xl font-bold tracking-wide text-white">Servexa</span>
-          </div>
+          <img src={servexaLogo} alt="Servexa logo" className="lg:hidden w-full h-auto object-contain px-4 -mt-2 pb-0" />
           <div className={cn("flex items-center gap-1 px-3 pb-2", desktopExpanded ? "justify-center" : "lg:justify-center")}>
             {desktopExpanded && <ClockInButton />}
             {desktopExpanded && <TodaysVisitsBadge />}
