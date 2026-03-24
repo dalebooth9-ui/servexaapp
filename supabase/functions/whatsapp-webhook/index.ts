@@ -408,7 +408,7 @@ async function handleReportCommand(supabase: any, sender: TwilioSender, to: stri
     .limit(5);
 
   if (!reports || reports.length === 0) {
-    await sendWhatsApp(sender, to, "📄 No field reports found for this job.");
+    await sendWhatsApp(sender, to, "📄 No Servexa reports found for this job.");
     return;
   }
 
