@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
           "*info* — Job details (name, address, status, priority)\n" +
           "*photos* — Download all photos for current job\n" +
           "*files* — Download documents for current job\n" +
-          "*report* — Get field report summary\n" +
+          "*report* — Get Servexa report summary\n" +
           "*notes* — Recent notes and submissions\n" +
           "*parts* — List parts logged against current job\n" +
           "*complete* — Mark current job as completed\n" +
