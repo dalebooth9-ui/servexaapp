@@ -122,7 +122,7 @@ serve(async (req) => {
             {
               role: "system",
               content:
-                "You summarize field reports in 1-2 concise sentences. Focus on the key findings, actions taken, and any issues noted. Do not use markdown formatting.",
+                "You summarize Servexa reports in 1-2 concise sentences. Focus on the key findings, actions taken, and any issues noted. Do not use markdown formatting.",
             },
             {
               role: "user",

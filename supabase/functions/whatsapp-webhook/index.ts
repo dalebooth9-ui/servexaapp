@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
-      // Command: report — send field report
+      // Command: report — send Servexa report
       if (["report", "reports"].includes(command)) {
         const jobId = await getActiveJob(supabase, engineerId);
         if (!jobId) {
@@ -226,7 +226,7 @@ Deno.serve(async (req) => {
           "*info* — Job details (name, address, status, priority)\n" +
           "*photos* — Download all photos for current job\n" +
           "*files* — Download documents for current job\n" +
-          "*report* — Get field report summary\n" +
+          "*report* — Get Servexa report summary\n" +
           "*notes* — Recent notes and submissions\n" +
           "*parts* — List parts logged against current job\n" +
           "*complete* — Mark current job as completed\n" +
@@ -408,7 +408,7 @@ async function handleReportCommand(supabase: any, sender: TwilioSender, to: stri
     .limit(5);
 
   if (!reports || reports.length === 0) {
-    await sendWhatsApp(sender, to, "📄 No field reports found for this job.");
+    await sendWhatsApp(sender, to, "📄 No Servexa reports found for this job.");
     return;
   }
 
@@ -418,7 +418,7 @@ async function handleReportCommand(supabase: any, sender: TwilioSender, to: stri
     const truncated = plainContent.length > 1000 ? plainContent.substring(0, 1000) + "..." : plainContent;
 
     const msg =
-      `📄 *${report.title || "Field Report"}*\n` +
+      `📄 *${report.title || "Servexa Report"}*\n` +
       `🕐 ${new Date(report.created_at).toLocaleDateString("en-GB")}\n\n` +
       truncated;
 

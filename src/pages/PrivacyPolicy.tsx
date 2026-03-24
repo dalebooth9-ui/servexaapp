@@ -29,7 +29,7 @@ export default function PrivacyPolicy() {
               <li><strong>Account data:</strong> Name, email address, password (hashed), role</li>
               <li><strong>Profile data:</strong> Phone number, WhatsApp number, signature</li>
               <li><strong>Location data:</strong> GPS coordinates when engineers are clocked in (with consent)</li>
-              <li><strong>Job data:</strong> Job records, submissions, photos, field reports you create</li>
+              <li><strong>Job data:</strong> Job records, submissions, photos, Servexa reports you create</li>
               <li><strong>Communication data:</strong> Messages sent through the platform</li>
               <li><strong>Usage data:</strong> Log files, IP addresses, browser type, pages visited</li>
               <li><strong>Customer data:</strong> Customer and site records you enter into the system</li>
@@ -51,7 +51,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-xl font-semibold mb-3">4. How We Use Your Data</h2>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li>To provide, operate, and maintain the Service</li>
-              <li>To process job assignments, scheduling, and field reports</li>
+              <li>To process job assignments, scheduling, and Servexa reports</li>
               <li>To send notifications, reminders, and reports</li>
               <li>To enable customer communications and sign-off workflows</li>
               <li>To improve and personalise the Service</li>
