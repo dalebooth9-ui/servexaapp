@@ -235,7 +235,7 @@ export default function SettingsPage() {
               <CardTitle className="text-lg">WhatsApp Integration (Twilio)</CardTitle>
             </div>
             <CardDescription>
-              Receive field reports automatically via WhatsApp using Twilio.
+              Receive Servexa reports automatically via WhatsApp using Twilio.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

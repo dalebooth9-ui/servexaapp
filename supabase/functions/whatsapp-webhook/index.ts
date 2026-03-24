@@ -418,7 +418,7 @@ async function handleReportCommand(supabase: any, sender: TwilioSender, to: stri
     const truncated = plainContent.length > 1000 ? plainContent.substring(0, 1000) + "..." : plainContent;
 
     const msg =
-      `📄 *${report.title || "Field Report"}*\n` +
+      `📄 *${report.title || "Servexa Report"}*\n` +
       `🕐 ${new Date(report.created_at).toLocaleDateString("en-GB")}\n\n` +
       truncated;
 

@@ -141,7 +141,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       doc.text(new Date(job.created_at).toLocaleDateString("en-GB"), col1 + 20, y + 21);
       y += 28;
 
-      // === EXECUTIVE SUMMARY (from field reports) ===
+      // === EXECUTIVE SUMMARY (from Servexa reports) ===
       if (reports.length > 0) {
         y = checkPage(25, y);
         doc.setFontSize(14);

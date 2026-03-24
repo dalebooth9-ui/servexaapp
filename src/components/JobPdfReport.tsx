@@ -449,7 +449,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
         }
       }
 
-      // ── FIELD REPORTS ──
+      // ── SERVEXA REPORTS ──
       if (includeFieldReports && reports.length > 0) {
         checkPage(20);
         y = sectionTitle(doc, "Servexa Reports", y, margin, maxWidth);

@@ -53,7 +53,7 @@ Servexa is a web app for managing field service operations. Key sections:
 - Documents (auto-attached from category templates or customer paperwork)
 - Job sheets (templates engineers fill in on-site)
 - Messages (internal comms between admin and engineer)
-- Field reports (written notes/summaries)
+- Servexa reports (written notes/summaries)
 - Activity log (audit trail)
 - Signatures (engineer and customer sign-off)
 

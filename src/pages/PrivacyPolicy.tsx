@@ -51,7 +51,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-xl font-semibold mb-3">4. How We Use Your Data</h2>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li>To provide, operate, and maintain the Service</li>
-              <li>To process job assignments, scheduling, and field reports</li>
+              <li>To process job assignments, scheduling, and Servexa reports</li>
               <li>To send notifications, reminders, and reports</li>
               <li>To enable customer communications and sign-off workflows</li>
               <li>To improve and personalise the Service</li>
