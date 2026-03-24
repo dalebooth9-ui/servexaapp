@@ -164,7 +164,7 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
-      // Command: report — send field report
+      // Command: report — send Servexa report
       if (["report", "reports"].includes(command)) {
         const jobId = await getActiveJob(supabase, engineerId);
         if (!jobId) {
