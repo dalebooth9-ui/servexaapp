@@ -29,7 +29,7 @@ export default function PrivacyPolicy() {
               <li><strong>Account data:</strong> Name, email address, password (hashed), role</li>
               <li><strong>Profile data:</strong> Phone number, WhatsApp number, signature</li>
               <li><strong>Location data:</strong> GPS coordinates when engineers are clocked in (with consent)</li>
-              <li><strong>Job data:</strong> Job records, submissions, photos, field reports you create</li>
+              <li><strong>Job data:</strong> Job records, submissions, photos, Servexa reports you create</li>
               <li><strong>Communication data:</strong> Messages sent through the platform</li>
               <li><strong>Usage data:</strong> Log files, IP addresses, browser type, pages visited</li>
               <li><strong>Customer data:</strong> Customer and site records you enter into the system</li>
