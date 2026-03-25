@@ -424,14 +424,14 @@ function DraggableScheduleCard({
         )}
       </div>
       {isAdmin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-            className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        )}
-      </div>
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+          className="absolute bottom-1 right-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity z-10"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 }
