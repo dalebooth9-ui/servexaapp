@@ -244,7 +244,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     ppeItems: COMMON_PPE,
     riskRows: [
       ["System isolation / alarm bypass","Inadvertent alarm activation","False alarm causing building evacuation; disruption; financial penalty.","4","5","20","Notify monitoring centre and building manager in writing before isolation. Affix 'System Isolated' warning signs. Confirm reset with monitoring centre at end of works.","2","3","6",""],
-      ["Inspection of sprinkler heads and pipework","Working at height","Falls from ladders or mobile platforms. Falling tools/debris striking persons below.","4","6","24","Use correct access equipment. Inspect before use. Exclusion zone beneath. Operatives to wear hard hats and harness where required.","2","4","8",""],
+      ["Inspection of sprinkler heads and pipework","Working at height","Falls from ladders or mobile platforms. Falling tools/debris striking persons below.","4","6","24","Use correct access equipment. Inspect before use. Exclusion zone beneath. Operatives to wear hard hats and harness where required.","2","3","6",""],
       ["Water supply and pressure testing","High pressure water / burst connection","Injury from pressurised water. Water damage to building and contents.","3","5","15","Use calibrated gauges. Check all connections before pressurising. Ensure drain routes are clear. Mop up spills immediately.","2","3","6",""],
       ...COMMON_RISK_ROWS,
     ],
@@ -325,7 +325,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     specialTraining: "All operatives hold current CSCS cards.",
     ppeItems: [...COMMON_PPE, "Hi-vis vest to EN ISO 20471 Class 2/3 for roadside works"],
     riskRows: [
-      ["Roadside hydrant testing","Traffic / vehicle collision","Serious injury or fatality from vehicle strike.","4","7","28","Traffic management scheme in place before works start. Operatives in Class 2 Hi-Vis. Designated lookout where required.","2","6","12",""],
+      ["Roadside hydrant testing","Traffic / vehicle collision","Serious injury or fatality from vehicle strike.","4","7","28","Traffic management scheme in place before works start. Operatives in Class 2 Hi-Vis. Designated lookout where required.","2","3","6",""],
       ["Opening/flushing hydrant","Struck by high pressure water","Injury from water jet. Flooding of work area.","3","5","15","Open hydrant slowly. Ensure drain/runoff is clear. Stand to the side during opening. Wear waterproof PPE.","2","3","6",""],
       ["Lifting heavy covers","Manual handling injury","Back/musculoskeletal injury.","3","4","12","Use hydrant cover lifting tools. Two-person lift for heavy covers. Manual handling training mandatory.","1","3","3",""],
       ...COMMON_RISK_ROWS,
@@ -456,7 +456,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     specialTraining: "BS 7346-8 competency. IPAF/PASMA where working at height. All operatives hold current CSCS cards.",
     ppeItems: [...COMMON_PPE, "Safety harness EN361 (for roof work)"],
     riskRows: [
-      ["Roof level AOV inspection / test","Working at height","Falls causing serious injury or fatality. Falling objects striking persons below.","4","6","24","IPAF/PASMA certification mandatory. Edge protection or harness required. Exclusion zone at ground level.","2","4","8",""],
+      ["Roof level AOV inspection / test","Working at height","Falls causing serious injury or fatality. Falling objects striking persons below.","4","6","24","IPAF/PASMA certification mandatory. Edge protection or harness required. Exclusion zone at ground level.","2","3","6",""],
       ["Vent actuation test","Mechanical entrapment by closing vent","Crush injury to hands or fingers.","2","6","12","Never place hands in vent aperture during actuation. Stand clear of moving parts. Test one vent at a time.","1","5","5",""],
       ["Panel and actuator work","Electrical hazard","Electric shock.","2","6","12","Isolate power before working on wiring. Only competent persons on live electrical systems.","1","4","4",""],
       ...COMMON_RISK_ROWS,
@@ -543,7 +543,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     specialTraining: "FIA / BAFE SP207 trained operatives. Gas safety awareness mandatory. All operatives hold current CSCS cards.",
     ppeItems: [...COMMON_PPE, "SCBA or airline breathing apparatus (for confined space / gas risk areas)"],
     riskRows: [
-      ["System isolation / test","Accidental gas discharge","Asphyxiation from CO2 or inert gas discharge in enclosed space.","4","7","28","System must be in manual mode before any work. All occupants evacuated from protected zone before any test. Gas detector on standby.","2","6","12",""],
+      ["System isolation / test","Accidental gas discharge","Asphyxiation from CO2 or inert gas discharge in enclosed space.","4","7","28","System must be in manual mode before any work. All occupants evacuated from protected zone before any test. Gas detector on standby.","2","3","6",""],
       ["Cylinder weighing and handling","Cylinder failure under pressure","Serious injury from cylinder projectile or sudden release.","2","7","14","Use calibrated scales. Never drop or impact cylinders. Inspect cylinder valve before handling. Follow manufacturer procedures.","1","5","5",""],
       ["Testing in server rooms","Electrical hazard in live data environments","Electric shock; damage to live equipment.","3","5","15","Coordinate with IT team. Avoid contact with live equipment. Insulate tools. Wear anti-static PPE where required.","2","3","6",""],
       ...COMMON_RISK_ROWS,
@@ -767,7 +767,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
     specialTraining: "Confined space awareness. Working at height (PASMA/IPAF). All operatives hold current CSCS cards.",
     ppeItems: [...COMMON_PPE, "Dust mask (FFP3)", "Hearing protection (EN352)", "Safety harness (EN361)"],
     riskRows: [
-      ["Working at height (pipe installation)","Falls from mobile scaffold/MEWP","Serious injury or fatality from falling. Falling materials striking persons below.","4","6","24","PASMA/IPAF certification mandatory. Inspect equipment before use. Exclusion zone beneath. Secure all tools and materials.","2","4","8",""],
+      ["Working at height (pipe installation)","Falls from mobile scaffold/MEWP","Serious injury or fatality from falling. Falling materials striking persons below.","4","6","24","PASMA/IPAF certification mandatory. Inspect equipment before use. Exclusion zone beneath. Secure all tools and materials.","2","3","6",""],
       ["Core drilling / penetrations","Silica dust inhalation","Respiratory disease (silicosis).","4","5","20","Wet drill method or dust suppression at all times. FFP3 dust mask mandatory. LEV where practicable.","2","3","6",""],
       ["Grooved pipe assembly / power tools","HAVS (hand-arm vibration)","Vibration white finger and nerve damage.","3","4","12","Use low-vibration tools where available. Rotate tasks to limit exposure. Monitor HAV exposure against EAV/ELV.","2","3","6",""],
       ["Hydraulic pressure testing","High pressure water / burst connection","Injury from pressurised water. Water damage to building contents.","3","5","15","Use calibrated gauges. All personnel clear of zone during pressurisation. Stand to the side of test connection.","2","3","6",""],
