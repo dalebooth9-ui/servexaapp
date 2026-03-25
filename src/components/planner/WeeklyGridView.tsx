@@ -438,23 +438,22 @@ function DraggableScheduleCard({
         )}
       </div>
       {isAdmin && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-          className="absolute bottom-1 right-4 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity z-10"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
-      {/* Stretch handle — right edge */}
-      {isAdmin && onResizeStart && (
-        <div
-          data-resize-handle="true"
-          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
-          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
-          title="Drag right edge to schedule across multiple days"
-        >
-          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
+        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          {onAdjustSpan && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
+              className="rounded px-1 py-0.5 text-[10px] font-bold hover:bg-primary/20 text-primary transition-colors"
+              title="Add 1 day"
+            >+1d</button>
+          )}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
     </div>
