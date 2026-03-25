@@ -285,25 +285,36 @@ function SpanningJobCard({
           )}
         </div>
         {isAdmin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
-            className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          <div className="flex flex-col items-center gap-0.5 shrink-0">
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(1); }}
+              className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary transition-all"
+              title="Add 1 day"
+            >
+              <span className="text-[10px] font-bold leading-none">+</span>
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
+              className="opacity-0 group-hover:opacity-100 hover:text-destructive text-muted-foreground transition-all"
+              title="Remove"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            {span > 1 && (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(-1); }}
+                className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground transition-all"
+                title="Remove 1 day"
+              >
+                <span className="text-[10px] font-bold leading-none">−</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
-      {/* Resize handle — right edge */}
-      {isAdmin && onResizeStart && (
-        <div
-          data-resize-handle="true"
-          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
-          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
-          title="Drag to extend or shrink across days"
-        >
-          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
-        </div>
-      )}
     </div>
   );
 }
