@@ -281,14 +281,17 @@ export default function RamsEditor() {
 
   // Current user's profile for auto-fill
   const [myProfile, setMyProfile] = useState<{ full_name: string; signature_data: string | null } | null>(null);
+  const [engineerProfiles, setEngineerProfiles] = useState<{ user_id: string; full_name: string }[]>([]);
 
   useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
 
-  // Fetch current user profile for signature auto-fill
+  // Fetch current user profile for signature auto-fill + all engineers for dropdown
   useEffect(() => {
     if (!user) return;
     supabase.from("profiles").select("full_name, signature_data").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data) setMyProfile(data); });
+    supabase.from("profiles").select("user_id, full_name").not("full_name", "is", null).neq("full_name", "")
+      .then(({ data }) => { if (data) setEngineerProfiles(data); });
   }, [user]);
 
   // Form state — honour ?type= query param for pre-selection from Industry Templates
@@ -334,7 +337,7 @@ export default function RamsEditor() {
     setPersonnelList((prev) => [...prev, {
       name: myProfile?.full_name || "",
       role: "",
-      company: "Servexa Ltd",
+      company: "Viva Fire",
     }]);
   };
 
@@ -855,8 +858,25 @@ export default function RamsEditor() {
                   <div key={i} className="rounded-lg border bg-card p-3 grid grid-cols-3 gap-3 items-end">
                     <div>
                       <Label className="text-xs">Full Name</Label>
-                      <Input value={p.name} className="mt-1 text-sm"
-                        onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
+                      <div className="flex gap-1 mt-1">
+                        <Input value={p.name} placeholder="Enter name…" className="text-sm flex-1"
+                          onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
+                        {engineerProfiles.length > 0 && (
+                          <Select
+                            value=""
+                            onValueChange={(val) => { const next = [...personnelList]; next[i] = { ...next[i], name: val }; setPersonnelList(next); }}
+                          >
+                            <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
+                              <Users className="h-3.5 w-3.5" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {engineerProfiles.map((ep) => (
+                                <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <Label className="text-xs">Role / Trade</Label>
