@@ -189,6 +189,82 @@ function RiskRowEditor({
   );
 }
 
+/* ── Inline Signature Pad ── */
+function SignaturePad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawing, setDrawing] = useState(false);
+  const lastPt = useRef<{ x: number; y: number } | null>(null);
+  const [hasStrokes, setHasStrokes] = useState(!!value);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = "round";
+    if (value) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      img.src = value;
+    }
+  }, []);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    if ("touches" in e) return { x: (e.touches[0].clientX - rect.left) * sx, y: (e.touches[0].clientY - rect.top) * sy };
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); setDrawing(true); lastPt.current = getPos(e); };
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing) return;
+    const ctx = canvasRef.current!.getContext("2d")!;
+    const pos = getPos(e);
+    if (lastPt.current) { ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+    lastPt.current = pos;
+    setHasStrokes(true);
+  };
+  const endDraw = () => { setDrawing(false); lastPt.current = null; };
+  const clear = () => {
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasStrokes(false);
+    onChange("");
+  };
+  const confirm = () => { onChange(canvasRef.current!.toDataURL("image/png")); };
+
+  return (
+    <div className="space-y-2">
+      <canvas
+        ref={canvasRef} width={400} height={100}
+        className="w-full border rounded bg-white touch-none cursor-crosshair"
+        onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+        onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+      />
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={clear} disabled={!hasStrokes} className="h-7 text-xs">
+          <Eraser className="h-3 w-3 mr-1" /> Clear
+        </Button>
+        <Button size="sm" onClick={confirm} disabled={!hasStrokes} className="h-7 text-xs">
+          <Check className="h-3 w-3 mr-1" /> Apply
+        </Button>
+        {value && <Badge variant="secondary" className="text-[10px] self-center">Signed</Badge>}
+      </div>
+    </div>
+  );
+}
+
+type PersonnelEntry = { name: string; role: string; company: string };
+
 export default function RamsEditor() {
   const { jobId, ramsId } = useParams<{ jobId: string; ramsId?: string }>();
   const [searchParams] = useSearchParams();
@@ -222,6 +298,15 @@ export default function RamsEditor() {
   const [specialTraining, setSpecialTraining] = useState("");
   const [ppeItems, setPpeItems] = useState<string[]>([]);
   const [riskRows, setRiskRows] = useState<string[][]>([]);
+
+  // Personnel & Approval state
+  const [personnelList, setPersonnelList] = useState<PersonnelEntry[]>([]);
+  const [approvalFields, setApprovalFields] = useState({
+    approverName: "", approverRole: "", approvalDate: new Date().toLocaleDateString("en-GB"), approverSignature: "",
+  });
+  const [supervisorFields, setSupervisorFields] = useState({
+    supervisorName: "", supervisorRole: "", supervisorContact: "", supervisorSignature: "",
+  });
 
   // Load job and existing RAMS doc
   useEffect(() => {
