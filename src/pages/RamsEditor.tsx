@@ -337,7 +337,7 @@ export default function RamsEditor() {
     setPersonnelList((prev) => [...prev, {
       name: myProfile?.full_name || "",
       role: "",
-      company: "Servexa Ltd",
+      company: "Viva Fire",
     }]);
   };
 
