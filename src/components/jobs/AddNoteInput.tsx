@@ -12,6 +12,7 @@ interface AddNoteInputProps {
 }
 
 export default function AddNoteInput({ jobId, userId, onAdded }: AddNoteInputProps) {
+  const { convert } = useWhat3Words();
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
