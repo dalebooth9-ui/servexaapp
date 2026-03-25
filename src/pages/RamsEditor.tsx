@@ -965,7 +965,7 @@ export default function RamsEditor() {
               <div>
                 <p className="text-sm font-semibold">Risk Assessment Rows</p>
                 <p className="text-xs text-muted-foreground">
-                  Rating = Likelihood × Severity. ≥15 High · 8–14 Medium · 4–7 Low-Medium · &lt;4 Low
+                  Rating = Likelihood × Severity. ≥15 High · 8–14 Medium · 4–7 Low-Medium · &lt;4 Low · Post-control rating must be &lt;8
                 </p>
               </div>
               <Button
