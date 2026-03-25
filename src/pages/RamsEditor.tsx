@@ -135,8 +135,8 @@ function ListEditor({
 }
 
 function RiskRowEditor({
-  row, onChange, onDelete, index,
-}: { row: string[]; onChange: (row: string[]) => void; onDelete: () => void; index: number }) {
+  row, onChange, onDelete, index, dragHandleProps,
+}: { row: string[]; onChange: (row: string[]) => void; onDelete: () => void; index: number; dragHandleProps?: Record<string, any> }) {
   const set = (col: number, val: string) => {
     const next = [...row];
     next[col] = val;
@@ -153,7 +153,14 @@ function RiskRowEditor({
   return (
     <div className="rounded-lg border bg-card p-3 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-mono font-bold text-muted-foreground">Row {index + 1}</span>
+        <div className="flex items-center gap-2">
+          {dragHandleProps && (
+            <button {...dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none">
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
+          <span className="text-xs font-mono font-bold text-muted-foreground">Row {index + 1}</span>
+        </div>
         <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
