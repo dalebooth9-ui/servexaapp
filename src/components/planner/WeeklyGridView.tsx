@@ -1169,6 +1169,7 @@ function SortableEngineerRow({
             return (
               <div
                 key={cellId}
+                data-day-col={colIdx}
                 className={cn(
                   "min-h-[80px] rounded-md border border-dashed border-primary/10 p-1 transition-colors",
                   isToday && "bg-primary/3"
@@ -1176,6 +1177,13 @@ function SortableEngineerRow({
               />
             );
           }
+
+          // Determine live preview span for a span being resized at this col
+          const getEffectiveSpan = (spanItem: { jobId: string; startColIndex: number; span: number }) => {
+            const key = `${spanItem.jobId}-${eng.user_id}`;
+            if (resizingSpanKey === key) return resizePreviewSpan;
+            return spanItem.span;
+          };
 
           // Build cell content
           const content = (
@@ -1205,23 +1213,26 @@ function SortableEngineerRow({
                   (e) => e.user_id !== eng.user_id &&
                     schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                 );
+                const effectiveSpan = getEffectiveSpan(spanItem);
+                const spanKey = `${spanItem.jobId}-${eng.user_id}`;
                 return (
                   <div
                     key={`span-${spanItem.jobId}-${colIdx}`}
-                    className="group"
+                    className={cn("group", resizingSpanKey === spanKey && "select-none")}
                     style={{
-                      gridColumn: `span ${Math.min(spanItem.span, weekDays.length - colIdx)}`,
+                      gridColumn: `span ${Math.min(effectiveSpan, weekDays.length - colIdx)}`,
                     }}
                   >
                     <SpanningJobCard
                       entries={spanItem.entries}
                       job={job}
-                      span={spanItem.span}
+                      span={effectiveSpan}
                       isAdmin={isAdmin}
                       onRemove={onRemove}
                       pairedEngineers={paired}
                       isFirst={true}
                       isContinuation={false}
+                      onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, eng.user_id, colIdx, spanItem.entries) : undefined}
                     />
                   </div>
                 );
@@ -1249,17 +1260,20 @@ function SortableEngineerRow({
                       (e) => e.user_id !== partnerEng.user_id &&
                         schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                     );
+                    const effectiveSpan = getEffectiveSpan(spanItem);
+                    const spanKey = `${spanItem.jobId}-${partnerEng.user_id}`;
                     return (
-                      <div key={`pspan-${spanItem.jobId}-${colIdx}`} className="group">
+                      <div key={`pspan-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
                         <SpanningJobCard
                           entries={spanItem.entries}
                           job={job}
-                          span={spanItem.span}
+                          span={effectiveSpan}
                           isAdmin={isAdmin}
                           onRemove={onRemove}
                           pairedEngineers={paired}
                           isFirst={true}
                           isContinuation={false}
+                          onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, partnerEng.user_id, colIdx, spanItem.entries) : undefined}
                         />
                       </div>
                     );
@@ -1280,7 +1294,7 @@ function SortableEngineerRow({
           );
 
           return (
-            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday}>
+            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday} colIdx={colIdx}>
               {content}
             </DroppableCell>
           );
