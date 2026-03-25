@@ -378,7 +378,10 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
     engineer_name: "Dale Booth",
     engineer_signature: daleSig,
     status: "draft",
-    test_outcome: "pass",
+    // Store org company name and system type so PDF can use them
+    test_outcome: systemType,
+    // Store full org details as JSON in test_notes for PDF rendering
+    test_notes: JSON.stringify({ orgCompanyName, orgAddress, orgPhone, orgEmail, orgWebsite, orgRegNo }),
   } as any);
 }
 
