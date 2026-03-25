@@ -476,18 +476,21 @@ function DroppableCell({
   isToday,
   isOver,
   isLeave,
+  colIdx,
 }: {
   id: string;
   children: React.ReactNode;
   isToday: boolean;
   isOver: boolean;
   isLeave?: boolean;
+  colIdx?: number;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
   return (
     <div
       ref={setNodeRef}
+      data-day-col={colIdx}
       className={cn(
         "min-h-[80px] rounded-md border p-1.5 space-y-1 transition-colors",
         isToday && "bg-primary/5 border-primary/20",
