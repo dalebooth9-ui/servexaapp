@@ -215,6 +215,17 @@ export async function generateJobSheetPdf(
     ? String(formData[riserField.id])
     : (jobInfo?.site as any)?.riser_location || "";
 
+  // Resolve what3words for the job site address
+  let w3wAddress: string | undefined;
+  const w3wLookupAddr = (jobInfo?.site as any)?.address || jobInfo?.address;
+  if (w3wLookupAddr && jobId) {
+    try {
+      const { supabase: sb } = await import("@/integrations/supabase/client");
+      const { data: w3wData } = await sb.functions.invoke("w3w-convert", { body: { address: w3wLookupAddr } });
+      if (w3wData?.words) w3wAddress = w3wData.words as string;
+    } catch { /* skip */ }
+  }
+
   let y = await renderPdfHeader(doc, template.name, branding, {
     customerName,
     siteName: siteDisplay,
@@ -222,6 +233,7 @@ export async function generateJobSheetPdf(
     refNumber,
     dateVal,
     riserLocation: riserLocValue,
+    w3wAddress,
   }, undefined, accentColor);
 
   // --- Service scope line (PT / Visual / Other) ---
