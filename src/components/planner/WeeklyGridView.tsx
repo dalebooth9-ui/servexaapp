@@ -184,6 +184,7 @@ function SpanningJobCard({
   pairedEngineers,
   isFirst,
   isContinuation,
+  onResizeStart,
 }: {
   entries: ScheduleEntry[];
   job: Job | undefined;
@@ -192,7 +193,8 @@ function SpanningJobCard({
   onRemove: (id: string) => void;
   pairedEngineers?: Engineer[];
   isFirst: boolean;
-  isContinuation: boolean; // continues from previous week
+  isContinuation: boolean;
+  onResizeStart?: (e: React.PointerEvent) => void;
 }) {
   if (!job) return null;
   const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
@@ -291,6 +293,16 @@ function SpanningJobCard({
           </button>
         )}
       </div>
+      {/* Resize handle — right edge */}
+      {isAdmin && onResizeStart && (
+        <div
+          onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
+          title="Drag to extend or shrink across days"
+        >
+          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
+        </div>
+      )}
     </div>
   );
 }
