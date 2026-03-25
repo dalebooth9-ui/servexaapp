@@ -149,6 +149,8 @@ export default function Sites() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("hierarchy");
+  const [editingW3W, setEditingW3W] = useState<string | null>(null);
+
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
