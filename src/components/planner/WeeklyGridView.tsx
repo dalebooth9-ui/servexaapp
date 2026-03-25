@@ -1317,7 +1317,18 @@ function SortableEngineerRow({
                       (e) => e.user_id !== partnerEng.user_id &&
                         schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                     );
-                    return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
+                    const spanKey = `single-${entry.id}`;
+                    return (
+                      <DraggableScheduleCard
+                        key={entry.id}
+                        entry={entry}
+                        job={getJob(entry.job_id)}
+                        isAdmin={isAdmin}
+                        onRemove={onRemove}
+                        pairedEngineers={paired}
+                        onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, partnerEng.user_id, colIdx, [entry]) : undefined}
+                      />
+                    );
                   })}
                   {partnerCellAdhoc.map((adhoc) => (
                     <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
