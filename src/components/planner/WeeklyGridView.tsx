@@ -456,25 +456,6 @@ function DraggableScheduleCard({
           </div>
         )}
       </div>
-      {isAdmin && (
-        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover/schedcard:opacity-100 transition-opacity z-10">
-          {onAdjustSpan && (
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
-              className="rounded px-1 py-0.5 text-[10px] font-bold hover:bg-primary/20 text-primary transition-colors"
-              title="Add 1 day"
-            >+1d</button>
-          )}
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-            className="text-muted-foreground hover:text-destructive transition-colors"
-          >
-            <X className="h-3 w-3" />
-          </button>
-        </div>
-      )}
     </div>
   );
 }
