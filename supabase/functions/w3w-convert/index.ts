@@ -42,7 +42,7 @@ serve(async (req) => {
       });
     }
 
-    const url = `https://api.what3words.com/v3/convert-to-3wa?coordinates=${lat},${lng}&language=en&format=json&key=${apiKey}`;
+    const url = `https://api.what3words.com/v3/convert-to-3wa?coordinates=${latNum},${lngNum}&language=en&format=json&key=${apiKey}`;
     const response = await fetch(url);
 
     if (!response.ok) {
