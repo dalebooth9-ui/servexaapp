@@ -668,6 +668,7 @@ export default function RamsEditor() {
     } else {
       toast({ title: "RAMS saved" });
       setIsDirty(false);
+      clearDraft();
     }
     setSaving(false);
   };
