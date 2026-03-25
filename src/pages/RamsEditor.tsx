@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle, Users, UserCheck, Eraser, Check } from "lucide-react";
 import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
 
@@ -189,6 +189,82 @@ function RiskRowEditor({
   );
 }
 
+/* ── Inline Signature Pad ── */
+function SignaturePad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [drawing, setDrawing] = useState(false);
+  const lastPt = useRef<{ x: number; y: number } | null>(null);
+  const [hasStrokes, setHasStrokes] = useState(!!value);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = "#1a1a1a";
+    ctx.lineWidth = 1.8;
+    ctx.lineCap = "round";
+    if (value) {
+      const img = new Image();
+      img.onload = () => ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      img.src = value;
+    }
+  }, []);
+
+  const getPos = (e: React.MouseEvent | React.TouchEvent) => {
+    const canvas = canvasRef.current!;
+    const rect = canvas.getBoundingClientRect();
+    const sx = canvas.width / rect.width;
+    const sy = canvas.height / rect.height;
+    if ("touches" in e) return { x: (e.touches[0].clientX - rect.left) * sx, y: (e.touches[0].clientY - rect.top) * sy };
+    return { x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy };
+  };
+
+  const startDraw = (e: React.MouseEvent | React.TouchEvent) => { e.preventDefault(); setDrawing(true); lastPt.current = getPos(e); };
+  const draw = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    if (!drawing) return;
+    const ctx = canvasRef.current!.getContext("2d")!;
+    const pos = getPos(e);
+    if (lastPt.current) { ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke(); }
+    lastPt.current = pos;
+    setHasStrokes(true);
+  };
+  const endDraw = () => { setDrawing(false); lastPt.current = null; };
+  const clear = () => {
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    setHasStrokes(false);
+    onChange("");
+  };
+  const confirm = () => { onChange(canvasRef.current!.toDataURL("image/png")); };
+
+  return (
+    <div className="space-y-2">
+      <canvas
+        ref={canvasRef} width={400} height={100}
+        className="w-full border rounded bg-white touch-none cursor-crosshair"
+        onMouseDown={startDraw} onMouseMove={draw} onMouseUp={endDraw} onMouseLeave={endDraw}
+        onTouchStart={startDraw} onTouchMove={draw} onTouchEnd={endDraw}
+      />
+      <div className="flex gap-2">
+        <Button variant="outline" size="sm" onClick={clear} disabled={!hasStrokes} className="h-7 text-xs">
+          <Eraser className="h-3 w-3 mr-1" /> Clear
+        </Button>
+        <Button size="sm" onClick={confirm} disabled={!hasStrokes} className="h-7 text-xs">
+          <Check className="h-3 w-3 mr-1" /> Apply
+        </Button>
+        {value && <Badge variant="secondary" className="text-[10px] self-center">Signed</Badge>}
+      </div>
+    </div>
+  );
+}
+
+type PersonnelEntry = { name: string; role: string; company: string };
+
 export default function RamsEditor() {
   const { jobId, ramsId } = useParams<{ jobId: string; ramsId?: string }>();
   const [searchParams] = useSearchParams();
@@ -222,6 +298,15 @@ export default function RamsEditor() {
   const [specialTraining, setSpecialTraining] = useState("");
   const [ppeItems, setPpeItems] = useState<string[]>([]);
   const [riskRows, setRiskRows] = useState<string[][]>([]);
+
+  // Personnel & Approval state
+  const [personnelList, setPersonnelList] = useState<PersonnelEntry[]>([]);
+  const [approvalFields, setApprovalFields] = useState({
+    approverName: "", approverRole: "", approvalDate: new Date().toLocaleDateString("en-GB"), approverSignature: "",
+  });
+  const [supervisorFields, setSupervisorFields] = useState({
+    supervisorName: "", supervisorRole: "", supervisorContact: "", supervisorSignature: "",
+  });
 
   // Load job and existing RAMS doc
   useEffect(() => {
@@ -265,6 +350,19 @@ export default function RamsEditor() {
         setSpecialTraining(d.special_training || "");
         setPpeItems(d.ppe_items || []);
         setRiskRows(d.risk_rows || []);
+        setPersonnelList(d.personnel_list || []);
+        setApprovalFields({
+          approverName: d.approver_name || "",
+          approverRole: d.approver_role || "",
+          approvalDate: d.approval_date || new Date().toLocaleDateString("en-GB"),
+          approverSignature: d.approver_signature || "",
+        });
+        setSupervisorFields({
+          supervisorName: d.supervisor_name || "",
+          supervisorRole: d.supervisor_role || "",
+          supervisorContact: d.supervisor_contact || "",
+          supervisorSignature: d.supervisor_signature || "",
+        });
       } else {
         // Auto-detect type from job category (all categories)
         const catMap: Record<string, RamsType> = {
@@ -290,7 +388,8 @@ export default function RamsEditor() {
   useEffect(() => {
     if (!loading) setIsDirty(true);
   }, [coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps, location, resources,
-      personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType]);
+      personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType,
+      personnelList, approvalFields, supervisorFields]);
 
   const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
     const d = getRamsDefaults(type);
@@ -354,6 +453,15 @@ export default function RamsEditor() {
       special_training: specialTraining,
       ppe_items: ppeItems,
       risk_rows: riskRows,
+      personnel_list: personnelList,
+      approver_name: approvalFields.approverName,
+      approver_role: approvalFields.approverRole,
+      approval_date: approvalFields.approvalDate,
+      approver_signature: approvalFields.approverSignature,
+      supervisor_name: supervisorFields.supervisorName,
+      supervisor_role: supervisorFields.supervisorRole,
+      supervisor_contact: supervisorFields.supervisorContact,
+      supervisor_signature: supervisorFields.supervisorSignature,
     };
 
     let error: any;
@@ -393,6 +501,9 @@ export default function RamsEditor() {
     _specialTraining: specialTraining,
     _ppeItems: ppeItems,
     _riskRows: riskRows,
+    _personnelList: personnelList,
+    _approvalFields: approvalFields,
+    _supervisorFields: supervisorFields,
   });
 
   if (loading) {
@@ -460,11 +571,14 @@ export default function RamsEditor() {
       </Card>
 
       <Tabs defaultValue="cover">
-        <TabsList className="mb-4 w-full grid grid-cols-4">
+        <TabsList className="mb-4 w-full grid grid-cols-5">
           <TabsTrigger value="cover">Cover Page</TabsTrigger>
           <TabsTrigger value="method">Method Statement</TabsTrigger>
           <TabsTrigger value="ppe">PPE & Risks</TabsTrigger>
           <TabsTrigger value="risk-table">Risk Table</TabsTrigger>
+          <TabsTrigger value="personnel" className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" /> Personnel
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Cover Page ── */}
@@ -652,6 +766,135 @@ export default function RamsEditor() {
                 onDelete={() => setRiskRows(riskRows.filter((_, j) => j !== i))}
               />
             ))}
+          </div>
+        </TabsContent>
+
+        {/* ── Personnel & Approval ── */}
+        <TabsContent value="personnel">
+          <div className="space-y-6">
+
+            {/* Personnel List */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" /> Personnel on Site
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">List all individuals attending site under this RAMS.</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                    onClick={() => setPersonnelList([...personnelList, { name: "", role: "", company: "Servexa Ltd" }])}>
+                    <Plus className="h-3.5 w-3.5" /> Add Person
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {personnelList.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-muted-foreground text-sm">
+                    <Users className="h-6 w-6 opacity-40" />
+                    <p>No personnel added yet.</p>
+                  </div>
+                )}
+                {personnelList.map((p, i) => (
+                  <div key={i} className="rounded-lg border bg-card p-3 grid grid-cols-3 gap-3 items-end">
+                    <div>
+                      <Label className="text-xs">Full Name</Label>
+                      <Input value={p.name} className="mt-1 text-sm"
+                        onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Role / Trade</Label>
+                      <Input value={p.role} className="mt-1 text-sm"
+                        onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], role: e.target.value }; setPersonnelList(next); }} />
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Label className="text-xs">Company</Label>
+                        <Input value={p.company} className="mt-1 text-sm"
+                          onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], company: e.target.value }; setPersonnelList(next); }} />
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-9 w-9 text-destructive/70 hover:text-destructive shrink-0"
+                        onClick={() => setPersonnelList(personnelList.filter((_, j) => j !== i))}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* RAMS Approval */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-primary" /> RAMS Approval
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Person responsible for approving this RAMS document.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs">Approver Name</Label>
+                    <Input value={approvalFields.approverName} className="mt-1 text-sm"
+                      onChange={(e) => setApprovalFields({ ...approvalFields, approverName: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Approver Role / Title</Label>
+                    <Input value={approvalFields.approverRole} className="mt-1 text-sm"
+                      onChange={(e) => setApprovalFields({ ...approvalFields, approverRole: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Approval Date</Label>
+                    <Input value={approvalFields.approvalDate} className="mt-1 text-sm" placeholder="DD/MM/YYYY"
+                      onChange={(e) => setApprovalFields({ ...approvalFields, approvalDate: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Approver Signature</Label>
+                  <SignaturePad
+                    value={approvalFields.approverSignature}
+                    onChange={(v) => setApprovalFields({ ...approvalFields, approverSignature: v })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Supervisor */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-primary" /> Site Supervisor
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">The nominated supervisor responsible for ensuring compliance with this RAMS on site.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs">Supervisor Name</Label>
+                    <Input value={supervisorFields.supervisorName} className="mt-1 text-sm"
+                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorName: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Role / Title</Label>
+                    <Input value={supervisorFields.supervisorRole} className="mt-1 text-sm"
+                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorRole: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Contact Number</Label>
+                    <Input value={supervisorFields.supervisorContact} className="mt-1 text-sm" placeholder="e.g. 07700 000000"
+                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorContact: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Supervisor Signature</Label>
+                  <SignaturePad
+                    value={supervisorFields.supervisorSignature}
+                    onChange={(v) => setSupervisorFields({ ...supervisorFields, supervisorSignature: v })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
       </Tabs>
