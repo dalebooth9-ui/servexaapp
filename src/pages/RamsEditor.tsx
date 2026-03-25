@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -14,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle, Users, UserCheck, Eraser, Check } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { ArrowLeft, Plus, Trash2, Save, Loader2, AlertTriangle, Users, UserCheck, Eraser, Check, Briefcase, Search } from "lucide-react";
 import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
 
@@ -459,11 +460,32 @@ export default function RamsEditor() {
     }
   };
 
-  const save = async () => {
-    if (!jobId || !user) return;
+  // Save to job dialog state
+  const [saveToJobOpen, setSaveToJobOpen] = useState(false);
+  const [jobSearch, setJobSearch] = useState("");
+  const [jobSearchResults, setJobSearchResults] = useState<{ id: string; reference_number: string; name: string; customers: { name: string } | null }[]>([]);
+  const [jobSearchLoading, setJobSearchLoading] = useState(false);
+  const [selectedSaveJob, setSelectedSaveJob] = useState<{ id: string; reference_number: string; name: string } | null>(null);
+
+  const searchJobs = async (q: string) => {
+    if (!q.trim()) { setJobSearchResults([]); return; }
+    setJobSearchLoading(true);
+    const { data } = await supabase
+      .from("jobs")
+      .select("id, reference_number, name, customers(name)")
+      .or(`name.ilike.%${q}%,reference_number.ilike.%${q}%`)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setJobSearchResults((data as any) || []);
+    setJobSearchLoading(false);
+  };
+
+  const save = async (overrideJobId?: string) => {
+    const targetJobId = overrideJobId || jobId;
+    if (!targetJobId || !user) return;
     setSaving(true);
     const payload = {
-      job_id: jobId,
+      job_id: targetJobId,
       rams_type: ramsType,
       created_by: user.id,
       contract_job_name: coverFields.contractJobName,
@@ -547,8 +569,8 @@ export default function RamsEditor() {
     <div className="max-w-5xl mx-auto pb-16">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(`/jobs/${jobId}`)}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Job
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(jobId ? `/jobs/${jobId}` : "/jobs")}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> {jobId ? "Back to Job" : "Back"}
         </Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">RAMS Editor</h1>
@@ -565,10 +587,14 @@ export default function RamsEditor() {
             jobId={jobId ?? undefined}
             ramsType={ramsType}
           />
-          {jobId && (
-            <Button onClick={save} disabled={saving} size="sm">
+          {jobId ? (
+            <Button onClick={() => save()} disabled={saving} size="sm">
               {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
               {saving ? "Saving…" : "Save RAMS"}
+            </Button>
+          ) : (
+            <Button onClick={() => setSaveToJobOpen(true)} disabled={saving} size="sm" variant="default">
+              <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Save to Job
             </Button>
           )}
         </div>
@@ -939,11 +965,80 @@ export default function RamsEditor() {
           jobId={jobId ?? undefined}
           ramsType={ramsType}
         />
-        <Button onClick={save} disabled={saving} size="sm">
-          {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
-          {saving ? "Saving…" : "Save RAMS"}
-        </Button>
+        {jobId ? (
+          <Button onClick={() => save()} disabled={saving} size="sm">
+            {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+            {saving ? "Saving…" : "Save RAMS"}
+          </Button>
+        ) : (
+          <Button onClick={() => setSaveToJobOpen(true)} disabled={saving} size="sm">
+            <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Save to Job
+          </Button>
+        )}
       </div>
+
+      {/* Save to Job dialog */}
+      <Dialog open={saveToJobOpen} onOpenChange={setSaveToJobOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-primary" /> Save RAMS to Job
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label className="text-xs text-muted-foreground">Search by job name or reference</Label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                className="pl-8"
+                placeholder="e.g. VFP-00123 or Exeter University…"
+                value={jobSearch}
+                onChange={(e) => { setJobSearch(e.target.value); searchJobs(e.target.value); }}
+                autoFocus
+              />
+            </div>
+            {jobSearchLoading && <p className="text-xs text-muted-foreground animate-pulse">Searching…</p>}
+            {jobSearchResults.length > 0 && (
+              <div className="rounded-md border divide-y max-h-56 overflow-y-auto">
+                {jobSearchResults.map((j) => (
+                  <button
+                    key={j.id}
+                    type="button"
+                    onClick={() => setSelectedSaveJob(j)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${selectedSaveJob?.id === j.id ? "bg-primary/10 font-medium" : ""}`}
+                  >
+                    <span className="font-mono text-xs text-muted-foreground mr-2">{j.reference_number}</span>
+                    {j.name}
+                    {j.customers?.name && <span className="text-xs text-muted-foreground ml-1">· {j.customers.name}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedSaveJob && (
+              <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-sm flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span>Saving to: <strong>{selectedSaveJob.reference_number}</strong> · {selectedSaveJob.name}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveToJobOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!selectedSaveJob || saving}
+              onClick={async () => {
+                if (!selectedSaveJob) return;
+                await save(selectedSaveJob.id);
+                setSaveToJobOpen(false);
+                toast({ title: "RAMS saved", description: `Linked to ${selectedSaveJob.reference_number}` });
+                navigate(`/jobs/${selectedSaveJob.id}`);
+              }}
+            >
+              {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+              Save & Go to Job
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
