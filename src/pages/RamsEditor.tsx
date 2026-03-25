@@ -278,7 +278,17 @@ export default function RamsEditor() {
   const [docId, setDocId] = useState<string | null>(ramsId || null);
   const [isDirty, setIsDirty] = useState(false);
 
+  // Current user's profile for auto-fill
+  const [myProfile, setMyProfile] = useState<{ full_name: string; signature_data: string | null } | null>(null);
+
   useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
+
+  // Fetch current user profile for signature auto-fill
+  useEffect(() => {
+    if (!user) return;
+    supabase.from("profiles").select("full_name, signature_data").eq("user_id", user.id).maybeSingle()
+      .then(({ data }) => { if (data) setMyProfile(data); });
+  }, [user]);
 
   // Form state — honour ?type= query param for pre-selection from Industry Templates
   const queryType = searchParams.get("type") as RamsType | null;
@@ -307,6 +317,25 @@ export default function RamsEditor() {
   const [supervisorFields, setSupervisorFields] = useState({
     supervisorName: "", supervisorRole: "", supervisorContact: "", supervisorSignature: "",
   });
+
+  // Auto-fill approver from profile once loaded (only if not already set from saved doc)
+  useEffect(() => {
+    if (!myProfile) return;
+    setApprovalFields((prev) => ({
+      ...prev,
+      approverName: prev.approverName || myProfile.full_name || "",
+      approverSignature: prev.approverSignature || myProfile.signature_data || "",
+    }));
+  }, [myProfile]);
+
+  // Helper: add current engineer to personnel list
+  const addPersonWithMyDetails = () => {
+    setPersonnelList((prev) => [...prev, {
+      name: myProfile?.full_name || "",
+      role: "",
+      company: "Servexa Ltd",
+    }]);
+  };
 
   // Load job and existing RAMS doc
   useEffect(() => {
