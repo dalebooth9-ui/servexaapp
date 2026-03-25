@@ -62,6 +62,7 @@ export default function JobDetail() {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
+  const { convert: convertW3W } = useWhat3Words();
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
@@ -69,12 +70,13 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
-  const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null }[]>([]);
+  const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null; latitude?: number | null; longitude?: number | null }[]>([]);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
 
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
