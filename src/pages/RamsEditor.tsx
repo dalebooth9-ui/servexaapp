@@ -386,6 +386,7 @@ export default function RamsEditor() {
   const [specialTraining, setSpecialTraining] = useState("");
   const [ppeItems, setPpeItems] = useState<string[]>([]);
   const [riskRows, setRiskRows] = useState<string[][]>([]);
+  const riskSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   // Personnel & Approval state
   const [personnelList, setPersonnelList] = useState<PersonnelEntry[]>([]);
