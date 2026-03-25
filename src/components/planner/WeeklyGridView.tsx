@@ -333,97 +333,105 @@ function DraggableScheduleCard({
 
   return (
     <div
+      ref={isAdmin ? dragRef : undefined}
+      {...(isAdmin ? attributes : {})}
+      {...(isAdmin ? listeners : {})}
       className={cn(
         "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
-        isAdmin && "cursor-grab",
+        isAdmin && "cursor-grab active:cursor-grabbing",
       )}
     >
-      <div className="flex items-start gap-1">
-        {isAdmin && (
-          <span ref={dragRef} {...attributes} {...listeners} className="mt-0.5 shrink-0 text-muted-foreground">
-            <GripVertical className="h-3 w-3" />
-          </span>
-        )}
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-1 mb-0.5">
-            <div className="flex items-center gap-1 min-w-0">
-              <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline shrink-0">
-                {job.reference_number}
-              </Link>
-              {STATUS_INDICATOR[job.status] && (
-                <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
-                  {STATUS_INDICATOR[job.status].label}
-                </span>
-              )}
-            </div>
-            {job.due_date && (() => {
-              return isOverdue ? (
-                <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
-                  <AlertTriangle className="h-2 w-2" /> OVERDUE
-                </span>
-              ) : dueToday ? (
-                <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">
-                  TODAY
-                </span>
-              ) : (
-                <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
-                  {format(parseISO(job.due_date!), "dd/MM/yy")}
-                </span>
-              );
-            })()}
-          </div>
-          <div className="truncate text-foreground">{job.name}</div>
-          {(job.site?.name || job.site?.postcode) && (
-            <div className="truncate text-muted-foreground text-[10px]">
-              📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
-            </div>
-          )}
-          {entry.notes && (
-            <div
-              className="truncate italic text-[10px] font-medium"
-              style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
-            >
-              {entry.notes}
-            </div>
-          )}
-          {pairedEngineers && pairedEngineers.length > 0 && (
-            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
-              <Users className="h-2.5 w-2.5 text-primary shrink-0" />
-              {pairedEngineers.map((pe) => (
-                <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
-                  {pe.full_name.split(" ")[0]}
-                </span>
-              ))}
-            </div>
-          )}
-          {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {job.category === "installation" && (
-                <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
-              )}
-              {job.pressure_test_qty > 0 && (
-                <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
-              )}
-              {job.visual_qty > 0 && (
-                <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
-              )}
-              {job.other_qty > 0 && job.other_service_type && (
-                <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
-              )}
-            </div>
-          )}
+      {/* Drag hint — visible on hover for admins */}
+      {isAdmin && (
+        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <GripVertical className="h-3 w-3 text-muted-foreground/60" />
         </div>
-        {isAdmin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-            className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+      )}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-1 mb-0.5">
+          <div className="flex items-center gap-1 min-w-0">
+            <Link
+              to={`/jobs/${job.id}`}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className="font-mono font-semibold text-primary hover:underline shrink-0"
+            >
+              {job.reference_number}
+            </Link>
+            {STATUS_INDICATOR[job.status] && (
+              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
+                {STATUS_INDICATOR[job.status].label}
+              </span>
+            )}
+          </div>
+          {job.due_date && (() => {
+            return isOverdue ? (
+              <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+                <AlertTriangle className="h-2 w-2" /> OVERDUE
+              </span>
+            ) : dueToday ? (
+              <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">
+                TODAY
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded bg-muted border border-border px-1.5 py-0.5 text-[9px] font-mono text-muted-foreground shrink-0">
+                {format(parseISO(job.due_date!), "dd/MM/yy")}
+              </span>
+            );
+          })()}
+        </div>
+        <div className="truncate text-foreground">{job.name}</div>
+        {(job.site?.name || job.site?.postcode) && (
+          <div className="truncate text-muted-foreground text-[10px]">
+            📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+          </div>
+        )}
+        {entry.notes && (
+          <div
+            className="truncate italic text-[10px] font-medium"
+            style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
           >
-            <X className="h-3 w-3" />
-          </button>
+            {entry.notes}
+          </div>
+        )}
+        {pairedEngineers && pairedEngineers.length > 0 && (
+          <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+            <Users className="h-2.5 w-2.5 text-primary shrink-0" />
+            {pairedEngineers.map((pe) => (
+              <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
+                {pe.full_name.split(" ")[0]}
+              </span>
+            ))}
+          </div>
+        )}
+        {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+          <div className="flex flex-wrap gap-1 mt-0.5">
+            {job.category === "installation" && (
+              <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
+            )}
+            {job.pressure_test_qty > 0 && (
+              <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
+            )}
+            {job.visual_qty > 0 && (
+              <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+            )}
+            {job.other_qty > 0 && job.other_service_type && (
+              <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
+            )}
+          </div>
         )}
       </div>
+      {isAdmin && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+          className="absolute bottom-1 right-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity z-10"
+        >
+          <X className="h-3 w-3" />
+        </button>
+      )}
     </div>
   );
 }
