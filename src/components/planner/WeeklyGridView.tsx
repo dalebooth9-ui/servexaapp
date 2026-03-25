@@ -1150,28 +1150,29 @@ function SortableEngineerRow({
         style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
       >
         {/* Engineer name column */}
-        <div className="flex flex-col justify-center gap-0.5 px-2 py-1 min-w-0">
+        <div
+          ref={(node) => { if (!partnerEng) pairDropRef(node); }}
+          className={cn(
+            "flex flex-col justify-center gap-0.5 px-2 py-1 min-w-0 rounded transition-colors",
+            isPairDropOver && !partnerEng && "bg-primary/15 ring-1 ring-primary/50"
+          )}
+        >
           <div className="flex items-center gap-1 min-w-0">
             {isAdmin && (
               <span {...sortAttrs} {...sortListeners} className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground" title="Drag to reorder">
                 <GripVertical className="h-3.5 w-3.5" />
               </span>
             )}
-            {/* Droppable + draggable engineer name */}
+            {/* Draggable engineer name */}
             <span
-              ref={(node) => {
-                if (!partnerEng) {
-                  pairRef(node);
-                  pairDropRef(node);
-                }
-              }}
+              ref={!partnerEng ? pairRef : undefined}
               {...(!partnerEng ? pairAttrs : {})}
               {...(!partnerEng ? pairListeners : {})}
               className={cn(
                 "truncate text-sm font-medium rounded px-1 py-0.5 transition-colors",
                 isAdmin && !partnerEng && "cursor-grab hover:text-primary",
                 isPairDragging && "opacity-40",
-                isPairDropOver && !partnerEng && "bg-primary/20 text-primary ring-1 ring-primary/50"
+                isPairDropOver && !partnerEng && "text-primary font-semibold"
               )}
               title={isAdmin && !partnerEng ? "Drag onto another engineer to pair them on this row" : undefined}
             >
