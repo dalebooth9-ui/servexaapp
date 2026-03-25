@@ -391,6 +391,62 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const { loadWatermarkImage, addWatermarkToAllPages } = await import("@/lib/pdfWatermark");
   const { loadAccreditationLogos, renderAccreditationLogos } = await import("@/lib/pdfAccreditations");
 
+  // ── Org branding — try stored JSON in test_notes first, then fetch live ──
+  let orgCompanyName = "Viva Fire Protection Ltd";
+  let orgAddress = "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ";
+  let orgPhone = "0845 269 8482";
+  let orgEmail = "sales@vivafire.co.uk";
+  let orgWebsite = "www.vivafire.co.uk";
+  let orgRegNo = "06464084";
+
+  // Try to parse stored JSON from test_notes
+  let extraNotes = "";
+  if (cert.test_notes) {
+    try {
+      const parsed = JSON.parse(cert.test_notes);
+      if (parsed && typeof parsed === "object" && parsed.orgCompanyName) {
+        orgCompanyName = parsed.orgCompanyName || orgCompanyName;
+        orgAddress = parsed.orgAddress || orgAddress;
+        orgPhone = parsed.orgPhone || orgPhone;
+        orgEmail = parsed.orgEmail || orgEmail;
+        orgWebsite = parsed.orgWebsite || orgWebsite;
+        orgRegNo = parsed.orgRegNo || orgRegNo;
+      } else {
+        extraNotes = cert.test_notes;
+      }
+    } catch {
+      extraNotes = cert.test_notes;
+    }
+  }
+
+  // Fetch live org branding as fallback/override
+  try {
+    const { supabase } = await import("@/integrations/supabase/client");
+    const { data: brandingSetting } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "org_branding")
+      .maybeSingle();
+    if (brandingSetting?.value && typeof brandingSetting.value === "object") {
+      const b = brandingSetting.value as any;
+      if (b.company_name) orgCompanyName = b.company_name;
+      if (b.address) orgAddress = b.address;
+      if (b.phone) orgPhone = b.phone;
+      if (b.email) orgEmail = b.email;
+      if (b.website) orgWebsite = b.website;
+      if (b.reg_no) orgRegNo = b.reg_no;
+    }
+  } catch {}
+
+  // System type from test_outcome field (stored at creation) or default
+  const systemType = cert.test_outcome && cert.test_outcome !== "pass"
+    ? cert.test_outcome
+    : "dry riser system";
+  const systemTypeTitle = systemType
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
@@ -436,7 +492,7 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
     y += bandH + bandGap;
   };
 
-  drawTitleBand("Dry Riser System", 12);
+  drawTitleBand(systemTypeTitle, 12);
   drawTitleBand("Certificate of Conformity", 14);
   drawTitleBand(`Certificate Number ${cert.certificate_number || "—"}`, 12);
 
@@ -483,17 +539,17 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const pressureBar = cert.pressure_bar ?? 12;
   const pressureDuration = cert.pressure_duration ?? 15;
   const sysQty = cert.system_qty ?? 1;
-  const sysText = sysQty === 1 ? "one dry riser system" : `${sysQty} dry riser systems`;
+  const sysText = sysQty === 1 ? `one ${systemType}` : `${sysQty} ${systemType}s`;
   const inletWord = inletQty === 1 ? "inlet valve" : "inlet valves";
   const outletWord = outletQty === 1 ? "outlet valve" : "outlet valves";
 
   const bodyParas = [
-    `Viva Fire Protection Ltd, confirm having installed, inspected and tested ${sysText} at the above site.`,
+    `${orgCompanyName}, confirm having installed, inspected and tested ${sysText} at the above site.`,
     "The system was found to conform to the requirements of BS 9990:2015",
-    `The dry riser system comprises of ${inletQty} ${inletWord} and ${outletQty} ${outletWord}.`,
-    `The Viva Fire test comprised of static pressure test with water to ${pressureBar} bar of the whole system for ${pressureDuration} minutes`,
+    `The ${systemType} comprises of ${inletQty} ${inletWord} and ${outletQty} ${outletWord}.`,
+    `The ${orgCompanyName} test comprised of static pressure test with water to ${pressureBar} bar of the whole system for ${pressureDuration} minutes`,
   ];
-  if (cert.test_notes) bodyParas.push(cert.test_notes);
+  if (extraNotes) bodyParas.push(extraNotes);
 
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
@@ -510,7 +566,7 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   // ── Sign-off row — left label, date tabbed right ──────────────────────
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.text("Signed on behalf of Viva Fire Protection Ltd", ML, y);
+  doc.text(`Signed on behalf of ${orgCompanyName}`, ML, y);
   doc.text(`Date ${cert.sign_date || "—"}`, pw - MR, y, { align: "right" });
   y += 10;
 
@@ -541,12 +597,10 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   }
 
   // ── Footer area ──────────────────────────────────────────────────────
-  // Accreditation logos above footer
   const footerBandY = ph - 22;
   const accrH = 12;
   renderAccreditationLogos(doc, logos, footerBandY - accrH - 6, accrH);
 
-  // Address line
   doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.3);
   doc.line(ML, footerBandY - 3, pw - MR, footerBandY - 3);
@@ -554,11 +608,8 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   doc.setFontSize(7.5);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(60, 60, 60);
-  doc.text(
-    "Viva Fire Protection Limited,  Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ",
-    ML, footerBandY + 2
-  );
-  doc.text("Company Reg No: 06464084", pw - MR, footerBandY + 2, { align: "right" });
+  doc.text(`${orgCompanyName},  ${orgAddress}`, ML, footerBandY + 2);
+  doc.text(`Company Reg No: ${orgRegNo}`, pw - MR, footerBandY + 2, { align: "right" });
 
   // Bold contact strip at very bottom
   doc.setFillColor(255, 255, 255);
@@ -566,9 +617,9 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 30, 30);
   const stripY = ph - 8;
-  doc.text("Tel: 0845 269 8482", ML, stripY);
-  doc.text("sales@vivafire.co.uk", pw / 2, stripY, { align: "center" });
-  doc.text("www.vivafire.co.uk", pw - MR, stripY, { align: "right" });
+  doc.text(`Tel: ${orgPhone}`, ML, stripY);
+  doc.text(orgEmail, pw / 2, stripY, { align: "center" });
+  doc.text(orgWebsite, pw - MR, stripY, { align: "right" });
 
   const base64 = doc.output("datauristring").split(",")[1];
   const fileName = `CoC-${cert.certificate_number || cert.reference_number || cert.job_id.slice(0, 8)}.pdf`;
