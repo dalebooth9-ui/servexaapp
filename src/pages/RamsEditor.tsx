@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,11 +10,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, FileText, Download, Loader2, GripVertical, AlertTriangle, Users, UserCheck, Eraser, Check } from "lucide-react";
 import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
 
