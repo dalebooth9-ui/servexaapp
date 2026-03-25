@@ -1291,9 +1291,8 @@ function SortableEngineerRow({
                       schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                   );
                   const effectiveSpan = getEffectiveSpan(spanItem, eng.user_id);
-                  const spanKey = `${spanItem.jobId}-${eng.user_id}`;
                   return (
-                    <div key={`span-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
+                    <div key={`span-${spanItem.jobId}-${colIdx}`} className="group">
                       <SpanningJobCard
                         entries={spanItem.entries}
                         job={job}
@@ -1303,7 +1302,11 @@ function SortableEngineerRow({
                         pairedEngineers={paired}
                         isFirst={true}
                         isContinuation={false}
-                        onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, eng.user_id, colIdx, spanItem.entries) : undefined}
+                        onAdjustSpan={onResizeSpan ? (delta) => {
+                          const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - colIdx));
+                          const newDates = weekDateStrs.slice(colIdx, colIdx + newSpan);
+                          onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, newDates);
+                        } : undefined}
                       />
                     </div>
                   );
@@ -1314,7 +1317,6 @@ function SortableEngineerRow({
                     (e) => e.user_id !== eng.user_id &&
                       schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                   );
-                  const spanKey = `single-${entry.id}`;
                   return (
                     <DraggableScheduleCard
                       key={entry.id}
@@ -1323,7 +1325,12 @@ function SortableEngineerRow({
                       isAdmin={isAdmin}
                       onRemove={onRemove}
                       pairedEngineers={paired}
-                      onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, eng.user_id, colIdx, [entry]) : undefined}
+                      onAdjustSpan={onResizeSpan ? (delta) => {
+                        if (delta > 0) {
+                          const newDates = weekDateStrs.slice(colIdx, colIdx + 1 + delta);
+                          onResizeSpan(entry.job_id, eng.user_id, [entry], newDates);
+                        }
+                      } : undefined}
                     />
                   );
                 })}
@@ -1343,9 +1350,8 @@ function SortableEngineerRow({
                           schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                       );
                       const effectiveSpan = getEffectiveSpan(spanItem, partnerEng.user_id);
-                      const spanKey = `${spanItem.jobId}-${partnerEng.user_id}`;
                       return (
-                        <div key={`pspan-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
+                        <div key={`pspan-${spanItem.jobId}-${colIdx}`} className="group">
                           <SpanningJobCard
                             entries={spanItem.entries}
                             job={job}
@@ -1355,7 +1361,11 @@ function SortableEngineerRow({
                             pairedEngineers={paired}
                             isFirst={true}
                             isContinuation={false}
-                            onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, partnerEng.user_id, colIdx, spanItem.entries) : undefined}
+                            onAdjustSpan={onResizeSpan ? (delta) => {
+                              const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - colIdx));
+                              const newDates = weekDateStrs.slice(colIdx, colIdx + newSpan);
+                              onResizeSpan(spanItem.jobId, partnerEng.user_id, spanItem.entries, newDates);
+                            } : undefined}
                           />
                         </div>
                       );
@@ -1365,7 +1375,6 @@ function SortableEngineerRow({
                         (e) => e.user_id !== partnerEng.user_id &&
                           schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                       );
-                      const spanKey = `single-${entry.id}`;
                       return (
                         <DraggableScheduleCard
                           key={entry.id}
@@ -1374,7 +1383,12 @@ function SortableEngineerRow({
                           isAdmin={isAdmin}
                           onRemove={onRemove}
                           pairedEngineers={paired}
-                          onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, partnerEng.user_id, colIdx, [entry]) : undefined}
+                          onAdjustSpan={onResizeSpan ? (delta) => {
+                            if (delta > 0) {
+                              const newDates = weekDateStrs.slice(colIdx, colIdx + 1 + delta);
+                              onResizeSpan(entry.job_id, partnerEng.user_id, [entry], newDates);
+                            }
+                          } : undefined}
                         />
                       );
                     })}
