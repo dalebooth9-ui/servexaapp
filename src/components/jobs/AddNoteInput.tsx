@@ -59,20 +59,9 @@ export default function AddNoteInput({ jobId, userId, onAdded }: AddNoteInputPro
     if (!file || !userId) return;
     setUploading(true);
 
-    const [w3w, uploadResult] = await Promise.all([
-      getW3W(),
-      supabase.storage.from("submissions").upload(`${jobId}/${Date.now()}-${file.name}`, file),
-    ]);
-
+    const w3w = await getW3W();
     const filePath = `${jobId}/${Date.now()}-${file.name}`;
-    if (uploadResult.error) {
-      // re-upload since the first was part of Promise.all timing — use the actual upload
-    }
-
-    // Redo upload properly
-    const { error: uploadError, data: uploadData } = await supabase.storage
-      .from("submissions")
-      .upload(`${jobId}/${Date.now()}-${file.name}`, file);
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
 
     if (uploadError) {
       toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
@@ -80,21 +69,20 @@ export default function AddNoteInput({ jobId, userId, onAdded }: AddNoteInputPro
       return;
     }
 
-    const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(uploadData.path);
-    const w3wFinal = w3w;
+    const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
     const { error: insertError } = await supabase.from("submissions").insert({
       job_id: jobId,
       engineer_id: userId,
       type: "photo",
       file_url: urlData.publicUrl,
       file_name: file.name,
-      content: w3wFinal ? `📍 ${w3wFinal}` : null,
+      content: w3w ? `📍 ${w3w}` : null,
     });
 
     if (insertError) {
       toast({ title: "Error", description: "Failed to save photo.", variant: "destructive" });
     } else {
-      toast({ title: "Photo added", description: w3wFinal ? `Location: ${w3wFinal}` : undefined });
+      toast({ title: "Photo added", description: w3w ? `Location: ${w3w}` : undefined });
       onAdded();
     }
     setUploading(false);
