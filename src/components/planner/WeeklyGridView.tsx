@@ -544,6 +544,16 @@ export default function WeeklyGridView({
       return;
     }
 
+    // Engineer pair drop onto a job card
+    if (activeData?.type === "engineer-pair" && targetId.startsWith("job-card-")) {
+      const rest = targetId.replace("job-card-", "");
+      const sepIdx = rest.lastIndexOf("_");
+      const jobId = rest.slice(0, sepIdx);
+      const date = rest.slice(sepIdx + 1);
+      await onAssign(jobId, activeData.engineer.user_id, date);
+      return;
+    }
+
     if (!targetId.startsWith("cell-")) return;
     const parts = targetId.replace("cell-", "").split("_");
     const targetEngineerId = parts[0];
