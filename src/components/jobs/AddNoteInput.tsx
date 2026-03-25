@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Plus, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useWhat3Words } from "@/hooks/useWhat3Words";
 
 interface AddNoteInputProps {
   jobId: string;
