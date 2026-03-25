@@ -707,6 +707,20 @@ export default function RamsEditor() {
 
   return (
     <div className="max-w-5xl mx-auto pb-16">
+      {/* Draft restored banner */}
+      {draftRestored && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-200">
+          <span>
+            <strong>Draft restored</strong> — your unsaved edits from your last visit have been reloaded.
+          </span>
+          <button
+            className="ml-4 text-xs underline opacity-70 hover:opacity-100"
+            onClick={() => { clearDraft(); setDraftRestored(false); loadDefaults(ramsType, job); }}
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(jobId ? `/jobs/${jobId}` : "/jobs")}>
