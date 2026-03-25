@@ -916,7 +916,7 @@ export default function RamsEditor() {
           </div>
         </TabsContent>
 
-        {/* ── Personnel & Approval ── */}
+        {/* -- Personnel & Approval -- */}
         <TabsContent value="personnel">
           <div className="space-y-6">
 
@@ -1000,8 +1000,25 @@ export default function RamsEditor() {
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs">Approver Name</Label>
-                    <Input value={approvalFields.approverName} className="mt-1 text-sm"
-                      onChange={(e) => setApprovalFields({ ...approvalFields, approverName: e.target.value })} />
+                    <div className="flex gap-1 mt-1">
+                      <Input value={approvalFields.approverName} className="text-sm flex-1"
+                        onChange={(e) => setApprovalFields({ ...approvalFields, approverName: e.target.value })} />
+                      {engineerProfiles.length > 0 && (
+                        <Select
+                          value=""
+                          onValueChange={(val) => setApprovalFields({ ...approvalFields, approverName: val })}
+                        >
+                          <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
+                            <Users className="h-3.5 w-3.5" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {engineerProfiles.map((ep) => (
+                              <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">Approver Role / Title</Label>
@@ -1036,8 +1053,25 @@ export default function RamsEditor() {
                 <div className="grid sm:grid-cols-3 gap-4">
                   <div>
                     <Label className="text-xs">Supervisor Name</Label>
-                    <Input value={supervisorFields.supervisorName} className="mt-1 text-sm"
-                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorName: e.target.value })} />
+                    <div className="flex gap-1 mt-1">
+                      <Input value={supervisorFields.supervisorName} className="text-sm flex-1"
+                        onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorName: e.target.value })} />
+                      {engineerProfiles.length > 0 && (
+                        <Select
+                          value=""
+                          onValueChange={(val) => setSupervisorFields({ ...supervisorFields, supervisorName: val })}
+                        >
+                          <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
+                            <Users className="h-3.5 w-3.5" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {engineerProfiles.map((ep) => (
+                              <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
                   </div>
                   <div>
                     <Label className="text-xs">Role / Title</Label>
