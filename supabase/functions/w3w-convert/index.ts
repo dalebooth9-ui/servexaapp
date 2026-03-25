@@ -32,8 +32,11 @@ serve(async (req) => {
       });
     }
 
-    if (typeof lat !== "number" || typeof lng !== "number") {
-      return new Response(JSON.stringify({ error: "lat and lng must be numbers" }), {
+    const latNum = typeof lat === "number" ? lat : parseFloat(lat);
+    const lngNum = typeof lng === "number" ? lng : parseFloat(lng);
+
+    if (isNaN(latNum) || isNaN(lngNum)) {
+      return new Response(JSON.stringify({ error: "lat and lng must be valid numbers" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
