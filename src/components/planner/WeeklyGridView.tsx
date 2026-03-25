@@ -530,6 +530,25 @@ function DroppableCell({
 // Global resize lock — prevents DnD from activating while a resize is in progress
 let globalResizeActive = false;
 
+// Custom PointerSensor that respects the resize lock
+class ResizeAwarePointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: ({ nativeEvent }: { nativeEvent: PointerEvent }) => {
+        if (globalResizeActive) return false;
+        // Also check if the pointer target or its ancestors have data-resize-handle
+        let el = nativeEvent.target as HTMLElement | null;
+        while (el) {
+          if (el.dataset?.resizeHandle === "true") return false;
+          el = el.parentElement;
+        }
+        return true;
+      },
+    },
+  ];
+}
+
 export default function WeeklyGridView({
   weekDays,
   engineers,
