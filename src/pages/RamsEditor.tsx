@@ -453,6 +453,15 @@ export default function RamsEditor() {
       special_training: specialTraining,
       ppe_items: ppeItems,
       risk_rows: riskRows,
+      personnel_list: personnelList,
+      approver_name: approvalFields.approverName,
+      approver_role: approvalFields.approverRole,
+      approval_date: approvalFields.approvalDate,
+      approver_signature: approvalFields.approverSignature,
+      supervisor_name: supervisorFields.supervisorName,
+      supervisor_role: supervisorFields.supervisorRole,
+      supervisor_contact: supervisorFields.supervisorContact,
+      supervisor_signature: supervisorFields.supervisorSignature,
     };
 
     let error: any;
