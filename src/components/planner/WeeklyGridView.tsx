@@ -926,6 +926,7 @@ function SortableEngineerRow({
   leaveDates,
   partnerLeaveDates,
   bankHolidayDates,
+  onResizeSpan,
 }: {
   eng: Engineer;
   partnerEng?: Engineer;
@@ -942,6 +943,7 @@ function SortableEngineerRow({
   leaveDates: string[];
   partnerLeaveDates: string[];
   bankHolidayDates: Set<string>;
+  onResizeSpan?: (jobId: string, engineerId: string, existingEntries: ScheduleEntry[], newDates: string[]) => Promise<void>;
 }) {
   const { attributes: sortAttrs, listeners: sortListeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const { attributes: pairAttrs, listeners: pairListeners, setNodeRef: pairRef, isDragging: isPairDragging } = useDraggable({
@@ -955,6 +957,21 @@ function SortableEngineerRow({
     disabled: !isAdmin || !!partnerEng,
   });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  // Resize state: tracks which span is being resized and the live preview column count
+  const [resizingSpanKey, setResizingSpanKey] = useState<string | null>(null);
+  const [resizePreviewSpan, setResizePreviewSpan] = useState<number>(1);
+  const resizeDataRef = useRef<{
+    spanKey: string;
+    jobId: string;
+    engineerId: string;
+    startColIndex: number;
+    existingEntries: ScheduleEntry[];
+    cellRects: DOMRect[];
+  } | null>(null);
+
+  // Build a ref for the grid row element to measure cell positions
+  const gridRowRef = useRef<HTMLDivElement | null>(null);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
