@@ -773,31 +773,46 @@ function SortableEngineerRow({
       style={{ ...style, gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
       className="grid gap-1"
     >
-      <div className="flex items-center gap-1 px-2 text-sm font-medium truncate">
-        {isAdmin && (
-          <span
-            {...attributes}
-            {...listeners}
-            className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
-            title="Drag to reorder"
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </span>
-        )}
-        <span className="truncate">{eng.full_name}</span>
-        <span
-          className={cn(
-            "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-            available
-              ? "bg-green-500/20 text-green-700 dark:text-green-400"
-              : todayJobs >= 3
-                ? "bg-destructive/20 text-destructive"
-                : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+      <div className="flex flex-col gap-0.5 px-2 py-0.5">
+        <div className="flex items-center gap-1 text-sm font-medium truncate">
+          {isAdmin && (
+            <span
+              {...sortAttrs}
+              {...sortListeners}
+              className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
+              title="Drag to reorder"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
           )}
-          title={`${totalJobs} jobs this period, ${todayJobs} today`}
-        >
-          {available ? "Free" : `${todayJobs} today`}
-        </span>
+          {/* Draggable engineer name for pairing */}
+          <span
+            ref={pairRef}
+            {...pairAttrs}
+            {...pairListeners}
+            className={cn(
+              "truncate",
+              isAdmin && "cursor-grab hover:text-primary transition-colors",
+              isPairDragging && "opacity-40"
+            )}
+            title={isAdmin ? "Drag onto a job to pair this engineer" : undefined}
+          >
+            {eng.full_name}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+              available
+                ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                : todayJobs >= 3
+                  ? "bg-destructive/20 text-destructive"
+                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+            )}
+            title={`${totalJobs} jobs this period, ${todayJobs} today`}
+          >
+            {available ? "Free" : `${todayJobs} today`}
+          </span>
+        </div>
         {(totalPT > 0 || totalVis > 0 || totalOther > 0) && (
           <div className="flex items-center gap-0.5 flex-wrap">
             {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
@@ -840,15 +855,23 @@ function SortableEngineerRow({
                 <Palmtree className="h-3 w-3 shrink-0" /> On leave
               </div>
             )}
-            {cellEntries.map((entry) => (
-              <DraggableScheduleCard
-                key={entry.id}
-                entry={entry}
-                job={getJob(entry.job_id)}
-                isAdmin={isAdmin}
-                onRemove={onRemove}
-              />
-            ))}
+            {cellEntries.map((entry) => {
+              // Find other engineers also assigned to this job on this date
+              const pairedEngineers = allEngineers.filter(
+                (e) => e.user_id !== eng.user_id &&
+                  schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+              );
+              return (
+                <DraggableScheduleCard
+                  key={entry.id}
+                  entry={entry}
+                  job={getJob(entry.job_id)}
+                  isAdmin={isAdmin}
+                  onRemove={onRemove}
+                  pairedEngineers={pairedEngineers}
+                />
+              );
+            })}
             {cellAdhoc.map((adhoc) => (
               <DraggableAdhocCard
                 key={adhoc.id}
