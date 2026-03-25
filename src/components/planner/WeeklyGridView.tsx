@@ -1009,6 +1009,62 @@ function SortableEngineerRow({
 
   const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
 
+  // Resize handler: captures pointer, measures cell positions, updates preview and commits on pointerup
+  const handleResizeStart = (
+    e: React.PointerEvent,
+    spanKey: string,
+    jobId: string,
+    engineerId: string,
+    startColIndex: number,
+    existingEntries: ScheduleEntry[]
+  ) => {
+    if (!onResizeSpan) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Measure cell positions from the grid row
+    const gridEl = gridRowRef.current;
+    if (!gridEl) return;
+    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
+    const cellRects = cells.map(c => c.getBoundingClientRect());
+
+    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects };
+    setResizingSpanKey(spanKey);
+    setResizePreviewSpan(existingEntries.length || 1);
+
+    const getColFromX = (x: number) => {
+      let best = startColIndex;
+      for (let i = startColIndex; i < cellRects.length; i++) {
+        const r = cellRects[i];
+        if (x >= r.left - 8 && x <= r.right + 8) { best = i; break; }
+        if (x > r.right) best = i;
+      }
+      return Math.max(startColIndex, best);
+    };
+
+    const onMove = (me: PointerEvent) => {
+      if (!resizeDataRef.current) return;
+      const col = getColFromX(me.clientX);
+      setResizePreviewSpan(col - startColIndex + 1);
+    };
+
+    const onUp = async (ue: PointerEvent) => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      if (!resizeDataRef.current) { setResizingSpanKey(null); return; }
+      const col = getColFromX(ue.clientX);
+      const newSpan = Math.max(1, col - startColIndex + 1);
+      const newDates = weekDateStrs.slice(startColIndex, startColIndex + newSpan);
+      setResizingSpanKey(null);
+      resizeDataRef.current = null;
+      await onResizeSpan!(jobId, engineerId, existingEntries, newDates);
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
+
   return (
     <div
       ref={setNodeRef}
