@@ -72,6 +72,7 @@ type JobInfo = {
   customer: string | null;
   customers?: { name: string; logo_url?: string | null } | null;
   reference_number: string;
+  commissioning_ref?: string;
   category?: string | null;
   name?: string | null;
   priority?: string | null;
