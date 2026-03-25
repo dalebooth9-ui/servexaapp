@@ -950,6 +950,96 @@ export async function generateRamsPdf(
   spy = para(doc, "1.2 Change requirements: Legislation, Work Area, Personnel, Task.", ML, spy, CONTENT_W);
   pageFooter(doc, currentPage, TOTAL_PAGES);
 
+  /* ─────────────────────────────── PERSONNEL & APPROVAL PAGE ── */
+  const personnelList: { name: string; role: string; company: string }[] = formData["_personnelList"] || [];
+  const approvalF = formData["_approvalFields"] || {};
+  const supervisorF = formData["_supervisorFields"] || {};
+  const hasPersonnelPage = personnelList.length > 0 || approvalF.approverName || supervisorF.supervisorName;
+
+  if (hasPersonnelPage) {
+    currentPage++;
+    const ppY0 = newPage(doc);
+    let ppy = await pageHeader(doc, logoImg, "", ppY0);
+
+    doc.setFont("helvetica", "bold"); doc.setFontSize(11); doc.setTextColor(33, 61, 99);
+    doc.text("Personnel, Approval & Supervision", ML, ppy); ppy += 8;
+    doc.setTextColor(0, 0, 0);
+
+    // Personnel table
+    if (personnelList.length > 0) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("Personnel on Site", ML, ppy); ppy += 5;
+      const colW = [CONTENT_W * 0.35, CONTENT_W * 0.30, CONTENT_W * 0.35];
+      const rowH = 7;
+      // header
+      doc.setFillColor(33, 61, 99); doc.setTextColor(255, 255, 255);
+      let px = ML;
+      for (const [lbl, w] of [["Full Name", colW[0]], ["Role / Trade", colW[1]], ["Company", colW[2]]] as [string, number][]) {
+        doc.rect(px, ppy, w, rowH, "F"); doc.rect(px, ppy, w, rowH);
+        doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
+        doc.text(lbl, px + 2, ppy + 4.5);
+        px += w;
+      }
+      ppy += rowH;
+      doc.setTextColor(0, 0, 0);
+      for (const person of personnelList) {
+        let px2 = ML;
+        doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+        for (const [val, w] of [[person.name, colW[0]], [person.role, colW[1]], [person.company, colW[2]]] as [string, number][]) {
+          doc.rect(px2, ppy, w, rowH);
+          doc.text(val || "", px2 + 2, ppy + 4.5);
+          px2 += w;
+        }
+        ppy += rowH;
+      }
+      ppy += 8;
+    }
+
+    // Approval section
+    if (approvalF.approverName || approvalF.approverRole) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(33, 61, 99);
+      doc.text("RAMS Approval", ML, ppy); ppy += 5;
+      doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+      const approvalDetails: [string, string][] = [
+        ["Approved By:", approvalF.approverName || ""],
+        ["Role / Title:", approvalF.approverRole || ""],
+        ["Date:", approvalF.approvalDate || ""],
+      ];
+      for (const [lbl, val] of approvalDetails) {
+        doc.setFont("helvetica", "bold"); doc.text(lbl, ML, ppy);
+        doc.setFont("helvetica", "normal"); doc.text(val, ML + 40, ppy);
+        ppy += 6;
+      }
+      if (approvalF.approverSignature) {
+        doc.setFont("helvetica", "bold"); doc.text("Signature:", ML, ppy); ppy += 3;
+        doc.addImage(approvalF.approverSignature, "PNG", ML, ppy, 60, 18); ppy += 22;
+      }
+      ppy += 6;
+    }
+
+    // Supervisor section
+    if (supervisorF.supervisorName || supervisorF.supervisorRole) {
+      doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(33, 61, 99);
+      doc.text("Site Supervisor", ML, ppy); ppy += 5;
+      doc.setTextColor(0, 0, 0); doc.setFont("helvetica", "normal"); doc.setFontSize(8.5);
+      const supervisorDetails: [string, string][] = [
+        ["Supervisor:", supervisorF.supervisorName || ""],
+        ["Role / Title:", supervisorF.supervisorRole || ""],
+        ["Contact:", supervisorF.supervisorContact || ""],
+      ];
+      for (const [lbl, val] of supervisorDetails) {
+        doc.setFont("helvetica", "bold"); doc.text(lbl, ML, ppy);
+        doc.setFont("helvetica", "normal"); doc.text(val, ML + 40, ppy);
+        ppy += 6;
+      }
+      if (supervisorF.supervisorSignature) {
+        doc.setFont("helvetica", "bold"); doc.text("Signature:", ML, ppy); ppy += 3;
+        doc.addImage(supervisorF.supervisorSignature, "PNG", ML, ppy, 60, 18); ppy += 22;
+      }
+    }
+
+    pageFooter(doc, currentPage, TOTAL_PAGES);
+  }
+
   // Watermark + Accreditations
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
