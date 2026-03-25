@@ -184,7 +184,7 @@ function SpanningJobCard({
   pairedEngineers,
   isFirst,
   isContinuation,
-  onResizeStart,
+  onAdjustSpan,
 }: {
   entries: ScheduleEntry[];
   job: Job | undefined;
@@ -194,7 +194,7 @@ function SpanningJobCard({
   pairedEngineers?: Engineer[];
   isFirst: boolean;
   isContinuation: boolean;
-  onResizeStart?: (e: React.PointerEvent) => void;
+  onAdjustSpan?: (delta: number) => void;
 }) {
   if (!job) return null;
   const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
