@@ -388,7 +388,8 @@ export default function RamsEditor() {
   useEffect(() => {
     if (!loading) setIsDirty(true);
   }, [coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps, location, resources,
-      personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType]);
+      personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType,
+      personnelList, approvalFields, supervisorFields]);
 
   const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
     const d = getRamsDefaults(type);
