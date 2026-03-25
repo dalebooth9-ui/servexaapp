@@ -520,6 +520,8 @@ export default function RamsEditor() {
 
   // Clear draft from localStorage after a successful save
   const clearDraft = () => { try { localStorage.removeItem(draftKey); } catch {} };
+
+  const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
     const d = getRamsDefaults(type);
     setRamsType(type);
     setCoverFields({
