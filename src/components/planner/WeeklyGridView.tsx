@@ -419,8 +419,11 @@ export default function WeeklyGridView({
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
-  const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map()); // engineerId -> ["2025-03-14", ...]
+  const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map());
   const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
+  // engineerPairs: [primaryId, secondaryId] — secondary row is merged into primary
+  const [engineerPairs, setEngineerPairs] = useState<[string, string][]>([]);
+  const secondaryEngIds = useMemo(() => new Set(engineerPairs.map(p => p[1])), [engineerPairs]);
 
   // Fetch approved leave + bank holidays for the displayed week
   useEffect(() => {
