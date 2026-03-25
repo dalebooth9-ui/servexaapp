@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { X, GripVertical, AlertTriangle, CalendarDays, Palmtree } from "lucide-react";
+import { X, GripVertical, AlertTriangle, CalendarDays, Palmtree, Users } from "lucide-react";
 import { Link } from "react-router-dom";
 import {
   DndContext,
@@ -176,39 +176,55 @@ function DraggableUnallocatedJob({
   );
 }
 
-// Draggable scheduled entry card
+// Droppable scheduled entry card (accepts engineer-pair drops)
 function DraggableScheduleCard({
   entry,
   job,
   isAdmin,
   onRemove,
+  pairedEngineers,
 }: {
   entry: ScheduleEntry;
   job: Job | undefined;
   isAdmin: boolean;
   onRemove: (id: string) => void;
+  pairedEngineers?: Engineer[];
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
     id: `sched-${entry.id}`,
     data: { type: "scheduled", entry, job },
     disabled: !isAdmin,
+  });
+
+  const dropId = `job-card-${entry.job_id}_${entry.schedule_date}`;
+  const { setNodeRef: dropRef, isOver: isDropOver } = useDroppable({
+    id: dropId,
+    data: { type: "job-card", jobId: entry.job_id, date: entry.schedule_date },
   });
 
   if (!job) return null;
 
   return (
     <div
-      ref={setNodeRef}
+      ref={dropRef}
       className={cn(
-        "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm",
+        "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
-        isAdmin && "cursor-grab"
+        isAdmin && "cursor-grab",
+        isDropOver && "ring-2 ring-primary/60 bg-primary/5"
       )}
     >
+      {isDropOver && (
+        <div className="absolute inset-0 rounded-md flex items-center justify-center bg-primary/10 z-10 pointer-events-none">
+          <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
+            <Users className="h-3 w-3" /> Add to pair
+          </span>
+        </div>
+      )}
       <div className="flex items-start gap-1">
         {isAdmin && (
-          <span {...attributes} {...listeners} className="mt-0.5 shrink-0 text-muted-foreground">
+          <span ref={dragRef} {...attributes} {...listeners} className="mt-0.5 shrink-0 text-muted-foreground">
             <GripVertical className="h-3 w-3" />
           </span>
         )}
@@ -254,6 +270,17 @@ function DraggableScheduleCard({
               style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
             >
               {entry.notes}
+            </div>
+          )}
+          {/* Paired engineers badge */}
+          {pairedEngineers && pairedEngineers.length > 0 && (
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              <Users className="h-2.5 w-2.5 text-primary shrink-0" />
+              {pairedEngineers.map((pe) => (
+                <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
+                  {pe.full_name.split(" ")[0]}
+                </span>
+              ))}
             </div>
           )}
           {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
@@ -517,6 +544,16 @@ export default function WeeklyGridView({
       return;
     }
 
+    // Engineer pair drop onto a job card
+    if (activeData?.type === "engineer-pair" && targetId.startsWith("job-card-")) {
+      const rest = targetId.replace("job-card-", "");
+      const sepIdx = rest.lastIndexOf("_");
+      const jobId = rest.slice(0, sepIdx);
+      const date = rest.slice(sepIdx + 1);
+      await onAssign(jobId, activeData.engineer.user_id, date);
+      return;
+    }
+
     if (!targetId.startsWith("cell-")) return;
     const parts = targetId.replace("cell-", "").split("_");
     const targetEngineerId = parts[0];
@@ -627,22 +664,23 @@ export default function WeeklyGridView({
             <ScrollArea className="h-[calc(100vh-320px)]">
               <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1">
-                   {engineers.map((eng) => (
-                    <SortableEngineerRow
-                      key={eng.user_id}
-                      eng={eng}
-                      weekDays={weekDays}
-                      schedule={schedule}
-                      adhocEntries={adhocEntries}
-                      overId={overId}
-                      isAdmin={isAdmin}
-                      getJob={getJob}
-                      onRemove={onRemove}
-                      onRemoveAdhoc={onRemoveAdhoc}
-                      leaveDates={leaveMap.get(eng.user_id) || []}
-                      bankHolidayDates={bankHolidayDates}
-                    />
-                  ))}
+             {engineers.map((eng) => (
+                     <SortableEngineerRow
+                       key={eng.user_id}
+                       eng={eng}
+                       allEngineers={engineers}
+                       weekDays={weekDays}
+                       schedule={schedule}
+                       adhocEntries={adhocEntries}
+                       overId={overId}
+                       isAdmin={isAdmin}
+                       getJob={getJob}
+                       onRemove={onRemove}
+                       onRemoveAdhoc={onRemoveAdhoc}
+                       leaveDates={leaveMap.get(eng.user_id) || []}
+                       bankHolidayDates={bankHolidayDates}
+                     />
+                   ))}
                 </div>
               </SortableContext>
               <ScrollBar orientation="vertical" />
@@ -671,6 +709,12 @@ export default function WeeklyGridView({
             <div className="truncate font-medium">{activeItem.entry.company_name}</div>
           </div>
         )}
+        {activeItem?.type === "engineer-pair" && activeItem.engineer && (
+          <div className="rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-lg flex items-center gap-1.5">
+            <Users className="h-3 w-3" />
+            {activeItem.engineer.full_name}
+          </div>
+        )}
       </DragOverlay>
     </DndContext>
   );
@@ -679,6 +723,7 @@ export default function WeeklyGridView({
 // Sortable engineer row
 function SortableEngineerRow({
   eng,
+  allEngineers,
   weekDays,
   schedule,
   adhocEntries,
@@ -691,6 +736,7 @@ function SortableEngineerRow({
   bankHolidayDates,
 }: {
   eng: Engineer;
+  allEngineers: Engineer[];
   weekDays: Date[];
   schedule: ScheduleEntry[];
   adhocEntries: AdhocEntry[];
@@ -702,7 +748,12 @@ function SortableEngineerRow({
   leaveDates: string[];
   bankHolidayDates: Set<string>;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
+  const { attributes: sortAttrs, listeners: sortListeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
+  const { attributes: pairAttrs, listeners: pairListeners, setNodeRef: pairRef, isDragging: isPairDragging } = useDraggable({
+    id: `pair-${eng.user_id}`,
+    data: { type: "engineer-pair", engineer: eng },
+    disabled: !isAdmin,
+  });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
@@ -722,31 +773,46 @@ function SortableEngineerRow({
       style={{ ...style, gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
       className="grid gap-1"
     >
-      <div className="flex items-center gap-1 px-2 text-sm font-medium truncate">
-        {isAdmin && (
-          <span
-            {...attributes}
-            {...listeners}
-            className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
-            title="Drag to reorder"
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </span>
-        )}
-        <span className="truncate">{eng.full_name}</span>
-        <span
-          className={cn(
-            "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-            available
-              ? "bg-green-500/20 text-green-700 dark:text-green-400"
-              : todayJobs >= 3
-                ? "bg-destructive/20 text-destructive"
-                : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+      <div className="flex flex-col gap-0.5 px-2 py-0.5">
+        <div className="flex items-center gap-1 text-sm font-medium truncate">
+          {isAdmin && (
+            <span
+              {...sortAttrs}
+              {...sortListeners}
+              className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
+              title="Drag to reorder"
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
           )}
-          title={`${totalJobs} jobs this period, ${todayJobs} today`}
-        >
-          {available ? "Free" : `${todayJobs} today`}
-        </span>
+          {/* Draggable engineer name for pairing */}
+          <span
+            ref={pairRef}
+            {...pairAttrs}
+            {...pairListeners}
+            className={cn(
+              "truncate",
+              isAdmin && "cursor-grab hover:text-primary transition-colors",
+              isPairDragging && "opacity-40"
+            )}
+            title={isAdmin ? "Drag onto a job to pair this engineer" : undefined}
+          >
+            {eng.full_name}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+              available
+                ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                : todayJobs >= 3
+                  ? "bg-destructive/20 text-destructive"
+                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+            )}
+            title={`${totalJobs} jobs this period, ${todayJobs} today`}
+          >
+            {available ? "Free" : `${todayJobs} today`}
+          </span>
+        </div>
         {(totalPT > 0 || totalVis > 0 || totalOther > 0) && (
           <div className="flex items-center gap-0.5 flex-wrap">
             {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
@@ -789,15 +855,23 @@ function SortableEngineerRow({
                 <Palmtree className="h-3 w-3 shrink-0" /> On leave
               </div>
             )}
-            {cellEntries.map((entry) => (
-              <DraggableScheduleCard
-                key={entry.id}
-                entry={entry}
-                job={getJob(entry.job_id)}
-                isAdmin={isAdmin}
-                onRemove={onRemove}
-              />
-            ))}
+            {cellEntries.map((entry) => {
+              // Find other engineers also assigned to this job on this date
+              const pairedEngineers = allEngineers.filter(
+                (e) => e.user_id !== eng.user_id &&
+                  schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+              );
+              return (
+                <DraggableScheduleCard
+                  key={entry.id}
+                  entry={entry}
+                  job={getJob(entry.job_id)}
+                  isAdmin={isAdmin}
+                  onRemove={onRemove}
+                  pairedEngineers={pairedEngineers}
+                />
+              );
+            })}
             {cellAdhoc.map((adhoc) => (
               <DraggableAdhocCard
                 key={adhoc.id}
