@@ -296,7 +296,7 @@ function SpanningJobCard({
       {/* Resize handle — right edge */}
       {isAdmin && onResizeStart && (
         <div
-          onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          onPointerDownCapture={(e) => { e.stopPropagation(); onResizeStart(e); }}
           className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
           title="Drag to extend or shrink across days"
         >
@@ -437,7 +437,7 @@ function DraggableScheduleCard({
       {/* Stretch handle — right edge */}
       {isAdmin && onResizeStart && (
         <div
-          onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          onPointerDownCapture={(e) => { e.stopPropagation(); onResizeStart(e); }}
           className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
           title="Drag right edge to schedule across multiple days"
         >
@@ -526,6 +526,9 @@ function DroppableCell({
     </div>
   );
 }
+
+// Global resize lock — prevents DnD from activating while a resize is in progress
+let globalResizeActive = false;
 
 export default function WeeklyGridView({
   weekDays,
@@ -1045,8 +1048,17 @@ function SortableEngineerRow({
     existingEntries: ScheduleEntry[]
   ) => {
     if (!onResizeSpan) return;
+    // Stop propagation at both levels to prevent DnD from grabbing this pointer event
     e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
     e.preventDefault();
+
+    // Set global lock so DnD sensor ignores this gesture
+    globalResizeActive = true;
+
+    // Capture pointer to the resize handle element so we get all subsequent events
+    const target = e.currentTarget as HTMLElement;
+    target.setPointerCapture(e.pointerId);
 
     // Measure cell positions from the grid row
     const gridEl = gridRowRef.current;
@@ -1070,13 +1082,16 @@ function SortableEngineerRow({
 
     const onMove = (me: PointerEvent) => {
       if (!resizeDataRef.current) return;
+      me.stopPropagation();
       const col = getColFromX(me.clientX);
       setResizePreviewSpan(col - startColIndex + 1);
     };
 
     const onUp = async (ue: PointerEvent) => {
-      document.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerup", onUp);
+      target.removeEventListener("pointermove", onMove);
+      target.removeEventListener("pointerup", onUp);
+      target.releasePointerCapture(ue.pointerId);
+      globalResizeActive = false;
       if (!resizeDataRef.current) { setResizingSpanKey(null); return; }
       const col = getColFromX(ue.clientX);
       const newSpan = Math.max(1, col - startColIndex + 1);
@@ -1086,8 +1101,8 @@ function SortableEngineerRow({
       await onResizeSpan!(jobId, engineerId, existingEntries, newDates);
     };
 
-    document.addEventListener("pointermove", onMove);
-    document.addEventListener("pointerup", onUp);
+    target.addEventListener("pointermove", onMove);
+    target.addEventListener("pointerup", onUp);
   };
 
 
