@@ -319,6 +319,7 @@ export default function PlannerMapView({
           zoom: 6,
           mapId: "DEMO_MAP_ID",
         });
+        map.setMapTypeId("roadmap");
         mapInstanceRef.current = map;
 
         const geocoder = new google.maps.Geocoder();
