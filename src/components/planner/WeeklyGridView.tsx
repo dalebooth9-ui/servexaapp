@@ -1229,16 +1229,10 @@ function SortableEngineerRow({
               ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
               : [];
 
-            // If this column is covered by a span from a previous column (not a start), skip it
+            // If this column is covered by a span started in a previous column, skip it with a simple increment
             if (engCoveredCols.has(colIdx) || partnerCoveredCols.has(colIdx)) {
-              // Only skip if there's no new span starting here and no single entries
-              const hasNewContent = spanStartsHere.length > 0 || partnerSpanStartsHere.length > 0
-                || singleEngEntries.length > 0 || partnerSingleEntries.length > 0
-                || cellAdhoc.length > 0 || partnerCellAdhoc.length > 0;
-              if (!hasNewContent) {
-                colIdx++;
-                continue; // cell is visually covered by the spanning card
-              }
+              colIdx++;
+              continue;
             }
 
             const hasAnyContent = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
