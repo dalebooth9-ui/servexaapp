@@ -208,7 +208,12 @@ function RiskRowEditor({
         </div>
         <div className={`rounded-lg border p-2 space-y-2 ${riskColor(riskPost)}`}>
           <p className="text-xs font-semibold">Post-Control Risk Rating</p>
-          {riskPost >= 8 && (
+          {riskPost > risk && risk > 0 && (
+            <p className="text-[10px] font-semibold text-red-600 dark:text-red-400 flex items-center gap-1">
+              ⚠ Post-control rating cannot exceed pre-control rating ({risk}).
+            </p>
+          )}
+          {riskPost >= 8 && riskPost <= risk && (
             <p className="text-[10px] font-semibold text-orange-700 dark:text-orange-400 flex items-center gap-1">
               ⚠ Post-control risk must be below Medium — adjust likelihood or severity to bring rating below 8.
             </p>
@@ -221,16 +226,19 @@ function RiskRowEditor({
                   type="number" min={1} max={7}
                   value={row[col] || ""}
                   readOnly={ci === 2}
-                  className={`mt-0.5 text-xs h-7 ${riskPost >= 8 && ci === 2 ? "border-orange-500 font-bold" : ""}`}
+                  className={`mt-0.5 text-xs h-7 ${riskPost > risk && risk > 0 ? "border-red-500 font-bold" : riskPost >= 8 ? "border-orange-500 font-bold" : ""}`}
                   onChange={(e) => {
                     const next = [...row];
                     next[col] = e.target.value;
                     if (col === 7 || col === 8) {
                       const l = parseInt(col === 7 ? e.target.value : next[7], 10) || 0;
                       const s = parseInt(col === 8 ? e.target.value : next[8], 10) || 0;
-                      const raw = l && s ? l * s : 0;
-                      // Post-control rating must be below medium (< 8); clamp to 6 if ≥ 8
-                      next[9] = raw >= 8 ? "6" : raw ? String(raw) : "";
+                      let raw = l && s ? l * s : 0;
+                      // Post-control must never exceed pre-control
+                      if (risk > 0 && raw > risk) raw = risk;
+                      // Post-control must be below medium (< 8); clamp to 6 if ≥ 8
+                      if (raw >= 8) raw = 6;
+                      next[9] = raw ? String(raw) : "";
                     }
                     onChange(next);
                   }}
