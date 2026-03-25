@@ -419,19 +419,18 @@ export default function RamsEditor() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          {docId && (
-            <RamsPdfExport
-              formData={buildFormData()}
-              jobInfo={job}
-              jobId={jobId}
-              ramsType={ramsType}
-              mode="preview"
-            />
+          <RamsPdfExport
+            formData={buildFormData()}
+            jobInfo={job}
+            jobId={jobId ?? undefined}
+            ramsType={ramsType}
+          />
+          {jobId && (
+            <Button onClick={save} disabled={saving} size="sm">
+              {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+              {saving ? "Saving…" : "Save RAMS"}
+            </Button>
           )}
-          <Button onClick={save} disabled={saving} size="sm">
-            {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
-            {saving ? "Saving…" : "Save RAMS"}
-          </Button>
         </div>
       </div>
 
