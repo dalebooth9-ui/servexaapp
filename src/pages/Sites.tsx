@@ -122,12 +122,14 @@ export default function Sites() {
   const { toast } = useToast();
   const { deleteWithUndo, editWithUndo } = useUndoAction();
   const { categories: jobCategories } = useJobCategories();
+  const { convert: convertW3W } = useWhat3Words();
   const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dialogOpen, setDialogOpen] = useState(false);
+
   const [editing, setEditing] = useState<Site | null>(null);
   const [form, setForm] = useState(emptySite);
   const [bulkOpen, setBulkOpen] = useState(false);
