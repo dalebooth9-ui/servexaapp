@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { format, isSameDay, isPast, parseISO, startOfDay, isWithinInterval, endOfDay } from "date-fns";
+import { format, isSameDay, isPast, parseISO, startOfDay, isWithinInterval, endOfDay, addDays } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
