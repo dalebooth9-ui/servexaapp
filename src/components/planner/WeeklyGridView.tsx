@@ -1365,8 +1365,9 @@ function SortableEngineerRow({
                             isFirst={true}
                             isContinuation={false}
                             onAdjustSpan={onResizeSpan ? (delta) => {
-                              const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - colIdx));
-                              const newDates = weekDateStrs.slice(colIdx, colIdx + newSpan);
+                              const startIdx = spanItem.startColIndex;
+                              const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - startIdx));
+                              const newDates = weekDateStrs.slice(startIdx, startIdx + newSpan);
                               onResizeSpan(spanItem.jobId, partnerEng.user_id, spanItem.entries, newDates);
                             } : undefined}
                           />
