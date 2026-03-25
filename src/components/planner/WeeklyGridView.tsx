@@ -723,6 +723,7 @@ export default function WeeklyGridView({
 // Sortable engineer row
 function SortableEngineerRow({
   eng,
+  allEngineers,
   weekDays,
   schedule,
   adhocEntries,
@@ -735,6 +736,7 @@ function SortableEngineerRow({
   bankHolidayDates,
 }: {
   eng: Engineer;
+  allEngineers: Engineer[];
   weekDays: Date[];
   schedule: ScheduleEntry[];
   adhocEntries: AdhocEntry[];
@@ -746,7 +748,12 @@ function SortableEngineerRow({
   leaveDates: string[];
   bankHolidayDates: Set<string>;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
+  const { attributes: sortAttrs, listeners: sortListeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
+  const { attributes: pairAttrs, listeners: pairListeners, setNodeRef: pairRef, isDragging: isPairDragging } = useDraggable({
+    id: `pair-${eng.user_id}`,
+    data: { type: "engineer-pair", engineer: eng },
+    disabled: !isAdmin,
+  });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
