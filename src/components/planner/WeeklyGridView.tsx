@@ -438,7 +438,8 @@ function DraggableScheduleCard({
       {/* Stretch handle — right edge */}
       {isAdmin && onResizeStart && (
         <div
-          onPointerDownCapture={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          data-resize-handle="true"
+          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
           className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
           title="Drag right edge to schedule across multiple days"
         >
