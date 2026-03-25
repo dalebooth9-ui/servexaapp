@@ -6,6 +6,7 @@ import FolderSiteImportDialog from "@/components/FolderSiteImportDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
+import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
