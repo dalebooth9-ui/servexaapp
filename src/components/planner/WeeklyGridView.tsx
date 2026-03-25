@@ -527,6 +527,9 @@ function DroppableCell({
   );
 }
 
+// Global resize lock — prevents DnD from activating while a resize is in progress
+let globalResizeActive = false;
+
 export default function WeeklyGridView({
   weekDays,
   engineers,
