@@ -104,6 +104,17 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       const refNumber = job.reference_number || "";
       const dateVal = new Date().toLocaleDateString("en-GB");
 
+      // Resolve what3words for the site address
+      let w3wAddress: string | undefined;
+      if (siteAddress) {
+        try {
+          const { data: w3wData } = await supabase.functions.invoke("w3w-convert", {
+            body: { address: siteAddress },
+          });
+          if (w3wData?.words) w3wAddress = w3wData.words as string;
+        } catch { /* skip */ }
+      }
+
       const branding: PdfBranding = {
         logo_url: job.customers?.logo_url || undefined,
       };
@@ -114,6 +125,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         refNumber,
         dateVal,
         riserLocation: "",
+        w3wAddress,
       };
 
       let y = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);

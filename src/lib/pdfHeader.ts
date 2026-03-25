@@ -8,6 +8,7 @@ export interface PdfHeaderData {
   refNumber: string;
   dateVal: string;
   riserLocation: string;
+  w3wAddress?: string;
 }
 
 export interface PdfBranding {
@@ -121,16 +122,19 @@ export async function renderPdfHeader(
   doc.setTextColor(30, 30, 30);
   y = afterTitleY + 4;
 
-  // --- 3-row detail grid ---
+  // --- detail grid (3 rows + optional W3W row) ---
   doc.setDrawColor(0);
   doc.setLineWidth(0.2);
 
   const headerRowH = 6;
-  const detailH = headerRowH * 3;
+  const hasW3W = !!data.w3wAddress;
+  const rowCount = hasW3W ? 4 : 3;
+  const detailH = headerRowH * rowCount;
   doc.rect(margin, y, maxWidth, detailH);
-  doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + detailH);
+  doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + headerRowH * 2);
   doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
   doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
+  doc.line(margin, y + headerRowH * 3, margin + maxWidth, y + headerRowH * 3);
 
   doc.setFontSize(8);
 
@@ -170,6 +174,16 @@ export async function renderPdfHeader(
   doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
   doc.setFont("helvetica", "normal");
   doc.text(data.riserLocation, margin + 28, y + headerRowH * 2 + 4);
+
+  // Row 4 (optional): what3words location in W3W red
+  if (hasW3W) {
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(225, 31, 38); // W3W red
+    doc.text("///what3words:", margin + 1, y + headerRowH * 3 + 4);
+    doc.setFont("helvetica", "normal");
+    doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), margin + 30, y + headerRowH * 3 + 4);
+    doc.setTextColor(30, 30, 30);
+  }
 
   return y + detailH + 2;
 }

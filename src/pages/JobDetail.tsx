@@ -4,6 +4,7 @@ import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,7 @@ export default function JobDetail() {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
+  const { convert: convertW3W } = useWhat3Words();
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
@@ -68,12 +70,13 @@ export default function JobDetail() {
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
-  const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null }[]>([]);
+  const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null; latitude?: number | null; longitude?: number | null }[]>([]);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
 
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
@@ -93,6 +96,13 @@ export default function JobDetail() {
     setSites(sitesRes.data || []);
     const subs = subsRes.data || [];
     setSubmissions(subs);
+
+    // Resolve W3W using the address geocoding path
+    const address = jobRes.data?.sites?.address || jobRes.data?.address;
+    if (address) {
+      supabase.functions.invoke("w3w-convert", { body: { address } })
+        .then(({ data }) => { if (data?.words) setJobW3W(data.words); });
+    }
 
     // Get customer email from joined data — fallback lookup in parallel below if needed
     let custEmailPromise: Promise<string>;
@@ -269,6 +279,18 @@ export default function JobDetail() {
             {custName && <> • {custName}</>}
             {job.address && <> • {job.address}</>}
           </p>
+          {jobW3W && (
+            <a
+              href={`https://what3words.com/${jobW3W.replace(/^\/\/\//, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium"
+              style={{ color: "#e11f26" }}
+            >
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="currentColor"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>
+              {jobW3W}
+            </a>
+          )}
           {categoryDisplayName && (
             <div className="mt-1">
               <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
@@ -415,9 +437,24 @@ export default function JobDetail() {
             {!editing ? (
               <div className="rounded-lg border bg-card p-4 space-y-2">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1.5 text-sm">
+                   <div className="space-y-1.5 text-sm">
                     <div><span className="text-muted-foreground">Job Name:</span> <span className="font-medium">{job.name}</span></div>
                     <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
+                    {jobW3W && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">what3words:</span>
+                        <a
+                          href={`https://what3words.com/${jobW3W.replace(/^\/\/\//, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium inline-flex items-center gap-1 hover:underline"
+                          style={{ color: "#e11f26" }}
+                        >
+                          <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="currentColor"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>
+                          {jobW3W}
+                        </a>
+                      </div>
+                    )}
                     <div><span className="text-muted-foreground">Site:</span> <span className="font-medium">{sites.find((s) => s.id === job.site_id)?.name || "—"}</span></div>
                     {job.category === "installation" ? (
                       <div className="flex gap-4">
