@@ -184,7 +184,7 @@ function SpanningJobCard({
   pairedEngineers,
   isFirst,
   isContinuation,
-  onResizeStart,
+  onAdjustSpan,
 }: {
   entries: ScheduleEntry[];
   job: Job | undefined;
@@ -194,7 +194,7 @@ function SpanningJobCard({
   pairedEngineers?: Engineer[];
   isFirst: boolean;
   isContinuation: boolean;
-  onResizeStart?: (e: React.PointerEvent) => void;
+  onAdjustSpan?: (delta: number) => void;
 }) {
   if (!job) return null;
   const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
@@ -285,25 +285,36 @@ function SpanningJobCard({
           )}
         </div>
         {isAdmin && (
-          <button
-            onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
-            className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          <div className="flex flex-col items-center gap-0.5 shrink-0">
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(1); }}
+              className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary transition-all"
+              title="Add 1 day"
+            >
+              <span className="text-[10px] font-bold leading-none">+</span>
+            </button>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
+              className="opacity-0 group-hover:opacity-100 hover:text-destructive text-muted-foreground transition-all"
+              title="Remove"
+            >
+              <X className="h-3 w-3" />
+            </button>
+            {span > 1 && (
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(-1); }}
+                className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground transition-all"
+                title="Remove 1 day"
+              >
+                <span className="text-[10px] font-bold leading-none">−</span>
+              </button>
+            )}
+          </div>
         )}
       </div>
-      {/* Resize handle — right edge */}
-      {isAdmin && onResizeStart && (
-        <div
-          data-resize-handle="true"
-          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
-          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
-          title="Drag to extend or shrink across days"
-        >
-          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
-        </div>
-      )}
     </div>
   );
 }
@@ -315,14 +326,14 @@ function DraggableScheduleCard({
   isAdmin,
   onRemove,
   pairedEngineers,
-  onResizeStart,
+  onAdjustSpan,
 }: {
   entry: ScheduleEntry;
   job: Job | undefined;
   isAdmin: boolean;
   onRemove: (id: string) => void;
   pairedEngineers?: Engineer[];
-  onResizeStart?: (e: React.PointerEvent) => void;
+  onAdjustSpan?: (delta: number) => void;
 }) {
   const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
     id: `sched-${entry.id}`,
@@ -427,23 +438,22 @@ function DraggableScheduleCard({
         )}
       </div>
       {isAdmin && (
-        <button
-          onPointerDown={(e) => e.stopPropagation()}
-          onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-          className="absolute bottom-1 right-4 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity z-10"
-        >
-          <X className="h-3 w-3" />
-        </button>
-      )}
-      {/* Stretch handle — right edge */}
-      {isAdmin && onResizeStart && (
-        <div
-          data-resize-handle="true"
-          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
-          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
-          title="Drag right edge to schedule across multiple days"
-        >
-          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
+        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+          {onAdjustSpan && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
+              className="rounded px-1 py-0.5 text-[10px] font-bold hover:bg-primary/20 text-primary transition-colors"
+              title="Add 1 day"
+            >+1d</button>
+          )}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+            className="text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
     </div>
@@ -1281,9 +1291,8 @@ function SortableEngineerRow({
                       schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                   );
                   const effectiveSpan = getEffectiveSpan(spanItem, eng.user_id);
-                  const spanKey = `${spanItem.jobId}-${eng.user_id}`;
                   return (
-                    <div key={`span-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
+                    <div key={`span-${spanItem.jobId}-${colIdx}`} className="group">
                       <SpanningJobCard
                         entries={spanItem.entries}
                         job={job}
@@ -1293,7 +1302,11 @@ function SortableEngineerRow({
                         pairedEngineers={paired}
                         isFirst={true}
                         isContinuation={false}
-                        onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, eng.user_id, colIdx, spanItem.entries) : undefined}
+                        onAdjustSpan={onResizeSpan ? (delta) => {
+                          const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - colIdx));
+                          const newDates = weekDateStrs.slice(colIdx, colIdx + newSpan);
+                          onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, newDates);
+                        } : undefined}
                       />
                     </div>
                   );
@@ -1304,7 +1317,6 @@ function SortableEngineerRow({
                     (e) => e.user_id !== eng.user_id &&
                       schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                   );
-                  const spanKey = `single-${entry.id}`;
                   return (
                     <DraggableScheduleCard
                       key={entry.id}
@@ -1313,7 +1325,12 @@ function SortableEngineerRow({
                       isAdmin={isAdmin}
                       onRemove={onRemove}
                       pairedEngineers={paired}
-                      onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, eng.user_id, colIdx, [entry]) : undefined}
+                      onAdjustSpan={onResizeSpan ? (delta) => {
+                        if (delta > 0) {
+                          const newDates = weekDateStrs.slice(colIdx, colIdx + 1 + delta);
+                          onResizeSpan(entry.job_id, eng.user_id, [entry], newDates);
+                        }
+                      } : undefined}
                     />
                   );
                 })}
@@ -1333,9 +1350,8 @@ function SortableEngineerRow({
                           schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                       );
                       const effectiveSpan = getEffectiveSpan(spanItem, partnerEng.user_id);
-                      const spanKey = `${spanItem.jobId}-${partnerEng.user_id}`;
                       return (
-                        <div key={`pspan-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
+                        <div key={`pspan-${spanItem.jobId}-${colIdx}`} className="group">
                           <SpanningJobCard
                             entries={spanItem.entries}
                             job={job}
@@ -1345,7 +1361,11 @@ function SortableEngineerRow({
                             pairedEngineers={paired}
                             isFirst={true}
                             isContinuation={false}
-                            onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, partnerEng.user_id, colIdx, spanItem.entries) : undefined}
+                            onAdjustSpan={onResizeSpan ? (delta) => {
+                              const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - colIdx));
+                              const newDates = weekDateStrs.slice(colIdx, colIdx + newSpan);
+                              onResizeSpan(spanItem.jobId, partnerEng.user_id, spanItem.entries, newDates);
+                            } : undefined}
                           />
                         </div>
                       );
@@ -1355,7 +1375,6 @@ function SortableEngineerRow({
                         (e) => e.user_id !== partnerEng.user_id &&
                           schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                       );
-                      const spanKey = `single-${entry.id}`;
                       return (
                         <DraggableScheduleCard
                           key={entry.id}
@@ -1364,7 +1383,12 @@ function SortableEngineerRow({
                           isAdmin={isAdmin}
                           onRemove={onRemove}
                           pairedEngineers={paired}
-                          onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, partnerEng.user_id, colIdx, [entry]) : undefined}
+                          onAdjustSpan={onResizeSpan ? (delta) => {
+                            if (delta > 0) {
+                              const newDates = weekDateStrs.slice(colIdx, colIdx + 1 + delta);
+                              onResizeSpan(entry.job_id, partnerEng.user_id, [entry], newDates);
+                            }
+                          } : undefined}
                         />
                       );
                     })}
