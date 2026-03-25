@@ -286,25 +286,33 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   address?: string | null;
   customer?: string | null;
   reference_number?: string;
+  commissioning_ref?: string;
   other_qty?: number;
   site?: { address?: string | null; postcode?: string | null; riser_location?: string | null } | null;
   engineers?: string[];
 }) {
-  // Count existing CoCs for this job to generate a unique suffix
-  const { data: existing } = await supabase
-    .from("conformity_certificates" as any)
-    .select("id")
-    .eq("job_id", jobId);
-  const existingCount = (existing as any[] | null)?.length ?? 0;
-
   const siteAddr = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
   const today = new Date().toISOString().split("T")[0];
 
-  // Auto-generate cert number: VFP00123/CoC, VFP00123/CoC-2, VFP00123/CoC-3 ...
-  const ref = jobInfo.reference_number || "";
-  const baseRef = ref ? ref.replace(/-/g, "") : "";
-  const certSuffix = existingCount === 0 ? "/CoC" : `/CoC-${existingCount + 1}`;
-  const certNumber = baseRef ? `${baseRef}${certSuffix}` : "";
+  // Derive CoC cert number from the commissioning ref (e.g. VFP-00123/Comm-1 → VFP-00123/CoC-1)
+  // or fall back to counting existing CoCs if no commissioning ref provided
+  let certNumber = "";
+  if (jobInfo.commissioning_ref) {
+    certNumber = jobInfo.commissioning_ref.replace("/Comm-", "/CoC-");
+  } else {
+    const { data: existing } = await supabase
+      .from("conformity_certificates" as any)
+      .select("id")
+      .eq("job_id", jobId);
+    const existingCount = (existing as any[] | null)?.length ?? 0;
+    const ref = jobInfo.reference_number || "";
+    const baseRef = ref ? ref.replace(/-/g, "") : "";
+    const certSuffix = existingCount === 0 ? "/CoC" : `/CoC-${existingCount + 1}`;
+    certNumber = baseRef ? `${baseRef}${certSuffix}` : "";
+  }
+
+  // Use the commissioning ref as the stored reference_number so it's traceable
+  const ref = jobInfo.commissioning_ref || jobInfo.reference_number || "";
 
   // Load Dale Booth's profile signature automatically
   let daleSig: string | null = null;
