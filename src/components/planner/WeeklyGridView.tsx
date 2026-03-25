@@ -1387,7 +1387,9 @@ function SortableEngineerRow({
                           pairedEngineers={paired}
                           onAdjustSpan={onResizeSpan ? (delta) => {
                             if (delta > 0) {
-                              const newDates = weekDateStrs.slice(colIdx, colIdx + 1 + delta);
+                              const entryColIdx = weekDateStrs.indexOf(entry.schedule_date);
+                              if (entryColIdx === -1) return;
+                              const newDates = weekDateStrs.slice(entryColIdx, entryColIdx + 1 + delta);
                               onResizeSpan(entry.job_id, partnerEng.user_id, [entry], newDates);
                             }
                           } : undefined}
