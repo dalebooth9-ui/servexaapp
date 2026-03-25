@@ -600,6 +600,18 @@ export default function WeeklyGridView({
   const [overId, setOverId] = useState<string | null>(null);
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map());
   const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
+
+  // Custom collision detection: when dragging an engineer-pair, prefer eng-drop- droppables over sortable rows
+  const collisionDetection: CollisionDetection = (args) => {
+    if (activeItem?.type === "engineer-pair") {
+      const engDropCollisions = closestCorners({
+        ...args,
+        droppableContainers: args.droppableContainers.filter(c => String(c.id).startsWith("eng-drop-")),
+      });
+      if (engDropCollisions.length > 0) return engDropCollisions;
+    }
+    return closestCenter(args);
+  };
   const [engineerPairs, setEngineerPairs] = useState<[string, string][]>([]);
   const secondaryEngIds = useMemo(() => new Set(engineerPairs.map(p => p[1])), [engineerPairs]);
 
