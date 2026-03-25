@@ -885,18 +885,35 @@ export default function RamsEditor() {
               </div>
             )}
 
-            {riskRows.map((row, i) => (
-              <RiskRowEditor
-                key={i}
-                index={i}
-                row={row}
-                onChange={(r) => {
-                  const next = [...riskRows];
-                  next[i] = r;
-                  setRiskRows(next);
-                }}
-                onDelete={() => setRiskRows(riskRows.filter((_, j) => j !== i))}
-              />
+            {riskRows.length > 0 && (() => {
+              const riskIds = riskRows.map((_, i) => `risk-${i}`);
+              return (
+                <DndContext
+                  sensors={useSensorsRef.current}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event) => {
+                    const { active, over } = event;
+                    if (!over || active.id === over.id) return;
+                    const oi = riskIds.indexOf(active.id as string);
+                    const ni = riskIds.indexOf(over.id as string);
+                    if (oi !== -1 && ni !== -1) setRiskRows(arrayMove(riskRows, oi, ni));
+                  }}
+                >
+                  <SortableContext items={riskIds} strategy={verticalListSortingStrategy}>
+                    {riskRows.map((row, i) => (
+                      <SortableRiskRow
+                        key={riskIds[i]}
+                        id={riskIds[i]}
+                        index={i}
+                        row={row}
+                        onChange={(r) => { const next = [...riskRows]; next[i] = r; setRiskRows(next); }}
+                        onDelete={() => setRiskRows(riskRows.filter((_, j) => j !== i))}
+                      />
+                    ))}
+                  </SortableContext>
+                </DndContext>
+              );
+            })()}
             ))}
           </div>
         </TabsContent>
