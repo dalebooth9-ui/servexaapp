@@ -673,21 +673,27 @@ export default function WeeklyPlanner() {
             onMultiDaySchedule={(job) => setMultiDayJob(job)}
             onEngineerReorder={handleEngineerReorder}
             onResizeSpan={async (jobId, engineerId, existingEntries, newDates) => {
-              // Determine dates to add and remove
               const existingDates = new Set(existingEntries.map((e) => e.schedule_date));
               const newDatesSet = new Set(newDates);
-              // Remove entries no longer in the span
+
+              // Only remove entries that are NOT in newDates
               const toRemove = existingEntries.filter((e) => !newDatesSet.has(e.schedule_date));
               for (const entry of toRemove) {
                 await supabase.from("job_schedule").delete().eq("id", entry.id);
               }
-              // Add new dates not already present
+
+              // Only add dates not already scheduled
               const toAdd = newDates.filter((d) => !existingDates.has(d));
               if (toAdd.length > 0) {
-                await supabase.from("job_schedule").upsert(
-                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id })) as any[],
-                  { onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true }
+                const { error } = await supabase.from("job_schedule").insert(
+                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id }))
                 );
+                if (error) {
+                  console.error("Failed to add schedule dates:", error);
+                  toast({ title: "Error", description: "Could not extend job dates.", variant: "destructive" });
+                  fetchData();
+                  return;
+                }
               }
               fetchData();
             }}
