@@ -525,15 +525,16 @@ export default function WeeklyGridView({
     const targetId = over.id as string;
     const activeData = active.data.current;
 
-    // Engineer-pair type: dropped on another engineer row → pair them on same row
+    // Engineer-pair type: dropped on another engineer's drop zone → pair them on same row
     if (activeData?.type === "engineer-pair") {
       const draggedId = activeData.engineer.user_id as string;
-      const targetEng = engineers.find((e) => e.user_id === targetId);
-      if (targetEng && targetEng.user_id !== draggedId) {
+      // targetId is "eng-drop-{userId}"
+      const targetEngId = targetId.startsWith("eng-drop-") ? targetId.replace("eng-drop-", "") : null;
+      if (targetEngId && targetEngId !== draggedId) {
         setEngineerPairs((prev) => {
-          const filtered = prev.filter((p) => !p.includes(draggedId) && !p.includes(targetId));
-          // targetId is the "primary" row, draggedId becomes secondary (merged under it)
-          return [...filtered, [targetId, draggedId]];
+          const filtered = prev.filter((p) => !p.includes(draggedId) && !p.includes(targetEngId));
+          // targetEngId is the "primary" row, draggedId becomes secondary (merged under it)
+          return [...filtered, [targetEngId, draggedId]];
         });
       }
       return;
