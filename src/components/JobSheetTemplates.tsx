@@ -519,9 +519,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         activeTemplate.name.toLowerCase().includes("commissioning") &&
         user && jobInfo
       ) {
+        // Count how many commissioning submissions already exist for this job
+        // (excluding the one we just saved) to determine the sequential number
+        const { data: prevCommResponses } = await supabase
+          .from("job_sheet_responses" as any)
+          .select("id")
+          .eq("job_id", jobId)
+          .eq("template_id", activeTemplate.id);
+        const commCount = (prevCommResponses as any[] | null)?.length ?? 1;
+
+        // Build per-commissioning reference: VFP-00123/Comm-1, VFP-00123/Comm-2 ...
+        const baseRef = jobInfo.reference_number || "";
+        const commRef = baseRef ? `${baseRef}/Comm-${commCount}` : `Comm-${commCount}`;
+
         const { autoCreateConformityCert } = await import("@/components/CertificateOfConformity");
-        await autoCreateConformityCert(jobId, user.id, jobInfo);
-        toast({ title: "Report submitted", description: "Certificate of Conformity created — edit it in the Documents section." });
+        await autoCreateConformityCert(jobId, user.id, { ...jobInfo, commissioning_ref: commRef });
+        toast({ title: "Report submitted", description: `Certificate of Conformity created (${commRef}) — edit it in the Documents section.` });
       } else {
         toast({ title: "Report submitted" });
       }
