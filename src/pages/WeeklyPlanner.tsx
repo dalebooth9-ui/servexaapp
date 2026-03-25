@@ -676,24 +676,19 @@ export default function WeeklyPlanner() {
               const existingDates = new Set(existingEntries.map((e) => e.schedule_date));
               const newDatesSet = new Set(newDates);
 
-              // Only remove entries that are NOT in newDates
+              // Only remove entries whose dates are no longer in the new span
               const toRemove = existingEntries.filter((e) => !newDatesSet.has(e.schedule_date));
               for (const entry of toRemove) {
                 await supabase.from("job_schedule").delete().eq("id", entry.id);
               }
 
-              // Only add dates not already scheduled
+              // Insert new dates (upsert ignoring duplicates to be safe)
               const toAdd = newDates.filter((d) => !existingDates.has(d));
               if (toAdd.length > 0) {
-                const { error } = await supabase.from("job_schedule").insert(
-                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id }))
+                await supabase.from("job_schedule").upsert(
+                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id })) as any[],
+                  { onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true }
                 );
-                if (error) {
-                  console.error("Failed to add schedule dates:", error);
-                  toast({ title: "Error", description: "Could not extend job dates.", variant: "destructive" });
-                  fetchData();
-                  return;
-                }
               }
               fetchData();
             }}
