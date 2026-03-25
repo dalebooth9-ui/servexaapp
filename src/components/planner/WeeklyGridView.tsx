@@ -774,134 +774,144 @@ function SortableEngineerRow({
   const { attributes: pairAttrs, listeners: pairListeners, setNodeRef: pairRef, isDragging: isPairDragging } = useDraggable({
     id: `pair-${eng.user_id}`,
     data: { type: "engineer-pair", engineer: eng },
-    disabled: !isAdmin,
+    disabled: !isAdmin || !!partnerEng,
   });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
+  const today = format(new Date(), "yyyy-MM-dd");
   const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
-  const totalJobs = engEntries.length;
-  const todayJobs = schedule.filter(
-    (s) => s.engineer_id === eng.user_id && s.schedule_date === format(new Date(), "yyyy-MM-dd")
-  ).length;
+  const partnerEntries = partnerEng ? schedule.filter((s) => s.engineer_id === partnerEng.user_id) : [];
+  const todayJobs = engEntries.filter(s => s.schedule_date === today).length
+    + partnerEntries.filter(s => s.schedule_date === today).length;
   const available = todayJobs === 0;
-
-  const totalPT = engEntries.reduce((sum, s) => sum + (getJob(s.job_id)?.pressure_test_qty || 0), 0);
-  const totalVis = engEntries.reduce((sum, s) => sum + (getJob(s.job_id)?.visual_qty || 0), 0);
-  const totalOther = engEntries.reduce((sum, s) => sum + (getJob(s.job_id)?.other_qty || 0), 0);
+  const totalPT = [...engEntries, ...partnerEntries].reduce((sum, s) => sum + (getJob(s.job_id)?.pressure_test_qty || 0), 0);
+  const totalVis = [...engEntries, ...partnerEntries].reduce((sum, s) => sum + (getJob(s.job_id)?.visual_qty || 0), 0);
 
   return (
     <div
       ref={setNodeRef}
       style={{ ...style, gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
-      className="grid gap-1"
+      className={cn("grid gap-1", partnerEng && "bg-primary/5 rounded-md ring-1 ring-primary/20")}
     >
-      <div className="flex flex-col gap-0.5 px-2 py-0.5">
-        <div className="flex items-center gap-1 text-sm font-medium truncate">
+      {/* Engineer name column */}
+      <div className="flex flex-col justify-center gap-0.5 px-2 py-1 min-w-0">
+        {/* Primary engineer */}
+        <div className="flex items-center gap-1 min-w-0">
           {isAdmin && (
-            <span
-              {...sortAttrs}
-              {...sortListeners}
-              className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground"
-              title="Drag to reorder"
-            >
+            <span {...sortAttrs} {...sortListeners} className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground" title="Drag to reorder">
               <GripVertical className="h-3.5 w-3.5" />
             </span>
           )}
-          {/* Draggable engineer name for pairing */}
           <span
-            ref={pairRef}
-            {...pairAttrs}
-            {...pairListeners}
+            ref={!partnerEng ? pairRef : undefined}
+            {...(!partnerEng ? pairAttrs : {})}
+            {...(!partnerEng ? pairListeners : {})}
             className={cn(
-              "truncate",
-              isAdmin && "cursor-grab hover:text-primary transition-colors",
+              "truncate text-sm font-medium",
+              isAdmin && !partnerEng && "cursor-grab hover:text-primary transition-colors",
               isPairDragging && "opacity-40"
             )}
-            title={isAdmin ? "Drag onto a job to pair this engineer" : undefined}
+            title={isAdmin && !partnerEng ? "Drag onto another engineer to pair them on this row" : undefined}
           >
             {eng.full_name}
           </span>
-          <span
-            className={cn(
-              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-              available
-                ? "bg-green-500/20 text-green-700 dark:text-green-400"
-                : todayJobs >= 3
-                  ? "bg-destructive/20 text-destructive"
-                  : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-            )}
-            title={`${totalJobs} jobs this period, ${todayJobs} today`}
-          >
+          <span className={cn(
+            "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+            available ? "bg-green-500/20 text-green-700 dark:text-green-400"
+              : todayJobs >= 3 ? "bg-destructive/20 text-destructive"
+              : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+          )}>
             {available ? "Free" : `${todayJobs} today`}
           </span>
+          {partnerEng && isAdmin && onUnpair && (
+            <button onClick={onUnpair} className="shrink-0 ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Unpair">
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </div>
-        {(totalPT > 0 || totalVis > 0 || totalOther > 0) && (
+        {/* Partner engineer row */}
+        {partnerEng && (
+          <div className="flex items-center gap-1 min-w-0 pl-3 border-l-2 border-primary/40">
+            <Users className="h-2.5 w-2.5 shrink-0 text-primary" />
+            <span className="truncate text-xs font-medium text-primary">{partnerEng.full_name}</span>
+          </div>
+        )}
+        {/* Service tally */}
+        {(totalPT > 0 || totalVis > 0) && (
           <div className="flex items-center gap-0.5 flex-wrap">
             {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
             {totalVis > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">Vis×{totalVis}</span>}
-            {totalOther > 0 && <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">×{totalOther}</span>}
           </div>
         )}
       </div>
+
+      {/* Day cells */}
       {weekDays.map((d) => {
         const dateStr = format(d, "yyyy-MM-dd");
         const cellId = `cell-${eng.user_id}_${dateStr}`;
-        const cellEntries = schedule.filter(
-          (s) => s.engineer_id === eng.user_id && s.schedule_date === dateStr
-        );
-        const cellAdhoc = adhocEntries.filter(
-          (a) => a.engineer_id === eng.user_id && a.schedule_date === dateStr
-        );
+        const cellEntries = schedule.filter(s => s.engineer_id === eng.user_id && s.schedule_date === dateStr);
+        const partnerCellEntries = partnerEng
+          ? schedule.filter(s => s.engineer_id === partnerEng.user_id && s.schedule_date === dateStr)
+          : [];
+        const cellAdhoc = adhocEntries.filter(a => a.engineer_id === eng.user_id && a.schedule_date === dateStr);
+        const partnerCellAdhoc = partnerEng
+          ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
+          : [];
         const isToday = isSameDay(d, new Date());
         const isOnLeave = leaveDates.includes(dateStr);
+        const isPartnerOnLeave = partnerLeaveDates.includes(dateStr);
         const isBankHoliday = bankHolidayDates.has(dateStr);
+        const hasAnyContent = cellEntries.length + partnerCellEntries.length + cellAdhoc.length + partnerCellAdhoc.length > 0;
+
         return (
-          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={isOnLeave || isBankHoliday}>
-            {isBankHoliday && cellEntries.length === 0 && cellAdhoc.length === 0 && !isOnLeave && (
+          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday}>
+            {isBankHoliday && !hasAnyContent && (
               <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
                 🏦 Bank Holiday
               </div>
             )}
-            {isBankHoliday && (cellEntries.length > 0 || cellAdhoc.length > 0 || isOnLeave) && (
-              <div className="flex items-center gap-1 text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">
-                🏦 Bank Hol
-              </div>
+            {isBankHoliday && hasAnyContent && (
+              <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">🏦 Bank Hol</div>
             )}
             {isOnLeave && (
-              <div className={cn(
-                "flex items-center gap-1 rounded px-1.5 py-1 text-[10px] font-medium",
-                cellEntries.length === 0 && cellAdhoc.length === 0 && !isBankHoliday
-                  ? "bg-primary/10 border border-primary/20 text-primary"
-                  : "text-primary mb-0.5 px-0.5"
-              )}>
-                <Palmtree className="h-3 w-3 shrink-0" /> On leave
+              <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
+                <Palmtree className="h-3 w-3 shrink-0" />{eng.full_name.split(" ")[0]} on leave
               </div>
             )}
+            {isPartnerOnLeave && partnerEng && (
+              <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
+                <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
+              </div>
+            )}
+            {/* Primary entries */}
             {cellEntries.map((entry) => {
-              // Find other engineers also assigned to this job on this date
-              const pairedEngineers = allEngineers.filter(
+              const paired = allEngineers.filter(
                 (e) => e.user_id !== eng.user_id &&
                   schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
               );
-              return (
-                <DraggableScheduleCard
-                  key={entry.id}
-                  entry={entry}
-                  job={getJob(entry.job_id)}
-                  isAdmin={isAdmin}
-                  onRemove={onRemove}
-                  pairedEngineers={pairedEngineers}
-                />
-              );
+              return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
             })}
             {cellAdhoc.map((adhoc) => (
-              <DraggableAdhocCard
-                key={adhoc.id}
-                entry={adhoc}
-                isAdmin={isAdmin}
-                onRemove={onRemoveAdhoc}
-              />
+              <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
             ))}
+            {/* Partner entries — divided by a thin line */}
+            {partnerEng && (partnerCellEntries.length > 0 || partnerCellAdhoc.length > 0) && (
+              <>
+                {(cellEntries.length > 0 || cellAdhoc.length > 0) && (
+                  <div className="border-t border-primary/30 my-0.5" />
+                )}
+                {partnerCellEntries.map((entry) => {
+                  const paired = allEngineers.filter(
+                    (e) => e.user_id !== partnerEng.user_id &&
+                      schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+                  );
+                  return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
+                })}
+                {partnerCellAdhoc.map((adhoc) => (
+                  <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
+                ))}
+              </>
+            )}
           </DroppableCell>
         );
       })}
