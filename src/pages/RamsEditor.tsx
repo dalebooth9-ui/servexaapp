@@ -62,35 +62,68 @@ const RISK_COL_HEADERS = [
   "Comments",
 ];
 
+// Sortable item wrapper for ListEditor
+function SortableListItem({
+  id, index, item, onChange, onDelete, placeholder,
+}: { id: string; index: number; item: string; onChange: (val: string) => void; onDelete: () => void; placeholder?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <div ref={setNodeRef} style={style} className="flex gap-2 items-start">
+      <button {...attributes} {...listeners} className="mt-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 touch-none">
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <span className="mt-2 text-muted-foreground text-xs font-mono w-5 shrink-0">{index + 1}.</span>
+      <Textarea
+        value={item}
+        rows={2}
+        className="flex-1 text-sm resize-none"
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <Button
+        size="icon" variant="ghost"
+        className="mt-1 shrink-0 h-7 w-7 text-destructive/70 hover:text-destructive"
+        onClick={onDelete}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 function ListEditor({
   label, items, onChange, placeholder,
 }: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const ids = items.map((_, i) => `item-${i}`);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex !== -1 && newIndex !== -1) onChange(arrayMove(items, oldIndex, newIndex));
+  };
+
   return (
     <div className="space-y-2">
       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-2 items-start">
-          <span className="mt-2 text-muted-foreground text-xs font-mono w-5 shrink-0">{i + 1}.</span>
-          <Textarea
-            value={item}
-            rows={2}
-            className="flex-1 text-sm resize-none"
-            placeholder={placeholder}
-            onChange={(e) => {
-              const next = [...items];
-              next[i] = e.target.value;
-              onChange(next);
-            }}
-          />
-          <Button
-            size="icon" variant="ghost"
-            className="mt-1 shrink-0 h-7 w-7 text-destructive/70 hover:text-destructive"
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          {items.map((item, i) => (
+            <SortableListItem
+              key={ids[i]}
+              id={ids[i]}
+              index={i}
+              item={item}
+              placeholder={placeholder}
+              onChange={(val) => { const next = [...items]; next[i] = val; onChange(next); }}
+              onDelete={() => onChange(items.filter((_, j) => j !== i))}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
       <Button
         variant="outline" size="sm" className="gap-1.5 text-xs"
         onClick={() => onChange([...items, ""])}
