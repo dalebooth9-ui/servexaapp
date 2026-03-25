@@ -1073,6 +1073,7 @@ function SortableEngineerRow({
     >
       {/* Main grid row */}
       <div
+        ref={gridRowRef}
         className="grid gap-1"
         style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
       >
