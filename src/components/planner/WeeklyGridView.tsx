@@ -314,12 +314,14 @@ function DraggableScheduleCard({
   isAdmin,
   onRemove,
   pairedEngineers,
+  onResizeStart,
 }: {
   entry: ScheduleEntry;
   job: Job | undefined;
   isAdmin: boolean;
   onRemove: (id: string) => void;
   pairedEngineers?: Engineer[];
+  onResizeStart?: (e: React.PointerEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
     id: `sched-${entry.id}`,
@@ -427,10 +429,20 @@ function DraggableScheduleCard({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
-          className="absolute bottom-1 right-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity z-10"
+          className="absolute bottom-1 right-4 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity z-10"
         >
           <X className="h-3 w-3" />
         </button>
+      )}
+      {/* Stretch handle — right edge */}
+      {isAdmin && onResizeStart && (
+        <div
+          onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
+          title="Drag right edge to schedule across multiple days"
+        >
+          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
+        </div>
       )}
     </div>
   );
@@ -1254,7 +1266,18 @@ function SortableEngineerRow({
                   (e) => e.user_id !== eng.user_id &&
                     schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                 );
-                return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
+                const spanKey = `single-${entry.id}`;
+                return (
+                  <DraggableScheduleCard
+                    key={entry.id}
+                    entry={entry}
+                    job={getJob(entry.job_id)}
+                    isAdmin={isAdmin}
+                    onRemove={onRemove}
+                    pairedEngineers={paired}
+                    onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, eng.user_id, colIdx, [entry]) : undefined}
+                  />
+                );
               })}
               {cellAdhoc.map((adhoc) => (
                 <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
@@ -1294,7 +1317,18 @@ function SortableEngineerRow({
                       (e) => e.user_id !== partnerEng.user_id &&
                         schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
                     );
-                    return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
+                    const spanKey = `single-${entry.id}`;
+                    return (
+                      <DraggableScheduleCard
+                        key={entry.id}
+                        entry={entry}
+                        job={getJob(entry.job_id)}
+                        isAdmin={isAdmin}
+                        onRemove={onRemove}
+                        pairedEngineers={paired}
+                        onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, partnerEng.user_id, colIdx, [entry]) : undefined}
+                      />
+                    );
                   })}
                   {partnerCellAdhoc.map((adhoc) => (
                     <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
