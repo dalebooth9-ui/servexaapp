@@ -1027,20 +1027,31 @@ export default function RamsEditor() {
                         <Input value={p.name} placeholder="Enter name…" className="text-sm flex-1"
                           onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
                         {engineerProfiles.length > 0 && (
-                          <Select
-                            value=""
-                            onValueChange={(val) => { const next = [...personnelList]; next[i] = { ...next[i], name: val }; setPersonnelList(next); }}
-                          >
-                            <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
-                              <Users className="h-3.5 w-3.5" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {engineerProfiles.map((ep) => (
-                                <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
+                           <Select
+                             value=""
+                             onValueChange={(val) => {
+                               const ep = engineerProfiles.find((e) => e.user_id === val);
+                               const next = [...personnelList];
+                               next[i] = {
+                                 ...next[i],
+                                 name: ep?.full_name || val,
+                                 role: next[i].role || "Service Engineer",
+                               };
+                               setPersonnelList(next);
+                             }}
+                           >
+                             <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
+                               <Users className="h-3.5 w-3.5" />
+                             </SelectTrigger>
+                             <SelectContent>
+                               {engineerProfiles.map((ep) => (
+                                 <SelectItem key={ep.user_id} value={ep.user_id}>
+                                   {ep.full_name}{ep.phone ? ` · ${ep.phone}` : ""}
+                                 </SelectItem>
+                               ))}
+                             </SelectContent>
+                           </Select>
+                         )}
                       </div>
                     </div>
                     <div>
@@ -1082,14 +1093,19 @@ export default function RamsEditor() {
                       {engineerProfiles.length > 0 && (
                         <Select
                           value=""
-                          onValueChange={(val) => setApprovalFields({ ...approvalFields, approverName: val })}
+                          onValueChange={(val) => {
+                            const ep = engineerProfiles.find((e) => e.user_id === val);
+                            setApprovalFields({ ...approvalFields, approverName: ep?.full_name || val });
+                          }}
                         >
                           <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
                             <Users className="h-3.5 w-3.5" />
                           </SelectTrigger>
                           <SelectContent>
                             {engineerProfiles.map((ep) => (
-                              <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                              <SelectItem key={ep.user_id} value={ep.user_id}>
+                                {ep.full_name}{ep.phone ? ` · ${ep.phone}` : ""}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -1135,14 +1151,23 @@ export default function RamsEditor() {
                       {engineerProfiles.length > 0 && (
                         <Select
                           value=""
-                          onValueChange={(val) => setSupervisorFields({ ...supervisorFields, supervisorName: val })}
+                          onValueChange={(val) => {
+                            const ep = engineerProfiles.find((e) => e.user_id === val);
+                            setSupervisorFields({
+                              ...supervisorFields,
+                              supervisorName: ep?.full_name || val,
+                              supervisorContact: supervisorFields.supervisorContact || ep?.phone || "",
+                            });
+                          }}
                         >
                           <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
                             <Users className="h-3.5 w-3.5" />
                           </SelectTrigger>
                           <SelectContent>
                             {engineerProfiles.map((ep) => (
-                              <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                              <SelectItem key={ep.user_id} value={ep.user_id}>
+                                {ep.full_name}{ep.phone ? ` · ${ep.phone}` : ""}
+                              </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
