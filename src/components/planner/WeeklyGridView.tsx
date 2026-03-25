@@ -523,9 +523,23 @@ export default function WeeklyGridView({
     if (!over) return;
 
     const targetId = over.id as string;
-
-    // Engineer row reorder
     const activeData = active.data.current;
+
+    // Engineer-pair type: dropped on another engineer row → pair them on same row
+    if (activeData?.type === "engineer-pair") {
+      const draggedId = activeData.engineer.user_id as string;
+      const targetEng = engineers.find((e) => e.user_id === targetId);
+      if (targetEng && targetEng.user_id !== draggedId) {
+        setEngineerPairs((prev) => {
+          const filtered = prev.filter((p) => !p.includes(draggedId) && !p.includes(targetId));
+          // targetId is the "primary" row, draggedId becomes secondary (merged under it)
+          return [...filtered, [targetId, draggedId]];
+        });
+      }
+      return;
+    }
+
+    // Engineer row reorder (grip handle drag — no activeData.type)
     if (!activeData || (!activeData.type && engineers.some((e) => e.user_id === String(active.id)))) {
       if (active.id !== over.id) {
         const oldIndex = engineers.findIndex((e) => e.user_id === active.id);
@@ -544,16 +558,6 @@ export default function WeeklyGridView({
       } else if (activeData?.type === "adhoc") {
         await onMoveAdhoc(activeData.entry.id, null, null);
       }
-      return;
-    }
-
-    // Engineer pair drop onto a job card
-    if (activeData?.type === "engineer-pair" && targetId.startsWith("job-card-")) {
-      const rest = targetId.replace("job-card-", "");
-      const sepIdx = rest.lastIndexOf("_");
-      const jobId = rest.slice(0, sepIdx);
-      const date = rest.slice(sepIdx + 1);
-      await onAssign(jobId, activeData.engineer.user_id, date);
       return;
     }
 
