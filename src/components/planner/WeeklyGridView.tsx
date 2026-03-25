@@ -314,12 +314,14 @@ function DraggableScheduleCard({
   isAdmin,
   onRemove,
   pairedEngineers,
+  onResizeStart,
 }: {
   entry: ScheduleEntry;
   job: Job | undefined;
   isAdmin: boolean;
   onRemove: (id: string) => void;
   pairedEngineers?: Engineer[];
+  onResizeStart?: (e: React.PointerEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
     id: `sched-${entry.id}`,
