@@ -315,9 +315,9 @@ export default function PlannerMapView({
 
         const { Map: GMap } = await (window as any).google.maps.importLibrary("maps");
         const map = new GMap(mapRef.current, {
-          center: { lat: 54.0, lng: -2.5 },
+          center: { lat: 54.5, lng: -3.0 },
           zoom: 6,
-          mapId: "planner-map",
+          mapId: "DEMO_MAP_ID",
         });
         mapInstanceRef.current = map;
 
