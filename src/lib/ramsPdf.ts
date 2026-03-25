@@ -24,7 +24,7 @@ const PAGE_H = 297;
 const ML = 14;
 const MR = 14;
 const CONTENT_W = PAGE_W - ML - MR;
-const SAFE_BOTTOM = PAGE_H - 44;
+const SAFE_BOTTOM = PAGE_H - 56; // Extra margin to clear accreditation logos (~21mm) + footer (~15mm) + buffer
 
 function newPage(doc: jsPDF): number {
   doc.addPage();
