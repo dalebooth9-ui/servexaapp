@@ -318,6 +318,7 @@ export default function PlannerMapView({
           center: { lat: 54.5, lng: -3.0 },
           zoom: 6,
           mapTypeId: "roadmap",
+          mapId: "DEMO_MAP_ID",
         });
         mapInstanceRef.current = map;
 
