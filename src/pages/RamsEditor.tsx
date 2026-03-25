@@ -965,11 +965,80 @@ export default function RamsEditor() {
           jobId={jobId ?? undefined}
           ramsType={ramsType}
         />
-        <Button onClick={save} disabled={saving} size="sm">
-          {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
-          {saving ? "Saving…" : "Save RAMS"}
-        </Button>
+        {jobId ? (
+          <Button onClick={() => save()} disabled={saving} size="sm">
+            {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+            {saving ? "Saving…" : "Save RAMS"}
+          </Button>
+        ) : (
+          <Button onClick={() => setSaveToJobOpen(true)} disabled={saving} size="sm">
+            <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Save to Job
+          </Button>
+        )}
       </div>
+
+      {/* Save to Job dialog */}
+      <Dialog open={saveToJobOpen} onOpenChange={setSaveToJobOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Briefcase className="h-4 w-4 text-primary" /> Save RAMS to Job
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <Label className="text-xs text-muted-foreground">Search by job name or reference</Label>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <Input
+                className="pl-8"
+                placeholder="e.g. VFP-00123 or Exeter University…"
+                value={jobSearch}
+                onChange={(e) => { setJobSearch(e.target.value); searchJobs(e.target.value); }}
+                autoFocus
+              />
+            </div>
+            {jobSearchLoading && <p className="text-xs text-muted-foreground animate-pulse">Searching…</p>}
+            {jobSearchResults.length > 0 && (
+              <div className="rounded-md border divide-y max-h-56 overflow-y-auto">
+                {jobSearchResults.map((j) => (
+                  <button
+                    key={j.id}
+                    type="button"
+                    onClick={() => setSelectedSaveJob(j)}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent transition-colors ${selectedSaveJob?.id === j.id ? "bg-primary/10 font-medium" : ""}`}
+                  >
+                    <span className="font-mono text-xs text-muted-foreground mr-2">{j.reference_number}</span>
+                    {j.name}
+                    {j.customers?.name && <span className="text-xs text-muted-foreground ml-1">· {j.customers.name}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+            {selectedSaveJob && (
+              <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-sm flex items-center gap-2">
+                <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span>Saving to: <strong>{selectedSaveJob.reference_number}</strong> · {selectedSaveJob.name}</span>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSaveToJobOpen(false)}>Cancel</Button>
+            <Button
+              disabled={!selectedSaveJob || saving}
+              onClick={async () => {
+                if (!selectedSaveJob) return;
+                await save(selectedSaveJob.id);
+                setSaveToJobOpen(false);
+                toast({ title: "RAMS saved", description: `Linked to ${selectedSaveJob.reference_number}` });
+                navigate(`/jobs/${selectedSaveJob.id}`);
+              }}
+            >
+              {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
+              Save & Go to Job
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
