@@ -8,6 +8,7 @@ export interface PdfHeaderData {
   refNumber: string;
   dateVal: string;
   riserLocation: string;
+  w3wAddress?: string;
 }
 
 export interface PdfBranding {
