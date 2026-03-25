@@ -916,7 +916,7 @@ export default function RamsEditor() {
           </div>
         </TabsContent>
 
-        {/* ── Personnel & Approval ── */}
+        {/* -- Personnel & Approval -- */}
         <TabsContent value="personnel">
           <div className="space-y-6">
 
