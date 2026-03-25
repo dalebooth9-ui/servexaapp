@@ -352,6 +352,10 @@ export default function RamsEditor() {
   const [loading, setLoading] = useState(true);
   const [docId, setDocId] = useState<string | null>(ramsId || null);
   const [isDirty, setIsDirty] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // localStorage key scoped to this job/rams combo
+  const draftKey = `rams_draft_${jobId ?? "new"}_${ramsId ?? "new"}`;
 
   // Current user's profile for auto-fill
   const [myProfile, setMyProfile] = useState<{ full_name: string; signature_data: string | null } | null>(null);
