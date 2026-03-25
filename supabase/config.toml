@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.parse-costing-sheet]
 verify_jwt = false
+
+[functions.w3w-convert]
+verify_jwt = false
