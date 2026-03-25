@@ -288,11 +288,43 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   reference_number?: string;
   commissioning_ref?: string;
   other_qty?: number;
+  category?: string | null;
   site?: { address?: string | null; postcode?: string | null; riser_location?: string | null } | null;
   engineers?: string[];
 }) {
   const siteAddr = [jobInfo.address || jobInfo.site?.address, jobInfo.site?.postcode].filter(Boolean).join(", ");
   const today = new Date().toISOString().split("T")[0];
+
+  // Fetch org branding for company name auto-fill
+  let orgCompanyName = "Viva Fire Protection Ltd";
+  let orgAddress = "Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ";
+  let orgPhone = "0845 269 8482";
+  let orgEmail = "sales@vivafire.co.uk";
+  let orgWebsite = "www.vivafire.co.uk";
+  let orgRegNo = "06464084";
+  try {
+    const { data: brandingSetting } = await supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", "org_branding")
+      .maybeSingle();
+    if (brandingSetting?.value && typeof brandingSetting.value === "object") {
+      const b = brandingSetting.value as any;
+      if (b.company_name) orgCompanyName = b.company_name;
+      if (b.address) orgAddress = b.address;
+      if (b.phone) orgPhone = b.phone;
+      if (b.email) orgEmail = b.email;
+      if (b.website) orgWebsite = b.website;
+      if (b.reg_no) orgRegNo = b.reg_no;
+    }
+  } catch {}
+
+  // Derive system type from job category
+  const cat = (jobInfo.category || "").toLowerCase();
+  const systemType = cat.includes("wet") ? "wet riser system"
+    : cat.includes("hydrant") ? "hydrant system"
+    : cat.includes("sprinkler") ? "sprinkler system"
+    : "dry riser system";
 
   // Derive CoC cert number from the commissioning ref (e.g. VFP-00123/Comm-1 → VFP-00123/CoC-1)
   // or fall back to counting existing CoCs if no commissioning ref provided
