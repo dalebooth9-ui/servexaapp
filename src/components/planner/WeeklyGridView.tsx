@@ -219,8 +219,8 @@ function SpanningJobCard({
       {isAdmin && (
         <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
           {span > 1 && (
-            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 border border-primary/25 text-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none">
-              <CalendarDays className="h-2.5 w-2.5" />{span}d
+            <span className="inline-flex items-center gap-0.5 rounded bg-primary text-primary-foreground px-1.5 py-0.5 text-[11px] font-bold leading-none shadow-sm">
+              <CalendarDays className="h-3 w-3" />{span}d
             </span>
           )}
           {onAdjustSpan && (
