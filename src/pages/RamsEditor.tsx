@@ -15,9 +15,24 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { ArrowLeft, Plus, Trash2, Save, Loader2, AlertTriangle, Users, UserCheck, Eraser, Check, Briefcase, Search } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Save, Loader2, AlertTriangle, Users, UserCheck, Eraser, Check, Briefcase, Search, GripVertical } from "lucide-react";
 import { getRamsDefaults, buildScopeDescription, RamsType } from "@/lib/ramsDefaults";
 import RamsPdfExport from "@/components/RamsPdfExport";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 const RAMS_TYPE_LABELS: Record<RamsType, string> = {
   dry_riser: "Dry Riser",
@@ -47,35 +62,68 @@ const RISK_COL_HEADERS = [
   "Comments",
 ];
 
+// Sortable item wrapper for ListEditor
+function SortableListItem({
+  id, index, item, onChange, onDelete, placeholder,
+}: { id: string; index: number; item: string; onChange: (val: string) => void; onDelete: () => void; placeholder?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <div ref={setNodeRef} style={style} className="flex gap-2 items-start">
+      <button {...attributes} {...listeners} className="mt-2 cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0 touch-none">
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <span className="mt-2 text-muted-foreground text-xs font-mono w-5 shrink-0">{index + 1}.</span>
+      <Textarea
+        value={item}
+        rows={2}
+        className="flex-1 text-sm resize-none"
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <Button
+        size="icon" variant="ghost"
+        className="mt-1 shrink-0 h-7 w-7 text-destructive/70 hover:text-destructive"
+        onClick={onDelete}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </Button>
+    </div>
+  );
+}
+
 function ListEditor({
   label, items, onChange, placeholder,
 }: { label: string; items: string[]; onChange: (items: string[]) => void; placeholder?: string }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const ids = items.map((_, i) => `item-${i}`);
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = ids.indexOf(active.id as string);
+    const newIndex = ids.indexOf(over.id as string);
+    if (oldIndex !== -1 && newIndex !== -1) onChange(arrayMove(items, oldIndex, newIndex));
+  };
+
   return (
     <div className="space-y-2">
       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</Label>
-      {items.map((item, i) => (
-        <div key={i} className="flex gap-2 items-start">
-          <span className="mt-2 text-muted-foreground text-xs font-mono w-5 shrink-0">{i + 1}.</span>
-          <Textarea
-            value={item}
-            rows={2}
-            className="flex-1 text-sm resize-none"
-            placeholder={placeholder}
-            onChange={(e) => {
-              const next = [...items];
-              next[i] = e.target.value;
-              onChange(next);
-            }}
-          />
-          <Button
-            size="icon" variant="ghost"
-            className="mt-1 shrink-0 h-7 w-7 text-destructive/70 hover:text-destructive"
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      ))}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+          {items.map((item, i) => (
+            <SortableListItem
+              key={ids[i]}
+              id={ids[i]}
+              index={i}
+              item={item}
+              placeholder={placeholder}
+              onChange={(val) => { const next = [...items]; next[i] = val; onChange(next); }}
+              onDelete={() => onChange(items.filter((_, j) => j !== i))}
+            />
+          ))}
+        </SortableContext>
+      </DndContext>
       <Button
         variant="outline" size="sm" className="gap-1.5 text-xs"
         onClick={() => onChange([...items, ""])}
@@ -87,8 +135,8 @@ function ListEditor({
 }
 
 function RiskRowEditor({
-  row, onChange, onDelete, index,
-}: { row: string[]; onChange: (row: string[]) => void; onDelete: () => void; index: number }) {
+  row, onChange, onDelete, index, dragHandleProps,
+}: { row: string[]; onChange: (row: string[]) => void; onDelete: () => void; index: number; dragHandleProps?: Record<string, any> }) {
   const set = (col: number, val: string) => {
     const next = [...row];
     next[col] = val;
@@ -105,7 +153,14 @@ function RiskRowEditor({
   return (
     <div className="rounded-lg border bg-card p-3 space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-mono font-bold text-muted-foreground">Row {index + 1}</span>
+        <div className="flex items-center gap-2">
+          {dragHandleProps && (
+            <button {...dragHandleProps} className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground touch-none">
+              <GripVertical className="h-4 w-4" />
+            </button>
+          )}
+          <span className="text-xs font-mono font-bold text-muted-foreground">Row {index + 1}</span>
+        </div>
         <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive/70 hover:text-destructive" onClick={onDelete}>
           <Trash2 className="h-3.5 w-3.5" />
         </Button>
@@ -186,6 +241,25 @@ function RiskRowEditor({
         <Label className="text-xs">Comments</Label>
         <Input value={row[10] || ""} onChange={(e) => set(10, e.target.value)} className="mt-1 text-sm" />
       </div>
+    </div>
+  );
+}
+
+// Sortable wrapper for RiskRowEditor
+function SortableRiskRow({
+  id, row, index, onChange, onDelete,
+}: { id: string; row: string[]; index: number; onChange: (r: string[]) => void; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <RiskRowEditor
+        row={row}
+        index={index}
+        onChange={onChange}
+        onDelete={onDelete}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
     </div>
   );
 }
@@ -312,6 +386,7 @@ export default function RamsEditor() {
   const [specialTraining, setSpecialTraining] = useState("");
   const [ppeItems, setPpeItems] = useState<string[]>([]);
   const [riskRows, setRiskRows] = useState<string[][]>([]);
+  const riskSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   // Personnel & Approval state
   const [personnelList, setPersonnelList] = useState<PersonnelEntry[]>([]);
@@ -811,19 +886,33 @@ export default function RamsEditor() {
               </div>
             )}
 
-            {riskRows.map((row, i) => (
-              <RiskRowEditor
-                key={i}
-                index={i}
-                row={row}
-                onChange={(r) => {
-                  const next = [...riskRows];
-                  next[i] = r;
-                  setRiskRows(next);
+            {riskRows.length > 0 && (
+              <DndContext
+                sensors={riskSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event) => {
+                  const { active, over } = event;
+                  if (!over || active.id === over.id) return;
+                  const ids = riskRows.map((_, idx) => `risk-${idx}`);
+                  const oi = ids.indexOf(active.id as string);
+                  const ni = ids.indexOf(over.id as string);
+                  if (oi !== -1 && ni !== -1) setRiskRows(arrayMove(riskRows, oi, ni));
                 }}
-                onDelete={() => setRiskRows(riskRows.filter((_, j) => j !== i))}
-              />
-            ))}
+              >
+                <SortableContext items={riskRows.map((_, idx) => `risk-${idx}`)} strategy={verticalListSortingStrategy}>
+                  {riskRows.map((row, i) => (
+                    <SortableRiskRow
+                      key={`risk-${i}`}
+                      id={`risk-${i}`}
+                      index={i}
+                      row={row}
+                      onChange={(r) => { const next = [...riskRows]; next[i] = r; setRiskRows(next); }}
+                      onDelete={() => setRiskRows(riskRows.filter((_, j) => j !== i))}
+                    />
+                  ))}
+                </SortableContext>
+              </DndContext>
+            )}
           </div>
         </TabsContent>
 
