@@ -317,9 +317,8 @@ export default function PlannerMapView({
         const map = new GMap(mapRef.current, {
           center: { lat: 54.5, lng: -3.0 },
           zoom: 6,
-          mapId: "DEMO_MAP_ID",
+          mapTypeId: "roadmap",
         });
-        map.setMapTypeId("roadmap");
         mapInstanceRef.current = map;
 
         const geocoder = new google.maps.Geocoder();
