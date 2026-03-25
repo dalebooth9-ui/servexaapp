@@ -503,7 +503,23 @@ export default function RamsEditor() {
       personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType,
       personnelList, approvalFields, supervisorFields]);
 
-  const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
+  // Auto-save draft to localStorage on every change
+  useEffect(() => {
+    if (loading) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        ramsType, coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps,
+        location, resources, personnel, plantAndEquipment, significantRisks,
+        specialTraining, ppeItems, riskRows, personnelList, approvalFields, supervisorFields,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch { /* storage full — silently skip */ }
+  }, [loading, ramsType, coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps,
+      location, resources, personnel, plantAndEquipment, significantRisks,
+      specialTraining, ppeItems, riskRows, personnelList, approvalFields, supervisorFields]);
+
+  // Clear draft from localStorage after a successful save
+  const clearDraft = () => { try { localStorage.removeItem(draftKey); } catch {} };
     const d = getRamsDefaults(type);
     setRamsType(type);
     setCoverFields({
