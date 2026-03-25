@@ -858,7 +858,20 @@ export default function RamsEditor() {
                   <div key={i} className="rounded-lg border bg-card p-3 grid grid-cols-3 gap-3 items-end">
                     <div>
                       <Label className="text-xs">Full Name</Label>
-                      <Input value={p.name} className="mt-1 text-sm"
+                      <Select
+                        value={p.name}
+                        onValueChange={(val) => { const next = [...personnelList]; next[i] = { ...next[i], name: val }; setPersonnelList(next); }}
+                      >
+                        <SelectTrigger className="mt-1 text-sm h-9">
+                          <SelectValue placeholder="Select or type name…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {engineerProfiles.map((ep) => (
+                            <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input value={p.name} placeholder="Or type manually…" className="mt-1 text-sm"
                         onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
                     </div>
                     <div>
