@@ -460,11 +460,32 @@ export default function RamsEditor() {
     }
   };
 
-  const save = async () => {
-    if (!jobId || !user) return;
+  // Save to job dialog state
+  const [saveToJobOpen, setSaveToJobOpen] = useState(false);
+  const [jobSearch, setJobSearch] = useState("");
+  const [jobSearchResults, setJobSearchResults] = useState<{ id: string; reference_number: string; name: string; customers: { name: string } | null }[]>([]);
+  const [jobSearchLoading, setJobSearchLoading] = useState(false);
+  const [selectedSaveJob, setSelectedSaveJob] = useState<{ id: string; reference_number: string; name: string } | null>(null);
+
+  const searchJobs = async (q: string) => {
+    if (!q.trim()) { setJobSearchResults([]); return; }
+    setJobSearchLoading(true);
+    const { data } = await supabase
+      .from("jobs")
+      .select("id, reference_number, name, customers(name)")
+      .or(`name.ilike.%${q}%,reference_number.ilike.%${q}%`)
+      .order("created_at", { ascending: false })
+      .limit(10);
+    setJobSearchResults((data as any) || []);
+    setJobSearchLoading(false);
+  };
+
+  const save = async (overrideJobId?: string) => {
+    const targetJobId = overrideJobId || jobId;
+    if (!targetJobId || !user) return;
     setSaving(true);
     const payload = {
-      job_id: jobId,
+      job_id: targetJobId,
       rams_type: ramsType,
       created_by: user.id,
       contract_job_name: coverFields.contractJobName,
