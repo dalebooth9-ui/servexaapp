@@ -501,6 +501,9 @@ export default function RamsEditor() {
     _specialTraining: specialTraining,
     _ppeItems: ppeItems,
     _riskRows: riskRows,
+    _personnelList: personnelList,
+    _approvalFields: approvalFields,
+    _supervisorFields: supervisorFields,
   });
 
   if (loading) {
