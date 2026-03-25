@@ -1303,10 +1303,15 @@ function SortableEngineerRow({
                         isFirst={true}
                         isContinuation={false}
                         onAdjustSpan={onResizeSpan ? (delta) => {
-                          const startIdx = spanItem.startColIndex;
-                          const newSpan = Math.max(1, Math.min(effectiveSpan + delta, weekDays.length - startIdx));
-                          const newDates = weekDateStrs.slice(startIdx, startIdx + newSpan);
-                          onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, newDates);
+                          const sorted = [...spanItem.entries].sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
+                          if (delta > 0) {
+                            const lastDate = parseISO(sorted[sorted.length - 1].schedule_date);
+                            const newDate = format(addDays(lastDate, 1), "yyyy-MM-dd");
+                            onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, [...sorted.map(e => e.schedule_date), newDate]);
+                          } else if (delta < 0 && sorted.length > 1) {
+                            const keep = sorted.slice(0, -1).map(e => e.schedule_date);
+                            onResizeSpan(spanItem.jobId, eng.user_id, spanItem.entries, keep);
+                          }
                         } : undefined}
                       />
                     </div>
