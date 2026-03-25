@@ -361,10 +361,25 @@ function DraggableScheduleCard({
         isAdmin && "cursor-grab active:cursor-grabbing",
       )}
     >
-      {/* Drag hint — visible on hover for admins */}
+      {/* Admin action bar — always visible */}
       {isAdmin && (
-        <div className="absolute top-1 right-1 opacity-0 group-hover/schedcard:opacity-100 transition-opacity pointer-events-none">
-          <GripVertical className="h-3 w-3 text-muted-foreground/60" />
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
+          {onAdjustSpan && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
+              className="rounded px-1.5 py-0.5 text-[10px] font-bold bg-primary text-primary-foreground hover:bg-primary/80 transition-colors leading-none shadow-sm"
+              title="Add 1 day"
+            >+1d</button>
+          )}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); onRemove(entry.id); }}
+            className="rounded p-0.5 bg-muted text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Remove"
+          >
+            <X className="h-3 w-3" />
+          </button>
         </div>
       )}
       <div className="flex-1 min-w-0">
