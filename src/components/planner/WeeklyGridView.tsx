@@ -1333,10 +1333,8 @@ function SortableEngineerRow({
                       pairedEngineers={paired}
                       onAdjustSpan={onResizeSpan ? (delta) => {
                         if (delta > 0) {
-                          const entryColIdx = weekDateStrs.indexOf(entry.schedule_date);
-                          if (entryColIdx === -1) return;
-                          const newDates = weekDateStrs.slice(entryColIdx, entryColIdx + 1 + delta);
-                          onResizeSpan(entry.job_id, eng.user_id, [entry], newDates);
+                          const nextDate = format(addDays(parseISO(entry.schedule_date), 1), "yyyy-MM-dd");
+                          onResizeSpan(entry.job_id, eng.user_id, [entry], [entry.schedule_date, nextDate]);
                         }
                       } : undefined}
                     />
