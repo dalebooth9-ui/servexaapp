@@ -1057,7 +1057,7 @@ function SortableEngineerRow({
 
   const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
 
-  // Resize handler: captures pointer, measures cell positions, updates preview and commits on pointerup
+  // Resize handler: uses document-level listeners so drag works even when cursor leaves the handle
   const handleResizeStart = (
     e: React.PointerEvent,
     spanKey: string,
@@ -1067,49 +1067,49 @@ function SortableEngineerRow({
     existingEntries: ScheduleEntry[]
   ) => {
     if (!onResizeSpan) return;
-    // Stop propagation at both levels to prevent DnD from grabbing this pointer event
     e.stopPropagation();
     e.nativeEvent.stopImmediatePropagation();
     e.preventDefault();
 
-    // Set global lock so DnD sensor ignores this gesture
+    // Lock DnD sensor globally
     globalResizeActive = true;
 
-    // Capture pointer to the resize handle element so we get all subsequent events
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-
-    // Measure cell positions from the grid row
+    // Measure all day-column cells from the grid row BEFORE state changes
     const gridEl = gridRowRef.current;
-    if (!gridEl) return;
-    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
-    const cellRects = cells.map(c => c.getBoundingClientRect());
+    if (!gridEl) { globalResizeActive = false; return; }
 
-    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects };
+    // Collect all DroppableCell elements in order
+    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
+    // Build rects keyed by colIdx
+    const colRects: { idx: number; rect: DOMRect }[] = cells.map(c => ({
+      idx: parseInt(c.dataset.dayCol || "0", 10),
+      rect: c.getBoundingClientRect(),
+    }));
+
+    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects: colRects.map(r => r.rect) };
     setResizingSpanKey(spanKey);
     setResizePreviewSpan(existingEntries.length || 1);
 
-    const getColFromX = (x: number) => {
+    const getColFromX = (x: number): number => {
+      // Find which column the cursor is over based on measured rects
       let best = startColIndex;
-      for (let i = startColIndex; i < cellRects.length; i++) {
-        const r = cellRects[i];
-        if (x >= r.left - 8 && x <= r.right + 8) { best = i; break; }
-        if (x > r.right) best = i;
+      for (const { idx, rect } of colRects) {
+        if (idx < startColIndex) continue;
+        if (x >= rect.left && x <= rect.right) { best = idx; break; }
+        if (x > rect.right) best = idx;
       }
       return Math.max(startColIndex, best);
     };
 
     const onMove = (me: PointerEvent) => {
       if (!resizeDataRef.current) return;
-      me.stopPropagation();
       const col = getColFromX(me.clientX);
       setResizePreviewSpan(col - startColIndex + 1);
     };
 
     const onUp = async (ue: PointerEvent) => {
-      target.removeEventListener("pointermove", onMove);
-      target.removeEventListener("pointerup", onUp);
-      target.releasePointerCapture(ue.pointerId);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
       globalResizeActive = false;
       if (!resizeDataRef.current) { setResizingSpanKey(null); return; }
       const col = getColFromX(ue.clientX);
@@ -1120,8 +1120,8 @@ function SortableEngineerRow({
       await onResizeSpan!(jobId, engineerId, existingEntries, newDates);
     };
 
-    target.addEventListener("pointermove", onMove);
-    target.addEventListener("pointerup", onUp);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   };
 
 
