@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { format, isSameDay, isPast, parseISO, startOfDay, isWithinInterval, endOfDay } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -184,6 +184,7 @@ function SpanningJobCard({
   pairedEngineers,
   isFirst,
   isContinuation,
+  onResizeStart,
 }: {
   entries: ScheduleEntry[];
   job: Job | undefined;
@@ -192,7 +193,8 @@ function SpanningJobCard({
   onRemove: (id: string) => void;
   pairedEngineers?: Engineer[];
   isFirst: boolean;
-  isContinuation: boolean; // continues from previous week
+  isContinuation: boolean;
+  onResizeStart?: (e: React.PointerEvent) => void;
 }) {
   if (!job) return null;
   const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
@@ -291,6 +293,16 @@ function SpanningJobCard({
           </button>
         )}
       </div>
+      {/* Resize handle — right edge */}
+      {isAdmin && onResizeStart && (
+        <div
+          onPointerDown={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
+          title="Drag to extend or shrink across days"
+        >
+          <div className="w-0.5 h-5 rounded-full bg-primary/30 group-hover/resize:bg-primary/70 transition-colors" />
+        </div>
+      )}
     </div>
   );
 }
@@ -464,18 +476,21 @@ function DroppableCell({
   isToday,
   isOver,
   isLeave,
+  colIdx,
 }: {
   id: string;
   children: React.ReactNode;
   isToday: boolean;
   isOver: boolean;
   isLeave?: boolean;
+  colIdx?: number;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
   return (
     <div
       ref={setNodeRef}
+      data-day-col={colIdx}
       className={cn(
         "min-h-[80px] rounded-md border p-1.5 space-y-1 transition-colors",
         isToday && "bg-primary/5 border-primary/20",
@@ -504,6 +519,7 @@ export default function WeeklyGridView({
   onMoveAdhoc,
   onMultiDaySchedule,
   onEngineerReorder,
+  onResizeSpan,
 }: {
   weekDays: Date[];
   engineers: Engineer[];
@@ -519,6 +535,7 @@ export default function WeeklyGridView({
   onMoveAdhoc: (id: string, engineerId: string | null, date: string | null) => Promise<void>;
   onMultiDaySchedule: (job: Job) => void;
   onEngineerReorder: (newOrder: string[]) => void;
+  onResizeSpan?: (jobId: string, engineerId: string, existingEntries: ScheduleEntry[], newDates: string[]) => Promise<void>;
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -789,6 +806,7 @@ export default function WeeklyGridView({
                           leaveDates={leaveMap.get(eng.user_id) || []}
                           partnerLeaveDates={partnerEng ? leaveMap.get(partnerEng.user_id) || [] : []}
                           bankHolidayDates={bankHolidayDates}
+                          onResizeSpan={onResizeSpan}
                         />
                       );
                     })}
@@ -911,6 +929,7 @@ function SortableEngineerRow({
   leaveDates,
   partnerLeaveDates,
   bankHolidayDates,
+  onResizeSpan,
 }: {
   eng: Engineer;
   partnerEng?: Engineer;
@@ -927,6 +946,7 @@ function SortableEngineerRow({
   leaveDates: string[];
   partnerLeaveDates: string[];
   bankHolidayDates: Set<string>;
+  onResizeSpan?: (jobId: string, engineerId: string, existingEntries: ScheduleEntry[], newDates: string[]) => Promise<void>;
 }) {
   const { attributes: sortAttrs, listeners: sortListeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
   const { attributes: pairAttrs, listeners: pairListeners, setNodeRef: pairRef, isDragging: isPairDragging } = useDraggable({
@@ -940,6 +960,21 @@ function SortableEngineerRow({
     disabled: !isAdmin || !!partnerEng,
   });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
+
+  // Resize state: tracks which span is being resized and the live preview column count
+  const [resizingSpanKey, setResizingSpanKey] = useState<string | null>(null);
+  const [resizePreviewSpan, setResizePreviewSpan] = useState<number>(1);
+  const resizeDataRef = useRef<{
+    spanKey: string;
+    jobId: string;
+    engineerId: string;
+    startColIndex: number;
+    existingEntries: ScheduleEntry[];
+    cellRects: DOMRect[];
+  } | null>(null);
+
+  // Build a ref for the grid row element to measure cell positions
+  const gridRowRef = useRef<HTMLDivElement | null>(null);
 
   const today = format(new Date(), "yyyy-MM-dd");
   const engEntries = schedule.filter((s) => s.engineer_id === eng.user_id);
@@ -977,6 +1012,62 @@ function SortableEngineerRow({
 
   const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
 
+  // Resize handler: captures pointer, measures cell positions, updates preview and commits on pointerup
+  const handleResizeStart = (
+    e: React.PointerEvent,
+    spanKey: string,
+    jobId: string,
+    engineerId: string,
+    startColIndex: number,
+    existingEntries: ScheduleEntry[]
+  ) => {
+    if (!onResizeSpan) return;
+    e.stopPropagation();
+    e.preventDefault();
+
+    // Measure cell positions from the grid row
+    const gridEl = gridRowRef.current;
+    if (!gridEl) return;
+    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
+    const cellRects = cells.map(c => c.getBoundingClientRect());
+
+    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects };
+    setResizingSpanKey(spanKey);
+    setResizePreviewSpan(existingEntries.length || 1);
+
+    const getColFromX = (x: number) => {
+      let best = startColIndex;
+      for (let i = startColIndex; i < cellRects.length; i++) {
+        const r = cellRects[i];
+        if (x >= r.left - 8 && x <= r.right + 8) { best = i; break; }
+        if (x > r.right) best = i;
+      }
+      return Math.max(startColIndex, best);
+    };
+
+    const onMove = (me: PointerEvent) => {
+      if (!resizeDataRef.current) return;
+      const col = getColFromX(me.clientX);
+      setResizePreviewSpan(col - startColIndex + 1);
+    };
+
+    const onUp = async (ue: PointerEvent) => {
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
+      if (!resizeDataRef.current) { setResizingSpanKey(null); return; }
+      const col = getColFromX(ue.clientX);
+      const newSpan = Math.max(1, col - startColIndex + 1);
+      const newDates = weekDateStrs.slice(startColIndex, startColIndex + newSpan);
+      setResizingSpanKey(null);
+      resizeDataRef.current = null;
+      await onResizeSpan!(jobId, engineerId, existingEntries, newDates);
+    };
+
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
+  };
+
+
   return (
     <div
       ref={setNodeRef}
@@ -985,6 +1076,7 @@ function SortableEngineerRow({
     >
       {/* Main grid row */}
       <div
+        ref={gridRowRef}
         className="grid gap-1"
         style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
       >
@@ -1080,6 +1172,7 @@ function SortableEngineerRow({
             return (
               <div
                 key={cellId}
+                data-day-col={colIdx}
                 className={cn(
                   "min-h-[80px] rounded-md border border-dashed border-primary/10 p-1 transition-colors",
                   isToday && "bg-primary/3"
@@ -1087,6 +1180,13 @@ function SortableEngineerRow({
               />
             );
           }
+
+          // Determine live preview span for a span being resized at this col
+          const getEffectiveSpan = (spanItem: { jobId: string; startColIndex: number; span: number }) => {
+            const key = `${spanItem.jobId}-${eng.user_id}`;
+            if (resizingSpanKey === key) return resizePreviewSpan;
+            return spanItem.span;
+          };
 
           // Build cell content
           const content = (
@@ -1116,23 +1216,26 @@ function SortableEngineerRow({
                   (e) => e.user_id !== eng.user_id &&
                     schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                 );
+                const effectiveSpan = getEffectiveSpan(spanItem);
+                const spanKey = `${spanItem.jobId}-${eng.user_id}`;
                 return (
                   <div
                     key={`span-${spanItem.jobId}-${colIdx}`}
-                    className="group"
+                    className={cn("group", resizingSpanKey === spanKey && "select-none")}
                     style={{
-                      gridColumn: `span ${Math.min(spanItem.span, weekDays.length - colIdx)}`,
+                      gridColumn: `span ${Math.min(effectiveSpan, weekDays.length - colIdx)}`,
                     }}
                   >
                     <SpanningJobCard
                       entries={spanItem.entries}
                       job={job}
-                      span={spanItem.span}
+                      span={effectiveSpan}
                       isAdmin={isAdmin}
                       onRemove={onRemove}
                       pairedEngineers={paired}
                       isFirst={true}
                       isContinuation={false}
+                      onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, eng.user_id, colIdx, spanItem.entries) : undefined}
                     />
                   </div>
                 );
@@ -1160,17 +1263,20 @@ function SortableEngineerRow({
                       (e) => e.user_id !== partnerEng.user_id &&
                         schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
                     );
+                    const effectiveSpan = getEffectiveSpan(spanItem);
+                    const spanKey = `${spanItem.jobId}-${partnerEng.user_id}`;
                     return (
-                      <div key={`pspan-${spanItem.jobId}-${colIdx}`} className="group">
+                      <div key={`pspan-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
                         <SpanningJobCard
                           entries={spanItem.entries}
                           job={job}
-                          span={spanItem.span}
+                          span={effectiveSpan}
                           isAdmin={isAdmin}
                           onRemove={onRemove}
                           pairedEngineers={paired}
                           isFirst={true}
                           isContinuation={false}
+                          onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, partnerEng.user_id, colIdx, spanItem.entries) : undefined}
                         />
                       </div>
                     );
@@ -1191,7 +1297,7 @@ function SortableEngineerRow({
           );
 
           return (
-            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday}>
+            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday} colIdx={colIdx}>
               {content}
             </DroppableCell>
           );
