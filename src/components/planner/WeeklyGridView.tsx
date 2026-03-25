@@ -215,16 +215,50 @@ function SpanningJobCard({
           : undefined,
       }}
     >
-      {/* Day count badge for multi-day */}
-      {span > 1 && (
-        <div className="absolute top-1 right-6 flex items-center gap-0.5">
+      {/* Top-right action bar: day badge + +/- buttons + remove */}
+      {isAdmin && (
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
+          {span > 1 && (
+            <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 border border-primary/25 text-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none">
+              <CalendarDays className="h-2.5 w-2.5" />{span}d
+            </span>
+          )}
+          {onAdjustSpan && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan(-1); }}
+              disabled={span <= 1}
+              className="rounded px-1 py-0.5 text-[10px] font-bold bg-muted hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-30 disabled:cursor-not-allowed leading-none"
+              title="Remove 1 day"
+            >−</button>
+          )}
+          {onAdjustSpan && (
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); onAdjustSpan(1); }}
+              className="rounded px-1 py-0.5 text-[10px] font-bold bg-muted hover:bg-primary/20 text-primary transition-colors leading-none"
+              title="Add 1 day"
+            >+</button>
+          )}
+          <button
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
+            className="rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            title="Remove"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      )}
+      {!isAdmin && span > 1 && (
+        <div className="absolute top-1 right-1 flex items-center gap-0.5 z-10">
           <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 border border-primary/25 text-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none">
             <CalendarDays className="h-2.5 w-2.5" />{span}d
           </span>
         </div>
       )}
       <div className="flex items-start gap-1 min-w-0">
-        <div className="flex-1 min-w-0">
+        <div className="flex-1 min-w-0 pr-16">
           <div className="flex items-center gap-1 flex-wrap mb-0.5">
             <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline shrink-0 text-[11px]">
               {job.reference_number}
