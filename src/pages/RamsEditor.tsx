@@ -709,7 +709,7 @@ export default function RamsEditor() {
     <div className="max-w-5xl mx-auto pb-16">
       {/* Draft restored banner */}
       {draftRestored && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-700 px-4 py-2.5 text-sm text-amber-800 dark:text-amber-200">
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-warning bg-warning/10 px-4 py-2.5 text-sm text-warning-foreground">
           <span>
             <strong>Draft restored</strong> — your unsaved edits from your last visit have been reloaded.
           </span>
