@@ -669,25 +669,34 @@ export default function WeeklyGridView({
 
             {/* Engineer rows — sortable by admin */}
             <ScrollArea className="h-[calc(100vh-320px)]">
-              <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
+              <SortableContext items={engineers.filter(e => !secondaryEngIds.has(e.user_id)).map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1">
-             {engineers.map((eng) => (
-                     <SortableEngineerRow
-                       key={eng.user_id}
-                       eng={eng}
-                       allEngineers={engineers}
-                       weekDays={weekDays}
-                       schedule={schedule}
-                       adhocEntries={adhocEntries}
-                       overId={overId}
-                       isAdmin={isAdmin}
-                       getJob={getJob}
-                       onRemove={onRemove}
-                       onRemoveAdhoc={onRemoveAdhoc}
-                       leaveDates={leaveMap.get(eng.user_id) || []}
-                       bankHolidayDates={bankHolidayDates}
-                     />
-                   ))}
+                  {engineers
+                    .filter(e => !secondaryEngIds.has(e.user_id))
+                    .map((eng) => {
+                      const pair = engineerPairs.find(p => p[0] === eng.user_id);
+                      const partnerEng = pair ? engineers.find(e => e.user_id === pair[1]) : undefined;
+                      return (
+                        <SortableEngineerRow
+                          key={eng.user_id}
+                          eng={eng}
+                          partnerEng={partnerEng}
+                          onUnpair={pair ? () => setEngineerPairs(prev => prev.filter(p => p[0] !== eng.user_id)) : undefined}
+                          allEngineers={engineers}
+                          weekDays={weekDays}
+                          schedule={schedule}
+                          adhocEntries={adhocEntries}
+                          overId={overId}
+                          isAdmin={isAdmin}
+                          getJob={getJob}
+                          onRemove={onRemove}
+                          onRemoveAdhoc={onRemoveAdhoc}
+                          leaveDates={leaveMap.get(eng.user_id) || []}
+                          partnerLeaveDates={partnerEng ? leaveMap.get(partnerEng.user_id) || [] : []}
+                          bankHolidayDates={bankHolidayDates}
+                        />
+                      );
+                    })}
                 </div>
               </SortableContext>
               <ScrollBar orientation="vertical" />
