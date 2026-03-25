@@ -109,7 +109,13 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "RAMS PDF downloaded", description: fileName });
       } else {
-        window.open(url, "_blank");
+        const a = document.createElement("a");
+        a.href = url;
+        a.target = "_blank";
+        a.rel = "noopener noreferrer";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 30000);
         toast({ title: "RAMS PDF opened", description: fileName });
       }
