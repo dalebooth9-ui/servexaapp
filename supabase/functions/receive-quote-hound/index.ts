@@ -740,19 +740,22 @@ serve(async (req) => {
       }
     }
 
-    // ── 7. Parse Excel costing sheet → Allocated Days only ────────────────────
-    // Materials/parts are NOT imported for installation jobs — costing sheet is
-    // attached as a document only.
+    // ── 7. Parse Excel costing sheet → Job Parts + Allocated Days ────────────
     let partsCount = 0;
     let allocatedDays: number | null = null;
     if (excelUrl) {
-      console.log(`Excel URL found — fetching costing sheet for allocated days: ${excelUrl.slice(0, 80)}...`);
+      console.log(`Excel URL found — fetching costing sheet: ${excelUrl.slice(0, 80)}...`);
       const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
       if (lovableApiKey) {
         const csvText = await fetchExcelText(excelUrl);
         if (csvText.trim()) {
-          // Only extract allocated days — skip parts extraction for installation jobs
-          allocatedDays = await extractAllocatedDaysFromExcel(csvText, lovableApiKey);
+          // Run parts extraction and allocated days extraction in parallel
+          const [parts, days] = await Promise.all([
+            extractPartsFromExcel(csvText, lovableApiKey),
+            extractAllocatedDaysFromExcel(csvText, lovableApiKey),
+          ]);
+          partsCount = await insertJobParts(supabase, newJob.id, parts);
+          allocatedDays = days;
           // Patch allocated_days onto the job if found
           if (allocatedDays != null) {
             const { error: daysErr } = await supabase
@@ -763,13 +766,13 @@ serve(async (req) => {
             else console.log(`Set allocated_days = ${allocatedDays} on job ${newJob.id}`);
           }
         } else {
-          console.log("Excel text was empty — skipping");
+          console.log("Excel text was empty — skipping parts extraction");
         }
       } else {
-        console.warn("LOVABLE_API_KEY not set — skipping allocated days extraction");
+        console.warn("LOVABLE_API_KEY not set — skipping parts extraction");
       }
     } else {
-      console.log("No excel_url in payload — skipping");
+      console.log("No excel_url in payload — skipping parts extraction");
     }
 
     // ── 8. Log activity ────────────────────────────────────────────────────────
