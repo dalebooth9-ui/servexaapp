@@ -296,7 +296,8 @@ function SpanningJobCard({
       {/* Resize handle — right edge */}
       {isAdmin && onResizeStart && (
         <div
-          onPointerDownCapture={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          data-resize-handle="true"
+          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
           className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
           title="Drag to extend or shrink across days"
         >
@@ -437,7 +438,8 @@ function DraggableScheduleCard({
       {/* Stretch handle — right edge */}
       {isAdmin && onResizeStart && (
         <div
-          onPointerDownCapture={(e) => { e.stopPropagation(); onResizeStart(e); }}
+          data-resize-handle="true"
+          onPointerDown={(e) => { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation(); onResizeStart(e); }}
           className="absolute right-0 top-0 bottom-0 w-3 flex items-center justify-center cursor-col-resize group/resize rounded-r-md hover:bg-primary/20 transition-colors z-10"
           title="Drag right edge to schedule across multiple days"
         >
@@ -530,6 +532,25 @@ function DroppableCell({
 // Global resize lock — prevents DnD from activating while a resize is in progress
 let globalResizeActive = false;
 
+// Custom PointerSensor that respects the resize lock
+class ResizeAwarePointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: ({ nativeEvent }: { nativeEvent: PointerEvent }) => {
+        if (globalResizeActive) return false;
+        // Also check if the pointer target or its ancestors have data-resize-handle
+        let el = nativeEvent.target as HTMLElement | null;
+        while (el) {
+          if (el.dataset?.resizeHandle === "true") return false;
+          el = el.parentElement;
+        }
+        return true;
+      },
+    },
+  ];
+}
+
 export default function WeeklyGridView({
   weekDays,
   engineers,
@@ -611,7 +632,7 @@ export default function WeeklyGridView({
       });
   }, [weekDays]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(useSensor(ResizeAwarePointerSensor, { activationConstraint: { distance: 5 } }));
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
@@ -1038,7 +1059,7 @@ function SortableEngineerRow({
 
   const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
 
-  // Resize handler: captures pointer, measures cell positions, updates preview and commits on pointerup
+  // Resize handler: uses document-level listeners so drag works even when cursor leaves the handle
   const handleResizeStart = (
     e: React.PointerEvent,
     spanKey: string,
@@ -1048,49 +1069,49 @@ function SortableEngineerRow({
     existingEntries: ScheduleEntry[]
   ) => {
     if (!onResizeSpan) return;
-    // Stop propagation at both levels to prevent DnD from grabbing this pointer event
     e.stopPropagation();
     e.nativeEvent.stopImmediatePropagation();
     e.preventDefault();
 
-    // Set global lock so DnD sensor ignores this gesture
+    // Lock DnD sensor globally
     globalResizeActive = true;
 
-    // Capture pointer to the resize handle element so we get all subsequent events
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-
-    // Measure cell positions from the grid row
+    // Measure all day-column cells from the grid row BEFORE state changes
     const gridEl = gridRowRef.current;
-    if (!gridEl) return;
-    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
-    const cellRects = cells.map(c => c.getBoundingClientRect());
+    if (!gridEl) { globalResizeActive = false; return; }
 
-    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects };
+    // Collect all DroppableCell elements in order
+    const cells = Array.from(gridEl.querySelectorAll<HTMLElement>("[data-day-col]"));
+    // Build rects keyed by colIdx
+    const colRects: { idx: number; rect: DOMRect }[] = cells.map(c => ({
+      idx: parseInt(c.dataset.dayCol || "0", 10),
+      rect: c.getBoundingClientRect(),
+    }));
+
+    resizeDataRef.current = { spanKey, jobId, engineerId, startColIndex, existingEntries, cellRects: colRects.map(r => r.rect) };
     setResizingSpanKey(spanKey);
     setResizePreviewSpan(existingEntries.length || 1);
 
-    const getColFromX = (x: number) => {
+    const getColFromX = (x: number): number => {
+      // Find which column the cursor is over based on measured rects
       let best = startColIndex;
-      for (let i = startColIndex; i < cellRects.length; i++) {
-        const r = cellRects[i];
-        if (x >= r.left - 8 && x <= r.right + 8) { best = i; break; }
-        if (x > r.right) best = i;
+      for (const { idx, rect } of colRects) {
+        if (idx < startColIndex) continue;
+        if (x >= rect.left && x <= rect.right) { best = idx; break; }
+        if (x > rect.right) best = idx;
       }
       return Math.max(startColIndex, best);
     };
 
     const onMove = (me: PointerEvent) => {
       if (!resizeDataRef.current) return;
-      me.stopPropagation();
       const col = getColFromX(me.clientX);
       setResizePreviewSpan(col - startColIndex + 1);
     };
 
     const onUp = async (ue: PointerEvent) => {
-      target.removeEventListener("pointermove", onMove);
-      target.removeEventListener("pointerup", onUp);
-      target.releasePointerCapture(ue.pointerId);
+      document.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerup", onUp);
       globalResizeActive = false;
       if (!resizeDataRef.current) { setResizingSpanKey(null); return; }
       const col = getColFromX(ue.clientX);
@@ -1101,8 +1122,8 @@ function SortableEngineerRow({
       await onResizeSpan!(jobId, engineerId, existingEntries, newDates);
     };
 
-    target.addEventListener("pointermove", onMove);
-    target.addEventListener("pointerup", onUp);
+    document.addEventListener("pointermove", onMove);
+    document.addEventListener("pointerup", onUp);
   };
 
 
@@ -1208,16 +1229,10 @@ function SortableEngineerRow({
               ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
               : [];
 
-            // If this column is covered by a span from a previous column (not a start), skip it
+            // If this column is covered by a span started in a previous column, skip it with a simple increment
             if (engCoveredCols.has(colIdx) || partnerCoveredCols.has(colIdx)) {
-              // Only skip if there's no new span starting here and no single entries
-              const hasNewContent = spanStartsHere.length > 0 || partnerSpanStartsHere.length > 0
-                || singleEngEntries.length > 0 || partnerSingleEntries.length > 0
-                || cellAdhoc.length > 0 || partnerCellAdhoc.length > 0;
-              if (!hasNewContent) {
-                colIdx++;
-                continue; // cell is visually covered by the spanning card
-              }
+              colIdx++;
+              continue;
             }
 
             const hasAnyContent = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
