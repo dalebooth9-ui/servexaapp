@@ -11,14 +11,8 @@ serve(async (req) => {
   }
 
   try {
-    const { lat, lng } = await req.json();
-
-    if (typeof lat !== "number" || typeof lng !== "number") {
-      return new Response(JSON.stringify({ error: "lat and lng must be numbers" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    const body = await req.json();
+    const { lat, lng, address } = body;
 
     const apiKey = Deno.env.get("WHAT3WORDS_API_KEY");
     if (!apiKey) {
@@ -28,12 +22,29 @@ serve(async (req) => {
       });
     }
 
+    // --- Address → words (geocode the address first via W3W autosuggest or just return null if only address) ---
+    // Since W3W doesn't geocode raw addresses directly, we use the lat/lng path only.
+    // For address-based lookups we fall back gracefully.
+    if (address && typeof address === "string") {
+      // W3W does not offer address→coordinates; return null gracefully
+      return new Response(JSON.stringify({ words: null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (typeof lat !== "number" || typeof lng !== "number") {
+      return new Response(JSON.stringify({ error: "lat and lng must be numbers" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const url = `https://api.what3words.com/v3/convert-to-3wa?coordinates=${lat},${lng}&language=en&format=json&key=${apiKey}`;
     const response = await fetch(url);
 
     if (!response.ok) {
-      const body = await response.text();
-      return new Response(JSON.stringify({ error: `W3W API error [${response.status}]: ${body}` }), {
+      const bodyText = await response.text();
+      return new Response(JSON.stringify({ error: `W3W API error [${response.status}]: ${bodyText}` }), {
         status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -52,3 +63,4 @@ serve(async (req) => {
     });
   }
 });
+
