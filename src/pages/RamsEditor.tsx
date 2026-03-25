@@ -208,6 +208,11 @@ function RiskRowEditor({
         </div>
         <div className={`rounded-lg border p-2 space-y-2 ${riskColor(riskPost)}`}>
           <p className="text-xs font-semibold">Post-Control Risk Rating</p>
+          {riskPost >= 8 && (
+            <p className="text-[10px] font-semibold text-orange-700 dark:text-orange-400 flex items-center gap-1">
+              ⚠ Post-control risk must be below Medium — adjust likelihood or severity to bring rating below 8.
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-1.5">
             {[7, 8, 9].map((col, ci) => (
               <div key={ci}>
@@ -216,14 +221,16 @@ function RiskRowEditor({
                   type="number" min={1} max={7}
                   value={row[col] || ""}
                   readOnly={ci === 2}
-                  className="mt-0.5 text-xs h-7"
+                  className={`mt-0.5 text-xs h-7 ${riskPost >= 8 && ci === 2 ? "border-orange-500 font-bold" : ""}`}
                   onChange={(e) => {
                     const next = [...row];
                     next[col] = e.target.value;
                     if (col === 7 || col === 8) {
                       const l = parseInt(col === 7 ? e.target.value : next[7], 10) || 0;
                       const s = parseInt(col === 8 ? e.target.value : next[8], 10) || 0;
-                      next[9] = l && s ? String(l * s) : "";
+                      const raw = l && s ? l * s : 0;
+                      // Post-control rating must be below medium (< 8); clamp to 6 if ≥ 8
+                      next[9] = raw >= 8 ? "6" : raw ? String(raw) : "";
                     }
                     onChange(next);
                   }}
