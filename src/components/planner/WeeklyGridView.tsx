@@ -176,39 +176,55 @@ function DraggableUnallocatedJob({
   );
 }
 
-// Draggable scheduled entry card
+// Droppable scheduled entry card (accepts engineer-pair drops)
 function DraggableScheduleCard({
   entry,
   job,
   isAdmin,
   onRemove,
+  pairedEngineers,
 }: {
   entry: ScheduleEntry;
   job: Job | undefined;
   isAdmin: boolean;
   onRemove: (id: string) => void;
+  pairedEngineers?: Engineer[];
 }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef: dragRef, isDragging } = useDraggable({
     id: `sched-${entry.id}`,
     data: { type: "scheduled", entry, job },
     disabled: !isAdmin,
+  });
+
+  const dropId = `job-card-${entry.job_id}_${entry.schedule_date}`;
+  const { setNodeRef: dropRef, isOver: isDropOver } = useDroppable({
+    id: dropId,
+    data: { type: "job-card", jobId: entry.job_id, date: entry.schedule_date },
   });
 
   if (!job) return null;
 
   return (
     <div
-      ref={setNodeRef}
+      ref={dropRef}
       className={cn(
-        "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm",
+        "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
-        isAdmin && "cursor-grab"
+        isAdmin && "cursor-grab",
+        isDropOver && "ring-2 ring-primary/60 bg-primary/5"
       )}
     >
+      {isDropOver && (
+        <div className="absolute inset-0 rounded-md flex items-center justify-center bg-primary/10 z-10 pointer-events-none">
+          <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
+            <Users className="h-3 w-3" /> Add to pair
+          </span>
+        </div>
+      )}
       <div className="flex items-start gap-1">
         {isAdmin && (
-          <span {...attributes} {...listeners} className="mt-0.5 shrink-0 text-muted-foreground">
+          <span ref={dragRef} {...attributes} {...listeners} className="mt-0.5 shrink-0 text-muted-foreground">
             <GripVertical className="h-3 w-3" />
           </span>
         )}
@@ -254,6 +270,17 @@ function DraggableScheduleCard({
               style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
             >
               {entry.notes}
+            </div>
+          )}
+          {/* Paired engineers badge */}
+          {pairedEngineers && pairedEngineers.length > 0 && (
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              <Users className="h-2.5 w-2.5 text-primary shrink-0" />
+              {pairedEngineers.map((pe) => (
+                <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
+                  {pe.full_name.split(" ")[0]}
+                </span>
+              ))}
             </div>
           )}
           {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
