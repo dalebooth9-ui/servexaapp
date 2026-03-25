@@ -989,6 +989,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <Send className="h-3.5 w-3.5 mr-1" />
               Submit
             </Button>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
+              onClick={handleResetToTemplate}
+              title="Reset all fields to the master template defaults"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset to Template Defaults
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
