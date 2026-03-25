@@ -21,7 +21,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
@@ -460,6 +460,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       setActiveResponse(null);
       setFormData(prefilled);
     }
+  };
+
+  // Reset form data back to master template defaults, preserving job auto-populated fields
+  const handleResetToTemplate = () => {
+    if (!activeTemplate) return;
+    const prefilled = getAutoPopulatedData(activeTemplate);
+    const templateDefaults: Record<string, any> = {};
+    activeTemplate.fields.forEach((f) => {
+      if (f.type === "checkbox") templateDefaults[f.id] = false;
+      else templateDefaults[f.id] = "";
+    });
+    setFormData({ ...templateDefaults, ...prefilled });
+    toast({ title: "Reset to template defaults", description: "All fields reset to master template values." });
   };
 
   const handleFieldValue = (fieldId: string, value: any) => {
@@ -975,6 +988,17 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             <Button size="sm" onClick={handleSubmit} disabled={submitting}>
               <Send className="h-3.5 w-3.5 mr-1" />
               Submit
+            </Button>
+            <div className="flex-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground hover:text-foreground gap-1.5 text-xs"
+              onClick={handleResetToTemplate}
+              title="Reset all fields to the master template defaults"
+            >
+              <RotateCcw className="h-3 w-3" />
+              Reset to Template Defaults
             </Button>
           </div>
         </DialogContent>
