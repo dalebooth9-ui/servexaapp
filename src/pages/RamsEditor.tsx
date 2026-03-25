@@ -245,6 +245,25 @@ function RiskRowEditor({
   );
 }
 
+// Sortable wrapper for RiskRowEditor
+function SortableRiskRow({
+  id, row, index, onChange, onDelete,
+}: { id: string; row: string[]; index: number; onChange: (r: string[]) => void; onDelete: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  return (
+    <div ref={setNodeRef} style={style}>
+      <RiskRowEditor
+        row={row}
+        index={index}
+        onChange={onChange}
+        onDelete={onDelete}
+        dragHandleProps={{ ...attributes, ...listeners }}
+      />
+    </div>
+  );
+}
+
 /* ── Inline Signature Pad ── */
 function SignaturePad({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
