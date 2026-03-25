@@ -813,7 +813,7 @@ export default function RamsEditor() {
                     <p className="text-xs text-muted-foreground mt-0.5">List all individuals attending site under this RAMS.</p>
                   </div>
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs"
-                    onClick={() => setPersonnelList([...personnelList, { name: "", role: "", company: "Servexa Ltd" }])}>
+                    onClick={addPersonWithMyDetails}>
                     <Plus className="h-3.5 w-3.5" /> Add Person
                   </Button>
                 </div>
