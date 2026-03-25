@@ -204,7 +204,7 @@ function SpanningJobCard({
   return (
     <div
       className={cn(
-        "relative rounded-md border-l-4 bg-card px-2 py-1.5 text-[11px] shadow-sm h-full flex flex-col justify-center min-h-[52px]",
+        "group/spancard relative rounded-md border-l-4 bg-card px-2 py-1.5 text-[11px] shadow-sm h-full flex flex-col justify-center min-h-[52px]",
         PRIORITY_BG[job.priority] || "border-l-muted",
         span > 1 && "rounded-r-md",
         isContinuation && "border-l-0 rounded-l-none border-l-transparent pl-1.5"
@@ -289,7 +289,7 @@ function SpanningJobCard({
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(1); }}
-              className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-primary/20 text-primary transition-all"
+              className="rounded p-0.5 opacity-0 group-hover/spancard:opacity-100 hover:bg-primary/20 text-primary transition-all"
               title="Add 1 day"
             >
               <span className="text-[10px] font-bold leading-none">+</span>
@@ -297,7 +297,7 @@ function SpanningJobCard({
             <button
               onPointerDown={(e) => e.stopPropagation()}
               onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
-              className="opacity-0 group-hover:opacity-100 hover:text-destructive text-muted-foreground transition-all"
+              className="opacity-0 group-hover/spancard:opacity-100 hover:text-destructive text-muted-foreground transition-all"
               title="Remove"
             >
               <X className="h-3 w-3" />
@@ -306,7 +306,7 @@ function SpanningJobCard({
               <button
                 onPointerDown={(e) => e.stopPropagation()}
                 onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(-1); }}
-                className="rounded p-0.5 opacity-0 group-hover:opacity-100 hover:bg-destructive/10 text-muted-foreground transition-all"
+                className="rounded p-0.5 opacity-0 group-hover/spancard:opacity-100 hover:bg-destructive/10 text-muted-foreground transition-all"
                 title="Remove 1 day"
               >
                 <span className="text-[10px] font-bold leading-none">−</span>
@@ -351,7 +351,7 @@ function DraggableScheduleCard({
       {...(isAdmin ? attributes : {})}
       {...(isAdmin ? listeners : {})}
       className={cn(
-        "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
+        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab active:cursor-grabbing",
@@ -359,7 +359,7 @@ function DraggableScheduleCard({
     >
       {/* Drag hint — visible on hover for admins */}
       {isAdmin && (
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div className="absolute top-1 right-1 opacity-0 group-hover/schedcard:opacity-100 transition-opacity pointer-events-none">
           <GripVertical className="h-3 w-3 text-muted-foreground/60" />
         </div>
       )}
@@ -438,7 +438,7 @@ function DraggableScheduleCard({
         )}
       </div>
       {isAdmin && (
-        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover/schedcard:opacity-100 transition-opacity z-10">
           {onAdjustSpan && (
             <button
               onPointerDown={(e) => e.stopPropagation()}
