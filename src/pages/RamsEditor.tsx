@@ -350,6 +350,19 @@ export default function RamsEditor() {
         setSpecialTraining(d.special_training || "");
         setPpeItems(d.ppe_items || []);
         setRiskRows(d.risk_rows || []);
+        setPersonnelList(d.personnel_list || []);
+        setApprovalFields({
+          approverName: d.approver_name || "",
+          approverRole: d.approver_role || "",
+          approvalDate: d.approval_date || new Date().toLocaleDateString("en-GB"),
+          approverSignature: d.approver_signature || "",
+        });
+        setSupervisorFields({
+          supervisorName: d.supervisor_name || "",
+          supervisorRole: d.supervisor_role || "",
+          supervisorContact: d.supervisor_contact || "",
+          supervisorSignature: d.supervisor_signature || "",
+        });
       } else {
         // Auto-detect type from job category (all categories)
         const catMap: Record<string, RamsType> = {
