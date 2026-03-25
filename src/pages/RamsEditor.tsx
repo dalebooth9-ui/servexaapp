@@ -352,6 +352,10 @@ export default function RamsEditor() {
   const [loading, setLoading] = useState(true);
   const [docId, setDocId] = useState<string | null>(ramsId || null);
   const [isDirty, setIsDirty] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+
+  // localStorage key scoped to this job/rams combo
+  const draftKey = `rams_draft_${jobId ?? "new"}_${ramsId ?? "new"}`;
 
   // Current user's profile for auto-fill
   const [myProfile, setMyProfile] = useState<{ full_name: string; signature_data: string | null } | null>(null);
@@ -472,19 +476,58 @@ export default function RamsEditor() {
           supervisorSignature: d.supervisor_signature || "",
         });
       } else {
-        // Auto-detect type from job category (all categories)
-        const catMap: Record<string, RamsType> = {
-          dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
-          sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
-          fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
-          emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
-          passive_fire: "passive_fire", gas_suppression: "gas_suppression",
-          kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
-          hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
-          installation: "installation",
-        };
-        const type: RamsType = (jobData?.category && catMap[jobData.category]) || queryType || "dry_riser";
-        loadDefaults(type, jobData);
+        // Check for a local draft first (unsaved edits from a previous visit)
+        const savedDraft = localStorage.getItem(draftKey);
+        if (savedDraft) {
+          try {
+            const draft = JSON.parse(savedDraft);
+            setRamsType((draft.ramsType as RamsType) || "dry_riser");
+            if (draft.coverFields) setCoverFields(draft.coverFields);
+            if (draft.descriptionOfWork !== undefined) setDescriptionOfWork(draft.descriptionOfWork);
+            if (draft.sequenceOfOps) setSequenceOfOps(draft.sequenceOfOps);
+            if (draft.taskSpecificOps) setTaskSpecificOps(draft.taskSpecificOps);
+            if (draft.location !== undefined) setLocation(draft.location);
+            if (draft.resources !== undefined) setResources(draft.resources);
+            if (draft.personnel !== undefined) setPersonnel(draft.personnel);
+            if (draft.plantAndEquipment) setPlantAndEquipment(draft.plantAndEquipment);
+            if (draft.significantRisks) setSignificantRisks(draft.significantRisks);
+            if (draft.specialTraining !== undefined) setSpecialTraining(draft.specialTraining);
+            if (draft.ppeItems) setPpeItems(draft.ppeItems);
+            if (draft.riskRows) setRiskRows(draft.riskRows);
+            if (draft.personnelList) setPersonnelList(draft.personnelList);
+            if (draft.approvalFields) setApprovalFields(draft.approvalFields);
+            if (draft.supervisorFields) setSupervisorFields(draft.supervisorFields);
+            setDraftRestored(true);
+          } catch {
+            // Corrupt draft — fall back to defaults
+            const catMap2: Record<string, RamsType> = {
+              dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
+              sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
+              fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
+              emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
+              passive_fire: "passive_fire", gas_suppression: "gas_suppression",
+              kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
+              hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
+              installation: "installation",
+            };
+            const type2: RamsType = (jobData?.category && catMap2[jobData.category]) || queryType || "dry_riser";
+            loadDefaults(type2, jobData);
+          }
+        } else {
+          // Auto-detect type from job category (all categories)
+          const catMap: Record<string, RamsType> = {
+            dry_riser: "dry_riser", dry_riser_remedial: "dry_riser_remedial", wet_riser: "wet_riser",
+            sprinkler: "sprinkler", fire_extinguisher: "fire_extinguisher",
+            fire_hydrant: "fire_hydrant", fire_alarm: "fire_alarm",
+            emergency_lighting: "emergency_lighting", aov_smoke_control: "aov_smoke_control",
+            passive_fire: "passive_fire", gas_suppression: "gas_suppression",
+            kitchen_suppression: "kitchen_suppression", water_mist: "water_mist",
+            hose_reel: "hose_reel", fire_risk_assessment: "fire_risk_assessment",
+            installation: "installation",
+          };
+          const type: RamsType = (jobData?.category && catMap[jobData.category]) || queryType || "dry_riser";
+          loadDefaults(type, jobData);
+        }
       }
       setIsDirty(false);
       setLoading(false);
@@ -498,6 +541,24 @@ export default function RamsEditor() {
   }, [coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps, location, resources,
       personnel, plantAndEquipment, significantRisks, specialTraining, ppeItems, riskRows, ramsType,
       personnelList, approvalFields, supervisorFields]);
+
+  // Auto-save draft to localStorage on every change
+  useEffect(() => {
+    if (loading) return;
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({
+        ramsType, coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps,
+        location, resources, personnel, plantAndEquipment, significantRisks,
+        specialTraining, ppeItems, riskRows, personnelList, approvalFields, supervisorFields,
+        savedAt: new Date().toISOString(),
+      }));
+    } catch { /* storage full — silently skip */ }
+  }, [loading, ramsType, coverFields, descriptionOfWork, sequenceOfOps, taskSpecificOps,
+      location, resources, personnel, plantAndEquipment, significantRisks,
+      specialTraining, ppeItems, riskRows, personnelList, approvalFields, supervisorFields]);
+
+  // Clear draft from localStorage after a successful save
+  const clearDraft = () => { try { localStorage.removeItem(draftKey); } catch {} };
 
   const loadDefaults = useCallback((type: RamsType, jobData?: any) => {
     const d = getRamsDefaults(type);
@@ -607,6 +668,7 @@ export default function RamsEditor() {
     } else {
       toast({ title: "RAMS saved" });
       setIsDirty(false);
+      clearDraft();
     }
     setSaving(false);
   };
@@ -645,6 +707,20 @@ export default function RamsEditor() {
 
   return (
     <div className="max-w-5xl mx-auto pb-16">
+      {/* Draft restored banner */}
+      {draftRestored && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-warning bg-warning/10 px-4 py-2.5 text-sm text-warning-foreground">
+          <span>
+            <strong>Draft restored</strong> — your unsaved edits from your last visit have been reloaded.
+          </span>
+          <button
+            className="ml-4 text-xs underline opacity-70 hover:opacity-100"
+            onClick={() => { clearDraft(); setDraftRestored(false); loadDefaults(ramsType, job); }}
+          >
+            Discard draft
+          </button>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(jobId ? `/jobs/${jobId}` : "/jobs")}>
