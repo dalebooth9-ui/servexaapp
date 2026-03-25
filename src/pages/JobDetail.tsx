@@ -437,9 +437,24 @@ export default function JobDetail() {
             {!editing ? (
               <div className="rounded-lg border bg-card p-4 space-y-2">
                 <div className="flex items-start justify-between">
-                  <div className="space-y-1.5 text-sm">
+                   <div className="space-y-1.5 text-sm">
                     <div><span className="text-muted-foreground">Job Name:</span> <span className="font-medium">{job.name}</span></div>
                     <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
+                    {jobW3W && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-muted-foreground">what3words:</span>
+                        <a
+                          href={`https://what3words.com/${jobW3W.replace(/^\/\/\//, "")}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium inline-flex items-center gap-1 hover:underline"
+                          style={{ color: "#e11f26" }}
+                        >
+                          <svg viewBox="0 0 24 24" className="h-3 w-3 shrink-0" fill="currentColor"><path d="M11.994 0C5.367 0 0 5.367 0 11.994 0 18.622 5.367 24 11.994 24 18.622 24 24 18.622 24 11.994 24 5.367 18.622 0 11.994 0zm-2.6 17.4l-1.5-5.1-1.5 5.1H4.7L2.5 9.6h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7zm7.8 0l-1.5-5.1-1.5 5.1h-1.7l-2.2-7.8h1.8l1.5 5.4 1.5-5.4h1.8l1.5 5.4 1.5-5.4h1.8l-2.2 7.8h-1.7z"/></svg>
+                          {jobW3W}
+                        </a>
+                      </div>
+                    )}
                     <div><span className="text-muted-foreground">Site:</span> <span className="font-medium">{sites.find((s) => s.id === job.site_id)?.name || "—"}</span></div>
                     {job.category === "installation" ? (
                       <div className="flex gap-4">
