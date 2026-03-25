@@ -351,7 +351,7 @@ function DraggableScheduleCard({
       {...(isAdmin ? attributes : {})}
       {...(isAdmin ? listeners : {})}
       className={cn(
-        "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
+        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab active:cursor-grabbing",
@@ -359,7 +359,7 @@ function DraggableScheduleCard({
     >
       {/* Drag hint — visible on hover for admins */}
       {isAdmin && (
-        <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div className="absolute top-1 right-1 opacity-0 group-hover/schedcard:opacity-100 transition-opacity pointer-events-none">
           <GripVertical className="h-3 w-3 text-muted-foreground/60" />
         </div>
       )}
@@ -438,7 +438,7 @@ function DraggableScheduleCard({
         )}
       </div>
       {isAdmin && (
-        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 opacity-0 group-hover/schedcard:opacity-100 transition-opacity z-10">
           {onAdjustSpan && (
             <button
               onPointerDown={(e) => e.stopPropagation()}
