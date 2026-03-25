@@ -560,7 +560,14 @@ export default function Sites() {
       category: (site as any).category || "",
       quantity: site.outlets_count != null ? String(site.outlets_count) : "",
     });
+    setEditingW3W(null);
     setDialogOpen(true);
+    // Resolve W3W in the background using GPS pin if available, else address
+    const address = site.address || site.postcode;
+    if (address) {
+      supabase.functions.invoke("w3w-convert", { body: { address } })
+        .then(({ data }) => { if (data?.words) setEditingW3W(data.words); });
+    }
   };
 
   const handleSave = async () => {
