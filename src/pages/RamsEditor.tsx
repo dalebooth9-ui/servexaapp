@@ -571,11 +571,14 @@ export default function RamsEditor() {
       </Card>
 
       <Tabs defaultValue="cover">
-        <TabsList className="mb-4 w-full grid grid-cols-4">
+        <TabsList className="mb-4 w-full grid grid-cols-5">
           <TabsTrigger value="cover">Cover Page</TabsTrigger>
           <TabsTrigger value="method">Method Statement</TabsTrigger>
           <TabsTrigger value="ppe">PPE & Risks</TabsTrigger>
           <TabsTrigger value="risk-table">Risk Table</TabsTrigger>
+          <TabsTrigger value="personnel" className="flex items-center gap-1.5">
+            <Users className="h-3.5 w-3.5" /> Personnel
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Cover Page ── */}
