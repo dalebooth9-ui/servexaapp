@@ -411,6 +411,20 @@ export default function RamsEditor() {
     }));
   }, [myProfile]);
 
+  // Sync 3.1 Personnel text field from personnelList entries
+  useEffect(() => {
+    if (loading) return;
+    if (personnelList.length === 0) return;
+    const lines = personnelList
+      .filter((p) => p.name.trim())
+      .map((p) => {
+        const phone = engineerProfiles.find((e) => e.full_name === p.name)?.phone;
+        const parts = [p.name, p.role, p.company, phone].filter(Boolean);
+        return parts.join(" | ");
+      });
+    if (lines.length > 0) setPersonnel(lines.join("\n"));
+  }, [personnelList, engineerProfiles]);
+
   // Helper: add current engineer to personnel list
   const addPersonWithMyDetails = () => {
     setPersonnelList((prev) => [...prev, {
