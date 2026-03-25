@@ -466,19 +466,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const handleResetToTemplate = () => {
     if (!activeTemplate) return;
     const prefilled = getAutoPopulatedData(activeTemplate);
-    // Build fresh defaults from template field definitions
     const templateDefaults: Record<string, any> = {};
     activeTemplate.fields.forEach((f) => {
-      // Keep whatever default value exists in the template
       if (f.type === "checkbox") templateDefaults[f.id] = false;
       else templateDefaults[f.id] = "";
     });
-    // Merge: template defaults first, then fresh job auto-populated data on top
     setFormData({ ...templateDefaults, ...prefilled });
-    toast({ title: "Reset to template defaults", description: "All fields have been reset to the master template values." });
+    toast({ title: "Reset to template defaults", description: "All fields reset to master template values." });
   };
 
-
+  const handleFieldValue = (fieldId: string, value: any) => {
     setFormData((prev) => ({ ...prev, [fieldId]: value }));
   };
 
