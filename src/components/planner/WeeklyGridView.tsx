@@ -109,7 +109,6 @@ function DraggableUnallocatedJob({
         isDragging && "opacity-30"
       )}
     >
-      {/* Drag handle area */}
       <div
         ref={setNodeRef}
         {...attributes}
@@ -117,7 +116,6 @@ function DraggableUnallocatedJob({
         className="cursor-grab absolute inset-0 rounded-md"
         style={{ zIndex: 0 }}
       />
-      {/* Multi-day button */}
       <button
         onPointerDown={(e) => e.stopPropagation()}
         onClick={(e) => { e.stopPropagation(); onMultiDay(job); }}
@@ -126,7 +124,6 @@ function DraggableUnallocatedJob({
       >
         <CalendarDays className="h-3 w-3" />
       </button>
-      {/* Content */}
       <div className="relative z-[1]">
         <div className="flex items-center justify-between gap-1 mb-0.5 pr-5">
           <Link
@@ -177,7 +174,128 @@ function DraggableUnallocatedJob({
   );
 }
 
-// Droppable scheduled entry card (accepts engineer-pair drops)
+// Spanning multi-day job card
+function SpanningJobCard({
+  entries,
+  job,
+  span,
+  isAdmin,
+  onRemove,
+  pairedEngineers,
+  isFirst,
+  isContinuation,
+}: {
+  entries: ScheduleEntry[];
+  job: Job | undefined;
+  span: number;
+  isAdmin: boolean;
+  onRemove: (id: string) => void;
+  pairedEngineers?: Engineer[];
+  isFirst: boolean;
+  isContinuation: boolean; // continues from previous week
+}) {
+  if (!job) return null;
+  const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
+  const dueToday = job.due_date && isSameDay(parseISO(job.due_date), new Date());
+  const entry = entries[0];
+
+  return (
+    <div
+      className={cn(
+        "relative rounded-md border-l-4 bg-card px-2 py-1.5 text-[11px] shadow-sm h-full flex flex-col justify-center min-h-[52px]",
+        PRIORITY_BG[job.priority] || "border-l-muted",
+        span > 1 && "rounded-r-md",
+        isContinuation && "border-l-0 rounded-l-none border-l-transparent pl-1.5"
+      )}
+      style={{
+        background: span > 1
+          ? `linear-gradient(90deg, hsl(var(--card)) 0%, hsl(var(--primary)/0.04) 100%)`
+          : undefined,
+      }}
+    >
+      {/* Day count badge for multi-day */}
+      {span > 1 && (
+        <div className="absolute top-1 right-6 flex items-center gap-0.5">
+          <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/15 border border-primary/25 text-primary px-1.5 py-0.5 text-[9px] font-semibold leading-none">
+            <CalendarDays className="h-2.5 w-2.5" />{span}d
+          </span>
+        </div>
+      )}
+      <div className="flex items-start gap-1 min-w-0">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 flex-wrap mb-0.5">
+            <Link to={`/jobs/${job.id}`} className="font-mono font-semibold text-primary hover:underline shrink-0 text-[11px]">
+              {job.reference_number}
+            </Link>
+            {STATUS_INDICATOR[job.status] && (
+              <span className={cn("inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-medium leading-none shrink-0", STATUS_INDICATOR[job.status].class)}>
+                {STATUS_INDICATOR[job.status].label}
+              </span>
+            )}
+            {isOverdue && (
+              <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
+                <AlertTriangle className="h-2 w-2" /> OVR
+              </span>
+            )}
+            {dueToday && !isOverdue && (
+              <span className="inline-flex items-center rounded bg-amber-500 px-1.5 py-0.5 text-[9px] font-bold text-white shrink-0">TODAY</span>
+            )}
+          </div>
+          <div className="truncate text-foreground font-medium">{job.name}</div>
+          {(job.site?.name || job.site?.postcode) && (
+            <div className="truncate text-muted-foreground text-[10px]">
+              📍 {job.site.name}{job.site.postcode ? ` · ${job.site.postcode}` : ""}
+            </div>
+          )}
+          {entry?.notes && (
+            <div
+              className="truncate italic text-[10px] font-medium"
+              style={entry.notes_color ? { color: entry.notes_color } : { color: "hsl(var(--muted-foreground))" }}
+            >
+              {entry.notes}
+            </div>
+          )}
+          {pairedEngineers && pairedEngineers.length > 0 && (
+            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
+              <Users className="h-2.5 w-2.5 text-primary shrink-0" />
+              {pairedEngineers.map((pe) => (
+                <span key={pe.user_id} className="inline-flex items-center rounded-full bg-primary/10 border border-primary/20 text-primary px-1.5 py-0.5 text-[9px] font-medium leading-none">
+                  {pe.full_name.split(" ")[0]}
+                </span>
+              ))}
+            </div>
+          )}
+          {(job.category === "installation" || job.pressure_test_qty > 0 || job.visual_qty > 0 || (job.other_qty > 0 && job.other_service_type)) && (
+            <div className="flex flex-wrap gap-0.5 mt-0.5">
+              {job.category === "installation" && (
+                <span className="inline-flex items-center rounded bg-blue-500/10 border border-blue-500/30 text-blue-600 dark:text-blue-400 px-1 py-0.5 text-[9px] font-bold">DRI</span>
+              )}
+              {job.pressure_test_qty > 0 && (
+                <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold">PT×{job.pressure_test_qty}</span>
+              )}
+              {job.visual_qty > 0 && (
+                <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold">Vis×{job.visual_qty}</span>
+              )}
+              {job.other_qty > 0 && job.other_service_type && (
+                <span className="inline-flex items-center rounded bg-accent border border-border text-accent-foreground px-1 py-0.5 text-[9px] font-semibold">{job.other_service_type}×{job.other_qty}</span>
+              )}
+            </div>
+          )}
+        </div>
+        {isAdmin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
+            className="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition-opacity"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Single-day schedule card (droppable for pairing)
 function DraggableScheduleCard({
   entry,
   job,
@@ -197,32 +315,19 @@ function DraggableScheduleCard({
     disabled: !isAdmin,
   });
 
-  const dropId = `job-card-${entry.job_id}_${entry.schedule_date}`;
-  const { setNodeRef: dropRef, isOver: isDropOver } = useDroppable({
-    id: dropId,
-    data: { type: "job-card", jobId: entry.job_id, date: entry.schedule_date },
-  });
-
   if (!job) return null;
+  const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date()) && job.status !== "completed";
+  const dueToday = job.due_date && isSameDay(parseISO(job.due_date), new Date());
 
   return (
     <div
-      ref={dropRef}
       className={cn(
         "group relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab",
-        isDropOver && "ring-2 ring-primary/60 bg-primary/5"
       )}
     >
-      {isDropOver && (
-        <div className="absolute inset-0 rounded-md flex items-center justify-center bg-primary/10 z-10 pointer-events-none">
-          <span className="text-[10px] font-semibold text-primary flex items-center gap-1">
-            <Users className="h-3 w-3" /> Add to pair
-          </span>
-        </div>
-      )}
       <div className="flex items-start gap-1">
         {isAdmin && (
           <span ref={dragRef} {...attributes} {...listeners} className="mt-0.5 shrink-0 text-muted-foreground">
@@ -242,8 +347,6 @@ function DraggableScheduleCard({
               )}
             </div>
             {job.due_date && (() => {
-              const isOverdue = isPast(startOfDay(parseISO(job.due_date!))) && !isSameDay(parseISO(job.due_date!), new Date()) && job.status !== "completed";
-              const dueToday = isSameDay(parseISO(job.due_date!), new Date());
               return isOverdue ? (
                 <span className="inline-flex items-center gap-0.5 rounded bg-destructive px-1.5 py-0.5 text-[9px] font-bold text-destructive-foreground shrink-0">
                   <AlertTriangle className="h-2 w-2" /> OVERDUE
@@ -273,7 +376,6 @@ function DraggableScheduleCard({
               {entry.notes}
             </div>
           )}
-          {/* Paired engineers badge */}
           {pairedEngineers && pairedEngineers.length > 0 && (
             <div className="flex items-center gap-1 mt-0.5 flex-wrap">
               <Users className="h-2.5 w-2.5 text-primary shrink-0" />
@@ -422,16 +524,13 @@ export default function WeeklyGridView({
   const [overId, setOverId] = useState<string | null>(null);
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map());
   const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
-  // engineerPairs: [primaryId, secondaryId] — secondary row is merged into primary
   const [engineerPairs, setEngineerPairs] = useState<[string, string][]>([]);
   const secondaryEngIds = useMemo(() => new Set(engineerPairs.map(p => p[1])), [engineerPairs]);
 
-  // Fetch approved leave + bank holidays for the displayed week
   useEffect(() => {
     const weekStart = format(weekDays[0], "yyyy-MM-dd");
     const weekEnd = format(weekDays[weekDays.length - 1], "yyyy-MM-dd");
 
-    // Leave
     supabase
       .from("engineer_leave" as any)
       .select("engineer_id, start_date, end_date, leave_type")
@@ -458,7 +557,6 @@ export default function WeeklyGridView({
         setLeaveMap(map);
       });
 
-    // Bank holidays
     supabase
       .from("bank_holidays" as any)
       .select("date, name")
@@ -474,7 +572,6 @@ export default function WeeklyGridView({
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
-  // Group unallocated jobs: overdue first (sorted by due_date asc), then by postcode area
   const groupedUnallocated = useMemo(() => {
     const overdue: Job[] = [];
     const rest: Job[] = [];
@@ -503,7 +600,6 @@ export default function WeeklyGridView({
       : areaGroups;
   }, [unallocatedJobs]);
 
-  // Unallocated labour entries (no schedule_date)
   const unallocatedAdhoc = useMemo(() =>
     adhocEntries.filter((a) => !a.schedule_date),
     [adhocEntries]
@@ -529,19 +625,17 @@ export default function WeeklyGridView({
     // Engineer-pair type: dropped on another engineer's drop zone → pair them on same row
     if (activeData?.type === "engineer-pair") {
       const draggedId = activeData.engineer.user_id as string;
-      // targetId is "eng-drop-{userId}"
       const targetEngId = targetId.startsWith("eng-drop-") ? targetId.replace("eng-drop-", "") : null;
       if (targetEngId && targetEngId !== draggedId) {
         setEngineerPairs((prev) => {
           const filtered = prev.filter((p) => !p.includes(draggedId) && !p.includes(targetEngId));
-          // targetEngId is the "primary" row, draggedId becomes secondary (merged under it)
           return [...filtered, [targetEngId, draggedId]];
         });
       }
       return;
     }
 
-    // Engineer row reorder (grip handle drag — no activeData.type)
+    // Engineer row reorder
     if (!activeData || (!activeData.type && engineers.some((e) => e.user_id === String(active.id)))) {
       if (active.id !== over.id) {
         const oldIndex = engineers.findIndex((e) => e.user_id === active.id);
@@ -626,7 +720,6 @@ export default function WeeklyGridView({
                     })}
                   </div>
                 )}
-                {/* Unallocated Labour entries */}
                 {unallocatedAdhoc.length > 0 && (
                   <div className="mt-3 pr-2">
                     <div className="mb-1 flex items-center gap-1.5">
@@ -645,7 +738,6 @@ export default function WeeklyGridView({
             </DroppableUnallocatedZone>
           </div>
         )}
-
 
         {/* Grid */}
         <div className="flex-1 overflow-x-auto">
@@ -670,7 +762,7 @@ export default function WeeklyGridView({
               })}
             </div>
 
-            {/* Engineer rows — sortable by admin */}
+            {/* Engineer rows */}
             <ScrollArea className="h-[calc(100vh-320px)]">
               <SortableContext items={engineers.filter(e => !secondaryEngIds.has(e.user_id)).map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1">
@@ -742,6 +834,66 @@ export default function WeeklyGridView({
   );
 }
 
+// Compute multi-day spans for a set of schedule entries within the visible weekDays
+function computeSpans(
+  entries: ScheduleEntry[],
+  weekDays: Date[]
+): Array<{ jobId: string; startColIndex: number; span: number; entries: ScheduleEntry[]; isContinuation: boolean }> {
+  const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
+
+  // Group entries by job
+  const byJob = new Map<string, ScheduleEntry[]>();
+  for (const e of entries) {
+    const arr = byJob.get(e.job_id) || [];
+    arr.push(e);
+    byJob.set(e.job_id, arr);
+  }
+
+  const spans: Array<{ jobId: string; startColIndex: number; span: number; entries: ScheduleEntry[]; isContinuation: boolean }> = [];
+
+  for (const [jobId, jobEntries] of byJob) {
+    // Find which column indices this job occupies
+    const colIndices = jobEntries
+      .map(e => weekDateStrs.indexOf(e.schedule_date))
+      .filter(i => i !== -1)
+      .sort((a, b) => a - b);
+
+    if (colIndices.length === 0) continue;
+
+    if (colIndices.length === 1) {
+      spans.push({ jobId, startColIndex: colIndices[0], span: 1, entries: jobEntries, isContinuation: false });
+      continue;
+    }
+
+    // Group consecutive columns into runs
+    let runStart = colIndices[0];
+    let runEnd = colIndices[0];
+    for (let i = 1; i <= colIndices.length; i++) {
+      if (i < colIndices.length && colIndices[i] === runEnd + 1) {
+        runEnd = colIndices[i];
+      } else {
+        const runEntries = jobEntries.filter(e => {
+          const idx = weekDateStrs.indexOf(e.schedule_date);
+          return idx >= runStart && idx <= runEnd;
+        });
+        spans.push({
+          jobId,
+          startColIndex: runStart,
+          span: runEnd - runStart + 1,
+          entries: runEntries,
+          isContinuation: false,
+        });
+        if (i < colIndices.length) {
+          runStart = colIndices[i];
+          runEnd = colIndices[i];
+        }
+      }
+    }
+  }
+
+  return spans;
+}
+
 // Sortable engineer row
 function SortableEngineerRow({
   eng,
@@ -782,7 +934,6 @@ function SortableEngineerRow({
     data: { type: "engineer-pair", engineer: eng },
     disabled: !isAdmin || !!partnerEng,
   });
-  // Droppable target on the engineer name so others can be dragged onto it
   const { setNodeRef: pairDropRef, isOver: isPairDropOver } = useDroppable({
     id: `eng-drop-${eng.user_id}`,
     data: { type: "engineer-drop", engineerId: eng.user_id },
@@ -799,144 +950,253 @@ function SortableEngineerRow({
   const totalPT = [...engEntries, ...partnerEntries].reduce((sum, s) => sum + (getJob(s.job_id)?.pressure_test_qty || 0), 0);
   const totalVis = [...engEntries, ...partnerEntries].reduce((sum, s) => sum + (getJob(s.job_id)?.visual_qty || 0), 0);
 
+  // Compute spans for this engineer (and partner)
+  const engSpans = useMemo(() => computeSpans(engEntries, weekDays), [engEntries, weekDays]);
+  const partnerSpans = useMemo(() => partnerEng ? computeSpans(partnerEntries, weekDays) : [], [partnerEntries, weekDays, partnerEng]);
+
+  // Track which column indices are covered by multi-day spans (span > 1, not start col) — these show empty in cells
+  const engCoveredCols = useMemo(() => {
+    const covered = new Set<number>();
+    for (const s of engSpans) {
+      if (s.span > 1) {
+        for (let i = s.startColIndex + 1; i < s.startColIndex + s.span; i++) covered.add(i);
+      }
+    }
+    return covered;
+  }, [engSpans]);
+
+  const partnerCoveredCols = useMemo(() => {
+    const covered = new Set<number>();
+    for (const s of partnerSpans) {
+      if (s.span > 1) {
+        for (let i = s.startColIndex + 1; i < s.startColIndex + s.span; i++) covered.add(i);
+      }
+    }
+    return covered;
+  }, [partnerSpans]);
+
+  const weekDateStrs = weekDays.map(d => format(d, "yyyy-MM-dd"));
+
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
-      className={cn("grid gap-1", partnerEng && "bg-primary/5 rounded-md ring-1 ring-primary/20")}
+      style={style}
+      className={cn("space-y-0.5", partnerEng && "bg-primary/5 rounded-md ring-1 ring-primary/20 p-0.5")}
     >
-      {/* Engineer name column */}
-      <div className="flex flex-col justify-center gap-0.5 px-2 py-1 min-w-0">
-        {/* Primary engineer */}
-        <div className="flex items-center gap-1 min-w-0">
-          {isAdmin && (
-            <span {...sortAttrs} {...sortListeners} className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground" title="Drag to reorder">
-              <GripVertical className="h-3.5 w-3.5" />
-            </span>
-          )}
-          {/* Droppable + draggable engineer name */}
-          <span
-            ref={(node) => {
-              if (!partnerEng) {
-                pairRef(node);
-                pairDropRef(node);
-              }
-            }}
-            {...(!partnerEng ? pairAttrs : {})}
-            {...(!partnerEng ? pairListeners : {})}
-            className={cn(
-              "truncate text-sm font-medium rounded px-1 py-0.5 transition-colors",
-              isAdmin && !partnerEng && "cursor-grab hover:text-primary",
-              isPairDragging && "opacity-40",
-              isPairDropOver && !partnerEng && "bg-primary/20 text-primary ring-1 ring-primary/50"
+      {/* Main grid row */}
+      <div
+        className="grid gap-1"
+        style={{ gridTemplateColumns: `140px repeat(${weekDays.length}, 1fr)` }}
+      >
+        {/* Engineer name column */}
+        <div className="flex flex-col justify-center gap-0.5 px-2 py-1 min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
+            {isAdmin && (
+              <span {...sortAttrs} {...sortListeners} className="shrink-0 cursor-grab text-muted-foreground hover:text-foreground" title="Drag to reorder">
+                <GripVertical className="h-3.5 w-3.5" />
+              </span>
             )}
-            title={isAdmin && !partnerEng ? "Drag onto another engineer to pair them on this row" : undefined}
-          >
-            {eng.full_name}
-          </span>
-          {isPairDropOver && !partnerEng && (
-            <span className="shrink-0 text-[9px] font-semibold text-primary">+ Pair</span>
+            {/* Droppable + draggable engineer name */}
+            <span
+              ref={(node) => {
+                if (!partnerEng) {
+                  pairRef(node);
+                  pairDropRef(node);
+                }
+              }}
+              {...(!partnerEng ? pairAttrs : {})}
+              {...(!partnerEng ? pairListeners : {})}
+              className={cn(
+                "truncate text-sm font-medium rounded px-1 py-0.5 transition-colors",
+                isAdmin && !partnerEng && "cursor-grab hover:text-primary",
+                isPairDragging && "opacity-40",
+                isPairDropOver && !partnerEng && "bg-primary/20 text-primary ring-1 ring-primary/50"
+              )}
+              title={isAdmin && !partnerEng ? "Drag onto another engineer to pair them on this row" : undefined}
+            >
+              {eng.full_name}
+            </span>
+            {isPairDropOver && !partnerEng && (
+              <span className="shrink-0 text-[9px] font-semibold text-primary">+ Pair</span>
+            )}
+            <span className={cn(
+              "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
+              available ? "bg-green-500/20 text-green-700 dark:text-green-400"
+                : todayJobs >= 3 ? "bg-destructive/20 text-destructive"
+                : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
+            )}>
+              {available ? "Free" : `${todayJobs} today`}
+            </span>
+            {partnerEng && isAdmin && onUnpair && (
+              <button onClick={onUnpair} className="shrink-0 ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Unpair">
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
+          {partnerEng && (
+            <div className="flex items-center gap-1 min-w-0 pl-3 border-l-2 border-primary/40">
+              <Users className="h-2.5 w-2.5 shrink-0 text-primary" />
+              <span className="truncate text-xs font-medium text-primary">{partnerEng.full_name}</span>
+            </div>
           )}
-          <span className={cn(
-            "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
-            available ? "bg-green-500/20 text-green-700 dark:text-green-400"
-              : todayJobs >= 3 ? "bg-destructive/20 text-destructive"
-              : "bg-amber-500/20 text-amber-700 dark:text-amber-400"
-          )}>
-            {available ? "Free" : `${todayJobs} today`}
-          </span>
-          {partnerEng && isAdmin && onUnpair && (
-            <button onClick={onUnpair} className="shrink-0 ml-auto rounded p-0.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors" title="Unpair">
-              <X className="h-3 w-3" />
-            </button>
+          {(totalPT > 0 || totalVis > 0) && (
+            <div className="flex items-center gap-0.5 flex-wrap">
+              {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
+              {totalVis > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">Vis×{totalVis}</span>}
+            </div>
           )}
         </div>
-        {/* Partner engineer row */}
-        {partnerEng && (
-          <div className="flex items-center gap-1 min-w-0 pl-3 border-l-2 border-primary/40">
-            <Users className="h-2.5 w-2.5 shrink-0 text-primary" />
-            <span className="truncate text-xs font-medium text-primary">{partnerEng.full_name}</span>
-          </div>
-        )}
-        {/* Service tally */}
-        {(totalPT > 0 || totalVis > 0) && (
-          <div className="flex items-center gap-0.5 flex-wrap">
-            {totalPT > 0 && <span className="inline-flex items-center rounded bg-primary/10 border border-primary/20 text-primary px-1 py-0.5 text-[9px] font-semibold leading-none">PT×{totalPT}</span>}
-            {totalVis > 0 && <span className="inline-flex items-center rounded bg-secondary border border-border text-secondary-foreground px-1 py-0.5 text-[9px] font-semibold leading-none">Vis×{totalVis}</span>}
-          </div>
-        )}
-      </div>
 
-      {/* Day cells */}
-      {weekDays.map((d) => {
-        const dateStr = format(d, "yyyy-MM-dd");
-        const cellId = `cell-${eng.user_id}_${dateStr}`;
-        const cellEntries = schedule.filter(s => s.engineer_id === eng.user_id && s.schedule_date === dateStr);
-        const partnerCellEntries = partnerEng
-          ? schedule.filter(s => s.engineer_id === partnerEng.user_id && s.schedule_date === dateStr)
-          : [];
-        const cellAdhoc = adhocEntries.filter(a => a.engineer_id === eng.user_id && a.schedule_date === dateStr);
-        const partnerCellAdhoc = partnerEng
-          ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
-          : [];
-        const isToday = isSameDay(d, new Date());
-        const isOnLeave = leaveDates.includes(dateStr);
-        const isPartnerOnLeave = partnerLeaveDates.includes(dateStr);
-        const isBankHoliday = bankHolidayDates.has(dateStr);
-        const hasAnyContent = cellEntries.length + partnerCellEntries.length + cellAdhoc.length + partnerCellAdhoc.length > 0;
+        {/* Day cells — render spanning cards OR individual cards */}
+        {weekDays.map((d, colIdx) => {
+          const dateStr = weekDateStrs[colIdx];
+          const cellId = `cell-${eng.user_id}_${dateStr}`;
+          const isToday = isSameDay(d, new Date());
+          const isOnLeave = leaveDates.includes(dateStr);
+          const isPartnerOnLeave = partnerLeaveDates.includes(dateStr);
+          const isBankHoliday = bankHolidayDates.has(dateStr);
 
-        return (
-          <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday}>
-            {isBankHoliday && !hasAnyContent && (
-              <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                🏦 Bank Holiday
-              </div>
-            )}
-            {isBankHoliday && hasAnyContent && (
-              <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">🏦 Bank Hol</div>
-            )}
-            {isOnLeave && (
-              <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
-                <Palmtree className="h-3 w-3 shrink-0" />{eng.full_name.split(" ")[0]} on leave
-              </div>
-            )}
-            {isPartnerOnLeave && partnerEng && (
-              <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
-                <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
-              </div>
-            )}
-            {/* Primary entries */}
-            {cellEntries.map((entry) => {
-              const paired = allEngineers.filter(
-                (e) => e.user_id !== eng.user_id &&
-                  schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
-              );
-              return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
-            })}
-            {cellAdhoc.map((adhoc) => (
-              <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
-            ))}
-            {/* Partner entries — divided by a thin line */}
-            {partnerEng && (partnerCellEntries.length > 0 || partnerCellAdhoc.length > 0) && (
-              <>
-                {(cellEntries.length > 0 || cellAdhoc.length > 0) && (
-                  <div className="border-t border-primary/30 my-0.5" />
+          // Single-day entries at this column (jobs that don't span)
+          const singleEngEntries = engSpans
+            .filter(s => s.span === 1 && s.startColIndex === colIdx)
+            .flatMap(s => s.entries);
+          const spanStartsHere = engSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
+          const partnerSingleEntries = partnerSpans
+            .filter(s => s.span === 1 && s.startColIndex === colIdx)
+            .flatMap(s => s.entries);
+          const partnerSpanStartsHere = partnerSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
+
+          const cellAdhoc = adhocEntries.filter(a => a.engineer_id === eng.user_id && a.schedule_date === dateStr);
+          const partnerCellAdhoc = partnerEng
+            ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
+            : [];
+
+          const hasAnyContent = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
+            + partnerSingleEntries.length + partnerSpanStartsHere.length + partnerCellAdhoc.length > 0;
+
+          // If this column is covered (continuation of a span), render a transparent connector cell
+          if (engCoveredCols.has(colIdx) && partnerCoveredCols.has(colIdx)) {
+            // Both covered — empty connector (transparent, no drop target)
+            return (
+              <div
+                key={cellId}
+                className={cn(
+                  "min-h-[80px] rounded-md border border-dashed border-primary/10 p-1 transition-colors",
+                  isToday && "bg-primary/3"
                 )}
-                {partnerCellEntries.map((entry) => {
-                  const paired = allEngineers.filter(
-                    (e) => e.user_id !== partnerEng.user_id &&
-                      schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
-                  );
-                  return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
-                })}
-                {partnerCellAdhoc.map((adhoc) => (
-                  <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
-                ))}
-              </>
-            )}
-          </DroppableCell>
-        );
-      })}
+              />
+            );
+          }
+
+          // Build cell content
+          const content = (
+            <>
+              {isBankHoliday && !hasAnyContent && (
+                <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                  🏦 Bank Holiday
+                </div>
+              )}
+              {isBankHoliday && hasAnyContent && (
+                <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">🏦 Bank Hol</div>
+              )}
+              {isOnLeave && (
+                <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
+                  <Palmtree className="h-3 w-3 shrink-0" />{eng.full_name.split(" ")[0]} on leave
+                </div>
+              )}
+              {isPartnerOnLeave && partnerEng && (
+                <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
+                  <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
+                </div>
+              )}
+              {/* Spanning multi-day job cards starting here */}
+              {spanStartsHere.map((spanItem) => {
+                const job = getJob(spanItem.jobId);
+                const paired = allEngineers.filter(
+                  (e) => e.user_id !== eng.user_id &&
+                    schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
+                );
+                return (
+                  <div
+                    key={`span-${spanItem.jobId}-${colIdx}`}
+                    className="group"
+                    style={{
+                      gridColumn: `span ${Math.min(spanItem.span, weekDays.length - colIdx)}`,
+                    }}
+                  >
+                    <SpanningJobCard
+                      entries={spanItem.entries}
+                      job={job}
+                      span={spanItem.span}
+                      isAdmin={isAdmin}
+                      onRemove={onRemove}
+                      pairedEngineers={paired}
+                      isFirst={true}
+                      isContinuation={false}
+                    />
+                  </div>
+                );
+              })}
+              {/* Single-day cards */}
+              {singleEngEntries.map((entry) => {
+                const paired = allEngineers.filter(
+                  (e) => e.user_id !== eng.user_id &&
+                    schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+                );
+                return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
+              })}
+              {cellAdhoc.map((adhoc) => (
+                <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
+              ))}
+              {/* Partner entries */}
+              {partnerEng && (partnerSingleEntries.length > 0 || partnerSpanStartsHere.length > 0 || partnerCellAdhoc.length > 0) && (
+                <>
+                  {(singleEngEntries.length > 0 || spanStartsHere.length > 0 || cellAdhoc.length > 0) && (
+                    <div className="border-t border-primary/30 my-0.5" />
+                  )}
+                  {partnerSpanStartsHere.map((spanItem) => {
+                    const job = getJob(spanItem.jobId);
+                    const paired = allEngineers.filter(
+                      (e) => e.user_id !== partnerEng.user_id &&
+                        schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
+                    );
+                    return (
+                      <div key={`pspan-${spanItem.jobId}-${colIdx}`} className="group">
+                        <SpanningJobCard
+                          entries={spanItem.entries}
+                          job={job}
+                          span={spanItem.span}
+                          isAdmin={isAdmin}
+                          onRemove={onRemove}
+                          pairedEngineers={paired}
+                          isFirst={true}
+                          isContinuation={false}
+                        />
+                      </div>
+                    );
+                  })}
+                  {partnerSingleEntries.map((entry) => {
+                    const paired = allEngineers.filter(
+                      (e) => e.user_id !== partnerEng.user_id &&
+                        schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+                    );
+                    return <DraggableScheduleCard key={entry.id} entry={entry} job={getJob(entry.job_id)} isAdmin={isAdmin} onRemove={onRemove} pairedEngineers={paired} />;
+                  })}
+                  {partnerCellAdhoc.map((adhoc) => (
+                    <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
+                  ))}
+                </>
+              )}
+            </>
+          );
+
+          return (
+            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday}>
+              {content}
+            </DroppableCell>
+          );
+        })}
+      </div>
     </div>
   );
 }
