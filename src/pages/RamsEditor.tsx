@@ -768,10 +768,136 @@ export default function RamsEditor() {
             ))}
           </div>
         </TabsContent>
-      </Tabs>
 
-      {/* ── Personnel & Approval Tab ── */}
-      {/* NOTE: rendered outside Tabs intentionally — added as sibling below */}
+        {/* ── Personnel & Approval ── */}
+        <TabsContent value="personnel">
+          <div className="space-y-6">
+
+            {/* Personnel List */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Users className="h-4 w-4 text-primary" /> Personnel on Site
+                    </CardTitle>
+                    <p className="text-xs text-muted-foreground mt-0.5">List all individuals attending site under this RAMS.</p>
+                  </div>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs"
+                    onClick={() => setPersonnelList([...personnelList, { name: "", role: "", company: "Servexa Ltd" }])}>
+                    <Plus className="h-3.5 w-3.5" /> Add Person
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {personnelList.length === 0 && (
+                  <div className="flex flex-col items-center gap-2 rounded-lg border border-dashed p-8 text-muted-foreground text-sm">
+                    <Users className="h-6 w-6 opacity-40" />
+                    <p>No personnel added yet.</p>
+                  </div>
+                )}
+                {personnelList.map((p, i) => (
+                  <div key={i} className="rounded-lg border bg-card p-3 grid grid-cols-3 gap-3 items-end">
+                    <div>
+                      <Label className="text-xs">Full Name</Label>
+                      <Input value={p.name} className="mt-1 text-sm"
+                        onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Role / Trade</Label>
+                      <Input value={p.role} className="mt-1 text-sm"
+                        onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], role: e.target.value }; setPersonnelList(next); }} />
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Label className="text-xs">Company</Label>
+                        <Input value={p.company} className="mt-1 text-sm"
+                          onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], company: e.target.value }; setPersonnelList(next); }} />
+                      </div>
+                      <Button size="icon" variant="ghost" className="h-9 w-9 text-destructive/70 hover:text-destructive shrink-0"
+                        onClick={() => setPersonnelList(personnelList.filter((_, j) => j !== i))}>
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+
+            {/* RAMS Approval */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-primary" /> RAMS Approval
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">Person responsible for approving this RAMS document.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs">Approver Name</Label>
+                    <Input value={approvalFields.approverName} className="mt-1 text-sm"
+                      onChange={(e) => setApprovalFields({ ...approvalFields, approverName: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Approver Role / Title</Label>
+                    <Input value={approvalFields.approverRole} className="mt-1 text-sm"
+                      onChange={(e) => setApprovalFields({ ...approvalFields, approverRole: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Approval Date</Label>
+                    <Input value={approvalFields.approvalDate} className="mt-1 text-sm" placeholder="DD/MM/YYYY"
+                      onChange={(e) => setApprovalFields({ ...approvalFields, approvalDate: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Approver Signature</Label>
+                  <SignaturePad
+                    value={approvalFields.approverSignature}
+                    onChange={(v) => setApprovalFields({ ...approvalFields, approverSignature: v })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Supervisor */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <UserCheck className="h-4 w-4 text-primary" /> Site Supervisor
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">The nominated supervisor responsible for ensuring compliance with this RAMS on site.</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid sm:grid-cols-3 gap-4">
+                  <div>
+                    <Label className="text-xs">Supervisor Name</Label>
+                    <Input value={supervisorFields.supervisorName} className="mt-1 text-sm"
+                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorName: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Role / Title</Label>
+                    <Input value={supervisorFields.supervisorRole} className="mt-1 text-sm"
+                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorRole: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Contact Number</Label>
+                    <Input value={supervisorFields.supervisorContact} className="mt-1 text-sm" placeholder="e.g. 07700 000000"
+                      onChange={(e) => setSupervisorFields({ ...supervisorFields, supervisorContact: e.target.value })} />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 block">Supervisor Signature</Label>
+                  <SignaturePad
+                    value={supervisorFields.supervisorSignature}
+                    onChange={(v) => setSupervisorFields({ ...supervisorFields, supervisorSignature: v })}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
 
       {/* Sticky save bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-end gap-3 border-t bg-background/95 backdrop-blur px-6 py-3 shadow-lg">
