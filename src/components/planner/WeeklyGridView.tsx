@@ -739,6 +739,8 @@ export default function WeeklyGridView({
 // Sortable engineer row
 function SortableEngineerRow({
   eng,
+  partnerEng,
+  onUnpair,
   allEngineers,
   weekDays,
   schedule,
@@ -749,9 +751,12 @@ function SortableEngineerRow({
   onRemove,
   onRemoveAdhoc,
   leaveDates,
+  partnerLeaveDates,
   bankHolidayDates,
 }: {
   eng: Engineer;
+  partnerEng?: Engineer;
+  onUnpair?: () => void;
   allEngineers: Engineer[];
   weekDays: Date[];
   schedule: ScheduleEntry[];
@@ -762,6 +767,7 @@ function SortableEngineerRow({
   onRemove: (id: string) => void;
   onRemoveAdhoc: (id: string) => void;
   leaveDates: string[];
+  partnerLeaveDates: string[];
   bankHolidayDates: Set<string>;
 }) {
   const { attributes: sortAttrs, listeners: sortListeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: eng.user_id });
