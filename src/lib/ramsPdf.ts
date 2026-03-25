@@ -605,15 +605,17 @@ export async function generateRamsPdf(
     y = await checkPageBreak(doc, y, 15, logoImg, currentPage, TOTAL_PAGES);
     if (doc.getNumberOfPages() > currentPage) currentPage++;
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.text("2.3 Task Specific Sequence of Operations", ML, y); y += 4;
-    for (const item of taskSpecificOps) {
-      const itemH = paraH(item, CONTENT_W - 8) + 6;
+    doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
+    for (let i = 0; i < taskSpecificOps.length; i++) {
+      const itemH = paraH(taskSpecificOps[i], CONTENT_W - 8) + 3;
       y = await checkPageBreak(doc, y, itemH, logoImg, currentPage, TOTAL_PAGES);
       if (doc.getNumberOfPages() > currentPage) currentPage++;
+      doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
+      doc.text(`${i + 1}.`, ML + 2, y);
+      const lines = doc.splitTextToSize(taskSpecificOps[i], CONTENT_W - 8);
+      doc.text(lines, ML + 8, y);
+      y += lines.length * (8.5 * 0.352778 + 1.2);
     }
-    y = numberedList(doc, taskSpecificOps, ML + 2, y - (taskSpecificOps.length > 0 ? (paraH(taskSpecificOps[taskSpecificOps.length - 1], CONTENT_W - 8) + 6) : 0), CONTENT_W - 2);
-    // Re-render properly
-    doc.setFontSize(8.5); doc.setFont("helvetica", "normal");
-    // Reset y by re-calculating (numberedList already advanced y above, this is a no-op recalc)
     y += 2;
   }
 
