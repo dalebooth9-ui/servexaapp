@@ -87,22 +87,20 @@ export default function JobDetail() {
   const fetchData = async () => {
     if (!id) return;
     const [jobRes, subsRes, sitesRes, assignmentsRes] = await Promise.all([
-      supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode, latitude, longitude)").eq("id", id).single(),
+      supabase.from("jobs").select("*, customers(id, name, email, logo_url), sites(id, name, address, postcode)").eq("id", id).single(),
       supabase.from("submissions").select("*").eq("job_id", id).order("created_at", { ascending: false }),
-      supabase.from("sites").select("id, name, address, postcode, latitude, longitude").order("name"),
+      supabase.from("sites").select("id, name, address, postcode").order("name"),
       supabase.from("job_assignments").select("engineer_id").eq("job_id", id),
     ]);
     setJob(jobRes.data);
-    setSites((sitesRes.data || []) as any[]);
+    setSites(sitesRes.data || []);
     const subs = subsRes.data || [];
     setSubmissions(subs);
 
-    // Resolve W3W for the job's site
-    const linkedSite = jobRes.data?.sites;
-    if (linkedSite?.latitude && linkedSite?.longitude) {
-      convertW3W(linkedSite.latitude, linkedSite.longitude).then((w) => setJobW3W(w));
-    } else if (jobRes.data?.address) {
-      supabase.functions.invoke("w3w-convert", { body: { address: jobRes.data.address } })
+    // Resolve W3W using the address geocoding path
+    const address = jobRes.data?.sites?.address || jobRes.data?.address;
+    if (address) {
+      supabase.functions.invoke("w3w-convert", { body: { address } })
         .then(({ data }) => { if (data?.words) setJobW3W(data.words); });
     }
 
