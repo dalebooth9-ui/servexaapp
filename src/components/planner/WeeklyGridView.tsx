@@ -497,6 +497,7 @@ function DroppableCell({
   isOver,
   isLeave,
   colIdx,
+  colSpan = 1,
 }: {
   id: string;
   children: React.ReactNode;
@@ -504,6 +505,7 @@ function DroppableCell({
   isOver: boolean;
   isLeave?: boolean;
   colIdx?: number;
+  colSpan?: number;
 }) {
   const { setNodeRef } = useDroppable({ id });
 
@@ -511,6 +513,7 @@ function DroppableCell({
     <div
       ref={setNodeRef}
       data-day-col={colIdx}
+      style={colSpan > 1 ? { gridColumn: `span ${colSpan}` } : undefined}
       className={cn(
         "min-h-[80px] rounded-md border p-1.5 space-y-1 transition-colors",
         isToday && "bg-primary/5 border-primary/20",
