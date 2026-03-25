@@ -664,22 +664,23 @@ export default function WeeklyGridView({
             <ScrollArea className="h-[calc(100vh-320px)]">
               <SortableContext items={engineers.map((e) => e.user_id)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-1">
-                   {engineers.map((eng) => (
-                    <SortableEngineerRow
-                      key={eng.user_id}
-                      eng={eng}
-                      weekDays={weekDays}
-                      schedule={schedule}
-                      adhocEntries={adhocEntries}
-                      overId={overId}
-                      isAdmin={isAdmin}
-                      getJob={getJob}
-                      onRemove={onRemove}
-                      onRemoveAdhoc={onRemoveAdhoc}
-                      leaveDates={leaveMap.get(eng.user_id) || []}
-                      bankHolidayDates={bankHolidayDates}
-                    />
-                  ))}
+             {engineers.map((eng) => (
+                     <SortableEngineerRow
+                       key={eng.user_id}
+                       eng={eng}
+                       allEngineers={engineers}
+                       weekDays={weekDays}
+                       schedule={schedule}
+                       adhocEntries={adhocEntries}
+                       overId={overId}
+                       isAdmin={isAdmin}
+                       getJob={getJob}
+                       onRemove={onRemove}
+                       onRemoveAdhoc={onRemoveAdhoc}
+                       leaveDates={leaveMap.get(eng.user_id) || []}
+                       bankHolidayDates={bankHolidayDates}
+                     />
+                   ))}
                 </div>
               </SortableContext>
               <ScrollBar orientation="vertical" />
@@ -706,6 +707,12 @@ export default function WeeklyGridView({
           <div className="rounded-md border-l-4 border-l-[hsl(var(--chart-3))] bg-card p-2 text-xs shadow-lg w-[180px]">
             <div className="font-semibold text-[10px] uppercase tracking-wide text-[hsl(var(--chart-3))]">Labour</div>
             <div className="truncate font-medium">{activeItem.entry.company_name}</div>
+          </div>
+        )}
+        {activeItem?.type === "engineer-pair" && activeItem.engineer && (
+          <div className="rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-lg flex items-center gap-1.5">
+            <Users className="h-3 w-3" />
+            {activeItem.engineer.full_name}
           </div>
         )}
       </DragOverlay>
