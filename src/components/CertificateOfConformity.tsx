@@ -351,173 +351,181 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
+  const ML = 20; // left margin
+  const MR = 20; // right margin
+  const contentW = pw - ML - MR;
 
-  // ── Watermark (blue flame behind content) ────────────────────────────
+  // ── Watermark ────────────────────────────────────────────────────────
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
 
-  // ── Logo ─────────────────────────────────────────────────────────────
+  // ── Logo — top right ─────────────────────────────────────────────────
+  const logoW = 52;
+  const logoH = 20;
   try {
     const logoUrl = `${window.location.origin}/images/vivafire-logo-new.jpg`;
     const res = await fetch(logoUrl);
     const blob = await res.blob();
-    const reader = new FileReader();
     const logoBase64 = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
       reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
       reader.readAsDataURL(blob);
     });
-    doc.addImage(logoBase64, "JPEG", pw / 2 - 30, 10, 60, 22);
+    doc.addImage(logoBase64, "JPEG", pw - MR - logoW, 10, logoW, logoH);
   } catch {}
 
-  // ── Title block ──────────────────────────────────────────────────────
+  // ── Title bands (grey shaded rows) ───────────────────────────────────
   let y = 38;
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(30, 30, 30);
-  doc.text("Dry Riser System", pw / 2, y, { align: "center" });
-  y += 7;
-  doc.setFontSize(16);
-  doc.text("Certificate of Conformity", pw / 2, y, { align: "center" });
+  const bandColor: [number, number, number] = [210, 210, 210];
+  const bandH = 9;
+  const bandGap = 2;
+
+  const drawTitleBand = (text: string, fontSize: number) => {
+    doc.setFillColor(...bandColor);
+    doc.rect(ML, y, contentW, bandH, "F");
+    doc.setFontSize(fontSize);
+    doc.setFont("helvetica", "bolditalic");
+    doc.setTextColor(30, 30, 30);
+    doc.text(text, pw / 2, y + 6.2, { align: "center" });
+    y += bandH + bandGap;
+  };
+
+  drawTitleBand("Dry Riser System", 12);
+  drawTitleBand("Certificate of Conformity", 14);
+  drawTitleBand(`Certificate Number ${cert.certificate_number || "—"}`, 12);
+
   y += 8;
 
-  // Certificate number
+  // ── BUILDING section (left-aligned) ─────────────────────────────────
   doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 80, 80);
-  doc.text(`Certificate Number  ${cert.certificate_number || "—"}`, pw / 2, y, { align: "center" });
-  y += 10;
-
-  // ── Divider ──────────────────────────────────────────────────────────
-  doc.setDrawColor(30, 30, 30);
-  doc.setLineWidth(0.6);
-  doc.line(20, y, pw - 20, y);
-  y += 8;
-
-  // ── BUILDING section ─────────────────────────────────────────────────
-  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 30, 30);
-  doc.text("BUILDING", pw / 2, y, { align: "center" });
-  y += 7;
-
-  doc.setFontSize(13);
-  const buildingLines = doc.splitTextToSize(cert.job_name || "—", pw - 60);
-  doc.text(buildingLines, pw / 2, y, { align: "center" });
-  y += buildingLines.length * 7 + 2;
-
-  if (cert.site_address) {
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(80, 80, 80);
-    const addrLines = doc.splitTextToSize(cert.site_address, pw - 60);
-    doc.text(addrLines, pw / 2, y, { align: "center" });
-    y += addrLines.length * 5 + 2;
-  }
-
-  y += 4;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(30, 30, 30);
-  doc.text(`Client – ${cert.customer_name || "—"}`, pw / 2, y, { align: "center" });
-  y += 6;
-  doc.text(`Date of Test: ${cert.issue_date || "—"}`, pw / 2, y, { align: "center" });
-  y += 10;
-
-  // ── Divider ──────────────────────────────────────────────────────────
+  // Underlined BUILDING label
+  doc.text("BUILDING", ML, y);
+  const buildingLabelW = doc.getTextWidth("BUILDING");
   doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.4);
-  doc.line(20, y, pw - 20, y);
+  doc.line(ML, y + 1, ML + buildingLabelW, y + 1);
+  y += 7;
+
+  // Building name
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  const buildingLines = doc.splitTextToSize(cert.job_name || "—", contentW);
+  doc.text(buildingLines, ML, y);
+  y += buildingLines.length * 5.5 + 4;
+
+  // Client
+  doc.setFont("helvetica", "bold");
+  doc.text("Client \u2013 ", ML, y);
+  const clientLabelW = doc.getTextWidth("Client \u2013 ");
+  doc.setFont("helvetica", "normal");
+  doc.text(cert.customer_name || "—", ML + clientLabelW, y);
+  y += 7;
+
+  // Date of Test (bold + underlined label)
+  doc.setFont("helvetica", "bold");
+  const dateLabel = `Date of Test: ${cert.issue_date || "—"}`;
+  doc.text(dateLabel, ML, y);
+  const dateLabelW = doc.getTextWidth(dateLabel);
+  doc.line(ML, y + 1, ML + dateLabelW, y + 1);
   y += 10;
 
-  // ── Body text ────────────────────────────────────────────────────────
+  // ── Body paragraphs (left-aligned) ───────────────────────────────────
   const inletQty = cert.inlet_qty ?? 1;
   const outletQty = cert.outlet_qty ?? 2;
   const pressureBar = cert.pressure_bar ?? 12;
   const pressureDuration = cert.pressure_duration ?? 15;
   const sysQty = cert.system_qty ?? 1;
   const sysText = sysQty === 1 ? "one dry riser system" : `${sysQty} dry riser systems`;
-
-  const para1 = `Viva Fire Protection Ltd, confirm having installed, inspected and tested ${sysText} at the above site.`;
-  const para2 = "The system was found to conform to the requirements of BS 9990:2015";
   const inletWord = inletQty === 1 ? "inlet valve" : "inlet valves";
   const outletWord = outletQty === 1 ? "outlet valve" : "outlet valves";
-  const para3 = `The dry riser system comprises of ${inletQty} ${inletWord} and ${outletQty} ${outletWord}.`;
-  const para4 = `The Viva Fire test comprised of static pressure test with water to ${pressureBar} bar of the whole system for ${pressureDuration} minutes`;
 
-  const bodyLines = [para1, para2, para3, para4];
+  const bodyParas = [
+    `Viva Fire Protection Ltd, confirm having installed, inspected and tested ${sysText} at the above site.`,
+    "The system was found to conform to the requirements of BS 9990:2015",
+    `The dry riser system comprises of ${inletQty} ${inletWord} and ${outletQty} ${outletWord}.`,
+    `The Viva Fire test comprised of static pressure test with water to ${pressureBar} bar of the whole system for ${pressureDuration} minutes`,
+  ];
+  if (cert.test_notes) bodyParas.push(cert.test_notes);
+
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(30, 30, 30);
 
-  for (const para of bodyLines) {
-    const lines = doc.splitTextToSize(para, pw - 40);
-    doc.text(lines, pw / 2, y, { align: "center" });
-    y += lines.length * 6 + 4;
+  for (const para of bodyParas) {
+    const lines = doc.splitTextToSize(para, contentW);
+    doc.text(lines, ML, y);
+    y += lines.length * 5.8 + 4;
   }
 
-  if (cert.test_notes) {
-    const noteLines = doc.splitTextToSize(cert.test_notes, pw - 40);
-    doc.text(noteLines, pw / 2, y, { align: "center" });
-    y += noteLines.length * 6 + 4;
-  }
+  y += 4;
 
-  y += 6;
-
-  // ── Sign-off ─────────────────────────────────────────────────────────
+  // ── Sign-off row — left label, date tabbed right ──────────────────────
   doc.setFontSize(10);
-  doc.text(`Signed on behalf of Viva Fire Protection Ltd    Date ${cert.sign_date || "—"}`, pw / 2, y, { align: "center" });
-  y += 12;
+  doc.setFont("helvetica", "normal");
+  doc.text("Signed on behalf of Viva Fire Protection Ltd", ML, y);
+  doc.text(`Date ${cert.sign_date || "—"}`, pw - MR, y, { align: "right" });
+  y += 10;
 
-  // Signature image or blank box
+  // ── Signature — left aligned ─────────────────────────────────────────
   if (cert.engineer_signature) {
     try {
-      doc.addImage(cert.engineer_signature, "PNG", pw / 2 - 25, y, 50, 18);
-      y += 20;
+      doc.addImage(cert.engineer_signature, "PNG", ML, y, 45, 16);
+      y += 18;
     } catch {}
   } else {
     doc.setDrawColor(160, 160, 160);
-    doc.rect(pw / 2 - 35, y, 70, 16);
+    doc.rect(ML, y, 55, 14);
     doc.setFontSize(7);
     doc.setTextColor(150, 150, 150);
     doc.setFont("helvetica", "italic");
-    doc.text("Signature pending", pw / 2, y + 9, { align: "center" });
+    doc.text("Signature pending", ML + 27.5, y + 8, { align: "center" });
     doc.setTextColor(30, 30, 30);
-    y += 18;
+    y += 16;
   }
 
-  // Engineer name
+  // Engineer name — bold, left aligned
+  if (cert.engineer_name) {
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(30, 30, 30);
+    doc.text(cert.engineer_name, ML, y + 2);
+    y += 8;
+  }
+
+  // ── Footer area ──────────────────────────────────────────────────────
+  // Accreditation logos above footer
+  const footerBandY = ph - 22;
+  const accrH = 12;
+  renderAccreditationLogos(doc, logos, footerBandY - accrH - 6, accrH);
+
+  // Address line
+  doc.setDrawColor(30, 30, 30);
+  doc.setLineWidth(0.3);
+  doc.line(ML, footerBandY - 3, pw - MR, footerBandY - 3);
+
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60, 60, 60);
+  doc.text(
+    "Viva Fire Protection Limited,  Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ",
+    ML, footerBandY + 2
+  );
+  doc.text("Company Reg No: 06464084", pw - MR, footerBandY + 2, { align: "right" });
+
+  // Bold contact strip at very bottom
+  doc.setFillColor(255, 255, 255);
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(30, 30, 30);
-  if (cert.engineer_name) {
-    doc.text(cert.engineer_name, pw / 2, y + 2, { align: "center" });
-    y += 7;
-  }
-
-  // ── Accreditation logos ──────────────────────────────────────────────
-  const footerY = ph - 18;
-  const logoH = 14;
-  const logoRowY = footerY - logoH - 5;
-  renderAccreditationLogos(doc, logos, logoRowY, logoH);
-
-  // ── Footer ───────────────────────────────────────────────────────────
-  doc.setDrawColor(30, 30, 30);
-  doc.setLineWidth(0.4);
-  doc.line(14, footerY - 4, pw - 14, footerY - 4);
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 80, 80);
-  doc.text(
-    "Viva Fire Protection Limited, Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ",
-    pw / 2, footerY, { align: "center" }
-  );
-  doc.text(
-    "Company Reg No: 06464084   Tel: 0845 269 8482   sales@vivafire.co.uk   www.vivafire.co.uk",
-    pw / 2, footerY + 5, { align: "center" }
-  );
+  const stripY = ph - 8;
+  doc.text("Tel: 0845 269 8482", ML, stripY);
+  doc.text("sales@vivafire.co.uk", pw / 2, stripY, { align: "center" });
+  doc.text("www.vivafire.co.uk", pw - MR, stripY, { align: "right" });
 
   const base64 = doc.output("datauristring").split(",")[1];
   const fileName = `CoC-${cert.certificate_number || cert.reference_number || cert.job_id.slice(0, 8)}.pdf`;
