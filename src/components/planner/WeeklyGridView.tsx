@@ -812,19 +812,29 @@ function SortableEngineerRow({
               <GripVertical className="h-3.5 w-3.5" />
             </span>
           )}
+          {/* Droppable + draggable engineer name */}
           <span
-            ref={!partnerEng ? pairRef : undefined}
+            ref={(node) => {
+              if (!partnerEng) {
+                pairRef(node);
+                pairDropRef(node);
+              }
+            }}
             {...(!partnerEng ? pairAttrs : {})}
             {...(!partnerEng ? pairListeners : {})}
             className={cn(
-              "truncate text-sm font-medium",
-              isAdmin && !partnerEng && "cursor-grab hover:text-primary transition-colors",
-              isPairDragging && "opacity-40"
+              "truncate text-sm font-medium rounded px-1 py-0.5 transition-colors",
+              isAdmin && !partnerEng && "cursor-grab hover:text-primary",
+              isPairDragging && "opacity-40",
+              isPairDropOver && !partnerEng && "bg-primary/20 text-primary ring-1 ring-primary/50"
             )}
             title={isAdmin && !partnerEng ? "Drag onto another engineer to pair them on this row" : undefined}
           >
             {eng.full_name}
           </span>
+          {isPairDropOver && !partnerEng && (
+            <span className="shrink-0 text-[9px] font-semibold text-primary">+ Pair</span>
+          )}
           <span className={cn(
             "shrink-0 inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] font-semibold leading-none",
             available ? "bg-green-500/20 text-green-700 dark:text-green-400"
