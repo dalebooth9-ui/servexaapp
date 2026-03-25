@@ -779,6 +779,12 @@ function SortableEngineerRow({
     data: { type: "engineer-pair", engineer: eng },
     disabled: !isAdmin || !!partnerEng,
   });
+  // Droppable target on the engineer name so others can be dragged onto it
+  const { setNodeRef: pairDropRef, isOver: isPairDropOver } = useDroppable({
+    id: `eng-drop-${eng.user_id}`,
+    data: { type: "engineer-drop", engineerId: eng.user_id },
+    disabled: !isAdmin || !!partnerEng,
+  });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.4 : 1 };
 
   const today = format(new Date(), "yyyy-MM-dd");
