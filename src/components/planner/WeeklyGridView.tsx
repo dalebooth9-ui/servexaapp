@@ -15,6 +15,7 @@ import {
   useSensors,
   useDraggable,
   useDroppable,
+  MeasuringStrategy,
   type DragStartEvent,
   type DragEndEvent,
 } from "@dnd-kit/core";
@@ -581,6 +582,7 @@ export default function WeeklyGridView({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCenter}
+      measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
