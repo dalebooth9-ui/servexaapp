@@ -359,7 +359,7 @@ export default function RamsEditor() {
 
   // Current user's profile for auto-fill
   const [myProfile, setMyProfile] = useState<{ full_name: string; signature_data: string | null } | null>(null);
-  const [engineerProfiles, setEngineerProfiles] = useState<{ user_id: string; full_name: string }[]>([]);
+  const [engineerProfiles, setEngineerProfiles] = useState<{ user_id: string; full_name: string; phone: string | null }[]>([]);
 
   useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
 
@@ -368,8 +368,8 @@ export default function RamsEditor() {
     if (!user) return;
     supabase.from("profiles").select("full_name, signature_data").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data) setMyProfile(data); });
-    supabase.from("profiles").select("user_id, full_name").not("full_name", "is", null).neq("full_name", "")
-      .then(({ data }) => { if (data) setEngineerProfiles(data); });
+    supabase.from("profiles").select("user_id, full_name, phone").not("full_name", "is", null).neq("full_name", "")
+      .then(({ data }) => { if (data) setEngineerProfiles(data as any); });
   }, [user]);
 
   // Form state — honour ?type= query param for pre-selection from Industry Templates
