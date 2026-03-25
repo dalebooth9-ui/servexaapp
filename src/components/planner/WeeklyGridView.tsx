@@ -803,6 +803,7 @@ export default function WeeklyGridView({
                           leaveDates={leaveMap.get(eng.user_id) || []}
                           partnerLeaveDates={partnerEng ? leaveMap.get(partnerEng.user_id) || [] : []}
                           bankHolidayDates={bankHolidayDates}
+                          onResizeSpan={onResizeSpan}
                         />
                       );
                     })}
