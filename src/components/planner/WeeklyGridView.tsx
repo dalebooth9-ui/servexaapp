@@ -726,9 +726,12 @@ export default function WeeklyGridView({
           </div>
         )}
         {activeItem?.type === "engineer-pair" && activeItem.engineer && (
-          <div className="rounded-full bg-primary text-primary-foreground px-3 py-1.5 text-xs font-semibold shadow-lg flex items-center gap-1.5">
-            <Users className="h-3 w-3" />
-            {activeItem.engineer.full_name}
+          <div className="rounded-lg bg-primary text-primary-foreground px-3 py-2 text-xs font-semibold shadow-xl flex items-center gap-2">
+            <Users className="h-3.5 w-3.5" />
+            <div>
+              <div>{activeItem.engineer.full_name}</div>
+              <div className="text-[10px] font-normal opacity-80">Drop onto another engineer to pair</div>
+            </div>
           </div>
         )}
       </DragOverlay>
