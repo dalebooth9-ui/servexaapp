@@ -1160,190 +1160,208 @@ function SortableEngineerRow({
         </div>
 
         {/* Day cells — render spanning cards OR individual cards */}
-        {weekDays.map((d, colIdx) => {
-          const dateStr = weekDateStrs[colIdx];
-          const cellId = `cell-${eng.user_id}_${dateStr}`;
-          const isToday = isSameDay(d, new Date());
-          const isOnLeave = leaveDates.includes(dateStr);
-          const isPartnerOnLeave = partnerLeaveDates.includes(dateStr);
-          const isBankHoliday = bankHolidayDates.has(dateStr);
+        {(() => {
+          const cells: React.ReactNode[] = [];
+          let colIdx = 0;
 
-          // Single-day entries at this column (jobs that don't span)
-          const singleEngEntries = engSpans
-            .filter(s => s.span === 1 && s.startColIndex === colIdx)
-            .flatMap(s => s.entries);
-          const spanStartsHere = engSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
-          const partnerSingleEntries = partnerSpans
-            .filter(s => s.span === 1 && s.startColIndex === colIdx)
-            .flatMap(s => s.entries);
-          const partnerSpanStartsHere = partnerSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
+          while (colIdx < weekDays.length) {
+            const d = weekDays[colIdx];
+            const dateStr = weekDateStrs[colIdx];
+            const cellId = `cell-${eng.user_id}_${dateStr}`;
+            const isToday = isSameDay(d, new Date());
+            const isOnLeave = leaveDates.includes(dateStr);
+            const isPartnerOnLeave = partnerLeaveDates.includes(dateStr);
+            const isBankHoliday = bankHolidayDates.has(dateStr);
 
-          const cellAdhoc = adhocEntries.filter(a => a.engineer_id === eng.user_id && a.schedule_date === dateStr);
-          const partnerCellAdhoc = partnerEng
-            ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
-            : [];
+            // Find spanning jobs that START at this column
+            const spanStartsHere = engSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
+            const partnerSpanStartsHere = partnerSpans.filter(s => s.span > 1 && s.startColIndex === colIdx);
 
-          const hasAnyContent = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
-            + partnerSingleEntries.length + partnerSpanStartsHere.length + partnerCellAdhoc.length > 0;
+            // Single-day entries at this column
+            const singleEngEntries = engSpans
+              .filter(s => s.span === 1 && s.startColIndex === colIdx)
+              .flatMap(s => s.entries);
+            const partnerSingleEntries = partnerSpans
+              .filter(s => s.span === 1 && s.startColIndex === colIdx)
+              .flatMap(s => s.entries);
 
-          // If this column is covered (continuation of a span), render a transparent connector cell
-          if (engCoveredCols.has(colIdx) && partnerCoveredCols.has(colIdx)) {
-            // Both covered — empty connector (transparent, no drop target)
-            return (
-              <div
-                key={cellId}
-                data-day-col={colIdx}
-                className={cn(
-                  "min-h-[80px] rounded-md border border-dashed border-primary/10 p-1 transition-colors",
-                  isToday && "bg-primary/3"
-                )}
-              />
+            const cellAdhoc = adhocEntries.filter(a => a.engineer_id === eng.user_id && a.schedule_date === dateStr);
+            const partnerCellAdhoc = partnerEng
+              ? adhocEntries.filter(a => a.engineer_id === partnerEng.user_id && a.schedule_date === dateStr)
+              : [];
+
+            // If this column is covered by a span from a previous column (not a start), skip it
+            if (engCoveredCols.has(colIdx) || partnerCoveredCols.has(colIdx)) {
+              // Only skip if there's no new span starting here and no single entries
+              const hasNewContent = spanStartsHere.length > 0 || partnerSpanStartsHere.length > 0
+                || singleEngEntries.length > 0 || partnerSingleEntries.length > 0
+                || cellAdhoc.length > 0 || partnerCellAdhoc.length > 0;
+              if (!hasNewContent) {
+                colIdx++;
+                continue; // cell is visually covered by the spanning card
+              }
+            }
+
+            const hasAnyContent = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
+              + partnerSingleEntries.length + partnerSpanStartsHere.length + partnerCellAdhoc.length > 0;
+
+            // Determine live preview span for a span being resized at this col
+            const getEffectiveSpan = (spanItem: { jobId: string; startColIndex: number; span: number }, ownEngineerId: string) => {
+              const key = `${spanItem.jobId}-${ownEngineerId}`;
+              if (resizingSpanKey === key) return resizePreviewSpan;
+              return spanItem.span;
+            };
+
+            // How many grid columns should this cell span?
+            // Use the max span of any job starting here (for eng or partner)
+            const maxSpan = Math.max(
+              1,
+              ...spanStartsHere.map(s => Math.min(getEffectiveSpan(s, eng.user_id), weekDays.length - colIdx)),
+              ...partnerSpanStartsHere.map(s => Math.min(getEffectiveSpan(s, partnerEng!.user_id), weekDays.length - colIdx))
             );
-          }
 
-          // Determine live preview span for a span being resized at this col
-          const getEffectiveSpan = (spanItem: { jobId: string; startColIndex: number; span: number }) => {
-            const key = `${spanItem.jobId}-${eng.user_id}`;
-            if (resizingSpanKey === key) return resizePreviewSpan;
-            return spanItem.span;
-          };
-
-          // Build cell content
-          const content = (
-            <>
-              {isBankHoliday && !hasAnyContent && (
-                <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
-                  🏦 Bank Holiday
-                </div>
-              )}
-              {isBankHoliday && hasAnyContent && (
-                <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">🏦 Bank Hol</div>
-              )}
-              {isOnLeave && (
-                <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
-                  <Palmtree className="h-3 w-3 shrink-0" />{eng.full_name.split(" ")[0]} on leave
-                </div>
-              )}
-              {isPartnerOnLeave && partnerEng && (
-                <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
-                  <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
-                </div>
-              )}
-              {/* Spanning multi-day job cards starting here */}
-              {spanStartsHere.map((spanItem) => {
-                const job = getJob(spanItem.jobId);
-                const paired = allEngineers.filter(
-                  (e) => e.user_id !== eng.user_id &&
-                    schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
-                );
-                const effectiveSpan = getEffectiveSpan(spanItem);
-                const spanKey = `${spanItem.jobId}-${eng.user_id}`;
-                return (
-                  <div
-                    key={`span-${spanItem.jobId}-${colIdx}`}
-                    className={cn("group", resizingSpanKey === spanKey && "select-none")}
-                    style={{
-                      gridColumn: `span ${Math.min(effectiveSpan, weekDays.length - colIdx)}`,
-                    }}
-                  >
-                    <SpanningJobCard
-                      entries={spanItem.entries}
-                      job={job}
-                      span={effectiveSpan}
-                      isAdmin={isAdmin}
-                      onRemove={onRemove}
-                      pairedEngineers={paired}
-                      isFirst={true}
-                      isContinuation={false}
-                      onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, eng.user_id, colIdx, spanItem.entries) : undefined}
-                    />
+            const content = (
+              <>
+                {isBankHoliday && !hasAnyContent && (
+                  <div className="flex items-center gap-1 rounded px-1.5 py-1 bg-amber-500/10 border border-amber-500/20 text-[10px] text-amber-700 dark:text-amber-400 font-medium">
+                    🏦 Bank Holiday
                   </div>
-                );
-              })}
-              {/* Single-day cards */}
-              {singleEngEntries.map((entry) => {
-                const paired = allEngineers.filter(
-                  (e) => e.user_id !== eng.user_id &&
-                    schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
-                );
-                const spanKey = `single-${entry.id}`;
-                return (
-                  <DraggableScheduleCard
-                    key={entry.id}
-                    entry={entry}
-                    job={getJob(entry.job_id)}
-                    isAdmin={isAdmin}
-                    onRemove={onRemove}
-                    pairedEngineers={paired}
-                    onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, eng.user_id, colIdx, [entry]) : undefined}
-                  />
-                );
-              })}
-              {cellAdhoc.map((adhoc) => (
-                <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
-              ))}
-              {/* Partner entries */}
-              {partnerEng && (partnerSingleEntries.length > 0 || partnerSpanStartsHere.length > 0 || partnerCellAdhoc.length > 0) && (
-                <>
-                  {(singleEngEntries.length > 0 || spanStartsHere.length > 0 || cellAdhoc.length > 0) && (
-                    <div className="border-t border-primary/30 my-0.5" />
-                  )}
-                  {partnerSpanStartsHere.map((spanItem) => {
-                    const job = getJob(spanItem.jobId);
-                    const paired = allEngineers.filter(
-                      (e) => e.user_id !== partnerEng.user_id &&
-                        schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
-                    );
-                    const effectiveSpan = getEffectiveSpan(spanItem);
-                    const spanKey = `${spanItem.jobId}-${partnerEng.user_id}`;
-                    return (
-                      <div key={`pspan-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
-                        <SpanningJobCard
-                          entries={spanItem.entries}
-                          job={job}
-                          span={effectiveSpan}
-                          isAdmin={isAdmin}
-                          onRemove={onRemove}
-                          pairedEngineers={paired}
-                          isFirst={true}
-                          isContinuation={false}
-                          onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, partnerEng.user_id, colIdx, spanItem.entries) : undefined}
-                        />
-                      </div>
-                    );
-                  })}
-                  {partnerSingleEntries.map((entry) => {
-                    const paired = allEngineers.filter(
-                      (e) => e.user_id !== partnerEng.user_id &&
-                        schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
-                    );
-                    const spanKey = `single-${entry.id}`;
-                    return (
-                      <DraggableScheduleCard
-                        key={entry.id}
-                        entry={entry}
-                        job={getJob(entry.job_id)}
+                )}
+                {isBankHoliday && hasAnyContent && (
+                  <div className="text-[10px] text-amber-700 dark:text-amber-400 font-medium mb-0.5 px-0.5">🏦 Bank Hol</div>
+                )}
+                {isOnLeave && (
+                  <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
+                    <Palmtree className="h-3 w-3 shrink-0" />{eng.full_name.split(" ")[0]} on leave
+                  </div>
+                )}
+                {isPartnerOnLeave && partnerEng && (
+                  <div className="flex items-center gap-1 text-[10px] font-medium text-primary px-0.5 mb-0.5">
+                    <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
+                  </div>
+                )}
+                {/* Spanning multi-day job cards */}
+                {spanStartsHere.map((spanItem) => {
+                  const job = getJob(spanItem.jobId);
+                  const paired = allEngineers.filter(
+                    (e) => e.user_id !== eng.user_id &&
+                      schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
+                  );
+                  const effectiveSpan = getEffectiveSpan(spanItem, eng.user_id);
+                  const spanKey = `${spanItem.jobId}-${eng.user_id}`;
+                  return (
+                    <div key={`span-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
+                      <SpanningJobCard
+                        entries={spanItem.entries}
+                        job={job}
+                        span={effectiveSpan}
                         isAdmin={isAdmin}
                         onRemove={onRemove}
                         pairedEngineers={paired}
-                        onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, partnerEng.user_id, colIdx, [entry]) : undefined}
+                        isFirst={true}
+                        isContinuation={false}
+                        onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, eng.user_id, colIdx, spanItem.entries) : undefined}
                       />
-                    );
-                  })}
-                  {partnerCellAdhoc.map((adhoc) => (
-                    <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
-                  ))}
-                </>
-              )}
-            </>
-          );
+                    </div>
+                  );
+                })}
+                {/* Single-day cards */}
+                {singleEngEntries.map((entry) => {
+                  const paired = allEngineers.filter(
+                    (e) => e.user_id !== eng.user_id &&
+                      schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+                  );
+                  const spanKey = `single-${entry.id}`;
+                  return (
+                    <DraggableScheduleCard
+                      key={entry.id}
+                      entry={entry}
+                      job={getJob(entry.job_id)}
+                      isAdmin={isAdmin}
+                      onRemove={onRemove}
+                      pairedEngineers={paired}
+                      onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, eng.user_id, colIdx, [entry]) : undefined}
+                    />
+                  );
+                })}
+                {cellAdhoc.map((adhoc) => (
+                  <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
+                ))}
+                {/* Partner entries */}
+                {partnerEng && (partnerSingleEntries.length > 0 || partnerSpanStartsHere.length > 0 || partnerCellAdhoc.length > 0) && (
+                  <>
+                    {(singleEngEntries.length > 0 || spanStartsHere.length > 0 || cellAdhoc.length > 0) && (
+                      <div className="border-t border-primary/30 my-0.5" />
+                    )}
+                    {partnerSpanStartsHere.map((spanItem) => {
+                      const job = getJob(spanItem.jobId);
+                      const paired = allEngineers.filter(
+                        (e) => e.user_id !== partnerEng.user_id &&
+                          schedule.some((s) => s.job_id === spanItem.jobId && s.engineer_id === e.user_id && weekDateStrs.includes(s.schedule_date))
+                      );
+                      const effectiveSpan = getEffectiveSpan(spanItem, partnerEng.user_id);
+                      const spanKey = `${spanItem.jobId}-${partnerEng.user_id}`;
+                      return (
+                        <div key={`pspan-${spanItem.jobId}-${colIdx}`} className={cn("group", resizingSpanKey === spanKey && "select-none")}>
+                          <SpanningJobCard
+                            entries={spanItem.entries}
+                            job={job}
+                            span={effectiveSpan}
+                            isAdmin={isAdmin}
+                            onRemove={onRemove}
+                            pairedEngineers={paired}
+                            isFirst={true}
+                            isContinuation={false}
+                            onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, spanItem.jobId, partnerEng.user_id, colIdx, spanItem.entries) : undefined}
+                          />
+                        </div>
+                      );
+                    })}
+                    {partnerSingleEntries.map((entry) => {
+                      const paired = allEngineers.filter(
+                        (e) => e.user_id !== partnerEng.user_id &&
+                          schedule.some((s) => s.job_id === entry.job_id && s.engineer_id === e.user_id && s.schedule_date === dateStr)
+                      );
+                      const spanKey = `single-${entry.id}`;
+                      return (
+                        <DraggableScheduleCard
+                          key={entry.id}
+                          entry={entry}
+                          job={getJob(entry.job_id)}
+                          isAdmin={isAdmin}
+                          onRemove={onRemove}
+                          pairedEngineers={paired}
+                          onResizeStart={onResizeSpan ? (e) => handleResizeStart(e, spanKey, entry.job_id, partnerEng.user_id, colIdx, [entry]) : undefined}
+                        />
+                      );
+                    })}
+                    {partnerCellAdhoc.map((adhoc) => (
+                      <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
+                    ))}
+                  </>
+                )}
+              </>
+            );
 
-          return (
-            <DroppableCell key={cellId} id={cellId} isToday={isToday} isOver={overId === cellId} isLeave={(isOnLeave || isPartnerOnLeave) && !hasAnyContent || isBankHoliday} colIdx={colIdx}>
-              {content}
-            </DroppableCell>
-          );
-        })}
+            cells.push(
+              <DroppableCell
+                key={cellId}
+                id={cellId}
+                isToday={isToday}
+                isOver={overId === cellId}
+                isLeave={((isOnLeave || isPartnerOnLeave) && !hasAnyContent) || isBankHoliday}
+                colIdx={colIdx}
+                colSpan={maxSpan}
+              >
+                {content}
+              </DroppableCell>
+            );
+
+            colIdx += maxSpan;
+          }
+
+          return cells;
+        })()}
       </div>
     </div>
   );
