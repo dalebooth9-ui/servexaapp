@@ -411,7 +411,7 @@ export default function RamsEditor() {
   const addPersonWithMyDetails = () => {
     setPersonnelList((prev) => [...prev, {
       name: myProfile?.full_name || "",
-      role: "",
+      role: "Service Engineer",
       company: "Viva Fire",
     }]);
   };
