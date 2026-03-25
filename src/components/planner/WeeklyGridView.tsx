@@ -204,7 +204,7 @@ function SpanningJobCard({
   return (
     <div
       className={cn(
-        "relative rounded-md border-l-4 bg-card px-2 py-1.5 text-[11px] shadow-sm h-full flex flex-col justify-center min-h-[52px]",
+        "group/spancard relative rounded-md border-l-4 bg-card px-2 py-1.5 text-[11px] shadow-sm h-full flex flex-col justify-center min-h-[52px]",
         PRIORITY_BG[job.priority] || "border-l-muted",
         span > 1 && "rounded-r-md",
         isContinuation && "border-l-0 rounded-l-none border-l-transparent pl-1.5"
