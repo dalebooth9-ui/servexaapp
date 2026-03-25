@@ -858,21 +858,25 @@ export default function RamsEditor() {
                   <div key={i} className="rounded-lg border bg-card p-3 grid grid-cols-3 gap-3 items-end">
                     <div>
                       <Label className="text-xs">Full Name</Label>
-                      <Select
-                        value={p.name}
-                        onValueChange={(val) => { const next = [...personnelList]; next[i] = { ...next[i], name: val }; setPersonnelList(next); }}
-                      >
-                        <SelectTrigger className="mt-1 text-sm h-9">
-                          <SelectValue placeholder="Select or type name…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {engineerProfiles.map((ep) => (
-                            <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input value={p.name} placeholder="Or type manually…" className="mt-1 text-sm"
-                        onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
+                      <div className="flex gap-1 mt-1">
+                        <Input value={p.name} placeholder="Enter name…" className="text-sm flex-1"
+                          onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
+                        {engineerProfiles.length > 0 && (
+                          <Select
+                            value=""
+                            onValueChange={(val) => { const next = [...personnelList]; next[i] = { ...next[i], name: val }; setPersonnelList(next); }}
+                          >
+                            <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
+                              <Users className="h-3.5 w-3.5" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {engineerProfiles.map((ep) => (
+                                <SelectItem key={ep.user_id} value={ep.full_name}>{ep.full_name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <Label className="text-xs">Role / Trade</Label>
