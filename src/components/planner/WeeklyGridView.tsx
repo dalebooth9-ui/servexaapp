@@ -611,7 +611,15 @@ export default function WeeklyGridView({
       });
   }, [weekDays]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 5 },
+      // Prevent DnD activation when a resize drag is in progress
+      onActivation: () => {
+        if (globalResizeActive) return false;
+      },
+    })
+  );
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
 
