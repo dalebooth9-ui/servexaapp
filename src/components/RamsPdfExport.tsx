@@ -89,7 +89,7 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       } else if (ramsType === "installation") {
         result = await generateInstallationRamsPdf(mergedFormData, jobInfo, assignedEngineers);
       } else {
-        result = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers);
+        result = await generateRamsPdf(mergedFormData, jobInfo, assignedEngineers, ramsType);
       }
 
       const { base64, fileName } = result;
