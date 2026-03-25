@@ -1,11 +1,13 @@
 import { useState, useMemo } from "react";
-import { format, addDays, startOfWeek, isSameDay } from "date-fns";
+import { format, addDays, isSameDay, eachDayOfInterval, parseISO } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { ChevronLeft, ChevronRight, CalendarDays, Calendar } from "lucide-react";
 
 interface Engineer {
   user_id: string;
@@ -38,7 +40,10 @@ export default function MultiDayScheduleDialog({
   const [engineerId, setEngineerId] = useState("");
   const [weekStart, setWeekStart] = useState(initialWeekStart);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
+  const [rangeStart, setRangeStart] = useState("");
+  const [rangeEnd, setRangeEnd] = useState("");
   const [saving, setSaving] = useState(false);
+  const [mode, setMode] = useState<"picker" | "range">("picker");
 
   const weekDays = useMemo(
     () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
@@ -54,13 +59,30 @@ export default function MultiDayScheduleDialog({
     });
   };
 
+  // Compute dates from range inputs
+  const rangeDates = useMemo(() => {
+    if (!rangeStart || !rangeEnd) return [];
+    try {
+      const start = parseISO(rangeStart);
+      const end = parseISO(rangeEnd);
+      if (end < start) return [];
+      return eachDayOfInterval({ start, end }).map(d => format(d, "yyyy-MM-dd"));
+    } catch {
+      return [];
+    }
+  }, [rangeStart, rangeEnd]);
+
+  const effectiveDates = mode === "range" ? rangeDates : Array.from(selectedDates);
+
   const handleConfirm = async () => {
-    if (!job || !engineerId || selectedDates.size === 0) return;
+    if (!job || !engineerId || effectiveDates.length === 0) return;
     setSaving(true);
     try {
-      await onConfirm(job.id, engineerId, Array.from(selectedDates));
+      await onConfirm(job.id, engineerId, effectiveDates);
       setSelectedDates(new Set());
       setEngineerId("");
+      setRangeStart("");
+      setRangeEnd("");
       onOpenChange(false);
     } finally {
       setSaving(false);
@@ -70,6 +92,8 @@ export default function MultiDayScheduleDialog({
   const handleClose = () => {
     setSelectedDates(new Set());
     setEngineerId("");
+    setRangeStart("");
+    setRangeEnd("");
     onOpenChange(false);
   };
 
@@ -77,7 +101,7 @@ export default function MultiDayScheduleDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <CalendarDays className="h-4 w-4 text-primary" />
@@ -105,86 +129,130 @@ export default function MultiDayScheduleDialog({
             </Select>
           </div>
 
-          {/* Week day picker */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Select Days ({selectedDates.size} selected)</Label>
-              <div className="flex items-center gap-1">
+          {/* Mode tabs */}
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "picker" | "range")}>
+            <TabsList className="w-full">
+              <TabsTrigger value="picker" className="flex-1 gap-1.5">
+                <CalendarDays className="h-3.5 w-3.5" /> Day Picker
+              </TabsTrigger>
+              <TabsTrigger value="range" className="flex-1 gap-1.5">
+                <Calendar className="h-3.5 w-3.5" /> Date Range
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Individual day picker */}
+            <TabsContent value="picker" className="space-y-3 mt-3">
+              <div className="flex items-center justify-between">
+                <Label>Select Days ({selectedDates.size} selected)</Label>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setWeekStart((d) => addDays(d, -7))}
+                    className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="text-xs text-muted-foreground min-w-[90px] text-center">
+                    {format(weekStart, "dd MMM")} – {format(addDays(weekStart, 6), "dd MMM")}
+                  </span>
+                  <button
+                    onClick={() => setWeekStart((d) => addDays(d, 7))}
+                    className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-7 gap-1">
+                {weekDays.map((day) => {
+                  const dateStr = format(day, "yyyy-MM-dd");
+                  const isSelected = selectedDates.has(dateStr);
+                  const isToday = isSameDay(day, new Date());
+                  return (
+                    <button
+                      key={dateStr}
+                      onClick={() => toggleDate(dateStr)}
+                      className={cn(
+                        "flex flex-col items-center rounded-md py-2 px-1 text-xs transition-colors border",
+                        isSelected
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : isToday
+                            ? "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
+                            : "border-border bg-card text-foreground hover:bg-muted"
+                      )}
+                    >
+                      <span className="text-[10px] font-medium opacity-70">{format(day, "EEE")}</span>
+                      <span className="font-semibold">{format(day, "d")}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="flex gap-1.5 flex-wrap">
                 <button
-                  onClick={() => setWeekStart((d) => addDays(d, -7))}
-                  className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => {
+                    const weekdayDates = weekDays
+                      .filter((d) => d.getDay() !== 0 && d.getDay() !== 6)
+                      .map((d) => format(d, "yyyy-MM-dd"));
+                    setSelectedDates((prev) => {
+                      const next = new Set(prev);
+                      weekdayDates.forEach((d) => next.add(d));
+                      return next;
+                    });
+                  }}
+                  className="text-[10px] px-2 py-0.5 rounded border border-border bg-card hover:bg-muted text-muted-foreground transition-colors"
                 >
-                  <ChevronLeft className="h-3.5 w-3.5" />
+                  + Mon–Fri
                 </button>
-                <span className="text-xs text-muted-foreground min-w-[90px] text-center">
-                  {format(weekStart, "dd MMM")} – {format(addDays(weekStart, 6), "dd MMM")}
-                </span>
                 <button
-                  onClick={() => setWeekStart((d) => addDays(d, 7))}
-                  className="rounded p-1 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                  onClick={() => setSelectedDates(new Set())}
+                  className="text-[10px] px-2 py-0.5 rounded border border-border bg-card hover:bg-muted text-muted-foreground transition-colors"
                 >
-                  <ChevronRight className="h-3.5 w-3.5" />
+                  Clear
                 </button>
               </div>
-            </div>
+            </TabsContent>
 
-            <div className="grid grid-cols-7 gap-1">
-              {weekDays.map((day) => {
-                const dateStr = format(day, "yyyy-MM-dd");
-                const isSelected = selectedDates.has(dateStr);
-                const isToday = isSameDay(day, new Date());
-                return (
-                  <button
-                    key={dateStr}
-                    onClick={() => toggleDate(dateStr)}
-                    className={cn(
-                      "flex flex-col items-center rounded-md py-2 px-1 text-xs transition-colors border",
-                      isSelected
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : isToday
-                          ? "border-primary/40 bg-primary/5 text-primary hover:bg-primary/10"
-                          : "border-border bg-card text-foreground hover:bg-muted"
-                    )}
-                  >
-                    <span className="text-[10px] font-medium opacity-70">{format(day, "EEE")}</span>
-                    <span className="font-semibold">{format(day, "d")}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Quick select buttons */}
-            <div className="flex gap-1.5 flex-wrap">
-              <button
-                onClick={() => {
-                  const weekdayDates = weekDays
-                    .filter((d) => d.getDay() !== 0 && d.getDay() !== 6)
-                    .map((d) => format(d, "yyyy-MM-dd"));
-                  setSelectedDates((prev) => {
-                    const next = new Set(prev);
-                    weekdayDates.forEach((d) => next.add(d));
-                    return next;
-                  });
-                }}
-                className="text-[10px] px-2 py-0.5 rounded border border-border bg-card hover:bg-muted text-muted-foreground transition-colors"
-              >
-                + Mon–Fri
-              </button>
-              <button
-                onClick={() => setSelectedDates(new Set())}
-                className="text-[10px] px-2 py-0.5 rounded border border-border bg-card hover:bg-muted text-muted-foreground transition-colors"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
+            {/* Date range */}
+            <TabsContent value="range" className="space-y-3 mt-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Start Date</Label>
+                  <Input
+                    type="date"
+                    value={rangeStart}
+                    onChange={(e) => setRangeStart(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs">End Date</Label>
+                  <Input
+                    type="date"
+                    value={rangeEnd}
+                    min={rangeStart}
+                    onChange={(e) => setRangeEnd(e.target.value)}
+                  />
+                </div>
+              </div>
+              {rangeDates.length > 0 && (
+                <div className="rounded-md bg-primary/5 border border-primary/20 px-3 py-2 text-xs text-primary font-medium">
+                  📅 {rangeDates.length} day{rangeDates.length !== 1 ? "s" : ""} selected
+                  {rangeDates.length <= 14 && (
+                    <span className="text-muted-foreground font-normal ml-1">
+                      ({format(parseISO(rangeDates[0]), "dd MMM")} – {format(parseISO(rangeDates[rangeDates.length - 1]), "dd MMM")})
+                    </span>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
 
           <Button
             onClick={handleConfirm}
             className="w-full"
-            disabled={!engineerId || selectedDates.size === 0 || saving}
+            disabled={!engineerId || effectiveDates.length === 0 || saving}
           >
-            {saving ? "Scheduling..." : `Schedule ${selectedDates.size} Day${selectedDates.size !== 1 ? "s" : ""}`}
+            {saving ? "Scheduling..." : `Schedule ${effectiveDates.length} Day${effectiveDates.length !== 1 ? "s" : ""}`}
           </Button>
         </div>
       </DialogContent>
