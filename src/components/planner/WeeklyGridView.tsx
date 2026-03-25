@@ -382,7 +382,7 @@ function DraggableScheduleCard({
           </button>
         </div>
       )}
-      <div className="flex-1 min-w-0">
+      <div className={cn("flex-1 min-w-0", isAdmin && "pr-14")}>
         <div className="flex items-center justify-between gap-1 mb-0.5">
           <div className="flex items-center gap-1 min-w-0">
             <Link
