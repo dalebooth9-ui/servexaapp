@@ -569,8 +569,8 @@ export default function RamsEditor() {
     <div className="max-w-5xl mx-auto pb-16">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(`/jobs/${jobId}`)}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Back to Job
+        <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate(jobId ? `/jobs/${jobId}` : "/jobs")}>
+          <ArrowLeft className="mr-1 h-4 w-4" /> {jobId ? "Back to Job" : "Back"}
         </Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">RAMS Editor</h1>
@@ -587,10 +587,14 @@ export default function RamsEditor() {
             jobId={jobId ?? undefined}
             ramsType={ramsType}
           />
-          {jobId && (
-            <Button onClick={save} disabled={saving} size="sm">
+          {jobId ? (
+            <Button onClick={() => save()} disabled={saving} size="sm">
               {saving ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Save className="mr-1.5 h-3.5 w-3.5" />}
               {saving ? "Saving…" : "Save RAMS"}
+            </Button>
+          ) : (
+            <Button onClick={() => setSaveToJobOpen(true)} disabled={saving} size="sm" variant="default">
+              <Briefcase className="mr-1.5 h-3.5 w-3.5" /> Save to Job
             </Button>
           )}
         </div>
