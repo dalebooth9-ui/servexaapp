@@ -318,36 +318,6 @@ function SpanningJobCard({
             </div>
           )}
         </div>
-        {isAdmin && (
-          <div className="flex flex-col items-center gap-0.5 shrink-0">
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(1); }}
-              className="rounded p-0.5 opacity-0 group-hover/spancard:opacity-100 hover:bg-primary/20 text-primary transition-all"
-              title="Add 1 day"
-            >
-              <span className="text-[10px] font-bold leading-none">+</span>
-            </button>
-            <button
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => { e.stopPropagation(); entries.forEach(e2 => onRemove(e2.id)); }}
-              className="opacity-0 group-hover/spancard:opacity-100 hover:text-destructive text-muted-foreground transition-all"
-              title="Remove"
-            >
-              <X className="h-3 w-3" />
-            </button>
-            {span > 1 && (
-              <button
-                onPointerDown={(e) => e.stopPropagation()}
-                onClick={(e) => { e.stopPropagation(); onAdjustSpan?.(-1); }}
-                className="rounded p-0.5 opacity-0 group-hover/spancard:opacity-100 hover:bg-destructive/10 text-muted-foreground transition-all"
-                title="Remove 1 day"
-              >
-                <span className="text-[10px] font-bold leading-none">−</span>
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
