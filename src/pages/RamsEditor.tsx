@@ -770,6 +770,9 @@ export default function RamsEditor() {
         </TabsContent>
       </Tabs>
 
+      {/* ── Personnel & Approval Tab ── */}
+      {/* NOTE: rendered outside Tabs intentionally — added as sibling below */}
+
       {/* Sticky save bar */}
       <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-end gap-3 border-t bg-background/95 backdrop-blur px-6 py-3 shadow-lg">
         <span className="text-sm text-muted-foreground flex-1">
