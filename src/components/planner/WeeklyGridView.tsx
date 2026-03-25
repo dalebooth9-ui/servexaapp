@@ -10,6 +10,7 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
@@ -18,6 +19,7 @@ import {
   MeasuringStrategy,
   type DragStartEvent,
   type DragEndEvent,
+  type CollisionDetection,
 } from "@dnd-kit/core";
 import {
   SortableContext,
