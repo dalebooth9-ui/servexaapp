@@ -412,7 +412,7 @@ export default function AiHelpWizard() {
             "fixed z-50 flex flex-col shadow-2xl border border-border bg-background transition-all duration-300",
             fullscreen
               ? "inset-0 rounded-none"
-              : "bottom-5 right-5 rounded-2xl w-[370px] h-[580px] max-h-[85vh]"
+              : "top-4 right-4 rounded-2xl w-[370px] h-[580px] max-h-[85vh]"
           )}
           style={{ boxShadow: "0 20px 60px hsl(var(--primary) / 0.15), 0 4px 16px hsl(var(--foreground) / 0.08)" }}
         >
