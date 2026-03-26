@@ -1074,6 +1074,23 @@ export default function IndustryTemplates() {
                           </Button>
                         )}
 
+                        {/* Edit template */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1.5"
+                          disabled={isImporting}
+                          onClick={() => handleEdit(tpl)}
+                          title="Edit & save this template"
+                        >
+                          {isImporting ? (
+                            <span className="h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />
+                          ) : (
+                            <Pencil className="h-3.5 w-3.5" />
+                          )}
+                          Edit
+                        </Button>
+
                         {/* Import as editable template */}
                         <Button
                           size="sm"
@@ -1099,6 +1116,17 @@ export default function IndustryTemplates() {
           );
         })
       )}
+
+      {/* Edit dialog — opened after import */}
+      <EditTemplateDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        template={editingTemplate}
+        onSaved={() => {
+          toast({ title: "Template saved" });
+          setEditOpen(false);
+        }}
+      />
     </div>
   );
 }
