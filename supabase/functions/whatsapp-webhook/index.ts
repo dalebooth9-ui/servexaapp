@@ -64,14 +64,16 @@ Deno.serve(async (req) => {
     }
 
     // Find engineer by WhatsApp number
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
       .select("user_id")
       .eq("whatsapp_number", from)
       .maybeSingle();
 
+    console.log(`Profile lookup for ${from}: found=${!!profile}, error=${profileError?.message}`);
+
     if (!profile) {
-      console.log(`Unknown WhatsApp number: ${from}`);
+      console.log(`Unknown WhatsApp number: ${from} — no matching profile`);
       return twimlResponse();
     }
 
