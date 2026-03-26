@@ -100,7 +100,12 @@ Deno.serve(async (req) => {
     // Handle media messages (photos, documents)
     if (numMedia > 0) {
       const jobId = await getActiveJob(supabase, engineerId);
-      if (!jobId) return twimlResponse();
+      if (!jobId) {
+        await sendWhatsApp(twilioSender, from,
+          "⚠️ No job scheduled for today. Please text the job reference number or job name first to set context."
+        );
+        return twimlResponse();
+      }
 
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
