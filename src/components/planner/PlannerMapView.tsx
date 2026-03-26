@@ -415,7 +415,15 @@ export default function PlannerMapView({
           }
         }
 
-        if (hasMarkers) map.fitBounds(bounds);
+        if (hasMarkers) {
+          map.fitBounds(bounds);
+          // Prevent over-zooming when there's only one or nearby markers
+          google.maps.event.addListenerOnce(map, "bounds_changed", () => {
+            if ((map.getZoom() ?? 0) > 10) {
+              map.setZoom(10);
+            }
+          });
+        }
         setMapLoading(false);
       } catch (err) {
         console.error("Planner map init error:", err);
