@@ -151,13 +151,13 @@ export default function TechnicianAssistant({ jobContext }: Props) {
 
   if (!open) {
     return (
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed top-4 right-[4.5rem] z-50">
         <Button
           onClick={() => setOpen(true)}
           size="lg"
-          className="rounded-full h-12 w-12 p-0 shadow-lg gap-0"
+          className="rounded-full h-10 w-10 p-0 shadow-lg gap-0"
         >
-          <Bot className="h-5 w-5" />
+          <Bot className="h-4 w-4" />
         </Button>
         <span className="absolute -top-1 -right-1 h-3 w-3 rounded-full bg-green-500 border-2 border-background" />
       </div>
@@ -165,7 +165,7 @@ export default function TechnicianAssistant({ jobContext }: Props) {
   }
 
   return (
-    <div className={`fixed bottom-6 right-6 z-50 flex flex-col rounded-xl border bg-card shadow-2xl transition-all ${minimised ? "h-12 w-72" : "w-80 h-[500px]"}`}>
+    <div className={`fixed top-14 right-4 z-50 flex flex-col rounded-xl border bg-card shadow-2xl transition-all ${minimised ? "h-12 w-72" : "w-80 h-[500px]"}`}>
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-2 border-b rounded-t-xl bg-primary text-primary-foreground">
         <Bot className="h-4 w-4 shrink-0" />
