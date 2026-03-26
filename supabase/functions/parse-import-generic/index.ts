@@ -99,34 +99,58 @@ serve(async (req) => {
       userContent = [{ type: "text", text: `Extract records from this document (${file_name}):\n\n${extractedText}` }];
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userContent },
-        ],
-        temperature: 0.1,
-      }),
-    });
+    // Retry logic for transient errors (502, 503, 504)
+    let aiResponse: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "google/gemini-2.5-flash",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userContent },
+          ],
+          temperature: 0.1,
+        }),
+      });
+      if (aiResponse.ok || (aiResponse.status !== 502 && aiResponse.status !== 503 && aiResponse.status !== 504)) break;
+      console.warn(`AI gateway returned ${aiResponse.status}, retry ${attempt + 1}/3`);
+      if (attempt < 2) await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+    }
 
-    if (!aiResponse.ok) {
-      const errText = await aiResponse.text();
-      console.error("AI error:", aiResponse.status, errText);
-      if (aiResponse.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (aiResponse.status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    if (!aiResponse || !aiResponse.ok) {
+      const errText = aiResponse ? await aiResponse.text() : "no response";
+      console.error("AI error:", aiResponse?.status, errText);
+      if (aiResponse?.status === 429) return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again." }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      if (aiResponse?.status === 402) return new Response(JSON.stringify({ error: "AI credits exhausted." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       return new Response(JSON.stringify({ error: "Failed to parse document with AI" }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const aiData = await aiResponse.json();
     const content = aiData.choices?.[0]?.message?.content || "[]";
-    const jsonStr = content.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
+
+    // Robust JSON extraction
     let records;
     try {
-      records = JSON.parse(jsonStr);
+      let cleaned = content.replace(/```json?\s*/gi, "").replace(/```\s*/g, "").trim();
+      const jsonStart = cleaned.search(/[\{\[]/);
+      const bracketChar = jsonStart !== -1 ? cleaned[jsonStart] : "[";
+      const jsonEnd = cleaned.lastIndexOf(bracketChar === "[" ? "]" : "}");
+      if (jsonStart !== -1 && jsonEnd > jsonStart) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      }
+      try {
+        records = JSON.parse(cleaned);
+      } catch {
+        cleaned = cleaned
+          .replace(/,\s*}/g, "}")
+          .replace(/,\s*]/g, "]")
+          .replace(/[\x00-\x1F\x7F]/g, "");
+        records = JSON.parse(cleaned);
+      }
     } catch {
+      console.error("JSON parse failed, raw content:", content.substring(0, 500));
       return new Response(JSON.stringify({ error: "Could not extract structured data from document" }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
