@@ -640,6 +640,12 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                           <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium leading-tight">
                                               {site.editName || site.site_name}
+                                              {site.isDuplicate && (
+                                                <span className="inline-flex items-center gap-1 ml-2 text-xs font-medium text-destructive">
+                                                  <AlertTriangle className="h-3 w-3" />
+                                                  Duplicate
+                                                </span>
+                                              )}
                                             </p>
                                             {(site.editAddress || site.site_address) && (
                                               <p className="text-xs text-muted-foreground truncate">
