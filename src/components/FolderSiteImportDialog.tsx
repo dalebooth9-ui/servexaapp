@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   FolderOpen, Upload, FileText, Loader2, CheckCircle2, AlertCircle,
-  Building2, MapPin, ChevronDown, ChevronRight, Pencil, X,
+  Building2, MapPin, ChevronDown, ChevronRight, Pencil, X, AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
