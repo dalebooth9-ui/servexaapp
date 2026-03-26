@@ -6,8 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText } from "lucide-react";
+import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil } from "lucide-react";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import EditTemplateDialog from "@/components/EditTemplateDialog";
 import { RamsType } from "@/lib/ramsDefaults";
 
 // ─── Industry-standard template definitions ──────────────────────────────────
@@ -829,6 +830,14 @@ export default function IndustryTemplates() {
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [importing, setImporting] = useState<string | null>(null);
   const [imported, setImported] = useState<Set<string>>(new Set());
+  // Maps industry template id → db record id (after import)
+  const [importedDbIds, setImportedDbIds] = useState<Record<string, string>>({});
+  const [editingTemplate, setEditingTemplate] = useState<{
+    id: string; name: string; description: string | null;
+    fields: FieldDef[]; category?: string | null;
+    job_category?: string | null; branding?: Record<string, any>;
+  } | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
 
   // Map template category → RAMS type
   const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
@@ -862,23 +871,87 @@ export default function IndustryTemplates() {
     return acc;
   }, {});
 
+  /** Import a template and return its DB id */
+  const importTemplate = async (tpl: IndustryTemplate): Promise<string | null> => {
+    if (!user) return null;
+    const { data, error } = await supabase.from("job_sheet_templates").insert({
+      name: tpl.name,
+      description: `${tpl.standard} — ${tpl.description}`,
+      fields: tpl.fields as any,
+      job_category: tpl.job_category ?? tpl.category,
+      created_by: user.id,
+      locked: false,
+    } as any).select("id").single();
+    if (error) throw error;
+    return (data as any)?.id ?? null;
+  };
+
   const handleImport = async (tpl: IndustryTemplate) => {
     if (!user) return;
     setImporting(tpl.id);
     try {
-      const { error } = await supabase.from("job_sheet_templates").insert({
-        name: tpl.name,
-        description: `${tpl.standard} — ${tpl.description}`,
-        fields: tpl.fields as any,
-        job_category: tpl.job_category ?? tpl.category,
-        created_by: user.id,
-        locked: false,
-      } as any);
-      if (error) throw error;
-      setImported((prev) => new Set(prev).add(tpl.id));
+      const dbId = await importTemplate(tpl);
+      if (dbId) {
+        setImported((prev) => new Set(prev).add(tpl.id));
+        setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+      }
       toast({ title: "Template imported", description: `"${tpl.name}" added to your Job Sheet Templates.` });
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    } finally {
+      setImporting(null);
+    }
+  };
+
+  const handleEdit = async (tpl: IndustryTemplate) => {
+    if (!user) return;
+    setImporting(tpl.id); // reuse spinner
+    try {
+      let dbId = importedDbIds[tpl.id];
+      // If not yet imported this session, check DB or import now
+      if (!dbId) {
+        const { data: existing } = await supabase
+          .from("job_sheet_templates")
+          .select("id, name, description, fields, category, job_category, branding")
+          .eq("name", tpl.name)
+          .maybeSingle();
+        if (existing) {
+          dbId = existing.id;
+          setImported((prev) => new Set(prev).add(tpl.id));
+          setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+          setEditingTemplate({
+            id: dbId,
+            name: existing.name,
+            description: existing.description,
+            fields: (typeof existing.fields === "string" ? JSON.parse(existing.fields) : existing.fields) as FieldDef[],
+            category: existing.category,
+            job_category: existing.job_category,
+            branding: (existing.branding as Record<string, any>) || {},
+          });
+          setEditOpen(true);
+          return;
+        }
+        // Not in DB yet — import first
+        dbId = await importTemplate(tpl) ?? "";
+        if (dbId) {
+          setImported((prev) => new Set(prev).add(tpl.id));
+          setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+          toast({ title: "Template imported", description: `"${tpl.name}" saved. You can now edit it.` });
+        }
+      }
+      if (!dbId) throw new Error("Could not obtain template record.");
+      setEditingTemplate({
+        id: dbId,
+        name: tpl.name,
+        description: `${tpl.standard} — ${tpl.description}`,
+        fields: tpl.fields,
+        category: tpl.category,
+        job_category: tpl.job_category ?? tpl.category,
+        branding: {},
+      });
+      setEditOpen(true);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setImporting(null);
     }
@@ -1001,6 +1074,23 @@ export default function IndustryTemplates() {
                           </Button>
                         )}
 
+                        {/* Edit template */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-xs gap-1.5"
+                          disabled={isImporting}
+                          onClick={() => handleEdit(tpl)}
+                          title="Edit & save this template"
+                        >
+                          {isImporting ? (
+                            <span className="h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent rounded-full inline-block" />
+                          ) : (
+                            <Pencil className="h-3.5 w-3.5" />
+                          )}
+                          Edit
+                        </Button>
+
                         {/* Import as editable template */}
                         <Button
                           size="sm"
@@ -1026,6 +1116,17 @@ export default function IndustryTemplates() {
           );
         })
       )}
+
+      {/* Edit dialog — opened after import */}
+      <EditTemplateDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        template={editingTemplate}
+        onSaved={() => {
+          toast({ title: "Template saved" });
+          setEditOpen(false);
+        }}
+      />
     </div>
   );
 }
