@@ -496,12 +496,23 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
         {(stage === "review" || stage === "importing" || stage === "done") && (
           <>
             <div className="flex items-center justify-between py-1 shrink-0">
-              <p className="text-sm text-muted-foreground">
-                Found <span className="font-semibold text-foreground">{totalSelected}</span> unique site
-                {totalSelected !== 1 ? "s" : ""} across{" "}
-                <span className="font-semibold text-foreground">{customers.length}</span> customer
-                {customers.length !== 1 ? "s" : ""}
-              </p>
+              <div className="space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  Found <span className="font-semibold text-foreground">{totalSelected}</span> unique site
+                  {totalSelected !== 1 ? "s" : ""} across{" "}
+                  <span className="font-semibold text-foreground">{customers.length}</span> customer
+                  {customers.length !== 1 ? "s" : ""}
+                </p>
+                {(() => {
+                  const dupCount = customers.reduce((sum, c) => sum + c.sites.filter((s) => s.isDuplicate).length, 0);
+                  return dupCount > 0 ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {dupCount} duplicate{dupCount !== 1 ? "s" : ""} found — deselected by default
+                    </p>
+                  ) : null;
+                })()}
+              </div>
               {stage === "review" && (
                 <Button variant="ghost" size="sm" onClick={() => reset()}>
                   <X className="mr-1.5 h-3.5 w-3.5" /> Start over
