@@ -151,7 +151,7 @@ export default function TechnicianAssistant({ jobContext }: Props) {
 
   if (!open) {
     return (
-      <div className="fixed top-4 right-[4.5rem] z-50">
+      <div className="fixed top-4 right-36 z-50">
         <Button
           onClick={() => setOpen(true)}
           size="lg"
