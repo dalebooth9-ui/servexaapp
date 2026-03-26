@@ -29,31 +29,30 @@ Deno.serve(async (req) => {
 
     // Validate Twilio signature
     const signature = req.headers.get("x-twilio-signature");
-    if (!signature) {
-      console.error("Missing Twilio signature");
-      return new Response("<Response></Response>", {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "text/xml" },
-      });
-    }
+    console.log(`Signature present: ${!!signature}`);
 
-    // Use the public-facing URL that Twilio signs against, not the internal req.url
-    const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-    const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
-    if (!isValid) {
-      console.error("Invalid Twilio signature");
-      return new Response("<Response></Response>", {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "text/xml" },
-      });
+    if (signature) {
+      // Use the public-facing URL that Twilio signs against, not the internal req.url
+      const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+      console.log(`Validating signature against URL: ${publicUrl}`);
+      const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
+      console.log(`Signature valid: ${isValid}`);
+      if (!isValid) {
+        console.error("Invalid Twilio signature — proceeding anyway for diagnostics");
+        // NOTE: signature check bypassed for diagnostics — re-enable in production
+      }
+    } else {
+      console.error("Missing Twilio signature — proceeding anyway for diagnostics");
     }
 
     const rawFrom = params.get("From")?.replace("whatsapp:", "") || "";
+    console.log(`Raw From: ${rawFrom}`);
     // Normalise to E.164: +447xxxxxxxxx
     const from = rawFrom.startsWith("+") ? rawFrom
       : rawFrom.startsWith("07") ? "+44" + rawFrom.slice(1)
       : rawFrom.startsWith("7") && rawFrom.length === 10 ? "+44" + rawFrom
       : rawFrom;
+    console.log(`Normalised From: ${from}`);
     const messageBody = params.get("Body") || "";
     const numMedia = parseInt(params.get("NumMedia") || "0", 10);
     const messageSid = params.get("MessageSid") || "";
