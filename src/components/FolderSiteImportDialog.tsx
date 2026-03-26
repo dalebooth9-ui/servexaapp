@@ -233,6 +233,27 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
       });
     }
 
+    // ── Check for duplicates against existing DB sites ──
+    const allSiteNames = results.flatMap((c) => c.sites.map((s) => s.editName.trim() || s.site_name.trim()));
+    if (allSiteNames.length > 0) {
+      const { data: existingSites } = await supabase
+        .from("sites")
+        .select("name")
+        .in("name", allSiteNames);
+      const existingNameSet = new Set((existingSites || []).map((s: any) => s.name.trim().toLowerCase()));
+
+      for (const customer of results) {
+        const seenInBatch = new Set<string>();
+        for (const site of customer.sites) {
+          const key = (site.editName.trim() || site.site_name.trim()).toLowerCase();
+          const isDup = existingNameSet.has(key) || seenInBatch.has(key);
+          site.isDuplicate = isDup;
+          if (isDup) site.selected = false; // deselect duplicates by default
+          seenInBatch.add(key);
+        }
+      }
+    }
+
     results.sort((a, b) => a.folderName.localeCompare(b.folderName));
     setCustomers(results);
     setExpandedCustomers(new Set(results.map((r) => r.folderName)));
