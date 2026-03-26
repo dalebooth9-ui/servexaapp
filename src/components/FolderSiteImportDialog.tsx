@@ -803,6 +803,22 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                   {totalSelected} site{totalSelected !== 1 ? "s" : ""} will be imported
                 </p>
                 <div className="flex gap-2">
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    // @ts-ignore
+                    webkitdirectory=""
+                    directory=""
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0)
+                        processFolder(e.target.files);
+                    }}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+                    <FolderOpen className="mr-2 h-4 w-4" /> Add More Folders
+                  </Button>
                   <Button variant="outline" onClick={reset}>
                     Cancel
                   </Button>
