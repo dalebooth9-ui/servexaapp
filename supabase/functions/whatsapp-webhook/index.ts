@@ -48,7 +48,12 @@ Deno.serve(async (req) => {
       });
     }
 
-    const from = params.get("From")?.replace("whatsapp:", "") || "";
+    const rawFrom = params.get("From")?.replace("whatsapp:", "") || "";
+    // Normalise to E.164: +447xxxxxxxxx
+    const from = rawFrom.startsWith("+") ? rawFrom
+      : rawFrom.startsWith("07") ? "+44" + rawFrom.slice(1)
+      : rawFrom.startsWith("7") && rawFrom.length === 10 ? "+44" + rawFrom
+      : rawFrom;
     const messageBody = params.get("Body") || "";
     const numMedia = parseInt(params.get("NumMedia") || "0", 10);
     const messageSid = params.get("MessageSid") || "";
