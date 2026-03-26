@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
-const ALLOWED_EXTENSIONS = [".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
+const ALLOWED_EXTENSIONS = [".pdf", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
 
 type SubfolderEntry = {
   subfolderName: string;

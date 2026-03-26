@@ -70,7 +70,7 @@ interface Props {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
-const ALLOWED = [".pdf", ".doc", ".docx"];
+const ALLOWED = [".pdf"];
 
 function normalizeSiteKey(name: string, address: string) {
   return `${name.toLowerCase().trim()}|${address.toLowerCase().trim()}`;
