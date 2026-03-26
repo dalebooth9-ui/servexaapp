@@ -6,8 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
-import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText } from "lucide-react";
+import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil } from "lucide-react";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import EditTemplateDialog from "@/components/EditTemplateDialog";
 import { RamsType } from "@/lib/ramsDefaults";
 
 // ─── Industry-standard template definitions ──────────────────────────────────
