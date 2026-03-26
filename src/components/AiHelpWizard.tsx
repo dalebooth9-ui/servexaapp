@@ -394,7 +394,7 @@ export default function AiHelpWizard() {
         <button
           onClick={() => { setOpen(true); setMinimised(false); }}
           className={cn(
-            "fixed top-4 right-4 z-50 flex items-center gap-2 rounded-full px-4 py-3 shadow-lg",
+            "fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full px-4 py-3 shadow-lg",
             "bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200",
             "text-sm font-medium"
           )}
@@ -412,14 +412,14 @@ export default function AiHelpWizard() {
             "fixed z-50 flex flex-col shadow-2xl border border-border bg-background transition-all duration-300",
             fullscreen
               ? "inset-0 rounded-none"
-              : "top-4 right-4 rounded-2xl w-[370px] h-[580px] max-h-[85vh]"
+              : "bottom-6 right-6 rounded-2xl w-[370px] h-[580px] max-h-[85vh]"
           )}
           style={{ boxShadow: "0 20px 60px hsl(var(--primary) / 0.15), 0 4px 16px hsl(var(--foreground) / 0.08)" }}
         >
           {/* Header */}
           <div className={cn(
             "flex items-center gap-2.5 border-b border-border px-4 py-3 bg-primary text-primary-foreground shrink-0",
-            fullscreen ? "rounded-none" : "rounded-t-2xl"
+            fullscreen ? "rounded-none" : "rounded-t-2xl rounded-bl-2xl"
           )}>
             <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary-foreground/20">
               <Sparkles className="h-3.5 w-3.5" />
