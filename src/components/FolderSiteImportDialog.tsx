@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import {
   FolderOpen, Upload, FileText, Loader2, CheckCircle2, AlertCircle,
-  Building2, MapPin, ChevronDown, ChevronRight, Pencil, X,
+  Building2, MapPin, ChevronDown, ChevronRight, Pencil, X, AlertTriangle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,6 +49,7 @@ type DeduplicatedSite = {
   systems: ParsedSystem[];
   sourceFiles: string[];
   selected: boolean;
+  isDuplicate?: boolean; // exists in DB already
   // editable overrides
   editName: string;
   editAddress: string;
@@ -230,6 +231,27 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
         ),
         fileCount: files.length,
       });
+    }
+
+    // ── Check for duplicates against existing DB sites ──
+    const allSiteNames = results.flatMap((c) => c.sites.map((s) => s.editName.trim() || s.site_name.trim()));
+    if (allSiteNames.length > 0) {
+      const { data: existingSites } = await supabase
+        .from("sites")
+        .select("name")
+        .in("name", allSiteNames);
+      const existingNameSet = new Set((existingSites || []).map((s: any) => s.name.trim().toLowerCase()));
+
+      for (const customer of results) {
+        const seenInBatch = new Set<string>();
+        for (const site of customer.sites) {
+          const key = (site.editName.trim() || site.site_name.trim()).toLowerCase();
+          const isDup = existingNameSet.has(key) || seenInBatch.has(key);
+          site.isDuplicate = isDup;
+          if (isDup) site.selected = false; // deselect duplicates by default
+          seenInBatch.add(key);
+        }
+      }
     }
 
     results.sort((a, b) => a.folderName.localeCompare(b.folderName));
@@ -474,12 +496,23 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
         {(stage === "review" || stage === "importing" || stage === "done") && (
           <>
             <div className="flex items-center justify-between py-1 shrink-0">
-              <p className="text-sm text-muted-foreground">
-                Found <span className="font-semibold text-foreground">{totalSelected}</span> unique site
-                {totalSelected !== 1 ? "s" : ""} across{" "}
-                <span className="font-semibold text-foreground">{customers.length}</span> customer
-                {customers.length !== 1 ? "s" : ""}
-              </p>
+              <div className="space-y-0.5">
+                <p className="text-sm text-muted-foreground">
+                  Found <span className="font-semibold text-foreground">{totalSelected}</span> unique site
+                  {totalSelected !== 1 ? "s" : ""} across{" "}
+                  <span className="font-semibold text-foreground">{customers.length}</span> customer
+                  {customers.length !== 1 ? "s" : ""}
+                </p>
+                {(() => {
+                  const dupCount = customers.reduce((sum, c) => sum + c.sites.filter((s) => s.isDuplicate).length, 0);
+                  return dupCount > 0 ? (
+                    <p className="text-xs text-destructive flex items-center gap-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {dupCount} duplicate{dupCount !== 1 ? "s" : ""} found — deselected by default
+                    </p>
+                  ) : null;
+                })()}
+              </div>
               {stage === "review" && (
                 <Button variant="ghost" size="sm" onClick={() => reset()}>
                   <X className="mr-1.5 h-3.5 w-3.5" /> Start over
@@ -618,6 +651,12 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                           <div className="flex-1 min-w-0">
                                             <p className="text-sm font-medium leading-tight">
                                               {site.editName || site.site_name}
+                                              {site.isDuplicate && (
+                                                <span className="inline-flex items-center gap-1 ml-2 text-xs font-medium text-destructive">
+                                                  <AlertTriangle className="h-3 w-3" />
+                                                  Duplicate
+                                                </span>
+                                              )}
                                             </p>
                                             {(site.editAddress || site.site_address) && (
                                               <p className="text-xs text-muted-foreground truncate">
