@@ -237,25 +237,41 @@ Deno.serve(async (req) => {
           "*parts* — List parts logged against current job\n" +
           "*complete* — Mark current job as completed\n" +
           "*help* — Show this menu\n\n" +
-          "Send a *job reference number* to switch jobs."
+          "Send a *job reference number or job name* to switch jobs."
         );
         return twimlResponse();
       }
 
-      // Check if it's a job reference number
-      const { data: job } = await supabase
+      // Check if it's a job reference number OR job name
+      const trimmed = messageBody.trim();
+      let job: any = null;
+
+      // 1. Exact reference number match
+      const { data: byRef } = await supabase
         .from("jobs")
         .select("id, name, reference_number")
-        .eq("reference_number", messageBody.trim())
+        .eq("reference_number", trimmed)
         .maybeSingle();
+      if (byRef) job = byRef;
+
+      // 2. Case-insensitive name match (partial)
+      if (!job) {
+        const { data: byName } = await supabase
+          .from("jobs")
+          .select("id, name, reference_number")
+          .ilike("name", `%${trimmed}%`)
+          .limit(1)
+          .maybeSingle();
+        if (byName) job = byName;
+      }
 
       if (job) {
-        console.log(`Engineer ${engineerId} selected job ${job.id} via ref: ${messageBody.trim()}`);
+        console.log(`Engineer ${engineerId} selected job ${job.id} via: ${trimmed}`);
         await supabase.from("submissions").insert({
           job_id: job.id,
           engineer_id: engineerId,
           type: "note",
-          content: `Job context set: ${messageBody.trim()}`,
+          content: `Job context set: ${trimmed}`,
           whatsapp_message_id: messageSid,
         });
         await sendWhatsApp(twilioSender, from,
@@ -583,20 +599,36 @@ async function validateTwilioSignature(
 }
 
 async function getActiveJob(supabase: any, engineerId: string): Promise<string | null> {
-  const { data } = await supabase
+  // 1. Check for the most recent context-setting submission (engineer texted a job ref/name)
+  const { data: contextSubs } = await supabase
+    .from("submissions")
+    .select("job_id")
+    .eq("engineer_id", engineerId)
+    .eq("type", "note")
+    .ilike("content", "Job context set:%")
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (contextSubs && contextSubs.length > 0) {
+    return contextSubs[0].job_id;
+  }
+
+  // 2. Fall back to most recently assigned active job
+  const { data: assignments } = await supabase
     .from("job_assignments")
     .select("job_id, jobs(status)")
     .eq("engineer_id", engineerId)
     .order("assigned_at", { ascending: false })
     .limit(10);
 
-  if (!data) return null;
+  if (!assignments) return null;
 
-  for (const assignment of data) {
+  for (const assignment of assignments) {
     if ((assignment as any).jobs?.status === "active") {
       return assignment.job_id;
     }
   }
 
-  return data[0]?.job_id || null;
+  // 3. Last resort: just most recently assigned job regardless of status
+  return assignments[0]?.job_id || null;
 }
