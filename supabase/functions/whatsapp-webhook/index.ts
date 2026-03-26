@@ -607,7 +607,7 @@ async function validateTwilioSignature(
 }
 
 async function getActiveJob(supabase: any, engineerId: string): Promise<string | null> {
-  // 1. Check for the most recent context-setting submission (engineer texted a job ref/name)
+  // 1. Check for an explicit context set by the engineer (most recent "Job context set" note)
   const { data: contextSubs } = await supabase
     .from("submissions")
     .select("job_id")
@@ -618,10 +618,38 @@ async function getActiveJob(supabase: any, engineerId: string): Promise<string |
     .limit(1);
 
   if (contextSubs && contextSubs.length > 0) {
+    console.log(`Context job found: ${contextSubs[0].job_id}`);
     return contextSubs[0].job_id;
   }
 
-  // 2. Fall back to most recently assigned active job
+  // 2. Check job_visits scheduled for TODAY assigned to this engineer
+  //    This prevents messages accidentally going to wrong jobs
+  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
+  console.log(`Checking today's visits for engineer ${engineerId} on ${today}`);
+
+  const { data: todayVisits } = await supabase
+    .from("job_visits")
+    .select("job_id, status, jobs(status)")
+    .eq("engineer_id", engineerId)
+    .eq("scheduled_date", today)
+    .in("status", ["upcoming", "unscheduled"])
+    .order("scheduled_date", { ascending: true })
+    .limit(5);
+
+  if (todayVisits && todayVisits.length > 0) {
+    // Prefer visits for active/in_progress jobs
+    const activeVisit = todayVisits.find(
+      (v: any) => v.jobs?.status === "active" || v.jobs?.status === "in_progress"
+    );
+    if (activeVisit) {
+      console.log(`Today's scheduled visit found (active job): ${activeVisit.job_id}`);
+      return activeVisit.job_id;
+    }
+    console.log(`Today's scheduled visit found: ${todayVisits[0].job_id}`);
+    return todayVisits[0].job_id;
+  }
+
+  // 3. Fall back to most recently assigned active job
   const { data: assignments } = await supabase
     .from("job_assignments")
     .select("job_id, jobs(status)")
@@ -633,10 +661,13 @@ async function getActiveJob(supabase: any, engineerId: string): Promise<string |
 
   for (const assignment of assignments) {
     if ((assignment as any).jobs?.status === "active") {
+      console.log(`Fallback active job found: ${assignment.job_id}`);
       return assignment.job_id;
     }
   }
 
-  // 3. Last resort: just most recently assigned job regardless of status
-  return assignments[0]?.job_id || null;
+  // 4. Last resort: most recently assigned job regardless of status
+  const fallback = assignments[0]?.job_id || null;
+  console.log(`Last resort job: ${fallback}`);
+  return fallback;
 }
