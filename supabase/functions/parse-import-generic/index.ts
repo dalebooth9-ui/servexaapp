@@ -146,7 +146,11 @@ serve(async (req) => {
         cleaned = cleaned
           .replace(/,\s*}/g, "}")
           .replace(/,\s*]/g, "]")
-          .replace(/[\x00-\x1F\x7F]/g, "");
+          .replace(/[\x00-\x1F\x7F]/g, "")
+          // Fix AI returning > instead of } (unicode \u003e corruption)
+          .replace(/>\s*,/g, "},")
+          .replace(/>\s*\]/g, "}]")
+          .replace(/>\s*$/g, "}");
         records = JSON.parse(cleaned);
       }
     } catch {
