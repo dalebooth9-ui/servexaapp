@@ -56,59 +56,65 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
   };
 
   const processFiles = useCallback((fileList: FileList) => {
-    const customerMap = new Map<string, { direct: File[]; subs: Map<string, File[]> }>();
-
-    for (const file of Array.from(fileList)) {
-      const path = (file as any).webkitRelativePath || file.name;
-      const parts = path.split("/");
-
-      if (parts.some((p: string) => p.startsWith("."))) continue;
-
-      const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
-      if (!ALLOWED_EXTENSIONS.includes(ext)) continue;
-
-      if (parts.length >= 4) {
-        // root / customer / subfolder / file (possibly deeper)
-        const customerName = parts[1];
-        const subfolderName = parts[2];
-        if (!customerMap.has(customerName)) customerMap.set(customerName, { direct: [], subs: new Map() });
-        const entry = customerMap.get(customerName)!;
-        if (!entry.subs.has(subfolderName)) entry.subs.set(subfolderName, []);
-        entry.subs.get(subfolderName)!.push(file);
-      } else if (parts.length === 3) {
-        // root / customer / file
-        const customerName = parts[1];
-        if (!customerMap.has(customerName)) customerMap.set(customerName, { direct: [], subs: new Map() });
-        customerMap.get(customerName)!.direct.push(file);
-      } else if (parts.length === 2) {
-        // root / file
-        const key = "__root__";
-        if (!customerMap.has(key)) customerMap.set(key, { direct: [], subs: new Map() });
-        customerMap.get(key)!.direct.push(file);
+    setFolders((prev) => {
+      // Build map from existing entries so we can merge
+      const customerMap = new Map<string, { direct: File[]; subs: Map<string, File[]> }>();
+      for (const entry of prev) {
+        const key = entry.customerName === "Unassigned" ? "__root__" : entry.customerName;
+        const subs = new Map<string, File[]>();
+        for (const sf of entry.subfolders) subs.set(sf.subfolderName, [...sf.files]);
+        customerMap.set(key, { direct: [...entry.files], subs });
       }
-    }
 
-    const entries: FolderEntry[] = [];
-    for (const [name, data] of customerMap.entries()) {
-      const subfolders: SubfolderEntry[] = [];
-      for (const [subName, files] of data.subs.entries()) {
-        subfolders.push({ subfolderName: subName, files: files.sort((a, b) => a.name.localeCompare(b.name)) });
+      for (const file of Array.from(fileList)) {
+        const path = (file as any).webkitRelativePath || file.name;
+        const parts = path.split("/");
+
+        if (parts.some((p: string) => p.startsWith("."))) continue;
+
+        const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
+        if (!ALLOWED_EXTENSIONS.includes(ext)) continue;
+
+        if (parts.length >= 4) {
+          const customerName = parts[1];
+          const subfolderName = parts[2];
+          if (!customerMap.has(customerName)) customerMap.set(customerName, { direct: [], subs: new Map() });
+          const entry = customerMap.get(customerName)!;
+          if (!entry.subs.has(subfolderName)) entry.subs.set(subfolderName, []);
+          entry.subs.get(subfolderName)!.push(file);
+        } else if (parts.length === 3) {
+          const customerName = parts[1];
+          if (!customerMap.has(customerName)) customerMap.set(customerName, { direct: [], subs: new Map() });
+          customerMap.get(customerName)!.direct.push(file);
+        } else if (parts.length === 2) {
+          const key = "__root__";
+          if (!customerMap.has(key)) customerMap.set(key, { direct: [], subs: new Map() });
+          customerMap.get(key)!.direct.push(file);
+        }
       }
-      subfolders.sort((a, b) => a.subfolderName.localeCompare(b.subfolderName));
 
-      entries.push({
-        customerName: name === "__root__" ? "Unassigned" : name,
-        files: data.direct.sort((a, b) => a.name.localeCompare(b.name)),
-        subfolders,
+      const entries: FolderEntry[] = [];
+      for (const [name, data] of customerMap.entries()) {
+        const subfolders: SubfolderEntry[] = [];
+        for (const [subName, files] of data.subs.entries()) {
+          subfolders.push({ subfolderName: subName, files: files.sort((a, b) => a.name.localeCompare(b.name)) });
+        }
+        subfolders.sort((a, b) => a.subfolderName.localeCompare(b.subfolderName));
+
+        entries.push({
+          customerName: name === "__root__" ? "Unassigned" : name,
+          files: data.direct.sort((a, b) => a.name.localeCompare(b.name)),
+          subfolders,
+        });
+      }
+      entries.sort((a, b) => {
+        if (a.customerName === "Unassigned") return 1;
+        if (b.customerName === "Unassigned") return -1;
+        return a.customerName.localeCompare(b.customerName);
       });
-    }
-    entries.sort((a, b) => {
-      if (a.customerName === "Unassigned") return 1;
-      if (b.customerName === "Unassigned") return -1;
-      return a.customerName.localeCompare(b.customerName);
-    });
 
-    setFolders(entries);
+      return entries;
+    });
   }, []);
 
   useImperativeHandle(ref, () => ({ processFiles }), [processFiles]);
@@ -436,6 +442,21 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
               {folders.length} customer(s) • {jobCount} job(s) • {totalFiles} file(s)
             </p>
             <div className="flex gap-2">
+              <input
+                ref={inputRef}
+                type="file"
+                // @ts-ignore
+                webkitdirectory=""
+                directory=""
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files && e.target.files.length > 0) processFiles(e.target.files);
+                }}
+              />
+              <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+                <FolderOpen className="mr-2 h-4 w-4" /> Add More Folders
+              </Button>
               <Button variant="outline" onClick={reset}>Clear</Button>
               <Button onClick={handleImport}>
                 <Upload className="mr-2 h-4 w-4" /> Import All
