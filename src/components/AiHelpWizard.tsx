@@ -419,7 +419,7 @@ export default function AiHelpWizard() {
           {/* Header */}
           <div className={cn(
             "flex items-center gap-2.5 border-b border-border px-4 py-3 bg-primary text-primary-foreground shrink-0",
-            fullscreen ? "rounded-none" : "rounded-t-2xl"
+            fullscreen ? "rounded-none" : "rounded-t-2xl rounded-bl-2xl"
           )}>
             <div className="flex items-center justify-center h-7 w-7 rounded-full bg-primary-foreground/20">
               <Sparkles className="h-3.5 w-3.5" />
