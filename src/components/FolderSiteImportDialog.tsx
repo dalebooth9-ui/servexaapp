@@ -49,6 +49,7 @@ type DeduplicatedSite = {
   systems: ParsedSystem[];
   sourceFiles: string[];
   selected: boolean;
+  isDuplicate?: boolean; // exists in DB already
   // editable overrides
   editName: string;
   editAddress: string;
