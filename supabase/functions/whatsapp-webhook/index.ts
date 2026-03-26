@@ -237,7 +237,7 @@ Deno.serve(async (req) => {
           "*parts* — List parts logged against current job\n" +
           "*complete* — Mark current job as completed\n" +
           "*help* — Show this menu\n\n" +
-          "Send a *job reference number* to switch jobs."
+          "Send a *job reference number or job name* to switch jobs."
         );
         return twimlResponse();
       }
