@@ -360,7 +360,15 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
                             </Button>
                           </div>
                         ) : (
-                          <span className="text-sm font-medium truncate max-w-[300px]">{getDisplayName(sub)}</span>
+                          <div className="flex flex-col min-w-0">
+                            <span className="text-sm font-medium truncate max-w-[300px]">{getDisplayName(sub)}</span>
+                            {sub.content && sub.type !== "note" && (
+                              <span className="flex items-center gap-1 text-xs text-muted-foreground mt-0.5 truncate max-w-[300px]">
+                                <MessageSquare className="h-3 w-3 flex-shrink-0" />
+                                {sub.content}
+                              </span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </TableCell>
