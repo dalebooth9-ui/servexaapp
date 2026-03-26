@@ -2,31 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, Send, X, Minimize2, Maximize2, Loader2 } from "lucide-react";
 import VoiceDictationButton from "@/components/VoiceDictationButton";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface JobContext {
-  job_name?: string;
-  category?: string;
-  customer?: string;
-  site?: string;
-  priority?: string;
-  description?: string;
-}
-
-interface Props {
-  jobContext: JobContext;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const QUICK_PROMPTS = [
   "What should I check first on this system?",
@@ -47,6 +28,24 @@ function renderMarkdown(text: string) {
     ALLOWED_TAGS: ["strong", "code", "p", "li", "br"],
     ALLOWED_ATTR: ["class"],
   });
+}
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface JobContext {
+  job_name?: string;
+  category?: string;
+  customer?: string;
+  site?: string;
+  priority?: string;
+  description?: string;
+}
+
+interface Props {
+  jobContext: JobContext;
 }
 
 export default function TechnicianAssistant({ jobContext }: Props) {
@@ -78,11 +77,15 @@ export default function TechnicianAssistant({ jobContext }: Props) {
     let assistantText = "";
 
     try {
+      // Get the current user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/technician-assistant`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ANON_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           messages: updated.map((m) => ({ role: m.role, content: m.content })),
