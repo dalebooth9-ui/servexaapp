@@ -297,6 +297,9 @@ Deno.serve(async (req) => {
         });
       } else {
         console.log(`No active job for engineer ${engineerId}`);
+        await sendWhatsApp(twilioSender, from,
+          "⚠️ No job scheduled for today. Please text the job reference number or job name to set context."
+        );
       }
     }
 
