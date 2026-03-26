@@ -30,6 +30,24 @@ function renderMarkdown(text: string) {
   });
 }
 
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+interface JobContext {
+  job_name?: string;
+  category?: string;
+  customer?: string;
+  site?: string;
+  priority?: string;
+  description?: string;
+}
+
+interface Props {
+  jobContext: JobContext;
+}
+
 export default function TechnicianAssistant({ jobContext }: Props) {
   const [open, setOpen] = useState(false);
   const [minimised, setMinimised] = useState(false);
@@ -59,11 +77,15 @@ export default function TechnicianAssistant({ jobContext }: Props) {
     let assistantText = "";
 
     try {
+      // Get the current user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/technician-assistant`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${ANON_KEY}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           messages: updated.map((m) => ({ role: m.role, content: m.content })),
