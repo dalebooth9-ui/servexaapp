@@ -135,8 +135,8 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
     }
 
     if (customerMap.size === 0) {
-      toast({ title: "No documents found", description: "No PDF or Word files found in the selected folder.", variant: "destructive" });
-      setStage("idle");
+      toast({ title: "No documents found", description: "No PDF files found in the selected folder.", variant: "destructive" });
+      setStage(customers.length > 0 ? "review" : "idle");
       return;
     }
 
@@ -233,32 +233,94 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
       });
     }
 
-    // ── Check for duplicates against existing DB sites ──
-    const allSiteNames = results.flatMap((c) => c.sites.map((s) => s.editName.trim() || s.site_name.trim()));
-    if (allSiteNames.length > 0) {
-      const { data: existingSites } = await supabase
-        .from("sites")
-        .select("name")
-        .in("name", allSiteNames);
-      const existingNameSet = new Set((existingSites || []).map((s: any) => s.name.trim().toLowerCase()));
+    // ── Merge new results with existing customers ──
+    setCustomers((prev) => {
+      const merged = new Map<string, ExtractedCustomer>();
+      // Seed with previous entries
+      for (const c of prev) merged.set(c.folderName, { ...c });
 
-      for (const customer of results) {
-        const seenInBatch = new Set<string>();
-        for (const site of customer.sites) {
-          const key = (site.editName.trim() || site.site_name.trim()).toLowerCase();
-          const isDup = existingNameSet.has(key) || seenInBatch.has(key);
-          site.isDuplicate = isDup;
-          if (isDup) site.selected = false; // deselect duplicates by default
-          seenInBatch.add(key);
+      for (const newC of results) {
+        if (merged.has(newC.folderName)) {
+          // Merge sites into existing customer
+          const existing = merged.get(newC.folderName)!;
+          const existingKeys = new Set(
+            existing.sites.map((s) =>
+              normalizeSiteKey(s.editName || s.site_name, s.editAddress || s.site_address)
+            )
+          );
+          for (const site of newC.sites) {
+            const key = normalizeSiteKey(site.editName || site.site_name, site.editAddress || site.site_address);
+            if (!existingKeys.has(key)) {
+              existing.sites.push(site);
+              existingKeys.add(key);
+            }
+          }
+          existing.fileCount += newC.fileCount;
+        } else {
+          merged.set(newC.folderName, newC);
         }
       }
-    }
 
-    results.sort((a, b) => a.folderName.localeCompare(b.folderName));
-    setCustomers(results);
-    setExpandedCustomers(new Set(results.map((r) => r.folderName)));
+      const allCustomers = [...merged.values()];
+
+      // ── Check for duplicates against existing DB sites ──
+      const allSiteNames = allCustomers.flatMap((c) =>
+        c.sites.map((s) => s.editName.trim() || s.site_name.trim())
+      );
+      if (allSiteNames.length > 0) {
+        // We already fetched during scan, do a sync check using the data we have
+        // (duplicate check will be re-run; for now mark batch-internal dups)
+        for (const customer of allCustomers) {
+          const seenInBatch = new Set<string>();
+          for (const site of customer.sites) {
+            const key = (site.editName.trim() || site.site_name.trim()).toLowerCase();
+            if (seenInBatch.has(key)) {
+              site.isDuplicate = true;
+              site.selected = false;
+            }
+            seenInBatch.add(key);
+          }
+        }
+      }
+
+      allCustomers.sort((a, b) => a.folderName.localeCompare(b.folderName));
+
+      // Run async DB duplicate check
+      (async () => {
+        const names = allCustomers.flatMap((c) =>
+          c.sites.map((s) => s.editName.trim() || s.site_name.trim())
+        );
+        if (names.length === 0) return;
+        const { data: existingSites } = await supabase
+          .from("sites")
+          .select("name")
+          .in("name", names);
+        if (!existingSites) return;
+        const existingNameSet = new Set(existingSites.map((s: any) => s.name.trim().toLowerCase()));
+        setCustomers((cur) =>
+          cur.map((c) => ({
+            ...c,
+            sites: c.sites.map((s) => {
+              const key = (s.editName.trim() || s.site_name.trim()).toLowerCase();
+              if (existingNameSet.has(key) && !s.isDuplicate) {
+                return { ...s, isDuplicate: true, selected: false };
+              }
+              return s;
+            }),
+          }))
+        );
+      })();
+
+      return allCustomers;
+    });
+
+    setExpandedCustomers((prev) => {
+      const next = new Set(prev);
+      for (const r of results) next.add(r.folderName);
+      return next;
+    });
     setStage("review");
-  }, [toast]);
+  }, [toast, customers.length]);
 
   // ── Selection helpers ──────────────────────────────────────────────────
 
@@ -741,6 +803,22 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                   {totalSelected} site{totalSelected !== 1 ? "s" : ""} will be imported
                 </p>
                 <div className="flex gap-2">
+                  <input
+                    ref={inputRef}
+                    type="file"
+                    // @ts-ignore
+                    webkitdirectory=""
+                    directory=""
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0)
+                        processFolder(e.target.files);
+                    }}
+                  />
+                  <Button variant="outline" size="sm" onClick={() => inputRef.current?.click()}>
+                    <FolderOpen className="mr-2 h-4 w-4" /> Add More Folders
+                  </Button>
                   <Button variant="outline" onClick={reset}>
                     Cancel
                   </Button>
