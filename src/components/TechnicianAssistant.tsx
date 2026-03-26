@@ -2,31 +2,12 @@ import { useState, useRef, useEffect } from "react";
 import DOMPurify from "dompurify";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Bot, Send, X, Minimize2, Maximize2, Loader2 } from "lucide-react";
 import VoiceDictationButton from "@/components/VoiceDictationButton";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
-
-interface JobContext {
-  job_name?: string;
-  category?: string;
-  customer?: string;
-  site?: string;
-  priority?: string;
-  description?: string;
-}
-
-interface Props {
-  jobContext: JobContext;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const ANON_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 
 const QUICK_PROMPTS = [
   "What should I check first on this system?",
