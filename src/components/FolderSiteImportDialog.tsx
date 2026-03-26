@@ -124,6 +124,9 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
       const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
       if (!ALLOWED.includes(ext)) continue;
       if (file.size > 50 * 1024 * 1024) continue; // 50MB per file
+      // Skip files from excluded years (2021–2024) based on path or filename
+      const EXCLUDED_YEARS = ["2021", "2022", "2023", "2024"];
+      if (EXCLUDED_YEARS.some((yr) => path.includes(yr))) continue;
       // parts[0] = root folder selected, parts[1] = customer subfolder
       const customerName = parts.length >= 3 ? parts[1] : parts[0];
       if (!customerMap.has(customerName)) customerMap.set(customerName, []);
