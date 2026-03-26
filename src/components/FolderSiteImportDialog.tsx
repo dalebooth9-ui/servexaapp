@@ -416,7 +416,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
         onOpenChange(o);
       }}
     >
-      <DialogContent className="max-w-3xl max-h-[88vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[88vh] flex flex-col" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FolderOpen className="h-5 w-5 text-primary" />
