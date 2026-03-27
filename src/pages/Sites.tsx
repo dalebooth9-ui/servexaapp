@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import BulkImportSitesDialog from "@/components/BulkImportSitesDialog";
@@ -210,6 +210,8 @@ export default function Sites() {
   const [deletingUnlinked, setDeletingUnlinked] = useState(false);
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
   const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
+  const customerFoldersScrollRef = useRef<HTMLDivElement | null>(null);
+  const unlinkedSitesScrollRef = useRef<HTMLDivElement | null>(null);
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
@@ -399,8 +401,36 @@ export default function Sites() {
       for (const siteId of siteIds) {
         await supabase.from("customer_sites" as any).delete().eq("customer_id", folder.id).eq("site_id", siteId);
       }
+      const removedIds = new Set<string>();
+      const stack = [...siteIds];
+      while (stack.length > 0) {
+        const currentId = stack.pop()!;
+        if (removedIds.has(currentId)) continue;
+        removedIds.add(currentId);
+        sites.filter((site) => site.parent_id === currentId).forEach((site) => stack.push(site.id));
+      }
+
+      setCustomerFolders((prev) => prev.map((existingFolder) => {
+        if (existingFolder.id !== folder.id) return existingFolder;
+
+        const nextSites = existingFolder.sites.filter((site) => !removedIds.has(site.id));
+        const nextJobCountsBySite = existingFolder.jobCountsBySite
+          ? Object.fromEntries(Object.entries(existingFolder.jobCountsBySite).filter(([siteId]) => !removedIds.has(siteId)))
+          : existingFolder.jobCountsBySite;
+
+        return {
+          ...existingFolder,
+          sites: nextSites,
+          jobCountsBySite: nextJobCountsBySite,
+        };
+      }));
       setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
-      fetchCustomerFolders({ ensureOpenFolderIds: [folder.id] });
+      fetchCustomerFolders({
+        ensureOpenFolderIds: [folder.id],
+        preserveCustomerScroll: true,
+        preserveUnlinkedScroll: true,
+        background: true,
+      });
       toast({ title: "Sites removed", description: `${siteIds.length} site(s) unlinked from ${folder.name}.` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -601,9 +631,18 @@ export default function Sites() {
     }
   };
 
-  const fetchCustomerFolders = async (options?: { ensureOpenFolderIds?: string[] }) => {
+  const fetchCustomerFolders = async (options?: {
+    ensureOpenFolderIds?: string[];
+    preserveCustomerScroll?: boolean;
+    preserveUnlinkedScroll?: boolean;
+    background?: boolean;
+  }) => {
     const scrollY = window.scrollY;
-    setFoldersLoading(true);
+    const customerScrollTop = customerFoldersScrollRef.current?.scrollTop ?? 0;
+    const unlinkedScrollTop = unlinkedSitesScrollRef.current?.scrollTop ?? 0;
+    const shouldShowLoading = !options?.background;
+
+    if (shouldShowLoading) setFoldersLoading(true);
 
     try {
       const [customers, customerSiteLinks, allSites, jobsBySite] = await Promise.all([
@@ -676,13 +715,26 @@ export default function Sites() {
           if (count > 2) autoCollapsed.add(siteId);
         }
       }
-      setCollapsedSites(autoCollapsed);
+      setCollapsedSites((prev) => {
+        const validIds = new Set(folders.flatMap((folder) => folder.sites.map((site) => site.id)));
+        const next = new Set([...prev].filter((id) => validIds.has(id)));
+        autoCollapsed.forEach((id) => next.add(id));
+        return next;
+      });
     } catch (error) {
       toast({ title: "Error", description: "Failed to load customer folders.", variant: "destructive" });
       setCustomerFolders([]);
     } finally {
-      setFoldersLoading(false);
-      requestAnimationFrame(() => window.scrollTo(0, scrollY));
+      if (shouldShowLoading) setFoldersLoading(false);
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollY);
+        if (options?.preserveCustomerScroll && customerFoldersScrollRef.current) {
+          customerFoldersScrollRef.current.scrollTop = customerScrollTop;
+        }
+        if (options?.preserveUnlinkedScroll && unlinkedSitesScrollRef.current) {
+          unlinkedSitesScrollRef.current.scrollTop = unlinkedScrollTop;
+        }
+      });
     }
   };
 
@@ -1089,6 +1141,7 @@ export default function Sites() {
               <div className="flex gap-4 items-start">
                 {/* Customer folders */}
                 <div
+                  ref={customerFoldersScrollRef}
                   className="flex-1 min-w-0 space-y-2 max-h-[75vh] overflow-y-auto pr-1 focus:outline-none"
                   tabIndex={0}
                   onKeyDown={(e) => {
@@ -1413,6 +1466,7 @@ export default function Sites() {
                         </div>
                       )}
                       <div
+                        ref={unlinkedSitesScrollRef}
                         className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1 focus:outline-none"
                         tabIndex={0}
                         onKeyDown={(e) => {
