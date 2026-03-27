@@ -180,6 +180,7 @@ export default function Sites() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [activeDragSite, setActiveDragSite] = useState<Site | null>(null);
+  const [activeDragCustomer, setActiveDragCustomer] = useState<{ id: string; name: string } | null>(null);
   const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -395,6 +396,10 @@ export default function Sites() {
   const handleDragStart = (event: DragStartEvent) => {
     const site = event.active.data.current?.site as Site;
     if (site) setActiveDragSite(site);
+    const isCustomerFolder = event.active.data.current?.isCustomerFolder;
+    if (isCustomerFolder) {
+      setActiveDragCustomer({ id: event.active.data.current?.customerId, name: event.active.data.current?.customerName });
+    }
   };
 
   const handleDragOver = (event: any) => {
@@ -408,15 +413,55 @@ export default function Sites() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragSite(null);
+    setActiveDragCustomer(null);
     setDragOverFolderId(null);
     const { active, over } = event;
     if (!over || !String(over.id).startsWith("folder-")) return;
-    const customerId = String(over.id).replace("folder-", "");
+    const targetCustomerId = String(over.id).replace("folder-", "");
+
+    // Handle customer folder dropped onto another customer folder (merge)
+    if (active.data.current?.isCustomerFolder) {
+      const sourceId = active.data.current.customerId as string;
+      if (sourceId === targetCustomerId) return;
+      const sourceFolder = customerFolders.find((f) => f.id === sourceId);
+      const targetFolder = customerFolders.find((f) => f.id === targetCustomerId);
+      if (!sourceFolder || !targetFolder) return;
+      const confirmed = window.confirm(
+        `Merge "${sourceFolder.name}" into "${targetFolder.name}"?\n\nThis will:\n• Create "${sourceFolder.name}" as a site under ${targetFolder.name}\n• Move all existing sites across\n• Delete the "${sourceFolder.name}" customer entry`
+      );
+      if (!confirmed) return;
+      try {
+        // 1. Create a new site from the customer name
+        const { data: newSite, error: siteErr } = await supabase.from("sites").insert({
+          name: sourceFolder.name,
+          site_type: "site",
+          address: sourceFolder.address || null,
+        }).select("id").single();
+        if (siteErr) throw siteErr;
+        // 2. Link the new site to the target customer
+        await supabase.from("customer_sites" as any).insert({ customer_id: targetCustomerId, site_id: newSite.id });
+        // 3. Move existing linked sites to target customer
+        for (const s of sourceFolder.sites) {
+          await supabase.from("customer_sites" as any).delete().eq("customer_id", sourceId).eq("site_id", s.id);
+          const { error: linkErr } = await supabase.from("customer_sites" as any).insert({ customer_id: targetCustomerId, site_id: s.id });
+          if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
+        }
+        // 4. Delete the source customer
+        await supabase.from("customers").delete().eq("id", sourceId);
+        toast({ title: "Merged", description: `"${sourceFolder.name}" merged into "${targetFolder.name}" as a site.` });
+        fetchCustomerFolders();
+        fetchSites();
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+      return;
+    }
+
+    // Handle site dropped onto customer folder
     const site = active.data.current?.site as Site;
     if (!site) return;
-    const folder = customerFolders.find((f) => f.id === customerId);
+    const folder = customerFolders.find((f) => f.id === targetCustomerId);
     if (!folder) return;
-    // Check both displayed sites and child sites (whose parent is linked)
     const allLinkedIds = new Set(folder.sites.map((s) => s.id));
     if (allLinkedIds.has(site.id)) {
       toast({ title: "Already linked", description: `${site.name} is already in ${folder.name}.` });
@@ -424,7 +469,7 @@ export default function Sites() {
     }
     try {
       const { error } = await supabase.from("customer_sites" as any).insert({
-        customer_id: customerId,
+        customer_id: targetCustomerId,
         site_id: site.id,
       });
       if (error) throw error;
