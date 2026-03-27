@@ -419,11 +419,19 @@ export default function AdminDashboard() {
                   className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="rounded bg-muted p-1.5 shrink-0">
-                      {submissionListType === "photo" && <Image className="h-4 w-4 text-accent" />}
-                      {submissionListType === "document" && <FileText className="h-4 w-4 text-warning" />}
-                      {submissionListType === "location" && <MapPin className="h-4 w-4 text-destructive" />}
-                    </div>
+                    {submissionListType === "photo" && submissionThumbUrls[sub.id] ? (
+                      <img
+                        src={submissionThumbUrls[sub.id]}
+                        alt="Thumbnail"
+                        className="h-10 w-10 rounded object-cover shrink-0 border"
+                      />
+                    ) : (
+                      <div className="rounded bg-muted p-1.5 shrink-0">
+                        {submissionListType === "photo" && <Image className="h-4 w-4 text-accent" />}
+                        {submissionListType === "document" && <FileText className="h-4 w-4 text-warning" />}
+                        {submissionListType === "location" && <MapPin className="h-4 w-4 text-destructive" />}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{sub.file_name || (sub as any).jobs?.name || "Submission"}</p>
                       <p className="text-xs text-muted-foreground truncate">
