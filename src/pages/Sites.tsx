@@ -1089,23 +1089,21 @@ export default function Sites() {
                       });
                     if (visibleFolders.length === 0) return;
                     if (e.key === "ArrowDown") {
-                      e.preventDefault();
+                      if (focusedFolderIndex >= 0) e.preventDefault();
                       setFocusedFolderIndex((prev) => Math.min(prev + 1, visibleFolders.length - 1));
                     } else if (e.key === "ArrowUp") {
-                      e.preventDefault();
+                      if (focusedFolderIndex > 0) e.preventDefault();
                       setFocusedFolderIndex((prev) => Math.max(prev - 1, 0));
-                    } else if (e.key === "ArrowRight" || e.key === "Enter") {
+                    } else if ((e.key === "ArrowRight" || e.key === "Enter") && focusedFolderIndex >= 0) {
                       e.preventDefault();
-                      if (focusedFolderIndex >= 0 && focusedFolderIndex < visibleFolders.length) {
-                        const folderId = visibleFolders[focusedFolderIndex].id;
-                        if (!openFolders.includes(folderId)) setOpenFolders((prev) => [...prev, folderId]);
-                      }
-                    } else if (e.key === "ArrowLeft") {
+                      const folderId = visibleFolders[focusedFolderIndex]?.id;
+                      if (folderId && !openFolders.includes(folderId)) setOpenFolders((prev) => [...prev, folderId]);
+                    } else if (e.key === "ArrowLeft" && focusedFolderIndex >= 0) {
                       e.preventDefault();
-                      if (focusedFolderIndex >= 0 && focusedFolderIndex < visibleFolders.length) {
-                        const folderId = visibleFolders[focusedFolderIndex].id;
-                        if (openFolders.includes(folderId)) setOpenFolders((prev) => prev.filter((id) => id !== folderId));
-                      }
+                      const folderId = visibleFolders[focusedFolderIndex]?.id;
+                      if (folderId && openFolders.includes(folderId)) setOpenFolders((prev) => prev.filter((id) => id !== folderId));
+                    } else if (e.key === "Escape") {
+                      setFocusedFolderIndex(-1);
                     }
                   }}
                 >
