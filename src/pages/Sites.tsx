@@ -158,7 +158,7 @@ function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { fol
 function DroppableUnlinkedZone({ children, isOver, isDragging }: { children: React.ReactNode; isOver: boolean; isDragging: boolean }) {
   const { setNodeRef } = useDroppable({ id: "unlinked-drop-zone" });
   return (
-    <div ref={setNodeRef} className={`transition-all ${isDragging ? (isOver ? "ring-2 ring-primary/50 bg-primary/5 rounded-lg" : "") : ""}`}>
+    <div ref={setNodeRef} className={`transition-all duration-200 ${isDragging ? (isOver ? "ring-2 ring-primary bg-primary/5 rounded-lg scale-[1.01]" : "") : ""}`}>
       {children}
     </div>
   );
