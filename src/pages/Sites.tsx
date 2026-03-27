@@ -880,6 +880,7 @@ export default function Sites() {
                           if (folderSort === "sites-asc") return a.sites.length - b.sites.length;
                           return a.name.localeCompare(b.name);
                         })
+                        .map((folder) => (
                           <DroppableCustomerFolder key={folder.id} folder={folder} isOver={dragOverFolderId === folder.id}>
                             <AccordionItem value={folder.id} className="rounded-lg border bg-card">
                               <AccordionTrigger className="px-4 hover:no-underline">
