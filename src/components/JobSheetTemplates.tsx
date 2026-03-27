@@ -814,13 +814,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const isInstallationJob = jobCategory?.includes("installation");
             const nonRamsTemplates = templates.filter((tpl) => (tpl as any).category !== "rams");
             const visibleTemplates = isInstallationJob
-              // Installation jobs: only show the Dry Riser Commissioning Certificate template
               ? nonRamsTemplates.filter((tpl) => tpl.name.toLowerCase().includes("commissioning"))
-              : userRole === "admin"
-              ? nonRamsTemplates
               : nonRamsTemplates.filter((tpl) => {
                   const tplJobCategory = normalizeSlug((tpl as any).job_category);
-                  // Show template if it has no job_category restriction, or it matches the job's canonical category
                   return !tplJobCategory || tplJobCategory === jobCategory;
                 });
             // Admins see all templates; show a badge indicating job category restriction
