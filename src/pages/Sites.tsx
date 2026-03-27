@@ -18,7 +18,8 @@ import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, useDraggable, type DragEndEvent, type DragStartEvent,
 } from "@dnd-kit/core";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -193,6 +194,7 @@ export default function Sites() {
   const [quickAssignSite, setQuickAssignSite] = useState<Site | null>(null);
   const [quickAssignCustomerId, setQuickAssignCustomerId] = useState("");
   const [quickAssignSaving, setQuickAssignSaving] = useState(false);
+  const [deletingUnlinked, setDeletingUnlinked] = useState(false);
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
   const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
 
@@ -548,6 +550,41 @@ export default function Sites() {
       setSites([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteAllUnlinked = async () => {
+    setDeletingUnlinked(true);
+    try {
+      const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
+      const unlinked = sites
+        .filter((s) => s.site_type !== "region" && !s.parent_id)
+        .filter((s) => !linkedSiteIds.has(s.id));
+      if (unlinked.length === 0) return;
+
+      // Find which have children or jobs
+      const unlinkedIds = unlinked.map((s) => s.id);
+      const childParentIds = new Set(sites.filter((s) => s.parent_id && unlinkedIds.includes(s.parent_id)).map((s) => s.parent_id));
+      const { data: jobLinks } = await supabase.from("jobs").select("site_id").in("site_id", unlinkedIds);
+      const jobSiteIds = new Set((jobLinks || []).map((j: any) => j.site_id));
+
+      const deletable = unlinked.filter((s) => !childParentIds.has(s.id) && !jobSiteIds.has(s.id));
+      if (deletable.length === 0) {
+        toast({ title: "Nothing to delete", description: "All unlinked sites have children or jobs." });
+        return;
+      }
+
+      const deleteIds = deletable.map((s) => s.id);
+      const { error } = await supabase.from("sites").delete().in("id", deleteIds);
+      if (error) throw error;
+
+      toast({ title: "Deleted", description: `${deleteIds.length} unlinked site(s) removed.` });
+      fetchSites();
+      fetchCustomerFolders();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeletingUnlinked(false);
     }
   };
 
@@ -1281,6 +1318,34 @@ export default function Sites() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                        {allUnlinked.length > 0 && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete all unlinked sites?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete all unlinked sites that have no children or jobs. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={handleDeleteAllUnlinked}
+                                  disabled={deletingUnlinked}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  {deletingUnlinked ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                  Delete All
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                       {allUnlinked.length > 5 && (
                         <div className="relative px-1">
