@@ -149,9 +149,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (cat === "extinguisher_service") return "fire_extinguisher";
       // "installation" jobs map to "dry_riser_installation" so commissioning templates are included
       if (cat === "installation") return "dry_riser_installation";
-      // All dry riser service/maintenance variants → canonical "dry_riser"
+      // Preserve specific dry riser sub-categories that have their own templates
+      if (cat === "dry_riser_pressure_test" || cat === "dry_riser_visual" || cat === "dry_riser_installation" || cat === "dry_riser_remedial") return cat;
+      // Only generic dry riser service variants → canonical "dry_riser"
       if (cat === "dry_riser_service" || cat === "dry_riser") return "dry_riser";
-      if (cat.startsWith("dry_riser_") && cat !== "dry_riser_installation") return "dry_riser";
       return cat;
     };
     const jobCategory = normalizeCategory(rawJobCategory);
@@ -804,22 +805,18 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               if (s === "sprinkler_service") return "sprinkler";
               if (s === "hydrant_service" || s === "fire_hydrant") return "fire_hydrant";
               if (s === "extinguisher_service") return "fire_extinguisher";
-              // All dry riser maintenance variants → "dry_riser"; installation stays distinct
+              if (s === "installation") return "dry_riser_installation";
+              if (s === "dry_riser_pressure_test" || s === "dry_riser_visual" || s === "dry_riser_installation" || s === "dry_riser_remedial") return s;
               if (s === "dry_riser_service" || s === "dry_riser") return "dry_riser";
-              if (s.startsWith("dry_riser_") && s !== "dry_riser_installation") return "dry_riser";
               return s;
             };
             const jobCategory = normalizeSlug(jobInfo?.category || "");
     const isInstallationJob = jobCategory?.includes("installation");
             const nonRamsTemplates = templates.filter((tpl) => (tpl as any).category !== "rams");
             const visibleTemplates = isInstallationJob
-              // Installation jobs: only show the Dry Riser Commissioning Certificate template
               ? nonRamsTemplates.filter((tpl) => tpl.name.toLowerCase().includes("commissioning"))
-              : userRole === "admin"
-              ? nonRamsTemplates
               : nonRamsTemplates.filter((tpl) => {
                   const tplJobCategory = normalizeSlug((tpl as any).job_category);
-                  // Show template if it has no job_category restriction, or it matches the job's canonical category
                   return !tplJobCategory || tplJobCategory === jobCategory;
                 });
             // Admins see all templates; show a badge indicating job category restriction
