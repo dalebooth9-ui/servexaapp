@@ -746,7 +746,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
                                               <Building2 className="h-3 w-3 shrink-0" />
                                               <span className="font-medium">{sys.system_name}</span>
                                               {sys.outlets_count != null && (
-                                                <span>· {sys.outlets_count} {(sys.system_name || "").toLowerCase().includes("sprinkler") ? "heads" : "outlets"}</span>
+                                                <span>· {sys.outlets_count} {[site.editName, site.site_name, sys.system_name, ...site.sourceFiles].some(s => (s || "").toLowerCase().includes("sprinkler")) ? "heads" : "outlets"}</span>
                                               )}
                                               {sys.riser_location && (
                                                 <span className="truncate">· {sys.riser_location}</span>
