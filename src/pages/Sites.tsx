@@ -638,7 +638,7 @@ export default function Sites() {
       if (deleteError) throw deleteError;
       toast({ title: "Customer deleted", description: "Customer and all site links removed." });
       setDeleteCustomerId(null);
-      loadCustomerFolders();
+      fetchCustomerFolders();
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to delete customer.", variant: "destructive" });
     } finally {
