@@ -13,6 +13,7 @@ import AiHelpWizard from "@/components/AiHelpWizard";
 import ClockInButton from "@/components/ClockInButton";
 import TodaysVisitsBadge from "@/components/TodaysVisitsBadge";
 import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
+import UndoButton from "@/components/UndoButton";
 import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
@@ -262,6 +263,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
             {desktopExpanded && <ClockInButton />}
             {desktopExpanded && <TodaysVisitsBadge />}
             {desktopExpanded && <UnreadMessagesBadge />}
+            <UndoButton />
             <NotificationBell />
             <button onClick={() => setMobileOpen(false)} className="lg:hidden">
               <X className="h-5 w-5" />
