@@ -1043,11 +1043,17 @@ export default function Sites() {
                                       return `${parents.length} site${parents.length !== 1 ? "s" : ""}${childCount > 0 ? ` · ${childCount} building${childCount !== 1 ? "s" : ""}` : ""}`;
                                     })()}
                                   </Badge>
-                                  {userRole === "admin" && (
-                                    <Button variant="outline" size="sm" className="mr-2 h-7 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); openAssignSite(folder); }}>
-                                      <LinkIcon className="mr-1 h-3 w-3" /> Assign Site
-                                    </Button>
-                                  )}
+                                   {userRole === "admin" && (
+                                    <div className="flex items-center gap-1 mr-2 shrink-0">
+                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); openAssignSite(folder); }}>
+                                        <LinkIcon className="mr-1 h-3 w-3" /> Assign Site
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete customer"
+                                        onClick={(e) => { e.stopPropagation(); setDeleteCustomerId(folder.id); }}>
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                   )}
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="px-0 pb-0">
