@@ -832,7 +832,20 @@ export default function Sites() {
         {/* By Customer Tab */}
         <TabsContent value="by-customer" className="mt-4">
           {!foldersLoading && customerFolders.length > 0 && (
-            <div className="flex justify-end mb-2">
+            <div className="flex justify-between items-center mb-2 gap-2">
+              <div className="flex items-center gap-2">
+                <Select value={folderSort} onValueChange={(v) => setFolderSort(v as any)}>
+                  <SelectTrigger className="h-7 text-xs w-auto gap-1.5">
+                    <ArrowUpDown className="h-3 w-3" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="name">Sort: A–Z</SelectItem>
+                    <SelectItem value="sites-desc">Most sites</SelectItem>
+                    <SelectItem value="sites-asc">Fewest sites</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <Button
                 variant="ghost"
                 size="sm"
