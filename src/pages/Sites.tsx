@@ -536,7 +536,7 @@ export default function Sites() {
         // 4. Delete the source customer
         await supabase.from("customers").delete().eq("id", sourceId);
         toast({ title: "Merged", description: `"${sourceFolder.name}" merged into "${targetFolder.name}" as a site.` });
-        fetchCustomerFolders();
+        fetchCustomerFolders({ ensureOpenFolderIds: [targetCustomerId], background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
         fetchSites();
       } catch (err: any) {
         toast({ title: "Error", description: err.message, variant: "destructive" });
