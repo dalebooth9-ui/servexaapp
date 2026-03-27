@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
-  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose,
+  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose, ArrowRightLeft,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
@@ -225,6 +225,13 @@ export default function Sites() {
   const unlinkedSitesScrollRef = useRef<HTMLDivElement | null>(null);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
   const [exitingFolderIds, setExitingFolderIds] = useState<Set<string>>(new Set());
+
+  // Move sites to another customer
+  const [moveSitesOpen, setMoveSitesOpen] = useState(false);
+  const [moveSitesSource, setMoveSitesSource] = useState<CustomerFolder | null>(null);
+  const [moveSiteIds, setMoveSiteIds] = useState<string[]>([]);
+  const [moveTargetCustomerId, setMoveTargetCustomerId] = useState("");
+  const [moveSaving, setMoveSaving] = useState(false);
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
