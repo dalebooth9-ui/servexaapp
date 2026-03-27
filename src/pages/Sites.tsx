@@ -873,29 +873,31 @@ export default function Sites() {
     const allIds = [id, ...descendantIds];
     const deletedSites = sites.filter((s) => allIds.includes(s.id));
     if (!deletedSites.length) return;
-    // Optimistically remove from both hierarchy and customer folder views
-    setSites((prev) => prev.filter((s) => !allIds.includes(s.id)));
-    setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: f.sites.filter((s) => !allIds.includes(s.id)) })));
-    deleteWithUndo({
-      key: id,
-      label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
-      onConfirm: async () => {
-        // Delete deepest descendants first to avoid FK constraint issues
-        for (const did of [...descendantIds].reverse()) {
-          await supabase.from("sites").delete().eq("id", did);
-        }
-        const { error } = await supabase.from("sites").delete().eq("id", id);
-        if (error) {
-          toast({ title: "Error", description: error.message, variant: "destructive" });
+    // Animate out first, then optimistically remove
+    const idSet = new Set(allIds);
+    setExitingIds((prev) => new Set([...prev, ...idSet]));
+    setTimeout(() => {
+      setExitingIds((prev) => { const next = new Set(prev); idSet.forEach((i) => next.delete(i)); return next; });
+      setSites((prev) => prev.filter((s) => !idSet.has(s.id)));
+      setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: f.sites.filter((s) => !idSet.has(s.id)) })));
+      deleteWithUndo({
+        key: id,
+        label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
+        onConfirm: async () => {
+          for (const did of [...descendantIds].reverse()) { await supabase.from("sites").delete().eq("id", did); }
+          const { error } = await supabase.from("sites").delete().eq("id", id);
+          if (error) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+            setSites((prev) => [...prev, ...deletedSites]);
+            setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
+          }
+        },
+        onUndo: () => {
           setSites((prev) => [...prev, ...deletedSites]);
           setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
-        }
-      },
-      onUndo: () => {
-        setSites((prev) => [...prev, ...deletedSites]);
-        setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
-      },
-    });
+        },
+      });
+    }, 260);
   };
 
   const regionIds = new Set(sites.filter((s) => s.site_type === "region").map((s) => s.id));
