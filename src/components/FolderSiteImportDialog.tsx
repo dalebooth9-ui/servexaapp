@@ -174,8 +174,8 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
               entity_type: "site_document",
             },
           });
-          if (resp.ok) {
-            const { records } = await resp.json();
+          if (!respError && respData) {
+            const records = respData.records;
             const sites: ParsedSite[] = Array.isArray(records) ? records : [records];
             for (const s of sites) {
               if (!s.site_name && !s.site_address) continue;
