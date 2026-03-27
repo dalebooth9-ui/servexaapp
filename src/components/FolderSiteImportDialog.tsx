@@ -146,9 +146,8 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
     const totalFiles = [...customerMap.values()].reduce((s, f) => s + f.length, 0);
     let processedFiles = 0;
     const results: ExtractedCustomer[] = [];
-    const sessionResult = await supabase.auth.getSession();
-    const authToken = sessionResult.data.session?.access_token;
-    if (!authToken) {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
       toast({ title: "Not authenticated", description: "Please sign in to import sites.", variant: "destructive" });
       setStage("idle");
       return;
@@ -168,22 +167,13 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
         setScanText(`Reading: ${file.name}`);
         try {
           const base64 = await fileToBase64(file);
-          const resp = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/parse-import-generic`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${authToken}`,
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              },
-              body: JSON.stringify({
-                file_base64: base64,
-                file_name: file.name,
-                entity_type: "site_document",
-              }),
-            }
-          );
+          const { data: respData, error: respError } = await supabase.functions.invoke("parse-import-generic", {
+            body: {
+              file_base64: base64,
+              file_name: file.name,
+              entity_type: "site_document",
+            },
+          });
           if (resp.ok) {
             const { records } = await resp.json();
             const sites: ParsedSite[] = Array.isArray(records) ? records : [records];
