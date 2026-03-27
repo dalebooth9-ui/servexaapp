@@ -1339,6 +1339,37 @@ export default function Sites() {
                                        }
                                        return parts;
                                      };
+                                   const SiteContextMenuItems = ({ site, isChild }: { site: Site; isChild: boolean }) => (
+                                     <>
+                                       <ContextMenuItem onClick={() => openEdit(site)}>
+                                         <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
+                                       </ContextMenuItem>
+                                       {userRole === "admin" && (
+                                         <ContextMenuItem onClick={() => openCreateJob(site, folder.id)}>
+                                           <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
+                                         </ContextMenuItem>
+                                       )}
+                                       {userRole === "admin" && !isChild && (
+                                         <>
+                                           <ContextMenuSeparator />
+                                           <ContextMenuItem onClick={() => openMoveSites(folder, [site.id])}>
+                                             <ArrowRightLeft className="mr-2 h-3.5 w-3.5" /> Move to another customer
+                                           </ContextMenuItem>
+                                           <ContextMenuItem onClick={() => handleBulkUnlinkSites(folder, [site.id])} className="text-destructive focus:text-destructive">
+                                             <X className="mr-2 h-3.5 w-3.5" /> Unlink from customer
+                                           </ContextMenuItem>
+                                         </>
+                                       )}
+                                       {userRole === "admin" && isChild && (
+                                         <>
+                                           <ContextMenuSeparator />
+                                           <ContextMenuItem onClick={() => setConfirmDeleteId(site.id)} className="text-destructive focus:text-destructive">
+                                             <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                                           </ContextMenuItem>
+                                         </>
+                                       )}
+                                     </>
+                                   );
                                    const renderSiteRow = (site: Site, isChild = false) => {
                                      const config = TYPE_CONFIG[site.site_type];
                                      const Icon = config?.icon || MapPin;
@@ -1351,8 +1382,9 @@ export default function Sites() {
                                      const isSelected = !isChild && folderSelected.has(site.id);
                                      const breadcrumb = getBreadcrumb(site);
                                      const showBreadcrumb = breadcrumb.length > 1;
-                                     return (
-                                        <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-all duration-200 group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""} ${exitingIds.has(site.id) ? "animate-site-exit" : ""}`} onClick={() => { if (!exitingIds.has(site.id)) openEdit(site); }} title="Click to edit">
+
+                                     const rowContent = (
+                                       <div className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-all duration-200 group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""} ${exitingIds.has(site.id) ? "animate-site-exit" : ""}`} onClick={() => { if (!exitingIds.has(site.id)) openEdit(site); }}>
                                          {userRole === "admin" && !isChild && (
                                            <input
                                              type="checkbox"
@@ -1402,39 +1434,56 @@ export default function Sites() {
                                              <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
                                            )}
                                          </div>
-                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                           {userRole === "admin" && (
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" title="Create job" onClick={(e) => { e.stopPropagation(); openCreateJob(site, folder.id); }}>
-                                               <Briefcase className="h-3.5 w-3.5" />
+                                         {/* Compact ⋯ menu — visible on hover */}
+                                         <DropdownMenu>
+                                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground">
+                                               <MoreHorizontal className="h-4 w-4" />
                                              </Button>
-                                           )}
-                                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
-                                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                           </Button>
-                                          {userRole === "admin" && !isChild && (
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Move to another customer"
-                                                onClick={(e) => { e.stopPropagation(); openMoveSites(folder, [site.id]); }}
-                                              >
-                                                <ArrowRightLeft className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                          {userRole === "admin" && !isChild && (
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
-                                                onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
-                                              >
-                                                <X className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                           {userRole === "admin" && isChild && (
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
-                                               onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
-                                             >
-                                               <Trash2 className="h-3.5 w-3.5" />
-                                             </Button>
-                                           )}
-                                         </div>
-                                      </div>
-                                    );
+                                           </DropdownMenuTrigger>
+                                           <DropdownMenuContent align="end" className="w-48">
+                                             <DropdownMenuItem onClick={() => openEdit(site)}>
+                                               <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
+                                             </DropdownMenuItem>
+                                             {userRole === "admin" && (
+                                               <DropdownMenuItem onClick={() => openCreateJob(site, folder.id)}>
+                                                 <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
+                                               </DropdownMenuItem>
+                                             )}
+                                             {userRole === "admin" && !isChild && (
+                                               <>
+                                                 <DropdownMenuSeparator />
+                                                 <DropdownMenuItem onClick={() => openMoveSites(folder, [site.id])}>
+                                                   <ArrowRightLeft className="mr-2 h-3.5 w-3.5" /> Move to customer
+                                                 </DropdownMenuItem>
+                                                 <DropdownMenuItem onClick={() => handleBulkUnlinkSites(folder, [site.id])} className="text-destructive focus:text-destructive">
+                                                   <X className="mr-2 h-3.5 w-3.5" /> Unlink
+                                                 </DropdownMenuItem>
+                                               </>
+                                             )}
+                                             {userRole === "admin" && isChild && (
+                                               <>
+                                                 <DropdownMenuSeparator />
+                                                 <DropdownMenuItem onClick={() => setConfirmDeleteId(site.id)} className="text-destructive focus:text-destructive">
+                                                   <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                                                 </DropdownMenuItem>
+                                               </>
+                                             )}
+                                           </DropdownMenuContent>
+                                         </DropdownMenu>
+                                       </div>
+                                     );
+
+                                     return (
+                                       <ContextMenu key={site.id}>
+                                         <ContextMenuTrigger asChild>
+                                           {rowContent}
+                                         </ContextMenuTrigger>
+                                         <ContextMenuContent className="w-48">
+                                           <SiteContextMenuItems site={site} isChild={isChild} />
+                                         </ContextMenuContent>
+                                       </ContextMenu>
+                                     );
                                   };
                                   return (
                                     <div className="divide-y divide-border/50">
