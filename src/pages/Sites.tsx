@@ -1673,23 +1673,21 @@ export default function Sites() {
                 })()}
               </div>
 
-              <DragOverlay>
+              <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
                 {activeDragSite && (() => {
                   const cfg = TYPE_CONFIG[activeDragSite.site_type];
                   const Icon = cfg?.icon || MapPin;
                   return (
-                    <div className="flex items-center gap-2 rounded-md border bg-card shadow-lg px-3 py-2 opacity-90 w-48">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
-                      <span className="text-sm font-medium truncate">{activeDragSite.name}</span>
+                    <div className="flex items-center gap-2 rounded-lg border-2 border-primary/30 bg-card shadow-2xl px-3 py-2.5 w-52 scale-105 rotate-1">
+                      <Icon className={`h-4 w-4 shrink-0 ${cfg?.color || ""}`} />
+                      <span className="text-sm font-semibold truncate">{activeDragSite.name}</span>
                     </div>
                   );
                 })()}
                 {activeDragCustomer && (
-                  <div className="flex items-center gap-2 rounded-md border bg-card shadow-lg px-3 py-2 opacity-90 w-56">
-                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-2 rounded-lg border-2 border-primary/30 bg-card shadow-2xl px-3 py-2.5 w-56 scale-105 -rotate-1">
                     <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-sm font-medium truncate">{activeDragCustomer.name}</span>
+                    <span className="text-sm font-semibold truncate">{activeDragCustomer.name}</span>
                   </div>
                 )}
               </DragOverlay>
