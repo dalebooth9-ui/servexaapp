@@ -17,6 +17,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import {
   DndContext, DragOverlay, PointerSensor, useSensor, useSensors,
   useDroppable, useDraggable, type DragEndEvent, type DragStartEvent,
+  type AutoScrollOptions,
 } from "@dnd-kit/core";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -427,7 +428,13 @@ export default function Sites() {
     }
   };
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
+
+  const autoScrollOptions: AutoScrollOptions = {
+    threshold: { x: 0, y: 0.15 },
+    acceleration: 15,
+    interval: 5,
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     const site = event.active.data.current?.site as Site;
@@ -1129,7 +1136,7 @@ export default function Sites() {
           {foldersLoading ? (
             <p className="py-8 text-center text-sm text-muted-foreground">Loading...</p>
           ) : (
-            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
+            <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd} autoScroll={autoScrollOptions}>
               <div className="flex gap-4 items-start">
                 {/* Customer folders */}
                 <div
