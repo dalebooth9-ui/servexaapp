@@ -23,8 +23,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
-  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2,
+  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose,
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
@@ -150,6 +151,9 @@ export default function Sites() {
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("hierarchy");
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
+  const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
+  const [unlinkedSearch, setUnlinkedSearch] = useState("");
+  const [folderSort, setFolderSort] = useState<"name" | "sites-asc" | "sites-desc">("name");
 
 
   // Create job from site
