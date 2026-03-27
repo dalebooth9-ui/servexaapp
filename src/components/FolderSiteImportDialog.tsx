@@ -150,7 +150,7 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
     const authToken = sessionResult.data.session?.access_token;
     if (!authToken) {
       toast({ title: "Not authenticated", description: "Please sign in to import sites.", variant: "destructive" });
-      setScanning(false);
+      setStage("idle");
       return;
     }
 
