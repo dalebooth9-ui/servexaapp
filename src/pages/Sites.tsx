@@ -1374,7 +1374,16 @@ export default function Sites() {
                           <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
                           filteredUnlinked.map((site) => (
-                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} />
+                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} onDelete={async (s) => {
+                              const children = sites.filter((c) => c.parent_id === s.id);
+                              if (children.length > 0) { toast({ title: "Cannot delete", description: "This site has children. Remove them first.", variant: "destructive" }); return; }
+                              const { data: jobs } = await supabase.from("jobs").select("id", { count: "exact", head: true }).eq("site_id", s.id);
+                              if ((jobs as any)?.length > 0) { toast({ title: "Cannot delete", description: "This site has associated jobs.", variant: "destructive" }); return; }
+                              const { error } = await supabase.from("sites").delete().eq("id", s.id);
+                              if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+                              setSites((prev) => prev.filter((x) => x.id !== s.id));
+                              toast({ title: "Site deleted" });
+                            }} />
                           ))
                         )}
                       </div>
