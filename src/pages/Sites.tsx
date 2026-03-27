@@ -1760,9 +1760,9 @@ export default function Sites() {
                 This will permanently delete this customer and unlink <span className="font-semibold text-foreground">{folder?.sites.length ?? 0} site{(folder?.sites.length ?? 0) !== 1 ? "s" : ""}</span>. The sites themselves will not be deleted.
               </p>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setDeleteCustomerId(null)} disabled={deleteCustomerLoading}>Cancel</Button>
-                <Button variant="destructive" disabled={deleteCustomerLoading} onClick={() => handleDeleteCustomer(deleteCustomerId)}>
-                  {deleteCustomerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete Customer
+                <Button variant="outline" onClick={() => setDeleteCustomerId(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => handleDeleteCustomer(deleteCustomerId)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Customer
                 </Button>
               </div>
             </DialogContent>
