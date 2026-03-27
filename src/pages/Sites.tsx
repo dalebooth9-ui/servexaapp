@@ -517,70 +517,111 @@ export default function Sites() {
     });
   };
 
+  async function fetchAllPages<T>(
+    loadPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+  ): Promise<T[]> {
+    const pageSize = 1000;
+    const rows: T[] = [];
+
+    for (let from = 0; ; from += pageSize) {
+      const { data, error } = await loadPage(from, from + pageSize - 1);
+      if (error) throw error;
+
+      const batch = data ?? [];
+      rows.push(...batch);
+
+      if (batch.length < pageSize) break;
+    }
+
+    return rows;
+  }
+
   const fetchSites = async () => {
-    const { data, error } = await supabase.from("sites").select("*").order("name").limit(10000);
-    if (error) toast({ title: "Error", description: "Failed to load sites.", variant: "destructive" });
-    setSites((data as Site[]) || []);
-    setLoading(false);
+    try {
+      const allSites = await fetchAllPages<Site>((from, to) =>
+        supabase.from("sites").select("*").order("name").order("id").range(from, to)
+      );
+      setSites(allSites);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load sites.", variant: "destructive" });
+      setSites([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fetchCustomerFolders = async () => {
     setFoldersLoading(true);
-    const [{ data: customers }, { data: customerSiteLinks }, { data: allSites }, { data: jobsBySite }] = await Promise.all([
-      supabase.from("customers").select("id, name, email, phone, address").order("name"),
-      supabase.from("customer_sites" as any).select("customer_id, site_id"),
-      supabase.from("sites").select("*").order("name").limit(10000),
-      supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null),
-    ]);
-    if (!customers || !allSites) { setFoldersLoading(false); return; }
-    const siteMap = new Map<string, Site>((allSites as Site[]).map((s) => [s.id, s]));
-    const customerSiteMap = new Map<string, Set<string>>();
-    for (const link of (customerSiteLinks as any[] || [])) {
-      if (!link.customer_id || !link.site_id) continue;
-      if (!customerSiteMap.has(link.customer_id)) customerSiteMap.set(link.customer_id, new Set());
-      customerSiteMap.get(link.customer_id)!.add(link.site_id);
-    }
-    const jobCountMap = new Map<string, Map<string, number>>();
-    for (const job of (jobsBySite as any[] || [])) {
-      if (!job.customer_id || !job.site_id) continue;
-      if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
-      const sc = jobCountMap.get(job.customer_id)!;
-      sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
-    }
-    const folders: CustomerFolder[] = (customers as any[]).map((c) => {
-      const linkedSiteIds = [...(customerSiteMap.get(c.id) || [])];
-      const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
-      const linkedSiteIdSet = new Set(linkedSiteIds);
-      const extraChildren = (allSites as Site[]).filter(
-        (s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id)
-      );
-      const allSitesForFolder = [...linkedSites, ...extraChildren];
-      return {
-        id: c.id,
-        name: c.name,
-        email: c.email,
-        phone: c.phone,
-        address: c.address,
-        sites: allSitesForFolder,
-        jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
-      };
-    });
-    setCustomerFolders(folders);
-    setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
-    const autoCollapsed = new Set<string>();
-    for (const folder of folders) {
-      const childCountBySite = new Map<string, number>();
-      for (const s of folder.sites) {
-        if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
-          childCountBySite.set(s.parent_id, (childCountBySite.get(s.parent_id) || 0) + 1);
+
+    try {
+      const [customers, customerSiteLinks, allSites, jobsBySite] = await Promise.all([
+        fetchAllPages<any>((from, to) =>
+          supabase.from("customers").select("id, name, email, phone, address").order("name").order("id").range(from, to)
+        ),
+        fetchAllPages<any>((from, to) =>
+          supabase.from("customer_sites" as any).select("customer_id, site_id").order("customer_id").order("site_id").range(from, to)
+        ),
+        fetchAllPages<Site>((from, to) =>
+          supabase.from("sites").select("*").order("name").order("id").range(from, to)
+        ),
+        fetchAllPages<any>((from, to) =>
+          supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null).order("customer_id").order("site_id").range(from, to)
+        ),
+      ]);
+
+      const siteMap = new Map<string, Site>(allSites.map((s) => [s.id, s]));
+      const customerSiteMap = new Map<string, Set<string>>();
+      for (const link of customerSiteLinks || []) {
+        if (!link.customer_id || !link.site_id) continue;
+        if (!customerSiteMap.has(link.customer_id)) customerSiteMap.set(link.customer_id, new Set());
+        customerSiteMap.get(link.customer_id)!.add(link.site_id);
+      }
+      const jobCountMap = new Map<string, Map<string, number>>();
+      for (const job of jobsBySite || []) {
+        if (!job.customer_id || !job.site_id) continue;
+        if (!jobCountMap.has(job.customer_id)) jobCountMap.set(job.customer_id, new Map());
+        const sc = jobCountMap.get(job.customer_id)!;
+        sc.set(job.site_id, (sc.get(job.site_id) || 0) + 1);
+      }
+      const folders: CustomerFolder[] = customers.map((c) => {
+        const linkedSiteIds = [...(customerSiteMap.get(c.id) || [])];
+        const linkedSites = linkedSiteIds.map((sid) => siteMap.get(sid)).filter(Boolean) as Site[];
+        const linkedSiteIdSet = new Set(linkedSiteIds);
+        const extraChildren = allSites.filter(
+          (s) => s.parent_id && linkedSiteIdSet.has(s.parent_id) && !linkedSiteIdSet.has(s.id)
+        );
+        const allSitesForFolder = [...linkedSites, ...extraChildren];
+        return {
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phone: c.phone,
+          address: c.address,
+          sites: allSitesForFolder,
+          jobCountsBySite: Object.fromEntries(jobCountMap.get(c.id) || new Map()),
+        };
+      });
+      setCustomerFolders(folders);
+      setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
+      const autoCollapsed = new Set<string>();
+      for (const folder of folders) {
+        const childCountBySite = new Map<string, number>();
+        for (const s of folder.sites) {
+          if (s.parent_id && folder.sites.some((p) => p.id === s.parent_id)) {
+            childCountBySite.set(s.parent_id, (childCountBySite.get(s.parent_id) || 0) + 1);
+          }
+        }
+        for (const [siteId, count] of childCountBySite.entries()) {
+          if (count > 2) autoCollapsed.add(siteId);
         }
       }
-      for (const [siteId, count] of childCountBySite.entries()) {
-        if (count > 2) autoCollapsed.add(siteId);
-      }
+      setCollapsedSites(autoCollapsed);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to load customer folders.", variant: "destructive" });
+      setCustomerFolders([]);
+    } finally {
+      setFoldersLoading(false);
     }
-    setCollapsedSites(autoCollapsed);
-    setFoldersLoading(false);
   };
 
   const openAssignSite = (folder: CustomerFolder) => {
