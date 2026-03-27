@@ -96,45 +96,53 @@ function DraggableSiteChip({ site, typeConfig, onAssign, onDelete }: { site: Sit
   const cfg = typeConfig[site.site_type];
   const Icon = cfg?.icon || MapPin;
   return (
-    <div className={`flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 transition-opacity select-none group ${isDragging ? "opacity-40" : "hover:border-primary/50"}`}>
-      <div
-        ref={setNodeRef}
-        {...listeners}
-        {...attributes}
-        className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{site.name}</p>
-          {(site.address || site.postcode) && (
-            <p className="text-[11px] text-muted-foreground truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</p>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className={`flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 transition-all select-none group ${isDragging ? "opacity-30 scale-95" : "hover:border-primary/40 hover:shadow-sm"}`}>
+          <div
+            ref={setNodeRef}
+            {...listeners}
+            {...attributes}
+            className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{site.name}</p>
+              {(site.address || site.postcode) && (
+                <p className="text-[11px] text-muted-foreground truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</p>
+              )}
+            </div>
+          </div>
+          {onAssign && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onAssign(site); }}
+              title="Assign to customer"
+            >
+              <LinkIcon className="h-3 w-3" />
+            </Button>
           )}
         </div>
-      </div>
-      {onDelete && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-          onClick={(e) => { e.stopPropagation(); onDelete(site); }}
-          title="Delete site"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      )}
-      {onAssign && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => { e.stopPropagation(); onAssign(site); }}
-          title="Assign to customer"
-        >
-          <LinkIcon className="h-3 w-3" />
-        </Button>
-      )}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44">
+        {onAssign && (
+          <ContextMenuItem onClick={() => onAssign(site)}>
+            <LinkIcon className="mr-2 h-3.5 w-3.5" /> Assign to customer
+          </ContextMenuItem>
+        )}
+        {onDelete && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onDelete(site)} className="text-destructive focus:text-destructive">
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete site
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
