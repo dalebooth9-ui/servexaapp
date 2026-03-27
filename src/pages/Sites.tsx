@@ -25,8 +25,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
-  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose, ArrowRightLeft,
+  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose, ArrowRightLeft, MoreHorizontal,
 } from "lucide-react";
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator, ContextMenuTrigger } from "@/components/ui/context-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
 import { useJobCategories } from "@/hooks/useJobCategories";
@@ -94,52 +96,60 @@ function DraggableSiteChip({ site, typeConfig, onAssign, onDelete }: { site: Sit
   const cfg = typeConfig[site.site_type];
   const Icon = cfg?.icon || MapPin;
   return (
-    <div className={`flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 transition-opacity select-none group ${isDragging ? "opacity-40" : "hover:border-primary/50"}`}>
-      <div
-        ref={setNodeRef}
-        {...listeners}
-        {...attributes}
-        className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
-      >
-        <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-        <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">{site.name}</p>
-          {(site.address || site.postcode) && (
-            <p className="text-[11px] text-muted-foreground truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</p>
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div className={`flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 transition-all select-none group ${isDragging ? "opacity-30 scale-95" : "hover:border-primary/40 hover:shadow-sm"}`}>
+          <div
+            ref={setNodeRef}
+            {...listeners}
+            {...attributes}
+            className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+          >
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
+            <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{site.name}</p>
+              {(site.address || site.postcode) && (
+                <p className="text-[11px] text-muted-foreground truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</p>
+              )}
+            </div>
+          </div>
+          {onAssign && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => { e.stopPropagation(); onAssign(site); }}
+              title="Assign to customer"
+            >
+              <LinkIcon className="h-3 w-3" />
+            </Button>
           )}
         </div>
-      </div>
-      {onDelete && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
-          onClick={(e) => { e.stopPropagation(); onDelete(site); }}
-          title="Delete site"
-        >
-          <Trash2 className="h-3 w-3" />
-        </Button>
-      )}
-      {onAssign && (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          onClick={(e) => { e.stopPropagation(); onAssign(site); }}
-          title="Assign to customer"
-        >
-          <LinkIcon className="h-3 w-3" />
-        </Button>
-      )}
-    </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-44">
+        {onAssign && (
+          <ContextMenuItem onClick={() => onAssign(site)}>
+            <LinkIcon className="mr-2 h-3.5 w-3.5" /> Assign to customer
+          </ContextMenuItem>
+        )}
+        {onDelete && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => onDelete(site)} className="text-destructive focus:text-destructive">
+              <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete site
+            </ContextMenuItem>
+          </>
+        )}
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }
 
 function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { folder: CustomerFolder; children: React.ReactNode; isOver: boolean; isDragging?: boolean }) {
   const { setNodeRef: setDropRef } = useDroppable({ id: `folder-${folder.id}`, data: { customerId: folder.id } });
   return (
-    <div ref={setDropRef} className={`transition-colors rounded-lg ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
+    <div ref={setDropRef} className={`transition-all duration-200 rounded-lg ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary bg-primary/5 scale-[1.01]" : ""}`}>
       {children}
     </div>
   );
@@ -148,7 +158,7 @@ function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { fol
 function DroppableUnlinkedZone({ children, isOver, isDragging }: { children: React.ReactNode; isOver: boolean; isDragging: boolean }) {
   const { setNodeRef } = useDroppable({ id: "unlinked-drop-zone" });
   return (
-    <div ref={setNodeRef} className={`transition-all ${isDragging ? (isOver ? "ring-2 ring-primary/50 bg-primary/5 rounded-lg" : "") : ""}`}>
+    <div ref={setNodeRef} className={`transition-all duration-200 ${isDragging ? (isOver ? "ring-2 ring-primary bg-primary/5 rounded-lg scale-[1.01]" : "") : ""}`}>
       {children}
     </div>
   );
@@ -1337,6 +1347,37 @@ export default function Sites() {
                                        }
                                        return parts;
                                      };
+                                   const SiteContextMenuItems = ({ site, isChild }: { site: Site; isChild: boolean }) => (
+                                     <>
+                                       <ContextMenuItem onClick={() => openEdit(site)}>
+                                         <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
+                                       </ContextMenuItem>
+                                       {userRole === "admin" && (
+                                         <ContextMenuItem onClick={() => openCreateJob(site, folder.id)}>
+                                           <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
+                                         </ContextMenuItem>
+                                       )}
+                                       {userRole === "admin" && !isChild && (
+                                         <>
+                                           <ContextMenuSeparator />
+                                           <ContextMenuItem onClick={() => openMoveSites(folder, [site.id])}>
+                                             <ArrowRightLeft className="mr-2 h-3.5 w-3.5" /> Move to another customer
+                                           </ContextMenuItem>
+                                           <ContextMenuItem onClick={() => handleBulkUnlinkSites(folder, [site.id])} className="text-destructive focus:text-destructive">
+                                             <X className="mr-2 h-3.5 w-3.5" /> Unlink from customer
+                                           </ContextMenuItem>
+                                         </>
+                                       )}
+                                       {userRole === "admin" && isChild && (
+                                         <>
+                                           <ContextMenuSeparator />
+                                           <ContextMenuItem onClick={() => setConfirmDeleteId(site.id)} className="text-destructive focus:text-destructive">
+                                             <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                                           </ContextMenuItem>
+                                         </>
+                                       )}
+                                     </>
+                                   );
                                    const renderSiteRow = (site: Site, isChild = false) => {
                                      const config = TYPE_CONFIG[site.site_type];
                                      const Icon = config?.icon || MapPin;
@@ -1349,8 +1390,9 @@ export default function Sites() {
                                      const isSelected = !isChild && folderSelected.has(site.id);
                                      const breadcrumb = getBreadcrumb(site);
                                      const showBreadcrumb = breadcrumb.length > 1;
-                                     return (
-                                        <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-all duration-200 group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""} ${exitingIds.has(site.id) ? "animate-site-exit" : ""}`} onClick={() => { if (!exitingIds.has(site.id)) openEdit(site); }} title="Click to edit">
+
+                                     const rowContent = (
+                                       <div className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-all duration-200 group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""} ${exitingIds.has(site.id) ? "animate-site-exit" : ""}`} onClick={() => { if (!exitingIds.has(site.id)) openEdit(site); }}>
                                          {userRole === "admin" && !isChild && (
                                            <input
                                              type="checkbox"
@@ -1400,39 +1442,56 @@ export default function Sites() {
                                              <p className="text-xs text-muted-foreground truncate mt-0.5">{[addressLine, site.contact_name].filter(Boolean).join(" · ")}</p>
                                            )}
                                          </div>
-                                         <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                                           {userRole === "admin" && (
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-primary hover:text-primary" title="Create job" onClick={(e) => { e.stopPropagation(); openCreateJob(site, folder.id); }}>
-                                               <Briefcase className="h-3.5 w-3.5" />
+                                         {/* Compact ⋯ menu — visible on hover */}
+                                         <DropdownMenu>
+                                           <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                             <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground">
+                                               <MoreHorizontal className="h-4 w-4" />
                                              </Button>
-                                           )}
-                                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
-                                             <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-                                           </Button>
-                                          {userRole === "admin" && !isChild && (
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Move to another customer"
-                                                onClick={(e) => { e.stopPropagation(); openMoveSites(folder, [site.id]); }}
-                                              >
-                                                <ArrowRightLeft className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                          {userRole === "admin" && !isChild && (
-                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
-                                                onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
-                                              >
-                                                <X className="h-3.5 w-3.5" />
-                                              </Button>
-                                            )}
-                                           {userRole === "admin" && isChild && (
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
-                                               onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
-                                             >
-                                               <Trash2 className="h-3.5 w-3.5" />
-                                             </Button>
-                                           )}
-                                         </div>
-                                      </div>
-                                    );
+                                           </DropdownMenuTrigger>
+                                           <DropdownMenuContent align="end" className="w-48">
+                                             <DropdownMenuItem onClick={() => openEdit(site)}>
+                                               <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
+                                             </DropdownMenuItem>
+                                             {userRole === "admin" && (
+                                               <DropdownMenuItem onClick={() => openCreateJob(site, folder.id)}>
+                                                 <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
+                                               </DropdownMenuItem>
+                                             )}
+                                             {userRole === "admin" && !isChild && (
+                                               <>
+                                                 <DropdownMenuSeparator />
+                                                 <DropdownMenuItem onClick={() => openMoveSites(folder, [site.id])}>
+                                                   <ArrowRightLeft className="mr-2 h-3.5 w-3.5" /> Move to customer
+                                                 </DropdownMenuItem>
+                                                 <DropdownMenuItem onClick={() => handleBulkUnlinkSites(folder, [site.id])} className="text-destructive focus:text-destructive">
+                                                   <X className="mr-2 h-3.5 w-3.5" /> Unlink
+                                                 </DropdownMenuItem>
+                                               </>
+                                             )}
+                                             {userRole === "admin" && isChild && (
+                                               <>
+                                                 <DropdownMenuSeparator />
+                                                 <DropdownMenuItem onClick={() => setConfirmDeleteId(site.id)} className="text-destructive focus:text-destructive">
+                                                   <Trash2 className="mr-2 h-3.5 w-3.5" /> Delete
+                                                 </DropdownMenuItem>
+                                               </>
+                                             )}
+                                           </DropdownMenuContent>
+                                         </DropdownMenu>
+                                       </div>
+                                     );
+
+                                     return (
+                                       <ContextMenu key={site.id}>
+                                         <ContextMenuTrigger asChild>
+                                           {rowContent}
+                                         </ContextMenuTrigger>
+                                         <ContextMenuContent className="w-48">
+                                           <SiteContextMenuItems site={site} isChild={isChild} />
+                                         </ContextMenuContent>
+                                       </ContextMenu>
+                                     );
                                   };
                                   return (
                                     <div className="divide-y divide-border/50">
@@ -1622,23 +1681,21 @@ export default function Sites() {
                 })()}
               </div>
 
-              <DragOverlay>
+              <DragOverlay dropAnimation={{ duration: 200, easing: "cubic-bezier(0.18, 0.67, 0.6, 1.22)" }}>
                 {activeDragSite && (() => {
                   const cfg = TYPE_CONFIG[activeDragSite.site_type];
                   const Icon = cfg?.icon || MapPin;
                   return (
-                    <div className="flex items-center gap-2 rounded-md border bg-card shadow-lg px-3 py-2 opacity-90 w-48">
-                      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
-                      <span className="text-sm font-medium truncate">{activeDragSite.name}</span>
+                    <div className="flex items-center gap-2 rounded-lg border-2 border-primary/30 bg-card shadow-2xl px-3 py-2.5 w-52 scale-105 rotate-1">
+                      <Icon className={`h-4 w-4 shrink-0 ${cfg?.color || ""}`} />
+                      <span className="text-sm font-semibold truncate">{activeDragSite.name}</span>
                     </div>
                   );
                 })()}
                 {activeDragCustomer && (
-                  <div className="flex items-center gap-2 rounded-md border bg-card shadow-lg px-3 py-2 opacity-90 w-56">
-                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                  <div className="flex items-center gap-2 rounded-lg border-2 border-primary/30 bg-card shadow-2xl px-3 py-2.5 w-56 scale-105 -rotate-1">
                     <FolderOpen className="h-4 w-4 text-primary shrink-0" />
-                    <span className="text-sm font-medium truncate">{activeDragCustomer.name}</span>
+                    <span className="text-sm font-semibold truncate">{activeDragCustomer.name}</span>
                   </div>
                 )}
               </DragOverlay>
