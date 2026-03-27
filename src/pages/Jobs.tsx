@@ -868,6 +868,37 @@ export default function Jobs() {
     setRenameDialogOpen(false);
   };
 
+  const handleMergeConfirm = async () => {
+    if (!mergeSource || !mergeTarget) return;
+    setMergeDialogOpen(false);
+
+    const targetCust = customers.find((c) => c.name === mergeTarget);
+    const targetId = targetCust?.id || null;
+
+    // Update all jobs from source folder to target folder
+    const { error } = await supabase.from("jobs").update({ customer: mergeTarget, customer_id: targetId } as any).eq("customer", mergeSource);
+    if (error) {
+      toast({ title: "Error", description: "Failed to merge folders.", variant: "destructive" });
+    } else {
+      setJobs((prev) =>
+        prev.map((j) =>
+          getCustomerName(j)?.trim() === mergeSource
+            ? { ...j, customer: mergeTarget, customer_id: targetId, customers: targetCust ? { id: targetCust.id, name: targetCust.name } : null }
+            : j
+        )
+      );
+      setKnownCustomers((prev) => {
+        const updated = new Set(prev);
+        updated.delete(mergeSource);
+        return updated;
+      });
+      setOpenFolders((prev) => prev.filter((f) => f !== mergeSource));
+      toast({ title: "Folders merged", description: `All jobs from "${mergeSource}" moved to "${mergeTarget}"` });
+    }
+    setMergeSource("");
+    setMergeTarget("");
+  };
+
   const filtered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
