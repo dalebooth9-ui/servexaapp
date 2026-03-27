@@ -14,11 +14,15 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Verify caller is admin or service key
+    // Auth: check apikey header matches service role key
+    const apiKey = req.headers.get("apikey") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    if (token !== serviceKey) {
+    
+    const isServiceCall = (apiKey === serviceKey) || (token === serviceKey);
+    
+    if (!isServiceCall) {
       const { data: { user } } = await supabase.auth.getUser(token);
       if (!user) return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
       const { data: isAdmin } = await supabase.rpc("is_admin_direct", { _user_id: user.id });
