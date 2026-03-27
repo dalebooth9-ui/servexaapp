@@ -25,7 +25,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Globe, Building, Layers, MapPin, Plus, ChevronRight, ChevronDown,
-  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose,
+  Search, Pencil, FileSpreadsheet, Trash2, FolderOpen, Users, LinkIcon, GripVertical, X, Briefcase, Loader2, ArrowUpDown, PanelRightOpen, PanelRightClose, ArrowRightLeft,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
@@ -225,6 +225,13 @@ export default function Sites() {
   const unlinkedSitesScrollRef = useRef<HTMLDivElement | null>(null);
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
   const [exitingFolderIds, setExitingFolderIds] = useState<Set<string>>(new Set());
+
+  // Move sites to another customer
+  const [moveSitesOpen, setMoveSitesOpen] = useState(false);
+  const [moveSitesSource, setMoveSitesSource] = useState<CustomerFolder | null>(null);
+  const [moveSiteIds, setMoveSiteIds] = useState<string[]>([]);
+  const [moveTargetCustomerId, setMoveTargetCustomerId] = useState("");
+  const [moveSaving, setMoveSaving] = useState(false);
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
@@ -435,6 +442,51 @@ export default function Sites() {
       }, 260);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const openMoveSites = (folder: CustomerFolder, siteIds: string[]) => {
+    setMoveSitesSource(folder);
+    setMoveSiteIds(siteIds);
+    setMoveTargetCustomerId("");
+    setMoveSitesOpen(true);
+  };
+
+  const handleMoveSites = async () => {
+    if (!moveSitesSource || moveSiteIds.length === 0 || !moveTargetCustomerId) return;
+    if (moveTargetCustomerId === moveSitesSource.id) {
+      toast({ title: "Same customer", description: "Sites are already in this folder.", variant: "destructive" });
+      return;
+    }
+    setMoveSaving(true);
+    try {
+      const sourceId = moveSitesSource.id;
+      const sourceName = moveSitesSource.name;
+      const targetName = allCustomers.find((c) => c.id === moveTargetCustomerId)?.name || "";
+      // Unlink from source, link to target
+      for (const siteId of moveSiteIds) {
+        await supabase.from("customer_sites" as any).delete().eq("customer_id", sourceId).eq("site_id", siteId);
+        const { error } = await supabase.from("customer_sites" as any).insert({ customer_id: moveTargetCustomerId, site_id: siteId });
+        if (error && !error.message.includes("duplicate")) throw error;
+      }
+      const siteNames = moveSiteIds.map((id) => moveSitesSource.sites.find((s) => s.id === id)?.name || id);
+      editWithUndo({
+        label: `Moved ${moveSiteIds.length} site${moveSiteIds.length !== 1 ? "s" : ""} to ${targetName}`,
+        onUndo: async () => {
+          for (const siteId of moveSiteIds) {
+            await supabase.from("customer_sites" as any).delete().eq("customer_id", moveTargetCustomerId).eq("site_id", siteId);
+            await supabase.from("customer_sites" as any).insert({ customer_id: sourceId, site_id: siteId });
+          }
+          fetchCustomerFolders({ ensureOpenFolderIds: [sourceId], background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+        },
+      });
+      setMoveSitesOpen(false);
+      setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(sourceId); return next; });
+      fetchCustomerFolders({ ensureOpenFolderIds: [sourceId, moveTargetCustomerId], background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setMoveSaving(false);
     }
   };
 
@@ -1357,13 +1409,20 @@ export default function Sites() {
                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
                                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                            </Button>
-                                         {userRole === "admin" && !isChild && (
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
-                                               onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
-                                             >
-                                               <X className="h-3.5 w-3.5" />
-                                             </Button>
-                                           )}
+                                          {userRole === "admin" && !isChild && (
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Move to another customer"
+                                                onClick={(e) => { e.stopPropagation(); openMoveSites(folder, [site.id]); }}
+                                              >
+                                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          {userRole === "admin" && !isChild && (
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
+                                                onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
+                                              >
+                                                <X className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
                                            {userRole === "admin" && isChild && (
                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
                                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
@@ -1387,14 +1446,22 @@ export default function Sites() {
                                             onChange={() => toggleSelectAllFolderSites(folder.id, parentSiteIds)}
                                           />
                                           {folderSelected.size > 0 ? (
-                                            <Button variant="destructive" size="sm" className="h-6 text-xs px-2"
-                                              onClick={() => handleBulkUnlinkSites(folder, [...folderSelected])}
-                                            >
-                                              <Trash2 className="h-3 w-3 mr-1" />
-                                              Remove {folderSelected.size} selected
-                                            </Button>
+                                            <div className="flex items-center gap-1.5">
+                                              <Button variant="outline" size="sm" className="h-6 text-xs px-2"
+                                                onClick={() => openMoveSites(folder, [...folderSelected])}
+                                              >
+                                                <ArrowRightLeft className="h-3 w-3 mr-1" />
+                                                Move {folderSelected.size}
+                                              </Button>
+                                              <Button variant="destructive" size="sm" className="h-6 text-xs px-2"
+                                                onClick={() => handleBulkUnlinkSites(folder, [...folderSelected])}
+                                              >
+                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                Remove {folderSelected.size}
+                                              </Button>
+                                            </div>
                                           ) : (
-                                            <span className="text-xs text-muted-foreground">Select to bulk remove</span>
+                                            <span className="text-xs text-muted-foreground">Select to move or remove</span>
                                           )}
                                         </div>
                                       )}
@@ -1762,6 +1829,39 @@ export default function Sites() {
                 }}
               >
                 {quickAssignSaving ? "Saving…" : <><LinkIcon className="mr-2 h-4 w-4" />Assign</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Move Sites to Customer Dialog */}
+      <Dialog open={moveSitesOpen} onOpenChange={(o) => { if (!o) setMoveSitesOpen(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move {moveSiteIds.length} site{moveSiteIds.length !== 1 ? "s" : ""} to another customer</DialogTitle>
+            <DialogDescription>
+              {moveSitesSource && <>From <strong>{moveSitesSource.name}</strong></>}
+              {moveSiteIds.length <= 3 && (
+                <span className="block mt-1 text-xs">
+                  {moveSiteIds.map((id) => moveSitesSource?.sites.find((s) => s.id === id)?.name).filter(Boolean).join(", ")}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <Select value={moveTargetCustomerId} onValueChange={setMoveTargetCustomerId}>
+              <SelectTrigger><SelectValue placeholder="Select target customer…" /></SelectTrigger>
+              <SelectContent>
+                {allCustomers.filter((c) => c.id !== moveSitesSource?.id).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMoveSitesOpen(false)}>Cancel</Button>
+              <Button disabled={!moveTargetCustomerId || moveSaving} onClick={handleMoveSites}>
+                {moveSaving ? "Moving…" : <><ArrowRightLeft className="mr-2 h-4 w-4" />Move</>}
               </Button>
             </div>
           </div>
