@@ -795,10 +795,15 @@ export default function Sites() {
     });
   };
 
+  const buildingRecords = sites.filter((s) => s.site_type === "building");
+  const distinctBuildingCount = new Set(
+    buildingRecords.map((b) => b.parent_id || b.id)
+  ).size;
+  const unitCount = buildingRecords.length - distinctBuildingCount;
   const counts = {
     region: sites.filter((s) => s.site_type === "region").length,
     site: sites.filter((s) => s.site_type === "site").length,
-    building: sites.filter((s) => s.site_type === "building").length,
+    building: distinctBuildingCount,
     zone: sites.filter((s) => s.site_type === "zone").length,
   };
 
@@ -929,7 +934,7 @@ export default function Sites() {
                 <Icon className={`h-5 w-5 ${cfg.color}`} />
                 <div>
                   <p className="text-2xl font-bold">{counts[key as keyof typeof counts]}</p>
-                  <p className="text-xs text-muted-foreground">{cfg.label}s</p>
+                  <p className="text-xs text-muted-foreground">{cfg.label}s{key === "building" && unitCount > 0 ? ` (${unitCount} units)` : ""}</p>
                 </div>
               </CardContent>
             </Card>
