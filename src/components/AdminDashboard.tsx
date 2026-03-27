@@ -145,11 +145,35 @@ export default function AdminDashboard() {
     { label: "Completion Rate", value: `${kpis.completionRate}%`, icon: TrendingUp, color: "text-primary" },
   ];
 
+  const openSubmissionList = async (type: string) => {
+    setSubmissionListType(type);
+    setSubmissionListLoading(true);
+    setSubmissionListItems([]);
+    try {
+      const { data } = await supabase
+        .from("submissions")
+        .select("*, jobs(name, reference_number)")
+        .eq("type", type)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      const items = data || [];
+      if (items.length > 0) {
+        const engIds = [...new Set(items.map((s: any) => s.engineer_id))];
+        const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
+        const nameMap: Record<string, string> = {};
+        (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
+        setSubmissionListItems(items.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
+      }
+    } finally {
+      setSubmissionListLoading(false);
+    }
+  };
+
   const statCards = [
     { label: "Total Jobs", value: stats.jobs, icon: Briefcase, color: "text-primary", link: "/jobs" },
-    { label: "Photos", value: stats.photos, icon: Image, color: "text-accent", link: "/jobs" },
-    { label: "Documents", value: stats.documents, icon: FileText, color: "text-warning", link: "/jobs" },
-    { label: "Locations", value: stats.locations, icon: MapPin, color: "text-destructive", link: "/jobs" },
+    { label: "Photos", value: stats.photos, icon: Image, color: "text-accent", type: "photo" },
+    { label: "Documents", value: stats.documents, icon: FileText, color: "text-warning", type: "document" },
+    { label: "Locations", value: stats.locations, icon: MapPin, color: "text-destructive", type: "location" },
   ];
 
   const handleFileDragEnter = (e: React.DragEvent) => {
