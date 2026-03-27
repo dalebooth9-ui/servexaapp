@@ -1075,7 +1075,7 @@ export default function Sites() {
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
               <div className="flex gap-4 items-start">
                 {/* Customer folders */}
-                <div className="flex-1 min-w-0 space-y-2 max-h-[75vh] overflow-y-auto pr-1">
+                <div className="flex-1 min-w-0 space-y-2 max-h-[75vh] overflow-y-auto pr-1 focus:outline-none" tabIndex={0}>
                   {customerFolders.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">No customers found.</p>
                   ) : (
