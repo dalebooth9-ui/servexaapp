@@ -24,6 +24,9 @@ export default function AdminDashboard() {
   const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; expiry_date: string; engineer_name: string; is_expired: boolean }[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
+  const [submissionListType, setSubmissionListType] = useState<string | null>(null);
+  const [submissionListItems, setSubmissionListItems] = useState<any[]>([]);
+  const [submissionListLoading, setSubmissionListLoading] = useState(false);
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
