@@ -1324,6 +1324,48 @@ export default function Sites() {
         </DialogContent>
       </Dialog>
 
+      {/* Quick assign unlinked site to customer */}
+      <Dialog open={!!quickAssignSite} onOpenChange={(o) => { if (!o) setQuickAssignSite(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Assign "{quickAssignSite?.name}" to Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            {quickAssignSite?.address && <p className="text-sm text-muted-foreground">{quickAssignSite.address}{quickAssignSite.postcode ? `, ${quickAssignSite.postcode}` : ""}</p>}
+            <Select value={quickAssignCustomerId} onValueChange={setQuickAssignCustomerId}>
+              <SelectTrigger><SelectValue placeholder="Select customer…" /></SelectTrigger>
+              <SelectContent>
+                {allCustomers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setQuickAssignSite(null)}>Cancel</Button>
+              <Button
+                disabled={!quickAssignCustomerId || quickAssignSaving}
+                onClick={async () => {
+                  if (!quickAssignSite || !quickAssignCustomerId) return;
+                  setQuickAssignSaving(true);
+                  try {
+                    const { error } = await supabase.from("customer_sites" as any).insert({ customer_id: quickAssignCustomerId, site_id: quickAssignSite.id });
+                    if (error) throw error;
+                    const customerName = allCustomers.find((c) => c.id === quickAssignCustomerId)?.name || "";
+                    toast({ title: "Site assigned", description: `${quickAssignSite.name} linked to ${customerName}.` });
+                    setQuickAssignSite(null);
+                    fetchCustomerFolders();
+                  } catch (err: any) {
+                    toast({ title: "Error", description: err.message, variant: "destructive" });
+                  } finally {
+                    setQuickAssignSaving(false);
+                  }
+                }}
+              >
+                {quickAssignSaving ? "Saving…" : <><LinkIcon className="mr-2 h-4 w-4" />Assign</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
 
       <FolderSiteImportDialog
