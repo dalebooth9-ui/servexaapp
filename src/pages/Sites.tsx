@@ -795,10 +795,15 @@ export default function Sites() {
     });
   };
 
+  const buildingRecords = sites.filter((s) => s.site_type === "building");
+  const distinctBuildingCount = new Set(
+    buildingRecords.map((b) => b.parent_id || b.id)
+  ).size;
+  const unitCount = buildingRecords.length - distinctBuildingCount;
   const counts = {
     region: sites.filter((s) => s.site_type === "region").length,
     site: sites.filter((s) => s.site_type === "site").length,
-    building: sites.filter((s) => s.site_type === "building").length,
+    building: distinctBuildingCount,
     zone: sites.filter((s) => s.site_type === "zone").length,
   };
 
