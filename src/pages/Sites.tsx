@@ -192,6 +192,7 @@ export default function Sites() {
   const [assignSelectedSites, setAssignSelectedSites] = useState<Set<string>>(new Set());
   const [assignSaving, setAssignSaving] = useState(false);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [dragOverUnlinked, setDragOverUnlinked] = useState(false);
   const [activeDragSite, setActiveDragSite] = useState<Site | null>(null);
   const [activeDragCustomer, setActiveDragCustomer] = useState<{ id: string; name: string } | null>(null);
   const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
@@ -449,8 +450,13 @@ export default function Sites() {
     const over = event.over;
     if (over && String(over.id).startsWith("folder-")) {
       setDragOverFolderId(String(over.id).replace("folder-", ""));
+      setDragOverUnlinked(false);
+    } else if (over && String(over.id) === "unlinked-drop-zone") {
+      setDragOverFolderId(null);
+      setDragOverUnlinked(true);
     } else {
       setDragOverFolderId(null);
+      setDragOverUnlinked(false);
     }
   };
 
@@ -458,8 +464,37 @@ export default function Sites() {
     setActiveDragSite(null);
     setActiveDragCustomer(null);
     setDragOverFolderId(null);
+    setDragOverUnlinked(false);
     const { active, over } = event;
-    if (!over || !String(over.id).startsWith("folder-")) return;
+    if (!over) return;
+
+    // Handle drop onto unlinked zone — unlink site from its customer
+    if (String(over.id) === "unlinked-drop-zone") {
+      const site = active.data.current?.site as Site;
+      if (!site) return;
+      // Find which customer folder this site belongs to
+      const sourceFolder = customerFolders.find((f) => f.sites.some((s) => s.id === site.id));
+      if (!sourceFolder) {
+        toast({ title: "Already unlinked", description: `${site.name} is not linked to any customer.` });
+        return;
+      }
+      try {
+        await supabase.from("customer_sites" as any).delete().eq("customer_id", sourceFolder.id).eq("site_id", site.id);
+        editWithUndo({
+          label: `${site.name} unlinked from ${sourceFolder.name}`,
+          onUndo: async () => {
+            await supabase.from("customer_sites" as any).insert({ customer_id: sourceFolder.id, site_id: site.id });
+            fetchCustomerFolders({ background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+          },
+        });
+        fetchCustomerFolders({ ensureOpenFolderIds: [sourceFolder.id], background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+      return;
+    }
+
+    if (!String(over.id).startsWith("folder-")) return;
     const targetCustomerId = String(over.id).replace("folder-", "");
 
     // Handle customer folder dropped onto another customer folder (merge)
