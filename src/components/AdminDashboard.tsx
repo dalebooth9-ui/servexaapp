@@ -27,6 +27,7 @@ export default function AdminDashboard() {
   const [submissionListType, setSubmissionListType] = useState<string | null>(null);
   const [submissionListItems, setSubmissionListItems] = useState<any[]>([]);
   const [submissionListLoading, setSubmissionListLoading] = useState(false);
+  const [submissionThumbUrls, setSubmissionThumbUrls] = useState<Record<string, string>>({});
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
@@ -149,6 +150,7 @@ export default function AdminDashboard() {
     setSubmissionListType(type);
     setSubmissionListLoading(true);
     setSubmissionListItems([]);
+    setSubmissionThumbUrls({});
     try {
       const { data } = await supabase
         .from("submissions")
@@ -162,7 +164,21 @@ export default function AdminDashboard() {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
         const nameMap: Record<string, string> = {};
         (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
-        setSubmissionListItems(items.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
+        const withNames = items.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] }));
+        setSubmissionListItems(withNames);
+
+        // Generate signed URLs for photo thumbnails
+        if (type === "photo") {
+          const photoSubs = withNames.filter((s: any) => s.file_url);
+          const urlMap: Record<string, string> = {};
+          await Promise.all(
+            photoSubs.map(async (s: any) => {
+              const { data: signedData } = await supabase.storage.from("submissions").createSignedUrl(s.file_url, 300);
+              if (signedData?.signedUrl) urlMap[s.id] = signedData.signedUrl;
+            })
+          );
+          setSubmissionThumbUrls(urlMap);
+        }
       }
     } finally {
       setSubmissionListLoading(false);
@@ -403,11 +419,19 @@ export default function AdminDashboard() {
                   className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="rounded bg-muted p-1.5 shrink-0">
-                      {submissionListType === "photo" && <Image className="h-4 w-4 text-accent" />}
-                      {submissionListType === "document" && <FileText className="h-4 w-4 text-warning" />}
-                      {submissionListType === "location" && <MapPin className="h-4 w-4 text-destructive" />}
-                    </div>
+                    {submissionListType === "photo" && submissionThumbUrls[sub.id] ? (
+                      <img
+                        src={submissionThumbUrls[sub.id]}
+                        alt="Thumbnail"
+                        className="h-10 w-10 rounded object-cover shrink-0 border"
+                      />
+                    ) : (
+                      <div className="rounded bg-muted p-1.5 shrink-0">
+                        {submissionListType === "photo" && <Image className="h-4 w-4 text-accent" />}
+                        {submissionListType === "document" && <FileText className="h-4 w-4 text-warning" />}
+                        {submissionListType === "location" && <MapPin className="h-4 w-4 text-destructive" />}
+                      </div>
+                    )}
                     <div className="min-w-0">
                       <p className="text-sm font-medium truncate">{sub.file_name || (sub as any).jobs?.name || "Submission"}</p>
                       <p className="text-xs text-muted-foreground truncate">
