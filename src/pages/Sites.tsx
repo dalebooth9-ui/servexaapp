@@ -602,6 +602,7 @@ export default function Sites() {
   };
 
   const fetchCustomerFolders = async (options?: { ensureOpenFolderIds?: string[] }) => {
+    const scrollY = window.scrollY;
     setFoldersLoading(true);
 
     try {
