@@ -145,6 +145,15 @@ function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { fol
   );
 }
 
+function DroppableUnlinkedZone({ children, isOver, isDragging }: { children: React.ReactNode; isOver: boolean; isDragging: boolean }) {
+  const { setNodeRef } = useDroppable({ id: "unlinked-drop-zone" });
+  return (
+    <div ref={setNodeRef} className={`transition-all ${isDragging ? (isOver ? "ring-2 ring-primary/50 bg-primary/5 rounded-lg" : "") : ""}`}>
+      {children}
+    </div>
+  );
+}
+
 function DraggableFolderHandle({ folderId, folderName }: { folderId: string; folderName: string }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `drag-customer-${folderId}`,
