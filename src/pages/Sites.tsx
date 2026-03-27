@@ -875,7 +875,11 @@ export default function Sites() {
                     <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-2">
                       {customerFolders
                         .filter((f) => !search.trim() || f.name.toLowerCase().includes(search.toLowerCase()) || f.sites.some((s) => s.name.toLowerCase().includes(search.toLowerCase())))
-                        .map((folder) => (
+                        .sort((a, b) => {
+                          if (folderSort === "sites-desc") return b.sites.length - a.sites.length;
+                          if (folderSort === "sites-asc") return a.sites.length - b.sites.length;
+                          return a.name.localeCompare(b.name);
+                        })
                           <DroppableCustomerFolder key={folder.id} folder={folder} isOver={dragOverFolderId === folder.id}>
                             <AccordionItem value={folder.id} className="rounded-lg border bg-card">
                               <AccordionTrigger className="px-4 hover:no-underline">
