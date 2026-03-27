@@ -1,6 +1,7 @@
 import React, { useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { ToastAction } from "@/components/ui/toast";
+import { useGlobalUndo } from "@/hooks/useGlobalUndo";
 
 /**
  * Hook for undo-able actions. Shows a toast with an Undo button.
@@ -9,6 +10,7 @@ import { ToastAction } from "@/components/ui/toast";
  */
 export function useUndoAction() {
   const { toast, dismiss } = useToast();
+  const pushUndo = useGlobalUndo((s) => s.push);
 
   /**
    * Perform a deletable action with undo support.
@@ -36,20 +38,25 @@ export function useUndoAction() {
         await onConfirm();
       })();
 
+      pushUndo({ label, onUndo });
+
       toast({
         title: label,
         duration: 8000,
         action: (
           <ToastAction
             altText="Undo"
-            onClick={() => onUndo()}
+            onClick={() => {
+              onUndo();
+              useGlobalUndo.getState().clear();
+            }}
           >
             Undo
           </ToastAction>
         ),
       });
     },
-    [toast],
+    [toast, pushUndo],
   );
 
   /**
@@ -66,17 +73,22 @@ export function useUndoAction() {
       label: string;
       onUndo: () => Promise<void> | void;
     }) => {
+      pushUndo({ label, onUndo });
+
       toast({
         title: label,
         duration: 8000,
         action: (
-          <ToastAction altText="Undo" onClick={() => onUndo()}>
+          <ToastAction altText="Undo" onClick={() => {
+            onUndo();
+            useGlobalUndo.getState().clear();
+          }}>
             Undo
           </ToastAction>
         ),
       });
     },
-    [toast],
+    [toast, pushUndo],
   );
 
   return { deleteWithUndo, editWithUndo };
