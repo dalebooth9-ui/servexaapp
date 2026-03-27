@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2, AlertTriangle, UserCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -23,6 +24,9 @@ export default function AdminDashboard() {
   const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; expiry_date: string; engineer_name: string; is_expired: boolean }[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
+  const [submissionListType, setSubmissionListType] = useState<string | null>(null);
+  const [submissionListItems, setSubmissionListItems] = useState<any[]>([]);
+  const [submissionListLoading, setSubmissionListLoading] = useState(false);
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
@@ -141,11 +145,35 @@ export default function AdminDashboard() {
     { label: "Completion Rate", value: `${kpis.completionRate}%`, icon: TrendingUp, color: "text-primary" },
   ];
 
+  const openSubmissionList = async (type: string) => {
+    setSubmissionListType(type);
+    setSubmissionListLoading(true);
+    setSubmissionListItems([]);
+    try {
+      const { data } = await supabase
+        .from("submissions")
+        .select("*, jobs(name, reference_number)")
+        .eq("type", type)
+        .order("created_at", { ascending: false })
+        .limit(100);
+      const items = data || [];
+      if (items.length > 0) {
+        const engIds = [...new Set(items.map((s: any) => s.engineer_id))];
+        const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
+        const nameMap: Record<string, string> = {};
+        (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
+        setSubmissionListItems(items.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
+      }
+    } finally {
+      setSubmissionListLoading(false);
+    }
+  };
+
   const statCards = [
     { label: "Total Jobs", value: stats.jobs, icon: Briefcase, color: "text-primary", link: "/jobs" },
-    { label: "Photos", value: stats.photos, icon: Image, color: "text-accent", link: "/jobs" },
-    { label: "Documents", value: stats.documents, icon: FileText, color: "text-warning", link: "/jobs" },
-    { label: "Locations", value: stats.locations, icon: MapPin, color: "text-destructive", link: "/jobs" },
+    { label: "Photos", value: stats.photos, icon: Image, color: "text-accent", type: "photo" },
+    { label: "Documents", value: stats.documents, icon: FileText, color: "text-warning", type: "document" },
+    { label: "Locations", value: stats.locations, icon: MapPin, color: "text-destructive", type: "location" },
   ];
 
   const handleFileDragEnter = (e: React.DragEvent) => {
@@ -230,8 +258,8 @@ export default function AdminDashboard() {
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Link key={stat.label} to={stat.link}>
+        {statCards.map((stat) => {
+          const cardContent = (
             <Card className="transition-shadow hover:shadow-md cursor-pointer">
               <CardContent className="flex items-center gap-4 p-5">
                 <div className={cn("rounded-lg bg-muted p-2.5", stat.color)}>
@@ -243,8 +271,16 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          );
+          if ((stat as any).link) {
+            return <Link key={stat.label} to={(stat as any).link}>{cardContent}</Link>;
+          }
+          return (
+            <div key={stat.label} onClick={() => openSubmissionList((stat as any).type)}>
+              {cardContent}
+            </div>
+          );
+        })}
       </div>
 
       {isAdmin && (
@@ -347,6 +383,48 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
       <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchDashboard} />
+
+      <Dialog open={!!submissionListType} onOpenChange={(o) => { if (!o) setSubmissionListType(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="capitalize">{submissionListType}s</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {submissionListLoading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : submissionListItems.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No {submissionListType}s found.</p>
+            ) : (
+              submissionListItems.map((sub) => (
+                <Link
+                  key={sub.id}
+                  to={`/jobs/${sub.job_id}`}
+                  onClick={() => setSubmissionListType(null)}
+                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="rounded bg-muted p-1.5 shrink-0">
+                      {submissionListType === "photo" && <Image className="h-4 w-4 text-accent" />}
+                      {submissionListType === "document" && <FileText className="h-4 w-4 text-warning" />}
+                      {submissionListType === "location" && <MapPin className="h-4 w-4 text-destructive" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{sub.file_name || (sub as any).jobs?.name || "Submission"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {(sub as any).jobs?.reference_number || (sub as any).jobs?.name || "Unknown job"}
+                        {sub.engineer_name && ` • ${sub.engineer_name}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                    {new Date(sub.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
