@@ -193,7 +193,8 @@ export default function Sites() {
   const [quickAssignSite, setQuickAssignSite] = useState<Site | null>(null);
   const [quickAssignCustomerId, setQuickAssignCustomerId] = useState("");
   const [quickAssignSaving, setQuickAssignSaving] = useState(false);
-
+  const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
+  const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
