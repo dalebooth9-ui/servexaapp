@@ -1088,9 +1088,11 @@ export default function Sites() {
                         <TooltipProvider delayDuration={300}>
                           <Tooltip>
                             <TooltipTrigger asChild>
-                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 cursor-help">
-                                {allUnlinked.length} unlinked
-                              </Badge>
+                              <span className="inline-flex">
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 cursor-help">
+                                  {allUnlinked.length} unlinked
+                                </Badge>
+                              </span>
                             </TooltipTrigger>
                             <TooltipContent side="left" className="max-w-xs max-h-64 overflow-y-auto">
                               <p className="font-semibold text-xs mb-1">{allUnlinked.length} unlinked sites</p>
