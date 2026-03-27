@@ -149,7 +149,7 @@ function DraggableSiteChip({ site, typeConfig, onAssign, onDelete }: { site: Sit
 function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { folder: CustomerFolder; children: React.ReactNode; isOver: boolean; isDragging?: boolean }) {
   const { setNodeRef: setDropRef } = useDroppable({ id: `folder-${folder.id}`, data: { customerId: folder.id } });
   return (
-    <div ref={setDropRef} className={`transition-colors rounded-lg ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
+    <div ref={setDropRef} className={`transition-all duration-200 rounded-lg ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary bg-primary/5 scale-[1.01]" : ""}`}>
       {children}
     </div>
   );
