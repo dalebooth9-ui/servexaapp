@@ -640,7 +640,7 @@ export default function Sites() {
         };
       });
       setCustomerFolders(folders);
-      setOpenFolders([]);
+      setOpenFolders((prev) => prev.length > 0 ? prev.filter((id) => folders.some((f) => f.id === id)) : []);
       const autoCollapsed = new Set<string>();
       for (const folder of folders) {
         const childCountBySite = new Map<string, number>();
