@@ -14,11 +14,13 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Auth: check apikey header matches service role key
+    // Auth: service role key or admin user
     const apiKey = req.headers.get("apikey") || "";
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const authHeader = req.headers.get("authorization") || "";
     const token = authHeader.replace("Bearer ", "");
+    
+    console.log("apiKey match:", apiKey === serviceKey, "token match:", token === serviceKey, "apiKey length:", apiKey.length, "serviceKey length:", serviceKey.length);
     
     const isServiceCall = (apiKey === serviceKey) || (token === serviceKey);
     
