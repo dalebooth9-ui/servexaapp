@@ -553,6 +553,41 @@ export default function Sites() {
     }
   };
 
+  const handleDeleteAllUnlinked = async () => {
+    setDeletingUnlinked(true);
+    try {
+      const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
+      const unlinked = sites
+        .filter((s) => s.site_type !== "region" && !s.parent_id)
+        .filter((s) => !linkedSiteIds.has(s.id));
+      if (unlinked.length === 0) return;
+
+      // Find which have children or jobs
+      const unlinkedIds = unlinked.map((s) => s.id);
+      const childParentIds = new Set(sites.filter((s) => s.parent_id && unlinkedIds.includes(s.parent_id)).map((s) => s.parent_id));
+      const { data: jobLinks } = await supabase.from("jobs").select("site_id").in("site_id", unlinkedIds);
+      const jobSiteIds = new Set((jobLinks || []).map((j: any) => j.site_id));
+
+      const deletable = unlinked.filter((s) => !childParentIds.has(s.id) && !jobSiteIds.has(s.id));
+      if (deletable.length === 0) {
+        toast({ title: "Nothing to delete", description: "All unlinked sites have children or jobs." });
+        return;
+      }
+
+      const deleteIds = deletable.map((s) => s.id);
+      const { error } = await supabase.from("sites").delete().in("id", deleteIds);
+      if (error) throw error;
+
+      toast({ title: "Deleted", description: `${deleteIds.length} unlinked site(s) removed.` });
+      fetchSites();
+      fetchCustomerFolders();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setDeletingUnlinked(false);
+    }
+  };
+
   const fetchCustomerFolders = async () => {
     setFoldersLoading(true);
 
