@@ -87,33 +87,39 @@ type CustomerFolder = {
 
 // ── DnD helper components ───────────────────────────────────────────────────
 
-function DraggableSiteChip({ site, typeConfig }: { site: Site; typeConfig: typeof TYPE_CONFIG }) {
+function DraggableSiteChip({ site, typeConfig, onAssign }: { site: Site; typeConfig: typeof TYPE_CONFIG; onAssign?: (site: Site) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: site.id, data: { site } });
   const cfg = typeConfig[site.site_type];
   const Icon = cfg?.icon || MapPin;
   return (
-    <TooltipProvider delayDuration={200}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div
-            ref={setNodeRef}
-            {...listeners}
-            {...attributes}
-            className={`flex items-center gap-2 rounded-md border bg-card px-3 py-2 cursor-grab active:cursor-grabbing transition-opacity select-none ${isDragging ? "opacity-40" : "hover:border-primary/50"}`}
-          >
-            <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-            <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
-            <span className="text-sm font-medium truncate flex-1">{site.name}</span>
-            {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
-          </div>
-        </TooltipTrigger>
-        <TooltipContent side="left" className="max-w-sm">
-          <p className="font-medium text-sm">{site.name}</p>
-          {site.address && <p className="text-xs text-muted-foreground">{site.address}</p>}
-          {site.postcode && <p className="text-xs text-muted-foreground">{site.postcode}</p>}
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
+    <div className={`flex items-center gap-1.5 rounded-md border bg-card px-2 py-1.5 transition-opacity select-none group ${isDragging ? "opacity-40" : "hover:border-primary/50"}`}>
+      <div
+        ref={setNodeRef}
+        {...listeners}
+        {...attributes}
+        className="flex items-center gap-2 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+      >
+        <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{site.name}</p>
+          {(site.address || site.postcode) && (
+            <p className="text-[11px] text-muted-foreground truncate">{[site.address, site.postcode].filter(Boolean).join(", ")}</p>
+          )}
+        </div>
+      </div>
+      {onAssign && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          onClick={(e) => { e.stopPropagation(); onAssign(site); }}
+          title="Assign to customer"
+        >
+          <LinkIcon className="h-3 w-3" />
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -164,6 +170,9 @@ export default function Sites() {
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
   const [unlinkedSearch, setUnlinkedSearch] = useState("");
   const [folderSort, setFolderSort] = useState<"name" | "sites-asc" | "sites-desc">("name");
+  const [quickAssignSite, setQuickAssignSite] = useState<Site | null>(null);
+  const [quickAssignCustomerId, setQuickAssignCustomerId] = useState("");
+  const [quickAssignSaving, setQuickAssignSaving] = useState(false);
 
 
   // Create job from site
@@ -1142,7 +1151,7 @@ export default function Sites() {
                           <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
                           filteredUnlinked.map((site) => (
-                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} />
+                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} />
                           ))
                         )}
                       </div>
@@ -1310,6 +1319,48 @@ export default function Sites() {
                   {assignSaving ? "Saving…" : <><LinkIcon className="mr-2 h-4 w-4" />Assign</>}
                 </Button>
               </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick assign unlinked site to customer */}
+      <Dialog open={!!quickAssignSite} onOpenChange={(o) => { if (!o) setQuickAssignSite(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Assign "{quickAssignSite?.name}" to Customer</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            {quickAssignSite?.address && <p className="text-sm text-muted-foreground">{quickAssignSite.address}{quickAssignSite.postcode ? `, ${quickAssignSite.postcode}` : ""}</p>}
+            <Select value={quickAssignCustomerId} onValueChange={setQuickAssignCustomerId}>
+              <SelectTrigger><SelectValue placeholder="Select customer…" /></SelectTrigger>
+              <SelectContent>
+                {allCustomers.map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setQuickAssignSite(null)}>Cancel</Button>
+              <Button
+                disabled={!quickAssignCustomerId || quickAssignSaving}
+                onClick={async () => {
+                  if (!quickAssignSite || !quickAssignCustomerId) return;
+                  setQuickAssignSaving(true);
+                  try {
+                    const { error } = await supabase.from("customer_sites" as any).insert({ customer_id: quickAssignCustomerId, site_id: quickAssignSite.id });
+                    if (error) throw error;
+                    const customerName = allCustomers.find((c) => c.id === quickAssignCustomerId)?.name || "";
+                    toast({ title: "Site assigned", description: `${quickAssignSite.name} linked to ${customerName}.` });
+                    setQuickAssignSite(null);
+                    fetchCustomerFolders();
+                  } catch (err: any) {
+                    toast({ title: "Error", description: err.message, variant: "destructive" });
+                  } finally {
+                    setQuickAssignSaving(false);
+                  }
+                }}
+              >
+                {quickAssignSaving ? "Saving…" : <><LinkIcon className="mr-2 h-4 w-4" />Assign</>}
+              </Button>
             </div>
           </div>
         </DialogContent>
