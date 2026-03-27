@@ -123,12 +123,31 @@ function DraggableSiteChip({ site, typeConfig, onAssign }: { site: Site; typeCon
   );
 }
 
-function DroppableCustomerFolder({ folder, children, isOver }: { folder: CustomerFolder; children: React.ReactNode; isOver: boolean }) {
-  const { setNodeRef } = useDroppable({ id: `folder-${folder.id}`, data: { customerId: folder.id } });
+function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { folder: CustomerFolder; children: React.ReactNode; isOver: boolean; isDragging?: boolean }) {
+  const { setNodeRef: setDropRef } = useDroppable({ id: `folder-${folder.id}`, data: { customerId: folder.id } });
   return (
-    <div ref={setNodeRef} className={`transition-colors rounded-lg ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
+    <div ref={setDropRef} className={`transition-colors rounded-lg ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
       {children}
     </div>
+  );
+}
+
+function DraggableFolderHandle({ folderId, folderName }: { folderId: string; folderName: string }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `drag-customer-${folderId}`,
+    data: { isCustomerFolder: true, customerId: folderId, customerName: folderName },
+  });
+  return (
+    <span
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`cursor-grab text-muted-foreground hover:text-foreground touch-none shrink-0 ${isDragging ? "opacity-40" : ""}`}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag to merge into another customer"
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </span>
   );
 }
 
