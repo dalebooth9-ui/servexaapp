@@ -1237,6 +1237,13 @@ export default function Sites() {
                     </div>
                   );
                 })()}
+                {activeDragCustomer && (
+                  <div className="flex items-center gap-2 rounded-md border bg-card shadow-lg px-3 py-2 opacity-90 w-56">
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm font-medium truncate">{activeDragCustomer.name}</span>
+                  </div>
+                )}
               </DragOverlay>
             </DndContext>
           )}
