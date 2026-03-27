@@ -9,7 +9,7 @@ const corsHeaders = {
 // Maps job_categories slug → template slugs to try in order
 const JOB_TO_TEMPLATE_SLUGS: Record<string, string[]> = {
   dry_riser_installation: ["dry_riser_installation"],
-  dry_riser_pressure_test: ["pressure_test"],
+  dry_riser_pressure_test: ["dry_riser_pressure_test"],
   dry_riser_visual: ["visual"],
   wet_riser_annual_service: ["visual"],
   wet_riser_visual: ["visual"],
