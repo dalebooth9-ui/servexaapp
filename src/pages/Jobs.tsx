@@ -1536,6 +1536,21 @@ export default function Jobs() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Merge Customer Folders?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All jobs from <span className="font-semibold text-foreground">"{mergeSource}"</span> will be moved into <span className="font-semibold text-foreground">"{mergeTarget}"</span>. The "{mergeSource}" folder will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMergeConfirm}>Merge</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={fileDropChoiceOpen} onOpenChange={(open) => { setFileDropChoiceOpen(open); if (!open) { setFileDropPendingFiles([]); setFileDropTargetJob(null); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Add Files to Job</DialogTitle></DialogHeader>
