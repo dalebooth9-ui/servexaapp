@@ -1151,7 +1151,7 @@ export default function Sites() {
                           <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
                           filteredUnlinked.map((site) => (
-                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} />
+                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} />
                           ))
                         )}
                       </div>
