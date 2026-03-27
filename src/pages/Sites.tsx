@@ -170,6 +170,9 @@ export default function Sites() {
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
   const [unlinkedSearch, setUnlinkedSearch] = useState("");
   const [folderSort, setFolderSort] = useState<"name" | "sites-asc" | "sites-desc">("name");
+  const [quickAssignSite, setQuickAssignSite] = useState<Site | null>(null);
+  const [quickAssignCustomerId, setQuickAssignCustomerId] = useState("");
+  const [quickAssignSaving, setQuickAssignSaving] = useState(false);
 
 
   // Create job from site
