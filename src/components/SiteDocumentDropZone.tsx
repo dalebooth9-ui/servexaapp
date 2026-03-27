@@ -498,7 +498,7 @@ export default function SiteDocumentDropZone({ onSiteCreated, disabled }: Props)
                     )}
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-1">
-                        <Label className="text-xs">Outlets</Label>
+                        <Label className="text-xs">{(sys.system_name || "").toLowerCase().includes("sprinkler") ? "Heads" : "Outlets"}</Label>
                         <Input type="number" value={sys.outlets_count ?? ""} onChange={(e) => updateSystem(i, "outlets_count", e.target.value ? Number(e.target.value) : null)} placeholder="e.g. 12" className="h-8 text-sm" />
                       </div>
                       <div className="space-y-1">
