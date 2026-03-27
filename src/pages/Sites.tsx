@@ -212,6 +212,8 @@ export default function Sites() {
   const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
   const customerFoldersScrollRef = useRef<HTMLDivElement | null>(null);
   const unlinkedSitesScrollRef = useRef<HTMLDivElement | null>(null);
+  const [exitingIds, setExitingIds] = useState<Set<string>>(new Set());
+  const [exitingFolderIds, setExitingFolderIds] = useState<Set<string>>(new Set());
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
@@ -398,9 +400,6 @@ export default function Sites() {
 
   const handleBulkUnlinkSites = async (folder: CustomerFolder, siteIds: string[]) => {
     try {
-      for (const siteId of siteIds) {
-        await supabase.from("customer_sites" as any).delete().eq("customer_id", folder.id).eq("site_id", siteId);
-      }
       const removedIds = new Set<string>();
       const stack = [...siteIds];
       while (stack.length > 0) {
@@ -410,28 +409,19 @@ export default function Sites() {
         sites.filter((site) => site.parent_id === currentId).forEach((site) => stack.push(site.id));
       }
 
-      setCustomerFolders((prev) => prev.map((existingFolder) => {
-        if (existingFolder.id !== folder.id) return existingFolder;
-
-        const nextSites = existingFolder.sites.filter((site) => !removedIds.has(site.id));
-        const nextJobCountsBySite = existingFolder.jobCountsBySite
-          ? Object.fromEntries(Object.entries(existingFolder.jobCountsBySite).filter(([siteId]) => !removedIds.has(siteId)))
-          : existingFolder.jobCountsBySite;
-
-        return {
-          ...existingFolder,
-          sites: nextSites,
-          jobCountsBySite: nextJobCountsBySite,
-        };
-      }));
-      setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
-      fetchCustomerFolders({
-        ensureOpenFolderIds: [folder.id],
-        preserveCustomerScroll: true,
-        preserveUnlinkedScroll: true,
-        background: true,
-      });
+      // Animate out, then remove from state + DB
+      setExitingIds((prev) => new Set([...prev, ...removedIds]));
       toast({ title: "Sites removed", description: `${siteIds.length} site(s) unlinked from ${folder.name}.` });
+      setTimeout(async () => {
+        setExitingIds((prev) => { const next = new Set(prev); removedIds.forEach((id) => next.delete(id)); return next; });
+        setCustomerFolders((prev) => prev.map((ef) => {
+          if (ef.id !== folder.id) return ef;
+          return { ...ef, sites: ef.sites.filter((s) => !removedIds.has(s.id)), jobCountsBySite: ef.jobCountsBySite ? Object.fromEntries(Object.entries(ef.jobCountsBySite).filter(([sid]) => !removedIds.has(sid))) : ef.jobCountsBySite };
+        }));
+        setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
+        for (const siteId of siteIds) { await supabase.from("customer_sites" as any).delete().eq("customer_id", folder.id).eq("site_id", siteId); }
+        fetchCustomerFolders({ ensureOpenFolderIds: [folder.id], preserveCustomerScroll: true, preserveUnlinkedScroll: true, background: true });
+      }, 260);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
@@ -739,24 +729,24 @@ export default function Sites() {
   };
 
   const handleDeleteCustomer = async (customerId: string) => {
-    setDeleteCustomerLoading(true);
-    try {
-      // First unlink all sites
-      const { error: unlinkError } = await supabase.from("customer_sites").delete().eq("customer_id", customerId);
-      if (unlinkError) throw unlinkError;
-      // Delete customer documents
-      await supabase.from("customer_documents").delete().eq("customer_id", customerId);
-      // Delete the customer record
-      const { error: deleteError } = await supabase.from("customers").delete().eq("id", customerId);
-      if (deleteError) throw deleteError;
-      toast({ title: "Customer deleted", description: "Customer and all site links removed." });
-      setDeleteCustomerId(null);
-      fetchCustomerFolders();
-    } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to delete customer.", variant: "destructive" });
-    } finally {
-      setDeleteCustomerLoading(false);
-    }
+    setDeleteCustomerId(null);
+    setExitingFolderIds((prev) => new Set([...prev, customerId]));
+    setTimeout(async () => {
+      setExitingFolderIds((prev) => { const next = new Set(prev); next.delete(customerId); return next; });
+      setCustomerFolders((prev) => prev.filter((f) => f.id !== customerId));
+      setOpenFolders((prev) => prev.filter((id) => id !== customerId));
+      try {
+        await supabase.from("customer_sites").delete().eq("customer_id", customerId);
+        await supabase.from("customer_documents").delete().eq("customer_id", customerId);
+        const { error } = await supabase.from("customers").delete().eq("id", customerId);
+        if (error) throw error;
+        toast({ title: "Customer deleted", description: "Customer and all site links removed." });
+        fetchCustomerFolders({ background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+      } catch (error: any) {
+        toast({ title: "Error", description: error.message || "Failed to delete customer.", variant: "destructive" });
+        fetchCustomerFolders();
+      }
+    }, 290);
   };
 
   const openAssignSite = (folder: CustomerFolder) => {
@@ -883,29 +873,31 @@ export default function Sites() {
     const allIds = [id, ...descendantIds];
     const deletedSites = sites.filter((s) => allIds.includes(s.id));
     if (!deletedSites.length) return;
-    // Optimistically remove from both hierarchy and customer folder views
-    setSites((prev) => prev.filter((s) => !allIds.includes(s.id)));
-    setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: f.sites.filter((s) => !allIds.includes(s.id)) })));
-    deleteWithUndo({
-      key: id,
-      label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
-      onConfirm: async () => {
-        // Delete deepest descendants first to avoid FK constraint issues
-        for (const did of [...descendantIds].reverse()) {
-          await supabase.from("sites").delete().eq("id", did);
-        }
-        const { error } = await supabase.from("sites").delete().eq("id", id);
-        if (error) {
-          toast({ title: "Error", description: error.message, variant: "destructive" });
+    // Animate out first, then optimistically remove
+    const idSet = new Set(allIds);
+    setExitingIds((prev) => new Set([...prev, ...idSet]));
+    setTimeout(() => {
+      setExitingIds((prev) => { const next = new Set(prev); idSet.forEach((i) => next.delete(i)); return next; });
+      setSites((prev) => prev.filter((s) => !idSet.has(s.id)));
+      setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: f.sites.filter((s) => !idSet.has(s.id)) })));
+      deleteWithUndo({
+        key: id,
+        label: descendantIds.length > 0 ? `Site and ${descendantIds.length} child record(s) deleted` : "Site deleted",
+        onConfirm: async () => {
+          for (const did of [...descendantIds].reverse()) { await supabase.from("sites").delete().eq("id", did); }
+          const { error } = await supabase.from("sites").delete().eq("id", id);
+          if (error) {
+            toast({ title: "Error", description: error.message, variant: "destructive" });
+            setSites((prev) => [...prev, ...deletedSites]);
+            setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
+          }
+        },
+        onUndo: () => {
           setSites((prev) => [...prev, ...deletedSites]);
           setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
-        }
-      },
-      onUndo: () => {
-        setSites((prev) => [...prev, ...deletedSites]);
-        setCustomerFolders((prev) => prev.map((f) => ({ ...f, sites: [...f.sites, ...deletedSites.filter((ds) => f.sites.some((s) => s.id === ds.parent_id) || ds.id === id)] })));
-      },
-    });
+        },
+      });
+    }, 260);
   };
 
   const regionIds = new Set(sites.filter((s) => s.site_type === "region").map((s) => s.id));
@@ -959,9 +951,9 @@ export default function Sites() {
     const showBreadcrumb = breadcrumbWithIds.length > 1;
     const isHighlighted = highlightedSiteId === site.id;
     return (
-      <div key={site.id} id={`site-row-${site.id}`}>
+      <div key={site.id} id={`site-row-${site.id}`} className={exitingIds.has(site.id) ? "animate-site-exit" : ""}>
         <div
-          className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-colors cursor-pointer ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`}
+          className={`flex items-center gap-2 py-2 px-3 border-b border-border/50 hover:bg-muted/50 transition-all duration-200 cursor-pointer ${selected.has(site.id) ? "bg-primary/5" : ""} ${isHighlighted ? "ring-2 ring-inset ring-primary/60 bg-primary/5" : ""}`}
           style={{ paddingLeft: `${depth * 24 + 12}px` }}
           onClick={() => { if (children.length > 0) toggle(site.id); }}
         >
@@ -1185,7 +1177,7 @@ export default function Sites() {
                         })
                         .map((folder, idx) => (
                           <DroppableCustomerFolder key={folder.id} folder={folder} isOver={dragOverFolderId === folder.id}>
-                            <AccordionItem value={folder.id} className={`rounded-lg border bg-card ${focusedFolderIndex === idx ? "ring-2 ring-primary/50" : ""}`}>
+                            <AccordionItem value={folder.id} className={`rounded-lg border bg-card transition-all duration-200 ${focusedFolderIndex === idx ? "ring-2 ring-primary/50" : ""} ${exitingFolderIds.has(folder.id) ? "animate-folder-exit" : ""}`}>
                               <AccordionTrigger className="px-4 hover:no-underline">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   {userRole === "admin" && <DraggableFolderHandle folderId={folder.id} folderName={folder.name} />}
@@ -1255,7 +1247,7 @@ export default function Sites() {
                                      const breadcrumb = getBreadcrumb(site);
                                      const showBreadcrumb = breadcrumb.length > 1;
                                      return (
-                                       <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-colors group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""}`} onClick={() => openEdit(site)} title="Click to edit">
+                                        <div key={site.id} className={`flex items-center gap-3 py-2.5 hover:bg-muted/50 cursor-pointer transition-all duration-200 group ${isChild ? "pl-10 pr-4 bg-muted/20 border-l-2 border-border/40" : "px-4"} ${isSelected ? "bg-primary/5" : ""} ${exitingIds.has(site.id) ? "animate-site-exit" : ""}`} onClick={() => { if (!exitingIds.has(site.id)) openEdit(site); }} title="Click to edit">
                                          {userRole === "admin" && !isChild && (
                                            <input
                                              type="checkbox"
@@ -1768,9 +1760,9 @@ export default function Sites() {
                 This will permanently delete this customer and unlink <span className="font-semibold text-foreground">{folder?.sites.length ?? 0} site{(folder?.sites.length ?? 0) !== 1 ? "s" : ""}</span>. The sites themselves will not be deleted.
               </p>
               <div className="flex justify-end gap-2 pt-2">
-                <Button variant="outline" onClick={() => setDeleteCustomerId(null)} disabled={deleteCustomerLoading}>Cancel</Button>
-                <Button variant="destructive" disabled={deleteCustomerLoading} onClick={() => handleDeleteCustomer(deleteCustomerId)}>
-                  {deleteCustomerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete Customer
+                <Button variant="outline" onClick={() => setDeleteCustomerId(null)}>Cancel</Button>
+                <Button variant="destructive" onClick={() => handleDeleteCustomer(deleteCustomerId)}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Delete Customer
                 </Button>
               </div>
             </DialogContent>
