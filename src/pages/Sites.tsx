@@ -518,7 +518,7 @@ export default function Sites() {
   };
 
   const fetchSites = async () => {
-    const { data, error } = await supabase.from("sites").select("*").order("name");
+    const { data, error } = await supabase.from("sites").select("*").order("name").limit(10000);
     if (error) toast({ title: "Error", description: "Failed to load sites.", variant: "destructive" });
     setSites((data as Site[]) || []);
     setLoading(false);
@@ -529,7 +529,7 @@ export default function Sites() {
     const [{ data: customers }, { data: customerSiteLinks }, { data: allSites }, { data: jobsBySite }] = await Promise.all([
       supabase.from("customers").select("id, name, email, phone, address").order("name"),
       supabase.from("customer_sites" as any).select("customer_id, site_id"),
-      supabase.from("sites").select("*").order("name"),
+      supabase.from("sites").select("*").order("name").limit(10000),
       supabase.from("jobs").select("customer_id, site_id").not("customer_id", "is", null).not("site_id", "is", null),
     ]);
     if (!customers || !allSites) { setFoldersLoading(false); return; }
