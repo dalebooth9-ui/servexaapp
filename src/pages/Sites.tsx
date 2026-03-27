@@ -948,7 +948,7 @@ export default function Sites() {
                                              {isChild && <Badge variant="outline" className="text-[10px] px-1 py-0 capitalize">{site.site_type}</Badge>}
                                              {hasChildren && !isChild && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{children.length} building{children.length !== 1 ? "s" : ""}</Badge>}
                                              {jobCount > 0 && <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{jobCount} job{jobCount !== 1 ? "s" : ""}</Badge>}
-                                             {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} outlets</span>}
+                                             {site.outlets_count != null && <span className="text-xs text-muted-foreground">{site.outlets_count} {((site as any).category || "").toLowerCase().includes("sprinkler") ? "heads" : "outlets"}</span>}
                                              {riser && <span className="text-xs text-muted-foreground truncate max-w-[180px]">· Riser: {riser}</span>}
                                            </div>
                                            {showBreadcrumb && (
@@ -1158,7 +1158,7 @@ export default function Sites() {
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <label className="text-sm font-medium">Number of Outlets</label>
+                <label className="text-sm font-medium">{((form as any).category || "").toLowerCase().includes("sprinkler") ? "Number of Heads" : "Number of Outlets"}</label>
                 <Input type="number" min={0} value={(form as any).outlets_count} onChange={(e) => setForm((f) => ({ ...f, outlets_count: e.target.value }))} placeholder="e.g. 12" />
               </div>
             <div className="space-y-1.5">
