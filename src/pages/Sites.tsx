@@ -1401,21 +1401,42 @@ export default function Sites() {
                           />
                         </div>
                       )}
-                      <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1 focus:outline-none" tabIndex={0}>
+                      <div
+                        className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1 focus:outline-none"
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (filteredUnlinked.length === 0) return;
+                          if (e.key === "ArrowDown") {
+                            if (focusedUnlinkedIndex >= 0) e.preventDefault();
+                            setFocusedUnlinkedIndex((prev) => Math.min(prev + 1, filteredUnlinked.length - 1));
+                          } else if (e.key === "ArrowUp") {
+                            if (focusedUnlinkedIndex > 0) e.preventDefault();
+                            setFocusedUnlinkedIndex((prev) => Math.max(prev - 1, 0));
+                          } else if ((e.key === "Enter" || e.key === "ArrowRight") && focusedUnlinkedIndex >= 0) {
+                            e.preventDefault();
+                            const site = filteredUnlinked[focusedUnlinkedIndex];
+                            if (site) { setQuickAssignSite(site); setQuickAssignCustomerId(""); }
+                          } else if (e.key === "Escape") {
+                            setFocusedUnlinkedIndex(-1);
+                          }
+                        }}
+                      >
                         {filteredUnlinked.length === 0 ? (
                           <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
-                          filteredUnlinked.map((site) => (
-                            <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} onDelete={async (s) => {
-                              const children = sites.filter((c) => c.parent_id === s.id);
-                              if (children.length > 0) { toast({ title: "Cannot delete", description: "This site has children. Remove them first.", variant: "destructive" }); return; }
-                              const { data: jobs } = await supabase.from("jobs").select("id", { count: "exact", head: true }).eq("site_id", s.id);
-                              if ((jobs as any)?.length > 0) { toast({ title: "Cannot delete", description: "This site has associated jobs.", variant: "destructive" }); return; }
-                              const { error } = await supabase.from("sites").delete().eq("id", s.id);
-                              if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-                              setSites((prev) => prev.filter((x) => x.id !== s.id));
-                              toast({ title: "Site deleted" });
-                            }} />
+                          filteredUnlinked.map((site, idx) => (
+                            <div key={site.id} className={`rounded-md ${focusedUnlinkedIndex === idx ? "ring-2 ring-primary/50" : ""}`}>
+                              <DraggableSiteChip site={site} typeConfig={TYPE_CONFIG} onAssign={(s) => { setQuickAssignSite(s); setQuickAssignCustomerId(""); }} onDelete={async (s) => {
+                                const children = sites.filter((c) => c.parent_id === s.id);
+                                if (children.length > 0) { toast({ title: "Cannot delete", description: "This site has children. Remove them first.", variant: "destructive" }); return; }
+                                const { data: jobs } = await supabase.from("jobs").select("id", { count: "exact", head: true }).eq("site_id", s.id);
+                                if ((jobs as any)?.length > 0) { toast({ title: "Cannot delete", description: "This site has associated jobs.", variant: "destructive" }); return; }
+                                const { error } = await supabase.from("sites").delete().eq("id", s.id);
+                                if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
+                                setSites((prev) => prev.filter((x) => x.id !== s.id));
+                                toast({ title: "Site deleted" });
+                              }} />
+                            </div>
                           ))
                         )}
                       </div>
