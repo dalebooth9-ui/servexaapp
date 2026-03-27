@@ -185,7 +185,7 @@ export default function Sites() {
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("hierarchy");
+  const [activeTab, setActiveTab] = useState("by-customer");
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
   const [unlinkedSearch, setUnlinkedSearch] = useState("");
@@ -690,7 +690,7 @@ export default function Sites() {
 
   const filteredRoots = search.trim()
     ? sites.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.postcode?.toLowerCase().includes(search.toLowerCase()) || s.address?.toLowerCase().includes(search.toLowerCase()))
-    : getChildren(null);
+    : sites.filter((s) => s.site_type !== "region");
 
   const openCreate = (parentId: string | null = null, type: string = "region") => {
     setEditing(null);
