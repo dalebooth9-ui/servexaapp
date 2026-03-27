@@ -69,6 +69,7 @@ export default function Jobs() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState<string[]>([]);
   const [newCustomerDialogOpen, setNewCustomerDialogOpen] = useState(false);
@@ -102,6 +103,9 @@ export default function Jobs() {
   const [fileDropPendingFiles, setFileDropPendingFiles] = useState<File[]>([]);
   const [poImportOpen, setPoImportOpen] = useState(false);
   const [poImportFile, setPoImportFile] = useState<File | null>(null);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeSource, setMergeSource] = useState("");
+  const [mergeTarget, setMergeTarget] = useState("");
   const poDropRef = useRef<HTMLDivElement | null>(null);
   const poDragCounter = useRef(0);
   const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
@@ -719,7 +723,14 @@ export default function Jobs() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveJob(event.active.data.current?.job || null);
+    const data = event.active.data.current;
+    if (data?.isFolder) {
+      setActiveFolder(data.folderName);
+      setActiveJob(null);
+    } else {
+      setActiveJob(data?.job || null);
+      setActiveFolder(null);
+    }
   };
 
   const handleDragOver = (event: any) => {
@@ -728,11 +739,23 @@ export default function Jobs() {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    const wasFolder = activeFolder;
     setActiveJob(null);
+    setActiveFolder(null);
     setOverId(null);
 
     const { active, over } = event;
     if (!over) return;
+
+    // Folder-to-folder merge
+    if (wasFolder) {
+      const targetFolder = over.data.current?.customerName;
+      if (!targetFolder || targetFolder === wasFolder || targetFolder === "__new_customer__") return;
+      setMergeSource(wasFolder);
+      setMergeTarget(targetFolder);
+      setMergeDialogOpen(true);
+      return;
+    }
 
     const draggedJob = active.data.current?.job;
     const targetFolder = over.data.current?.customerName;
@@ -843,6 +866,37 @@ export default function Jobs() {
       toast({ title: "Folder renamed", description: `"${renamingFolder}" → "${trimmed}"` });
     }
     setRenameDialogOpen(false);
+  };
+
+  const handleMergeConfirm = async () => {
+    if (!mergeSource || !mergeTarget) return;
+    setMergeDialogOpen(false);
+
+    const targetCust = customers.find((c) => c.name === mergeTarget);
+    const targetId = targetCust?.id || null;
+
+    // Update all jobs from source folder to target folder
+    const { error } = await supabase.from("jobs").update({ customer: mergeTarget, customer_id: targetId } as any).eq("customer", mergeSource);
+    if (error) {
+      toast({ title: "Error", description: "Failed to merge folders.", variant: "destructive" });
+    } else {
+      setJobs((prev) =>
+        prev.map((j) =>
+          getCustomerName(j)?.trim() === mergeSource
+            ? { ...j, customer: mergeTarget, customer_id: targetId, customers: targetCust ? { id: targetCust.id, name: targetCust.name } : null }
+            : j
+        )
+      );
+      setKnownCustomers((prev) => {
+        const updated = new Set(prev);
+        updated.delete(mergeSource);
+        return updated;
+      });
+      setOpenFolders((prev) => prev.filter((f) => f !== mergeSource));
+      toast({ title: "Folders merged", description: `All jobs from "${mergeSource}" moved to "${mergeTarget}"` });
+    }
+    setMergeSource("");
+    setMergeTarget("");
   };
 
   const filtered = jobs.filter((j) => {
@@ -1439,6 +1493,12 @@ export default function Jobs() {
                 <span className="font-mono text-sm font-medium text-primary">{activeJob.reference_number}</span>
                 <span className="ml-2 text-sm">{activeJob.name}</span>
               </div>
+            ) : activeFolder ? (
+              <div className="rounded-md border bg-card px-4 py-3 shadow-lg flex items-center gap-2">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">{activeFolder}</span>
+                <Badge variant="secondary" className="text-xs">{(grouped[activeFolder] || []).length} jobs</Badge>
+              </div>
             ) : null}
           </DragOverlay>
         </DndContext>
@@ -1475,6 +1535,21 @@ export default function Jobs() {
           </form>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={mergeDialogOpen} onOpenChange={setMergeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Merge Customer Folders?</AlertDialogTitle>
+            <AlertDialogDescription>
+              All jobs from <span className="font-semibold text-foreground">"{mergeSource}"</span> will be moved into <span className="font-semibold text-foreground">"{mergeTarget}"</span>. The "{mergeSource}" folder will be removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleMergeConfirm}>Merge</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <Dialog open={fileDropChoiceOpen} onOpenChange={(open) => { setFileDropChoiceOpen(open); if (!open) { setFileDropPendingFiles([]); setFileDropTargetJob(null); } }}>
         <DialogContent className="sm:max-w-md">

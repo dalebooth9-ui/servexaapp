@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FolderOpen, Pencil, Trash2 } from "lucide-react";
+import { FolderOpen, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import DraggableJobRow from "./DraggableJobRow";
 
@@ -39,9 +39,14 @@ export default function DroppableCustomerFolder({
   onFolderFileDrop,
   onQuickSchedule,
 }: DroppableCustomerFolderProps) {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef: setDropRef } = useDroppable({
     id: `folder-${customerName}`,
     data: { customerName },
+  });
+  const { attributes: dragAttrs, listeners: dragListeners, setNodeRef: setDragRef, isDragging: isFolderDragging } = useDraggable({
+    id: `drag-folder-${customerName}`,
+    data: { folderName: customerName, isFolder: true },
+    disabled: !isAdmin || customerName === "Unassigned",
   });
   const [fileOver, setFileOver] = useState(false);
   const fileCounter = useRef(0);
@@ -75,9 +80,9 @@ export default function DroppableCustomerFolder({
 
   return (
     <AccordionItem
-      ref={setNodeRef}
+      ref={(node) => { setDropRef(node); }}
       value={customerName}
-      className={`rounded-lg border bg-card transition-colors ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""} ${fileOver ? "ring-2 ring-accent/50 bg-accent/5" : ""}`}
+      className={`rounded-lg border bg-card transition-colors ${isFolderDragging ? "opacity-50" : ""} ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""} ${fileOver ? "ring-2 ring-accent/50 bg-accent/5" : ""}`}
       onDragEnter={handleFolderFileDragEnter}
       onDragLeave={handleFolderFileDragLeave}
       onDragOver={handleFolderFileDragOver}
@@ -85,6 +90,17 @@ export default function DroppableCustomerFolder({
     >
       <AccordionTrigger className="px-4 hover:no-underline">
         <div className="flex items-center gap-2 flex-1">
+          {isAdmin && customerName !== "Unassigned" && (
+            <span
+              ref={setDragRef}
+              {...dragAttrs}
+              {...dragListeners}
+              className="cursor-grab text-muted-foreground hover:text-foreground touch-none"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <GripVertical className="h-3.5 w-3.5" />
+            </span>
+          )}
           {isAdmin && jobs.length > 0 && (
             <input
               type="checkbox"
