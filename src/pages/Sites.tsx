@@ -1069,21 +1069,67 @@ export default function Sites() {
                 {/* Draggable site chips panel */}
                 {(() => {
                   const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
-                  const unlinkedSites = sites
+                  const allUnlinked = sites
                     .filter((s) => !s.parent_id)
-                    .filter((s) => !linkedSiteIds.has(s.id))
-                    .filter((s) => !search.trim() || s.name.toLowerCase().includes(search.toLowerCase()));
+                    .filter((s) => !linkedSiteIds.has(s.id));
+                  const filteredUnlinked = allUnlinked
+                    .filter((s) => !unlinkedSearch.trim() || s.name.toLowerCase().includes(unlinkedSearch.toLowerCase()) || s.postcode?.toLowerCase().includes(unlinkedSearch.toLowerCase()));
                   return (
-                    <div className="w-56 shrink-0 space-y-2">
+                    <div className={`shrink-0 space-y-2 transition-all ${unlinkedExpanded ? "w-72" : "w-56"}`}>
                       <div className="flex items-center gap-2 px-1">
-                        <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex-1">Drag to link</p>
-                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{unlinkedSites.length} unlinked</Badge>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1.5 flex-1 text-left"
+                          onClick={() => setUnlinkedExpanded((p) => !p)}
+                        >
+                          {unlinkedExpanded ? <PanelRightClose className="h-3.5 w-3.5 text-muted-foreground" /> : <PanelRightOpen className="h-3.5 w-3.5 text-muted-foreground" />}
+                          <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Drag to link</p>
+                        </button>
+                        <TooltipProvider delayDuration={300}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 cursor-help">
+                                {allUnlinked.length} unlinked
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent side="left" className="max-w-xs max-h-64 overflow-y-auto">
+                              <p className="font-semibold text-xs mb-1">{allUnlinked.length} unlinked sites</p>
+                              {allUnlinked.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">All sites are linked to customers.</p>
+                              ) : (
+                                <ul className="space-y-0.5">
+                                  {allUnlinked.slice(0, 30).map((s) => (
+                                    <li key={s.id} className="text-xs flex items-center gap-1.5">
+                                      <MapPin className="h-2.5 w-2.5 shrink-0 text-muted-foreground" />
+                                      <span className="truncate">{s.name}</span>
+                                      {s.postcode && <span className="text-muted-foreground shrink-0">{s.postcode}</span>}
+                                    </li>
+                                  ))}
+                                  {allUnlinked.length > 30 && (
+                                    <li className="text-xs text-muted-foreground pt-1">…and {allUnlinked.length - 30} more</li>
+                                  )}
+                                </ul>
+                              )}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
+                      {allUnlinked.length > 5 && (
+                        <div className="relative px-1">
+                          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
+                          <Input
+                            placeholder="Search unlinked…"
+                            value={unlinkedSearch}
+                            onChange={(e) => setUnlinkedSearch(e.target.value)}
+                            className="h-7 text-xs pl-7 pr-2"
+                          />
+                        </div>
+                      )}
                       <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
-                        {unlinkedSites.length === 0 ? (
-                          <p className="text-xs text-muted-foreground px-1">All sites are linked.</p>
+                        {filteredUnlinked.length === 0 ? (
+                          <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
-                          unlinkedSites.map((site) => (
+                          filteredUnlinked.map((site) => (
                             <DraggableSiteChip key={site.id} site={site} typeConfig={TYPE_CONFIG} />
                           ))
                         )}
