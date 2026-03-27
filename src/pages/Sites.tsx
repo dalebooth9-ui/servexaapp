@@ -1835,6 +1835,39 @@ export default function Sites() {
         </DialogContent>
       </Dialog>
 
+      {/* Move Sites to Customer Dialog */}
+      <Dialog open={moveSitesOpen} onOpenChange={(o) => { if (!o) setMoveSitesOpen(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Move {moveSiteIds.length} site{moveSiteIds.length !== 1 ? "s" : ""} to another customer</DialogTitle>
+            <DialogDescription>
+              {moveSitesSource && <>From <strong>{moveSitesSource.name}</strong></>}
+              {moveSiteIds.length <= 3 && (
+                <span className="block mt-1 text-xs">
+                  {moveSiteIds.map((id) => moveSitesSource?.sites.find((s) => s.id === id)?.name).filter(Boolean).join(", ")}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 pt-1">
+            <Select value={moveTargetCustomerId} onValueChange={setMoveTargetCustomerId}>
+              <SelectTrigger><SelectValue placeholder="Select target customer…" /></SelectTrigger>
+              <SelectContent>
+                {allCustomers.filter((c) => c.id !== moveSitesSource?.id).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setMoveSitesOpen(false)}>Cancel</Button>
+              <Button disabled={!moveTargetCustomerId || moveSaving} onClick={handleMoveSites}>
+                {moveSaving ? "Moving…" : <><ArrowRightLeft className="mr-2 h-4 w-4" />Move</>}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <BulkImportSitesDialog open={bulkOpen} onOpenChange={setBulkOpen} onImported={fetchSites} />
 
       <FolderSiteImportDialog
