@@ -39,9 +39,14 @@ export default function DroppableCustomerFolder({
   onFolderFileDrop,
   onQuickSchedule,
 }: DroppableCustomerFolderProps) {
-  const { setNodeRef } = useDroppable({
+  const { setNodeRef: setDropRef } = useDroppable({
     id: `folder-${customerName}`,
     data: { customerName },
+  });
+  const { attributes: dragAttrs, listeners: dragListeners, setNodeRef: setDragRef, isDragging: isFolderDragging } = useDraggable({
+    id: `drag-folder-${customerName}`,
+    data: { folderName: customerName, isFolder: true },
+    disabled: !isAdmin || customerName === "Unassigned",
   });
   const [fileOver, setFileOver] = useState(false);
   const fileCounter = useRef(0);
