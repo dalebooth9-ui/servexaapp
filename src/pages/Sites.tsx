@@ -1539,7 +1539,30 @@ export default function Sites() {
         );
       })()}
 
-      {/* Create Job from Site dialog */}
+      {/* Delete customer confirmation dialog */}
+      {deleteCustomerId && (() => {
+        const folder = customerFolders.find((f) => f.id === deleteCustomerId);
+        return (
+          <Dialog open onOpenChange={(open) => { if (!open) setDeleteCustomerId(null); }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Delete "{folder?.name}"?</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                This will permanently delete this customer and unlink <span className="font-semibold text-foreground">{folder?.sites.length ?? 0} site{(folder?.sites.length ?? 0) !== 1 ? "s" : ""}</span>. The sites themselves will not be deleted.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setDeleteCustomerId(null)} disabled={deleteCustomerLoading}>Cancel</Button>
+                <Button variant="destructive" disabled={deleteCustomerLoading} onClick={() => handleDeleteCustomer(deleteCustomerId)}>
+                  {deleteCustomerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete Customer
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
+
+
       <Dialog open={createJobDialogOpen} onOpenChange={(o) => { if (!o) setCreateJobDialogOpen(false); }}>
         <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0">
