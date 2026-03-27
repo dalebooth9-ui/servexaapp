@@ -934,7 +934,7 @@ export default function Sites() {
                 <Icon className={`h-5 w-5 ${cfg.color}`} />
                 <div>
                   <p className="text-2xl font-bold">{counts[key as keyof typeof counts]}</p>
-                  <p className="text-xs text-muted-foreground">{cfg.label}s</p>
+                  <p className="text-xs text-muted-foreground">{cfg.label}s{key === "building" && unitCount > 0 ? ` (${unitCount} units)` : ""}</p>
                 </div>
               </CardContent>
             </Card>
