@@ -88,7 +88,7 @@ type CustomerFolder = {
 
 // ── DnD helper components ───────────────────────────────────────────────────
 
-function DraggableSiteChip({ site, typeConfig, onAssign }: { site: Site; typeConfig: typeof TYPE_CONFIG; onAssign?: (site: Site) => void }) {
+function DraggableSiteChip({ site, typeConfig, onAssign, onDelete }: { site: Site; typeConfig: typeof TYPE_CONFIG; onAssign?: (site: Site) => void; onDelete?: (site: Site) => void }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: site.id, data: { site } });
   const cfg = typeConfig[site.site_type];
   const Icon = cfg?.icon || MapPin;
@@ -109,6 +109,17 @@ function DraggableSiteChip({ site, typeConfig, onAssign }: { site: Site; typeCon
           )}
         </div>
       </div>
+      {onDelete && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive"
+          onClick={(e) => { e.stopPropagation(); onDelete(site); }}
+          title="Delete site"
+        >
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      )}
       {onAssign && (
         <Button
           variant="ghost"
