@@ -795,6 +795,7 @@ export default function Sites() {
     });
   };
 
+  const regionIds = new Set(sites.filter((s) => s.site_type === "region").map((s) => s.id));
   const buildingRecords = sites.filter((s) => s.site_type === "building");
   const distinctBuildingCount = new Set(
     buildingRecords.map((b) => b.parent_id || b.id)
@@ -802,17 +803,17 @@ export default function Sites() {
   const unitCount = buildingRecords.length - distinctBuildingCount;
 
   const siteRecords = sites.filter((s) => s.site_type === "site");
-  const distinctSiteCount = new Set(
-    siteRecords.map((s) => s.parent_id || s.id)
-  ).size;
-  const siteSubCount = siteRecords.length - distinctSiteCount;
+  // Sites under regions are real sites, not sub-sites
+  const topLevelSites = siteRecords.filter((s) => !s.parent_id || regionIds.has(s.parent_id));
+  const subSites = siteRecords.filter((s) => s.parent_id && !regionIds.has(s.parent_id));
 
   const counts = {
-    region: sites.filter((s) => s.site_type === "region").length,
-    site: distinctSiteCount,
+    region: regionIds.size,
+    site: topLevelSites.length,
     building: distinctBuildingCount,
     zone: sites.filter((s) => s.site_type === "zone").length,
   };
+  const siteSubCount = subSites.length;
 
   const getSiteBreadcrumb = (s: Site): string[] => {
     const parts: string[] = [s.name];
