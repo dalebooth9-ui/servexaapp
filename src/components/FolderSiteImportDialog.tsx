@@ -146,7 +146,13 @@ export default function FolderSiteImportDialog({ open, onOpenChange, onImported 
     const totalFiles = [...customerMap.values()].reduce((s, f) => s + f.length, 0);
     let processedFiles = 0;
     const results: ExtractedCustomer[] = [];
-    const authToken = (await supabase.auth.getSession()).data.session?.access_token;
+    const sessionResult = await supabase.auth.getSession();
+    const authToken = sessionResult.data.session?.access_token;
+    if (!authToken) {
+      toast({ title: "Not authenticated", description: "Please sign in to import sites.", variant: "destructive" });
+      setScanning(false);
+      return;
+    }
 
     for (const [folderName, files] of customerMap.entries()) {
       setScanText(`Processing: ${folderName} (${files.length} files)`);
