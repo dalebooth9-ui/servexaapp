@@ -150,6 +150,7 @@ export default function AdminDashboard() {
     setSubmissionListType(type);
     setSubmissionListLoading(true);
     setSubmissionListItems([]);
+    setSubmissionThumbUrls({});
     try {
       const { data } = await supabase
         .from("submissions")
@@ -163,7 +164,21 @@ export default function AdminDashboard() {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
         const nameMap: Record<string, string> = {};
         (profiles || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
-        setSubmissionListItems(items.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] })));
+        const withNames = items.map((s: any) => ({ ...s, engineer_name: nameMap[s.engineer_id] }));
+        setSubmissionListItems(withNames);
+
+        // Generate signed URLs for photo thumbnails
+        if (type === "photo") {
+          const photoSubs = withNames.filter((s: any) => s.file_url);
+          const urlMap: Record<string, string> = {};
+          await Promise.all(
+            photoSubs.map(async (s: any) => {
+              const { data: signedData } = await supabase.storage.from("submissions").createSignedUrl(s.file_url, 300);
+              if (signedData?.signedUrl) urlMap[s.id] = signedData.signedUrl;
+            })
+          );
+          setSubmissionThumbUrls(urlMap);
+        }
       }
     } finally {
       setSubmissionListLoading(false);
