@@ -258,8 +258,8 @@ export default function AdminDashboard() {
       )}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Link key={stat.label} to={stat.link}>
+        {statCards.map((stat) => {
+          const cardContent = (
             <Card className="transition-shadow hover:shadow-md cursor-pointer">
               <CardContent className="flex items-center gap-4 p-5">
                 <div className={cn("rounded-lg bg-muted p-2.5", stat.color)}>
@@ -271,8 +271,16 @@ export default function AdminDashboard() {
                 </div>
               </CardContent>
             </Card>
-          </Link>
-        ))}
+          );
+          if ((stat as any).link) {
+            return <Link key={stat.label} to={(stat as any).link}>{cardContent}</Link>;
+          }
+          return (
+            <div key={stat.label} onClick={() => openSubmissionList((stat as any).type)}>
+              {cardContent}
+            </div>
+          );
+        })}
       </div>
 
       {isAdmin && (
