@@ -1318,6 +1318,34 @@ export default function Sites() {
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
+                        {allUnlinked.length > 0 && (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete all unlinked sites?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This will permanently delete all unlinked sites that have no children or jobs. This action cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction
+                                  onClick={handleDeleteAllUnlinked}
+                                  disabled={deletingUnlinked}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                >
+                                  {deletingUnlinked ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                  Delete All
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        )}
                       </div>
                       {allUnlinked.length > 5 && (
                         <div className="relative px-1">
