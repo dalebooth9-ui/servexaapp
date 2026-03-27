@@ -149,9 +149,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (cat === "extinguisher_service") return "fire_extinguisher";
       // "installation" jobs map to "dry_riser_installation" so commissioning templates are included
       if (cat === "installation") return "dry_riser_installation";
-      // All dry riser service/maintenance variants → canonical "dry_riser"
+      // Preserve specific dry riser sub-categories that have their own templates
+      if (cat === "dry_riser_pressure_test" || cat === "dry_riser_visual" || cat === "dry_riser_installation" || cat === "dry_riser_remedial") return cat;
+      // Only generic dry riser service variants → canonical "dry_riser"
       if (cat === "dry_riser_service" || cat === "dry_riser") return "dry_riser";
-      if (cat.startsWith("dry_riser_") && cat !== "dry_riser_installation") return "dry_riser";
       return cat;
     };
     const jobCategory = normalizeCategory(rawJobCategory);
