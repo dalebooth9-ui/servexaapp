@@ -193,7 +193,8 @@ export default function Sites() {
   const [quickAssignSite, setQuickAssignSite] = useState<Site | null>(null);
   const [quickAssignCustomerId, setQuickAssignCustomerId] = useState("");
   const [quickAssignSaving, setQuickAssignSaving] = useState(false);
-
+  const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
+  const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
 
   // Create job from site
   const [createJobDialogOpen, setCreateJobDialogOpen] = useState(false);
@@ -624,6 +625,27 @@ export default function Sites() {
     }
   };
 
+  const handleDeleteCustomer = async (customerId: string) => {
+    setDeleteCustomerLoading(true);
+    try {
+      // First unlink all sites
+      const { error: unlinkError } = await supabase.from("customer_sites").delete().eq("customer_id", customerId);
+      if (unlinkError) throw unlinkError;
+      // Delete customer documents
+      await supabase.from("customer_documents").delete().eq("customer_id", customerId);
+      // Delete the customer record
+      const { error: deleteError } = await supabase.from("customers").delete().eq("id", customerId);
+      if (deleteError) throw deleteError;
+      toast({ title: "Customer deleted", description: "Customer and all site links removed." });
+      setDeleteCustomerId(null);
+      fetchCustomerFolders();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to delete customer.", variant: "destructive" });
+    } finally {
+      setDeleteCustomerLoading(false);
+    }
+  };
+
   const openAssignSite = (folder: CustomerFolder) => {
     setAssignCustomer(folder);
     setAssignSelectedSites(new Set());
@@ -1021,11 +1043,17 @@ export default function Sites() {
                                       return `${parents.length} site${parents.length !== 1 ? "s" : ""}${childCount > 0 ? ` · ${childCount} building${childCount !== 1 ? "s" : ""}` : ""}`;
                                     })()}
                                   </Badge>
-                                  {userRole === "admin" && (
-                                    <Button variant="outline" size="sm" className="mr-2 h-7 text-xs shrink-0" onClick={(e) => { e.stopPropagation(); openAssignSite(folder); }}>
-                                      <LinkIcon className="mr-1 h-3 w-3" /> Assign Site
-                                    </Button>
-                                  )}
+                                   {userRole === "admin" && (
+                                    <div className="flex items-center gap-1 mr-2 shrink-0">
+                                      <Button variant="outline" size="sm" className="h-7 text-xs" onClick={(e) => { e.stopPropagation(); openAssignSite(folder); }}>
+                                        <LinkIcon className="mr-1 h-3 w-3" /> Assign Site
+                                      </Button>
+                                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete customer"
+                                        onClick={(e) => { e.stopPropagation(); setDeleteCustomerId(folder.id); }}>
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </Button>
+                                    </div>
+                                   )}
                                 </div>
                               </AccordionTrigger>
                               <AccordionContent className="px-0 pb-0">
@@ -1511,7 +1539,30 @@ export default function Sites() {
         );
       })()}
 
-      {/* Create Job from Site dialog */}
+      {/* Delete customer confirmation dialog */}
+      {deleteCustomerId && (() => {
+        const folder = customerFolders.find((f) => f.id === deleteCustomerId);
+        return (
+          <Dialog open onOpenChange={(open) => { if (!open) setDeleteCustomerId(null); }}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Delete "{folder?.name}"?</DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                This will permanently delete this customer and unlink <span className="font-semibold text-foreground">{folder?.sites.length ?? 0} site{(folder?.sites.length ?? 0) !== 1 ? "s" : ""}</span>. The sites themselves will not be deleted.
+              </p>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setDeleteCustomerId(null)} disabled={deleteCustomerLoading}>Cancel</Button>
+                <Button variant="destructive" disabled={deleteCustomerLoading} onClick={() => handleDeleteCustomer(deleteCustomerId)}>
+                  {deleteCustomerLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />} Delete Customer
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        );
+      })()}
+
+
       <Dialog open={createJobDialogOpen} onOpenChange={(o) => { if (!o) setCreateJobDialogOpen(false); }}>
         <DialogContent className="sm:max-w-md max-h-[90vh] flex flex-col overflow-hidden">
           <DialogHeader className="shrink-0">
