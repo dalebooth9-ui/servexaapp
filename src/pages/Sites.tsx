@@ -602,6 +602,7 @@ export default function Sites() {
   };
 
   const fetchCustomerFolders = async (options?: { ensureOpenFolderIds?: string[] }) => {
+    const scrollY = window.scrollY;
     setFoldersLoading(true);
 
     try {
@@ -681,6 +682,7 @@ export default function Sites() {
       setCustomerFolders([]);
     } finally {
       setFoldersLoading(false);
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
     }
   };
 
