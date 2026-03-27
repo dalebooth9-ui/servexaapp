@@ -518,7 +518,7 @@ export default function Sites() {
   };
 
   async function fetchAllPages<T>(
-    loadPage: (from: number, to: number) => Promise<{ data: T[] | null; error: any }>
+    loadPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
   ): Promise<T[]> {
     const pageSize = 1000;
     const rows: T[] = [];
