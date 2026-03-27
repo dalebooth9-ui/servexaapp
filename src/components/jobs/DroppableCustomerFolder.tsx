@@ -1,8 +1,8 @@
 import { useState, useRef } from "react";
-import { useDroppable } from "@dnd-kit/core";
+import { useDroppable, useDraggable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { FolderOpen, Pencil, Trash2 } from "lucide-react";
+import { FolderOpen, GripVertical, Pencil, Trash2 } from "lucide-react";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import DraggableJobRow from "./DraggableJobRow";
 
