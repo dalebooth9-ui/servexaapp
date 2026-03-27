@@ -1493,6 +1493,12 @@ export default function Jobs() {
                 <span className="font-mono text-sm font-medium text-primary">{activeJob.reference_number}</span>
                 <span className="ml-2 text-sm">{activeJob.name}</span>
               </div>
+            ) : activeFolder ? (
+              <div className="rounded-md border bg-card px-4 py-3 shadow-lg flex items-center gap-2">
+                <FolderOpen className="h-4 w-4 text-primary" />
+                <span className="font-semibold text-sm">{activeFolder}</span>
+                <Badge variant="secondary" className="text-xs">{(grouped[activeFolder] || []).length} jobs</Badge>
+              </div>
             ) : null}
           </DragOverlay>
         </DndContext>
