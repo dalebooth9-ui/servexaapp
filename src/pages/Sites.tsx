@@ -197,6 +197,7 @@ export default function Sites() {
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
+  const [focusedFolderIndex, setFocusedFolderIndex] = useState<number>(-1);
   const [activeTab, setActiveTab] = useState("by-customer");
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
