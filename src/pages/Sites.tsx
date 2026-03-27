@@ -92,18 +92,28 @@ function DraggableSiteChip({ site, typeConfig }: { site: Site; typeConfig: typeo
   const cfg = typeConfig[site.site_type];
   const Icon = cfg?.icon || MapPin;
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`flex items-center gap-2 rounded-md border bg-card px-3 py-2 cursor-grab active:cursor-grabbing transition-opacity select-none ${isDragging ? "opacity-40" : "hover:border-primary/50"}`}
-    >
-      <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-      <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
-      <span className="text-sm font-medium truncate flex-1">{site.name}</span>
-      {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
-      <Badge variant="secondary" className="text-[10px] capitalize shrink-0">{site.site_type}</Badge>
-    </div>
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            ref={setNodeRef}
+            {...listeners}
+            {...attributes}
+            className={`flex items-center gap-2 rounded-md border bg-card px-3 py-2 cursor-grab active:cursor-grabbing transition-opacity select-none ${isDragging ? "opacity-40" : "hover:border-primary/50"}`}
+          >
+            <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+            <Icon className={`h-3.5 w-3.5 shrink-0 ${cfg?.color || ""}`} />
+            <span className="text-sm font-medium truncate flex-1">{site.name}</span>
+            {site.postcode && <span className="text-xs text-muted-foreground shrink-0">{site.postcode}</span>}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="left" className="max-w-sm">
+          <p className="font-medium text-sm">{site.name}</p>
+          {site.address && <p className="text-xs text-muted-foreground">{site.address}</p>}
+          {site.postcode && <p className="text-xs text-muted-foreground">{site.postcode}</p>}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
@@ -1075,7 +1085,7 @@ export default function Sites() {
                   const filteredUnlinked = allUnlinked
                     .filter((s) => !unlinkedSearch.trim() || s.name.toLowerCase().includes(unlinkedSearch.toLowerCase()) || s.postcode?.toLowerCase().includes(unlinkedSearch.toLowerCase()));
                   return (
-                    <div className={`shrink-0 space-y-2 transition-all ${unlinkedExpanded ? "w-72" : "w-56"}`}>
+                    <div className={`shrink-0 space-y-2 transition-all ${unlinkedExpanded ? "w-96" : "w-72"}`}>
                       <div className="flex items-center gap-2 px-1">
                         <button
                           type="button"
