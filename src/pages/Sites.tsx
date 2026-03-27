@@ -1195,7 +1195,7 @@ export default function Sites() {
                 {(() => {
                   const linkedSiteIds = new Set(customerFolders.flatMap((f) => f.sites.map((s) => s.id)));
                   const allUnlinked = sites
-                    .filter((s) => !s.parent_id)
+                    .filter((s) => s.site_type !== "region" && !s.parent_id)
                     .filter((s) => !linkedSiteIds.has(s.id));
                   const filteredUnlinked = allUnlinked
                     .filter((s) => !unlinkedSearch.trim() || s.name.toLowerCase().includes(unlinkedSearch.toLowerCase()) || s.postcode?.toLowerCase().includes(unlinkedSearch.toLowerCase()));
