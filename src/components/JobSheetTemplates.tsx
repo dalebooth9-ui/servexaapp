@@ -805,9 +805,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               if (s === "sprinkler_service") return "sprinkler";
               if (s === "hydrant_service" || s === "fire_hydrant") return "fire_hydrant";
               if (s === "extinguisher_service") return "fire_extinguisher";
-              // All dry riser maintenance variants → "dry_riser"; installation stays distinct
+              if (s === "installation") return "dry_riser_installation";
+              if (s === "dry_riser_pressure_test" || s === "dry_riser_visual" || s === "dry_riser_installation" || s === "dry_riser_remedial") return s;
               if (s === "dry_riser_service" || s === "dry_riser") return "dry_riser";
-              if (s.startsWith("dry_riser_") && s !== "dry_riser_installation") return "dry_riser";
               return s;
             };
             const jobCategory = normalizeSlug(jobInfo?.category || "");
