@@ -1085,7 +1085,7 @@ export default function Sites() {
                   const filteredUnlinked = allUnlinked
                     .filter((s) => !unlinkedSearch.trim() || s.name.toLowerCase().includes(unlinkedSearch.toLowerCase()) || s.postcode?.toLowerCase().includes(unlinkedSearch.toLowerCase()));
                   return (
-                    <div className={`shrink-0 space-y-2 transition-all ${unlinkedExpanded ? "w-72" : "w-56"}`}>
+                    <div className={`shrink-0 space-y-2 transition-all ${unlinkedExpanded ? "w-96" : "w-72"}`}>
                       <div className="flex items-center gap-2 px-1">
                         <button
                           type="button"
