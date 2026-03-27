@@ -1369,7 +1369,7 @@ export default function Sites() {
                           />
                         </div>
                       )}
-                      <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
+                      <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1 focus:outline-none" tabIndex={0}>
                         {filteredUnlinked.length === 0 ? (
                           <p className="text-xs text-muted-foreground px-1">{allUnlinked.length === 0 ? "All sites are linked." : "No matches."}</p>
                         ) : (
