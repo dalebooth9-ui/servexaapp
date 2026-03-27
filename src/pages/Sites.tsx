@@ -800,9 +800,16 @@ export default function Sites() {
     buildingRecords.map((b) => b.parent_id || b.id)
   ).size;
   const unitCount = buildingRecords.length - distinctBuildingCount;
+
+  const siteRecords = sites.filter((s) => s.site_type === "site");
+  const distinctSiteCount = new Set(
+    siteRecords.map((s) => s.parent_id || s.id)
+  ).size;
+  const siteSubCount = siteRecords.length - distinctSiteCount;
+
   const counts = {
     region: sites.filter((s) => s.site_type === "region").length,
-    site: sites.filter((s) => s.site_type === "site").length,
+    site: distinctSiteCount,
     building: distinctBuildingCount,
     zone: sites.filter((s) => s.site_type === "zone").length,
   };
