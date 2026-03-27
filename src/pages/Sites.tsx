@@ -1409,13 +1409,20 @@ export default function Sites() {
                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={(e) => { e.stopPropagation(); openEdit(site); }} title="Edit site">
                                              <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
                                            </Button>
-                                         {userRole === "admin" && !isChild && (
-                                             <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
-                                               onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
-                                             >
-                                               <X className="h-3.5 w-3.5" />
-                                             </Button>
-                                           )}
+                                          {userRole === "admin" && !isChild && (
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary" title="Move to another customer"
+                                                onClick={(e) => { e.stopPropagation(); openMoveSites(folder, [site.id]); }}
+                                              >
+                                                <ArrowRightLeft className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
+                                          {userRole === "admin" && !isChild && (
+                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Remove from customer"
+                                                onClick={(e) => { e.stopPropagation(); handleBulkUnlinkSites(folder, [site.id]); }}
+                                              >
+                                                <X className="h-3.5 w-3.5" />
+                                              </Button>
+                                            )}
                                            {userRole === "admin" && isChild && (
                                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" title="Delete building"
                                                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(site.id); }}
@@ -1439,14 +1446,22 @@ export default function Sites() {
                                             onChange={() => toggleSelectAllFolderSites(folder.id, parentSiteIds)}
                                           />
                                           {folderSelected.size > 0 ? (
-                                            <Button variant="destructive" size="sm" className="h-6 text-xs px-2"
-                                              onClick={() => handleBulkUnlinkSites(folder, [...folderSelected])}
-                                            >
-                                              <Trash2 className="h-3 w-3 mr-1" />
-                                              Remove {folderSelected.size} selected
-                                            </Button>
+                                            <div className="flex items-center gap-1.5">
+                                              <Button variant="outline" size="sm" className="h-6 text-xs px-2"
+                                                onClick={() => openMoveSites(folder, [...folderSelected])}
+                                              >
+                                                <ArrowRightLeft className="h-3 w-3 mr-1" />
+                                                Move {folderSelected.size}
+                                              </Button>
+                                              <Button variant="destructive" size="sm" className="h-6 text-xs px-2"
+                                                onClick={() => handleBulkUnlinkSites(folder, [...folderSelected])}
+                                              >
+                                                <Trash2 className="h-3 w-3 mr-1" />
+                                                Remove {folderSelected.size}
+                                              </Button>
+                                            </div>
                                           ) : (
-                                            <span className="text-xs text-muted-foreground">Select to bulk remove</span>
+                                            <span className="text-xs text-muted-foreground">Select to move or remove</span>
                                           )}
                                         </div>
                                       )}
