@@ -682,6 +682,7 @@ export default function Sites() {
       setCustomerFolders([]);
     } finally {
       setFoldersLoading(false);
+      requestAnimationFrame(() => window.scrollTo(0, scrollY));
     }
   };
 
