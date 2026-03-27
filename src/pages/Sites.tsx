@@ -968,6 +968,7 @@ export default function Sites() {
                             <AccordionItem value={folder.id} className="rounded-lg border bg-card">
                               <AccordionTrigger className="px-4 hover:no-underline">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {userRole === "admin" && <DraggableFolderHandle folderId={folder.id} folderName={folder.name} />}
                                   <FolderOpen className="h-4 w-4 text-primary shrink-0" />
                                   <span className="font-semibold truncate">{folder.name}</span>
                                   {folder.email && <span className="hidden sm:inline text-xs text-muted-foreground truncate">{folder.email}</span>}
