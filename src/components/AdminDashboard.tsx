@@ -383,6 +383,48 @@ export default function AdminDashboard() {
         </CardContent>
       </Card>
       <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchDashboard} />
+
+      <Dialog open={!!submissionListType} onOpenChange={(o) => { if (!o) setSubmissionListType(null); }}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="capitalize">{submissionListType}s</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-2">
+            {submissionListLoading ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">Loading…</p>
+            ) : submissionListItems.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No {submissionListType}s found.</p>
+            ) : (
+              submissionListItems.map((sub) => (
+                <Link
+                  key={sub.id}
+                  to={`/jobs/${sub.job_id}`}
+                  onClick={() => setSubmissionListType(null)}
+                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="rounded bg-muted p-1.5 shrink-0">
+                      {submissionListType === "photo" && <Image className="h-4 w-4 text-accent" />}
+                      {submissionListType === "document" && <FileText className="h-4 w-4 text-warning" />}
+                      {submissionListType === "location" && <MapPin className="h-4 w-4 text-destructive" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{sub.file_name || (sub as any).jobs?.name || "Submission"}</p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {(sub as any).jobs?.reference_number || (sub as any).jobs?.name || "Unknown job"}
+                        {sub.engineer_name && ` • ${sub.engineer_name}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-xs text-muted-foreground shrink-0 ml-2">
+                    {new Date(sub.created_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}
+                  </span>
+                </Link>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
