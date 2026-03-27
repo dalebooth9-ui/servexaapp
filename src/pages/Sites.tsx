@@ -445,6 +445,51 @@ export default function Sites() {
     }
   };
 
+  const openMoveSites = (folder: CustomerFolder, siteIds: string[]) => {
+    setMoveSitesSource(folder);
+    setMoveSiteIds(siteIds);
+    setMoveTargetCustomerId("");
+    setMoveSitesOpen(true);
+  };
+
+  const handleMoveSites = async () => {
+    if (!moveSitesSource || moveSiteIds.length === 0 || !moveTargetCustomerId) return;
+    if (moveTargetCustomerId === moveSitesSource.id) {
+      toast({ title: "Same customer", description: "Sites are already in this folder.", variant: "destructive" });
+      return;
+    }
+    setMoveSaving(true);
+    try {
+      const sourceId = moveSitesSource.id;
+      const sourceName = moveSitesSource.name;
+      const targetName = allCustomers.find((c) => c.id === moveTargetCustomerId)?.name || "";
+      // Unlink from source, link to target
+      for (const siteId of moveSiteIds) {
+        await supabase.from("customer_sites" as any).delete().eq("customer_id", sourceId).eq("site_id", siteId);
+        const { error } = await supabase.from("customer_sites" as any).insert({ customer_id: moveTargetCustomerId, site_id: siteId });
+        if (error && !error.message.includes("duplicate")) throw error;
+      }
+      const siteNames = moveSiteIds.map((id) => moveSitesSource.sites.find((s) => s.id === id)?.name || id);
+      editWithUndo({
+        label: `Moved ${moveSiteIds.length} site${moveSiteIds.length !== 1 ? "s" : ""} to ${targetName}`,
+        onUndo: async () => {
+          for (const siteId of moveSiteIds) {
+            await supabase.from("customer_sites" as any).delete().eq("customer_id", moveTargetCustomerId).eq("site_id", siteId);
+            await supabase.from("customer_sites" as any).insert({ customer_id: sourceId, site_id: siteId });
+          }
+          fetchCustomerFolders({ ensureOpenFolderIds: [sourceId], background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+        },
+      });
+      setMoveSitesOpen(false);
+      setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(sourceId); return next; });
+      fetchCustomerFolders({ ensureOpenFolderIds: [sourceId, moveTargetCustomerId], background: true, preserveCustomerScroll: true, preserveUnlinkedScroll: true });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setMoveSaving(false);
+    }
+  };
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
 
   const autoScrollOptions: AutoScrollOptions = {
