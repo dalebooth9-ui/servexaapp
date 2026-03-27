@@ -602,7 +602,7 @@ export default function Sites() {
         };
       });
       setCustomerFolders(folders);
-      setOpenFolders(folders.filter((f) => f.sites.length <= 2).map((f) => f.id));
+      setOpenFolders([]);
       const autoCollapsed = new Set<string>();
       for (const folder of folders) {
         const childCountBySite = new Map<string, number>();
