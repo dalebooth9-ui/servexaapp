@@ -198,6 +198,7 @@ export default function Sites() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
   const [focusedFolderIndex, setFocusedFolderIndex] = useState<number>(-1);
+  const [focusedUnlinkedIndex, setFocusedUnlinkedIndex] = useState<number>(-1);
   const [activeTab, setActiveTab] = useState("by-customer");
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
