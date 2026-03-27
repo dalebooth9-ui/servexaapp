@@ -123,12 +123,31 @@ function DraggableSiteChip({ site, typeConfig, onAssign }: { site: Site; typeCon
   );
 }
 
-function DroppableCustomerFolder({ folder, children, isOver }: { folder: CustomerFolder; children: React.ReactNode; isOver: boolean }) {
-  const { setNodeRef } = useDroppable({ id: `folder-${folder.id}`, data: { customerId: folder.id } });
+function DroppableCustomerFolder({ folder, children, isOver, isDragging }: { folder: CustomerFolder; children: React.ReactNode; isOver: boolean; isDragging?: boolean }) {
+  const { setNodeRef: setDropRef } = useDroppable({ id: `folder-${folder.id}`, data: { customerId: folder.id } });
   return (
-    <div ref={setNodeRef} className={`transition-colors rounded-lg ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
+    <div ref={setDropRef} className={`transition-colors rounded-lg ${isDragging ? "opacity-40" : ""} ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : ""}`}>
       {children}
     </div>
+  );
+}
+
+function DraggableFolderHandle({ folderId, folderName }: { folderId: string; folderName: string }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `drag-customer-${folderId}`,
+    data: { isCustomerFolder: true, customerId: folderId, customerName: folderName },
+  });
+  return (
+    <span
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      className={`cursor-grab text-muted-foreground hover:text-foreground touch-none shrink-0 ${isDragging ? "opacity-40" : ""}`}
+      onClick={(e) => e.stopPropagation()}
+      title="Drag to merge into another customer"
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </span>
   );
 }
 
@@ -161,6 +180,7 @@ export default function Sites() {
   const [assignSaving, setAssignSaving] = useState(false);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [activeDragSite, setActiveDragSite] = useState<Site | null>(null);
+  const [activeDragCustomer, setActiveDragCustomer] = useState<{ id: string; name: string } | null>(null);
   const [collapsedSites, setCollapsedSites] = useState<Set<string>>(new Set());
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -376,6 +396,10 @@ export default function Sites() {
   const handleDragStart = (event: DragStartEvent) => {
     const site = event.active.data.current?.site as Site;
     if (site) setActiveDragSite(site);
+    const isCustomerFolder = event.active.data.current?.isCustomerFolder;
+    if (isCustomerFolder) {
+      setActiveDragCustomer({ id: event.active.data.current?.customerId, name: event.active.data.current?.customerName });
+    }
   };
 
   const handleDragOver = (event: any) => {
@@ -389,15 +413,55 @@ export default function Sites() {
 
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveDragSite(null);
+    setActiveDragCustomer(null);
     setDragOverFolderId(null);
     const { active, over } = event;
     if (!over || !String(over.id).startsWith("folder-")) return;
-    const customerId = String(over.id).replace("folder-", "");
+    const targetCustomerId = String(over.id).replace("folder-", "");
+
+    // Handle customer folder dropped onto another customer folder (merge)
+    if (active.data.current?.isCustomerFolder) {
+      const sourceId = active.data.current.customerId as string;
+      if (sourceId === targetCustomerId) return;
+      const sourceFolder = customerFolders.find((f) => f.id === sourceId);
+      const targetFolder = customerFolders.find((f) => f.id === targetCustomerId);
+      if (!sourceFolder || !targetFolder) return;
+      const confirmed = window.confirm(
+        `Merge "${sourceFolder.name}" into "${targetFolder.name}"?\n\nThis will:\n• Create "${sourceFolder.name}" as a site under ${targetFolder.name}\n• Move all existing sites across\n• Delete the "${sourceFolder.name}" customer entry`
+      );
+      if (!confirmed) return;
+      try {
+        // 1. Create a new site from the customer name
+        const { data: newSite, error: siteErr } = await supabase.from("sites").insert({
+          name: sourceFolder.name,
+          site_type: "site",
+          address: sourceFolder.address || null,
+        }).select("id").single();
+        if (siteErr) throw siteErr;
+        // 2. Link the new site to the target customer
+        await supabase.from("customer_sites" as any).insert({ customer_id: targetCustomerId, site_id: newSite.id });
+        // 3. Move existing linked sites to target customer
+        for (const s of sourceFolder.sites) {
+          await supabase.from("customer_sites" as any).delete().eq("customer_id", sourceId).eq("site_id", s.id);
+          const { error: linkErr } = await supabase.from("customer_sites" as any).insert({ customer_id: targetCustomerId, site_id: s.id });
+          if (linkErr && !linkErr.message.includes("duplicate")) throw linkErr;
+        }
+        // 4. Delete the source customer
+        await supabase.from("customers").delete().eq("id", sourceId);
+        toast({ title: "Merged", description: `"${sourceFolder.name}" merged into "${targetFolder.name}" as a site.` });
+        fetchCustomerFolders();
+        fetchSites();
+      } catch (err: any) {
+        toast({ title: "Error", description: err.message, variant: "destructive" });
+      }
+      return;
+    }
+
+    // Handle site dropped onto customer folder
     const site = active.data.current?.site as Site;
     if (!site) return;
-    const folder = customerFolders.find((f) => f.id === customerId);
+    const folder = customerFolders.find((f) => f.id === targetCustomerId);
     if (!folder) return;
-    // Check both displayed sites and child sites (whose parent is linked)
     const allLinkedIds = new Set(folder.sites.map((s) => s.id));
     if (allLinkedIds.has(site.id)) {
       toast({ title: "Already linked", description: `${site.name} is already in ${folder.name}.` });
@@ -405,7 +469,7 @@ export default function Sites() {
     }
     try {
       const { error } = await supabase.from("customer_sites" as any).insert({
-        customer_id: customerId,
+        customer_id: targetCustomerId,
         site_id: site.id,
       });
       if (error) throw error;
@@ -904,6 +968,7 @@ export default function Sites() {
                             <AccordionItem value={folder.id} className="rounded-lg border bg-card">
                               <AccordionTrigger className="px-4 hover:no-underline">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {userRole === "admin" && <DraggableFolderHandle folderId={folder.id} folderName={folder.name} />}
                                   <FolderOpen className="h-4 w-4 text-primary shrink-0" />
                                   <span className="font-semibold truncate">{folder.name}</span>
                                   {folder.email && <span className="hidden sm:inline text-xs text-muted-foreground truncate">{folder.email}</span>}
@@ -1172,6 +1237,13 @@ export default function Sites() {
                     </div>
                   );
                 })()}
+                {activeDragCustomer && (
+                  <div className="flex items-center gap-2 rounded-md border bg-card shadow-lg px-3 py-2 opacity-90 w-56">
+                    <GripVertical className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <FolderOpen className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm font-medium truncate">{activeDragCustomer.name}</span>
+                  </div>
+                )}
               </DragOverlay>
             </DndContext>
           )}
