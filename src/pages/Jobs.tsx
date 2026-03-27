@@ -69,6 +69,7 @@ export default function Jobs() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
+  const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [openFolders, setOpenFolders] = useState<string[]>([]);
   const [newCustomerDialogOpen, setNewCustomerDialogOpen] = useState(false);
@@ -102,6 +103,9 @@ export default function Jobs() {
   const [fileDropPendingFiles, setFileDropPendingFiles] = useState<File[]>([]);
   const [poImportOpen, setPoImportOpen] = useState(false);
   const [poImportFile, setPoImportFile] = useState<File | null>(null);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeSource, setMergeSource] = useState("");
+  const [mergeTarget, setMergeTarget] = useState("");
   const poDropRef = useRef<HTMLDivElement | null>(null);
   const poDragCounter = useRef(0);
   const [fileDropNewJobForm, setFileDropNewJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general" });
@@ -719,7 +723,14 @@ export default function Jobs() {
   };
 
   const handleDragStart = (event: DragStartEvent) => {
-    setActiveJob(event.active.data.current?.job || null);
+    const data = event.active.data.current;
+    if (data?.isFolder) {
+      setActiveFolder(data.folderName);
+      setActiveJob(null);
+    } else {
+      setActiveJob(data?.job || null);
+      setActiveFolder(null);
+    }
   };
 
   const handleDragOver = (event: any) => {
@@ -728,11 +739,23 @@ export default function Jobs() {
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
+    const wasFolder = activeFolder;
     setActiveJob(null);
+    setActiveFolder(null);
     setOverId(null);
 
     const { active, over } = event;
     if (!over) return;
+
+    // Folder-to-folder merge
+    if (wasFolder) {
+      const targetFolder = over.data.current?.customerName;
+      if (!targetFolder || targetFolder === wasFolder || targetFolder === "__new_customer__") return;
+      setMergeSource(wasFolder);
+      setMergeTarget(targetFolder);
+      setMergeDialogOpen(true);
+      return;
+    }
 
     const draggedJob = active.data.current?.job;
     const targetFolder = over.data.current?.customerName;
