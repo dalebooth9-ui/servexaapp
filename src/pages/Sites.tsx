@@ -625,6 +625,27 @@ export default function Sites() {
     }
   };
 
+  const handleDeleteCustomer = async (customerId: string) => {
+    setDeleteCustomerLoading(true);
+    try {
+      // First unlink all sites
+      const { error: unlinkError } = await supabase.from("customer_sites").delete().eq("customer_id", customerId);
+      if (unlinkError) throw unlinkError;
+      // Delete customer documents
+      await supabase.from("customer_documents").delete().eq("customer_id", customerId);
+      // Delete the customer record
+      const { error: deleteError } = await supabase.from("customers").delete().eq("id", customerId);
+      if (deleteError) throw deleteError;
+      toast({ title: "Customer deleted", description: "Customer and all site links removed." });
+      setDeleteCustomerId(null);
+      loadCustomerFolders();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message || "Failed to delete customer.", variant: "destructive" });
+    } finally {
+      setDeleteCustomerLoading(false);
+    }
+  };
+
   const openAssignSite = (folder: CustomerFolder) => {
     setAssignCustomer(folder);
     setAssignSelectedSites(new Set());
