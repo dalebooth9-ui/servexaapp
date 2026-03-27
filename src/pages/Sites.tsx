@@ -400,7 +400,7 @@ export default function Sites() {
         await supabase.from("customer_sites" as any).delete().eq("customer_id", folder.id).eq("site_id", siteId);
       }
       setSelectedFolderSites((prev) => { const next = new Map(prev); next.delete(folder.id); return next; });
-      fetchCustomerFolders();
+      fetchCustomerFolders({ ensureOpenFolderIds: [folder.id] });
       toast({ title: "Sites removed", description: `${siteIds.length} site(s) unlinked from ${folder.name}.` });
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -601,7 +601,7 @@ export default function Sites() {
     }
   };
 
-  const fetchCustomerFolders = async () => {
+  const fetchCustomerFolders = async (options?: { ensureOpenFolderIds?: string[] }) => {
     setFoldersLoading(true);
 
     try {
@@ -653,7 +653,16 @@ export default function Sites() {
         };
       });
       setCustomerFolders(folders);
-      setOpenFolders((prev) => prev.length > 0 ? prev.filter((id) => folders.some((f) => f.id === id)) : []);
+      setOpenFolders((prev) => {
+        const validFolderIds = new Set(folders.map((f) => f.id));
+        const next = prev.length > 0 ? prev.filter((id) => validFolderIds.has(id)) : [];
+
+        for (const folderId of options?.ensureOpenFolderIds || []) {
+          if (validFolderIds.has(folderId) && !next.includes(folderId)) next.push(folderId);
+        }
+
+        return next;
+      });
       const autoCollapsed = new Set<string>();
       for (const folder of folders) {
         const childCountBySite = new Map<string, number>();
