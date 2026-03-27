@@ -197,6 +197,7 @@ export default function Sites() {
   const [selectedFolderSites, setSelectedFolderSites] = useState<Map<string, Set<string>>>(new Map());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [highlightedSiteId, setHighlightedSiteId] = useState<string | null>(null);
+  const [focusedFolderIndex, setFocusedFolderIndex] = useState<number>(-1);
   const [activeTab, setActiveTab] = useState("by-customer");
   const [editingW3W, setEditingW3W] = useState<string | null>(null);
   const [unlinkedExpanded, setUnlinkedExpanded] = useState(false);
@@ -1075,7 +1076,39 @@ export default function Sites() {
             <DndContext sensors={sensors} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
               <div className="flex gap-4 items-start">
                 {/* Customer folders */}
-                <div className="flex-1 min-w-0 space-y-2 max-h-[75vh] overflow-y-auto pr-1 focus:outline-none" tabIndex={0}>
+                <div
+                  className="flex-1 min-w-0 space-y-2 max-h-[75vh] overflow-y-auto pr-1 focus:outline-none"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    const visibleFolders = customerFolders
+                      .filter((f) => !search.trim() || f.name.toLowerCase().includes(search.toLowerCase()) || f.sites.some((s) => s.name.toLowerCase().includes(search.toLowerCase())))
+                      .sort((a, b) => {
+                        if (folderSort === "sites-desc") return b.sites.length - a.sites.length;
+                        if (folderSort === "sites-asc") return a.sites.length - b.sites.length;
+                        return a.name.localeCompare(b.name);
+                      });
+                    if (visibleFolders.length === 0) return;
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setFocusedFolderIndex((prev) => Math.min(prev + 1, visibleFolders.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setFocusedFolderIndex((prev) => Math.max(prev - 1, 0));
+                    } else if (e.key === "ArrowRight" || e.key === "Enter") {
+                      e.preventDefault();
+                      if (focusedFolderIndex >= 0 && focusedFolderIndex < visibleFolders.length) {
+                        const folderId = visibleFolders[focusedFolderIndex].id;
+                        if (!openFolders.includes(folderId)) setOpenFolders((prev) => [...prev, folderId]);
+                      }
+                    } else if (e.key === "ArrowLeft") {
+                      e.preventDefault();
+                      if (focusedFolderIndex >= 0 && focusedFolderIndex < visibleFolders.length) {
+                        const folderId = visibleFolders[focusedFolderIndex].id;
+                        if (openFolders.includes(folderId)) setOpenFolders((prev) => prev.filter((id) => id !== folderId));
+                      }
+                    }
+                  }}
+                >
                   {customerFolders.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">No customers found.</p>
                   ) : (
@@ -1087,9 +1120,9 @@ export default function Sites() {
                           if (folderSort === "sites-asc") return a.sites.length - b.sites.length;
                           return a.name.localeCompare(b.name);
                         })
-                        .map((folder) => (
+                        .map((folder, idx) => (
                           <DroppableCustomerFolder key={folder.id} folder={folder} isOver={dragOverFolderId === folder.id}>
-                            <AccordionItem value={folder.id} className="rounded-lg border bg-card">
+                            <AccordionItem value={folder.id} className={`rounded-lg border bg-card ${focusedFolderIndex === idx ? "ring-2 ring-primary/50" : ""}`}>
                               <AccordionTrigger className="px-4 hover:no-underline">
                                 <div className="flex items-center gap-2 flex-1 min-w-0">
                                   {userRole === "admin" && <DraggableFolderHandle folderId={folder.id} folderName={folder.name} />}
