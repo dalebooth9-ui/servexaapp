@@ -205,7 +205,7 @@ const DEFAULTS: Record<RamsType, RamsDefaults> = {
 
   sprinkler: {
     descriptionOfWork:
-      "Inspection, testing and annual/bi-annual servicing of wet pipe and dry pipe sprinkler systems in accordance with BS EN 12845:2015 — Fixed Firefighting Systems — Automatic Sprinkler Systems.",
+      "Inspection, testing and annual/6-monthly servicing of wet pipe and dry pipe sprinkler systems in accordance with BS EN 12845:2015 — Fixed Firefighting Systems — Automatic Sprinkler Systems.",
     sequenceOfOps: [
       ...COMMON_SEQUENCE,
       "Notify the monitoring centre and building occupants before any alarm bypass is put in place.",
