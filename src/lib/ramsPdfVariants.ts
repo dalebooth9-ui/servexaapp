@@ -40,7 +40,7 @@ export async function generateSprinklerRamsPdf(
   // Method statement pages 1–5
   const pageRef = { num: 1 };
   await buildSharedMethodSections(doc, logoImg, {
-    descriptionOfWork: "Inspection, testing and annual/bi-annual servicing of wet pipe and dry pipe sprinkler systems in accordance with BS EN 12845 and LPS 1048.",
+    descriptionOfWork: "Inspection, testing and annual/6-monthly servicing of wet pipe and dry pipe sprinkler systems in accordance with BS EN 12845 and LPS 1048.",
     sequenceOfOps: [
       "All working personnel must have received site induction from Principal Contractor and a RAMS briefing from the site supervisor before works commence.",
       "Personnel will sign in via main security and into the Daily Sign-In register.",

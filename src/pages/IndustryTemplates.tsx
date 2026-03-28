@@ -313,9 +313,9 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
   },
   {
     id: "fh-biannual",
-    name: "Fire Hydrant — Bi-Annual Visual Check",
+    name: "Fire Hydrant — 6 Month Visual Check",
     standard: "BS 9990:2015 / NFCC",
-    description: "Bi-annual visual check confirming hydrant is accessible, signed, and undamaged.",
+    description: "6-month visual check confirming hydrant is accessible, signed, and undamaged.",
     category: "fire_hydrant",
     fields: [
       { id: "reference", label: "Hydrant Reference", type: "text", section: "Site Details", required: true },
@@ -360,10 +360,10 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
     ],
   },
   {
-    id: "sp-quarterly",
-    name: "Sprinkler System — Bi-annual Inspection",
+    id: "sp-6month",
+    name: "Sprinkler System — 6 Month Inspection",
     standard: "BS EN 12845:2015",
-    description: "Routine bi-annual inspection covering valve status, pressure gauges, and alarm test.",
+    description: "Routine 6-month inspection covering valve status, pressure gauges, and alarm test.",
     category: "sprinkler",
     fields: [
       ...SITE_DETAIL_FIELDS,

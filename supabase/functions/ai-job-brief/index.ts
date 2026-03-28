@@ -51,7 +51,7 @@ CRITICAL DOMAIN RULES — you must follow these exactly:
 - Dry riser visual inspection: no pressure test involved — visual checks only per BS 9990:2015.
 - Sprinkler systems: reference BS EN 12845:2015.
 - Fire extinguishers: reference BS 5306-3:2017.
-- Fire hydrants: reference BS 9990:2015 / NFCC Guidelines (bi-annual check).
+- Fire hydrants: reference BS 9990:2015 / NFCC Guidelines (6-month check).
 - Always use UK English spelling and British Standards references.`;
 
     const userPrompt = `Generate a job brief for the following job:
