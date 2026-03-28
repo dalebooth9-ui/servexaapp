@@ -313,7 +313,7 @@ export default function PpmSchedules({ assetId }: PpmSchedulesProps) {
               <Input
                 value={form.title}
                 onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-                placeholder="e.g. Quarterly boiler service"
+                placeholder="e.g. 6-month boiler service"
               />
             </div>
             <div className="space-y-1.5">
