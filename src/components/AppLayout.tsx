@@ -39,7 +39,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
 { to: "/leave", label: "Leave", icon: Palmtree, section: "operations" },
 { to: "/customers", label: "Customers", icon: Building2, section: "operations" },
-{ to: "/invoices", label: "Invoices", icon: FileText, section: "operations" },
+{ to: "/invoices", label: "Invoices", icon: FileText, section: "operations", adminOnly: true },
 { to: "/sites", label: "Sites", icon: MapPin, section: "more" },
 { to: "/assets", label: "Assets", icon: Package, section: "more" },
 { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
