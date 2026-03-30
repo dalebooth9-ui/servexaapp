@@ -104,18 +104,18 @@ const App = () => (
               <Route path="/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
               <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
               <Route path="/leave" element={<ProtectedRoute><LeaveCalendar /></ProtectedRoute>} />
-              <Route path="/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
-              <Route path="/customers/:id" element={<ProtectedRoute><CustomerDetail /></ProtectedRoute>} />
+              <Route path="/customers" element={<AdminRoute><Customers /></AdminRoute>} />
+              <Route path="/customers/:id" element={<AdminRoute><CustomerDetail /></AdminRoute>} />
               <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
-<Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />
+              <Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />
               <Route path="/invoices/:id" element={<AdminRoute><InvoiceDetail /></AdminRoute>} />
-              <Route path="/sites" element={<ProtectedRoute><Sites /></ProtectedRoute>} />
-              <Route path="/assets" element={<ProtectedRoute><Assets /></ProtectedRoute>} />
-              <Route path="/assets/:id" element={<ProtectedRoute><AssetDetail /></ProtectedRoute>} />
-              <Route path="/parts-library" element={<ProtectedRoute><PartsLibrary /></ProtectedRoute>} />
-              <Route path="/industry-templates" element={<ProtectedRoute><IndustryTemplates /></ProtectedRoute>} />
-              <Route path="/compliance" element={<ProtectedRoute><Compliance /></ProtectedRoute>} />
-              <Route path="/audits" element={<ProtectedRoute><Audits /></ProtectedRoute>} />
+              <Route path="/sites" element={<AdminRoute><Sites /></AdminRoute>} />
+              <Route path="/assets" element={<AdminRoute><Assets /></AdminRoute>} />
+              <Route path="/assets/:id" element={<AdminRoute><AssetDetail /></AdminRoute>} />
+              <Route path="/parts-library" element={<AdminRoute><PartsLibrary /></AdminRoute>} />
+              <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
+              <Route path="/compliance" element={<AdminRoute><Compliance /></AdminRoute>} />
+              <Route path="/audits" element={<AdminRoute><Audits /></AdminRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
