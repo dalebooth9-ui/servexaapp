@@ -19,19 +19,18 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-  if (!XERO_CLIENT_ID || !XERO_CLIENT_SECRET) {
-    return new Response(JSON.stringify({ error: "Xero credentials not configured" }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const url = new URL(req.url);
   const action = url.searchParams.get("action");
 
   try {
     // Step 1: Generate auth URL for the user to authorize
     if (action === "authorize") {
+      if (!XERO_CLIENT_ID || !XERO_CLIENT_SECRET) {
+        return new Response(JSON.stringify({ error: "Xero credentials not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
