@@ -25,6 +25,12 @@ Deno.serve(async (req) => {
   try {
     // Step 1: Generate auth URL for the user to authorize
     if (action === "authorize") {
+      if (!XERO_CLIENT_ID || !XERO_CLIENT_SECRET) {
+        return new Response(JSON.stringify({ error: "Xero credentials not configured" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       const authHeader = req.headers.get("Authorization");
       if (!authHeader) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), {
