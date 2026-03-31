@@ -191,7 +191,22 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
-  const visibleNavItems = allOrderedItems.filter((item) => !item.adminOnly || userRole === "admin");
+  const visibleNavItems = allOrderedItems.filter((item) => {
+    if (item.adminOnly && userRole !== "admin") {
+      // For engineers, check per-user page access
+      if (userRole === "engineer") {
+        const slug = ROUTE_TO_SLUG[item.to];
+        return slug ? hasAccess(slug) : false;
+      }
+      return false;
+    }
+    // Non-adminOnly items: for engineers, still check page access
+    if (userRole === "engineer") {
+      const slug = ROUTE_TO_SLUG[item.to];
+      if (slug) return hasAccess(slug);
+    }
+    return true;
+  });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
