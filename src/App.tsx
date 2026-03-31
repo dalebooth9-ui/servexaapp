@@ -77,6 +77,18 @@ function AdminRoute({ children }: { children: ReactNode }) {
   return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
 }
 
+function AccessRoute({ children, pageSlug }: { children: ReactNode; pageSlug: string }) {
+  const { user, userRole, loading } = useAuth();
+  const { hasAccess, loading: accessLoading } = useEngineerPageAccess();
+  useOfflineSync();
+  if (loading || accessLoading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (userRole === "admin" || hasAccess(pageSlug)) {
+    return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
+  }
+  return <Navigate to="/" replace />;
+}
+
 function AuthRoute() {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
