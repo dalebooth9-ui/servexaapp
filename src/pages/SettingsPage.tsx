@@ -21,7 +21,7 @@ import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 import JobDocumentReattachSettings from "@/components/JobDocumentReattachSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-const INSTALL_URL = "https://field-aid-box.lovable.app/install";
+const INSTALL_URL = "https://servexaapp.lovable.app/install";
 
 const API_KEY_ROTATION_DAYS = 90;
 

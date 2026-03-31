@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const XERO_TOKEN_URL = "https://identity.xero.com/connect/token";
 const XERO_CONNECTIONS_URL = "https://api.xero.com/connections";
-const FALLBACK_APP_URL = "https://field-aid-box.lovable.app";
+const FALLBACK_APP_URL = "https://servexaapp.lovable.app";
 
 function getAppUrl(): string {
   const raw = Deno.env.get("APP_URL") || FALLBACK_APP_URL;
