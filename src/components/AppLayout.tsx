@@ -413,8 +413,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         <div className="hidden lg:block h-0.5 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(213,51%,35%)] to-transparent shrink-0" />
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">{children}</main>
       </div>
-      <CommandPalette />
-      <AiHelpWizard />
+      {userRole === "admin" && <CommandPalette />}
+      {userRole === "admin" && <AiHelpWizard />}
       <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>);
 
