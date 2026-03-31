@@ -228,7 +228,7 @@ Deno.serve(async (req) => {
         ].join("")
       : `<tr><td colspan="2" style="padding:16px;text-align:center;color:${BRAND_GRAY};font-size:12px;">No jobs this week.</td></tr>`;
 
-    const appUrl = Deno.env.get("APP_URL") || "https://field-aid-box.lovable.app";
+    const appUrl = Deno.env.get("APP_URL") || "https://servexaapp.lovable.app";
 
     const html = `<!DOCTYPE html>
 <html lang="en">
