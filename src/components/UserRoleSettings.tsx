@@ -10,8 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus } from "lucide-react";
+import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye } from "lucide-react";
 import { toast } from "sonner";
+import { ENGINEER_TOGGLABLE_PAGES, DEFAULT_ENGINEER_PAGES } from "@/lib/engineerPages";
 
 type UserWithRoles = {
   id: string;
@@ -29,8 +30,18 @@ export default function UserRoleSettings() {
   const [confirmDelete, setConfirmDelete] = useState<{ userId: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
-  const [addForm, setAddForm] = useState({ full_name: "", email: "", roles: { admin: false, engineer: false } });
+  const [addForm, setAddForm] = useState({
+    full_name: "",
+    email: "",
+    roles: { admin: false, engineer: false },
+    pages: [...DEFAULT_ENGINEER_PAGES],
+  });
   const [adding, setAdding] = useState(false);
+
+  // Page access editing
+  const [pageAccessOpen, setPageAccessOpen] = useState<{ userId: string; name: string } | null>(null);
+  const [editPages, setEditPages] = useState<string[]>([]);
+  const [savingPages, setSavingPages] = useState(false);
 
   const fetchUsers = async () => {
     const [profilesRes, rolesRes] = await Promise.all([
@@ -68,6 +79,10 @@ export default function UserRoleSettings() {
         toast.error("Failed to remove role");
       } else {
         toast.success(`${role} role removed`);
+        // If removing engineer role, also clean up page access
+        if (role === "engineer") {
+          await supabase.from("engineer_page_access").delete().eq("user_id", userId);
+        }
         fetchUsers();
       }
     } else {
@@ -78,6 +93,11 @@ export default function UserRoleSettings() {
         toast.error("Failed to add role");
       } else {
         toast.success(`${role} role added`);
+        // If adding engineer role, set default page access
+        if (role === "engineer") {
+          const inserts = DEFAULT_ENGINEER_PAGES.map((slug) => ({ user_id: userId, page_slug: slug }));
+          await supabase.from("engineer_page_access").insert(inserts);
+        }
         fetchUsers();
       }
     }
@@ -111,7 +131,12 @@ export default function UserRoleSettings() {
 
     setAdding(true);
     const { data, error } = await supabase.functions.invoke("create-user", {
-      body: { email: addForm.email, full_name: addForm.full_name, roles },
+      body: {
+        email: addForm.email,
+        full_name: addForm.full_name,
+        roles,
+        allowed_pages: addForm.roles.engineer ? addForm.pages : [],
+      },
     });
     setAdding(false);
 
@@ -120,9 +145,46 @@ export default function UserRoleSettings() {
     } else {
       toast.success(`${addForm.full_name} has been created`);
       setAddOpen(false);
-      setAddForm({ full_name: "", email: "", roles: { admin: false, engineer: false } });
+      setAddForm({ full_name: "", email: "", roles: { admin: false, engineer: false }, pages: [...DEFAULT_ENGINEER_PAGES] });
       fetchUsers();
     }
+  };
+
+  const openPageAccess = async (userId: string, name: string) => {
+    const { data } = await supabase
+      .from("engineer_page_access")
+      .select("page_slug")
+      .eq("user_id", userId);
+    setEditPages((data ?? []).map((r) => r.page_slug));
+    setPageAccessOpen({ userId, name });
+  };
+
+  const savePageAccess = async () => {
+    if (!pageAccessOpen) return;
+    setSavingPages(true);
+    // Delete existing, insert new
+    await supabase.from("engineer_page_access").delete().eq("user_id", pageAccessOpen.userId);
+    if (editPages.length > 0) {
+      await supabase.from("engineer_page_access").insert(
+        editPages.map((slug) => ({ user_id: pageAccessOpen.userId, page_slug: slug }))
+      );
+    }
+    setSavingPages(false);
+    toast.success(`Page access updated for ${pageAccessOpen.name}`);
+    setPageAccessOpen(null);
+  };
+
+  const togglePage = (slug: string) => {
+    setEditPages((prev) =>
+      prev.includes(slug) ? prev.filter((s) => s !== slug) : [...prev, slug]
+    );
+  };
+
+  const toggleAddFormPage = (slug: string) => {
+    setAddForm((f) => ({
+      ...f,
+      pages: f.pages.includes(slug) ? f.pages.filter((s) => s !== slug) : [...f.pages, slug],
+    }));
   };
 
   return (
@@ -178,6 +240,17 @@ export default function UserRoleSettings() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
+                        {isEngineer && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openPageAccess(u.user_id, u.full_name || "this user")}
+                            title="Manage page access"
+                          >
+                            <Eye className="mr-1 h-3 w-3" />
+                            Pages
+                          </Button>
+                        )}
                         <Button
                           variant={isAdmin ? "destructive" : "outline"}
                           size="sm"
@@ -308,10 +381,54 @@ export default function UserRoleSettings() {
                 </label>
               </div>
             </div>
+            {addForm.roles.engineer && (
+              <div className="space-y-2">
+                <Label>Page Access</Label>
+                <p className="text-xs text-muted-foreground">Select which pages this engineer can see</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {ENGINEER_TOGGLABLE_PAGES.map((page) => (
+                    <label key={page.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={addForm.pages.includes(page.slug)}
+                        onCheckedChange={() => toggleAddFormPage(page.slug)}
+                      />
+                      {page.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>Cancel</Button>
             <Button onClick={handleAddUser} disabled={adding}>{adding ? "Adding…" : "Add User"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit page access dialog */}
+      <Dialog open={!!pageAccessOpen} onOpenChange={(open) => { if (!open) setPageAccessOpen(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Page Access — {pageAccessOpen?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            <p className="text-sm text-muted-foreground">Select which pages this engineer can access. Dashboard is always available.</p>
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              {ENGINEER_TOGGLABLE_PAGES.map((page) => (
+                <label key={page.slug} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <Checkbox
+                    checked={editPages.includes(page.slug)}
+                    onCheckedChange={() => togglePage(page.slug)}
+                  />
+                  {page.label}
+                </label>
+              ))}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPageAccessOpen(null)}>Cancel</Button>
+            <Button onClick={savePageAccess} disabled={savingPages}>{savingPages ? "Saving…" : "Save"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
