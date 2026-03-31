@@ -1242,6 +1242,27 @@ export type Database = {
         }
         Relationships: []
       }
+      engineer_page_access: {
+        Row: {
+          created_at: string
+          id: string
+          page_slug: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          page_slug: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          page_slug?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       fault_codes: {
         Row: {
           code: string
