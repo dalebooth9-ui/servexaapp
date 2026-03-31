@@ -8,6 +8,7 @@ import AppLayout from "@/components/AppLayout";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ReactNode, lazy, Suspense } from "react";
 
 // Eagerly loaded — used immediately on auth/landing
