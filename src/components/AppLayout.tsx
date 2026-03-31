@@ -3,6 +3,8 @@ import servexaLogo from "@/assets/servexa-logo.png";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useEngineerLocation } from "@/hooks/useEngineerLocation";
+import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
+import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
 import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -149,6 +151,7 @@ function SortableNavItem({
 export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
   useEngineerLocation();
+  const { hasAccess } = useEngineerPageAccess();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useReactState(true);
@@ -188,7 +191,22 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
-  const visibleNavItems = allOrderedItems.filter((item) => !item.adminOnly || userRole === "admin");
+  const visibleNavItems = allOrderedItems.filter((item) => {
+    if (item.adminOnly && userRole !== "admin") {
+      // For engineers, check per-user page access
+      if (userRole === "engineer") {
+        const slug = ROUTE_TO_SLUG[item.to];
+        return slug ? hasAccess(slug) : false;
+      }
+      return false;
+    }
+    // Non-adminOnly items: for engineers, still check page access
+    if (userRole === "engineer") {
+      const slug = ROUTE_TO_SLUG[item.to];
+      if (slug) return hasAccess(slug);
+    }
+    return true;
+  });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

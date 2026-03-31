@@ -8,6 +8,7 @@ import AppLayout from "@/components/AppLayout";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
+import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ReactNode, lazy, Suspense } from "react";
 
 // Eagerly loaded — used immediately on auth/landing
@@ -77,6 +78,18 @@ function AdminRoute({ children }: { children: ReactNode }) {
   return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
 }
 
+function AccessRoute({ children, pageSlug }: { children: ReactNode; pageSlug: string }) {
+  const { user, userRole, loading } = useAuth();
+  const { hasAccess, loading: accessLoading } = useEngineerPageAccess();
+  useOfflineSync();
+  if (loading || accessLoading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (userRole === "admin" || hasAccess(pageSlug)) {
+    return <AppLayout><Suspense fallback={<PageFallback />}>{children}</Suspense></AppLayout>;
+  }
+  return <Navigate to="/" replace />;
+}
+
 function AuthRoute() {
   const { user, loading } = useAuth();
   if (loading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
@@ -96,26 +109,26 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute />} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-              <Route path="/jobs" element={<ProtectedRoute><Jobs /></ProtectedRoute>} />
-              <Route path="/jobs/:id" element={<ProtectedRoute><JobDetail /></ProtectedRoute>} />
-              <Route path="/jobs/:jobId/rams" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
-              <Route path="/jobs/:jobId/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
-              <Route path="/rams/new" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
-              <Route path="/rams/:ramsId" element={<ProtectedRoute><RamsEditor /></ProtectedRoute>} />
-              <Route path="/planner" element={<ProtectedRoute><WeeklyPlanner /></ProtectedRoute>} />
-              <Route path="/leave" element={<ProtectedRoute><LeaveCalendar /></ProtectedRoute>} />
-              <Route path="/customers" element={<AdminRoute><Customers /></AdminRoute>} />
-              <Route path="/customers/:id" element={<AdminRoute><CustomerDetail /></AdminRoute>} />
+              <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
+              <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
+              <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
+              <Route path="/jobs/:jobId/rams/:ramsId" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
+              <Route path="/rams/new" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
+              <Route path="/rams/:ramsId" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
+              <Route path="/planner" element={<AccessRoute pageSlug="planner"><WeeklyPlanner /></AccessRoute>} />
+              <Route path="/leave" element={<AccessRoute pageSlug="leave"><LeaveCalendar /></AccessRoute>} />
+              <Route path="/customers" element={<AccessRoute pageSlug="customers"><Customers /></AccessRoute>} />
+              <Route path="/customers/:id" element={<AccessRoute pageSlug="customers"><CustomerDetail /></AccessRoute>} />
               <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
               <Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />
               <Route path="/invoices/:id" element={<AdminRoute><InvoiceDetail /></AdminRoute>} />
-              <Route path="/sites" element={<AdminRoute><Sites /></AdminRoute>} />
-              <Route path="/assets" element={<AdminRoute><Assets /></AdminRoute>} />
-              <Route path="/assets/:id" element={<AdminRoute><AssetDetail /></AdminRoute>} />
+              <Route path="/sites" element={<AccessRoute pageSlug="sites"><Sites /></AccessRoute>} />
+              <Route path="/assets" element={<AccessRoute pageSlug="assets"><Assets /></AccessRoute>} />
+              <Route path="/assets/:id" element={<AccessRoute pageSlug="assets"><AssetDetail /></AccessRoute>} />
               <Route path="/parts-library" element={<AdminRoute><PartsLibrary /></AdminRoute>} />
               <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
-              <Route path="/compliance" element={<AdminRoute><Compliance /></AdminRoute>} />
-              <Route path="/audits" element={<AdminRoute><Audits /></AdminRoute>} />
+              <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />
+              <Route path="/audits" element={<AccessRoute pageSlug="audits"><Audits /></AccessRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />

@@ -49,7 +49,7 @@ serve(async (req) => {
       });
     }
 
-    const { email, full_name, roles } = await req.json();
+    const { email, full_name, roles, allowed_pages } = await req.json();
 
     if (!email || !full_name) {
       return new Response(
@@ -86,6 +86,15 @@ serve(async (req) => {
         role,
       }));
       await supabaseAdmin.from("user_roles").insert(roleInserts);
+    }
+
+    // Assign page access for engineers
+    if (validRoles.includes("engineer") && Array.isArray(allowed_pages) && allowed_pages.length > 0) {
+      const pageInserts = allowed_pages.map((slug: string) => ({
+        user_id: userId,
+        page_slug: slug,
+      }));
+      await supabaseAdmin.from("engineer_page_access").insert(pageInserts);
     }
 
     return new Response(
