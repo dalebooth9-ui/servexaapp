@@ -151,6 +151,7 @@ function SortableNavItem({
 export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
   useEngineerLocation();
+  const { hasAccess } = useEngineerPageAccess();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopExpanded, setDesktopExpanded] = useReactState(true);
