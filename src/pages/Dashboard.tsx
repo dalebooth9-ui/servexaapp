@@ -9,5 +9,9 @@ export default function Dashboard() {
     return <EngineerDashboard />;
   }
 
+  if (userRole !== "admin") {
+    return null;
+  }
+
   return <AdminDashboard />;
 }
