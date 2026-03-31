@@ -496,17 +496,11 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         </Button>
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
-            const headers = ["Part / Material", "Quantity", "Unit Cost", "Sell Price", "Total Cost", "Profit", "Notes"];
+            const headers = ["Part / Material", "Quantity", "Notes"];
             const rows = parts.map(p => {
-              const sell = p.sell_price || 0;
-              const profit = (sell - p.unit_cost) * p.quantity;
               return [
                 `"${(p.name || "").replace(/"/g, '""')}"`,
                 p.quantity,
-                Number(p.unit_cost).toFixed(2),
-                Number(sell).toFixed(2),
-                Number(p.total_cost).toFixed(2),
-                profit.toFixed(2),
                 `"${(p.notes || "").replace(/"/g, '""')}"`,
               ].join(",");
             });
