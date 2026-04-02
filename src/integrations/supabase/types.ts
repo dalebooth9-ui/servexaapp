@@ -1048,6 +1048,82 @@ export type Database = {
           },
         ]
       }
+      defects: {
+        Row: {
+          asset_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          job_id: string | null
+          photo_url: string | null
+          reported_by: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          severity: string
+          site_id: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          asset_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_id?: string | null
+          photo_url?: string | null
+          reported_by: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          site_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          asset_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          job_id?: string | null
+          photo_url?: string | null
+          reported_by?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          severity?: string
+          site_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "defects_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       digital_twin_health: {
         Row: {
           ai_summary: string | null
@@ -2989,6 +3065,56 @@ export type Database = {
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      quote_approval_tokens: {
+        Row: {
+          created_at: string
+          created_by: string
+          customer_email: string | null
+          customer_name: string
+          expires_at: string
+          id: string
+          quote_id: string
+          responded_at: string | null
+          response_notes: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          customer_email?: string | null
+          customer_name?: string
+          expires_at?: string
+          id?: string
+          quote_id: string
+          responded_at?: string | null
+          response_notes?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          customer_email?: string | null
+          customer_name?: string
+          expires_at?: string
+          id?: string
+          quote_id?: string
+          responded_at?: string | null
+          response_notes?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quote_approval_tokens_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]

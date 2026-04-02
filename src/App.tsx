@@ -52,6 +52,8 @@ const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiabili
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
+const Defects = lazy(() => import("@/pages/Defects"));
+const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
 
 const queryClient = new QueryClient();
 
@@ -129,11 +131,13 @@ const App = () => (
               <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
               <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />
               <Route path="/audits" element={<AccessRoute pageSlug="audits"><Audits /></AccessRoute>} />
+              <Route path="/defects" element={<AccessRoute pageSlug="audits"><Defects /></AccessRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
               <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
               <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
+              <Route path="/quote-approval" element={<Suspense fallback={<PageFallback />}><QuoteApproval /></Suspense>} />
               <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
               <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />

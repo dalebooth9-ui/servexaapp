@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { ClipboardList, Search, Plus, CheckCircle2, XCircle, Clock, Send, ArrowRight, TrendingUp, Trash2 } from "lucide-react";
+import { ClipboardList, Search, Plus, CheckCircle2, XCircle, Clock, Send, ArrowRight, TrendingUp, Trash2, ExternalLink, Loader2 } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { format } from "date-fns";
 import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
@@ -20,7 +20,7 @@ const PIPELINE_STAGES = [
 ] as const;
 
 export default function Quotes() {
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,6 +63,33 @@ export default function Quotes() {
       setQuotes((prev) => prev.map((q) => q.id === id ? { ...q, status: newStatus } : q));
     }
     setUpdatingId(null);
+  };
+
+  const handleSendApprovalLink = async (quote: any) => {
+    if (!user) return;
+    setUpdatingId(quote.id);
+    try {
+      const { data: token, error } = await supabase.from("quote_approval_tokens").insert({
+        quote_id: quote.id,
+        customer_name: quote.customer_name || "",
+        customer_email: quote.customer_email || null,
+        created_by: user.id,
+      } as any).select("token").single();
+      if (error) throw error;
+
+      const approvalUrl = `${window.location.origin}/quote-approval?token=${(token as any).token}`;
+      await navigator.clipboard.writeText(approvalUrl);
+
+      // Also mark quote as sent
+      await supabase.from("invoices").update({ status: "sent" } as any).eq("id", quote.id);
+      setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, status: "sent" } : q));
+
+      toast.success("Approval link copied to clipboard!", { description: "Send this link to your customer." });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create approval link");
+    } finally {
+      setUpdatingId(null);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -252,18 +279,38 @@ export default function Quotes() {
                         {userRole === "admin" && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {key === "draft" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-6 text-[11px] px-2 gap-1"
-                                disabled={updatingId === q.id}
-                                onClick={() => navigate(`/invoices/${q.id}`)}
-                              >
-                                <Send className="h-3 w-3" /> Open & Send
-                              </Button>
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => navigate(`/invoices/${q.id}`)}
+                                >
+                                  <Send className="h-3 w-3" /> Open & Send
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleSendApprovalLink(q)}
+                                >
+                                  {updatingId === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />} Approval Link
+                                </Button>
+                              </>
                             )}
                             {key === "sent" && (
                               <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleSendApprovalLink(q)}
+                                >
+                                  {updatingId === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />} Copy Link
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="outline"
