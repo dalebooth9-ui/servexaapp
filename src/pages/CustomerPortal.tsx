@@ -68,19 +68,16 @@ export default function CustomerPortal() {
       // Fetch upcoming visits, defects, and compliance in parallel
       const jobIds = jobList.map(j => j.id);
 
-      const promises: Promise<any>[] = [];
-
-      // Visits
+      // Fetch visits
+      let visitData: Visit[] = [];
       if (jobIds.length > 0) {
-        promises.push(
-          supabase.from("job_visits").select("id, job_id, scheduled_date, status, notes")
-            .in("job_id", jobIds).in("status", ["upcoming", "unscheduled"])
-            .gte("scheduled_date", new Date().toISOString().split("T")[0])
-            .order("scheduled_date", { ascending: true }).limit(10)
-        );
-      } else {
-        promises.push(Promise.resolve({ data: [] }));
+        const { data } = await supabase.from("job_visits").select("id, job_id, scheduled_date, status, notes")
+          .in("job_id", jobIds).in("status", ["upcoming", "unscheduled"])
+          .gte("scheduled_date", new Date().toISOString().split("T")[0])
+          .order("scheduled_date", { ascending: true }).limit(10);
+        visitData = (data || []) as Visit[];
       }
+      setVisits(visitData);
 
       // Get customer sites for compliance/defects
       const { data: siteLinks } = await supabase.from("customer_sites").select("site_id").eq("customer_id", customerId);
@@ -88,29 +85,18 @@ export default function CustomerPortal() {
 
       // Defects
       if (siteIds.length > 0) {
-        promises.push(
-          supabase.from("defects").select("id, title, severity, status, created_at")
-            .in("site_id", siteIds).in("status", ["open", "in_progress"])
-            .order("created_at", { ascending: false }).limit(20)
-        );
-      } else {
-        promises.push(Promise.resolve({ data: [] }));
+        const { data } = await supabase.from("defects").select("id, title, severity, status, created_at")
+          .in("site_id", siteIds).in("status", ["open", "in_progress"])
+          .order("created_at", { ascending: false }).limit(20);
+        setDefects((data || []) as Defect[]);
       }
 
       // Compliance
       if (siteIds.length > 0) {
-        promises.push(
-          supabase.from("compliance_records").select("id, title, status, expiry_date, record_type")
-            .in("site_id", siteIds).order("expiry_date", { ascending: true }).limit(20)
-        );
-      } else {
-        promises.push(Promise.resolve({ data: [] }));
+        const { data } = await supabase.from("compliance_records").select("id, title, status, expiry_date, record_type")
+          .in("site_id", siteIds).order("expiry_date", { ascending: true }).limit(20);
+        setCompliance((data || []) as ComplianceRecord[]);
       }
-
-      const [visitRes, defectRes, complianceRes] = await Promise.all(promises);
-      setVisits((visitRes.data || []) as Visit[]);
-      setDefects((defectRes.data || []) as Defect[]);
-      setCompliance((complianceRes.data || []) as ComplianceRecord[]);
 
       setLoading(false);
     };
