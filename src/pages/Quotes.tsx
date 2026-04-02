@@ -305,6 +305,15 @@ export default function Quotes() {
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  className="h-6 text-[11px] px-2 gap-1 text-primary border-primary/30 hover:bg-primary/10"
+                                  disabled={updatingId === q.id}
+                                  onClick={() => handleSendApprovalLink(q)}
+                                >
+                                  {updatingId === q.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <ExternalLink className="h-3 w-3" />} Copy Link
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
                                   className="h-6 text-[11px] px-2 gap-1 text-accent border-accent/30 hover:bg-accent/10"
                                   disabled={updatingId === q.id}
                                   onClick={() => handleStatusChange(q.id, "accepted")}
