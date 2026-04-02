@@ -20,7 +20,7 @@ const PIPELINE_STAGES = [
 ] as const;
 
 export default function Quotes() {
-  const { userRole } = useAuth();
+  const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const [quotes, setQuotes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
