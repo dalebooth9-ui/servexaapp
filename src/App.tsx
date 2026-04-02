@@ -131,6 +131,7 @@ const App = () => (
               <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
               <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />
               <Route path="/audits" element={<AccessRoute pageSlug="audits"><Audits /></AccessRoute>} />
+              <Route path="/defects" element={<AccessRoute pageSlug="audits"><Defects /></AccessRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
