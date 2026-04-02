@@ -65,6 +65,33 @@ export default function Quotes() {
     setUpdatingId(null);
   };
 
+  const handleSendApprovalLink = async (quote: any) => {
+    if (!user) return;
+    setUpdatingId(quote.id);
+    try {
+      const { data: token, error } = await supabase.from("quote_approval_tokens").insert({
+        quote_id: quote.id,
+        customer_name: quote.customer_name || "",
+        customer_email: quote.customer_email || null,
+        created_by: user.id,
+      } as any).select("token").single();
+      if (error) throw error;
+
+      const approvalUrl = `${window.location.origin}/quote-approval?token=${(token as any).token}`;
+      await navigator.clipboard.writeText(approvalUrl);
+
+      // Also mark quote as sent
+      await supabase.from("invoices").update({ status: "sent" } as any).eq("id", quote.id);
+      setQuotes(prev => prev.map(q => q.id === quote.id ? { ...q, status: "sent" } : q));
+
+      toast.success("Approval link copied to clipboard!", { description: "Send this link to your customer." });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to create approval link");
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     await supabase.from("invoice_line_items").delete().eq("invoice_id", id);
     const { error } = await supabase.from("invoices").delete().eq("id", id);
