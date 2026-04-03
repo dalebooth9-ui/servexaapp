@@ -87,12 +87,13 @@ Deno.serve(async (req) => {
     // Send via Twilio
     const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
     const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-    const fromNumber = Deno.env.get("TWILIO_WHATSAPP_NUMBER")!;
+    const rawFrom = Deno.env.get("TWILIO_WHATSAPP_NUMBER")!;
+    const fromNumber = rawFrom.startsWith("whatsapp:") ? rawFrom : `whatsapp:${rawFrom}`;
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
     const twilioParams = new URLSearchParams({
-      From: `whatsapp:${fromNumber}`,
+      From: fromNumber,
       To: `whatsapp:${profile.whatsapp_number}`,
       Body: message.trim(),
     });
