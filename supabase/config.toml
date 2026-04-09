@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.generate-regions]
 verify_jwt = false
+
+[functions.ai-enrich-customer]
+verify_jwt = false
