@@ -15,7 +15,8 @@ async function lookupCompaniesHouse(companyName: string, apiKey: string) {
       headers: { Authorization: "Basic " + encoded },
     });
     if (!res.ok) {
-      console.error("Companies House search failed:", res.status);
+      const errBody = await res.text();
+      console.error("Companies House search failed:", res.status, errBody);
       return null;
     }
     const data = await res.json();
