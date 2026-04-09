@@ -220,16 +220,94 @@ Deno.serve(async (req) => {
     if (!customer.email && extracted.email) updates.email = extracted.email;
     if (!customer.phone && extracted.phone) updates.phone = extracted.phone;
 
+    // Web search fallback for fields still missing
+    const stillMissing: string[] = [];
+    if (!customer.address && !updates.address) stillMissing.push("address");
+    if (!customer.email && !updates.email) stillMissing.push("email");
+    if (!customer.phone && !updates.phone) stillMissing.push("phone");
+
+    let webNotes = "";
+    if (stillMissing.length > 0) {
+      try {
+        console.log(`Web search fallback for "${customer.name}", missing: ${stillMissing.join(", ")}`);
+        const webResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-3-flash-preview",
+            messages: [
+              {
+                role: "system",
+                content: `You are a business contact lookup assistant. Search for the company's public contact details. Only return real, verifiable information. If unsure, leave the field empty. UK-based companies are most likely. Return UK phone format.`
+              },
+              {
+                role: "user",
+                content: `Find the following for the company "${customer.name}": ${stillMissing.join(", ")}. This is a real UK business. Search the web for their official website, Companies House listing, or any public directory.`
+              }
+            ],
+            tools: [
+              {
+                type: "function",
+                function: {
+                  name: "web_contact_results",
+                  description: "Return the company's contact details found online",
+                  parameters: {
+                    type: "object",
+                    properties: {
+                      address: { type: "string", description: "Company registered or trading address found online" },
+                      email: { type: "string", description: "Company contact email found online" },
+                      phone: { type: "string", description: "Company phone number found online" },
+                      source: { type: "string", description: "Where the info was found (e.g. company website, Companies House)" }
+                    },
+                    additionalProperties: false
+                  }
+                }
+              }
+            ],
+            tool_choice: { type: "function", function: { name: "web_contact_results" } }
+          }),
+        });
+
+        if (webResponse.ok) {
+          const webData = await webResponse.json();
+          const webToolCall = webData.choices?.[0]?.message?.tool_calls?.[0];
+          if (webToolCall) {
+            const webExtracted = JSON.parse(webToolCall.function.arguments);
+            if (!updates.address && webExtracted.address && stillMissing.includes("address")) {
+              updates.address = webExtracted.address;
+            }
+            if (!updates.email && webExtracted.email && stillMissing.includes("email")) {
+              updates.email = webExtracted.email;
+            }
+            if (!updates.phone && webExtracted.phone && stillMissing.includes("phone")) {
+              updates.phone = webExtracted.phone;
+            }
+            if (webExtracted.source) {
+              webNotes = ` Web source: ${webExtracted.source}`;
+            }
+          }
+        }
+      } catch (webErr) {
+        console.error("Web search fallback error:", webErr);
+        // Non-fatal, continue with what we have
+      }
+    }
+
     if (Object.keys(updates).length > 0) {
       await supabase.from("customers").update(updates).eq("id", customer_id);
     }
+
+    const allNotes = [extracted.confidence_notes, webNotes].filter(Boolean).join(".");
 
     return new Response(JSON.stringify({
       message: Object.keys(updates).length > 0 
         ? `Updated ${Object.keys(updates).join(", ")}` 
         : "No new details could be extracted",
       updates,
-      confidence_notes: extracted.confidence_notes || null,
+      confidence_notes: allNotes || null,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
   } catch (err: any) {
