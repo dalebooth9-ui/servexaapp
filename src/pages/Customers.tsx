@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
 import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
+import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
 
 type Customer = {
