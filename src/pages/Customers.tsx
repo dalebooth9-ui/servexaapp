@@ -56,6 +56,7 @@ export default function Customers() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [bulkEnrichOpen, setBulkEnrichOpen] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
   const folderDropRef = useRef<CustomerFolderDropHandle | null>(null);
