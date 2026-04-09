@@ -339,11 +339,57 @@ export default function AdminDashboard() {
           <Button onClick={() => navigate("/customers")} variant="outline">
             <Building2 className="mr-2 h-4 w-4" /> New Customer
           </Button>
+          <Button onClick={() => navigate("/quotes")} variant="outline">
+            <ClipboardList className="mr-2 h-4 w-4" /> New Quote
+          </Button>
           <Button onClick={() => setFolderImportOpen(true)} variant="outline">
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
           <AiMaintenanceAlerts />
         </div>
+      )}
+
+      {isAdmin && todaysJobs.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Today's Scheduled Jobs
+              <Badge variant="secondary" className="ml-auto">{todaysJobs.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {todaysJobs.map((job) => (
+                <Link
+                  key={job.id}
+                  to={`/jobs/${job.id}`}
+                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-mono text-muted-foreground">{job.reference_number}</span>
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0",
+                        job.priority === "high" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                        job.priority === "medium" ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                        "bg-muted text-muted-foreground"
+                      )}>{job.priority}</Badge>
+                    </div>
+                    <p className="text-sm font-medium truncate">{job.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {job.customer}{job.engineer_name ? ` • ${job.engineer_name}` : ""}
+                    </p>
+                  </div>
+                  {job.address && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:block ml-2">
+                      <MapPin className="h-3 w-3 inline mr-0.5" />{job.address}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {isAdmin && expiringDocs.length > 0 && (
