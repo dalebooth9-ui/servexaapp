@@ -259,7 +259,10 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-      <h1 className="mb-6 text-2xl font-bold" data-tour="dashboard-heading">Dashboard</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold flex-1" data-tour="dashboard-heading">Dashboard</h1>
+        <OnboardingTour />
+      </div>
       <OnboardingChecklist />
 
       {isAdmin && (
