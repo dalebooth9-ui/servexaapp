@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { supabase } from "@/integrations/supabase/client";
@@ -72,7 +73,7 @@ export default function JobDetail() {
   const [filters, setFilters] = useState<Filters>({ type: "all", engineerId: "all", dateFrom: "", dateTo: "" });
   const [sites, setSites] = useState<{ id: string; name: string; address: string | null; postcode: string | null; latitude?: number | null; longitude?: number | null }[]>([]);
   const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
+  const [editForm, setEditForm, clearEditDraft] = useAutoSave(`job-edit-${id}`, { name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -575,12 +576,12 @@ export default function JobDetail() {
                     }
                     const { error } = await supabase.from("jobs").update(updatePayload).eq("id", id!);
                     if (error) { toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" }); }
-                    else { toast({ title: "Job details updated" }); setEditing(false); fetchData(); }
+                    else { toast({ title: "Job details updated" }); clearEditDraft(); setEditing(false); fetchData(); }
                     setEditSaving(false);
                   }}>
                     <Save className="mr-1.5 h-3.5 w-3.5" /> {editSaving ? "Saving..." : "Save"}
                   </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                  <Button size="sm" variant="ghost" onClick={() => { clearEditDraft(); setEditing(false); }}>
                     <X className="mr-1.5 h-3.5 w-3.5" /> Cancel
                   </Button>
                 </div>

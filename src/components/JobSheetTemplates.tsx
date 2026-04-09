@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
@@ -106,6 +107,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
+
+  // Auto-save template form data to localStorage
+  const templateFormKey = activeTemplate ? `template-form-${jobId}-${activeTemplate.id}${activeResponse ? `-${activeResponse.id}` : ""}` : null;
+
+  useEffect(() => {
+    if (!templateFormKey || Object.keys(formData).length === 0) return;
+    try {
+      localStorage.setItem(`autosave_${templateFormKey}`, JSON.stringify(formData));
+    } catch { /* storage full */ }
+  }, [formData, templateFormKey]);
+
+  const clearTemplateFormDraft = useCallback(() => {
+    if (templateFormKey) {
+      try { localStorage.removeItem(`autosave_${templateFormKey}`); } catch {}
+    }
+  }, [templateFormKey]);
 
   // Fetch all engineer + admin names once for dynamic dropdown population
   useEffect(() => {
@@ -443,23 +460,45 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
-    // Determine which field IDs are auto-populated from job data
     const autoPopulatedIds = new Set(Object.keys(prefilled));
+
+    // Check for auto-saved draft in localStorage
+    const draftKey = `autosave_template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
+    let localDraft: Record<string, any> | null = null;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) localDraft = JSON.parse(raw);
+    } catch {}
+
     if (existingResponse) {
       setActiveResponse(existingResponse);
       const saved = existingResponse.responses as Record<string, any>;
       const merged: Record<string, any> = { ...prefilled };
       Object.entries(saved).forEach(([key, val]) => {
-        // Always use fresh job data for auto-populated fields (never stale saved values)
         if (autoPopulatedIds.has(key)) return;
         if (val !== undefined && val !== null && val !== "") {
           merged[key] = val;
         }
       });
+      // Overlay any locally-saved progress (e.g. from lost connection)
+      if (localDraft) {
+        Object.entries(localDraft).forEach(([key, val]) => {
+          if (autoPopulatedIds.has(key)) return;
+          if (val !== undefined && val !== null && val !== "") {
+            merged[key] = val;
+          }
+        });
+      }
       setFormData(merged);
     } else {
       setActiveResponse(null);
-      setFormData(prefilled);
+      if (localDraft) {
+        // Restore from local draft, keeping fresh auto-populated values
+        const merged = { ...localDraft, ...prefilled };
+        setFormData(merged);
+      } else {
+        setFormData(prefilled);
+      }
     }
   };
 
@@ -499,6 +538,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         if (data) setActiveResponse(data as Response);
       }
       toast({ title: "Draft saved" });
+      clearTemplateFormDraft();
       fetchData();
     } catch {
       toast({ title: "Error saving draft", variant: "destructive" });
@@ -554,6 +594,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         toast({ title: "Report submitted" });
       }
 
+      clearTemplateFormDraft();
       setActiveTemplate(null);
       setActiveResponse(null);
       setFormData({});
