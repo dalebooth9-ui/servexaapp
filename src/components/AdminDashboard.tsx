@@ -327,7 +327,7 @@ export default function AdminDashboard() {
       </div>
 
       {isAdmin && (
-        <div className="mb-6 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-wrap gap-3" data-tour="quick-actions">
           <Button
             onClick={() => {
               navigate("/jobs");
