@@ -108,24 +108,24 @@ Deno.serve(async (req) => {
     if (customer.phone) contextParts.push(`Current phone: ${customer.phone}`);
 
     if (jobs && jobs.length > 0) {
-      contextParts.push("\nJob records:");
+      contextParts.push("\nJob records (these are WORK SITES the customer's engineers visit, NOT the customer's own office address):");
       for (const j of jobs) {
         const parts = [];
         if (j.name) parts.push(`Job: ${j.name}`);
-        if (j.address) parts.push(`Address: ${j.address}`);
+        if (j.address) parts.push(`Work site address: ${j.address}`);
         contextParts.push(`- ${parts.join(", ")}`);
       }
     }
 
     if (siteData.length > 0) {
-      contextParts.push("\nLinked sites:");
+      contextParts.push("\nLinked sites (these are WORK LOCATIONS the customer operates at, NOT the customer's registered/office address):");
       for (const s of siteData) {
         const parts = [];
         if (s.name) parts.push(`Site: ${s.name}`);
-        if (s.address) parts.push(`Address: ${s.address}`);
+        if (s.address) parts.push(`Work site address: ${s.address}`);
         if (s.postcode) parts.push(`Postcode: ${s.postcode}`);
-        if (s.contact_email) parts.push(`Email: ${s.contact_email}`);
-        if (s.contact_phone) parts.push(`Phone: ${s.contact_phone}`);
+        if (s.contact_email) parts.push(`Site contact email: ${s.contact_email}`);
+        if (s.contact_phone) parts.push(`Site contact phone: ${s.contact_phone}`);
         contextParts.push(`- ${parts.join(", ")}`);
       }
     }
@@ -153,11 +153,11 @@ Deno.serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a data extraction assistant for a field service management system. Extract contact information for a customer from their associated data. Only return information you are highly confident about. Do not guess or fabricate data. UK format for phone numbers.`
+            content: `You are a data extraction assistant for a field service management system. You must find the customer's OWN registered office or business address, email, and phone number. CRITICAL: Job addresses and linked site addresses are WORK LOCATIONS where the customer sends engineers — these are NOT the customer's own address. Never use a work site address as the customer's address. Site contact emails/phones may belong to the customer company and can be used. Only return information you are highly confident about. Do not guess or fabricate data. UK format for phone numbers.`
           },
           {
             role: "user",
-            content: `I need to find the missing contact details for this customer. Missing fields: ${missingFields.join(", ")}\n\nAvailable data:\n${contextParts.join("\n")}\n\nExtract the most likely ${missingFields.join(", ")} from the data above.`
+            content: `I need to find the missing contact details for this customer's HEAD OFFICE / REGISTERED ADDRESS. Missing fields: ${missingFields.join(", ")}\n\nAvailable data:\n${contextParts.join("\n")}\n\nIMPORTANT: Do NOT use work site addresses as the customer's own address. Only extract the customer's own office/registered address, their company email, and their company phone number.`
           }
         ],
         tools: [
