@@ -241,11 +241,11 @@ Deno.serve(async (req) => {
             messages: [
               {
                 role: "system",
-                content: `You are a business contact lookup assistant. Search for the company's public contact details. Only return real, verifiable information. If unsure, leave the field empty. UK-based companies are most likely. Return UK phone format.`
+                content: `You are a business contact lookup assistant. Search for the company's REGISTERED OFFICE or HEAD OFFICE address, NOT locations where they do work. Only return real, verifiable information from official sources. If unsure, leave the field empty. UK-based companies are most likely. Return UK phone format.`
               },
               {
                 role: "user",
-                content: `Find the following for the company "${customer.name}": ${stillMissing.join(", ")}. This is a real UK business. Search the web for their official website, Companies House listing, or any public directory.`
+                content: `Find the following for the company "${customer.name}": ${stillMissing.join(", ")}. This is a real UK business. Search for their REGISTERED OFFICE ADDRESS (from Companies House), their official website contact details, or public directories. Do NOT return addresses of sites/locations where they carry out work.`
               }
             ],
             tools: [
