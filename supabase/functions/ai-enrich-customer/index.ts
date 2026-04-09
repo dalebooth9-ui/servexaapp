@@ -6,66 +6,137 @@ const corsHeaders = {
 };
 
 // --- Companies House lookup ---
-function normaliseCompaniesHouseApiKey(rawKey: string) {
-  return rawKey
-    .trim()
-    .replace(/^Basic\s+/i, "")
-    .replace(/^['"]|['"]$/g, "")
-    .replace(/\s+/g, "");
+function normaliseCompaniesHouseSecret(rawKey: string) {
+  return rawKey.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function normaliseCompanyName(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/&/g, " AND ")
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .replace(/\b(THE|LIMITED|LTD|PLC|LLP|INC|CO|COMPANY)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreCompaniesHouseMatch(searchName: string, resultName: string, status?: string) {
+  const target = normaliseCompanyName(searchName);
+  const candidate = normaliseCompanyName(resultName);
+
+  let score = 0;
+  if (candidate === target) score += 100;
+  if (candidate.startsWith(target) || target.startsWith(candidate)) score += 40;
+
+  const targetTokens = new Set(target.split(" ").filter(Boolean));
+  const candidateTokens = new Set(candidate.split(" ").filter(Boolean));
+  for (const token of targetTokens) {
+    if (candidateTokens.has(token)) score += 10;
+  }
+
+  if (status === "active") score += 5;
+  return score;
+}
+
+function buildCompaniesHouseAuthCandidates(rawKey: string) {
+  const cleaned = normaliseCompaniesHouseSecret(rawKey);
+  if (!cleaned) return [] as Array<{ label: string; authorization: string }>;
+
+  const token = cleaned.replace(/^Basic\s+/i, "").replace(/\s+/g, "");
+  const candidates: Array<{ label: string; authorization: string }> = [];
+
+  if (/^Basic\s+/i.test(cleaned)) {
+    candidates.push({
+      label: "provided-basic-token",
+      authorization: `Basic ${token}`,
+    });
+  }
+
+  candidates.push({
+    label: "encoded-api-key",
+    authorization: `Basic ${btoa(`${token}:`)}`,
+  });
+
+  candidates.push({
+    label: "direct-basic-token",
+    authorization: `Basic ${token}`,
+  });
+
+  return candidates.filter(
+    (candidate, index, all) =>
+      all.findIndex((item) => item.authorization === candidate.authorization) === index
+  );
 }
 
 async function lookupCompaniesHouse(companyName: string, apiKey: string) {
   try {
-    const cleanApiKey = normaliseCompaniesHouseApiKey(apiKey);
-    if (!cleanApiKey) return null;
+    const authCandidates = buildCompaniesHouseAuthCandidates(apiKey);
+    if (authCandidates.length === 0) return null;
 
-    const url = `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=3`;
-    const encoded = btoa(`${cleanApiKey}:`);
-    const headers = {
-      Authorization: `Basic ${encoded}`,
-      Accept: "application/json",
-    };
+    const searchUrl = `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=5`;
 
-    console.log("Companies House key length:", cleanApiKey.length, "first4:", cleanApiKey.slice(0, 4), "last4:", cleanApiKey.slice(-4));
-    console.log("Encoded auth header:", encoded.slice(0, 10) + "...");
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error("Companies House search failed:", res.status, errBody);
-      return null;
+    for (const candidate of authCandidates) {
+      const headers = {
+        Authorization: candidate.authorization,
+        Accept: "application/json",
+      };
+
+      console.log("Companies House lookup attempt:", candidate.label);
+      const res = await fetch(searchUrl, { headers });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(`Companies House search failed [${candidate.label}]:`, res.status, errBody);
+        continue;
+      }
+
+      const data = await res.json();
+      const items = (data.items || []) as Array<any>;
+      if (items.length === 0) return null;
+
+      const match = [...items].sort((a, b) => {
+        const aScore = scoreCompaniesHouseMatch(companyName, a.title || a.company_name || "", a.company_status);
+        const bScore = scoreCompaniesHouseMatch(companyName, b.title || b.company_name || "", b.company_status);
+        return bScore - aScore;
+      })[0];
+
+      if (!match?.company_number) return null;
+
+      const profileRes = await fetch(
+        `https://api.company-information.service.gov.uk/company/${match.company_number}`,
+        { headers }
+      );
+
+      if (!profileRes.ok) {
+        const errBody = await profileRes.text();
+        console.error(`Companies House profile failed [${candidate.label}]:`, profileRes.status, errBody);
+        continue;
+      }
+
+      const profile = await profileRes.json();
+      const addr = profile.registered_office_address;
+      if (!addr) return null;
+
+      const parts = [
+        addr.care_of,
+        addr.premises,
+        addr.address_line_1,
+        addr.address_line_2,
+        addr.locality,
+        addr.region,
+        addr.postal_code,
+        addr.country,
+      ].filter(Boolean);
+
+      console.log("Companies House lookup succeeded:", candidate.label, profile.company_name, match.company_number);
+      return {
+        address: parts.join(", "),
+        companyName: profile.company_name,
+        companyNumber: match.company_number,
+      };
     }
-    const data = await res.json();
-    const items = data.items || [];
-    if (items.length === 0) return null;
 
-    // Pick the best match (first result)
-    const match = items[0];
-    const companyNumber = match.company_number;
-
-    // Fetch full company profile for registered address
-    const profileRes = await fetch(
-      `https://api.company-information.service.gov.uk/company/${companyNumber}`,
-      { headers }
-    );
-    if (!profileRes.ok) return null;
-    const profile = await profileRes.json();
-
-    const addr = profile.registered_office_address;
-    if (!addr) return null;
-
-    const parts = [
-      addr.address_line_1,
-      addr.address_line_2,
-      addr.locality,
-      addr.region,
-      addr.postal_code,
-    ].filter(Boolean);
-
-    return {
-      address: parts.join(", "),
-      companyName: profile.company_name,
-      companyNumber,
-    };
+    return null;
   } catch (err) {
     console.error("Companies House lookup error:", err);
     return null;
