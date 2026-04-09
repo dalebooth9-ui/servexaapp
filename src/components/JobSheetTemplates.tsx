@@ -538,6 +538,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         if (data) setActiveResponse(data as Response);
       }
       toast({ title: "Draft saved" });
+      clearTemplateFormDraft();
       fetchData();
     } catch {
       toast({ title: "Error saving draft", variant: "destructive" });
@@ -593,6 +594,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         toast({ title: "Report submitted" });
       }
 
+      clearTemplateFormDraft();
       setActiveTemplate(null);
       setActiveResponse(null);
       setFormData({});
