@@ -2,70 +2,172 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
 };
 
 // --- Companies House lookup ---
-function normaliseCompaniesHouseApiKey(rawKey: string) {
-  return rawKey
-    .trim()
-    .replace(/^Basic\s+/i, "")
-    .replace(/^['"]|['"]$/g, "")
-    .replace(/\s+/g, "");
+function normaliseCompaniesHouseSecret(rawKey: string) {
+  return rawKey.trim().replace(/^['"]|['"]$/g, "");
+}
+
+function normaliseCompanyName(value: string) {
+  return value
+    .toUpperCase()
+    .replace(/&/g, " AND ")
+    .replace(/[^A-Z0-9\s]/g, " ")
+    .replace(/\b(THE|LIMITED|LTD|PLC|LLP|INC|CO|COMPANY)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function scoreCompaniesHouseMatch(
+  searchName: string,
+  resultName: string,
+  status?: string,
+) {
+  const target = normaliseCompanyName(searchName);
+  const candidate = normaliseCompanyName(resultName);
+
+  let score = 0;
+  if (candidate === target) score += 100;
+  if (candidate.startsWith(target) || target.startsWith(candidate)) score += 40;
+
+  const targetTokens = new Set(target.split(" ").filter(Boolean));
+  const candidateTokens = new Set(candidate.split(" ").filter(Boolean));
+  for (const token of targetTokens) {
+    if (candidateTokens.has(token)) score += 10;
+  }
+
+  if (status === "active") score += 5;
+  return score;
+}
+
+function buildCompaniesHouseAuthCandidates(rawKey: string) {
+  const cleaned = normaliseCompaniesHouseSecret(rawKey);
+  if (!cleaned) return [] as Array<{ label: string; authorization: string }>;
+
+  const token = cleaned.replace(/^Basic\s+/i, "").replace(/\s+/g, "");
+  const candidates: Array<{ label: string; authorization: string }> = [];
+
+  if (/^Basic\s+/i.test(cleaned)) {
+    candidates.push({
+      label: "provided-basic-token",
+      authorization: `Basic ${token}`,
+    });
+  }
+
+  candidates.push({
+    label: "encoded-api-key",
+    authorization: `Basic ${btoa(`${token}:`)}`,
+  });
+
+  candidates.push({
+    label: "direct-basic-token",
+    authorization: `Basic ${token}`,
+  });
+
+  return candidates.filter(
+    (candidate, index, all) =>
+      all.findIndex((item) =>
+        item.authorization === candidate.authorization
+      ) === index,
+  );
 }
 
 async function lookupCompaniesHouse(companyName: string, apiKey: string) {
   try {
-    const cleanApiKey = normaliseCompaniesHouseApiKey(apiKey);
-    if (!cleanApiKey) return null;
+    const authCandidates = buildCompaniesHouseAuthCandidates(apiKey);
+    if (authCandidates.length === 0) return null;
 
-    const url = `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=3`;
-    const encoded = btoa(`${cleanApiKey}:`);
-    const headers = {
-      Authorization: `Basic ${encoded}`,
-      Accept: "application/json",
-    };
+    const searchUrl =
+      `https://api.company-information.service.gov.uk/search/companies?q=${
+        encodeURIComponent(companyName)
+      }&items_per_page=5`;
 
-    console.log("Companies House key length:", cleanApiKey.length, "first4:", cleanApiKey.slice(0, 4), "last4:", cleanApiKey.slice(-4));
-    console.log("Encoded auth header:", encoded.slice(0, 10) + "...");
-    const res = await fetch(url, { headers });
-    if (!res.ok) {
-      const errBody = await res.text();
-      console.error("Companies House search failed:", res.status, errBody);
-      return null;
+    for (const candidate of authCandidates) {
+      const headers = {
+        Authorization: candidate.authorization,
+        Accept: "application/json",
+      };
+
+      console.log("Companies House lookup attempt:", candidate.label);
+      const res = await fetch(searchUrl, { headers });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        console.error(
+          `Companies House search failed [${candidate.label}]:`,
+          res.status,
+          errBody,
+        );
+        continue;
+      }
+
+      const data = await res.json();
+      const items = (data.items || []) as Array<any>;
+      if (items.length === 0) return null;
+
+      const match = [...items].sort((a, b) => {
+        const aScore = scoreCompaniesHouseMatch(
+          companyName,
+          a.title || a.company_name || "",
+          a.company_status,
+        );
+        const bScore = scoreCompaniesHouseMatch(
+          companyName,
+          b.title || b.company_name || "",
+          b.company_status,
+        );
+        return bScore - aScore;
+      })[0];
+
+      if (!match?.company_number) return null;
+
+      const profileRes = await fetch(
+        `https://api.company-information.service.gov.uk/company/${match.company_number}`,
+        { headers },
+      );
+
+      if (!profileRes.ok) {
+        const errBody = await profileRes.text();
+        console.error(
+          `Companies House profile failed [${candidate.label}]:`,
+          profileRes.status,
+          errBody,
+        );
+        continue;
+      }
+
+      const profile = await profileRes.json();
+      const addr = profile.registered_office_address;
+      if (!addr) return null;
+
+      const parts = [
+        addr.care_of,
+        addr.premises,
+        addr.address_line_1,
+        addr.address_line_2,
+        addr.locality,
+        addr.region,
+        addr.postal_code,
+        addr.country,
+      ].filter(Boolean);
+
+      console.log(
+        "Companies House lookup succeeded:",
+        candidate.label,
+        profile.company_name,
+        match.company_number,
+      );
+      return {
+        address: parts.join(", "),
+        companyName: profile.company_name,
+        companyNumber: match.company_number,
+      };
     }
-    const data = await res.json();
-    const items = data.items || [];
-    if (items.length === 0) return null;
 
-    // Pick the best match (first result)
-    const match = items[0];
-    const companyNumber = match.company_number;
-
-    // Fetch full company profile for registered address
-    const profileRes = await fetch(
-      `https://api.company-information.service.gov.uk/company/${companyNumber}`,
-      { headers }
-    );
-    if (!profileRes.ok) return null;
-    const profile = await profileRes.json();
-
-    const addr = profile.registered_office_address;
-    if (!addr) return null;
-
-    const parts = [
-      addr.address_line_1,
-      addr.address_line_2,
-      addr.locality,
-      addr.region,
-      addr.postal_code,
-    ].filter(Boolean);
-
-    return {
-      address: parts.join(", "),
-      companyName: profile.company_name,
-      companyNumber,
-    };
+    return null;
   } catch (err) {
     console.error("Companies House lookup error:", err);
     return null;
@@ -76,50 +178,71 @@ async function lookupCompaniesHouse(companyName: string, apiKey: string) {
 async function aiWebSearch(
   companyName: string,
   missingFields: string[],
-  apiKey: string
+  apiKey: string,
 ) {
   try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a business contact lookup assistant. Only return real, verifiable information from official or high-confidence public sources. Prefer the company's registered or head office address from Companies House or the official company website. Never return a customer work site or serviced location as the company address. If unsure, leave the field empty. Use UK phone format.",
-          },
-          {
-            role: "user",
-            content: `Find the following for the UK company "${companyName}": ${missingFields.join(", ")}. Search Companies House, the official website, and trusted public directories.`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "web_contact_results",
-              description: "Return company contact details found online",
-              parameters: {
-                type: "object",
-                properties: {
-                  address: { type: "string", description: "Company registered or head office address" },
-                  email: { type: "string", description: "Company contact email" },
-                  phone: { type: "string", description: "Company phone number" },
-                  source: { type: "string", description: "Where info was found" },
+    const res = await fetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a business contact lookup assistant. Only return real, verifiable information from official or high-confidence public sources. Prefer the company's registered or head office address from Companies House or the official company website. Never return a customer work site or serviced location as the company address. If unsure, leave the field empty. Use UK phone format.",
+            },
+            {
+              role: "user",
+              content:
+                `Find the following for the UK company "${companyName}": ${
+                  missingFields.join(", ")
+                }. Search Companies House, the official website, and trusted public directories.`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: "web_contact_results",
+                description: "Return company contact details found online",
+                parameters: {
+                  type: "object",
+                  properties: {
+                    address: {
+                      type: "string",
+                      description: "Company registered or head office address",
+                    },
+                    email: {
+                      type: "string",
+                      description: "Company contact email",
+                    },
+                    phone: {
+                      type: "string",
+                      description: "Company phone number",
+                    },
+                    source: {
+                      type: "string",
+                      description: "Where info was found",
+                    },
+                  },
+                  additionalProperties: false,
                 },
-                additionalProperties: false,
               },
             },
+          ],
+          tool_choice: {
+            type: "function",
+            function: { name: "web_contact_results" },
           },
-        ],
-        tool_choice: { type: "function", function: { name: "web_contact_results" } },
-      }),
-    });
+        }),
+      },
+    );
 
     if (!res.ok) return null;
     const data = await res.json();
@@ -136,52 +259,62 @@ async function aiExtractFromInternalData(
   customer: any,
   missingFields: string[],
   contextParts: string[],
-  apiKey: string
+  apiKey: string,
 ) {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a data extraction assistant. Extract the customer's OWN email and phone from internal records. Job/site addresses are WORK LOCATIONS, not the customer's address. Site contact emails/phones may belong to the customer. Only return high-confidence data. UK phone format.",
-        },
-        {
-          role: "user",
-          content: `Find missing fields (${missingFields.join(", ")}) for customer "${customer.name}".\n\n${contextParts.join("\n")}`,
-        },
-      ],
-      tools: [
-        {
-          type: "function",
-          function: {
-            name: "update_customer_contact",
-            description: "Update missing customer contact details",
-            parameters: {
-              type: "object",
-              properties: {
-                email: { type: "string" },
-                phone: { type: "string" },
-                confidence_notes: { type: "string" },
+  const res = await fetch(
+    "https://ai.gateway.lovable.dev/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a data extraction assistant. Extract the customer's OWN email and phone from internal records. Job/site addresses are WORK LOCATIONS, not the customer's address. Site contact emails/phones may belong to the customer. Only return high-confidence data. UK phone format.",
+          },
+          {
+            role: "user",
+            content: `Find missing fields (${
+              missingFields.join(", ")
+            }) for customer "${customer.name}".\n\n${contextParts.join("\n")}`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "update_customer_contact",
+              description: "Update missing customer contact details",
+              parameters: {
+                type: "object",
+                properties: {
+                  email: { type: "string" },
+                  phone: { type: "string" },
+                  confidence_notes: { type: "string" },
+                },
+                additionalProperties: false,
               },
-              additionalProperties: false,
             },
           },
+        ],
+        tool_choice: {
+          type: "function",
+          function: { name: "update_customer_contact" },
         },
-      ],
-      tool_choice: { type: "function", function: { name: "update_customer_contact" } },
-    }),
-  });
+      }),
+    },
+  );
 
   if (!res.ok) {
     if (res.status === 429) throw { status: 429, message: "AI rate limited" };
-    if (res.status === 402) throw { status: 402, message: "AI credits exhausted" };
+    if (res.status === 402) {
+      throw { status: 402, message: "AI credits exhausted" };
+    }
     throw { status: 500, message: "AI service error" };
   }
 
@@ -193,7 +326,9 @@ async function aiExtractFromInternalData(
 
 // --- Main handler ---
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
   try {
     const authHeader = req.headers.get("Authorization");
@@ -206,14 +341,14 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
     // Verify caller
     const anonClient = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } }
+      { global: { headers: { Authorization: authHeader } } },
     );
     const {
       data: { user },
@@ -253,8 +388,11 @@ Deno.serve(async (req) => {
 
     if (missingFields.length === 0) {
       return new Response(
-        JSON.stringify({ message: "All contact fields are already populated", updates: {} }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify({
+          message: "All contact fields are already populated",
+          updates: {},
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -277,14 +415,16 @@ Deno.serve(async (req) => {
         const chResult = await lookupCompaniesHouse(customer.name, chKey);
         if (chResult?.address) {
           updates.address = chResult.address;
-          notes.push(`Address from Companies House (${chResult.companyNumber})`);
+          notes.push(
+            `Address from Companies House (${chResult.companyNumber})`,
+          );
         }
       }
     }
 
     // Step 2: Internal data extraction for email/phone
     const stillMissing = missingFields.filter(
-      (f) => f === "address" ? !updates.address : true
+      (f) => f === "address" ? !updates.address : true,
     ).filter((f) => f !== "address"); // Only email/phone from internal data
 
     if (stillMissing.length > 0) {
@@ -316,7 +456,7 @@ Deno.serve(async (req) => {
           customer,
           stillMissing,
           contextParts,
-          LOVABLE_API_KEY
+          LOVABLE_API_KEY,
         );
         if (extracted) {
           if (!customer.email && extracted.email) {
@@ -345,17 +485,28 @@ Deno.serve(async (req) => {
     if (!customer.phone && !updates.phone) finalMissing.push("phone");
 
     if (finalMissing.length > 0) {
-      const webResult = await aiWebSearch(customer.name, finalMissing, LOVABLE_API_KEY);
+      const webResult = await aiWebSearch(
+        customer.name,
+        finalMissing,
+        LOVABLE_API_KEY,
+      );
       if (webResult) {
-        if (!updates.address && webResult.address && finalMissing.includes("address")) {
+        if (
+          !updates.address && webResult.address &&
+          finalMissing.includes("address")
+        ) {
           updates.address = webResult.address;
           notes.push(`Address from web (${webResult.source || "AI search"})`);
         }
-        if (!updates.email && webResult.email && finalMissing.includes("email")) {
+        if (
+          !updates.email && webResult.email && finalMissing.includes("email")
+        ) {
           updates.email = webResult.email;
           notes.push(`Email from web (${webResult.source || "AI search"})`);
         }
-        if (!updates.phone && webResult.phone && finalMissing.includes("phone")) {
+        if (
+          !updates.phone && webResult.phone && finalMissing.includes("phone")
+        ) {
           updates.phone = webResult.phone;
           notes.push(`Phone from web (${webResult.source || "AI search"})`);
         }
@@ -368,14 +519,13 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        message:
-          Object.keys(updates).length > 0
-            ? `Updated ${Object.keys(updates).join(", ")}`
-            : "No new details could be extracted",
+        message: Object.keys(updates).length > 0
+          ? `Updated ${Object.keys(updates).join(", ")}`
+          : "No new details could be extracted",
         updates,
         confidence_notes: notes.join(". ") || null,
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
     console.error("ai-enrich-customer error:", err);
