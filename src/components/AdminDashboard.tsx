@@ -112,6 +112,31 @@ export default function AdminDashboard() {
 
     fetchStats();
 
+    // Fetch today's scheduled jobs
+    const fetchTodaysJobs = async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: schedules } = await supabase
+        .from("job_schedule")
+        .select("job_id, engineer_id")
+        .eq("schedule_date", today);
+      if (!schedules || schedules.length === 0) { setTodaysJobs([]); return; }
+      const jobIds = [...new Set(schedules.map((s) => s.job_id))];
+      const engIds = [...new Set(schedules.map((s) => s.engineer_id))];
+      const [jobsRes, profilesRes] = await Promise.all([
+        supabase.from("jobs").select("id, name, reference_number, customer, address, priority").in("id", jobIds),
+        supabase.from("profiles").select("user_id, full_name").in("user_id", engIds),
+      ]);
+      const nameMap: Record<string, string> = {};
+      (profilesRes.data || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
+      const scheduleMap: Record<string, string> = {};
+      schedules.forEach((s) => { scheduleMap[s.job_id] = s.engineer_id; });
+      setTodaysJobs((jobsRes.data || []).map((j) => ({
+        ...j,
+        engineer_name: nameMap[scheduleMap[j.id]] || null,
+      })));
+    };
+    fetchTodaysJobs();
+
     // Fetch expiring/expired engineer certification documents
     const fetchExpiringDocs = async () => {
       const thirtyDaysFromNow = new Date();
