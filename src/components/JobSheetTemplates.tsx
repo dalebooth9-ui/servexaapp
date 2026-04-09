@@ -108,6 +108,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
 
+  // Auto-save template form data to localStorage
+  const templateFormKey = activeTemplate ? `template-form-${jobId}-${activeTemplate.id}${activeResponse ? `-${activeResponse.id}` : ""}` : null;
+
+  useEffect(() => {
+    if (!templateFormKey || Object.keys(formData).length === 0) return;
+    try {
+      localStorage.setItem(`autosave_${templateFormKey}`, JSON.stringify(formData));
+    } catch { /* storage full */ }
+  }, [formData, templateFormKey]);
+
+  const clearTemplateFormDraft = useCallback(() => {
+    if (templateFormKey) {
+      try { localStorage.removeItem(`autosave_${templateFormKey}`); } catch {}
+    }
+  }, [templateFormKey]);
+
   // Fetch all engineer + admin names once for dynamic dropdown population
   useEffect(() => {
     const fetchEngineers = async () => {
