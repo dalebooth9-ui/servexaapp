@@ -9,8 +9,10 @@ const corsHeaders = {
 async function lookupCompaniesHouse(companyName: string, apiKey: string) {
   try {
     const url = `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=3`;
+    const encoded = btoa(apiKey + ":");
+    console.log("CH auth header length:", encoded.length, "key starts with:", apiKey.substring(0, 4));
     const res = await fetch(url, {
-      headers: { Authorization: "Basic " + btoa(apiKey + ":") },
+      headers: { Authorization: "Basic " + encoded },
     });
     if (!res.ok) {
       console.error("Companies House search failed:", res.status);
