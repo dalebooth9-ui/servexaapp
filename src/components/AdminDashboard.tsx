@@ -12,6 +12,7 @@ import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import OnboardingTour from "@/components/OnboardingTour";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
