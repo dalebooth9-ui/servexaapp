@@ -11,7 +11,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
-import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon, ClipboardList } from "lucide-react";
+import { Building2, Mail, Phone, MapPin, Upload, Loader2, FileText, Image, Trash2, Download, ArrowLeft, ArrowUpDown, SortAsc, RefreshCw, Plus, FolderInput, Globe, Building, Layers, ExternalLink, X, ImageIcon, ClipboardList, Sparkles } from "lucide-react";
 import RichTextEditor from "@/components/RichTextEditor";
 import DOMPurify from "dompurify";
 import { jsPDF } from "jspdf";
@@ -134,6 +134,35 @@ export default function CustomerDetail() {
   const [attachingDocId, setAttachingDocId] = useState<string | null>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [enriching, setEnriching] = useState(false);
+
+  const handleAiEnrich = async () => {
+    if (!id || !customer) return;
+    if (customer.email && customer.phone && customer.address) {
+      toast({ title: "All fields populated", description: "Address, email and phone are already filled in." });
+      return;
+    }
+    setEnriching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("ai-enrich-customer", {
+        body: { customer_id: id },
+      });
+      if (error) throw error;
+      if (data?.updates && Object.keys(data.updates).length > 0) {
+        setCustomer(prev => prev ? { ...prev, ...data.updates } : prev);
+        toast({
+          title: "✦ AI Updated",
+          description: `${data.message}${data.confidence_notes ? `. ${data.confidence_notes}` : ""}`,
+        });
+      } else {
+        toast({ title: "No new details found", description: data?.message || "AI couldn't extract additional contact info from available data." });
+      }
+    } catch (err: any) {
+      toast({ title: "AI enrichment failed", description: err.message, variant: "destructive" });
+    } finally {
+      setEnriching(false);
+    }
+  };
 
   const handleLogoUpload = async (file: File) => {
     if (!id || !user) return;
