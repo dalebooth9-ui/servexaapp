@@ -12,6 +12,7 @@ import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from "recharts";
 import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
+import OnboardingTour from "@/components/OnboardingTour";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -258,7 +259,10 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-      <h1 className="mb-6 text-2xl font-bold">Dashboard</h1>
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="text-2xl font-bold flex-1" data-tour="dashboard-heading">Dashboard</h1>
+        <OnboardingTour />
+      </div>
       <OnboardingChecklist />
 
       {isAdmin && (
@@ -326,7 +330,7 @@ export default function AdminDashboard() {
       </div>
 
       {isAdmin && (
-        <div className="mb-6 flex flex-wrap gap-3">
+        <div className="mb-6 flex flex-wrap gap-3" data-tour="quick-actions">
           <Button
             onClick={() => {
               navigate("/jobs");

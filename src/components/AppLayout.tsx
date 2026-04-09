@@ -100,6 +100,7 @@ function SortableNavItem({
           to={item.to}
           onClick={onClick}
           title={item.label}
+          data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
           className={cn(
             "flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
             isActive
@@ -124,6 +125,7 @@ function SortableNavItem({
       <Link
         to={item.to}
         onClick={onClick}
+        data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
         className={cn(
           "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
           isActive
@@ -433,7 +435,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">{children}</main>
       </div>
       {userRole === "admin" && <CommandPalette />}
-      {userRole === "admin" && <AiHelpWizard />}
+      {userRole === "admin" && <div data-tour="ai-help"><AiHelpWizard /></div>}
       <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>);
 
