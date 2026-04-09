@@ -820,6 +820,18 @@ export default function CustomerDetail() {
             <div className="flex items-center gap-3 mb-2">
               <Building2 className="h-6 w-6 text-primary flex-shrink-0" />
               <h1 className="text-2xl font-bold truncate">{customer.name}</h1>
+              {isAdmin && (!customer.email || !customer.phone || !customer.address) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAiEnrich}
+                  disabled={enriching}
+                  className="ml-auto shrink-0"
+                >
+                  {enriching ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-1.5" />}
+                  {enriching ? "Scanning..." : "✦ AI Auto-Fill"}
+                </Button>
+              )}
             </div>
             <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
               {customer.email && (
