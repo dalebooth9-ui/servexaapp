@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2, AlertTriangle, UserCheck } from "lucide-react";
+import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2, AlertTriangle, UserCheck, CalendarDays, ClipboardList } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
@@ -28,6 +28,7 @@ export default function AdminDashboard() {
   const [submissionListItems, setSubmissionListItems] = useState<any[]>([]);
   const [submissionListLoading, setSubmissionListLoading] = useState(false);
   const [submissionThumbUrls, setSubmissionThumbUrls] = useState<Record<string, string>>({});
+  const [todaysJobs, setTodaysJobs] = useState<{ id: string; name: string; reference_number: string; customer: string | null; address: string | null; priority: string; engineer_name: string | null }[]>([]);
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
@@ -110,6 +111,31 @@ export default function AdminDashboard() {
     };
 
     fetchStats();
+
+    // Fetch today's scheduled jobs
+    const fetchTodaysJobs = async () => {
+      const today = new Date().toISOString().split("T")[0];
+      const { data: schedules } = await supabase
+        .from("job_schedule")
+        .select("job_id, engineer_id")
+        .eq("schedule_date", today);
+      if (!schedules || schedules.length === 0) { setTodaysJobs([]); return; }
+      const jobIds = [...new Set(schedules.map((s) => s.job_id))];
+      const engIds = [...new Set(schedules.map((s) => s.engineer_id))];
+      const [jobsRes, profilesRes] = await Promise.all([
+        supabase.from("jobs").select("id, name, reference_number, customer, address, priority").in("id", jobIds),
+        supabase.from("profiles").select("user_id, full_name").in("user_id", engIds),
+      ]);
+      const nameMap: Record<string, string> = {};
+      (profilesRes.data || []).forEach((p) => { nameMap[p.user_id] = p.full_name; });
+      const scheduleMap: Record<string, string> = {};
+      schedules.forEach((s) => { scheduleMap[s.job_id] = s.engineer_id; });
+      setTodaysJobs((jobsRes.data || []).map((j) => ({
+        ...j,
+        engineer_name: nameMap[scheduleMap[j.id]] || null,
+      })));
+    };
+    fetchTodaysJobs();
 
     // Fetch expiring/expired engineer certification documents
     const fetchExpiringDocs = async () => {
@@ -313,11 +339,57 @@ export default function AdminDashboard() {
           <Button onClick={() => navigate("/customers")} variant="outline">
             <Building2 className="mr-2 h-4 w-4" /> New Customer
           </Button>
+          <Button onClick={() => navigate("/quotes")} variant="outline">
+            <ClipboardList className="mr-2 h-4 w-4" /> New Quote
+          </Button>
           <Button onClick={() => setFolderImportOpen(true)} variant="outline">
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
           <AiMaintenanceAlerts />
         </div>
+      )}
+
+      {isAdmin && todaysJobs.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              Today's Scheduled Jobs
+              <Badge variant="secondary" className="ml-auto">{todaysJobs.length}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {todaysJobs.map((job) => (
+                <Link
+                  key={job.id}
+                  to={`/jobs/${job.id}`}
+                  className="flex items-center justify-between rounded-lg border p-3 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <span className="text-xs font-mono text-muted-foreground">{job.reference_number}</span>
+                      <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0",
+                        job.priority === "high" ? "bg-destructive/10 text-destructive border-destructive/20" :
+                        job.priority === "medium" ? "bg-amber-500/10 text-amber-600 border-amber-500/20" :
+                        "bg-muted text-muted-foreground"
+                      )}>{job.priority}</Badge>
+                    </div>
+                    <p className="text-sm font-medium truncate">{job.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {job.customer}{job.engineer_name ? ` • ${job.engineer_name}` : ""}
+                    </p>
+                  </div>
+                  {job.address && (
+                    <span className="text-xs text-muted-foreground truncate max-w-[200px] hidden sm:block ml-2">
+                      <MapPin className="h-3 w-3 inline mr-0.5" />{job.address}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {isAdmin && expiringDocs.length > 0 && (
