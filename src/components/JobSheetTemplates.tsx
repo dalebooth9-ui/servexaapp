@@ -460,23 +460,45 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
-    // Determine which field IDs are auto-populated from job data
     const autoPopulatedIds = new Set(Object.keys(prefilled));
+
+    // Check for auto-saved draft in localStorage
+    const draftKey = `autosave_template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
+    let localDraft: Record<string, any> | null = null;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) localDraft = JSON.parse(raw);
+    } catch {}
+
     if (existingResponse) {
       setActiveResponse(existingResponse);
       const saved = existingResponse.responses as Record<string, any>;
       const merged: Record<string, any> = { ...prefilled };
       Object.entries(saved).forEach(([key, val]) => {
-        // Always use fresh job data for auto-populated fields (never stale saved values)
         if (autoPopulatedIds.has(key)) return;
         if (val !== undefined && val !== null && val !== "") {
           merged[key] = val;
         }
       });
+      // Overlay any locally-saved progress (e.g. from lost connection)
+      if (localDraft) {
+        Object.entries(localDraft).forEach(([key, val]) => {
+          if (autoPopulatedIds.has(key)) return;
+          if (val !== undefined && val !== null && val !== "") {
+            merged[key] = val;
+          }
+        });
+      }
       setFormData(merged);
     } else {
       setActiveResponse(null);
-      setFormData(prefilled);
+      if (localDraft) {
+        // Restore from local draft, keeping fresh auto-populated values
+        const merged = { ...localDraft, ...prefilled };
+        setFormData(merged);
+      } else {
+        setFormData(prefilled);
+      }
     }
   };
 
