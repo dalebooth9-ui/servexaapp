@@ -125,6 +125,7 @@ function SortableNavItem({
       <Link
         to={item.to}
         onClick={onClick}
+        data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
         className={cn(
           "flex flex-1 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-150",
           isActive
