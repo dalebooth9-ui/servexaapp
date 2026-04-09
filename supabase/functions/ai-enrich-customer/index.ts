@@ -26,7 +26,8 @@ async function lookupCompaniesHouse(companyName: string, apiKey: string) {
       Accept: "application/json",
     };
 
-    console.log("Companies House key length:", cleanApiKey.length);
+    console.log("Companies House key length:", cleanApiKey.length, "first4:", cleanApiKey.slice(0, 4), "last4:", cleanApiKey.slice(-4));
+    console.log("Encoded auth header:", encoded.slice(0, 10) + "...");
     const res = await fetch(url, { headers });
     if (!res.ok) {
       const errBody = await res.text();
