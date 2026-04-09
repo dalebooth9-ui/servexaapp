@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload, X, FileText, Download, ImageIcon } from "lucide-react";
+import { Plus, Search, Pencil, Trash2, Building2, ArrowLeft, FolderOpen, Upload, X, FileText, Download, ImageIcon, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/CustomerFolderDrop";
@@ -338,6 +338,9 @@ export default function Customers() {
             <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
               <Upload className="mr-2 h-4 w-4" /> Bulk Import
             </Button>
+            <Button variant="outline" onClick={() => setBulkEnrichOpen(true)}>
+              <Sparkles className="mr-2 h-4 w-4" /> AI Auto-Fill All
+            </Button>
             <Button onClick={openCreate}>
               <Plus className="mr-2 h-4 w-4" /> Add Customer
             </Button>
@@ -578,6 +581,13 @@ export default function Customers() {
         open={bulkImportOpen}
         onOpenChange={setBulkImportOpen}
         onImported={fetchCustomers}
+      />
+
+      <BulkAiEnrichDialog
+        open={bulkEnrichOpen}
+        onOpenChange={setBulkEnrichOpen}
+        customers={customers}
+        onComplete={fetchCustomers}
       />
     </div>
   );
