@@ -5,13 +5,184 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// --- Companies House lookup ---
+async function lookupCompaniesHouse(companyName: string, apiKey: string) {
+  try {
+    const url = `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=3`;
+    const res = await fetch(url, {
+      headers: { Authorization: "Basic " + btoa(apiKey + ":") },
+    });
+    if (!res.ok) {
+      console.error("Companies House search failed:", res.status);
+      return null;
+    }
+    const data = await res.json();
+    const items = data.items || [];
+    if (items.length === 0) return null;
+
+    // Pick the best match (first result)
+    const match = items[0];
+    const companyNumber = match.company_number;
+
+    // Fetch full company profile for registered address
+    const profileRes = await fetch(
+      `https://api.company-information.service.gov.uk/company/${companyNumber}`,
+      { headers: { Authorization: "Basic " + btoa(apiKey + ":") } }
+    );
+    if (!profileRes.ok) return null;
+    const profile = await profileRes.json();
+
+    const addr = profile.registered_office_address;
+    if (!addr) return null;
+
+    const parts = [
+      addr.address_line_1,
+      addr.address_line_2,
+      addr.locality,
+      addr.region,
+      addr.postal_code,
+    ].filter(Boolean);
+
+    return {
+      address: parts.join(", "),
+      companyName: profile.company_name,
+      companyNumber,
+    };
+  } catch (err) {
+    console.error("Companies House lookup error:", err);
+    return null;
+  }
+}
+
+// --- AI web search for email/phone ---
+async function aiWebSearch(
+  companyName: string,
+  missingFields: string[],
+  apiKey: string
+) {
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-3-flash-preview",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a business contact lookup assistant. Only return real, verifiable information. If unsure, leave the field empty. UK phone format.",
+          },
+          {
+            role: "user",
+            content: `Find the following for the UK company "${companyName}": ${missingFields.join(", ")}. Search their official website and public directories.`,
+          },
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "web_contact_results",
+              description: "Return company contact details found online",
+              parameters: {
+                type: "object",
+                properties: {
+                  email: { type: "string", description: "Company contact email" },
+                  phone: { type: "string", description: "Company phone number" },
+                  source: { type: "string", description: "Where info was found" },
+                },
+                additionalProperties: false,
+              },
+            },
+          },
+        ],
+        tool_choice: { type: "function", function: { name: "web_contact_results" } },
+      }),
+    });
+
+    if (!res.ok) return null;
+    const data = await res.json();
+    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+    if (!toolCall) return null;
+    return JSON.parse(toolCall.function.arguments);
+  } catch {
+    return null;
+  }
+}
+
+// --- AI extraction from internal data ---
+async function aiExtractFromInternalData(
+  customer: any,
+  missingFields: string[],
+  contextParts: string[],
+  apiKey: string
+) {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are a data extraction assistant. Extract the customer's OWN email and phone from internal records. Job/site addresses are WORK LOCATIONS, not the customer's address. Site contact emails/phones may belong to the customer. Only return high-confidence data. UK phone format.",
+        },
+        {
+          role: "user",
+          content: `Find missing fields (${missingFields.join(", ")}) for customer "${customer.name}".\n\n${contextParts.join("\n")}`,
+        },
+      ],
+      tools: [
+        {
+          type: "function",
+          function: {
+            name: "update_customer_contact",
+            description: "Update missing customer contact details",
+            parameters: {
+              type: "object",
+              properties: {
+                email: { type: "string" },
+                phone: { type: "string" },
+                confidence_notes: { type: "string" },
+              },
+              additionalProperties: false,
+            },
+          },
+        },
+      ],
+      tool_choice: { type: "function", function: { name: "update_customer_contact" } },
+    }),
+  });
+
+  if (!res.ok) {
+    if (res.status === 429) throw { status: 429, message: "AI rate limited" };
+    if (res.status === 402) throw { status: 402, message: "AI credits exhausted" };
+    throw { status: 500, message: "AI service error" };
+  }
+
+  const data = await res.json();
+  const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
+  if (!toolCall) return null;
+  return JSON.parse(toolCall.function.arguments);
+}
+
+// --- Main handler ---
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Missing authorization" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Missing authorization" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
     }
 
     const supabase = createClient(
@@ -25,274 +196,150 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_ANON_KEY")!,
       { global: { headers: { Authorization: authHeader } } }
     );
-    const { data: { user }, error: authErr } = await anonClient.auth.getUser();
+    const {
+      data: { user },
+      error: authErr,
+    } = await anonClient.auth.getUser();
     if (authErr || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: corsHeaders,
+      });
     }
 
     const { customer_id } = await req.json();
     if (!customer_id) {
-      return new Response(JSON.stringify({ error: "Missing customer_id" }), { status: 400, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Missing customer_id" }), {
+        status: 400,
+        headers: corsHeaders,
+      });
     }
 
-    // Fetch customer
-    const { data: customer } = await supabase.from("customers").select("*").eq("id", customer_id).single();
+    const { data: customer } = await supabase
+      .from("customers")
+      .select("*")
+      .eq("id", customer_id)
+      .single();
     if (!customer) {
-      return new Response(JSON.stringify({ error: "Customer not found" }), { status: 404, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "Customer not found" }), {
+        status: 404,
+        headers: corsHeaders,
+      });
     }
 
-    // Gather data from jobs
-    const { data: jobs } = await supabase
-      .from("jobs")
-      .select("address, customer, name")
-      .eq("customer_id", customer_id)
-      .limit(50);
-
-    // Gather data from linked sites
-    const { data: customerSites } = await supabase
-      .from("customer_sites")
-      .select("site_id")
-      .eq("customer_id", customer_id);
-
-    let siteData: any[] = [];
-    if (customerSites && customerSites.length > 0) {
-      const siteIds = customerSites.map(cs => cs.site_id);
-      const { data: sites } = await supabase
-        .from("sites")
-        .select("name, address, postcode, contact_email, contact_phone")
-        .in("id", siteIds);
-      if (sites) siteData = sites;
-    }
-
-    // Gather text from customer documents (extract file names as hints)
-    const { data: docs } = await supabase
-      .from("customer_documents")
-      .select("file_name, file_url")
-      .eq("customer_id", customer_id)
-      .limit(30);
-
-    // Try to extract text from PDF documents using AI vision
-    let documentTexts: string[] = [];
-    const pdfDocs = (docs || []).filter(d => d.file_name.toLowerCase().endsWith(".pdf")).slice(0, 5);
-    
-    for (const doc of pdfDocs) {
-      try {
-        const { data: fileData } = await supabase.storage.from("submissions").download(doc.file_url);
-        if (fileData) {
-          const buffer = await fileData.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer).slice(0, 500000)));
-          documentTexts.push(`Document "${doc.file_name}": [PDF content available for analysis]`);
-        }
-      } catch {
-        // Skip failed downloads
-      }
-    }
-
-    // Build context for AI
     const missingFields: string[] = [];
     if (!customer.address) missingFields.push("address");
     if (!customer.email) missingFields.push("email");
     if (!customer.phone) missingFields.push("phone");
 
     if (missingFields.length === 0) {
-      return new Response(JSON.stringify({ 
-        message: "All contact fields are already populated",
-        updates: {} 
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const contextParts: string[] = [];
-    contextParts.push(`Customer name: ${customer.name}`);
-    if (customer.address) contextParts.push(`Current address: ${customer.address}`);
-    if (customer.email) contextParts.push(`Current email: ${customer.email}`);
-    if (customer.phone) contextParts.push(`Current phone: ${customer.phone}`);
-
-    if (jobs && jobs.length > 0) {
-      contextParts.push("\nJob records (these are WORK SITES the customer's engineers visit, NOT the customer's own office address):");
-      for (const j of jobs) {
-        const parts = [];
-        if (j.name) parts.push(`Job: ${j.name}`);
-        if (j.address) parts.push(`Work site address: ${j.address}`);
-        contextParts.push(`- ${parts.join(", ")}`);
-      }
-    }
-
-    if (siteData.length > 0) {
-      contextParts.push("\nLinked sites (these are WORK LOCATIONS the customer operates at, NOT the customer's registered/office address):");
-      for (const s of siteData) {
-        const parts = [];
-        if (s.name) parts.push(`Site: ${s.name}`);
-        if (s.address) parts.push(`Work site address: ${s.address}`);
-        if (s.postcode) parts.push(`Postcode: ${s.postcode}`);
-        if (s.contact_email) parts.push(`Site contact email: ${s.contact_email}`);
-        if (s.contact_phone) parts.push(`Site contact phone: ${s.contact_phone}`);
-        contextParts.push(`- ${parts.join(", ")}`);
-      }
-    }
-
-    if (docs && docs.length > 0) {
-      contextParts.push("\nDocument file names:");
-      for (const d of docs) {
-        contextParts.push(`- ${d.file_name}`);
-      }
+      return new Response(
+        JSON.stringify({ message: "All contact fields are already populated", updates: {} }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      return new Response(JSON.stringify({ error: "AI not configured" }), { status: 500, headers: corsHeaders });
+      return new Response(JSON.stringify({ error: "AI not configured" }), {
+        status: 500,
+        headers: corsHeaders,
+      });
     }
 
-    const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          {
-            role: "system",
-            content: `You are a data extraction assistant for a field service management system. You must find the customer's OWN registered office or business address, email, and phone number. CRITICAL: Job addresses and linked site addresses are WORK LOCATIONS where the customer sends engineers — these are NOT the customer's own address. Never use a work site address as the customer's address. Site contact emails/phones may belong to the customer company and can be used. Only return information you are highly confident about. Do not guess or fabricate data. UK format for phone numbers.`
-          },
-          {
-            role: "user",
-            content: `I need to find the missing contact details for this customer's HEAD OFFICE / REGISTERED ADDRESS. Missing fields: ${missingFields.join(", ")}\n\nAvailable data:\n${contextParts.join("\n")}\n\nIMPORTANT: Do NOT use work site addresses as the customer's own address. Only extract the customer's own office/registered address, their company email, and their company phone number.`
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "update_customer_contact",
-              description: "Update the customer's missing contact details based on extracted data",
-              parameters: {
-                type: "object",
-                properties: {
-                  address: { type: "string", description: "The customer's primary address. Only include if confident." },
-                  email: { type: "string", description: "The customer's email address. Only include if confident." },
-                  phone: { type: "string", description: "The customer's phone number. Only include if confident." },
-                  confidence_notes: { type: "string", description: "Brief explanation of where each piece of data was found" }
-                },
-                additionalProperties: false
-              }
-            }
-          }
-        ],
-        tool_choice: { type: "function", function: { name: "update_customer_contact" } }
-      }),
-    });
-
-    if (!aiResponse.ok) {
-      const status = aiResponse.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "AI rate limited, please try again later" }), { status: 429, headers: corsHeaders });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted" }), { status: 402, headers: corsHeaders });
-      }
-      return new Response(JSON.stringify({ error: "AI service error" }), { status: 500, headers: corsHeaders });
-    }
-
-    const aiData = await aiResponse.json();
-    const toolCall = aiData.choices?.[0]?.message?.tool_calls?.[0];
-    
-    if (!toolCall) {
-      return new Response(JSON.stringify({ 
-        message: "AI could not extract any contact details from the available data",
-        updates: {} 
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    let extracted: any;
-    try {
-      extracted = JSON.parse(toolCall.function.arguments);
-    } catch {
-      return new Response(JSON.stringify({ 
-        message: "Failed to parse AI response",
-        updates: {} 
-      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    // Only update fields that are currently missing
     const updates: Record<string, string> = {};
-    if (!customer.address && extracted.address) updates.address = extracted.address;
-    if (!customer.email && extracted.email) updates.email = extracted.email;
-    if (!customer.phone && extracted.phone) updates.phone = extracted.phone;
+    const notes: string[] = [];
 
-    // Web search fallback for fields still missing
-    const stillMissing: string[] = [];
-    if (!customer.address && !updates.address) stillMissing.push("address");
-    if (!customer.email && !updates.email) stillMissing.push("email");
-    if (!customer.phone && !updates.phone) stillMissing.push("phone");
+    // Step 1: Companies House for address
+    if (!customer.address) {
+      const chKey = Deno.env.get("COMPANIES_HOUSE_API_KEY");
+      if (chKey) {
+        console.log(`Companies House lookup for "${customer.name}"`);
+        const chResult = await lookupCompaniesHouse(customer.name, chKey);
+        if (chResult?.address) {
+          updates.address = chResult.address;
+          notes.push(`Address from Companies House (${chResult.companyNumber})`);
+        }
+      }
+    }
 
-    let webNotes = "";
+    // Step 2: Internal data extraction for email/phone
+    const stillMissing = missingFields.filter(
+      (f) => f === "address" ? !updates.address : true
+    ).filter((f) => f !== "address"); // Only email/phone from internal data
+
     if (stillMissing.length > 0) {
-      try {
-        console.log(`Web search fallback for "${customer.name}", missing: ${stillMissing.join(", ")}`);
-        const webResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${LOVABLE_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-3-flash-preview",
-            messages: [
-              {
-                role: "system",
-                content: `You are a business contact lookup assistant. Search for the company's REGISTERED OFFICE or HEAD OFFICE address, NOT locations where they do work. Only return real, verifiable information from official sources. If unsure, leave the field empty. UK-based companies are most likely. Return UK phone format.`
-              },
-              {
-                role: "user",
-                content: `Find the following for the company "${customer.name}": ${stillMissing.join(", ")}. This is a real UK business. Search for their REGISTERED OFFICE ADDRESS (from Companies House), their official website contact details, or public directories. Do NOT return addresses of sites/locations where they carry out work.`
-              }
-            ],
-            tools: [
-              {
-                type: "function",
-                function: {
-                  name: "web_contact_results",
-                  description: "Return the company's contact details found online",
-                  parameters: {
-                    type: "object",
-                    properties: {
-                      address: { type: "string", description: "Company registered or trading address found online" },
-                      email: { type: "string", description: "Company contact email found online" },
-                      phone: { type: "string", description: "Company phone number found online" },
-                      source: { type: "string", description: "Where the info was found (e.g. company website, Companies House)" }
-                    },
-                    additionalProperties: false
-                  }
-                }
-              }
-            ],
-            tool_choice: { type: "function", function: { name: "web_contact_results" } }
-          }),
-        });
+      // Build context from jobs & sites
+      const contextParts: string[] = [];
+      const { data: customerSites } = await supabase
+        .from("customer_sites")
+        .select("site_id")
+        .eq("customer_id", customer_id);
 
-        if (webResponse.ok) {
-          const webData = await webResponse.json();
-          const webToolCall = webData.choices?.[0]?.message?.tool_calls?.[0];
-          if (webToolCall) {
-            const webExtracted = JSON.parse(webToolCall.function.arguments);
-            if (!updates.address && webExtracted.address && stillMissing.includes("address")) {
-              updates.address = webExtracted.address;
-            }
-            if (!updates.email && webExtracted.email && stillMissing.includes("email")) {
-              updates.email = webExtracted.email;
-            }
-            if (!updates.phone && webExtracted.phone && stillMissing.includes("phone")) {
-              updates.phone = webExtracted.phone;
-            }
-            if (webExtracted.source) {
-              webNotes = ` Web source: ${webExtracted.source}`;
-            }
+      if (customerSites && customerSites.length > 0) {
+        const { data: sites } = await supabase
+          .from("sites")
+          .select("name, contact_email, contact_phone")
+          .in("id", customerSites.map((cs) => cs.site_id));
+        if (sites) {
+          for (const s of sites) {
+            const parts = [];
+            if (s.name) parts.push(`Site: ${s.name}`);
+            if (s.contact_email) parts.push(`Email: ${s.contact_email}`);
+            if (s.contact_phone) parts.push(`Phone: ${s.contact_phone}`);
+            if (parts.length) contextParts.push(`- ${parts.join(", ")}`);
           }
         }
-      } catch (webErr) {
-        console.error("Web search fallback error:", webErr);
-        // Non-fatal, continue with what we have
+      }
+
+      try {
+        const extracted = await aiExtractFromInternalData(
+          customer,
+          stillMissing,
+          contextParts,
+          LOVABLE_API_KEY
+        );
+        if (extracted) {
+          if (!customer.email && extracted.email) {
+            updates.email = extracted.email;
+            notes.push("Email from internal records");
+          }
+          if (!customer.phone && extracted.phone) {
+            updates.phone = extracted.phone;
+            notes.push("Phone from internal records");
+          }
+        }
+      } catch (e: any) {
+        if (e.status) {
+          return new Response(JSON.stringify({ error: e.message }), {
+            status: e.status,
+            headers: corsHeaders,
+          });
+        }
+      }
+    }
+
+    // Step 3: Web search fallback for anything still missing
+    const finalMissing: string[] = [];
+    if (!customer.address && !updates.address) finalMissing.push("address");
+    if (!customer.email && !updates.email) finalMissing.push("email");
+    if (!customer.phone && !updates.phone) finalMissing.push("phone");
+
+    if (finalMissing.length > 0) {
+      const webResult = await aiWebSearch(customer.name, finalMissing, LOVABLE_API_KEY);
+      if (webResult) {
+        if (!updates.address && webResult.address && finalMissing.includes("address")) {
+          updates.address = webResult.address;
+          notes.push(`Address from web (${webResult.source || "AI search"})`);
+        }
+        if (!updates.email && webResult.email && finalMissing.includes("email")) {
+          updates.email = webResult.email;
+          notes.push(`Email from web (${webResult.source || "AI search"})`);
+        }
+        if (!updates.phone && webResult.phone && finalMissing.includes("phone")) {
+          updates.phone = webResult.phone;
+          notes.push(`Phone from web (${webResult.source || "AI search"})`);
+        }
       }
     }
 
@@ -300,18 +347,22 @@ Deno.serve(async (req) => {
       await supabase.from("customers").update(updates).eq("id", customer_id);
     }
 
-    const allNotes = [extracted.confidence_notes, webNotes].filter(Boolean).join(".");
-
-    return new Response(JSON.stringify({
-      message: Object.keys(updates).length > 0 
-        ? `Updated ${Object.keys(updates).join(", ")}` 
-        : "No new details could be extracted",
-      updates,
-      confidence_notes: allNotes || null,
-    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
-
+    return new Response(
+      JSON.stringify({
+        message:
+          Object.keys(updates).length > 0
+            ? `Updated ${Object.keys(updates).join(", ")}`
+            : "No new details could be extracted",
+        updates,
+        confidence_notes: notes.join(". ") || null,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (err: any) {
     console.error("ai-enrich-customer error:", err);
-    return new Response(JSON.stringify({ error: err.message }), { status: 500, headers: corsHeaders });
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: corsHeaders,
+    });
   }
 });
