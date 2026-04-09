@@ -258,7 +258,7 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
-      <h1 className="mb-6 text-2xl font-bold">Dashboard</h1>
+      <h1 className="mb-6 text-2xl font-bold" data-tour="dashboard-heading">Dashboard</h1>
       <OnboardingChecklist />
 
       {isAdmin && (
