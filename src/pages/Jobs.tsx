@@ -563,6 +563,7 @@ export default function Jobs() {
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
       toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
+      clearJobFormDraft();
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
       setDialogParsedFile(null);
