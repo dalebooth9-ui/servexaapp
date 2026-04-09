@@ -6,14 +6,28 @@ const corsHeaders = {
 };
 
 // --- Companies House lookup ---
+function normaliseCompaniesHouseApiKey(rawKey: string) {
+  return rawKey
+    .trim()
+    .replace(/^Basic\s+/i, "")
+    .replace(/^['"]|['"]$/g, "")
+    .replace(/\s+/g, "");
+}
+
 async function lookupCompaniesHouse(companyName: string, apiKey: string) {
   try {
+    const cleanApiKey = normaliseCompaniesHouseApiKey(apiKey);
+    if (!cleanApiKey) return null;
+
     const url = `https://api.company-information.service.gov.uk/search/companies?q=${encodeURIComponent(companyName)}&items_per_page=3`;
-    const encoded = btoa(apiKey + ":");
-    console.log("CH auth header length:", encoded.length, "key starts with:", apiKey.substring(0, 4));
-    const res = await fetch(url, {
-      headers: { Authorization: "Basic " + encoded },
-    });
+    const encoded = btoa(`${cleanApiKey}:`);
+    const headers = {
+      Authorization: `Basic ${encoded}`,
+      Accept: "application/json",
+    };
+
+    console.log("Companies House key length:", cleanApiKey.length);
+    const res = await fetch(url, { headers });
     if (!res.ok) {
       const errBody = await res.text();
       console.error("Companies House search failed:", res.status, errBody);
@@ -30,7 +44,7 @@ async function lookupCompaniesHouse(companyName: string, apiKey: string) {
     // Fetch full company profile for registered address
     const profileRes = await fetch(
       `https://api.company-information.service.gov.uk/company/${companyNumber}`,
-      { headers: { Authorization: "Basic " + btoa(apiKey + ":") } }
+      { headers }
     );
     if (!profileRes.ok) return null;
     const profile = await profileRes.json();
@@ -57,7 +71,7 @@ async function lookupCompaniesHouse(companyName: string, apiKey: string) {
   }
 }
 
-// --- AI web search for email/phone ---
+// --- AI web search fallback ---
 async function aiWebSearch(
   companyName: string,
   missingFields: string[],
@@ -76,11 +90,11 @@ async function aiWebSearch(
           {
             role: "system",
             content:
-              "You are a business contact lookup assistant. Only return real, verifiable information. If unsure, leave the field empty. UK phone format.",
+              "You are a business contact lookup assistant. Only return real, verifiable information from official or high-confidence public sources. Prefer the company's registered or head office address from Companies House or the official company website. Never return a customer work site or serviced location as the company address. If unsure, leave the field empty. Use UK phone format.",
           },
           {
             role: "user",
-            content: `Find the following for the UK company "${companyName}": ${missingFields.join(", ")}. Search their official website and public directories.`,
+            content: `Find the following for the UK company "${companyName}": ${missingFields.join(", ")}. Search Companies House, the official website, and trusted public directories.`,
           },
         ],
         tools: [
@@ -92,6 +106,7 @@ async function aiWebSearch(
               parameters: {
                 type: "object",
                 properties: {
+                  address: { type: "string", description: "Company registered or head office address" },
                   email: { type: "string", description: "Company contact email" },
                   phone: { type: "string", description: "Company phone number" },
                   source: { type: "string", description: "Where info was found" },
