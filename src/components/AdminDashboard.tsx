@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2, AlertTriangle, UserCheck } from "lucide-react";
+import { Briefcase, Image, FileText, MapPin, Plus, Upload, Building2, FolderOpen, TrendingUp, PoundSterling, Users, CheckCircle2, AlertTriangle, UserCheck, CalendarDays, ClipboardList } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
