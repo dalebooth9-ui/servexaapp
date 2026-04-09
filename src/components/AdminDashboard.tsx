@@ -28,6 +28,7 @@ export default function AdminDashboard() {
   const [submissionListItems, setSubmissionListItems] = useState<any[]>([]);
   const [submissionListLoading, setSubmissionListLoading] = useState(false);
   const [submissionThumbUrls, setSubmissionThumbUrls] = useState<Record<string, string>>({});
+  const [todaysJobs, setTodaysJobs] = useState<{ id: string; name: string; reference_number: string; customer: string | null; address: string | null; priority: string; engineer_name: string | null }[]>([]);
   const fileDragCounter = useRef(0);
   const folderImportRef = useRef<FolderImportDialogHandle | null>(null);
 
