@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
+import { useAutoSave } from "@/hooks/useAutoSave";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -48,7 +49,7 @@ export default function Customers() {
   const [search, setSearch] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<CustomerForm>(emptyForm);
+  const [form, setForm, clearFormDraft] = useAutoSave<CustomerForm>("customer-form", emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -91,6 +92,7 @@ export default function Customers() {
 
   const openCreate = () => {
     setEditingId(null);
+    clearFormDraft();
     setForm(emptyForm);
     setDialogOpen(true);
   };
@@ -131,6 +133,7 @@ export default function Customers() {
       if (error) {
         toast({ title: "Failed to update customer", description: error.message, variant: "destructive" });
       } else {
+        clearFormDraft();
         setDialogOpen(false);
         fetchCustomers();
         editWithUndo({
@@ -149,6 +152,7 @@ export default function Customers() {
         toast({ title: "Failed to create customer", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Customer created" });
+        clearFormDraft();
         setDialogOpen(false);
         fetchCustomers();
       }
