@@ -435,7 +435,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">{children}</main>
       </div>
       {userRole === "admin" && <CommandPalette />}
-      {userRole === "admin" && <AiHelpWizard />}
+      {userRole === "admin" && <div data-tour="ai-help"><AiHelpWizard /></div>}
       <KeyboardShortcutsHelp open={shortcutsOpen} onOpenChange={setShortcutsOpen} />
     </div>);
 
