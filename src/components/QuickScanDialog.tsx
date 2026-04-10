@@ -35,12 +35,29 @@ export default function QuickScanDialog() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editHeader, setEditHeader] = useState<Record<string, any>>({});
+  const [editResult, setEditResult] = useState<Record<string, any>>({});
+  const [engineers, setEngineers] = useState<{ user_id: string; full_name: string }[]>([]);
+  const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragCounter = useRef(0);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Fetch engineers and customers for dropdowns
+  useEffect(() => {
+    if (!open) return;
+    supabase.from("profiles").select("user_id, full_name").then(({ data }) => {
+      if (data) setEngineers(data.filter(p => p.full_name));
+    });
+    supabase.from("customers").select("id, name").order("name").then(({ data }) => {
+      if (data) setCustomers(data);
+    });
+  }, [open]);
   const navigate = useNavigate();
 
   const handleFiles = (files: FileList | File[] | null) => {
