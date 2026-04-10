@@ -610,7 +610,7 @@ export default function QuickScanDialog() {
       // Helper: crop a signature region from the scanned image using bounding box
       const cropSignature = async (
         bbox: { x_min: number; y_min: number; x_max: number; y_max: number; page_index?: number }
-      ): Promise<Blob | null> => {
+      ): Promise<Blob | null> => { 
         try {
           const pageIdx = bbox.page_index || 0;
           const sourceImage = images[pageIdx];
@@ -639,6 +639,19 @@ export default function QuickScanDialog() {
           const ctx = cropCanvas.getContext("2d");
           if (!ctx) return null;
           ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+
+          // Validate: skip if the crop is mostly blank/white
+          const imageData = ctx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
+          const pixels = imageData.data;
+          let darkCount = 0;
+          const totalPixels = pixels.length / 4;
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i] + pixels[i + 1] + pixels[i + 2] < 600) darkCount++;
+          }
+          if (darkCount / totalPixels < 0.02) {
+            console.log("[QuickScan] cropSignature: crop is mostly blank, skipping");
+            return null;
+          }
 
           return new Promise<Blob | null>((resolve) => {
             cropCanvas.toBlob((blob) => resolve(blob), "image/png");
