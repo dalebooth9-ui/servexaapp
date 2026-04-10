@@ -152,6 +152,9 @@ export default function QuickScanDialog() {
     setDetectedCategory(null);
     setMatchedTemplate(null);
     setScanStage("");
+    setEditing(false);
+    setEditHeader({});
+    setEditResult({});
     stopCamera();
   };
 
