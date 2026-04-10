@@ -112,6 +112,28 @@ serve(async (req) => {
                 engineer: { type: "string", description: "Engineer name if present on the form" },
                 customer_signed_name: { type: "string", description: "The PRINTED or handwritten name of the customer written at the bottom of the form in the signature section, typically below a handwritten signature and next to or under 'Customer:' or 'Signature:' labels at the foot of the page. This is a person's name (e.g. 'Calvin', 'John Smith'). ONLY extract if a name is clearly written in the signature block at the bottom. Do NOT confuse with the company name in the header." },
                 customer_sign_date: { type: "string", description: "The date written in the customer/signature section at the bottom of the form, next to a 'Date:' label in the signature block. May differ from the inspection date at the top." },
+                customer_signature_bbox: {
+                  type: "object",
+                  description: "Bounding box of the customer's HANDWRITTEN SIGNATURE (the ink scrawl/mark, NOT the printed name). Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
+                  properties: {
+                    x_min: { type: "number", description: "Left edge as percentage (0-100) of image width" },
+                    y_min: { type: "number", description: "Top edge as percentage (0-100) of image height" },
+                    x_max: { type: "number", description: "Right edge as percentage (0-100) of image width" },
+                    y_max: { type: "number", description: "Bottom edge as percentage (0-100) of image height" },
+                    page_index: { type: "number", description: "Which image contains this signature (0-indexed). Use 0 for the first/only image." },
+                  },
+                },
+                engineer_signature_bbox: {
+                  type: "object",
+                  description: "Bounding box of the engineer/technician's HANDWRITTEN SIGNATURE (the ink scrawl/mark). Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
+                  properties: {
+                    x_min: { type: "number", description: "Left edge as percentage (0-100) of image width" },
+                    y_min: { type: "number", description: "Top edge as percentage (0-100) of image height" },
+                    x_max: { type: "number", description: "Right edge as percentage (0-100) of image width" },
+                    y_max: { type: "number", description: "Bottom edge as percentage (0-100) of image height" },
+                    page_index: { type: "number", description: "Which image contains this signature (0-indexed). Use 0 for the first/only image." },
+                  },
+                },
               },
               required: [],
             },
@@ -142,7 +164,10 @@ HEADER EXTRACTION — The header table at the top has these printed labels. Copy
 SIGNATURE BLOCK EXTRACTION — At the BOTTOM of the form there is usually a signature section with two columns: one for the Technician and one for the Customer. Each column has:
   • A "Date:" line — extract the date written there into customer_sign_date
   • A "Customer:" or "Name:" line (or space below the signature) — a person's handwritten name (e.g. "Calvin", "John Smith") — extract into customer_signed_name
-  • A handwritten signature mark (the ink scrawl) — ignore this, do not try to extract it
+  • A handwritten signature mark (the ink scrawl) — for this, return its BOUNDING BOX coordinates as percentages (0-100) of the image width and height. Include the page_index (0-indexed) if multiple images.
+    - customer_signature_bbox: the bounding box around the customer's handwritten signature mark
+    - engineer_signature_bbox: the bounding box around the engineer/technician's handwritten signature mark
+  • Add ~5% padding around each signature to avoid cropping too tight.
   IMPORTANT: customer_signed_name is a PERSON'S NAME, NOT a company name. It belongs to the person who physically signed the form at the bottom. It may be printed clearly below the signature.
 
 CRITICAL — For ALL fields (header and body): ONLY return values that are physically handwritten or typed by a human on the paper form. The following are NEVER valid field values:
