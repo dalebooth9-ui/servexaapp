@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture } from "lucide-react";
+import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture, Download, Printer } from "lucide-react";
+import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { useNavigate } from "react-router-dom";
 
 interface TemplateField {
