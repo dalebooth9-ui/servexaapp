@@ -24,6 +24,13 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
+/** Count how many leading characters match */
+function commonPrefixLen(a: string, b: string): number {
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+  return i;
+}
+
 export function fuzzyMatchEngineer(
   ocrName: string,
   engineers: EngineerProfile[]
@@ -39,6 +46,7 @@ export function fuzzyMatchEngineer(
   // Split OCR name into parts
   const ocrParts = cleaned.split(/\s+/);
   const ocrSurname = ocrParts[ocrParts.length - 1];
+  const ocrInitial = ocrParts.length > 1 ? ocrParts[0][0] : "";
 
   let bestMatch = ocrName;
   let bestScore = Infinity;
@@ -46,33 +54,39 @@ export function fuzzyMatchEngineer(
   for (const eng of engineers) {
     const engParts = eng.full_name.toUpperCase().split(/\s+/);
     const engSurname = engParts[engParts.length - 1];
+    const engInitial = engParts.length > 1 ? engParts[0][0] : "";
 
-    // Compare surnames with Levenshtein distance
+    // Strategy 1: Levenshtein on full surname
     const surnameDist = levenshtein(ocrSurname, engSurname);
-    
-    // If surname is close (within 3 edits for typical OCR errors)
-    if (surnameDist <= 3) {
-      // Bonus: if first initial/name also somewhat matches
-      let firstNameDist = 0;
-      if (ocrParts.length > 1 && engParts.length > 1) {
-        const ocrFirst = ocrParts[0];
-        const engFirst = engParts[0];
-        // Single initial vs full name: just compare first char
-        if (ocrFirst.length === 1) {
-          firstNameDist = levenshtein(ocrFirst, engFirst[0]);
-        } else {
-          firstNameDist = levenshtein(ocrFirst, engFirst);
-        }
-      }
 
-      const totalScore = surnameDist * 2 + firstNameDist;
-      if (totalScore < bestScore) {
-        bestScore = totalScore;
-        bestMatch = eng.full_name;
-      }
+    // Strategy 2: Common prefix bonus (OCR often gets start right, mangles the end)
+    const prefixLen = commonPrefixLen(ocrSurname, engSurname);
+
+    // Initial match bonus
+    const initialMatch = ocrInitial && engInitial && ocrInitial === engInitial;
+    const initialPenalty = ocrInitial && engInitial && !initialMatch ? 3 : 0;
+
+    // Score: lower is better
+    // Approach A: pure Levenshtein (original approach, but with higher threshold)
+    const scoreA = surnameDist * 2 + initialPenalty;
+
+    // Approach B: prefix-based — if ≥3 chars match at start, weight heavily
+    // e.g. "WHATMORE" vs "WHATMOUGH" shares "WHATMO" (6 chars)
+    // e.g. "WHATMORE" vs "WHITTAKER" shares "WH" (2 chars)
+    const scoreB = prefixLen >= 3
+      ? Math.max(0, (surnameDist - prefixLen) * 2) + initialPenalty
+      : Infinity;
+
+    const score = Math.min(scoreA, scoreB);
+
+    if (score < bestScore) {
+      bestScore = score;
+      bestMatch = eng.full_name;
     }
   }
 
-  // Only accept if reasonably close (score <= 4)
-  return bestScore <= 4 ? bestMatch : ocrName;
+  // Accept if score is reasonable
+  // With initial match: accept up to 6; without: accept up to 4
+  const threshold = 6;
+  return bestScore <= threshold ? bestMatch : ocrName;
 }
