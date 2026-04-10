@@ -101,6 +101,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "washers_condition", label: "Instantaneous Washers Condition", type: "select", section: "Internal Equipment", required: true, options: ["Satisfactory", "Unsatisfactory"] },
       { id: "padlock_strap", label: "BS9990:2015 4.1.5 Padlock & Strap", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
       { id: "outlet_cabinets", label: "Outlet Cabinets Condition", type: "select", section: "Internal Equipment", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
+      { id: "exposed_valves", label: "BS9990:2015 7.4.3.1 Exposed Valves in Good Condition", type: "select", section: "Internal Equipment", required: true, options: ["Yes", "No", "N/A"] },
       { id: "internal_result", label: "Internal Equipment Result", type: "pass_fail", section: "Internal Equipment", required: true },
       { id: "air_release_valve", label: "Air Release Valve at Highest Point", type: "select", section: "Air Release Valve", required: true, options: ["Yes", "No", "N/A"] },
       { id: "air_release_condition", label: "Air Release Valve Condition", type: "select", section: "Air Release Valve", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
