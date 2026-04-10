@@ -937,17 +937,26 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         handleStartForm(tpl);
                         setTimeout(() => setFormData((prev) => {
                           const merged = { ...prev };
-                          Object.entries(data).forEach(([key, value]) => {
+                          const extracted = data as Record<string, any>;
+
+                          // For drain / drop-leg fields, default to YES unless the scan explicitly says NO
+                          tpl.fields.forEach((field) => {
+                            const lbl = field.label.toLowerCase();
+                            const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+                            if (!isDrainField) return;
+
+                            const raw = extracted[field.id];
+                            const normalized = typeof raw === "string" ? raw.toLowerCase() : raw;
+                            const isExplicitNo = raw === false || normalized === "false" || normalized === "no";
+                            merged[field.id] = isExplicitNo ? false : true;
+                          });
+
+                          Object.entries(extracted).forEach(([key, value]) => {
                             const field = tpl.fields.find((f) => f.id === key);
                             const lbl = field?.label.toLowerCase() || "";
                             const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-                            const isExplicitNo = value === false || String(value).toLowerCase() === "false" || String(value).toLowerCase() === "no";
                             const isBlankish = value === "" || value == null || String(value).toLowerCase() === "undefined";
-                            if (isDrainField) {
-                              merged[key] = isExplicitNo ? false : true;
-                              return;
-                            }
-                            if (!isBlankish) {
+                            if (!isDrainField && !isBlankish) {
                               merged[key] = value;
                             }
                           });
