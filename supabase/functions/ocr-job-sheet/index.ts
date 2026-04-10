@@ -110,8 +110,8 @@ serve(async (req) => {
               type: "object",
               description: "Header information from the top of the form.",
                 properties: {
-                customer: { type: "string", description: "The company or organisation name written next to the 'Customer:' label on the form. This is always a company name (e.g. 'TA Safely Comply'). NEVER return an email address here." },
-                site: { type: "string", description: "Site name and/or address" },
+                customer: { type: "string", description: "The company or organisation name written next to the 'Customer:' label IN THE HEADER TABLE at the TOP of the form (first few rows). This is always a company/organisation name (e.g. 'ATC', 'TA Safely Comply'). CRITICAL: Do NOT confuse this with the customer's PERSON name written in the SIGNATURE BLOCK at the BOTTOM of the page. The header Customer is a COMPANY, the signature Customer is a PERSON. If the header Customer field is blank, omit it entirely — do NOT copy the person's name from the bottom signature section." },
+                site: { type: "string", description: "Site address written next to the 'Site:' label in the header. Read the postcode VERY carefully character by character — common misreads: 0 vs O, 6 vs G, 8 vs B, 9 vs Q, N vs H. UK postcodes follow patterns like 'OL6 8NQ', 'M1 1AA'. Double-check each character." },
                 date: { type: "string", description: "Date on the form" },
                 po_ref: { type: "string", description: "PO number, reference number, or job reference" },
                 riser_location: { type: "string", description: "Riser location — look for 'Riser Location:', 'Location:', 'Address:' fields at the top of the form or in the header section. Always extract this if present." },
@@ -160,9 +160,9 @@ serve(async (req) => {
 
 ⚠️ TEMPLATE NAME WARNING: You will be told the template name for reference only. The template name (e.g. "Field Report", "Dry Riser Inspection") is NEVER a valid value for any field. Do NOT copy it into any field. It is metadata, not form data.
 
-HEADER EXTRACTION — The header table at the top has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
-  • "Customer:" → the company/organisation name HANDWRITTEN on the same line. It is always a company name (e.g. "TA Safely Comply"). NEVER use the template name, document title, email, or username here. If blank, omit.
-  • "Site:" → the site or building name written on the same line
+HEADER EXTRACTION — The header table at the TOP of the form (first few rows, above the inspection checklist) has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
+  • "Customer:" → the COMPANY or ORGANISATION name handwritten on the same line IN THE HEADER. This is NEVER a person's name. Examples: "ATC", "TA Safely Comply", "Kier Group". CRITICAL: There is also a "Customer:" label at the BOTTOM in the signature block — that one contains a PERSON'S name (e.g. "P. Callaghan"). Do NOT confuse the two. Only extract the COMPANY name from the TOP header here. If the header Customer field is blank, omit.
+  • "Site:" → the site address written on the same line. Read postcodes character by character (e.g. OL6 8NQ not OL6 9NG). Common misreads: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H.
   • "Riser Location:" → the text written after "Riser Location:" (e.g. "Starwell")
   • "DATE:" → the date written in the top-right area
   • "PO/REF:" → the reference number written next to PO/REF
