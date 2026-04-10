@@ -23,7 +23,7 @@ export default function QuickScanDialog() {
   const [scanning, setScanning] = useState(false);
   const [scanStage, setScanStage] = useState<string>("");
   const [result, setResult] = useState<Record<string, any> | null>(null);
-  const [header, setHeader] = useState<Record<string, string> | null>(null);
+  const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [detectedCategory, setDetectedCategory] = useState<{ slug: string; name: string } | null>(null);
   const [matchedTemplate, setMatchedTemplate] = useState<{ id: string; name: string; fields: TemplateField[] } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
