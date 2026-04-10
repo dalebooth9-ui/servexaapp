@@ -308,6 +308,7 @@ export default function QuickScanDialog() {
       // Ensure handwritten header values are carried into the result fields
       // so the PDF and job use data from the form, not defaults
       const headerData = data.header || {};
+      console.log("[QuickScan] OCR header data:", JSON.stringify(headerData));
       const headerToFieldMap: Record<string, string[]> = {
         date: ["date", "inspection_date"],
         riser_location: ["riser_location"],
@@ -573,25 +574,25 @@ export default function QuickScanDialog() {
       }
 
       // Auto-import customer signature — crop from scanned image
-      if (header?.customer_signed_name && userId) {
-        const customerName = (header.customer_signed_name as string).trim();
-        if (customerName) {
-          const customerBbox = header.customer_signature_bbox;
-          let imported = false;
+      console.log("[QuickScan] Customer signed name from header:", header?.customer_signed_name);
+      console.log("[QuickScan] Customer signature bbox:", header?.customer_signature_bbox);
+      const customerSignedName = header?.customer_signed_name ? (header.customer_signed_name as string).trim() : "";
+      if (customerSignedName && userId) {
+        const customerBbox = header.customer_signature_bbox;
+        let imported = false;
 
-          if (customerBbox && typeof customerBbox === "object" && "x_min" in customerBbox) {
-            const blob = await cropSignature(customerBbox as any);
-            if (blob) {
-              await uploadSignature(blob, job.id, customerName, "customer", userId);
-              imported = true;
-            }
+        if (customerBbox && typeof customerBbox === "object" && "x_min" in customerBbox) {
+          const blob = await cropSignature(customerBbox as any);
+          if (blob) {
+            await uploadSignature(blob, job.id, customerSignedName, "customer", userId);
+            imported = true;
           }
+        }
 
-          if (!imported) {
-            await supabase.from("job_signatures").insert({
-              job_id: job.id, signer_id: userId, signer_name: customerName, signer_role: "customer", file_path: "",
-            });
-          }
+        if (!imported) {
+          await supabase.from("job_signatures").insert({
+            job_id: job.id, signer_id: userId, signer_name: customerSignedName, signer_role: "customer", file_path: "",
+          });
         }
       }
 
