@@ -257,6 +257,19 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         : baseBranding;
       const footerText = getDefaultFooterText(template.name, branding);
 
+      // --- Load customer logo and extract dominant brand colour ---
+      let brandLogoImg: HTMLImageElement | null = null;
+      const logoSrc = branding.logo_url;
+      if (logoSrc) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = logoSrc; });
+          brandLogoImg = img;
+        } catch { /* use default colour */ }
+      }
+      const accentColor = getBrandColorFromLogo(brandLogoImg, !!logoSrc);
+
       // Prefer AI-extracted header, fall back to job data
       const referenceNumber = extractedHeader.po_ref || jobInfo?.reference_number || "";
       const customerName = extractedHeader.customer || jobInfo?.customer || "";
@@ -305,7 +318,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         refNumber: referenceNumber,
         dateVal: dateStr,
         riserLocation: riserLocValue,
-      });
+      }, undefined, accentColor);
 
       // Scanned note
       doc.setFontSize(7);
