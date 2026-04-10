@@ -89,8 +89,7 @@ serve(async (req) => {
       } else if (f.type === "select" && f.options?.length) {
         fieldProperties[f.id] = {
           type: "string",
-          enum: f.options,
-          description: `"${f.label}" — pick the closest matching option from the form.`,
+          description: `"${f.label}" — pick the closest matching option from the form: ${f.options.join(", ")}. IMPORTANT: If the handwritten text says something clearly different from these options (e.g. "NOT VISIBLE", "NOT INSTALLED", "NOT ACCESSIBLE"), transcribe that text exactly as written instead of forcing it into one of the options.`,
         };
       } else {
         fieldProperties[f.id] = {
