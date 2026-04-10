@@ -28,10 +28,13 @@ export default function QuickScanDialog() {
 
   const handleFiles = (files: FileList | File[] | null) => {
     if (!files) return;
-    const newImages = Array.from(files)
-      .filter((f) => f.type.startsWith("image/"))
-      .slice(0, 5)
-      .map((file) => ({ file, preview: URL.createObjectURL(file) }));
+    const accepted = Array.from(files)
+      .filter((f) => f.type.startsWith("image/") || f.type === "application/pdf")
+      .slice(0, 5);
+    const newImages = accepted.map((file) => ({
+      file,
+      preview: file.type === "application/pdf" ? "" : URL.createObjectURL(file),
+    }));
     setImages((prev) => [...prev, ...newImages].slice(0, 5));
   };
 
@@ -314,12 +317,12 @@ export default function QuickScanDialog() {
                     <p className="text-sm text-muted-foreground">
                       Drop photos of a handwritten sheet, or <span className="text-primary font-medium">click to browse</span>
                     </p>
-                    <p className="text-xs text-muted-foreground">Up to 5 images • JPG, PNG</p>
+                    <p className="text-xs text-muted-foreground">Up to 5 files • JPG, PNG, PDF</p>
                   </div>
                   <input
                     ref={fileRef}
                     type="file"
-                    accept="image/*"
+                    accept="image/*,application/pdf"
                     multiple
                     className="hidden"
                     onChange={(e) => handleFiles(e.target.files)}
