@@ -171,7 +171,7 @@ export async function generateJobSheetPdf(
 
   // Always do a fresh DB fetch for the customer logo in case jobInfo is stale or missing the join
   let customerLogoUrl: string | null = jobInfo?.customers?.logo_url ?? null;
-  if (!customerLogoUrl && jobId) {
+  if (!customerLogoUrl && isValidUuid) {
     try {
       const { data: freshJob } = await supabase
         .from("jobs")
