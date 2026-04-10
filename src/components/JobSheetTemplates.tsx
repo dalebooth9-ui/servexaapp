@@ -576,7 +576,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         : formData;
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
-          responses: formData as any,
+          responses: finalFormData as any,
           status: "submitted",
           submitted_at: new Date().toISOString(),
         } as any).eq("id", activeResponse.id);
@@ -584,7 +584,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
           template_id: activeTemplate.id,
-          responses: formData as any,
+          responses: finalFormData as any,
           submitted_by: user?.id,
           status: "submitted",
           submitted_at: new Date().toISOString(),
