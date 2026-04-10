@@ -204,6 +204,8 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
 
 TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
+Use the extract_job_sheet tool to return all findings.`;
+
     const userContentParts: any[] = [
       {
         type: "text",
