@@ -393,6 +393,118 @@ export default function QuickScanDialog() {
         reference_number: header?.po_ref || "",
       };
 
+      // Build preloaded signatures from header data so the preview PDF includes them
+      const preloadedSignatures: any = {};
+      const preloadedSigImages: Record<string, HTMLImageElement> = {};
+
+      // Customer signature from scan header
+      if (header?.customer_signed_name) {
+        const custSigId = "scan-customer";
+        preloadedSignatures.customerSig = { id: custSigId, signer_name: header.customer_signed_name, signer_role: "customer" };
+
+        // Attempt to crop the customer signature image from the scanned sheet
+        if (header?.customer_signature_bbox && images.length > 0) {
+          try {
+            const bbox = header.customer_signature_bbox as any;
+            const pageIdx = bbox.page_index || 0;
+            const sourceImage = images[pageIdx];
+            if (sourceImage) {
+              const img = new Image();
+              const imgUrl = sourceImage.preview || URL.createObjectURL(sourceImage.file);
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject();
+                img.src = imgUrl;
+              });
+              const x = Math.max(0, Math.floor((bbox.x_min / 100) * img.naturalWidth));
+              const yPos = Math.max(0, Math.floor((bbox.y_min / 100) * img.naturalHeight));
+              const w = Math.min(img.naturalWidth - x, Math.ceil(((bbox.x_max - bbox.x_min) / 100) * img.naturalWidth));
+              const h = Math.min(img.naturalHeight - yPos, Math.ceil(((bbox.y_max - bbox.y_min) / 100) * img.naturalHeight));
+              if (w > 10 && h > 10) {
+                const cropCanvas = document.createElement("canvas");
+                cropCanvas.width = w;
+                cropCanvas.height = h;
+                const ctx = cropCanvas.getContext("2d");
+                if (ctx) {
+                  ctx.drawImage(img, x, yPos, w, h, 0, 0, w, h);
+                  const croppedImg = new Image();
+                  await new Promise<void>((resolve) => {
+                    croppedImg.onload = () => resolve();
+                    croppedImg.onerror = () => resolve();
+                    croppedImg.src = cropCanvas.toDataURL("image/png");
+                  });
+                  preloadedSigImages[custSigId] = croppedImg;
+                }
+              }
+            }
+          } catch { /* skip crop failure */ }
+        }
+      }
+
+      // Engineer signature — try profile lookup
+      if (header?.engineer) {
+        const engSigId = "scan-engineer";
+        preloadedSignatures.engineerSig = { id: engSigId, signer_name: header.engineer, signer_role: "engineer" };
+
+        // Try to load profile signature
+        try {
+          const { data: profMatch } = await supabase
+            .from("profiles")
+            .select("user_id, full_name, signature_data")
+            .ilike("full_name", header.engineer.trim())
+            .maybeSingle();
+          if (profMatch?.signature_data) {
+            const sigImg = new Image();
+            await new Promise<void>((resolve) => {
+              sigImg.onload = () => resolve();
+              sigImg.onerror = () => resolve();
+              sigImg.src = profMatch.signature_data;
+            });
+            preloadedSigImages[engSigId] = sigImg;
+          }
+        } catch { /* skip */ }
+
+        // Also try cropping from scan
+        if (!preloadedSigImages[engSigId] && header?.engineer_signature_bbox && images.length > 0) {
+          try {
+            const bbox = header.engineer_signature_bbox as any;
+            const pageIdx = bbox.page_index || 0;
+            const sourceImage = images[pageIdx];
+            if (sourceImage) {
+              const img = new Image();
+              const imgUrl = sourceImage.preview || URL.createObjectURL(sourceImage.file);
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject();
+                img.src = imgUrl;
+              });
+              const x = Math.max(0, Math.floor((bbox.x_min / 100) * img.naturalWidth));
+              const yPos = Math.max(0, Math.floor((bbox.y_min / 100) * img.naturalHeight));
+              const w = Math.min(img.naturalWidth - x, Math.ceil(((bbox.x_max - bbox.x_min) / 100) * img.naturalWidth));
+              const h = Math.min(img.naturalHeight - yPos, Math.ceil(((bbox.y_max - bbox.y_min) / 100) * img.naturalHeight));
+              if (w > 10 && h > 10) {
+                const cropCanvas = document.createElement("canvas");
+                cropCanvas.width = w;
+                cropCanvas.height = h;
+                const ctx = cropCanvas.getContext("2d");
+                if (ctx) {
+                  ctx.drawImage(img, x, yPos, w, h, 0, 0, w, h);
+                  const croppedImg = new Image();
+                  await new Promise<void>((resolve) => {
+                    croppedImg.onload = () => resolve();
+                    croppedImg.onerror = () => resolve();
+                    croppedImg.src = cropCanvas.toDataURL("image/png");
+                  });
+                  preloadedSigImages[engSigId] = croppedImg;
+                }
+              }
+            }
+          } catch { /* skip */ }
+        }
+      }
+
+      preloadedSignatures.sigImages = preloadedSigImages;
+
       const { base64, fileName } = await generateJobSheetPdf(
         template,
         result,
@@ -401,6 +513,7 @@ export default function QuickScanDialog() {
         header?.engineer,
         null,
         detectedCategory?.name,
+        preloadedSignatures,
       );
 
       const byteCharacters = atob(base64);

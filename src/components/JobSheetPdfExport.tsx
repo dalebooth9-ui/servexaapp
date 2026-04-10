@@ -72,6 +72,7 @@ export async function generateJobSheetPdf(
   submittedBy?: string,
   submittedAt?: string | null,
   categoryName?: string,
+  preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string }; customerSig?: { id: string; signer_name: string; signer_role: string }; sigImages?: Record<string, HTMLImageElement> },
 ): Promise<{ base64: string; fileName: string }> {
   // Resolve scope/category fields in formData using the human-readable category name
   const resolvedFormData = { ...formData };
@@ -83,12 +84,18 @@ export async function generateJobSheetPdf(
       }
     });
   }
-  // Pre-fetch job-specific signatures; fall back to profile signatures for assigned engineers
-  const { data: sigData } = await supabase
-    .from("job_signatures")
-    .select("*")
-    .eq("job_id", jobId)
-    .order("created_at", { ascending: true });
+
+  // Pre-fetch job-specific signatures (skip if jobId is not a valid UUID)
+  const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+  let sigData: any[] | null = null;
+  if (isValidUuid) {
+    const { data } = await supabase
+      .from("job_signatures")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: true });
+    sigData = data;
+  }
   const signatures = (sigData || []) as any[];
   const sigImages: Record<string, HTMLImageElement> = {};
 
@@ -106,7 +113,7 @@ export async function generateJobSheetPdf(
       if (profByName) submittingProfile = profByName;
     }
     // Fall back to the engineer_id from the submission record itself
-    if (!submittingProfile) {
+    if (!submittingProfile && isValidUuid) {
       const { data: assigns } = await supabase.from("job_assignments").select("engineer_id, profiles(user_id, full_name, signature_data)").eq("job_id", jobId);
       if (assigns && assigns.length > 0) {
         // Prefer the one whose name matches submittedBy
@@ -164,7 +171,7 @@ export async function generateJobSheetPdf(
 
   // Always do a fresh DB fetch for the customer logo in case jobInfo is stale or missing the join
   let customerLogoUrl: string | null = jobInfo?.customers?.logo_url ?? null;
-  if (!customerLogoUrl && jobId) {
+  if (!customerLogoUrl && isValidUuid) {
     try {
       const { data: freshJob } = await supabase
         .from("jobs")
@@ -362,8 +369,13 @@ export async function generateJobSheetPdf(
   const formDateVal = dateField ? String(formData[dateField.id] || "") : "";
   const dateStr = formDateVal || (submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"));
 
-  const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
-  const customerSig = signatures.find((s: any) => s.signer_role === "customer");
+  const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || preloadedSignatures?.engineerSig || null;
+  const customerSig = signatures.find((s: any) => s.signer_role === "customer") || preloadedSignatures?.customerSig || null;
+
+  // Merge preloaded sig images
+  if (preloadedSignatures?.sigImages) {
+    Object.assign(sigImages, preloadedSignatures.sigImages);
+  }
 
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
   const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
