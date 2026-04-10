@@ -377,6 +377,14 @@ export function renderBlankFieldRow(
     let ox = bx;
     for (const opt of field.options) {
       doc.rect(ox, y + 1, 3, 3);
+      // If auto-value matches this option, draw a tick
+      if (autoVal && autoVal.toLowerCase() === opt.toLowerCase()) {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("✓", ox + 0.5, y + 3.8);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6);
+      }
       doc.text(opt.toUpperCase(), ox + 4, y + 3.5);
       ox += 4 + doc.getTextWidth(opt.toUpperCase()) + 3;
     }
