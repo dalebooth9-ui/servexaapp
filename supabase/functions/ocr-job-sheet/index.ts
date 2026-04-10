@@ -160,9 +160,9 @@ serve(async (req) => {
 
 ⚠️ TEMPLATE NAME WARNING: You will be told the template name for reference only. The template name (e.g. "Field Report", "Dry Riser Inspection") is NEVER a valid value for any field. Do NOT copy it into any field. It is metadata, not form data.
 
-HEADER EXTRACTION — The header table at the top has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
-  • "Customer:" → the company/organisation name HANDWRITTEN on the same line. It is always a company name (e.g. "TA Safely Comply"). NEVER use the template name, document title, email, or username here. If blank, omit.
-  • "Site:" → the site or building name written on the same line
+HEADER EXTRACTION — The header table at the TOP of the form (first few rows, above the inspection checklist) has these printed labels. Copy ONLY the handwritten/typed value written next to each label:
+  • "Customer:" → the COMPANY or ORGANISATION name handwritten on the same line IN THE HEADER. This is NEVER a person's name. Examples: "ATC", "TA Safely Comply", "Kier Group". CRITICAL: There is also a "Customer:" label at the BOTTOM in the signature block — that one contains a PERSON'S name (e.g. "P. Callaghan"). Do NOT confuse the two. Only extract the COMPANY name from the TOP header here. If the header Customer field is blank, omit.
+  • "Site:" → the site address written on the same line. Read postcodes character by character (e.g. OL6 8NQ not OL6 9NG). Common misreads: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H.
   • "Riser Location:" → the text written after "Riser Location:" (e.g. "Starwell")
   • "DATE:" → the date written in the top-right area
   • "PO/REF:" → the reference number written next to PO/REF
