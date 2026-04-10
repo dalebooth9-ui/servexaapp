@@ -264,6 +264,7 @@ RULES:
         },
         body: JSON.stringify({
           model,
+          max_tokens: 4096,
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: userContentParts },
