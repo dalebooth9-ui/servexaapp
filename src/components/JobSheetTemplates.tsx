@@ -509,7 +509,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const prefilled = getAutoPopulatedData(activeTemplate);
     const templateDefaults: Record<string, any> = {};
     activeTemplate.fields.forEach((f) => {
-      if (f.type === "checkbox") templateDefaults[f.id] = false;
+      if (f.type === "checkbox") {
+        const lbl = f.label.toLowerCase();
+        templateDefaults[f.id] = (lbl.includes("drain") || lbl.includes("drop leg")) ? true : false;
+      }
       else templateDefaults[f.id] = "";
     });
     setFormData({ ...templateDefaults, ...prefilled });
