@@ -72,6 +72,7 @@ export async function generateJobSheetPdf(
   submittedBy?: string,
   submittedAt?: string | null,
   categoryName?: string,
+  preloadedSignatures?: { engineerSig?: { id: string; signer_name: string; signer_role: string }; customerSig?: { id: string; signer_name: string; signer_role: string }; sigImages?: Record<string, HTMLImageElement> },
 ): Promise<{ base64: string; fileName: string }> {
   // Resolve scope/category fields in formData using the human-readable category name
   const resolvedFormData = { ...formData };
@@ -83,12 +84,18 @@ export async function generateJobSheetPdf(
       }
     });
   }
-  // Pre-fetch job-specific signatures; fall back to profile signatures for assigned engineers
-  const { data: sigData } = await supabase
-    .from("job_signatures")
-    .select("*")
-    .eq("job_id", jobId)
-    .order("created_at", { ascending: true });
+
+  // Pre-fetch job-specific signatures (skip if jobId is not a valid UUID)
+  const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
+  let sigData: any[] | null = null;
+  if (isValidUuid) {
+    const { data } = await supabase
+      .from("job_signatures")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: true });
+    sigData = data;
+  }
   const signatures = (sigData || []) as any[];
   const sigImages: Record<string, HTMLImageElement> = {};
 
