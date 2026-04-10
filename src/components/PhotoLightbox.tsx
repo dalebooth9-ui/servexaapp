@@ -37,7 +37,7 @@ export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none flex flex-col items-center justify-center gap-0">
+      <DialogContent onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()} className="max-w-[95vw] max-h-[95vh] p-0 bg-black/95 border-none flex flex-col items-center justify-center gap-0">
         <button
           onClick={() => onOpenChange(false)}
           className="absolute right-4 top-4 z-50 rounded-full bg-black/50 p-2 text-white hover:bg-black/80"
