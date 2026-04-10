@@ -225,7 +225,9 @@ ANNOTATION & DESCRIPTIVE TEXT — CRITICAL: Many fields on fire safety forms hav
   • "NOT VISIBLE" next to air release valve questions (meaning the valve cannot be seen/accessed)
   You MUST return the FULL annotation text, not just "Yes", "No", or "N/A". The annotation provides critical compliance context.
   
-  IMPORTANT: If "NOT VISIBLE" is written next to an air release valve row, return "NOT VISIBLE" for THAT field — do NOT put it in the comments field. Each annotation belongs to the row it is written next to on the form.
+   IMPORTANT: If "NOT VISIBLE" is written next to an air release valve row, return "NOT VISIBLE" for THAT field — do NOT put it in the comments field. Each annotation belongs to the row it is written next to on the form.
+
+COMMENTS / NOTES FIELD — The "Additional Notes / Comments" or "Comments" field should ONLY contain freeform remarks that do NOT belong to any specific inspection row. If you see text like "CABINET KEYS: BIRD" or "NO OF OUTLETS: 5" written on the form, these belong to their SPECIFIC template fields (e.g. "Cabinet Keys" field, "Number of Outlets" field). Do NOT dump structured data into the comments field. Only truly miscellaneous notes that have no matching field should go in comments.
 
 Use the extract_job_sheet tool to return all findings.`;
 
