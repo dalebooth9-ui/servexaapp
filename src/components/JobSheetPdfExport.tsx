@@ -354,7 +354,13 @@ export async function generateJobSheetPdf(
   const logoRowY = declarationFooterY - logoH - 3;                       // e.g. 263mm
   const sigY = Math.max(y + 2, logoRowY - 18);                           // e.g. 245mm (18mm for sig block)
 
-  const dateStr = submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB");
+  // Use the form's date field (job/inspection date) for the signature date, falling back to submittedAt then today
+  const dateField = template.fields.find(f => {
+    const lbl = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+    return lbl === "date" || lbl === "inspection date" || lbl === "service date" || lbl === "visit date";
+  });
+  const formDateVal = dateField ? String(formData[dateField.id] || "") : "";
+  const dateStr = formDateVal || (submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"));
 
   const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
   const customerSig = signatures.find((s: any) => s.signer_role === "customer");
