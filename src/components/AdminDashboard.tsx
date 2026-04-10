@@ -350,6 +350,7 @@ export default function AdminDashboard() {
           <Button onClick={() => setFolderImportOpen(true)} variant="outline">
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
+          <QuickScanDialog />
           <AiMaintenanceAlerts />
         </div>
       )}
