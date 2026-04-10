@@ -975,6 +975,33 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                               : (field.type === "checkbox" ? true : isYesNoSelect ? "YES" : true);
                           });
 
+                          // For outlet-related fields, map N/A from the scanned sheet to YES (good condition)
+                          tpl.fields.forEach((field) => {
+                            const lbl = field.label.toLowerCase();
+                            const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
+                            if (!isOutletField) return;
+
+                            const raw = extracted[field.id];
+                            const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
+                            if (normalized === "n/a" || normalized === "na") {
+                              const isYesNoSelect =
+                                !!field.options &&
+                                field.options.some((opt) => opt.toLowerCase() === "yes");
+                              const isSatSelect =
+                                !!field.options &&
+                                field.options.some((opt) => opt.toLowerCase() === "satisfactory");
+                              if (isYesNoSelect) {
+                                merged[field.id] = "Yes";
+                              } else if (isSatSelect) {
+                                merged[field.id] = "Satisfactory";
+                              } else if (field.type === "pass_fail") {
+                                merged[field.id] = "pass";
+                              } else if (field.type === "checkbox") {
+                                merged[field.id] = true;
+                              }
+                            }
+                          });
+
                           Object.entries(extracted).forEach(([key, value]) => {
                             const field = tpl.fields.find((f) => f.id === key);
                             const lbl = field?.label.toLowerCase() || "";
