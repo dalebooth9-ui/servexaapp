@@ -652,7 +652,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
     : [];
 
-  const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); };
+  const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
   // Find the most recent RAMS response (any status) for prominent export
   const ramsTemplates = templates.filter((t) => (t as any).category === "rams");
