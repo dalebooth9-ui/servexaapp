@@ -23,7 +23,7 @@ export default function QuickScanDialog() {
   const [scanning, setScanning] = useState(false);
   const [scanStage, setScanStage] = useState<string>("");
   const [result, setResult] = useState<Record<string, any> | null>(null);
-  const [header, setHeader] = useState<Record<string, string> | null>(null);
+  const [header, setHeader] = useState<Record<string, any> | null>(null);
   const [detectedCategory, setDetectedCategory] = useState<{ slug: string; name: string } | null>(null);
   const [matchedTemplate, setMatchedTemplate] = useState<{ id: string; name: string; fields: TemplateField[] } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -344,62 +344,130 @@ export default function QuickScanDialog() {
           });
       }
 
-      // Auto-import engineer signature from extracted header
+      // Helper: crop a signature region from the scanned image using bounding box
+      const cropSignature = async (
+        bbox: { x_min: number; y_min: number; x_max: number; y_max: number; page_index?: number }
+      ): Promise<Blob | null> => {
+        try {
+          const pageIdx = bbox.page_index || 0;
+          const sourceImage = images[pageIdx];
+          if (!sourceImage) return null;
+
+          // Load the source image into an HTMLImageElement
+          const img = new Image();
+          const imgUrl = sourceImage.preview || URL.createObjectURL(sourceImage.file);
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject();
+            img.src = imgUrl;
+          });
+
+          // Calculate pixel coordinates from percentage bbox
+          const x = Math.max(0, Math.floor((bbox.x_min / 100) * img.naturalWidth));
+          const y = Math.max(0, Math.floor((bbox.y_min / 100) * img.naturalHeight));
+          const w = Math.min(img.naturalWidth - x, Math.ceil(((bbox.x_max - bbox.x_min) / 100) * img.naturalWidth));
+          const h = Math.min(img.naturalHeight - y, Math.ceil(((bbox.y_max - bbox.y_min) / 100) * img.naturalHeight));
+
+          if (w < 10 || h < 10) return null;
+
+          const cropCanvas = document.createElement("canvas");
+          cropCanvas.width = w;
+          cropCanvas.height = h;
+          const ctx = cropCanvas.getContext("2d");
+          if (!ctx) return null;
+          ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+
+          return new Promise<Blob | null>((resolve) => {
+            cropCanvas.toBlob((blob) => resolve(blob), "image/png");
+          });
+        } catch {
+          return null;
+        }
+      };
+
+      // Helper: upload a cropped signature blob and create a record
+      const uploadSignature = async (
+        blob: Blob, jobId: string, signerName: string, role: string, signerId: string
+      ) => {
+        const sigPath = `${role}/${jobId}-${Date.now()}.png`;
+        const { error: uploadErr } = await supabase.storage
+          .from("signatures")
+          .upload(sigPath, blob, { contentType: "image/png" });
+        if (!uploadErr) {
+          await supabase.from("job_signatures").insert({
+            job_id: jobId,
+            signer_id: signerId,
+            signer_name: signerName,
+            signer_role: role,
+            file_path: sigPath,
+          });
+        }
+      };
+
+      // Auto-import engineer signature — prefer cropped image from scan, fall back to profile
       if (header?.engineer && userId) {
-        // Try to match engineer profile by name and use their stored signature
         const engineerName = header.engineer.trim();
         if (engineerName) {
-          const { data: profileMatch } = await supabase
-            .from("profiles")
-            .select("user_id, signature_data")
-            .ilike("full_name", `%${engineerName.split(" ")[0]}%`)
-            .limit(1)
-            .maybeSingle();
+          const engineerBbox = header.engineer_signature_bbox;
+          let imported = false;
 
-          if (profileMatch?.signature_data) {
-            // Convert base64 data URL to blob and upload
-            try {
-              const res = await fetch(profileMatch.signature_data);
-              const blob = await res.blob();
-              const sigPath = `engineer/${job.id}-${Date.now()}.png`;
-              const { error: uploadErr } = await supabase.storage
-                .from("signatures")
-                .upload(sigPath, blob, { contentType: "image/png" });
+          // Try cropping from scanned image first
+          if (engineerBbox && typeof engineerBbox === "object" && "x_min" in engineerBbox) {
+            const blob = await cropSignature(engineerBbox as any);
+            if (blob) {
+              await uploadSignature(blob, job.id, engineerName, "engineer", userId);
+              imported = true;
+            }
+          }
 
-              if (!uploadErr) {
-                await supabase.from("job_signatures").insert({
-                  job_id: job.id,
-                  signer_id: profileMatch.user_id,
-                  signer_name: engineerName,
-                  signer_role: "engineer",
-                  file_path: sigPath,
-                });
-              }
-            } catch { /* skip signature upload errors */ }
-          } else {
-            // Create a name-only signature record (no image)
+          // Fall back to profile signature
+          if (!imported) {
+            const { data: profileMatch } = await supabase
+              .from("profiles")
+              .select("user_id, signature_data")
+              .ilike("full_name", `%${engineerName.split(" ")[0]}%`)
+              .limit(1)
+              .maybeSingle();
+
+            if (profileMatch?.signature_data) {
+              try {
+                const res = await fetch(profileMatch.signature_data);
+                const blob = await res.blob();
+                await uploadSignature(blob, job.id, engineerName, "engineer", profileMatch.user_id);
+                imported = true;
+              } catch { /* skip */ }
+            }
+          }
+
+          // Last resort: name-only record
+          if (!imported) {
             await supabase.from("job_signatures").insert({
-              job_id: job.id,
-              signer_id: userId,
-              signer_name: engineerName,
-              signer_role: "engineer",
-              file_path: "",
+              job_id: job.id, signer_id: userId, signer_name: engineerName, signer_role: "engineer", file_path: "",
             });
           }
         }
       }
 
-      // Auto-import customer signature from extracted header
-      if (header?.customer_signed_name) {
-        const customerName = header.customer_signed_name.trim();
-        if (customerName && userId) {
-          await supabase.from("job_signatures").insert({
-            job_id: job.id,
-            signer_id: userId,
-            signer_name: customerName,
-            signer_role: "customer",
-            file_path: "",
-          });
+      // Auto-import customer signature — crop from scanned image
+      if (header?.customer_signed_name && userId) {
+        const customerName = (header.customer_signed_name as string).trim();
+        if (customerName) {
+          const customerBbox = header.customer_signature_bbox;
+          let imported = false;
+
+          if (customerBbox && typeof customerBbox === "object" && "x_min" in customerBbox) {
+            const blob = await cropSignature(customerBbox as any);
+            if (blob) {
+              await uploadSignature(blob, job.id, customerName, "customer", userId);
+              imported = true;
+            }
+          }
+
+          if (!imported) {
+            await supabase.from("job_signatures").insert({
+              job_id: job.id, signer_id: userId, signer_name: customerName, signer_role: "customer", file_path: "",
+            });
+          }
         }
       }
 
