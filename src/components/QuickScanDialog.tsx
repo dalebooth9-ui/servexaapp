@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture } from "lucide-react";
+import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture, Download, Printer } from "lucide-react";
+import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
 import { useNavigate } from "react-router-dom";
 
 interface TemplateField {
@@ -29,6 +30,7 @@ export default function QuickScanDialog() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copied, setCopied] = useState(false);
   const [creatingJob, setCreatingJob] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -303,6 +305,66 @@ export default function QuickScanDialog() {
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Copied to clipboard" });
+  };
+  const downloadPdf = async (mode: "download" | "preview") => {
+    if (!matchedTemplate || !result) {
+      toast({ title: "No template matched", description: "Cannot generate PDF without a matched template.", variant: "destructive" });
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const template = {
+        id: matchedTemplate.id,
+        name: matchedTemplate.name,
+        description: null as string | null,
+        fields: matchedTemplate.fields.map(f => ({
+          ...f,
+          required: f.required ?? false,
+          allow_notes: f.allow_notes ?? false,
+          section: f.section ?? "General",
+        })),
+      };
+      const jobInfo = {
+        address: header?.site || null,
+        customer: header?.customer || null,
+        reference_number: header?.po_ref || "SCAN",
+      };
+
+      const { base64, fileName } = await generateJobSheetPdf(
+        template,
+        result,
+        jobInfo,
+        "scan-preview",
+        header?.engineer,
+        null,
+        detectedCategory?.name,
+      );
+
+      const byteCharacters = atob(base64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      if (mode === "download") {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF downloaded", description: fileName });
+      } else {
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        toast({ title: "PDF opened for printing" });
+      }
+    } catch (err: any) {
+      toast({ title: "PDF generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   const createJobFromScan = async () => {
@@ -718,6 +780,18 @@ export default function QuickScanDialog() {
                     <><Plus className="mr-2 h-4 w-4" /> Create Job from This</>
                   )}
                 </Button>
+                {matchedTemplate && (
+                  <>
+                    <Button onClick={() => downloadPdf("preview")} disabled={generatingPdf} variant="outline" size="sm">
+                      {generatingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                      Print PDF
+                    </Button>
+                    <Button onClick={() => downloadPdf("download")} disabled={generatingPdf} variant="outline" size="sm">
+                      {generatingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      Download PDF
+                    </Button>
+                  </>
+                )}
                 <Button onClick={() => { setResult(null); setHeader(null); setDetectedCategory(null); setMatchedTemplate(null); }} variant="ghost" size="sm">
                   <ScanLine className="mr-2 h-4 w-4" /> Scan Another
                 </Button>
