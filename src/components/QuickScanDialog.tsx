@@ -898,6 +898,16 @@ export default function QuickScanDialog() {
                         )}
                       </div>
                     )}
+                    {(header.customer_signed_name || editing) && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Customer Signed Name:</span>
+                        {editing ? (
+                          <Input className="h-8 mt-1" value={editHeader.customer_signed_name || ""} onChange={(e) => setEditHeader((p) => ({ ...p, customer_signed_name: e.target.value }))} />
+                        ) : (
+                          <span className="font-medium ml-1">{header.customer_signed_name}</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
