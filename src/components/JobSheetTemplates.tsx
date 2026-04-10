@@ -293,6 +293,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const engineerList = (jobInfo.engineers || []).join(", ");
 
     template.fields.forEach((f) => {
+      // Default "drop leg drained" / drain checkboxes to YES
+      if (f.type === "checkbox") {
+        const lbl = f.label.toLowerCase();
+        if (lbl.includes("drain") || lbl.includes("drop leg")) {
+          prefilled[f.id] = true;
+        }
+      }
       // Never auto-fill fields that have options — leave blank for engineer to select
       if (f.options && f.options.length > 0) return;
       const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
@@ -509,7 +516,10 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const prefilled = getAutoPopulatedData(activeTemplate);
     const templateDefaults: Record<string, any> = {};
     activeTemplate.fields.forEach((f) => {
-      if (f.type === "checkbox") templateDefaults[f.id] = false;
+      if (f.type === "checkbox") {
+        const lbl = f.label.toLowerCase();
+        templateDefaults[f.id] = (lbl.includes("drain") || lbl.includes("drop leg")) ? true : false;
+      }
       else templateDefaults[f.id] = "";
     });
     setFormData({ ...templateDefaults, ...prefilled });

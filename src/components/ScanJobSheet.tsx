@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -543,6 +544,14 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       if (data?.extracted) {
         const header = data.header || {};
         if (header) setExtractedHeader(header);
+
+        // Fuzzy-match engineer name against known profiles
+        if (header.engineer) {
+          const { data: profiles } = await supabase.from("profiles").select("user_id, full_name");
+          if (profiles && profiles.length > 0) {
+            header.engineer = fuzzyMatchEngineer(header.engineer, profiles.filter((p: any) => p.full_name));
+          }
+        }
 
         // Map extracted header values into matching template form fields by label
         const headerFieldMap: Record<string, string> = {};
