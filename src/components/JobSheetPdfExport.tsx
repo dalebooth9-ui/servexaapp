@@ -387,7 +387,8 @@ export async function generateJobSheetPdf(
   // Pass declarationFooterY so internal calc places logos at: declarationFooterY - logoH - 3 = logoRowY
   addAccreditationLogosToAllPages(doc, accredLogos, declarationFooterY, logoH);
 
-  const fileName = `${jobInfo?.reference_number || "job-sheet"}-${template.name.replace(/\s+/g, "-").toLowerCase()}.pdf`;
+  const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
+  const fileName = [jobInfo?.reference_number || "job-sheet", safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
   const base64 = doc.output("datauristring").split(",")[1];
 
   return { base64, fileName };
