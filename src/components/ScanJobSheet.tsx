@@ -443,7 +443,12 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       if (watermark) addWatermarkToAllPages(doc, watermark);
       addAccreditationLogosToAllPages(doc, accredLogos, footerStartY);
 
-      doc.save(`scanned-sheet-${Date.now()}.pdf`);
+      const downloadName = [
+        jobInfo?.reference_number || "scanned",
+        template.name.replace(/\s+/g, "-").toLowerCase(),
+        customerName.replace(/\s+/g, "-").toLowerCase() || null,
+      ].filter(Boolean).join("-") + ".pdf";
+      doc.save(downloadName);
 
       // Upload to storage and create submission record
       const { data: { user } } = await supabase.auth.getUser();

@@ -284,7 +284,12 @@ export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = 
       const footerYForLogos = pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
-      const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
+      const fileName = [
+        jobInfo?.reference_number || "blank",
+        template.name.replace(/\s+/g, "-").toLowerCase(),
+        customerName.replace(/\s+/g, "-").toLowerCase() || null,
+        systemQty > 1 ? `x${systemQty}` : null,
+      ].filter(Boolean).join("-") + ".pdf";
 
       if (mode === "print") {
         const pdfBlob = doc.output("blob");
