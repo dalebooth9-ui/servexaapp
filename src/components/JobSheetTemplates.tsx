@@ -102,6 +102,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
+  const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
@@ -552,9 +553,30 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     setSubmitting(true);
     try {
+      // Upload site photos if any
+      const photoUrls: string[] = [];
+      if (sitePhotos.length > 0 && user) {
+        for (const photo of sitePhotos) {
+          const ext = photo.file.name.split(".").pop() || "jpg";
+          const fileName = `site-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const filePath = `${jobId}/${fileName}`;
+          const { error: upErr } = await supabase.storage
+            .from("submissions")
+            .upload(filePath, photo.file, { contentType: photo.file.type });
+          if (!upErr) {
+            const { data: signedData } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
+            if (signedData?.signedUrl) photoUrls.push(signedData.signedUrl);
+          }
+        }
+      }
+      const finalFormData = photoUrls.length > 0
+        ? { ...formData, _site_photo_urls: photoUrls }
+        : formData;
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
-          responses: formData as any,
+          responses: finalFormData as any,
           status: "submitted",
           submitted_at: new Date().toISOString(),
         } as any).eq("id", activeResponse.id);
@@ -562,7 +584,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
           template_id: activeTemplate.id,
-          responses: formData as any,
+          responses: finalFormData as any,
           submitted_by: user?.id,
           status: "submitted",
           submitted_at: new Date().toISOString(),
@@ -630,7 +652,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
     : [];
 
-  const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); };
+  const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
   // Find the most recent RAMS response (any status) for prominent export
   const ramsTemplates = templates.filter((t) => (t as any).category === "rams");
@@ -1017,6 +1039,91 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   ))}
               </div>
             ))}
+
+            {/* Site Photos Drop Zone */}
+            <div className="px-3 py-3 border-t border-border">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
+                <Camera className="h-3.5 w-3.5" /> Site Photos
+              </p>
+              <div
+                className="border-2 border-dashed rounded-lg p-3 text-center transition-colors hover:bg-muted/30 cursor-pointer"
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-primary", "bg-primary/5"); }}
+                onDragLeave={(e) => { e.currentTarget.classList.remove("border-primary", "bg-primary/5"); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove("border-primary", "bg-primary/5");
+                  const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+                  if (files.length === 0) return;
+                  const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
+                    file,
+                    preview: URL.createObjectURL(file),
+                  }));
+                  setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                }}
+                onClick={() => {
+                  const input = document.createElement("input");
+                  input.type = "file";
+                  input.accept = "image/*";
+                  input.multiple = true;
+                  input.onchange = () => {
+                    const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
+                    const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
+                      file,
+                      preview: URL.createObjectURL(file),
+                    }));
+                    setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                  };
+                  input.click();
+                }}
+              >
+                {sitePhotos.length === 0 ? (
+                  <>
+                    <Camera className="h-6 w-6 mx-auto mb-1 text-muted-foreground" />
+                    <p className="text-xs text-muted-foreground">Drag & drop site photos here or click to browse</p>
+                  </>
+                ) : (
+                  <div className="grid grid-cols-5 gap-2" onClick={(e) => e.stopPropagation()}>
+                    {sitePhotos.map((photo, i) => (
+                      <div key={i} className="relative">
+                        <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-square" />
+                        <button
+                          className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full h-4 w-4 flex items-center justify-center text-[10px]"
+                          onClick={() => {
+                            URL.revokeObjectURL(photo.preview);
+                            setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
+                          }}
+                        >×</button>
+                      </div>
+                    ))}
+                    {sitePhotos.length < 10 && (
+                      <div
+                        className="border border-dashed rounded flex items-center justify-center aspect-square text-muted-foreground hover:bg-muted/50 cursor-pointer"
+                        onClick={() => {
+                          const input = document.createElement("input");
+                          input.type = "file";
+                          input.accept = "image/*";
+                          input.multiple = true;
+                          input.onchange = () => {
+                            const files = Array.from(input.files || []).filter(f => f.type.startsWith("image/"));
+                            const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
+                              file,
+                              preview: URL.createObjectURL(file),
+                            }));
+                            setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
+                          };
+                          input.click();
+                        }}
+                      >
+                        <Plus className="h-4 w-4" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+              {sitePhotos.length > 0 && (
+                <p className="text-[10px] text-muted-foreground mt-1">{sitePhotos.length} photo(s) — will appear at the bottom of the PDF</p>
+              )}
+            </div>
           </div>
           <div className="flex gap-2 px-4 py-3 border-t border-border bg-card">
             <Button variant="outline" size="sm" onClick={handleSaveDraft} disabled={submitting}>
