@@ -454,8 +454,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         loadWatermarkImage(),
         loadAccreditationLogos(),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark);
-      addAccreditationLogosToAllPages(doc, accredLogos, footerStartY);
+      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerStartY, 12);
 
       const safeSite = siteName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
       const downloadName = [
