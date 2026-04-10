@@ -202,7 +202,7 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
   Per BS 9990:2015, the standard test is 12 bar for 15 minutes. If the values written match this standard, extract them as numbers (12 and 15).
   For "Leaks Detected?" look for Yes or No ticked/circled.
 
-Use the extract_job_sheet tool to return all findings.`;
+TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
     const userContentParts: any[] = [
       {
