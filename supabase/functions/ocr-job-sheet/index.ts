@@ -186,11 +186,18 @@ CRITICAL — For ALL fields (header and body): ONLY return values that are physi
   - Any value you infer from context without seeing it written on the form
   If a field is blank or not filled in, omit it entirely from the response.
 
-YES / NO CHECKBOXES — Each inspection row has two boxes labelled YES and NO.
-  The engineer placed a tick (✓) inside or next to ONE box.
-  • Tick inside/next to the YES box → return "pass"
-  • Tick inside/next to the NO box  → return "fail"
-  CRITICAL: The tick mark itself means nothing — what matters is WHICH LABEL (YES or NO) the tick is physically beside. A tick beside NO = "fail".
+YES / NO CHECKBOXES — Each inspection row has two columns: YES and NO. The engineer places a tick (✓) or circle inside ONE column.
+  • Tick/circle around YES → return "Yes"
+  • Tick/circle around NO  → return "No"
+  CRITICAL: The tick mark itself means nothing — what matters is WHICH COLUMN (YES or NO) the tick is physically in.
+  
+  HOWEVER: Some rows do NOT have a simple YES/NO tick. Instead, the engineer has written descriptive text in the answer area, such as:
+  • "N/A – EXPOSED INLET" — means the item is not applicable because the inlet is exposed (no cabinet/glass). Return the FULL text "N/A – EXPOSED INLET".
+  • "YES - EXPOSED OUTLETS" — means YES but with a note. Return "YES - EXPOSED OUTLETS".
+  • "NOT VISIBLE" — means the item could not be inspected. Return "NOT VISIBLE".
+  • "NOT INSTALLED" — return "NOT INSTALLED".
+  • "NOT ACCESSIBLE" — return "NOT ACCESSIBLE".
+  If ANY handwritten text appears beyond the YES/NO columns (to the right, or written across the answer area), you MUST capture that full text. Do NOT reduce it to just "Yes" or "No".
 
 P / F / N/A CHECKBOXES — Used for "External equipment:", "Internal equipment:", and "Pressure test result:".
   Each has three options: P   F   N/A
@@ -213,7 +220,13 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
 
 TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
-ANNOTATION TEXT — Many fields have extra handwritten notes beside the main answer, such as "N/A – EXPOSED INLET", "YES - EXPOSED OUTLETS", or "NOT VISIBLE". You MUST include the FULL annotation text, not just the main answer. For example if the form says "N/A – EXPOSED INLET" next to the glass question, return "N/A – EXPOSED INLET" not just "N/A".
+ANNOTATION & DESCRIPTIVE TEXT — CRITICAL: Many fields on fire safety forms have handwritten annotations BESIDE or INSTEAD OF the standard YES/NO answer. Common patterns:
+  • "N/A – EXPOSED INLET" next to glass or cabinet questions (meaning no glass/cabinet exists because the inlet is exposed)
+  • "YES - EXPOSED OUTLETS" next to padlock questions (meaning yes but outlets are exposed, no cabinets)
+  • "NOT VISIBLE" next to air release valve questions (meaning the valve cannot be seen/accessed)
+  You MUST return the FULL annotation text, not just "Yes", "No", or "N/A". The annotation provides critical compliance context.
+  
+  IMPORTANT: If "NOT VISIBLE" is written next to an air release valve row, return "NOT VISIBLE" for THAT field — do NOT put it in the comments field. Each annotation belongs to the row it is written next to on the form.
 
 Use the extract_job_sheet tool to return all findings.`;
 
