@@ -243,9 +243,10 @@ export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = 
           y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
           for (const field of sectionFields) {
-            // Allow scope_of_work to be pre-filled; leave other select fields blank for manual completion
+            // Allow scope_of_work and drain/drop leg fields to be pre-filled; leave other select fields blank
             const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
-            const autoVal = (field.options && field.options.length > 0 && !isScopeField) ? undefined : autoVals[field.id];
+            const isDrainField = field.label.toLowerCase().includes("drain") || field.label.toLowerCase().includes("drop leg");
+            const autoVal = (field.options && field.options.length > 0 && !isScopeField && !isDrainField) ? undefined : autoVals[field.id];
             y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH,
             });

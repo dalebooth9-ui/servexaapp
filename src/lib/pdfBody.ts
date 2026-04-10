@@ -99,8 +99,8 @@ export function getAutoPopulatedValues(
       vals[f.id] = jobInfo.site?.riser_location || "";
     }
 
-    // Default drain / drop leg checkboxes to YES
-    if (f.type === "checkbox" && (label.includes("drain") || label.includes("drop leg"))) {
+    // Default drain / drop leg fields to YES regardless of field type
+    if ((f.type === "checkbox" || f.type === "select" || f.type === "pass_fail") && (label.includes("drain") || label.includes("drop leg"))) {
       vals[f.id] = "YES";
     }
   });
