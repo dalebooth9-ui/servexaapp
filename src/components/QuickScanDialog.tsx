@@ -321,6 +321,7 @@ export default function QuickScanDialog() {
           ...f,
           required: f.required ?? false,
           allow_notes: f.allow_notes ?? false,
+          section: f.section ?? "General",
         })),
       };
       const jobInfo = {
