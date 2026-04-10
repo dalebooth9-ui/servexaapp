@@ -171,6 +171,12 @@ export default function BatchScanDialog() {
       }
     }
 
+    // Fuzzy-match engineer name against known profiles
+    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name");
+    if (headerData.engineer && profiles && profiles.length > 0) {
+      headerData.engineer = fuzzyMatchEngineer(headerData.engineer, profiles.filter(p => p.full_name));
+    }
+
     return {
       extracted,
       header: headerData,
