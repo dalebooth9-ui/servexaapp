@@ -113,7 +113,7 @@ export async function generateJobSheetPdf(
       if (profByName) submittingProfile = profByName;
     }
     // Fall back to the engineer_id from the submission record itself
-    if (!submittingProfile) {
+    if (!submittingProfile && isValidUuid) {
       const { data: assigns } = await supabase.from("job_assignments").select("engineer_id, profiles(user_id, full_name, signature_data)").eq("job_id", jobId);
       if (assigns && assigns.length > 0) {
         // Prefer the one whose name matches submittedBy
