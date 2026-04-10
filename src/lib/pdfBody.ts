@@ -98,6 +98,11 @@ export function getAutoPopulatedValues(
     } else if (label.includes("riser location") || label.includes("riser loc")) {
       vals[f.id] = jobInfo.site?.riser_location || "";
     }
+
+    // Default drain / drop leg checkboxes to YES
+    if (f.type === "checkbox" && (label.includes("drain") || label.includes("drop leg"))) {
+      vals[f.id] = "YES";
+    }
   });
 
   return vals;
@@ -358,6 +363,13 @@ export function renderBlankFieldRow(
     doc.setFontSize(6);
     doc.rect(bx, y + 1, 3, 3); doc.text("YES", bx + 4, y + 3.5);
     doc.rect(bx + 14, y + 1, 3, 3); doc.text("NO", bx + 18, y + 3.5);
+    // If auto-value is YES, draw a tick in the YES box
+    if (autoVal === "YES") {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("✓", bx + 0.5, y + 3.8);
+      doc.setFont("helvetica", "normal");
+    }
     doc.setFontSize(8.5);
   } else if (field.type === "select" && field.options && field.options.some(o => o.toLowerCase() === "yes") && field.options.some(o => o.toLowerCase() === "no")) {
     const bx = margin + colSplit + 2;
