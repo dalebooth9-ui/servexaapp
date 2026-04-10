@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture, Download, Printer, Pencil, Save } from "lucide-react";
 import { generateJobSheetPdf } from "@/components/JobSheetPdfExport";
+import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -324,6 +325,11 @@ export default function QuickScanDialog() {
             extracted[matchingKey] = headerData[headerKey];
           }
         }
+      }
+
+      // Fuzzy-match engineer name against known profiles
+      if (headerData.engineer && engineers.length > 0) {
+        headerData.engineer = fuzzyMatchEngineer(headerData.engineer, engineers);
       }
 
       setResult(extracted);
