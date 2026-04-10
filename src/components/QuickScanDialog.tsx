@@ -240,7 +240,13 @@ export default function QuickScanDialog() {
       </Button>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); } setOpen(v); }}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current++; setIsDragOver(true); }}
+          onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
+          onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+          onDrop={(e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current = 0; setIsDragOver(false); handleFiles(e.dataTransfer.files); }}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <ScanLine className="h-5 w-5 text-primary" />
