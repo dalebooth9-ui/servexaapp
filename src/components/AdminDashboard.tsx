@@ -222,6 +222,8 @@ export default function AdminDashboard() {
 
   const handleFileDragEnter = (e: React.DragEvent) => {
     e.preventDefault(); e.stopPropagation();
+    // Don't show folder overlay when a dialog is open (e.g. QuickScanDialog)
+    if (document.querySelector('[role="dialog"]')) return;
     fileDragCounter.current++;
     if (e.dataTransfer.types.includes("Files")) setFileDragging(true);
   };
