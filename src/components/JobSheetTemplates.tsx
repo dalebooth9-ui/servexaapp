@@ -975,7 +975,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                               : (field.type === "checkbox" ? true : isYesNoSelect ? "YES" : true);
                           });
 
-                          // For outlet-related fields, map N/A from the scanned sheet to YES (good condition)
+                          // For outlet-related fields, map N/A from the scanned sheet to a positive value (good condition)
+                          const outletMappedFieldIds = new Set<string>();
                           tpl.fields.forEach((field) => {
                             const lbl = field.label.toLowerCase();
                             const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
@@ -986,18 +987,23 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             if (normalized === "n/a" || normalized === "na") {
                               const isYesNoSelect =
                                 !!field.options &&
-                                field.options.some((opt) => opt.toLowerCase() === "yes");
+                                field.options.some((opt) => opt.toLowerCase() === "yes") &&
+                                field.options.some((opt) => opt.toLowerCase() === "no");
                               const isSatSelect =
                                 !!field.options &&
                                 field.options.some((opt) => opt.toLowerCase() === "satisfactory");
                               if (isYesNoSelect) {
-                                merged[field.id] = "Yes";
+                                merged[field.id] = "YES";
+                                outletMappedFieldIds.add(field.id);
                               } else if (isSatSelect) {
                                 merged[field.id] = "Satisfactory";
+                                outletMappedFieldIds.add(field.id);
                               } else if (field.type === "pass_fail") {
                                 merged[field.id] = "pass";
+                                outletMappedFieldIds.add(field.id);
                               } else if (field.type === "checkbox") {
                                 merged[field.id] = true;
+                                outletMappedFieldIds.add(field.id);
                               }
                             }
                           });
@@ -1007,7 +1013,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             const lbl = field?.label.toLowerCase() || "";
                             const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
                             const isBlankish = value === "" || value == null || String(value).toLowerCase() === "undefined";
-                            if (!isDrainField && !isBlankish) {
+                            if (!isDrainField && !isBlankish && !outletMappedFieldIds.has(key)) {
                               merged[key] = value;
                             }
                           });
