@@ -362,7 +362,7 @@ export default function QuickScanDialog() {
     }
   };
 
-
+  const createJobFromScan = async () => {
     if (!header && !result) return;
     setCreatingJob(true);
     try {
