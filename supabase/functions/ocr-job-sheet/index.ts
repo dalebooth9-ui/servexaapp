@@ -121,7 +121,7 @@ serve(async (req) => {
                 customer_sign_date: { type: "string", description: "The date written in the customer/signature section at the bottom of the form, next to a 'Date:' label in the signature block. May differ from the inspection date at the top." },
                 customer_signature_bbox: {
                   type: "object",
-                  description: "Bounding box of the customer's HANDWRITTEN SIGNATURE (the ink scrawl/mark, NOT the printed name). Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
+                  description: "Bounding box of the customer's FULL HANDWRITTEN SIGNATURE (the ink scrawl/mark, NOT the printed name, and NEVER a logo, watermark, border, stamp, coloured curve, or any other pre-printed graphic). The box must cover the entire signature from far-left stroke to far-right stroke and full top-to-bottom height. Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
                   properties: {
                     x_min: { type: "number", description: "Left edge as percentage (0-100) of image width" },
                     y_min: { type: "number", description: "Top edge as percentage (0-100) of image height" },
@@ -132,7 +132,7 @@ serve(async (req) => {
                 },
                 engineer_signature_bbox: {
                   type: "object",
-                  description: "Bounding box of the engineer/technician's HANDWRITTEN SIGNATURE (the ink scrawl/mark). Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
+                  description: "Bounding box of the engineer/technician's FULL HANDWRITTEN SIGNATURE (the ink scrawl/mark, NEVER a logo, watermark, border, stamp, coloured curve, or any other pre-printed graphic). The box must cover the entire signature from first stroke to last stroke. Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
                   properties: {
                     x_min: { type: "number", description: "Left edge as percentage (0-100) of image width" },
                     y_min: { type: "number", description: "Top edge as percentage (0-100) of image height" },
@@ -174,6 +174,8 @@ SIGNATURE BLOCK EXTRACTION — At the BOTTOM of the form there is usually a sign
   • A handwritten signature mark (the ink scrawl) — for this, return its BOUNDING BOX coordinates as percentages (0-100) of the image width and height. Include the page_index (0-indexed) if multiple images.
     - customer_signature_bbox: the bounding box around the customer's handwritten signature mark
     - engineer_signature_bbox: the bounding box around the engineer/technician's handwritten signature mark
+  • The signature box must contain the FULL signature, not just the darkest flourish or one end of it.
+  • Ignore any pre-printed graphics entirely: logos, coloured arcs, watermarks, borders, boxes, stamps, ruled lines, and decorative marks are NEVER signatures.
   • Add ~5% padding around each signature to avoid cropping too tight.
   IMPORTANT: customer_signed_name is a PERSON'S NAME, NOT a company name. It belongs to the person who physically signed the form at the bottom. It may be printed clearly below the signature.
 
@@ -222,6 +224,7 @@ RULES:
 - Every field value must come from handwriting or typed text physically present on the paper form.
 - If a field is blank on the form, omit it. Do not guess or default.
 - "Customer" = the company name handwritten next to the "Customer:" label — never the template name.
+- For signature boxes: capture the full handwritten signature only, and never select logos, coloured curves, watermarks, ruled lines, or other printed artwork.
 - For YES/NO rows: tick beside YES = "pass", tick beside NO = "fail".
 - For P/F/N/A rows: tick beside F = "fail", tick beside P = "pass".`,
       },
