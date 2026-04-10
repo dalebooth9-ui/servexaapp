@@ -73,9 +73,13 @@ serve(async (req) => {
           description: `"${f.label}" — Look at the LABEL of the box/column the tick is in. If the label is YES or P or PASS → return "pass". If the label is NO or F or FAIL → return "fail". WARNING: The word "pass" in this field name does NOT mean the answer is pass — read the form. For the Pressure Test Result row specifically, look for a tick next to P (pass) or F (fail): a tick next to F = "fail".${extraInstruction}`,
         };
       } else if (f.type === "checkbox") {
+        const isDrainField = f.label.toLowerCase().includes("drain") || f.label.toLowerCase().includes("drop leg");
+        const extraNote = isDrainField
+          ? ` IMPORTANT: Look carefully for a tick, check mark, or "Yes" written next to this item. If ticked or marked Yes → true.`
+          : "";
         fieldProperties[f.id] = {
           type: "boolean",
-          description: `"${f.label}" — true if ticked/checked, false if crossed, empty or marked NO.`,
+          description: `"${f.label}" — true if ticked/checked or marked YES, false if crossed, empty or marked NO. Look for ANY mark (tick, check, cross, Y/N) next to this item on the form.${extraNote}`,
         };
       } else if (f.type === "number") {
         fieldProperties[f.id] = {
