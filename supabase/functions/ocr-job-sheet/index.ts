@@ -391,80 +391,16 @@ RULES:
       if (bestExtraction) break;
     }
 
-    // --- VERIFICATION PASS ---
     if (bestExtraction) {
-      const { extracted, header } = bestExtraction;
-      const fieldCount = Object.keys(extracted).length;
-
-      if (fieldCount > 0) {
-        try {
-          const verifyPrompt = `You are verifying a previous OCR extraction of a handwritten form. Below is what was extracted. Look at the SAME image(s) again and check for errors.
-
-PREVIOUSLY EXTRACTED HEADER:
-${JSON.stringify(header, null, 2)}
-
-PREVIOUSLY EXTRACTED FIELDS (${fieldCount} fields):
-${JSON.stringify(extracted, null, 2)}
-
-INSTRUCTIONS:
-1. Compare each extracted value against what is ACTUALLY written on the form.
-2. Only correct values that are clearly WRONG (misread characters, wrong field mapping, swapped values).
-3. If a value looks correct, keep it exactly as-is.
-4. Pay special attention to: customer name, site address, engineer name, PO/reference numbers, pass/fail results, and postcode characters.
-5. If the previous extraction missed a field that has a value on the form, include it.
-6. Common OCR errors to check: 0 vs O, 1 vs I vs l, 5 vs S, 6 vs G, 8 vs B, N vs H.
-
-Use the extract_job_sheet tool to return the CORRECTED complete extraction.`;
-
-          const imagePartsOnly = userContentParts.filter((p: any) => p.type === "image_url");
-          const verifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${LOVABLE_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "google/gemini-2.5-flash",
-              max_tokens: 8192,
-              temperature: 0.05,
-              messages: [
-                { role: "system", content: "You are an OCR verification assistant. Double-check the previous extraction against the actual form image. Only correct clear errors. Keep correct values unchanged." },
-                { role: "user", content: [{ type: "text", text: verifyPrompt }, ...imagePartsOnly] },
-              ],
-              tools: [extractionTool],
-              tool_choice: { type: "function", function: { name: "extract_job_sheet" } },
-            }),
-          });
-
-          if (verifyResponse.ok) {
-            const verifyText = await verifyResponse.text();
-            if (verifyText?.trim()) {
-              const verifyResult = JSON.parse(verifyText);
-              const verified = extractStructuredPayload(verifyResult);
-              if (hasMeaningfulValues(verified.extracted) || hasMeaningfulValues(verified.header)) {
-                for (const key of Object.keys(verified.header)) {
-                  if (verified.header[key] !== undefined && verified.header[key] !== null && verified.header[key] !== "") {
-                    header[key] = verified.header[key];
-                  }
-                }
-                for (const key of Object.keys(verified.extracted)) {
-                  if (verified.extracted[key] !== undefined && verified.extracted[key] !== null && verified.extracted[key] !== "") {
-                    extracted[key] = verified.extracted[key];
-                  }
-                }
-                console.log("OCR verification corrected header:", JSON.stringify(header));
-              }
-            }
-          }
-        } catch (verifyErr) {
-          console.warn("Verification pass failed (non-fatal):", verifyErr);
-        }
-      }
-
       return new Response(JSON.stringify({ extracted: bestExtraction.extracted, header: bestExtraction.header }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    return new Response(JSON.stringify({ error: lastStructuredError }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (e) {
     console.error("ocr-job-sheet error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {

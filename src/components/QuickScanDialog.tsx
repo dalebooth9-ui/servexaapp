@@ -309,7 +309,7 @@ export default function QuickScanDialog() {
       }
 
       let extracted: Record<string, any> = {};
-      let headerData: Record<string, any> = { ...(identifyData?.header || {}) };
+      let headerData: Record<string, any> = {};
 
       if (templateFields.length > 12) {
         const fieldChunks = chunkFields(templateFields, 12);
