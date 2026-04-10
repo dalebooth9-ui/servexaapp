@@ -780,6 +780,18 @@ export default function QuickScanDialog() {
                     <><Plus className="mr-2 h-4 w-4" /> Create Job from This</>
                   )}
                 </Button>
+                {matchedTemplate && (
+                  <>
+                    <Button onClick={() => downloadPdf("preview")} disabled={generatingPdf} variant="outline" size="sm">
+                      {generatingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
+                      Print PDF
+                    </Button>
+                    <Button onClick={() => downloadPdf("download")} disabled={generatingPdf} variant="outline" size="sm">
+                      {generatingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                      Download PDF
+                    </Button>
+                  </>
+                )}
                 <Button onClick={() => { setResult(null); setHeader(null); setDetectedCategory(null); setMatchedTemplate(null); }} variant="ghost" size="sm">
                   <ScanLine className="mr-2 h-4 w-4" /> Scan Another
                 </Button>
