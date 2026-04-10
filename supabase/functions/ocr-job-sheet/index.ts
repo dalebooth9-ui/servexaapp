@@ -213,6 +213,8 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
 
 TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
 
+ANNOTATION TEXT — Many fields have extra handwritten notes beside the main answer, such as "N/A – EXPOSED INLET", "YES - EXPOSED OUTLETS", or "NOT VISIBLE". You MUST include the FULL annotation text, not just the main answer. For example if the form says "N/A – EXPOSED INLET" next to the glass question, return "N/A – EXPOSED INLET" not just "N/A".
+
 Use the extract_job_sheet tool to return all findings.`;
 
     const userContentParts: any[] = [
