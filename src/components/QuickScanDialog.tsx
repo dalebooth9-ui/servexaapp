@@ -1,13 +1,10 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, FileText, Copy, Check } from "lucide-react";
+import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function QuickScanDialog() {
@@ -19,7 +16,12 @@ export default function QuickScanDialog() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copied, setCopied] = useState(false);
   const [creatingJob, setCreatingJob] = useState(false);
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragCounter = useRef(0);
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -27,9 +29,8 @@ export default function QuickScanDialog() {
   const handleFiles = (files: FileList | File[] | null) => {
     if (!files) return;
     const newImages = Array.from(files)
-      .filter((f) => f.type.startsWith("image/") || f.type === "application/pdf")
-      .slice(0, 5)
       .filter((f) => f.type.startsWith("image/"))
+      .slice(0, 5)
       .map((file) => ({ file, preview: URL.createObjectURL(file) }));
     setImages((prev) => [...prev, ...newImages].slice(0, 5));
   };
@@ -49,22 +50,86 @@ export default function QuickScanDialog() {
     });
   };
 
+  const stopCamera = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    setCameraActive(false);
+    setCameraError(null);
+  }, []);
+
+  const startCamera = async () => {
+    setCameraError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+      });
+      streamRef.current = stream;
+      setCameraActive(true);
+      // Attach stream after state update triggers re-render
+      setTimeout(() => {
+        if (videoRef.current && streamRef.current) {
+          videoRef.current.srcObject = streamRef.current;
+        }
+      }, 50);
+    } catch (err: any) {
+      const msg = err.name === "NotAllowedError"
+        ? "Camera permission denied. Please allow camera access in your browser settings."
+        : err.name === "NotFoundError"
+        ? "No camera found on this device."
+        : `Camera error: ${err.message}`;
+      setCameraError(msg);
+      toast({ title: "Camera unavailable", description: msg, variant: "destructive" });
+    }
+  };
+
+  const captureFrame = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0);
+
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `camera-capture-${Date.now()}.jpg`, { type: "image/jpeg" });
+        const preview = URL.createObjectURL(file);
+        setImages((prev) => [...prev, { file, preview }].slice(0, 5));
+        toast({ title: "Photo captured", description: `${images.length + 1} of 5 max` });
+      },
+      "image/jpeg",
+      0.92
+    );
+  };
+
   const reset = () => {
     images.forEach((img) => URL.revokeObjectURL(img.preview));
     setImages([]);
     setResult(null);
     setHeader(null);
     setCopied(false);
+    stopCamera();
   };
+
+  // Stop camera when dialog closes
+  useEffect(() => {
+    if (!open) stopCamera();
+  }, [open, stopCamera]);
 
   const scan = async () => {
     if (images.length === 0) return;
     setScanning(true);
     setResult(null);
     setHeader(null);
+    stopCamera();
 
     try {
-      // Convert images to base64
       const imagePayloads: { image_base64: string; mime_type: string }[] = [];
       for (const img of images) {
         const arrayBuffer = await img.file.arrayBuffer();
@@ -77,7 +142,6 @@ export default function QuickScanDialog() {
         });
       }
 
-      // Generic fields for a standalone scan — extract everything useful
       const fields = [
         { id: "description", label: "Description / Notes", type: "text" },
         { id: "findings", label: "Findings / Results", type: "text" },
@@ -184,51 +248,105 @@ export default function QuickScanDialog() {
             </DialogTitle>
           </DialogHeader>
 
+          {/* Hidden canvas for camera capture */}
+          <canvas ref={canvasRef} className="hidden" />
+
           {!result ? (
             <div className="space-y-4">
-              {/* Drop zone */}
-              <div
-                onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true); }}
-                onDragLeave={(e) => { e.preventDefault(); dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleDrop}
-                onClick={() => fileRef.current?.click()}
-                className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
-                  isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
-                }`}
-              >
-                <Upload className="h-8 w-8 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">
-                  Drop photos of a handwritten sheet, or <span className="text-primary font-medium">click to browse</span>
-                </p>
-                <p className="text-xs text-muted-foreground">Up to 5 images • JPG, PNG</p>
-              </div>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => handleFiles(e.target.files)}
-              />
+              {/* Live camera viewfinder */}
+              {cameraActive ? (
+                <div className="relative rounded-lg overflow-hidden border-2 border-primary bg-black">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full max-h-[400px] object-contain"
+                  />
+                  {/* Scan overlay guide */}
+                  <div className="absolute inset-4 border-2 border-dashed border-white/40 rounded-lg pointer-events-none" />
+                  <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/70 to-transparent flex items-center justify-center gap-3">
+                    <Button
+                      onClick={captureFrame}
+                      size="lg"
+                      className="rounded-full h-14 w-14 p-0 bg-white hover:bg-white/90 text-black shadow-lg"
+                      disabled={images.length >= 5}
+                    >
+                      <Aperture className="h-7 w-7" />
+                    </Button>
+                    <Button
+                      onClick={stopCamera}
+                      variant="ghost"
+                      size="sm"
+                      className="text-white hover:text-white hover:bg-white/20"
+                    >
+                      <VideoOff className="mr-2 h-4 w-4" /> Close Camera
+                    </Button>
+                  </div>
+                  {images.length > 0 && (
+                    <div className="absolute top-2 right-2">
+                      <Badge variant="secondary" className="bg-black/60 text-white border-0">
+                        {images.length}/5 captured
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <>
+                  {/* Drop zone */}
+                  <div
+                    onDragEnter={(e) => { e.preventDefault(); dragCounter.current++; setIsDragOver(true); }}
+                    onDragLeave={(e) => { e.preventDefault(); dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    onClick={() => fileRef.current?.click()}
+                    className={`flex flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed p-8 cursor-pointer transition-colors ${
+                      isDragOver ? "border-primary bg-primary/5" : "border-muted-foreground/25 hover:border-primary/50"
+                    }`}
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Drop photos of a handwritten sheet, or <span className="text-primary font-medium">click to browse</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">Up to 5 images • JPG, PNG</p>
+                  </div>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleFiles(e.target.files)}
+                  />
+                </>
+              )}
 
-              {/* Camera capture for mobile */}
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const inp = document.createElement("input");
-                    inp.type = "file";
-                    inp.accept = "image/*";
-                    inp.capture = "environment";
-                    inp.onchange = () => handleFiles(inp.files);
-                    inp.click();
-                  }}
-                >
-                  <Camera className="mr-2 h-4 w-4" /> Take Photo
-                </Button>
-              </div>
+              {/* Camera / upload buttons */}
+              {!cameraActive && (
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={startCamera}>
+                    <Video className="mr-2 h-4 w-4" /> Use Camera
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const inp = document.createElement("input");
+                      inp.type = "file";
+                      inp.accept = "image/*";
+                      inp.capture = "environment";
+                      inp.onchange = () => handleFiles(inp.files);
+                      inp.click();
+                    }}
+                  >
+                    <Camera className="mr-2 h-4 w-4" /> Take Photo
+                  </Button>
+                </div>
+              )}
+
+              {cameraError && (
+                <p className="text-sm text-destructive">{cameraError}</p>
+              )}
 
               {/* Preview thumbnails */}
               {images.length > 0 && (
