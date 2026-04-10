@@ -248,7 +248,10 @@ RULES:
     for (const img of images) {
       userContentParts.push({
         type: "image_url",
-        image_url: { url: `data:${img.mime_type || "image/jpeg"};base64,${img.image_base64}` },
+        image_url: {
+          url: `data:${img.mime_type || "image/jpeg"};base64,${img.image_base64}`,
+          detail: "high",
+        },
       });
     }
 
