@@ -13,6 +13,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import OnboardingTour from "@/components/OnboardingTour";
+import QuickScanDialog from "@/components/QuickScanDialog";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -349,6 +350,7 @@ export default function AdminDashboard() {
           <Button onClick={() => setFolderImportOpen(true)} variant="outline">
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
+          <QuickScanDialog />
           <AiMaintenanceAlerts />
         </div>
       )}
