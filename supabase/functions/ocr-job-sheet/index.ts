@@ -250,119 +250,142 @@ RULES:
       });
     }
 
-    // Use gemini-2.5-pro only — best vision model for handwritten form analysis
-    // Only fall back on rate limit errors, not on quality failures
+    const parseStructuredJson = (raw: string) => {
+      let cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+      if (!cleaned) throw new Error("AI returned empty structured output");
+
+      const jsonStart = cleaned.search(/[\{\[]/);
+      if (jsonStart === -1) throw new Error("AI returned no JSON object");
+
+      const openingChar = cleaned[jsonStart];
+      const closingChar = openingChar === "[" ? "]" : "}";
+      const jsonEnd = cleaned.lastIndexOf(closingChar);
+      if (jsonEnd === -1 || jsonEnd < jsonStart) throw new Error("AI returned incomplete JSON");
+
+      cleaned = cleaned
+        .substring(jsonStart, jsonEnd + 1)
+        .replace(/,\s*}/g, "}")
+        .replace(/,\s*]/g, "]")
+        .replace(/[\x00-\x1F\x7F]/g, "");
+
+      return JSON.parse(cleaned);
+    };
+
+    const hasMeaningfulValues = (record: Record<string, any> = {}) =>
+      Object.values(record).some((value) => value !== undefined && value !== null && value !== "");
+
+    const extractStructuredPayload = (result: any) => {
+      const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
+      if (toolCall?.function?.arguments?.trim()) {
+        const parsed = parseStructuredJson(toolCall.function.arguments);
+        return {
+          extracted: parsed.fields || {},
+          header: parsed.header || {},
+        };
+      }
+
+      const content = typeof result.choices?.[0]?.message?.content === "string"
+        ? result.choices?.[0]?.message?.content
+        : "";
+
+      if (content.trim()) {
+        const parsed = parseStructuredJson(content);
+        return {
+          extracted: parsed.fields || parsed,
+          header: parsed.header || {},
+        };
+      }
+
+      throw new Error("AI returned no structured output");
+    };
+
     const models = ["google/gemini-2.5-pro", "google/gemini-2.5-flash"];
-    let aiResponse: Response | null = null;
+    let lastStructuredError = "AI could not extract structured data from this sheet";
+
     for (const model of models) {
-      aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: 4096,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userContentParts },
-          ],
-          tools: [extractionTool],
-          tool_choice: { type: "function", function: { name: "extract_job_sheet" } },
-        }),
-      });
-      if (aiResponse.ok) break;
-      const status = aiResponse.status;
-      // Consume body to avoid resource leak
-      await aiResponse.text();
-      if (status === 429 || status === 402) break;
-      console.warn(`Model ${model} failed with ${status}, trying next...`);
-    }
-
-    if (!aiResponse || !aiResponse.ok) {
-      const status = aiResponse!.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: 8192,
+            temperature: 0.1,
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userContentParts },
+            ],
+            tools: [extractionTool],
+            tool_choice: { type: "function", function: { name: "extract_job_sheet" } },
+          }),
         });
-      }
-      if (status === 402) {
-        return new Response(JSON.stringify({ error: "Payment required, please add funds." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text = await aiResponse!.text();
-      console.error("AI gateway error:", status, text);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
-    const responseText = await aiResponse.text();
-    if (!responseText || responseText.trim().length === 0) {
-      console.error("AI returned empty response body");
-      return new Response(JSON.stringify({ error: "AI returned empty response, please retry" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+        if (!aiResponse.ok) {
+          const status = aiResponse.status;
+          const text = await aiResponse.text();
 
-    let result: any;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      console.error("Failed to parse AI response JSON:", responseText.substring(0, 500));
-      return new Response(JSON.stringify({ error: "AI response was malformed, please retry" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+          if (status === 429) {
+            return new Response(JSON.stringify({ error: "Rate limits exceeded, please try again later." }), {
+              status: 429,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
+          if (status === 402) {
+            return new Response(JSON.stringify({ error: "Payment required, please add funds." }), {
+              status: 402,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            });
+          }
 
-    // Extract from tool call response
-    let extracted: any = {};
-    let header: any = {};
-
-    const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
-    if (toolCall?.function?.arguments) {
-      try {
-        const parsed = JSON.parse(toolCall.function.arguments);
-        extracted = parsed.fields || {};
-        header = parsed.header || {};
-        console.log("OCR extracted header:", JSON.stringify(header));
-      } catch (e) {
-        console.error("Failed to parse tool call arguments:", toolCall.function.arguments);
-        return new Response(JSON.stringify({ error: "Could not parse handwriting", raw: toolCall.function.arguments }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } else {
-      // Fallback: try to parse content as JSON (older model responses)
-      const content = result.choices?.[0]?.message?.content || "";
-      try {
-        let cleaned = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-        const jsonStart = cleaned.search(/[\{\[]/);
-        const jsonEnd = cleaned.lastIndexOf("}");
-        if (jsonStart !== -1 && jsonEnd !== -1) {
-          cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
-          const parsed = JSON.parse(cleaned);
-          extracted = parsed.fields || parsed;
-          header = parsed.header || {};
+          lastStructuredError = `AI gateway error (${status})`;
+          console.warn(`Model ${model} attempt ${attempt + 1} failed with ${status}: ${text.substring(0, 300)}`);
+          continue;
         }
-      } catch {
-        console.error("Failed to parse AI response as JSON:", content);
-        return new Response(JSON.stringify({ error: "Could not parse handwriting", raw: content }), {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+
+        const responseText = await aiResponse.text();
+        if (!responseText || responseText.trim().length === 0) {
+          lastStructuredError = "AI returned empty response, please retry";
+          console.warn(`Model ${model} attempt ${attempt + 1} returned an empty response body`);
+          continue;
+        }
+
+        let result: any;
+        try {
+          result = JSON.parse(responseText);
+        } catch {
+          lastStructuredError = "AI response was malformed, please retry";
+          console.error("Failed to parse AI response JSON:", responseText.substring(0, 500));
+          continue;
+        }
+
+        const finishReason = result.choices?.[0]?.finish_reason ?? result.candidates?.[0]?.finishReason ?? "unknown";
+
+        try {
+          const { extracted, header } = extractStructuredPayload(result);
+          if (!hasMeaningfulValues(extracted) && !hasMeaningfulValues(header)) {
+            lastStructuredError = finishReason === "length" || finishReason === "MAX_TOKENS"
+              ? "AI output was truncated, please retry"
+              : "AI returned an empty extraction";
+            console.warn(`Model ${model} attempt ${attempt + 1} returned empty structured output. finish_reason=${finishReason}`);
+            continue;
+          }
+
+          console.log("OCR extracted header:", JSON.stringify(header));
+          return new Response(JSON.stringify({ extracted, header }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } catch (error) {
+          lastStructuredError = error instanceof Error ? error.message : "Could not parse handwriting";
+          console.warn(`Model ${model} attempt ${attempt + 1} could not produce structured output. finish_reason=${finishReason}. error=${lastStructuredError}`);
+        }
       }
     }
 
-    return new Response(JSON.stringify({ extracted, header }), {
+    return new Response(JSON.stringify({ error: lastStructuredError }), {
+      status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
