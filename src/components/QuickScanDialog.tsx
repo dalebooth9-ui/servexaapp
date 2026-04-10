@@ -389,7 +389,7 @@ export default function QuickScanDialog() {
       const jobInfo = {
         address: header?.site || null,
         customer: header?.customer || null,
-        reference_number: header?.po_ref || "SCAN",
+        reference_number: header?.po_ref || "",
       };
 
       const { base64, fileName } = await generateJobSheetPdf(
