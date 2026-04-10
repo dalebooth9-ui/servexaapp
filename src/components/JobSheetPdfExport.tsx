@@ -306,6 +306,46 @@ export async function generateJobSheetPdf(
     y += Math.max(4, wrappedMaterials.length * 3) + 1;
   }
 
+  // --- Site Photos (embedded in comments section) ---
+  const sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
+  if (sitePhotoUrls.length > 0) {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7.5);
+    doc.setTextColor(...accentColor);
+    doc.text("Site Photos", margin, y + 3.5);
+    doc.setTextColor(0, 0, 0);
+    y += 5;
+
+    const photoW = (maxWidth - 4) / 3; // 3 photos per row
+    const photoH = photoW * 0.75;
+
+    for (let i = 0; i < sitePhotoUrls.length; i++) {
+      const col = i % 3;
+      if (col === 0 && i > 0) y += photoH + 3;
+
+      // Check if we need a new page
+      if (y + photoH + 10 > pageHeight - footerSpace) {
+        doc.addPage();
+        y = margin;
+      }
+
+      try {
+        const img = new Image();
+        img.crossOrigin = "anonymous";
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve();
+          img.onerror = () => resolve();
+          img.src = sitePhotoUrls[i];
+        });
+        if (img.naturalWidth > 0) {
+          const x = margin + col * (photoW + 2);
+          doc.addImage(img, "JPEG", x, y, photoW, photoH);
+        }
+      } catch { /* skip failed photo */ }
+    }
+    y += photoH + 3;
+  }
+
   // --- Bottom stack layout (calculated from bottom up) ---
   // addAccreditationLogosToAllPages internally does: rowY = footerY - logoH - 3
   // So passing declarationFooterY places logos at declarationFooterY - logoH - 3
