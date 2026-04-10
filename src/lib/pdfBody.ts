@@ -279,7 +279,11 @@ export function renderFilledFieldRow(
     else if (value === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "checkbox") {
-    doc.text(value ? "YES" : "NO", margin + colSplit + 1, y + 3);
+    // Default drain / drop-leg checkboxes to YES when value is missing/falsy
+    const lbl = field.label.toLowerCase();
+    const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+    const resolved = isDrainField ? (value === false ? false : true) : !!value;
+    doc.text(resolved ? "YES" : "NO", margin + colSplit + 1, y + 3);
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
     const strVal = String(value || "").toLowerCase();
     const displayVal = strVal === "yes" ? "YES" : strVal === "no" ? "NO" : strVal === "n/a" ? "N/A" : value ? String(value).toUpperCase() : "—";
