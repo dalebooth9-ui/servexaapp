@@ -14,6 +14,7 @@ import AiMaintenanceAlerts from "@/components/AiMaintenanceAlerts";
 import OnboardingChecklist from "@/components/OnboardingChecklist";
 import OnboardingTour from "@/components/OnboardingTour";
 import QuickScanDialog from "@/components/QuickScanDialog";
+import BatchScanDialog from "@/components/BatchScanDialog";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -353,6 +354,7 @@ export default function AdminDashboard() {
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
           <QuickScanDialog />
+          <BatchScanDialog />
           <AiMaintenanceAlerts />
         </div>
       )}
