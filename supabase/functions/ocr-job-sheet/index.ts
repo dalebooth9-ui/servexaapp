@@ -274,6 +274,8 @@ RULES:
       });
       if (aiResponse.ok) break;
       const status = aiResponse.status;
+      // Consume body to avoid resource leak
+      await aiResponse.text();
       if (status === 429 || status === 402) break;
       console.warn(`Model ${model} failed with ${status}, trying next...`);
     }
@@ -300,7 +302,25 @@ RULES:
       });
     }
 
-    const result = await aiResponse.json();
+    const responseText = await aiResponse.text();
+    if (!responseText || responseText.trim().length === 0) {
+      console.error("AI returned empty response body");
+      return new Response(JSON.stringify({ error: "AI returned empty response, please retry" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    let result: any;
+    try {
+      result = JSON.parse(responseText);
+    } catch (e) {
+      console.error("Failed to parse AI response JSON:", responseText.substring(0, 500));
+      return new Response(JSON.stringify({ error: "AI response was malformed, please retry" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Extract from tool call response
     let extracted: any = {};
