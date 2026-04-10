@@ -328,19 +328,78 @@ export default function QuickScanDialog() {
 
       if (error) throw error;
 
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id;
+
       // If we have a matched template and extracted data, create a job_sheet_response
-      if (matchedTemplate && result) {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData?.user) {
-          await supabase
-            .from("job_sheet_responses")
-            .insert({
+      if (matchedTemplate && result && userId) {
+        await supabase
+          .from("job_sheet_responses")
+          .insert({
+            job_id: job.id,
+            template_id: matchedTemplate.id,
+            submitted_by: userId,
+            responses: result,
+            status: "draft",
+          });
+      }
+
+      // Auto-import engineer signature from extracted header
+      if (header?.engineer && userId) {
+        // Try to match engineer profile by name and use their stored signature
+        const engineerName = header.engineer.trim();
+        if (engineerName) {
+          const { data: profileMatch } = await supabase
+            .from("profiles")
+            .select("user_id, signature_data")
+            .ilike("full_name", `%${engineerName.split(" ")[0]}%`)
+            .limit(1)
+            .maybeSingle();
+
+          if (profileMatch?.signature_data) {
+            // Convert base64 data URL to blob and upload
+            try {
+              const res = await fetch(profileMatch.signature_data);
+              const blob = await res.blob();
+              const sigPath = `engineer/${job.id}-${Date.now()}.png`;
+              const { error: uploadErr } = await supabase.storage
+                .from("signatures")
+                .upload(sigPath, blob, { contentType: "image/png" });
+
+              if (!uploadErr) {
+                await supabase.from("job_signatures").insert({
+                  job_id: job.id,
+                  signer_id: profileMatch.user_id,
+                  signer_name: engineerName,
+                  signer_role: "engineer",
+                  file_path: sigPath,
+                });
+              }
+            } catch { /* skip signature upload errors */ }
+          } else {
+            // Create a name-only signature record (no image)
+            await supabase.from("job_signatures").insert({
               job_id: job.id,
-              template_id: matchedTemplate.id,
-              submitted_by: userData.user.id,
-              responses: result,
-              status: "draft",
+              signer_id: userId,
+              signer_name: engineerName,
+              signer_role: "engineer",
+              file_path: "",
             });
+          }
+        }
+      }
+
+      // Auto-import customer signature from extracted header
+      if (header?.customer_signed_name) {
+        const customerName = header.customer_signed_name.trim();
+        if (customerName && userId) {
+          await supabase.from("job_signatures").insert({
+            job_id: job.id,
+            signer_id: userId,
+            signer_name: customerName,
+            signer_role: "customer",
+            file_path: "",
+          });
         }
       }
 
