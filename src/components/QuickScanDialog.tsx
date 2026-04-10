@@ -316,8 +316,12 @@ export default function QuickScanDialog() {
       const template = {
         id: matchedTemplate.id,
         name: matchedTemplate.name,
-        description: null,
-        fields: matchedTemplate.fields,
+        description: null as string | null,
+        fields: matchedTemplate.fields.map(f => ({
+          ...f,
+          required: f.required ?? false,
+          allow_notes: f.allow_notes ?? false,
+        })),
       };
       const jobInfo = {
         address: header?.site || null,
