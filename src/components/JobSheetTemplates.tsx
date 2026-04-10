@@ -941,8 +941,13 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             const field = tpl.fields.find((f) => f.id === key);
                             const lbl = field?.label.toLowerCase() || "";
                             const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-                            const isBlankDrainOverride = isDrainField && (value === false || value === "" || value == null);
-                            if (!isBlankDrainOverride) {
+                            const isExplicitNo = value === false || String(value).toLowerCase() === "false" || String(value).toLowerCase() === "no";
+                            const isBlankish = value === "" || value == null || String(value).toLowerCase() === "undefined";
+                            if (isDrainField) {
+                              merged[key] = isExplicitNo ? false : true;
+                              return;
+                            }
+                            if (!isBlankish) {
                               merged[key] = value;
                             }
                           });

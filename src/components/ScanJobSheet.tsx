@@ -443,8 +443,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       if (watermark) addWatermarkToAllPages(doc, watermark);
       addAccreditationLogosToAllPages(doc, accredLogos, footerStartY);
 
+      const safeSite = siteName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
       const downloadName = [
         jobInfo?.reference_number || "scanned",
+        safeSite || null,
         template.name.replace(/\s+/g, "-").toLowerCase(),
         customerName.replace(/\s+/g, "-").toLowerCase() || null,
       ].filter(Boolean).join("-") + ".pdf";
