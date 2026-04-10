@@ -1,7 +1,7 @@
 /**
  * Fuzzy-match an OCR-extracted engineer name against known profiles.
- * Handwriting OCR often misreads individual characters (e.g. "M" → "C"),
- * so we compare by surname similarity + initial plausibility.
+ * Handwriting OCR often misreads individual characters (e.g. "Whittaker" → "Whatmore"),
+ * so we use multiple strategies: Levenshtein, common prefix, and initial-based fallback.
  */
 
 interface EngineerProfile {
@@ -24,7 +24,6 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
-/** Count how many leading characters match */
 function commonPrefixLen(a: string, b: string): number {
   let i = 0;
   while (i < a.length && i < b.length && a[i] === b[i]) i++;
@@ -38,12 +37,11 @@ export function fuzzyMatchEngineer(
   if (!ocrName || engineers.length === 0) return ocrName || "";
 
   const cleaned = ocrName.trim().toUpperCase();
-  
+
   // Exact match first
   const exact = engineers.find(e => e.full_name.toUpperCase() === cleaned);
   if (exact) return exact.full_name;
 
-  // Split OCR name into parts
   const ocrParts = cleaned.split(/\s+/);
   const ocrSurname = ocrParts[ocrParts.length - 1];
   const ocrInitial = ocrParts.length > 1 ? ocrParts[0][0] : "";
@@ -56,37 +54,40 @@ export function fuzzyMatchEngineer(
     const engSurname = engParts[engParts.length - 1];
     const engInitial = engParts.length > 1 ? engParts[0][0] : "";
 
-    // Strategy 1: Levenshtein on full surname
     const surnameDist = levenshtein(ocrSurname, engSurname);
-
-    // Strategy 2: Common prefix bonus (OCR often gets start right, mangles the end)
     const prefixLen = commonPrefixLen(ocrSurname, engSurname);
-
-    // Initial match bonus
     const initialMatch = ocrInitial && engInitial && ocrInitial === engInitial;
     const initialPenalty = ocrInitial && engInitial && !initialMatch ? 3 : 0;
 
-    // Score: lower is better
-    // Approach A: pure Levenshtein (original approach, but with higher threshold)
+    // Strategy A: pure Levenshtein
     const scoreA = surnameDist * 2 + initialPenalty;
 
-    // Approach B: prefix-based — if ≥3 chars match at start, weight heavily
-    // e.g. "WHATMORE" vs "WHATMOUGH" shares "WHATMO" (6 chars)
-    // e.g. "WHATMORE" vs "WHITTAKER" shares "WH" (2 chars)
+    // Strategy B: common prefix bonus (OCR often gets start right)
     const scoreB = prefixLen >= 3
       ? Math.max(0, (surnameDist - prefixLen) * 2) + initialPenalty
       : Infinity;
 
     const score = Math.min(scoreA, scoreB);
-
     if (score < bestScore) {
       bestScore = score;
       bestMatch = eng.full_name;
     }
   }
 
-  // Accept if score is reasonable
-  // With initial match: accept up to 6; without: accept up to 4
-  const threshold = 6;
-  return bestScore <= threshold ? bestMatch : ocrName;
+  if (bestScore <= 6) return bestMatch;
+
+  // Fallback: if no good surname match, try initial-based matching.
+  // When OCR completely mangles the surname but gets the initial right,
+  // and only one engineer has that initial, use them.
+  if (ocrInitial) {
+    const initialMatches = engineers.filter(e => {
+      const parts = e.full_name.toUpperCase().split(/\s+/);
+      return parts.length > 0 && parts[0][0] === ocrInitial;
+    });
+    if (initialMatches.length === 1) {
+      return initialMatches[0].full_name;
+    }
+  }
+
+  return ocrName;
 }
