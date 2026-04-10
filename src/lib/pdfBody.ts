@@ -292,6 +292,7 @@ export function renderFilledFieldRow(
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
     const lbl = field.label.toLowerCase();
     const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+    const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
     const strVal = typeof value === "string"
       ? value.toLowerCase().trim()
       : value === false
@@ -301,6 +302,8 @@ export function renderFilledFieldRow(
       : "";
     const displayVal = isDrainField
       ? (strVal === "false" ? "NO" : "YES")
+      : isOutletField && (strVal === "n/a" || strVal === "na" || strVal === "")
+      ? "YES"
       : strVal === "yes"
       ? "YES"
       : strVal === "no"
@@ -310,9 +313,7 @@ export function renderFilledFieldRow(
       : value
       ? String(value).toUpperCase()
       : "—";
-    // Only colour NO red; YES stays neutral (only pass_fail "PASS" should be green)
     if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-    // YES stays neutral weight — no bold
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {
     doc.text(value ? "✓ Captured" : "—", margin + colSplit + 1, y + 3);
