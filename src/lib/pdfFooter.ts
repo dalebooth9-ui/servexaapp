@@ -31,8 +31,8 @@ export function renderPdfSignatures(
   const maxWidth = pageWidth - margin * 2;
   const halfW = maxWidth / 2 - 2;
   const sigImages = data.sigImages || {};
-  const sigImgH = 8;
-  const sigImgW = 25;
+  const sigImgH = 14;
+  const sigImgW = 40;
   const labelX = 20;
   const lineSpacing = 5;
   const cx = margin + halfW + 4;
