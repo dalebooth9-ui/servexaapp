@@ -99,8 +99,13 @@ export function getAutoPopulatedValues(
       vals[f.id] = jobInfo.site?.riser_location || "";
     }
 
-    // Default drain / drop leg fields to YES regardless of field type
-    if ((f.type === "checkbox" || f.type === "select" || f.type === "pass_fail") && (label.includes("drain") || label.includes("drop leg"))) {
+    const isDrainField = label.includes("drain") || label.includes("drop leg");
+    const isYesNoField =
+      f.type === "yes_no" ||
+      (f.options && f.options.length <= 3 && f.options.some((o) => o.toLowerCase() === "yes") && f.options.some((o) => o.toLowerCase() === "no"));
+
+    // Default drain / drop leg fields to YES across checkbox and yes/no-style fields
+    if (isDrainField && (f.type === "checkbox" || f.type === "select" || isYesNoField)) {
       vals[f.id] = "YES";
     }
   });
@@ -285,10 +290,28 @@ export function renderFilledFieldRow(
     const resolved = isDrainField ? (value === false ? false : true) : !!value;
     doc.text(resolved ? "YES" : "NO", margin + colSplit + 1, y + 3);
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
-    const strVal = String(value || "").toLowerCase();
-    const displayVal = strVal === "yes" ? "YES" : strVal === "no" ? "NO" : strVal === "n/a" ? "N/A" : value ? String(value).toUpperCase() : "—";
+    const lbl = field.label.toLowerCase();
+    const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+    const strVal = typeof value === "string"
+      ? value.toLowerCase().trim()
+      : value === false
+      ? "false"
+      : value === true
+      ? "yes"
+      : "";
+    const displayVal = isDrainField
+      ? (strVal === "false" ? "NO" : "YES")
+      : strVal === "yes"
+      ? "YES"
+      : strVal === "no"
+      ? "NO"
+      : strVal === "n/a"
+      ? "N/A"
+      : value
+      ? String(value).toUpperCase()
+      : "—";
     // Only colour NO red; YES stays neutral (only pass_fail "PASS" should be green)
-    if (strVal === "no") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+    if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
     // YES stays neutral weight — no bold
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {

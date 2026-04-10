@@ -293,15 +293,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const engineerList = (jobInfo.engineers || []).join(", ");
 
     template.fields.forEach((f) => {
-      // Default "drop leg drained" / drain checkboxes to YES
-      if (f.type === "checkbox") {
-        const lbl = f.label.toLowerCase();
-        if (lbl.includes("drain") || lbl.includes("drop leg")) {
-          prefilled[f.id] = true;
-        }
+      const lbl = f.label.toLowerCase();
+      const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+      const isYesNoSelect =
+        !!f.options &&
+        f.options.length <= 3 &&
+        f.options.some((opt) => opt.toLowerCase() === "yes") &&
+        f.options.some((opt) => opt.toLowerCase() === "no");
+
+      // Default "drop leg drained" / drain fields to YES
+      if (isDrainField) {
+        prefilled[f.id] = f.type === "checkbox" ? true : isYesNoSelect ? "YES" : true;
       }
-      // Never auto-fill fields that have options — leave blank for engineer to select
-      if (f.options && f.options.length > 0) return;
+      // Never auto-fill fields that have options — leave blank for engineer to select,
+      // except drain/drop-leg yes/no fields which should stay defaulted to YES
+      if (f.options && f.options.length > 0 && !isDrainField) return;
       const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
 
       // Site details (composite: name + address)
@@ -516,11 +522,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const prefilled = getAutoPopulatedData(activeTemplate);
     const templateDefaults: Record<string, any> = {};
     activeTemplate.fields.forEach((f) => {
+      const lbl = f.label.toLowerCase();
+      const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+      const isYesNoSelect =
+        !!f.options &&
+        f.options.length <= 3 &&
+        f.options.some((opt) => opt.toLowerCase() === "yes") &&
+        f.options.some((opt) => opt.toLowerCase() === "no");
+
       if (f.type === "checkbox") {
-        const lbl = f.label.toLowerCase();
-        templateDefaults[f.id] = (lbl.includes("drain") || lbl.includes("drop leg")) ? true : false;
+        templateDefaults[f.id] = isDrainField ? true : false;
+      } else if (isDrainField && isYesNoSelect) {
+        templateDefaults[f.id] = "YES";
+      } else {
+        templateDefaults[f.id] = "";
       }
-      else templateDefaults[f.id] = "";
     });
     setFormData({ ...templateDefaults, ...prefilled });
     toast({ title: "Reset to template defaults", description: "All fields reset to master template values." });
@@ -939,16 +955,24 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           const merged = { ...prev };
                           const extracted = data as Record<string, any>;
 
-                          // For drain / drop-leg fields, default to YES unless the scan explicitly says NO
+                          // For drain / drop-leg fields, default to YES unless the scan returns an explicit false value
                           tpl.fields.forEach((field) => {
                             const lbl = field.label.toLowerCase();
                             const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
                             if (!isDrainField) return;
 
                             const raw = extracted[field.id];
-                            const normalized = typeof raw === "string" ? raw.toLowerCase() : raw;
-                            const isExplicitNo = raw === false || normalized === "false" || normalized === "no";
-                            merged[field.id] = isExplicitNo ? false : true;
+                            const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
+                            const isYesNoSelect =
+                              !!field.options &&
+                              field.options.length <= 3 &&
+                              field.options.some((opt) => opt.toLowerCase() === "yes") &&
+                              field.options.some((opt) => opt.toLowerCase() === "no");
+                            const isExplicitNo = raw === false || normalized === "false";
+
+                            merged[field.id] = isExplicitNo
+                              ? (field.type === "checkbox" ? false : isYesNoSelect ? "NO" : false)
+                              : (field.type === "checkbox" ? true : isYesNoSelect ? "YES" : true);
                           });
 
                           Object.entries(extracted).forEach(([key, value]) => {
