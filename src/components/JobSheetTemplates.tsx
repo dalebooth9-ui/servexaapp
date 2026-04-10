@@ -984,7 +984,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
                             const raw = extracted[field.id];
                             const normalized = typeof raw === "string" ? raw.toLowerCase().trim() : raw;
-                            if (normalized === "n/a" || normalized === "na") {
+                            // Preserve descriptive text like "NOT VISIBLE" as-is
+                            if (typeof normalized === "string" && (normalized.includes("not visible") || normalized.includes("not installed"))) {
+                              merged[field.id] = raw;
+                              outletMappedFieldIds.add(field.id);
+                            } else if (normalized === "n/a" || normalized === "na") {
                               const isYesNoSelect =
                                 !!field.options &&
                                 field.options.some((opt) => opt.toLowerCase() === "yes") &&
