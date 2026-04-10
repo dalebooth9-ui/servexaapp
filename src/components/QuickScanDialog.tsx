@@ -291,7 +291,20 @@ export default function QuickScanDialog() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      setResult(data.extracted || {});
+      const extracted = data.extracted || {};
+
+      // Auto-fill pressure test defaults per BS 9990:2015 (12 Bar, 15 minutes)
+      const isPressureTest = matchedCat?.slug?.includes("pressure_test") || templateName?.toLowerCase().includes("pressure");
+      if (isPressureTest) {
+        if (!extracted.test_pressure_bar && extracted.test_pressure_bar !== 0) {
+          extracted.test_pressure_bar = 12;
+        }
+        if (!extracted.hold_time_minutes && extracted.hold_time_minutes !== 0) {
+          extracted.hold_time_minutes = 15;
+        }
+      }
+
+      setResult(extracted);
       setHeader(data.header || {});
       toast({ title: "Scan complete", description: `Detected: ${detectedCategory?.name || matchedCat?.name || "General"} — review the extracted data below.` });
     } catch (err: any) {
