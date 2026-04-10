@@ -301,8 +301,8 @@ export function renderFilledFieldRow(
       : value === true
       ? "yes"
       : "";
-    // Preserve descriptive text like "NOT VISIBLE" as-is
-    const isDescriptiveText = strVal.includes("not visible") || strVal.includes("not installed");
+    // Preserve descriptive text like "NOT VISIBLE", "EXPOSED INLET", "EXPOSED OUTLETS" as-is
+    const isDescriptiveText = strVal.includes("not visible") || strVal.includes("not installed") || strVal.includes("not accessible") || strVal.includes("exposed");
     const displayVal = isDescriptiveText
       ? String(value).toUpperCase()
       : isDrainField

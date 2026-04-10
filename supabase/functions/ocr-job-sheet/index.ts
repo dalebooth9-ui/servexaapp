@@ -89,7 +89,7 @@ serve(async (req) => {
       } else if (f.type === "select" && f.options?.length) {
         fieldProperties[f.id] = {
           type: "string",
-          description: `"${f.label}" — pick the closest matching option from the form: ${f.options.join(", ")}. IMPORTANT: If the handwritten text says something clearly different from these options (e.g. "NOT VISIBLE", "NOT INSTALLED", "NOT ACCESSIBLE"), transcribe that text exactly as written instead of forcing it into one of the options.`,
+          description: `"${f.label}" — pick the closest matching option from the form: ${f.options.join(", ")}. IMPORTANT: If the handwritten text says something clearly different from these options (e.g. "NOT VISIBLE", "NOT INSTALLED", "NOT ACCESSIBLE", "N/A – EXPOSED INLET", "YES - EXPOSED OUTLETS"), transcribe that FULL text exactly as written instead of forcing it into one of the options. Include any annotation after the main answer (e.g. "N/A – EXPOSED INLET" not just "N/A").`,
         };
       } else {
         fieldProperties[f.id] = {
