@@ -306,8 +306,63 @@ export default function QuickScanDialog() {
     setTimeout(() => setCopied(false), 2000);
     toast({ title: "Copied to clipboard" });
   };
+  const downloadPdf = async (mode: "download" | "preview") => {
+    if (!matchedTemplate || !result) {
+      toast({ title: "No template matched", description: "Cannot generate PDF without a matched template.", variant: "destructive" });
+      return;
+    }
+    setGeneratingPdf(true);
+    try {
+      const template = {
+        id: matchedTemplate.id,
+        name: matchedTemplate.name,
+        description: null,
+        fields: matchedTemplate.fields,
+      };
+      const jobInfo = {
+        address: header?.site || null,
+        customer: header?.customer || null,
+        reference_number: header?.po_ref || "SCAN",
+      };
 
-  const createJobFromScan = async () => {
+      const { base64, fileName } = await generateJobSheetPdf(
+        template,
+        result,
+        jobInfo,
+        "scan-preview",
+        header?.engineer,
+        null,
+        detectedCategory?.name,
+      );
+
+      const byteCharacters = atob(base64);
+      const byteArray = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
+      const blob = new Blob([byteArray], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      if (mode === "download") {
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF downloaded", description: fileName });
+      } else {
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        toast({ title: "PDF opened for printing" });
+      }
+    } catch (err: any) {
+      toast({ title: "PDF generation failed", description: err.message, variant: "destructive" });
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
+
     if (!header && !result) return;
     setCreatingJob(true);
     try {
