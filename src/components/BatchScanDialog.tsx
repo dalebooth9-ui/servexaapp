@@ -7,6 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Upload, Trash2, Layers, FileStack, CheckCircle2, XCircle, ScanLine } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { fuzzyMatchEngineer } from "@/lib/fuzzyEngineerMatch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface TemplateField {
