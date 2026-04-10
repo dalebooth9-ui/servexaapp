@@ -86,12 +86,12 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
-export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
+export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = false }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
-  const generate = async () => {
+  const generate = async (mode: "download" | "print" = "download") => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
