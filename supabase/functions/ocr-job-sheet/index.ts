@@ -63,10 +63,14 @@ serve(async (req) => {
     const fieldProperties: Record<string, any> = {};
     for (const f of fields) {
       if (f.type === "pass_fail") {
+        const isPressureTestField = f.id.includes("pressure_test") || f.label.toLowerCase().includes("pressure test");
+        const extraInstruction = isPressureTestField
+          ? ` CRITICAL: This is the overall pressure test result. There MUST be a tick next to either P (pass), F (fail), or N/A on the form. Look carefully in the "Pressure Test Results" section. If P is ticked → "pass". If F is ticked → "fail". You MUST return a value for this field — do not omit it.`
+          : "";
         fieldProperties[f.id] = {
           type: "string",
           enum: ["pass", "fail", "n/a"],
-          description: `"${f.label}" — Look at the LABEL of the box/column the tick is in. If the label is YES or P or PASS → return "pass". If the label is NO or F or FAIL → return "fail". WARNING: The word "pass" in this field name does NOT mean the answer is pass — read the form. For the Pressure Test Result row specifically, look for a tick next to P (pass) or F (fail): a tick next to F = "fail". If unclear, omit.`,
+          description: `"${f.label}" — Look at the LABEL of the box/column the tick is in. If the label is YES or P or PASS → return "pass". If the label is NO or F or FAIL → return "fail". WARNING: The word "pass" in this field name does NOT mean the answer is pass — read the form. For the Pressure Test Result row specifically, look for a tick next to P (pass) or F (fail): a tick next to F = "fail".${extraInstruction}`,
         };
       } else if (f.type === "checkbox") {
         fieldProperties[f.id] = {
