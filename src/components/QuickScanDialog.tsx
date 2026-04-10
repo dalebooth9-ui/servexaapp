@@ -46,7 +46,6 @@ export default function QuickScanDialog() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const dragCounter = useRef(0);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   // Fetch engineers and customers for dropdowns
   useEffect(() => {
