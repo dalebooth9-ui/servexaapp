@@ -362,7 +362,13 @@ export default function QuickScanDialog() {
                 <div className="flex flex-wrap gap-2">
                   {images.map((img, idx) => (
                     <div key={idx} className="relative group">
-                      <img src={img.preview} alt={`Page ${idx + 1}`} className="h-24 w-24 object-cover rounded-md border" />
+                      {img.file.type === "application/pdf" ? (
+                        <div className="h-24 w-24 flex items-center justify-center rounded-md border bg-muted">
+                          <span className="text-xs font-medium text-muted-foreground">PDF</span>
+                        </div>
+                      ) : (
+                        <img src={img.preview} alt={`Page ${idx + 1}`} className="h-24 w-24 object-cover rounded-md border" />
+                      )}
                       <button
                         onClick={(e) => { e.stopPropagation(); removeImage(idx); }}
                         className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
