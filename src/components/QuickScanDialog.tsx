@@ -175,6 +175,44 @@ export default function QuickScanDialog() {
     };
   };
 
+  const hasStructuredValues = (record?: Record<string, any> | null) =>
+    Object.values(record ?? {}).some((value) => value !== undefined && value !== null && value !== "");
+
+  const toOcrFieldPayload = (fields: TemplateField[]) =>
+    fields.map((f) => ({
+      id: f.id,
+      label: f.label,
+      type: f.type,
+      options: f.options,
+    }));
+
+  const invokeOcr = async (
+    imagePayloads: { image_base64: string; mime_type: string }[],
+    templateName: string,
+    fields: TemplateField[],
+  ) => {
+    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
+      body: {
+        images: imagePayloads,
+        template_name: templateName,
+        fields: toOcrFieldPayload(fields),
+      },
+    });
+
+    if (error) throw error;
+    if (data?.error) throw new Error(data.error);
+
+    return (data ?? {}) as { extracted?: Record<string, any>; header?: Record<string, any> };
+  };
+
+  const chunkFields = (fields: TemplateField[], size: number) => {
+    const chunks: TemplateField[][] = [];
+    for (let i = 0; i < fields.length; i += size) {
+      chunks.push(fields.slice(i, i + size));
+    }
+    return chunks;
+  };
+
   const scan = async () => {
     if (images.length === 0) return;
     setScanning(true);
@@ -185,10 +223,8 @@ export default function QuickScanDialog() {
     stopCamera();
 
     try {
-      // Convert files to base64
       const imagePayloads = await Promise.all(images.map((img) => fileToBase64(img.file)));
 
-      // Stage 1: Identify the job category from the sheet
       setScanStage("Identifying document type…");
 
       const { data: categories } = await supabase
@@ -232,7 +268,6 @@ export default function QuickScanDialog() {
         setDetectedCategory({ slug: matchedCat.slug, name: matchedCat.name });
       }
 
-      // Stage 2: Fetch the matching template and re-extract with its fields
       let templateFields: TemplateField[] = [];
       let templateName = "General Inspection Sheet";
       let templateRecord: any = null;
@@ -262,7 +297,6 @@ export default function QuickScanDialog() {
         }
       }
 
-      // If no template matched, use generic fields
       if (templateFields.length === 0) {
         templateFields = [
           { id: "description", label: "Description / Notes", type: "text" },
@@ -274,28 +308,45 @@ export default function QuickScanDialog() {
         ];
       }
 
-      // Stage 3: Full extraction with the correct fields
-      setScanStage("Extracting data from sheet…");
+      let extracted: Record<string, any> = {};
+      let headerData: Record<string, any> = { ...(identifyData?.header || {}) };
 
-      const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
-        body: {
-          images: imagePayloads,
-          template_name: templateName,
-          fields: templateFields.map((f) => ({
-            id: f.id,
-            label: f.label,
-            type: f.type,
-            options: f.options,
-          })),
-        },
-      });
+      if (templateFields.length > 12) {
+        const fieldChunks = chunkFields(templateFields, 12);
+        for (let index = 0; index < fieldChunks.length; index++) {
+          setScanStage(`Extracting data from sheet… (${index + 1}/${fieldChunks.length})`);
+          const chunkData = await invokeOcr(imagePayloads, templateName, fieldChunks[index]);
 
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+          if (hasStructuredValues(chunkData.extracted)) {
+            extracted = { ...extracted, ...(chunkData.extracted || {}) };
+          }
+          if (hasStructuredValues(chunkData.header)) {
+            headerData = { ...headerData, ...(chunkData.header || {}) };
+          }
+        }
+      } else {
+        setScanStage("Extracting data from sheet…");
+        const data = await invokeOcr(imagePayloads, templateName, templateFields);
+        extracted = data.extracted || {};
+        headerData = { ...headerData, ...(data.header || {}) };
+      }
 
-      const extracted = data.extracted || {};
+      if (!hasStructuredValues(extracted)) {
+        setScanStage("Re-trying extraction…");
+        const retryData = await invokeOcr(imagePayloads, templateName, templateFields);
 
-      // Auto-fill pressure test defaults per BS 9990:2015 (12 Bar, 15 minutes)
+        if (hasStructuredValues(retryData.extracted)) {
+          extracted = { ...extracted, ...(retryData.extracted || {}) };
+        }
+        if (hasStructuredValues(retryData.header)) {
+          headerData = { ...headerData, ...(retryData.header || {}) };
+        }
+      }
+
+      if (!hasStructuredValues(extracted)) {
+        throw new Error("AI could not extract the template fields from this sheet. Please retry with a clearer photo.");
+      }
+
       const isPressureTest = matchedCat?.slug?.includes("pressure_test") || templateName?.toLowerCase().includes("pressure");
       if (isPressureTest) {
         if (!extracted.test_pressure_bar && extracted.test_pressure_bar !== 0) {
@@ -306,9 +357,6 @@ export default function QuickScanDialog() {
         }
       }
 
-      // Ensure handwritten header values are carried into the result fields
-      // so the PDF and job use data from the form, not defaults
-      const headerData = data.header || {};
       console.log("[QuickScan] OCR header data:", JSON.stringify(headerData));
       const headerToFieldMap: Record<string, string[]> = {
         date: ["date", "inspection_date"],
@@ -320,16 +368,14 @@ export default function QuickScanDialog() {
       };
       for (const [headerKey, fieldKeys] of Object.entries(headerToFieldMap)) {
         if (headerData[headerKey]) {
-          const hasExisting = fieldKeys.some(fk => extracted[fk]);
+          const hasExisting = fieldKeys.some((fk) => extracted[fk]);
           if (!hasExisting) {
-            // Find a matching field in the template
-            const matchingKey = fieldKeys.find(fk => templateFields.some(f => f.id === fk)) || fieldKeys[0];
+            const matchingKey = fieldKeys.find((fk) => templateFields.some((f) => f.id === fk)) || fieldKeys[0];
             extracted[matchingKey] = headerData[headerKey];
           }
         }
       }
 
-      // Fuzzy-match engineer name against known profiles
       if (headerData.engineer && engineers.length > 0) {
         headerData.engineer = fuzzyMatchEngineer(headerData.engineer, engineers);
       }
