@@ -553,6 +553,27 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     setSubmitting(true);
     try {
+      // Upload site photos if any
+      const photoUrls: string[] = [];
+      if (sitePhotos.length > 0 && user) {
+        for (const photo of sitePhotos) {
+          const ext = photo.file.name.split(".").pop() || "jpg";
+          const fileName = `site-photo-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+          const filePath = `${jobId}/${fileName}`;
+          const { error: upErr } = await supabase.storage
+            .from("submissions")
+            .upload(filePath, photo.file, { contentType: photo.file.type });
+          if (!upErr) {
+            const { data: signedData } = await supabase.storage
+              .from("submissions")
+              .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
+            if (signedData?.signedUrl) photoUrls.push(signedData.signedUrl);
+          }
+        }
+      }
+      const finalFormData = photoUrls.length > 0
+        ? { ...formData, _site_photo_urls: photoUrls }
+        : formData;
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
           responses: formData as any,
