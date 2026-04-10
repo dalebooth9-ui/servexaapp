@@ -304,8 +304,15 @@ export default function QuickScanDialog() {
         }
       }
 
+      // Ensure the handwritten date from the header is carried into the result fields
+      // so the PDF uses the date written on the form, not today's date
+      const headerData = data.header || {};
+      if (headerData.date && !extracted.date && !extracted.inspection_date) {
+        extracted.date = headerData.date;
+      }
+
       setResult(extracted);
-      setHeader(data.header || {});
+      setHeader(headerData);
       toast({ title: "Scan complete", description: `Detected: ${detectedCategory?.name || matchedCat?.name || "General"} — review the extracted data below.` });
     } catch (err: any) {
       toast({ title: "Scan failed", description: err.message || "Unknown error", variant: "destructive" });
