@@ -368,6 +368,8 @@ export async function generateJobSheetPdf(
   });
   const formDateVal = dateField ? String(formData[dateField.id] || "") : "";
   const dateStr = formDateVal || (submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"));
+  // Use customer sign date from OCR if available (passed via _customer_sign_date in formData)
+  const sigDateStr = resolvedFormData._customer_sign_date || dateStr;
 
   const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || preloadedSignatures?.engineerSig || null;
   const customerSig = signatures.find((s: any) => s.signer_role === "customer") || preloadedSignatures?.customerSig || null;
@@ -377,13 +379,16 @@ export async function generateJobSheetPdf(
     Object.assign(sigImages, preloadedSignatures.sigImages);
   }
 
+  // For customer display name, prefer the preloaded customer sig name (OCR-extracted signer like "R. Croft")
+  const customerSignedDisplayName = customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "";
+
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
   const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
 
   renderPdfSignatures(doc, sigY, {
-    dateStr,
+    dateStr: sigDateStr,
     technicianName: techName,
-    customerName: jobInfo?.customers?.name || jobInfo?.customer || "",
+    customerName: customerSignedDisplayName,
     sigImages,
     engineerSig,
     customerSig,

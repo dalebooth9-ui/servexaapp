@@ -397,6 +397,22 @@ export default function QuickScanDialog() {
       const preloadedSignatures: any = {};
       const preloadedSigImages: Record<string, HTMLImageElement> = {};
 
+      // Helper: check if a cropped canvas image is mostly blank (white/near-white)
+      const isCropMostlyBlank = (canvas: HTMLCanvasElement): boolean => {
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return true;
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imageData.data;
+        let darkPixels = 0;
+        const total = data.length / 4;
+        for (let i = 0; i < data.length; i += 4) {
+          // Check if pixel is "dark enough" to be ink (R+G+B < 600 out of 765)
+          if (data[i] + data[i + 1] + data[i + 2] < 600) darkPixels++;
+        }
+        // If less than 2% of pixels are dark, it's blank
+        return darkPixels / total < 0.02;
+      };
+
       // Customer signature from scan header
       if (header?.customer_signed_name) {
         const custSigId = "scan-customer";
@@ -427,13 +443,17 @@ export default function QuickScanDialog() {
                 const ctx = cropCanvas.getContext("2d");
                 if (ctx) {
                   ctx.drawImage(img, x, yPos, w, h, 0, 0, w, h);
-                  const croppedImg = new Image();
-                  await new Promise<void>((resolve) => {
-                    croppedImg.onload = () => resolve();
-                    croppedImg.onerror = () => resolve();
-                    croppedImg.src = cropCanvas.toDataURL("image/png");
-                  });
-                  preloadedSigImages[custSigId] = croppedImg;
+                  if (!isCropMostlyBlank(cropCanvas)) {
+                    const croppedImg = new Image();
+                    await new Promise<void>((resolve) => {
+                      croppedImg.onload = () => resolve();
+                      croppedImg.onerror = () => resolve();
+                      croppedImg.src = cropCanvas.toDataURL("image/png");
+                    });
+                    preloadedSigImages[custSigId] = croppedImg;
+                  } else {
+                    console.log("[QuickScan] Customer signature crop is mostly blank, skipping image");
+                  }
                 }
               }
             }
@@ -489,13 +509,17 @@ export default function QuickScanDialog() {
                 const ctx = cropCanvas.getContext("2d");
                 if (ctx) {
                   ctx.drawImage(img, x, yPos, w, h, 0, 0, w, h);
-                  const croppedImg = new Image();
-                  await new Promise<void>((resolve) => {
-                    croppedImg.onload = () => resolve();
-                    croppedImg.onerror = () => resolve();
-                    croppedImg.src = cropCanvas.toDataURL("image/png");
-                  });
-                  preloadedSigImages[engSigId] = croppedImg;
+                  if (!isCropMostlyBlank(cropCanvas)) {
+                    const croppedImg = new Image();
+                    await new Promise<void>((resolve) => {
+                      croppedImg.onload = () => resolve();
+                      croppedImg.onerror = () => resolve();
+                      croppedImg.src = cropCanvas.toDataURL("image/png");
+                    });
+                    preloadedSigImages[engSigId] = croppedImg;
+                  } else {
+                    console.log("[QuickScan] Engineer signature crop is mostly blank, skipping image");
+                  }
                 }
               }
             }
@@ -507,7 +531,8 @@ export default function QuickScanDialog() {
 
       const { base64, fileName } = await generateJobSheetPdf(
         template,
-        result,
+        // Inject customer_sign_date into formData so the PDF uses it for the signature date
+        { ...result, _customer_sign_date: header?.customer_sign_date },
         jobInfo,
         "scan-preview",
         header?.engineer,
@@ -585,7 +610,7 @@ export default function QuickScanDialog() {
       // Helper: crop a signature region from the scanned image using bounding box
       const cropSignature = async (
         bbox: { x_min: number; y_min: number; x_max: number; y_max: number; page_index?: number }
-      ): Promise<Blob | null> => {
+      ): Promise<Blob | null> => { 
         try {
           const pageIdx = bbox.page_index || 0;
           const sourceImage = images[pageIdx];
@@ -614,6 +639,19 @@ export default function QuickScanDialog() {
           const ctx = cropCanvas.getContext("2d");
           if (!ctx) return null;
           ctx.drawImage(img, x, y, w, h, 0, 0, w, h);
+
+          // Validate: skip if the crop is mostly blank/white
+          const imageData = ctx.getImageData(0, 0, cropCanvas.width, cropCanvas.height);
+          const pixels = imageData.data;
+          let darkCount = 0;
+          const totalPixels = pixels.length / 4;
+          for (let i = 0; i < pixels.length; i += 4) {
+            if (pixels[i] + pixels[i + 1] + pixels[i + 2] < 600) darkCount++;
+          }
+          if (darkCount / totalPixels < 0.02) {
+            console.log("[QuickScan] cropSignature: crop is mostly blank, skipping");
+            return null;
+          }
 
           return new Promise<Blob | null>((resolve) => {
             cropCanvas.toBlob((blob) => resolve(blob), "image/png");
