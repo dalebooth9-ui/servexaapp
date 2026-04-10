@@ -75,11 +75,11 @@ serve(async (req) => {
       } else if (f.type === "checkbox") {
         const isDrainField = f.label.toLowerCase().includes("drain") || f.label.toLowerCase().includes("drop leg");
         const extraNote = isDrainField
-          ? ` IMPORTANT: Look carefully for a tick, check mark, or "Yes" written next to this item. If ticked or marked Yes → true.`
+          ? ` IMPORTANT: This field defaults to YES if left blank on the handwritten sheet. Only return false if there is a clear NO mark, cross, or explicit negative marking. If the item is unmarked or blank, OMIT this field from the response entirely so the app keeps the default YES.`
           : "";
         fieldProperties[f.id] = {
           type: "boolean",
-          description: `"${f.label}" — true if ticked/checked or marked YES, false if crossed, empty or marked NO. Look for ANY mark (tick, check, cross, Y/N) next to this item on the form.${extraNote}`,
+          description: `"${f.label}" — true if ticked/checked or marked YES, false only if clearly crossed or marked NO. If blank or unmarked, do NOT include this field in the response at all.${extraNote}`,
         };
       } else if (f.type === "number") {
         fieldProperties[f.id] = {

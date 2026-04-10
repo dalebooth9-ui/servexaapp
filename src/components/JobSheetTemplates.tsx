@@ -935,7 +935,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       jobInfo={jobInfo}
                       onExtracted={(data) => {
                         handleStartForm(tpl);
-                        setTimeout(() => setFormData((prev) => ({ ...prev, ...data })), 100);
+                        setTimeout(() => setFormData((prev) => {
+                          const merged = { ...prev };
+                          Object.entries(data).forEach(([key, value]) => {
+                            const field = tpl.fields.find((f) => f.id === key);
+                            const lbl = field?.label.toLowerCase() || "";
+                            const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
+                            const isBlankDrainOverride = isDrainField && (value === false || value === "" || value == null);
+                            if (!isBlankDrainOverride) {
+                              merged[key] = value;
+                            }
+                          });
+                          return merged;
+                        }), 100);
                       }}
                     />
                     {userRole === "admin" && (
