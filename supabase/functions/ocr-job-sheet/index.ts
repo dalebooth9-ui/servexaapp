@@ -43,9 +43,10 @@ serve(async (req) => {
 
     const { template_name, fields } = body;
 
+    // Accept images and PDFs
     images = images.filter((img) => {
       const mime = img.mime_type || "image/jpeg";
-      return mime.startsWith("image/");
+      return mime.startsWith("image/") || mime === "application/pdf";
     });
 
     if (images.length === 0 || !fields) {
