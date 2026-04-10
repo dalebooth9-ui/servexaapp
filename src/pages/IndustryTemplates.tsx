@@ -1058,8 +1058,8 @@ export default function IndustryTemplates() {
                         <p className="text-xs text-muted-foreground mt-2">{tpl.fields.length} fields</p>
                       </div>
                       <div className="flex items-center gap-2 pt-1 border-t border-border">
-                        {/* Blank PDF download */}
-                        <BlankTemplatePdfExport template={mockTemplate} jobInfo={null} />
+                        {/* Blank PDF download + print */}
+                        <BlankTemplatePdfExport template={mockTemplate} jobInfo={null} showPrint />
                         <span className="text-xs text-muted-foreground">Blank PDF</span>
 
                         {/* Create RAMS */}

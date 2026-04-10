@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
@@ -61,6 +61,7 @@ type JobInfo = {
 interface Props {
   template: Template;
   jobInfo?: JobInfo | null;
+  showPrint?: boolean;
 }
 
 /** How many blank sheets to generate based on template name + job quantities */
@@ -85,12 +86,12 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
-export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
+export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = false }: Props) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
-  const generate = async () => {
+  const generate = async (mode: "download" | "print" = "download") => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
@@ -284,11 +285,17 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
       const fileName = `blank-${template.name.replace(/\s+/g, "-").toLowerCase()}${systemQty > 1 ? `-x${systemQty}` : ""}.pdf`;
-      doc.save(fileName);
-      toast({
-        title: "PDF downloaded",
-        description: fileName,
-      });
+
+      if (mode === "print") {
+        const pdfBlob = doc.output("blob");
+        const url = URL.createObjectURL(pdfBlob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        toast({ title: "Blank sheet opened", description: "Print from the new tab." });
+      } else {
+        doc.save(fileName);
+        toast({ title: "PDF downloaded", description: fileName });
+      }
     } catch (err: any) {
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
@@ -297,8 +304,15 @@ export default function BlankTemplatePdfExport({ template, jobInfo }: Props) {
   };
 
   return (
-    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={generate} disabled={generating} title="Download blank template">
-      {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-    </Button>
+    <div className="flex items-center gap-0.5">
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template">
+        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      </Button>
+      {showPrint && (
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template">
+          <Printer className="h-3.5 w-3.5" />
+        </Button>
+      )}
+    </div>
   );
 }
