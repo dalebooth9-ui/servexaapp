@@ -30,6 +30,7 @@ export default function QuickScanDialog() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [copied, setCopied] = useState(false);
   const [creatingJob, setCreatingJob] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
