@@ -554,8 +554,18 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         if (header.engineer) {
           const { data: profiles } = await supabase.from("profiles").select("user_id, full_name");
           if (profiles && profiles.length > 0) {
-            header.engineer = fuzzyMatchEngineer(header.engineer, profiles.filter((p: any) => p.full_name));
+            const matched = fuzzyMatchEngineer(header.engineer, profiles.filter((p: any) => p.full_name));
+            // If fuzzy match returned the raw OCR text (no good match found),
+            // fall back to the job's assigned engineer(s) if available
+            if (matched === header.engineer && jobInfo?.engineers?.length) {
+              header.engineer = jobInfo.engineers[0];
+            } else {
+              header.engineer = matched;
+            }
           }
+        } else if (jobInfo?.engineers?.length) {
+          // No OCR engineer name at all — use assigned engineer
+          header.engineer = jobInfo.engineers[0];
         }
 
         // Map extracted header values into matching template form fields by label
