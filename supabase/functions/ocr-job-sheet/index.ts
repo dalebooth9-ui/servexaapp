@@ -89,7 +89,7 @@ serve(async (req) => {
       } else if (f.type === "select" && f.options?.length) {
         fieldProperties[f.id] = {
           type: "string",
-          description: `"${f.label}" — pick the closest matching option from the form: ${f.options.join(", ")}. IMPORTANT: If the handwritten text says something clearly different from these options (e.g. "NOT VISIBLE", "NOT INSTALLED", "NOT ACCESSIBLE"), transcribe that text exactly as written instead of forcing it into one of the options.`,
+          description: `"${f.label}" — pick the closest matching option from the form: ${f.options.join(", ")}. IMPORTANT: If the handwritten text says something clearly different from these options (e.g. "NOT VISIBLE", "NOT INSTALLED", "NOT ACCESSIBLE", "N/A – EXPOSED INLET", "YES - EXPOSED OUTLETS"), transcribe that FULL text exactly as written instead of forcing it into one of the options. Include any annotation after the main answer (e.g. "N/A – EXPOSED INLET" not just "N/A").`,
         };
       } else {
         fieldProperties[f.id] = {
@@ -212,6 +212,8 @@ PRESSURE TEST RESULTS — Near the bottom is a row: "Pressure test result:  P   
   For "Leaks Detected?" look for Yes or No ticked/circled.
 
 TEXT FIELDS — Transcribe handwriting exactly. Technical codes like "PN16", "DN80", part numbers, and pressure values must be read character by character. "PN16" = P-N-1-6, a pipe pressure rating standard.
+
+ANNOTATION TEXT — Many fields have extra handwritten notes beside the main answer, such as "N/A – EXPOSED INLET", "YES - EXPOSED OUTLETS", or "NOT VISIBLE". You MUST include the FULL annotation text, not just the main answer. For example if the form says "N/A – EXPOSED INLET" next to the glass question, return "N/A – EXPOSED INLET" not just "N/A".
 
 Use the extract_job_sheet tool to return all findings.`;
 

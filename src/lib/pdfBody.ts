@@ -292,8 +292,7 @@ export function renderFilledFieldRow(
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
     const lbl = field.label.toLowerCase();
     const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-    const isExposedValveField = lbl.includes("exposed") && lbl.includes("valve");
-    const isOutletField = !isExposedValveField && lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
+    const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
     const strVal = typeof value === "string"
       ? value.toLowerCase().trim()
       : value === false
@@ -301,8 +300,8 @@ export function renderFilledFieldRow(
       : value === true
       ? "yes"
       : "";
-    // Preserve descriptive text like "NOT VISIBLE" as-is
-    const isDescriptiveText = strVal.includes("not visible") || strVal.includes("not installed");
+    // Preserve descriptive text like "NOT VISIBLE", "EXPOSED INLET", "EXPOSED OUTLETS" as-is
+    const isDescriptiveText = strVal.includes("not visible") || strVal.includes("not installed") || strVal.includes("not accessible") || strVal.includes("exposed");
     const displayVal = isDescriptiveText
       ? String(value).toUpperCase()
       : isDrainField
