@@ -369,8 +369,13 @@ export async function generateJobSheetPdf(
   const formDateVal = dateField ? String(formData[dateField.id] || "") : "";
   const dateStr = formDateVal || (submittedAt ? new Date(submittedAt).toLocaleDateString("en-GB") : new Date().toLocaleDateString("en-GB"));
 
-  const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin");
-  const customerSig = signatures.find((s: any) => s.signer_role === "customer");
+  const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || preloadedSignatures?.engineerSig || null;
+  const customerSig = signatures.find((s: any) => s.signer_role === "customer") || preloadedSignatures?.customerSig || null;
+
+  // Merge preloaded sig images
+  if (preloadedSignatures?.sigImages) {
+    Object.assign(sigImages, preloadedSignatures.sigImages);
+  }
 
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
   const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
