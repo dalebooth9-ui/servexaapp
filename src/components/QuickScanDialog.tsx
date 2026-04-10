@@ -304,11 +304,26 @@ export default function QuickScanDialog() {
         }
       }
 
-      // Ensure the handwritten date from the header is carried into the result fields
-      // so the PDF uses the date written on the form, not today's date
+      // Ensure handwritten header values are carried into the result fields
+      // so the PDF and job use data from the form, not defaults
       const headerData = data.header || {};
-      if (headerData.date && !extracted.date && !extracted.inspection_date) {
-        extracted.date = headerData.date;
+      const headerToFieldMap: Record<string, string[]> = {
+        date: ["date", "inspection_date"],
+        riser_location: ["riser_location"],
+        po_ref: ["po_number", "po_ref", "reference"],
+        site: ["site_details", "site"],
+        customer: ["customer_details", "customer_name"],
+        engineer: ["technician_name", "engineer_name"],
+      };
+      for (const [headerKey, fieldKeys] of Object.entries(headerToFieldMap)) {
+        if (headerData[headerKey]) {
+          const hasExisting = fieldKeys.some(fk => extracted[fk]);
+          if (!hasExisting) {
+            // Find a matching field in the template
+            const matchingKey = fieldKeys.find(fk => templateFields.some(f => f.id === fk)) || fieldKeys[0];
+            extracted[matchingKey] = headerData[headerKey];
+          }
+        }
       }
 
       setResult(extracted);
