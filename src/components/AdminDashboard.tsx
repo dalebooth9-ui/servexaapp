@@ -354,6 +354,7 @@ export default function AdminDashboard() {
             <Upload className="mr-2 h-4 w-4" /> Import Files
           </Button>
           <QuickScanDialog />
+          <BatchScanDialog />
           <AiMaintenanceAlerts />
         </div>
       )}
