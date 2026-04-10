@@ -11,6 +11,7 @@ import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 
 type TemplateField = {
   id: string;
