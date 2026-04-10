@@ -294,6 +294,7 @@ RULES:
         const parsed = JSON.parse(toolCall.function.arguments);
         extracted = parsed.fields || {};
         header = parsed.header || {};
+        console.log("OCR extracted header:", JSON.stringify(header));
       } catch (e) {
         console.error("Failed to parse tool call arguments:", toolCall.function.arguments);
         return new Response(JSON.stringify({ error: "Could not parse handwriting", raw: toolCall.function.arguments }), {

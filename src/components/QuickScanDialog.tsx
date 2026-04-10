@@ -308,6 +308,7 @@ export default function QuickScanDialog() {
       // Ensure handwritten header values are carried into the result fields
       // so the PDF and job use data from the form, not defaults
       const headerData = data.header || {};
+      console.log("[QuickScan] OCR header data:", JSON.stringify(headerData));
       const headerToFieldMap: Record<string, string[]> = {
         date: ["date", "inspection_date"],
         riser_location: ["riser_location"],
