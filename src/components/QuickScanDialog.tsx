@@ -1,18 +1,31 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Camera, Loader2, ScanLine, Trash2, Upload, Plus, Copy, Check, Video, VideoOff, Aperture } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
+interface TemplateField {
+  id: string;
+  label: string;
+  type: string;
+  section?: string;
+  options?: string[];
+  required?: boolean;
+  allow_notes?: boolean;
+}
+
 export default function QuickScanDialog() {
   const [open, setOpen] = useState(false);
   const [images, setImages] = useState<{ file: File; preview: string }[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [scanStage, setScanStage] = useState<string>("");
   const [result, setResult] = useState<Record<string, any> | null>(null);
   const [header, setHeader] = useState<Record<string, string> | null>(null);
+  const [detectedCategory, setDetectedCategory] = useState<{ slug: string; name: string } | null>(null);
+  const [matchedTemplate, setMatchedTemplate] = useState<{ id: string; name: string; fields: TemplateField[] } | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
   const [copied, setCopied] = useState(false);
   const [creatingJob, setCreatingJob] = useState(false);
@@ -48,7 +61,7 @@ export default function QuickScanDialog() {
 
   const removeImage = (idx: number) => {
     setImages((prev) => {
-      URL.revokeObjectURL(prev[idx].preview);
+      if (prev[idx].preview) URL.revokeObjectURL(prev[idx].preview);
       return prev.filter((_, i) => i !== idx);
     });
   };
@@ -70,7 +83,6 @@ export default function QuickScanDialog() {
       });
       streamRef.current = stream;
       setCameraActive(true);
-      // Attach stream after state update triggers re-render
       setTimeout(() => {
         if (videoRef.current && streamRef.current) {
           videoRef.current.srcObject = streamRef.current;
@@ -112,53 +124,144 @@ export default function QuickScanDialog() {
   };
 
   const reset = () => {
-    images.forEach((img) => URL.revokeObjectURL(img.preview));
+    images.forEach((img) => { if (img.preview) URL.revokeObjectURL(img.preview); });
     setImages([]);
     setResult(null);
     setHeader(null);
     setCopied(false);
+    setDetectedCategory(null);
+    setMatchedTemplate(null);
+    setScanStage("");
     stopCamera();
   };
 
-  // Stop camera when dialog closes
   useEffect(() => {
     if (!open) stopCamera();
   }, [open, stopCamera]);
+
+  const fileToBase64 = async (file: File): Promise<{ image_base64: string; mime_type: string }> => {
+    const arrayBuffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return {
+      image_base64: btoa(binary),
+      mime_type: file.type || "image/jpeg",
+    };
+  };
 
   const scan = async () => {
     if (images.length === 0) return;
     setScanning(true);
     setResult(null);
     setHeader(null);
+    setDetectedCategory(null);
+    setMatchedTemplate(null);
     stopCamera();
 
     try {
-      const imagePayloads: { image_base64: string; mime_type: string }[] = [];
-      for (const img of images) {
-        const arrayBuffer = await img.file.arrayBuffer();
-        const bytes = new Uint8Array(arrayBuffer);
-        let binary = "";
-        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-        imagePayloads.push({
-          image_base64: btoa(binary),
-          mime_type: img.file.type || "image/jpeg",
-        });
+      // Convert files to base64
+      const imagePayloads = await Promise.all(images.map((img) => fileToBase64(img.file)));
+
+      // Stage 1: Identify the job category from the sheet
+      setScanStage("Identifying document type…");
+
+      const { data: categories } = await supabase
+        .from("job_categories")
+        .select("name, slug")
+        .order("sort_order");
+
+      const categoryNames = (categories || []).map((c: any) => c.name);
+      const categoryIdentifyFields = [
+        {
+          id: "detected_category",
+          label: "Document Category",
+          type: "select",
+          options: categoryNames,
+        },
+        {
+          id: "confidence",
+          label: "Confidence",
+          type: "select",
+          options: ["high", "medium", "low"],
+        },
+      ];
+
+      const { data: identifyData, error: identifyError } = await supabase.functions.invoke("ocr-job-sheet", {
+        body: {
+          images: imagePayloads,
+          template_name: "Category Identification",
+          fields: categoryIdentifyFields,
+        },
+      });
+
+      if (identifyError) throw identifyError;
+      if (identifyData?.error) throw new Error(identifyData.error);
+
+      const detectedName = identifyData?.extracted?.detected_category;
+      const matchedCat = (categories || []).find(
+        (c: any) => c.name.toLowerCase() === (detectedName || "").toLowerCase()
+      );
+
+      if (matchedCat) {
+        setDetectedCategory({ slug: matchedCat.slug, name: matchedCat.name });
       }
 
-      const fields = [
-        { id: "description", label: "Description / Notes", type: "text" },
-        { id: "findings", label: "Findings / Results", type: "text" },
-        { id: "actions_required", label: "Actions Required", type: "text" },
-        { id: "materials_used", label: "Materials / Parts Used", type: "text" },
-        { id: "overall_result", label: "Overall Result", type: "pass_fail" },
-        { id: "additional_notes", label: "Additional Notes / Comments", type: "text" },
-      ];
+      // Stage 2: Fetch the matching template and re-extract with its fields
+      let templateFields: TemplateField[] = [];
+      let templateName = "General Inspection Sheet";
+      let templateRecord: any = null;
+
+      if (matchedCat) {
+        setScanStage(`Detected: ${matchedCat.name} — loading template…`);
+
+        const { data: templates } = await supabase
+          .from("job_sheet_templates")
+          .select("id, name, fields, job_category")
+          .eq("job_category", matchedCat.slug)
+          .limit(1);
+
+        if (templates && templates.length > 0) {
+          templateRecord = templates[0];
+          templateName = templateRecord.name;
+          templateFields = (templateRecord.fields as any[] || []).map((f: any) => ({
+            id: f.id,
+            label: f.label,
+            type: f.type,
+            section: f.section,
+            options: f.options,
+            required: f.required,
+            allow_notes: f.allow_notes,
+          }));
+          setMatchedTemplate({ id: templateRecord.id, name: templateName, fields: templateFields });
+        }
+      }
+
+      // If no template matched, use generic fields
+      if (templateFields.length === 0) {
+        templateFields = [
+          { id: "description", label: "Description / Notes", type: "text" },
+          { id: "findings", label: "Findings / Results", type: "text" },
+          { id: "actions_required", label: "Actions Required", type: "text" },
+          { id: "materials_used", label: "Materials / Parts Used", type: "text" },
+          { id: "overall_result", label: "Overall Result", type: "pass_fail" },
+          { id: "additional_notes", label: "Additional Notes / Comments", type: "text" },
+        ];
+      }
+
+      // Stage 3: Full extraction with the correct fields
+      setScanStage("Extracting data from sheet…");
 
       const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
         body: {
           images: imagePayloads,
-          template_name: "General Inspection Sheet",
-          fields,
+          template_name: templateName,
+          fields: templateFields.map((f) => ({
+            id: f.id,
+            label: f.label,
+            type: f.type,
+            options: f.options,
+          })),
         },
       });
 
@@ -167,16 +270,21 @@ export default function QuickScanDialog() {
 
       setResult(data.extracted || {});
       setHeader(data.header || {});
-      toast({ title: "Scan complete", description: "Review the extracted data below." });
+      toast({ title: "Scan complete", description: `Detected: ${detectedCategory?.name || matchedCat?.name || "General"} — review the extracted data below.` });
     } catch (err: any) {
       toast({ title: "Scan failed", description: err.message || "Unknown error", variant: "destructive" });
     } finally {
       setScanning(false);
+      setScanStage("");
     }
   };
 
   const copyToClipboard = () => {
     const lines: string[] = [];
+    if (detectedCategory) {
+      lines.push(`Category: ${detectedCategory.name}`);
+      lines.push("");
+    }
     if (header) {
       if (header.customer) lines.push(`Customer: ${header.customer}`);
       if (header.site) lines.push(`Site: ${header.site}`);
@@ -202,29 +310,40 @@ export default function QuickScanDialog() {
     setCreatingJob(true);
     try {
       const jobName = header?.customer
-        ? `${header.customer} - Scanned Sheet`
-        : "Scanned Sheet";
-      const description = result
-        ? Object.entries(result)
-            .filter(([, v]) => v)
-            .map(([k, v]) => `**${k.replace(/_/g, " ")}**: ${v}`)
-            .join("\n\n")
-        : "";
+        ? `${header.customer} - ${detectedCategory?.name || "Scanned Sheet"}`
+        : detectedCategory?.name || "Scanned Sheet";
 
       const { data: job, error } = await supabase
         .from("jobs")
         .insert({
           name: jobName,
-          description,
           customer: header?.customer || null,
           address: header?.site || null,
           status: "active",
           priority: "medium",
+          category: detectedCategory?.slug || "general",
         })
         .select("id")
         .single();
 
       if (error) throw error;
+
+      // If we have a matched template and extracted data, create a job_sheet_response
+      if (matchedTemplate && result) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user) {
+          await supabase
+            .from("job_sheet_responses")
+            .insert({
+              job_id: job.id,
+              template_id: matchedTemplate.id,
+              submitted_by: userData.user.id,
+              responses: result,
+              status: "draft",
+            });
+        }
+      }
+
       toast({ title: "Job created", description: `${jobName}` });
       setOpen(false);
       reset();
@@ -236,6 +355,14 @@ export default function QuickScanDialog() {
     }
   };
 
+  // Build a label lookup from the matched template
+  const fieldLabelMap: Record<string, string> = {};
+  if (matchedTemplate) {
+    for (const f of matchedTemplate.fields) {
+      fieldLabelMap[f.id] = f.label;
+    }
+  }
+
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
@@ -245,6 +372,7 @@ export default function QuickScanDialog() {
       <Dialog open={open} onOpenChange={(v) => { if (!v) { reset(); } setOpen(v); }}>
         <DialogContent
           className="max-w-2xl max-h-[90vh] overflow-y-auto"
+          aria-describedby="quick-scan-desc"
           onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current++; setIsDragOver(true); }}
           onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); dragCounter.current--; if (dragCounter.current === 0) setIsDragOver(false); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
@@ -255,6 +383,9 @@ export default function QuickScanDialog() {
               <ScanLine className="h-5 w-5 text-primary" />
               Quick Scan — AI Sheet Reader
             </DialogTitle>
+            <DialogDescription id="quick-scan-desc">
+              Upload or photograph a handwritten sheet and AI will identify the type and extract the data.
+            </DialogDescription>
           </DialogHeader>
 
           {/* Hidden canvas for camera capture */}
@@ -272,7 +403,6 @@ export default function QuickScanDialog() {
                     muted
                     className="w-full max-h-[400px] object-contain"
                   />
-                  {/* Scan overlay guide */}
                   <div className="absolute inset-4 border-2 border-dashed border-white/40 rounded-lg pointer-events-none" />
                   <div className="absolute bottom-0 inset-x-0 p-3 bg-gradient-to-t from-black/70 to-transparent flex items-center justify-center gap-3">
                     <Button
@@ -382,7 +512,7 @@ export default function QuickScanDialog() {
 
               <Button onClick={scan} disabled={images.length === 0 || scanning} className="w-full">
                 {scanning ? (
-                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Scanning with AI…</>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> {scanStage || "Scanning with AI…"}</>
                 ) : (
                   <><ScanLine className="mr-2 h-4 w-4" /> Scan & Extract</>
                 )}
@@ -390,6 +520,16 @@ export default function QuickScanDialog() {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Detected category badge */}
+              {detectedCategory && (
+                <div className="flex items-center gap-2">
+                  <Badge className="text-xs">📋 {detectedCategory.name}</Badge>
+                  {matchedTemplate && (
+                    <Badge variant="outline" className="text-xs">Template: {matchedTemplate.name}</Badge>
+                  )}
+                </div>
+              )}
+
               {/* Header info */}
               {header && Object.values(header).some(Boolean) && (
                 <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
@@ -426,11 +566,11 @@ export default function QuickScanDialog() {
                   <div className="space-y-2">
                     {Object.entries(result).filter(([, v]) => v).map(([key, value]) => (
                       <div key={key} className="flex items-start gap-2">
-                        <Badge variant="secondary" className="shrink-0 mt-0.5 text-xs capitalize">
-                          {key.replace(/_/g, " ")}
+                        <Badge variant="secondary" className="shrink-0 mt-0.5 text-xs">
+                          {fieldLabelMap[key] || key.replace(/_/g, " ")}
                         </Badge>
                         <p className="text-sm flex-1">
-                          {value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
+                          {value === true ? "✅ Yes" : value === false ? "❌ No" : value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
                         </p>
                       </div>
                     ))}
@@ -451,7 +591,7 @@ export default function QuickScanDialog() {
                     <><Plus className="mr-2 h-4 w-4" /> Create Job from This</>
                   )}
                 </Button>
-                <Button onClick={() => { setResult(null); setHeader(null); }} variant="ghost" size="sm">
+                <Button onClick={() => { setResult(null); setHeader(null); setDetectedCategory(null); setMatchedTemplate(null); }} variant="ghost" size="sm">
                   <ScanLine className="mr-2 h-4 w-4" /> Scan Another
                 </Button>
               </div>
