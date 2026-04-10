@@ -732,36 +732,130 @@ export default function QuickScanDialog() {
             <div className="space-y-4">
               {/* Detected category badge */}
               {detectedCategory && (
-                <div className="flex items-center gap-2">
-                  <Badge className="text-xs">📋 {detectedCategory.name}</Badge>
-                  {matchedTemplate && (
-                    <Badge variant="outline" className="text-xs">Template: {matchedTemplate.name}</Badge>
-                  )}
+                <div className="flex items-center gap-2 justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge className="text-xs">📋 {detectedCategory.name}</Badge>
+                    {matchedTemplate && (
+                      <Badge variant="outline" className="text-xs">Template: {matchedTemplate.name}</Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant={editing ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => {
+                      if (editing) {
+                        // Save edits back
+                        setHeader((prev) => ({ ...prev, ...editHeader }));
+                        setResult((prev) => ({ ...prev, ...editResult }));
+                        setEditing(false);
+                        toast({ title: "Changes saved" });
+                      } else {
+                        setEditHeader({ ...header });
+                        setEditResult({ ...result });
+                        setEditing(true);
+                      }
+                    }}
+                  >
+                    {editing ? <><Save className="mr-2 h-4 w-4" /> Save</> : <><Pencil className="mr-2 h-4 w-4" /> Edit</>}
+                  </Button>
                 </div>
               )}
 
               {/* Header info */}
-              {header && Object.values(header).some(Boolean) && (
+              {(header && Object.values(header).some(Boolean)) && (
                 <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
                   <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Header Info</p>
                   <div className="grid grid-cols-2 gap-2 text-sm">
-                    {header.customer && (
-                      <div><span className="text-muted-foreground">Customer:</span> <span className="font-medium">{header.customer}</span></div>
+                    {/* Engineer — dropdown from system */}
+                    {(header.engineer || editing) && (
+                      <div className="col-span-2 sm:col-span-1">
+                        <span className="text-muted-foreground text-xs">Engineer:</span>
+                        {editing ? (
+                          <Select
+                            value={editHeader.engineer || ""}
+                            onValueChange={(v) => setEditHeader((p) => ({ ...p, engineer: v }))}
+                          >
+                            <SelectTrigger className="h-8 mt-1">
+                              <SelectValue placeholder="Select engineer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {engineers.map((eng) => (
+                                <SelectItem key={eng.user_id} value={eng.full_name}>
+                                  {eng.full_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="font-medium ml-1">{header.engineer}</span>
+                        )}
+                      </div>
                     )}
-                    {header.site && (
-                      <div><span className="text-muted-foreground">Site:</span> <span className="font-medium">{header.site}</span></div>
+                    {/* Customer — dropdown from system */}
+                    {(header.customer || editing) && (
+                      <div className="col-span-2 sm:col-span-1">
+                        <span className="text-muted-foreground text-xs">Customer:</span>
+                        {editing ? (
+                          <Select
+                            value={editHeader.customer || ""}
+                            onValueChange={(v) => setEditHeader((p) => ({ ...p, customer: v }))}
+                          >
+                            <SelectTrigger className="h-8 mt-1">
+                              <SelectValue placeholder="Select customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {customers.map((c) => (
+                                <SelectItem key={c.id} value={c.name}>
+                                  {c.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <span className="font-medium ml-1">{header.customer}</span>
+                        )}
+                      </div>
                     )}
-                    {header.date && (
-                      <div><span className="text-muted-foreground">Date:</span> <span className="font-medium">{header.date}</span></div>
+                    {/* Site — text input */}
+                    {(header.site || editing) && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Site:</span>
+                        {editing ? (
+                          <Input className="h-8 mt-1" value={editHeader.site || ""} onChange={(e) => setEditHeader((p) => ({ ...p, site: e.target.value }))} />
+                        ) : (
+                          <span className="font-medium ml-1">{header.site}</span>
+                        )}
+                      </div>
                     )}
-                    {header.po_ref && (
-                      <div><span className="text-muted-foreground">Reference:</span> <span className="font-medium">{header.po_ref}</span></div>
+                    {(header.date || editing) && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Date:</span>
+                        {editing ? (
+                          <Input className="h-8 mt-1" value={editHeader.date || ""} onChange={(e) => setEditHeader((p) => ({ ...p, date: e.target.value }))} />
+                        ) : (
+                          <span className="font-medium ml-1">{header.date}</span>
+                        )}
+                      </div>
                     )}
-                    {header.engineer && (
-                      <div><span className="text-muted-foreground">Engineer:</span> <span className="font-medium">{header.engineer}</span></div>
+                    {(header.po_ref || editing) && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Reference:</span>
+                        {editing ? (
+                          <Input className="h-8 mt-1" value={editHeader.po_ref || ""} onChange={(e) => setEditHeader((p) => ({ ...p, po_ref: e.target.value }))} />
+                        ) : (
+                          <span className="font-medium ml-1">{header.po_ref}</span>
+                        )}
+                      </div>
                     )}
-                    {header.riser_location && (
-                      <div><span className="text-muted-foreground">Location:</span> <span className="font-medium">{header.riser_location}</span></div>
+                    {(header.riser_location || editing) && (
+                      <div>
+                        <span className="text-muted-foreground text-xs">Location:</span>
+                        {editing ? (
+                          <Input className="h-8 mt-1" value={editHeader.riser_location || ""} onChange={(e) => setEditHeader((p) => ({ ...p, riser_location: e.target.value }))} />
+                        ) : (
+                          <span className="font-medium ml-1">{header.riser_location}</span>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -770,20 +864,45 @@ export default function QuickScanDialog() {
               {/* Extracted fields */}
               <div className="rounded-lg border p-4 space-y-3">
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Extracted Data</p>
-                {Object.entries(result).filter(([, v]) => v).length === 0 ? (
+                {Object.entries(result).filter(([, v]) => v !== undefined && v !== null && v !== "").length === 0 ? (
                   <p className="text-sm text-muted-foreground italic">No data could be extracted from this sheet.</p>
                 ) : (
                   <div className="space-y-2">
-                    {Object.entries(result).filter(([, v]) => v).map(([key, value]) => (
-                      <div key={key} className="flex items-start gap-2">
-                        <Badge variant="secondary" className="shrink-0 mt-0.5 text-xs">
-                          {fieldLabelMap[key] || key.replace(/_/g, " ")}
-                        </Badge>
-                        <p className="text-sm flex-1">
-                          {value === true ? "✅ Yes" : value === false ? "❌ No" : value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
-                        </p>
-                      </div>
-                    ))}
+                    {Object.entries(result).filter(([, v]) => v !== undefined && v !== null && v !== "").map(([key, value]) => {
+                      const fieldDef = matchedTemplate?.fields.find(f => f.id === key);
+                      return (
+                        <div key={key} className="flex items-start gap-2">
+                          <Badge variant="secondary" className="shrink-0 mt-0.5 text-xs min-w-[100px]">
+                            {fieldLabelMap[key] || key.replace(/_/g, " ")}
+                          </Badge>
+                          {editing ? (
+                            fieldDef?.type === "pass_fail" ? (
+                              <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
+                                <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pass">✅ Pass</SelectItem>
+                                  <SelectItem value="fail">❌ Fail</SelectItem>
+                                  <SelectItem value="n/a">N/A</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : fieldDef?.type === "select" && fieldDef.options?.length ? (
+                              <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
+                                <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {fieldDef.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <Input className="h-8 flex-1" value={editResult[key] ?? ""} onChange={(e) => setEditResult((p) => ({ ...p, [key]: e.target.value }))} />
+                            )
+                          ) : (
+                            <p className="text-sm flex-1">
+                              {value === true ? "✅ Yes" : value === false ? "❌ No" : value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -794,7 +913,7 @@ export default function QuickScanDialog() {
                   {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
                   {copied ? "Copied" : "Copy All"}
                 </Button>
-                <Button onClick={createJobFromScan} disabled={creatingJob} size="sm">
+                <Button onClick={createJobFromScan} disabled={creatingJob || editing} size="sm">
                   {creatingJob ? (
                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Creating…</>
                   ) : (
@@ -803,11 +922,11 @@ export default function QuickScanDialog() {
                 </Button>
                 {matchedTemplate && (
                   <>
-                    <Button onClick={() => downloadPdf("preview")} disabled={generatingPdf} variant="outline" size="sm">
+                    <Button onClick={() => downloadPdf("preview")} disabled={generatingPdf || editing} variant="outline" size="sm">
                       {generatingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Printer className="mr-2 h-4 w-4" />}
                       Print PDF
                     </Button>
-                    <Button onClick={() => downloadPdf("download")} disabled={generatingPdf} variant="outline" size="sm">
+                    <Button onClick={() => downloadPdf("download")} disabled={generatingPdf || editing} variant="outline" size="sm">
                       {generatingPdf ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
                       Download PDF
                     </Button>
