@@ -189,9 +189,107 @@ export default function QuickScanDialog() {
   const normalizeScanText = (value: unknown) =>
     typeof value === "string" ? value.trim() : "";
 
-  const getCustomerSignedNameFieldId = (fields: TemplateField[] = []) =>
+  const normalizeFieldLabel = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/\bno of\b/g, "number of")
+      .replace(/\bdoes the\b/g, "")
+      .replace(/\bdo the\b/g, "")
+      .replace(/\bis the\b/g, "")
+      .replace(/\bare the\b/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+
+  const isCommentLikeField = (field: TemplateField) => {
+    const label = normalizeFieldLabel(field.label);
+    return label.includes("comment") || label.includes("additional notes");
+  };
+
+  const matchesStructuredCommentLabel = (commentLabel: string, fieldLabel: string) => {
+    const normalizedCommentLabel = normalizeFieldLabel(commentLabel);
+    const normalizedFieldLabel = normalizeFieldLabel(fieldLabel);
+
+    if (!normalizedCommentLabel || !normalizedFieldLabel) return false;
+    if (normalizedCommentLabel === normalizedFieldLabel) return true;
+    if (normalizedCommentLabel.length >= 8 && normalizedFieldLabel.includes(normalizedCommentLabel)) return true;
+    if (normalizedFieldLabel.length >= 8 && normalizedCommentLabel.includes(normalizedFieldLabel)) return true;
+
+    return false;
+  };
+
+  const cleanStructuredCommentFields = (
+    currentResult: Record<string, any>,
+    fields: TemplateField[] = [],
+  ) => {
+    const nextResult = { ...currentResult };
+    const commentFields = fields.filter(isCommentLikeField);
+
+    if (commentFields.length === 0) return nextResult;
+
+    const structuredFields = fields.filter((field) => !commentFields.some((commentField) => commentField.id === field.id));
+
+    for (const commentField of commentFields) {
+      const rawValue = normalizeScanText(nextResult[commentField.id]);
+      if (!rawValue) continue;
+
+      const unmatchedLines: string[] = [];
+
+      for (const rawLine of rawValue.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line) continue;
+
+        const colonIndex = line.indexOf(":");
+        if (colonIndex === -1) {
+          unmatchedLines.push(line);
+          continue;
+        }
+
+        const lineLabel = line.slice(0, colonIndex).trim();
+        const lineValue = line.slice(colonIndex + 1).trim();
+
+        if (!lineLabel || !lineValue) {
+          unmatchedLines.push(line);
+          continue;
+        }
+
+        const matchedField = structuredFields.find((field) => matchesStructuredCommentLabel(lineLabel, field.label));
+        if (!matchedField) {
+          unmatchedLines.push(line);
+          continue;
+        }
+
+        const existingValue = nextResult[matchedField.id];
+        if (existingValue === undefined || existingValue === null || existingValue === "") {
+          if (matchedField.type === "number") {
+            const numericValue = Number(lineValue);
+            nextResult[matchedField.id] = Number.isFinite(numericValue) ? numericValue : lineValue;
+          } else {
+            nextResult[matchedField.id] = lineValue;
+          }
+        }
+      }
+
+      if (unmatchedLines.length > 0) {
+        nextResult[commentField.id] = unmatchedLines.join("\n");
+      } else {
+        delete nextResult[commentField.id];
+      }
+    }
+
+    return nextResult;
+  };
+
+  const getCustomerSignedNameFieldId = (
+    fields: TemplateField[] = [],
+    currentHeader?: Record<string, any> | null,
+    currentResult?: Record<string, any> | null,
+  ) =>
     fields.find((field) => {
-      const label = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+      const label = normalizeFieldLabel(field.label);
+      const headerCustomer = normalizeScanText(currentHeader?.customer);
+      const headerSignedName = normalizeScanText(currentHeader?.customer_signed_name);
+      const currentValue = normalizeScanText(currentResult?.[field.id]);
 
       // Only match fields that are specifically about the person who SIGNED,
       // NOT generic "Customer Name" fields (which hold the company name like "ATC").
@@ -199,7 +297,9 @@ export default function QuickScanDialog() {
         label.includes("signed name") ||
         label.includes("printed name") ||
         label.includes("signatory") ||
-        label.includes("sign off name")
+        label.includes("sign off name") ||
+        ((label === "customer name" || label === "client name") && !!headerSignedName && currentValue === headerSignedName) ||
+        ((label === "customer name" || label === "client name") && !!headerCustomer && !!currentValue && currentValue !== headerCustomer)
       );
     })?.id;
 
@@ -216,7 +316,10 @@ export default function QuickScanDialog() {
     previousResult: Record<string, any> | null;
     fields: TemplateField[];
   }) => {
-    const customerSignedNameFieldId = getCustomerSignedNameFieldId(fields);
+    const customerSignedNameFieldId =
+      getCustomerSignedNameFieldId(fields, nextHeader, nextResult) ||
+      getCustomerSignedNameFieldId(fields, previousHeader, previousResult);
+
     if (!customerSignedNameFieldId) return { nextHeader, nextResult };
 
     const previousHeaderName = normalizeScanText(previousHeader?.customer_signed_name);
@@ -430,7 +533,9 @@ export default function QuickScanDialog() {
         headerData.engineer = fuzzyMatchEngineer(headerData.engineer, engineers);
       }
 
-      setResult(extracted);
+      const cleanedResult = cleanStructuredCommentFields(extracted, templateFields);
+
+      setResult(cleanedResult);
       setHeader(headerData);
       toast({ title: "Scan complete", description: `Detected: ${detectedCategory?.name || matchedCat?.name || "General"} — review the extracted data below.` });
     } catch (err: any) {
@@ -489,6 +594,7 @@ export default function QuickScanDialog() {
         customer: header?.customer || null,
         reference_number: header?.po_ref || "",
       };
+      const exportResult = cleanStructuredCommentFields(result, matchedTemplate.fields);
 
       // Build preloaded signatures from header data so the preview PDF includes them
       const preloadedSignatures: any = {};
@@ -563,7 +669,7 @@ export default function QuickScanDialog() {
       const { base64, fileName } = await generateJobSheetPdf(
         template,
         // Inject customer_sign_date into formData so the PDF uses it for the signature date
-        { ...result, _customer_sign_date: header?.customer_sign_date },
+        { ...exportResult, _customer_sign_date: header?.customer_sign_date, _customer_signed_name: header?.customer_signed_name },
         jobInfo,
         "scan-preview",
         header?.engineer,
@@ -927,9 +1033,10 @@ export default function QuickScanDialog() {
                           previousResult: result,
                           fields: matchedTemplate?.fields || [],
                         });
+                        const cleanedResult = cleanStructuredCommentFields(syncedEdits.nextResult, matchedTemplate?.fields || []);
 
                         setHeader(syncedEdits.nextHeader);
-                        setResult(syncedEdits.nextResult);
+                        setResult(cleanedResult);
                         setEditing(false);
                         toast({ title: "Changes saved" });
                       } else {
