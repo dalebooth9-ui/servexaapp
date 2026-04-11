@@ -341,20 +341,19 @@ export function renderFilledFieldRow(
   else if (field.type === "pass_fail") {
     const rawValue = getRawFieldText(value);
     const resultKind = getSimpleResultKind(value);
-    let displayVal = resultKind === "positive"
+    const displayVal = resultKind === "positive"
       ? "PASS"
       : resultKind === "negative"
       ? "FAIL"
       : resultKind === "na"
-      ? (noteValue ? `N/A — ${noteValue.toUpperCase()}` : "N/A")
+      ? "N/A"
       : resultKind === "custom"
       ? rawValue
       : "—";
-    if (resultKind === "na" && noteValue) noteValue = null as any;
-    if (displayVal.startsWith("PASS")) { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-    else if (displayVal.startsWith("FAIL")) { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-    else if (displayVal.startsWith("N/A")) { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
-    doc.text(displayVal.substring(0, 50), margin + colSplit + 1, y + 3);
+    if (displayVal === "PASS") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
+    else if (displayVal === "FAIL") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+    else if (displayVal === "N/A") { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
+    doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "checkbox") {
     // Default drain / drop-leg checkboxes to YES when value is missing/falsy
     const lbl = field.label.toLowerCase();
@@ -365,10 +364,7 @@ export function renderFilledFieldRow(
     if (resultKind === "custom") {
       doc.text(rawValue, margin + colSplit + 1, y + 3);
     } else if (resultKind === "na") {
-      const naDisplay = noteValue ? `N/A — ${noteValue.toUpperCase()}` : "N/A";
-      doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold");
-      doc.text(naDisplay.substring(0, 50), margin + colSplit + 1, y + 3);
-      if (noteValue) noteValue = null as any; // consumed – don't repeat below
+      doc.text("N/A", margin + colSplit + 1, y + 3);
     } else if (resultKind === "empty" && !isDrainField) {
       // If no value was captured at all (undefined/null), show dash not "NO"
       doc.text("—", margin + colSplit + 1, y + 3);
@@ -399,14 +395,12 @@ export function renderFilledFieldRow(
       : resultKind === "negative"
       ? "NO"
       : resultKind === "na"
-      ? (noteValue ? `N/A — ${noteValue.toUpperCase()}` : "N/A")
+      ? "N/A"
       : hasRenderableValue(value)
       ? rawValue
       : "—";
-    if (resultKind === "na" && noteValue && displayVal.startsWith("N/A")) noteValue = null as any;
     if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-    else if (displayVal.startsWith("N/A")) { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
-    doc.text(displayVal.substring(0, 50), margin + colSplit + 1, y + 3);
+    doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {
     doc.text(value ? "✓ Captured" : "—", margin + colSplit + 1, y + 3);
   } else if (field.type === "signature") {
