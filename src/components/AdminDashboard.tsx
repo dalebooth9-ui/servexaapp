@@ -15,6 +15,7 @@ import OnboardingChecklist from "@/components/OnboardingChecklist";
 import OnboardingTour from "@/components/OnboardingTour";
 import QuickScanDialog from "@/components/QuickScanDialog";
 import BatchScanDialog from "@/components/BatchScanDialog";
+import PendingWhatsAppScans from "@/components/PendingWhatsAppScans";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -358,6 +359,8 @@ export default function AdminDashboard() {
           <AiMaintenanceAlerts />
         </div>
       )}
+
+      {isAdmin && <PendingWhatsAppScans />}
 
       {isAdmin && todaysJobs.length > 0 && (
         <Card className="mb-6">
