@@ -314,6 +314,14 @@ export default function ScanReviewPanel({
                       <div key={field.id}>
                         <Label className="text-xs text-muted-foreground">{field.label}</Label>
                         <div className="mt-0.5">{renderFieldInput(field)}</div>
+                        <div className="mt-1">
+                          <Input
+                            value={fieldNotes[field.id] || ""}
+                            onChange={(e) => updateNote(field.id, e.target.value)}
+                            placeholder="Add note..."
+                            className="h-7 text-[11px] italic text-muted-foreground border-dashed"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -329,7 +337,7 @@ export default function ScanReviewPanel({
         <Button variant="ghost" size="sm" onClick={onRescan}>
           <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Re-scan
         </Button>
-        <Button size="sm" onClick={() => onConfirm(fields, header)}>
+        <Button size="sm" onClick={() => onConfirm(fields, header, fieldNotes)}>
           <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Confirm & Fill Form
         </Button>
       </div>
