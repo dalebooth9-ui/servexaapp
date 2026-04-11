@@ -164,9 +164,15 @@ export function getSectionFields(
   section: string,
   skipIds: Set<string>
 ): PdfTemplateField[] {
-  return fields.filter(
-    (f) => (f.section || "General") === section && !skipIds.has(f.id)
-  );
+  return fields.filter((f) => {
+    if ((f.section || "General") !== section) return false;
+    if (skipIds.has(f.id)) return false;
+    // Skip fields whose label is just the section name (ghost rows from OCR section headers)
+    const normLabel = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+    const normSection = section.toLowerCase().replace(/[:\s]+$/g, "").trim();
+    if (normLabel === normSection) return false;
+    return true;
+  });
 }
 
 export interface SectionLayout {
