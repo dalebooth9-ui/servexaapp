@@ -329,10 +329,12 @@ RULES:
 2. The template name "${templateName}" is for context only — NEVER use it as a field value.
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
-5. YES/NO rows → pass/fail. P/F/N/A rows → pass/fail/n/a.
-6. Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
-7. Comments field: ONLY freeform remarks, not structured data from other fields.
-8. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
+5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
+6. YES/NO rows → pass/fail. P/F/N/A rows → pass/fail/n/a.
+7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", or similar, return that full text.
+8. Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
+9. Comments field: ONLY freeform remarks, not structured data from other fields.
+10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
 
 Use the extract_job_sheet tool.`;
 
