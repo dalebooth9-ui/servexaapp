@@ -463,6 +463,7 @@ SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" ar
 ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
 INLINE COUNT ANNOTATIONS: If "NO OF OUTLETS: X" is written next to a landing valve row, extract the number into header.number_of_outlets. Still capture the YES/NO answer for that row separately.
 Blank fields → OMIT entirely.
+MISSING ROWS: If a template field has no matching row on the scanned sheet, OMIT it. Do NOT fill it with values from other sections. For example, "Outlet cabinets in good condition?" may exist in the template but not on the actual sheet — if so, OMIT it.
 Template name "${templateName}" is NEVER a valid field value.
 
 Use the extract_job_sheet tool.`;
