@@ -193,25 +193,13 @@ export default function QuickScanDialog() {
     fields.find((field) => {
       const label = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
 
-      if (!(label.includes("customer") || label.includes("client"))) return false;
-      if (
-        label.includes("detail") ||
-        label.includes("email") ||
-        label.includes("phone") ||
-        label.includes("address") ||
-        label.includes("company")
-      ) {
-        return false;
-      }
-
+      // Only match fields that are specifically about the person who SIGNED,
+      // NOT generic "Customer Name" fields (which hold the company name like "ATC").
       return (
-        label === "customer name" ||
-        label === "customer" ||
-        label === "client name" ||
-        label === "client" ||
         label.includes("signed name") ||
         label.includes("printed name") ||
-        label.includes("signatory")
+        label.includes("signatory") ||
+        label.includes("sign off name")
       );
     })?.id;
 
