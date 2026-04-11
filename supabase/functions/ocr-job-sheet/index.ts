@@ -631,6 +631,24 @@ serve(async (req) => {
     console.log(`OCR path used: ${ocrPath}`);
 
     if (bestExtraction) {
+      // Post-processing: strip "EXPOSED INLET" from internal section fields
+      const internalFieldIds = (fields || [])
+        .filter((f: any) => {
+          const section = (f.section || "").toLowerCase();
+          return section.includes("internal");
+        })
+        .map((f: any) => f.id);
+
+      for (const fieldId of internalFieldIds) {
+        const val = bestExtraction.extracted[fieldId];
+        if (typeof val === "string" && /exposed\s*inlet/i.test(val)) {
+          // Strip the "EXPOSED INLET" annotation, keep just the base value
+          const cleaned = val.replace(/[-–—]\s*exposed\s*inlet/i, "").replace(/exposed\s*inlet/i, "").trim();
+          bestExtraction.extracted[fieldId] = cleaned || "n/a";
+          console.log(`Post-process: stripped "EXPOSED INLET" from internal field ${fieldId}: "${val}" → "${bestExtraction.extracted[fieldId]}"`);
+        }
+      }
+
       const normalizedExtraction = {
         extracted: normalizeExtractedCheckboxValues(bestExtraction.extracted, fields),
         header: bestExtraction.header,
