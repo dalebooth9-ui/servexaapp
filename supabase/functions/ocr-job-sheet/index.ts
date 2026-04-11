@@ -379,6 +379,7 @@ RULES:
 13. "N/A - EXPOSED VALVE" OR "N/A – EXPOSED VALVE" PRE-PRINTED TEXT: Some rows have "N/A - EXPOSED VALVE" or "N/A – EXPOSED VALVE" pre-printed in the answer column (common on glass and cabinet condition rows for breeching inlets). This is NOT a "NO" answer — return the FULL text "N/A - EXPOSED VALVE" exactly. NEVER shorten it to "NO" or "N/A". The text "N/A" at the start does NOT mean "NO".
 14. SECTION HEADERS vs FIELD VALUES: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:", or section titles are NOT fields to extract — they are section headers. Do NOT create a field or value for them. Only extract rows that have an actual question with an answer.
 15. ADJACENT FIELD CONTAMINATION: When a row has YES circled (e.g. "Is the Breeching Inlet in good condition? → YES") and the NEXT row has "N/A - EXPOSED VALVE", do NOT let the "N/A" from the next row contaminate the current row. Each row must be read independently. "N/A" in one row does NOT negate "YES" in the row above or below.
+16. MISSING ROWS: The template may contain fields that do NOT physically appear on the scanned sheet. If a template field has no matching row on the sheet, OMIT it entirely — do NOT fill it with values borrowed from other sections or rows. For example, if "Outlet cabinets in good condition?" appears in the template but the scanned sheet's Internal Equipment section has no such row, OMIT that field. Only extract values for rows that are actually visible on the sheet.
 
 Use the extract_job_sheet tool.`;
 
@@ -462,6 +463,7 @@ SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" ar
 ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
 INLINE COUNT ANNOTATIONS: If "NO OF OUTLETS: X" is written next to a landing valve row, extract the number into header.number_of_outlets. Still capture the YES/NO answer for that row separately.
 Blank fields → OMIT entirely.
+MISSING ROWS: If a template field has no matching row on the scanned sheet, OMIT it. Do NOT fill it with values from other sections. For example, "Outlet cabinets in good condition?" may exist in the template but not on the actual sheet — if so, OMIT it.
 Template name "${templateName}" is NEVER a valid field value.
 
 Use the extract_job_sheet tool.`;
