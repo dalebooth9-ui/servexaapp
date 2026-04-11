@@ -99,7 +99,121 @@ Deno.serve(async (req) => {
 
     // Handle media messages (photos, documents)
     if (numMedia > 0) {
-      const jobId = await getActiveJob(supabase, engineerId);
+      // Check if message body contains a job reference (e.g. VFP-00124)
+      const jobRefPattern = /VFP-\d{3,}/i;
+      const bodyJobRef = messageBody ? messageBody.match(jobRefPattern)?.[0] : null;
+
+      let jobId: string | null = null;
+
+      // If the body contains a job ref, look it up directly
+      if (bodyJobRef) {
+        const { data: refJob } = await supabase
+          .from("jobs")
+          .select("id")
+          .ilike("reference_number", bodyJobRef)
+          .maybeSingle();
+        if (refJob) jobId = refJob.id;
+      }
+
+      // Otherwise, try the normal active job resolution
+      if (!jobId) {
+        jobId = await getActiveJob(supabase, engineerId);
+      }
+
+      // If still no job AND we have an image with no meaningful text body → auto-scan
+      const hasOnlyImage = !jobId && numMedia >= 1;
+      const firstMediaType = params.get("MediaContentType0") || "";
+      const isFirstImage = firstMediaType.startsWith("image/");
+      const bodyIsEmpty = !messageBody || messageBody.trim().length === 0;
+
+      if (hasOnlyImage && isFirstImage && bodyIsEmpty) {
+        console.log("No job context + image-only message → routing to auto-scan pipeline");
+        try {
+          // Download the first image
+          const mediaUrl = params.get("MediaUrl0")!;
+          const fileRes = await fetch(mediaUrl, {
+            headers: { Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}` },
+          });
+          if (!fileRes.ok) throw new Error(`Media download failed: ${fileRes.status}`);
+          const fileBlob = await fileRes.blob();
+          const ext = firstMediaType.split("/")[1] || "jpeg";
+          const fileName = `whatsapp_scan_${Date.now()}.${ext}`;
+          const storagePath = `pending-scans/${engineerId}/${fileName}`;
+
+          // Upload to submissions bucket
+          const { error: uploadError } = await supabase.storage
+            .from("submissions")
+            .upload(storagePath, fileBlob, { contentType: firstMediaType });
+
+          if (uploadError) throw new Error(`Upload error: ${uploadError.message}`);
+
+          // Convert image to base64 for OCR
+          const arrayBuffer = await fileBlob.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+
+          // Call the ocr-job-sheet edge function internally
+          const ocrResponse = await fetch(`${SUPABASE_URL}/functions/v1/ocr-job-sheet`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+            },
+            body: JSON.stringify({
+              images: [{ image_base64: base64, mime_type: firstMediaType }],
+              fields: [], // No template fields — just extract header info
+              template_name: "WhatsApp Auto-Scan",
+            }),
+          });
+
+          let extractedFields: any = {};
+          let ocrPath = "unknown";
+          let ocrConfidence = 0;
+
+          if (ocrResponse.ok) {
+            const ocrData = await ocrResponse.json();
+            extractedFields = { header: ocrData.header || {}, fields: ocrData.extracted || {} };
+            ocrPath = ocrData._ocr_path || "unknown";
+            ocrConfidence = ocrData._azure_confidence || 0;
+          } else {
+            console.error("OCR call failed:", await ocrResponse.text());
+          }
+
+          // Insert into pending_whatsapp_scans
+          const { error: insertError } = await supabase.from("pending_whatsapp_scans").insert({
+            engineer_user_id: engineerId,
+            engineer_phone: from,
+            image_storage_path: storagePath,
+            extracted_fields: extractedFields,
+            ocr_path: ocrPath,
+            ocr_confidence: ocrConfidence,
+            status: "pending",
+          });
+
+          if (insertError) {
+            console.error("Failed to insert pending scan:", insertError);
+          }
+
+          // Get engineer name for the reply
+          const { data: engProfile } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", engineerId)
+            .maybeSingle();
+          const engName = engProfile?.full_name || "Engineer";
+
+          await sendWhatsApp(twilioSender, from,
+            `📸 Got it, ${engName}! Your sheet has been scanned and sent to the office for review. They'll create the job from it shortly.`
+          );
+        } catch (scanError) {
+          console.error("Auto-scan pipeline error:", scanError);
+          await sendWhatsApp(twilioSender, from,
+            "⚠️ Couldn't auto-scan that image. Please text a job reference number first, then resend."
+          );
+        }
+        return twimlResponse();
+      }
+
+      // If still no job, prompt the engineer
       if (!jobId) {
         await sendWhatsApp(twilioSender, from,
           "⚠️ No job scheduled for today. Please text the job reference number or job name first to set context."
