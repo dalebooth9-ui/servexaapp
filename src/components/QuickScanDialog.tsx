@@ -669,7 +669,12 @@ export default function QuickScanDialog() {
       const { base64, fileName } = await generateJobSheetPdf(
         template,
         // Inject customer_sign_date into formData so the PDF uses it for the signature date
-        { ...exportResult, _customer_sign_date: header?.customer_sign_date, _customer_signed_name: header?.customer_signed_name },
+        {
+          ...exportResult,
+          _customer_sign_date: header?.customer_sign_date,
+          _customer_signed_name: header?.customer_signed_name,
+          _number_of_outlets: header?.number_of_outlets,
+        },
         jobInfo,
         "scan-preview",
         header?.engineer,
