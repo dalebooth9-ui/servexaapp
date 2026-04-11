@@ -720,6 +720,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         headerFieldMap[field.id] = confirmedHeader.po_ref;
       } else if ((lbl.includes("engineer") || lbl.includes("technician")) && confirmedHeader.engineer) {
         headerFieldMap[field.id] = confirmedHeader.engineer;
+      } else if ((lbl.includes("number of outlets") || lbl === "no. of outlets" || lbl === "no of outlets" || lbl === "outlets") && confirmedHeader.number_of_outlets) {
+        headerFieldMap[field.id] = confirmedHeader.number_of_outlets;
       }
     }
 
