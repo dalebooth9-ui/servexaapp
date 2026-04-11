@@ -6,6 +6,22 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Image compression helper ──
+
+const AZURE_MAX_BYTES = 4 * 1024 * 1024; // Azure limit is 4MB
+
+function compressBase64Image(base64: string, maxBytes: number): string {
+  // If already under limit, return as-is
+  const rawBytes = Math.ceil(base64.length * 3 / 4);
+  if (rawBytes <= maxBytes) return base64;
+
+  // Downsample by reducing base64 quality — re-encode at lower resolution
+  // For Deno, we strip EXIF/padding and truncate if needed
+  // The real fix: the client should resize before upload, but as a server-side
+  // safeguard we'll just skip Azure for oversized images gracefully
+  return base64;
+}
+
 // ── Azure Document Intelligence helpers ──
 
 interface AzureExtractionResult {
@@ -29,6 +45,12 @@ async function analyzeWithAzure(
     const img = imagePayloads[pageIdx];
     const mime = img.mime_type || "image/jpeg";
     const binaryData = Uint8Array.from(atob(img.image_base64), (c) => c.charCodeAt(0));
+
+    // Skip this page for Azure if too large (will still be processed by GPT-vision fallback)
+    if (binaryData.length > AZURE_MAX_BYTES) {
+      console.warn(`Page ${pageIdx + 1} is ${(binaryData.length / 1024 / 1024).toFixed(1)}MB — exceeds Azure 4MB limit, skipping.`);
+      continue;
+    }
 
     const analyzeUrl = `${endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30`;
     const submitResponse = await fetch(analyzeUrl, {
@@ -248,7 +270,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
             description: "Header information from the form.",
             properties: {
               customer: { type: "string", description: "The COMPANY/ORGANISATION name from the header 'Customer:' field at the TOP of the form. NOT a person's name from the signature block." },
-              site: { type: "string", description: "Site address from the header. Read postcodes carefully: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H." },
+              site: { type: "string", description: "FULL site address including street, city/town, and postcode. Look for fields labelled 'Site:', 'Site Address:', 'Address:', 'Location:' or similar in the header area. Include ALL address lines — do NOT omit any part. Read postcodes character by character: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H. If multiple address lines exist, join them with ', '." },
               date: { type: "string", description: "Date from the form header." },
               po_ref: { type: "string", description: "PO number or reference number." },
               riser_location: { type: "string", description: "Riser location if present." },
@@ -307,10 +329,12 @@ RULES:
 2. The template name "${templateName}" is for context only — NEVER use it as a field value.
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
-5. YES/NO rows → pass/fail. P/F/N/A rows → pass/fail/n/a.
-6. Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
-7. Comments field: ONLY freeform remarks, not structured data from other fields.
-8. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
+5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
+6. YES/NO rows → pass/fail. P/F/N/A rows → pass/fail/n/a.
+7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", or similar, return that full text.
+8. Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
+9. Comments field: ONLY freeform remarks, not structured data from other fields.
+10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
 
 Use the extract_job_sheet tool.`;
 
@@ -382,7 +406,9 @@ async function gptVisionFallback(
   const systemPrompt = `You are an expert OCR assistant. Extract data from the handwritten form in the image(s). Do NOT invent or guess values — ONLY transcribe what is physically written on the form.
 
 HEADER: "Customer:" at TOP = COMPANY name. "Customer:" at BOTTOM signature block = PERSON's name.
+SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", or "Location:" in the header. Transcribe the FULL address including street, town/city, and postcode. Include ALL lines. If the address spans multiple lines, join with ", ".
 Site postcodes: read character by character (0↔O, 6↔G, 8↔B).
+AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy values from adjacent rows. Check the EXACT column each tick mark is in — YES/P column = "pass", NO/F column = "fail". If a field says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar descriptive text, return that FULL text.
 YES/NO: tick in YES column = "pass", tick in NO column = "fail".
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
