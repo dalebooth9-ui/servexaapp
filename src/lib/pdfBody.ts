@@ -364,7 +364,10 @@ export function renderFilledFieldRow(
     if (resultKind === "custom") {
       doc.text(rawValue, margin + colSplit + 1, y + 3);
     } else if (resultKind === "na") {
-      doc.text("N/A", margin + colSplit + 1, y + 3);
+      const naDisplay = noteValue ? `N/A — ${noteValue.toUpperCase()}` : "N/A";
+      doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold");
+      doc.text(naDisplay.substring(0, 50), margin + colSplit + 1, y + 3);
+      if (noteValue) noteValue = null as any; // consumed – don't repeat below
     } else if (resultKind === "empty" && !isDrainField) {
       // If no value was captured at all (undefined/null), show dash not "NO"
       doc.text("—", margin + colSplit + 1, y + 3);
