@@ -13,6 +13,7 @@ import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/p
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
+import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
 
 type TemplateField = {
   id: string;
@@ -645,7 +646,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         }
 
         // Show review panel instead of immediately applying
-        setReviewData({ fields: data.extracted, header });
+        const normalizedFields = applyExposedOutletOverrides(data.extracted || {}, template.fields);
+        setReviewData({ fields: normalizedFields, header });
         toast({
           title: "Data extracted — please review",
           description: `Check the extracted values before confirming.`,
