@@ -223,13 +223,14 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
   const fieldProperties: Record<string, any> = {};
   for (const f of fields) {
     if (f.type === "pass_fail") {
-      const isPressureTestField = f.id.includes("pressure_test") || f.label.toLowerCase().includes("pressure test");
+      const lowerLabel = f.label.toLowerCase();
+      const isPressureTestField = f.id.includes("pressure_test") || lowerLabel.includes("pressure test");
       const extraInstruction = isPressureTestField && forVision
         ? ` CRITICAL: Look for a tick next to P (pass), F (fail), or N/A.`
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — If clearly ticked YES/P/PASS → "pass". If clearly ticked NO/F/FAIL → "fail". If marked N/A → "n/a". IMPORTANT: If the handwritten response is descriptive text instead of a simple tick (e.g. "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", "N/A – EXPOSED INLET"), return the FULL descriptive text EXACTLY as written — do NOT force it into pass/fail/n/a. Only use pass/fail/n/a when there is a clear tick or circle on YES/NO/P/F.${extraInstruction}`,
+        description: `"${f.label}" — If clearly ticked YES/P/PASS → "pass". If clearly ticked NO/F/FAIL → "fail". If marked N/A → "n/a". IMPORTANT: Any handwritten exception note beside the row (e.g. "NOT VISIBLE", "NO ACCESS", "NOT ACCESSIBLE", "NOT INSTALLED", "EXPOSED") OVERRIDES the printed pass/fail choice and must be returned EXACTLY as written. Only use pass/fail/n/a when there is a clear tick or circle and no overriding handwritten exception.${extraInstruction}`,
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {
@@ -242,9 +243,14 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         description: `"${f.label}" — numeric value. Omit if blank.`,
       };
     } else if (f.type === "select" && f.options?.length) {
+      const lowerLabel = f.label.toLowerCase();
+      const isAirReleaseField = f.id.includes("air_release") || lowerLabel.includes("air release");
+      const extraInstruction = isAirReleaseField
+        ? ` IMPORTANT: For air release fields, handwritten exception notes like "NOT VISIBLE", "NO ACCESS", "NOT ACCESSIBLE", "NOT INSTALLED", or ditto marks repeating the previous row OVERRIDE the printed Yes/No/N/A or Satisfactory/Unsatisfactory options. Return the handwritten exception EXACTLY as written instead of the nearest option.`
+        : "";
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. If text differs significantly (e.g. "NOT VISIBLE", "N/A – EXPOSED INLET"), return the full text as-is.`,
+        description: `"${f.label}" — pick the closest match: ${f.options.join(", ")}. If the handwritten answer is descriptive text instead of one of those options (e.g. "NOT VISIBLE", "NO ACCESS", "N/A – EXPOSED INLET"), return the FULL text exactly as written and do NOT force it to the nearest option.${extraInstruction}`,
       };
     } else {
       fieldProperties[f.id] = {

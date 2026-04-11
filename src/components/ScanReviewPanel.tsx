@@ -153,6 +153,20 @@ export default function ScanReviewPanel({
     const value = fields[field.id];
 
     if (field.type === "pass_fail") {
+      const normalizedValue = typeof value === "string" ? value.toLowerCase().trim() : "";
+      const hasCustomValue = typeof value === "string" && value.trim() !== "" && !["pass", "fail", "n/a"].includes(normalizedValue);
+
+      if (hasCustomValue) {
+        return (
+          <Input
+            value={value || ""}
+            onChange={(e) => updateField(field.id, e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Custom result"
+          />
+        );
+      }
+
       return (
         <Select value={value || ""} onValueChange={(v) => updateField(field.id, v)}>
           <SelectTrigger className="h-8 text-xs">
