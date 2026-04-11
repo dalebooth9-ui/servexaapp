@@ -278,7 +278,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               site: { type: "string", description: "FULL site address including street, city/town, and postcode. Look for fields labelled 'Site:', 'Site Address:', 'Address:', 'Location:' or similar in the header area. Include ALL address lines — do NOT omit any part. Read postcodes character by character: 0↔O, 6↔G, 8↔B, 9↔Q, N↔H. If multiple address lines exist, join them with ', '." },
               date: { type: "string", description: "Date from the form header." },
               po_ref: { type: "string", description: "PO number or reference number." },
-              riser_location: { type: "string", description: "Riser location if present." },
+              riser_location: { type: "string", description: "Riser location if present. Capture the FULL text including any handwritten annotations in parentheses next to or below the pre-printed location text. For example if the form says 'BACK OF BUILDING' and the technician has written '(inside building)' next to it, return 'BACK OF BUILDING (inside building)'. Always include both the pre-printed text AND any handwritten additions." },
               engineer: { type: "string", description: "Engineer/technician name." },
               customer_signed_name: { type: "string", description: "Person's name from the SIGNATURE BLOCK at the bottom (not the company name). HANDWRITING: 'L' has a horizontal base with NO loop; 'P' has a closed loop at top. Prefer 'L' unless a closed loop is clearly visible." },
               customer_sign_date: { type: "string", description: "Date from the customer signature section." },
