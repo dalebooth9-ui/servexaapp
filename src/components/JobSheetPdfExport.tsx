@@ -209,7 +209,7 @@ export async function generateJobSheetPdf(
     return "";
   };
 
-  const customerName = findFormVal("customer detail", "customer name", "client") || jobInfo?.customers?.name || jobInfo?.customer || "";
+  const customerName = jobInfo?.customers?.name || jobInfo?.customer || findFormVal("customer detail", "client detail", "customer company", "client company", "company") || "";
   const siteFormVal = findFormVal("site detail", "site info", "site name", "site address", "location");
   const siteAddress = jobInfo?.site?.address || jobInfo?.address || "";
   const siteName = jobInfo?.site?.name || "";
@@ -380,7 +380,7 @@ export async function generateJobSheetPdf(
   }
 
   // For customer display name, prefer the preloaded customer sig name (OCR-extracted signer like "R. Croft")
-  const customerSignedDisplayName = customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "";
+  const customerSignedDisplayName = resolvedFormData._customer_signed_name || customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "";
 
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
   const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");

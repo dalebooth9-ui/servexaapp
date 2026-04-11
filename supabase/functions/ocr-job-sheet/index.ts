@@ -116,7 +116,7 @@ serve(async (req) => {
                 po_ref: { type: "string", description: "PO number, reference number, or job reference" },
                 riser_location: { type: "string", description: "Riser location — look for 'Riser Location:', 'Location:', 'Address:' fields at the top of the form or in the header section. Always extract this if present." },
                 engineer: { type: "string", description: "Engineer name if present on the form" },
-                customer_signed_name: { type: "string", description: "The PRINTED or handwritten name of the customer written at the bottom of the form in the signature section, typically below a handwritten signature and next to or under 'Customer:' or 'Signature:' labels at the foot of the page. This is a person's name (e.g. 'Calvin', 'John Smith'). ONLY extract if a name is clearly written in the signature block at the bottom. Do NOT confuse with the company name in the header. HANDWRITING WARNING: Common misreads for initials — 'L' is often misread as 'P', 'I', or 'T'. Look carefully at the stroke shape: 'L' has a horizontal base stroke, 'P' has a closed loop at the top. If the letter has a flat horizontal foot → it is 'L'. Also watch for 'C' vs 'G', 'B' vs 'D', 'M' vs 'N'." },
+                customer_signed_name: { type: "string", description: "The PRINTED or handwritten name of the customer written at the bottom of the form in the signature section, typically below a handwritten signature and next to or under 'Customer:' or 'Signature:' labels at the foot of the page. This is a person's name (e.g. 'Calvin', 'John Smith'). ONLY extract if a name is clearly written in the signature block at the bottom. Do NOT confuse with the company name in the header. HANDWRITING WARNING: Common misreads for initials — 'L' is often misread as 'P', 'I', or 'T'. Look carefully at the stroke shape: 'L' has a horizontal base stroke with NO closed upper loop. 'P' has a clearly closed loop/bowl at the top. If you cannot clearly see a closed loop, prefer 'L' over 'P'. Also watch for 'C' vs 'G', 'B' vs 'D', 'M' vs 'N'." },
                 customer_sign_date: { type: "string", description: "The date written in the customer/signature section at the bottom of the form, next to a 'Date:' label in the signature block. May differ from the inspection date at the top." },
                 customer_signature_bbox: {
                   type: "object",
@@ -176,7 +176,7 @@ SIGNATURE BLOCK EXTRACTION — At the BOTTOM of the form there is usually a sign
    • The signature box must contain the FULL signature, not just the darkest flourish or one end of it. Signatures often have wide, sweeping strokes — include ALL of them.
    • Ignore any pre-printed graphics entirely: logos, coloured arcs, watermarks, borders, boxes, stamps, ruled lines, and decorative marks are NEVER signatures.
    • Add at least 10% padding around each signature to avoid cropping too tight. A box that is slightly too large is MUCH better than one that clips any part of the signature.
-  IMPORTANT: customer_signed_name is a PERSON'S NAME, NOT a company name. It belongs to the person who physically signed the form at the bottom. It may be printed clearly below the signature.
+  IMPORTANT: customer_signed_name is a PERSON'S NAME, NOT a company name. It belongs to the person who physically signed the form at the bottom. It may be printed clearly below the signature. If the initial could be L or P, only choose P when a CLOSED loop is clearly visible; otherwise choose L.
 
 CRITICAL — For ALL fields (header and body): ONLY return values that are physically handwritten or typed by a human on the paper form. The following are NEVER valid field values:
   - The template name or document title
@@ -227,7 +227,7 @@ ANNOTATION & DESCRIPTIVE TEXT — CRITICAL: Many fields on fire safety forms hav
   
    IMPORTANT: If "NOT VISIBLE" is written next to an air release valve row, return "NOT VISIBLE" for THAT field — do NOT put it in the comments field. Each annotation belongs to the row it is written next to on the form.
 
-COMMENTS / NOTES FIELD — The "Additional Notes / Comments" or "Comments" field should ONLY contain freeform remarks that do NOT belong to any specific inspection row. If you see text like "CABINET KEYS: BIRD" or "NO OF OUTLETS: 5" written on the form, these belong to their SPECIFIC template fields (e.g. "Cabinet Keys" field, "Number of Outlets" field). Do NOT dump structured data into the comments field. Only truly miscellaneous notes that have no matching field should go in comments.
+COMMENTS / NOTES FIELD — The "Additional Notes / Comments" or "Comments" field should ONLY contain freeform remarks that do NOT belong to any specific inspection row. If you see text like "CABINET KEYS: BIRD" or "NO OF OUTLETS: 5" written on the form, these belong to their SPECIFIC template fields (e.g. "Cabinet Keys" field, "Number of Outlets" field). Do NOT dump structured data into the comments field. NEVER concatenate label:value pairs from other rows into comments. If the text clearly belongs to another requested field, leave comments blank rather than duplicating that structured data.
 
 Use the extract_job_sheet tool to return all findings.`;
 
