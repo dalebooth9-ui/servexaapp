@@ -821,6 +821,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             </TabsContent>
           </Tabs>
         </DialogContent>
+        )}
       </Dialog>
     </>
   );
