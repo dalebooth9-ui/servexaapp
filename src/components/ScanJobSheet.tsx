@@ -580,8 +580,8 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       // Convert all images to base64 in parallel
       const imagePayloads = await Promise.all(
         images.map(async (img) => ({
-          image_base64: await toBase64(img.file),
-          mime_type: img.file.type,
+          image_base64: await resizeImageIfNeeded(img.file),
+          mime_type: img.file.type.startsWith("image/") ? "image/jpeg" : img.file.type,
         }))
       );
 
