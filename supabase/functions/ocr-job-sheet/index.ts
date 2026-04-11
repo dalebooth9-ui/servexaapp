@@ -46,6 +46,12 @@ async function analyzeWithAzure(
     const mime = img.mime_type || "image/jpeg";
     const binaryData = Uint8Array.from(atob(img.image_base64), (c) => c.charCodeAt(0));
 
+    // Skip this page for Azure if too large (will still be processed by GPT-vision fallback)
+    if (binaryData.length > AZURE_MAX_BYTES) {
+      console.warn(`Page ${pageIdx + 1} is ${(binaryData.length / 1024 / 1024).toFixed(1)}MB — exceeds Azure 4MB limit, skipping.`);
+      continue;
+    }
+
     const analyzeUrl = `${endpoint}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30`;
     const submitResponse = await fetch(analyzeUrl, {
       method: "POST",
