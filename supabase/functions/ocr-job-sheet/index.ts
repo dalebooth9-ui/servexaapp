@@ -229,8 +229,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        enum: ["pass", "fail", "n/a"],
-        description: `"${f.label}" — YES/P/PASS → "pass". NO/F/FAIL → "fail". N/A → "n/a".${extraInstruction}`,
+        description: `"${f.label}" — If clearly ticked YES/P/PASS → "pass". If clearly ticked NO/F/FAIL → "fail". If marked N/A → "n/a". IMPORTANT: If the handwritten response is descriptive text instead of a simple tick (e.g. "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", "N/A – EXPOSED INLET"), return the FULL descriptive text EXACTLY as written — do NOT force it into pass/fail/n/a. Only use pass/fail/n/a when there is a clear tick or circle on YES/NO/P/F.${extraInstruction}`,
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {
