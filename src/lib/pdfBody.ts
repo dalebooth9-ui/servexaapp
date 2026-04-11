@@ -123,14 +123,51 @@ export type PdfTemplateField = {
   allow_notes?: boolean;
 };
 
+const POSITIVE_RESULT_TOKENS = new Set(["yes", "pass", "true"]);
+const NEGATIVE_RESULT_TOKENS = new Set(["no", "fail", "false"]);
+const NA_RESULT_TOKENS = new Set(["n/a", "na"]);
+
+function normalizePdfText(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function getRawFieldText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  return typeof value === "string" ? value.trim() : String(value);
+}
+
+function hasRenderableValue(value: unknown): boolean {
+  return value !== undefined && value !== null && value !== "";
+}
+
+function getSimpleResultKind(value: unknown): "positive" | "negative" | "na" | "custom" | "empty" {
+  const rawValue = getRawFieldText(value);
+  const normalizedValue = rawValue.toLowerCase();
+
+  if (!rawValue) return "empty";
+  if (POSITIVE_RESULT_TOKENS.has(normalizedValue)) return "positive";
+  if (NEGATIVE_RESULT_TOKENS.has(normalizedValue)) return "negative";
+  if (NA_RESULT_TOKENS.has(normalizedValue)) return "na";
+  return "custom";
+}
+
 /**
  * Build the set of field IDs that should be skipped in the PDF body
  * because they are already rendered in the header or footer areas.
  */
 export function buildSkipIds(fields: PdfTemplateField[]): Set<string> {
   const skipIds = new Set<string>();
+  const normalizedSections = new Set(fields.map((field) => normalizePdfText(field.section || "General")).filter(Boolean));
+
   fields.forEach((f) => {
     const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+    const normalizedLabel = normalizePdfText(f.label);
+
+    if (normalizedSections.has(normalizedLabel)) {
+      skipIds.add(f.id);
+      return;
+    }
+
     if (
       (label.includes("customer") && (label.includes("detail") || label === "customer" || label === "customer name" || label === "client")) ||
       label === "date" || label === "inspection date" || label === "service date" || label === "visit date" ||
@@ -168,8 +205,8 @@ export function getSectionFields(
     if ((f.section || "General") !== section) return false;
     if (skipIds.has(f.id)) return false;
     // Skip fields whose label is just the section name (ghost rows from OCR section headers)
-    const normLabel = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
-    const normSection = section.toLowerCase().replace(/[:\s]+$/g, "").trim();
+    const normLabel = normalizePdfText(f.label);
+    const normSection = normalizePdfText(section);
     if (normLabel === normSection) return false;
     return true;
   });
@@ -285,55 +322,62 @@ export function renderFilledFieldRow(
 
   // Value
   if (field.type === "pass_fail") {
-    const normalizedValue = typeof value === "string" ? value.toLowerCase().trim() : "";
-    const isCustomText = typeof value === "string" && value.trim() !== "" && !["pass", "fail", "n/a"].includes(normalizedValue);
-    const displayVal = normalizedValue === "pass"
+    const rawValue = getRawFieldText(value);
+    const resultKind = getSimpleResultKind(value);
+    const displayVal = resultKind === "positive"
       ? "PASS"
-      : normalizedValue === "fail"
+      : resultKind === "negative"
       ? "FAIL"
-      : normalizedValue === "n/a"
+      : resultKind === "na"
       ? "N/A"
-      : isCustomText
-      ? String(value).toUpperCase()
+      : resultKind === "custom"
+      ? rawValue
       : "—";
-    if (normalizedValue === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-    else if (normalizedValue === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-    else if (normalizedValue === "n/a") { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
+    if (displayVal === "PASS") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
+    else if (displayVal === "FAIL") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+    else if (displayVal === "N/A") { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "checkbox") {
     // Default drain / drop-leg checkboxes to YES when value is missing/falsy
     const lbl = field.label.toLowerCase();
     const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-    const resolved = isDrainField ? (value === false ? false : true) : !!value;
-    doc.text(resolved ? "YES" : "NO", margin + colSplit + 1, y + 3);
+    const rawValue = getRawFieldText(value);
+    const resultKind = getSimpleResultKind(value);
+
+    if (resultKind === "custom") {
+      doc.text(rawValue, margin + colSplit + 1, y + 3);
+    } else if (resultKind === "na") {
+      doc.text("N/A", margin + colSplit + 1, y + 3);
+    } else {
+      const resolved = resultKind === "positive"
+        ? true
+        : resultKind === "negative"
+        ? false
+        : isDrainField
+        ? (value === false ? false : true)
+        : !!value;
+      doc.text(resolved ? "YES" : "NO", margin + colSplit + 1, y + 3);
+    }
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
     const lbl = field.label.toLowerCase();
     const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
     const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
-    const strVal = typeof value === "string"
-      ? value.toLowerCase().trim()
-      : value === false
-      ? "false"
-      : value === true
-      ? "yes"
-      : "";
-    // If the value is not a simple yes/no/n/a token, render it verbatim (e.g. "N/A - EXPOSED VALVE")
-    const simpleTokens = ["yes", "no", "n/a", "na", "pass", "fail", "true", "false", ""];
-    const isSimpleToken = simpleTokens.includes(strVal);
-    const displayVal = !isSimpleToken && strVal
-      ? String(value).toUpperCase()
+    const rawValue = getRawFieldText(value);
+    const resultKind = getSimpleResultKind(value);
+    const displayVal = resultKind === "custom"
+      ? rawValue
       : isDrainField
-      ? (strVal === "false" ? "NO" : "YES")
-      : isOutletField && (strVal === "n/a" || strVal === "na" || strVal === "")
+      ? (resultKind === "negative" ? "NO" : "YES")
+      : isOutletField && (resultKind === "na" || resultKind === "empty")
       ? "YES"
-      : strVal === "yes"
+      : resultKind === "positive"
       ? "YES"
-      : strVal === "no"
+      : resultKind === "negative"
       ? "NO"
-      : strVal === "n/a"
+      : resultKind === "na"
       ? "N/A"
-      : value
-      ? String(value).toUpperCase()
+      : hasRenderableValue(value)
+      ? rawValue
       : "—";
     if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
     doc.text(displayVal, margin + colSplit + 1, y + 3);
@@ -352,8 +396,8 @@ export function renderFilledFieldRow(
       doc.text("—", margin + colSplit + 1, y + 3);
     }
   } else {
-    const raw = value ? String(value).substring(0, 50) : "—";
-    doc.text(raw.charAt(0).toUpperCase() + raw.slice(1), margin + colSplit + 1, y + 3);
+    const raw = hasRenderableValue(value) ? String(value).substring(0, 50) : "—";
+    doc.text(raw, margin + colSplit + 1, y + 3);
   }
 
   doc.setTextColor(0, 0, 0);

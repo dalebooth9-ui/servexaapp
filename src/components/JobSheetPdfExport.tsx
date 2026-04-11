@@ -76,6 +76,9 @@ export async function generateJobSheetPdf(
 ): Promise<{ base64: string; fileName: string }> {
   // Resolve scope/category fields in formData using the human-readable category name
   const resolvedFormData = { ...formData };
+  const normalizeFieldLabel = (label: string) => label.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
+
   if (categoryName) {
     template.fields.forEach((f) => {
       const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
@@ -83,6 +86,15 @@ export async function generateJobSheetPdf(
         resolvedFormData[f.id] = categoryName;
       }
     });
+  }
+
+  const outletsField = template.fields.find((field) => {
+    const label = normalizeFieldLabel(field.label);
+    return label === "number of outlets" || label === "no of outlets" || label === "outlets";
+  });
+  const scannedOutletValue = resolvedFormData._number_of_outlets ?? resolvedFormData.number_of_outlets;
+  if (outletsField && !hasValue(resolvedFormData[outletsField.id]) && hasValue(scannedOutletValue)) {
+    resolvedFormData[outletsField.id] = scannedOutletValue;
   }
 
   // Pre-fetch job-specific signatures (skip if jobId is not a valid UUID)
@@ -202,8 +214,8 @@ export async function generateJobSheetPdf(
     for (const f of template.fields) {
       const label = f.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
       if (patterns.some(p => label.includes(p) || label === p)) {
-        const v = formData[f.id];
-        if (v) return String(v);
+        const v = resolvedFormData[f.id];
+        if (hasValue(v)) return String(v);
       }
     }
     return "";
@@ -216,11 +228,16 @@ export async function generateJobSheetPdf(
   // Also try to pull site from the job address if no site linked
   const siteDisplay = siteFormVal || siteName || siteAddress || jobInfo?.address || "";
   const refNumber = findFormVal("po number", "reference", "ref no", "job ref", "order number") || jobInfo?.reference_number || "";
-  const dateVal = formData["date"] || formData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
+  const dateVal = resolvedFormData["date"] || resolvedFormData["inspection_date"] || findFormVal("date", "inspection date", "service date", "visit date") || new Date().toLocaleDateString("en-GB");
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
-  const riserLocValue = riserField && formData[riserField.id]
-    ? String(formData[riserField.id])
+  const riserLocValue = riserField && hasValue(resolvedFormData[riserField.id])
+    ? String(resolvedFormData[riserField.id])
     : (jobInfo?.site as any)?.riser_location || "";
+  const numberOfOutletsValue = outletsField && hasValue(resolvedFormData[outletsField.id])
+    ? resolvedFormData[outletsField.id]
+    : hasValue(scannedOutletValue)
+    ? scannedOutletValue
+    : null;
 
   // Resolve what3words for the job site address
   let w3wAddress: string | undefined;
@@ -240,6 +257,7 @@ export async function generateJobSheetPdf(
     refNumber,
     dateVal,
     riserLocation: riserLocValue,
+    numberOfOutlets: numberOfOutletsValue,
     w3wAddress,
   }, undefined, accentColor);
 
