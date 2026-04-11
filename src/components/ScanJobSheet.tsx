@@ -65,6 +65,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
   const [extractedHeader, setExtractedHeader] = useState<Record<string, string>>({});
   const [messageImages, setMessageImages] = useState<MessageImage[]>([]);
   const [loadingMessageImages, setLoadingMessageImages] = useState(false);
+  const [reviewData, setReviewData] = useState<{
+    fields: Record<string, any>;
+    header: Record<string, any>;
+  } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
