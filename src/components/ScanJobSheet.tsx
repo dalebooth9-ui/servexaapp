@@ -530,28 +530,58 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     setConvertingPdf(false);
   };
 
-  const resizeImageIfNeeded = (file: File, maxBytes = 3.5 * 1024 * 1024): Promise<string> =>
+  const resizeImageIfNeeded = (file: File, maxBytes = 3.2 * 1024 * 1024): Promise<string> =>
     new Promise((resolve) => {
+      const estimateBytes = (encoded: string) => Math.ceil(encoded.length * 0.75);
+
       const reader = new FileReader();
       reader.onloadend = () => {
         const dataUrl = reader.result as string;
         const base64 = dataUrl.split(",")[1];
-        // If under limit, use directly
-        if (base64.length * 0.75 <= maxBytes) {
+
+        if (estimateBytes(base64) <= maxBytes) {
           resolve(base64);
           return;
         }
-        // Resize using canvas
+
         const img = new Image();
         img.onload = () => {
-          const scale = Math.min(1, Math.sqrt(maxBytes / (base64.length * 0.75)));
           const canvas = document.createElement("canvas");
-          canvas.width = Math.round(img.width * scale);
-          canvas.height = Math.round(img.height * scale);
-          const ctx = canvas.getContext("2d")!;
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          const resized = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
-          resolve(resized);
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(base64);
+            return;
+          }
+
+          let width = img.width;
+          let height = img.height;
+          let quality = 0.88;
+          let bestCandidate = base64;
+
+          const initialScale = Math.min(1, Math.sqrt(maxBytes / estimateBytes(base64)));
+          width = Math.max(1, Math.round(width * initialScale));
+          height = Math.max(1, Math.round(height * initialScale));
+
+          for (let attempt = 0; attempt < 8; attempt++) {
+            canvas.width = width;
+            canvas.height = height;
+            ctx.clearRect(0, 0, width, height);
+            ctx.drawImage(img, 0, 0, width, height);
+
+            const candidate = canvas.toDataURL("image/jpeg", quality).split(",")[1];
+            bestCandidate = candidate;
+
+            if (estimateBytes(candidate) <= maxBytes) {
+              resolve(candidate);
+              return;
+            }
+
+            quality = Math.max(0.45, quality - 0.08);
+            width = Math.max(1, Math.round(width * 0.88));
+            height = Math.max(1, Math.round(height * 0.88));
+          }
+
+          resolve(bestCandidate);
         };
         img.src = dataUrl;
       };

@@ -410,9 +410,11 @@ export default function JobPdfReport({ jobId, job }: Props) {
               let valColor: [number, number, number] | undefined;
 
               if (field.type === "pass_fail") {
-                if (val === "pass") { displayVal = "PASS"; valColor = [0, 128, 0]; }
-                else if (val === "fail") { displayVal = "FAIL"; valColor = [200, 0, 0]; }
-                else if (val === "n/a") { displayVal = "N/A"; valColor = [120, 120, 120]; }
+                const normalizedVal = typeof val === "string" ? val.toLowerCase().trim() : "";
+                if (normalizedVal === "pass") { displayVal = "PASS"; valColor = [0, 128, 0]; }
+                else if (normalizedVal === "fail") { displayVal = "FAIL"; valColor = [200, 0, 0]; }
+                else if (normalizedVal === "n/a") { displayVal = "N/A"; valColor = [120, 120, 120]; }
+                else if (val !== undefined && val !== null && val !== "") { displayVal = String(val).toUpperCase(); }
               } else if (field.type === "checkbox") {
                 displayVal = val ? "YES" : "NO";
               } else if (field.type === "photo") {

@@ -1311,7 +1311,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                               {field.type === "checkbox"
                                 ? (formData[field.id] ? "✓ Yes" : "✗ No")
                                 : field.type === "pass_fail"
-                                ? (formData[field.id] === "pass" ? <span className="text-green-600 font-semibold">✓ PASS</span> : formData[field.id] === "fail" ? <span className="text-destructive font-semibold">✗ FAIL</span> : formData[field.id] === "n/a" ? <span className="text-muted-foreground font-semibold">N/A</span> : "—")
+                                ? (formData[field.id] === "pass"
+                                    ? <span className="text-green-600 font-semibold">✓ PASS</span>
+                                    : formData[field.id] === "fail"
+                                    ? <span className="text-destructive font-semibold">✗ FAIL</span>
+                                    : formData[field.id] === "n/a"
+                                    ? <span className="text-muted-foreground font-semibold">N/A</span>
+                                    : formData[field.id]
+                                    ? String(formData[field.id])
+                                    : "—")
                                 : (formData[field.id] || "—")}
                             </span>
                           )}
@@ -1389,7 +1397,21 @@ function renderFormField(
           <span className="text-xs text-muted-foreground">{value ? "YES" : "NO"}</span>
         </div>
       );
-    case "pass_fail":
+    case "pass_fail": {
+      const normalizedValue = typeof value === "string" ? value.toLowerCase().trim() : "";
+      const hasCustomValue = typeof value === "string" && value.trim() !== "" && !["pass", "fail", "n/a"].includes(normalizedValue);
+
+      if (hasCustomValue) {
+        return (
+          <Input
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="Custom result"
+            className="h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full"
+          />
+        );
+      }
+
       return (
         <div className="flex items-center gap-1.5">
           <Button
@@ -1423,6 +1445,7 @@ function renderFormField(
           </Button>
         </div>
       );
+    }
     case "select": {
       // Dynamically replace options for engineer/technician fields
       const isEngineerField =
@@ -1433,6 +1456,20 @@ function renderFormField(
         isEngineerField && engineerOptions && engineerOptions.length > 0
           ? engineerOptions
           : field.options || [];
+      const hasCustomValue = typeof value === "string" && value.trim() !== "" && !options.includes(value);
+
+      if (hasCustomValue) {
+        return (
+          <Input
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={field.placeholder || "Custom value"}
+            className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}
+            disabled={locked}
+          />
+        );
+      }
+
       return (
         <Select value={value || ""} onValueChange={onChange} disabled={locked}>
           <SelectTrigger className={`h-7 text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 w-full ${locked ? "opacity-70 cursor-not-allowed" : ""}`}>

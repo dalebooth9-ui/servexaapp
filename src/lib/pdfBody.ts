@@ -279,9 +279,20 @@ export function renderFilledFieldRow(
 
   // Value
   if (field.type === "pass_fail") {
-    const displayVal = value === "pass" ? "PASS" : value === "fail" ? "FAIL" : value === "n/a" ? "N/A" : "—";
-    if (value === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-    else if (value === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+    const normalizedValue = typeof value === "string" ? value.toLowerCase().trim() : "";
+    const isCustomText = typeof value === "string" && value.trim() !== "" && !["pass", "fail", "n/a"].includes(normalizedValue);
+    const displayVal = normalizedValue === "pass"
+      ? "PASS"
+      : normalizedValue === "fail"
+      ? "FAIL"
+      : normalizedValue === "n/a"
+      ? "N/A"
+      : isCustomText
+      ? String(value).toUpperCase()
+      : "—";
+    if (normalizedValue === "pass") { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
+    else if (normalizedValue === "fail") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
+    else if (normalizedValue === "n/a") { doc.setTextColor(100, 100, 100); doc.setFont("helvetica", "bold"); }
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "checkbox") {
     // Default drain / drop-leg checkboxes to YES when value is missing/falsy
