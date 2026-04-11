@@ -1309,7 +1309,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           ) : (
                             <span className="text-xs font-medium whitespace-pre-wrap">
                               {field.type === "checkbox"
-                                ? (formData[field.id] ? "✓ Yes" : "✗ No")
+                                ? (() => {
+                                    const rawValue = formData[field.id];
+                                    const normalizedValue = typeof rawValue === "string" ? rawValue.toLowerCase().trim() : "";
+
+                                    if (normalizedValue === "yes" || normalizedValue === "true" || rawValue === true) return "✓ Yes";
+                                    if (normalizedValue === "no" || normalizedValue === "false" || rawValue === false) return "✗ No";
+                                    if (normalizedValue === "n/a" || normalizedValue === "na") return "N/A";
+                                    if (rawValue !== undefined && rawValue !== null && rawValue !== "") return String(rawValue);
+                                    return "—";
+                                  })()
                                 : field.type === "pass_fail"
                                 ? (formData[field.id] === "pass"
                                     ? <span className="text-green-600 font-semibold">✓ PASS</span>

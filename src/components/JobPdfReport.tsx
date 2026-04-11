@@ -416,7 +416,17 @@ export default function JobPdfReport({ jobId, job }: Props) {
                 else if (normalizedVal === "n/a") { displayVal = "N/A"; valColor = [120, 120, 120]; }
                 else if (val !== undefined && val !== null && val !== "") { displayVal = String(val).toUpperCase(); }
               } else if (field.type === "checkbox") {
-                displayVal = val ? "YES" : "NO";
+                const normalizedVal = typeof val === "string" ? val.toLowerCase().trim() : "";
+                if (normalizedVal === "yes" || normalizedVal === "true" || val === true) {
+                  displayVal = "YES";
+                } else if (normalizedVal === "no" || normalizedVal === "false" || val === false) {
+                  displayVal = "NO";
+                } else if (normalizedVal === "n/a" || normalizedVal === "na") {
+                  displayVal = "N/A";
+                  valColor = [120, 120, 120];
+                } else if (val !== undefined && val !== null && val !== "") {
+                  displayVal = String(val).toUpperCase();
+                }
               } else if (field.type === "photo") {
                 displayVal = val ? "✓ Captured" : "—";
               } else if (val !== undefined && val !== null && val !== "") {
