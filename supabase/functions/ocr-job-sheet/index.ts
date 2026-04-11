@@ -340,7 +340,8 @@ RULES:
 8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
 10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
-11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields, if there is no cabinet because the valve is exposed, just return "n/a" — not "N/A - EXPOSED VALVE".
+11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields.
+12. EXPOSED VALVE INFERENCE: If any equipment field for a riser/outlet is marked "EXPOSED VALVE" or "EXPOSED", it means there is NO cabinet. Therefore ALL cabinet-related fields AND glass-related fields for that same riser/outlet MUST be "n/a". This includes fields like "cabinet condition", "cabinet door", "glass intact", "glass panel", "cabinet lock", etc. Return just "n/a" for these — NOT "N/A - EXPOSED VALVE".
 
 Use the extract_job_sheet tool.`;
 
