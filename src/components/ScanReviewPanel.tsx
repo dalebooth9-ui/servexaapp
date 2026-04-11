@@ -183,13 +183,32 @@ export default function ScanReviewPanel({
     }
 
     if (field.type === "checkbox") {
+      // If OCR returned a descriptive string (not a simple yes/no/true/false),
+      // show a text input so the user can keep or edit the custom value.
+      const SIMPLE_CHECKBOX_TOKENS = new Set(["yes", "no", "true", "false", ""]);
+      const hasCustomValue =
+        typeof value === "string" &&
+        value.trim() !== "" &&
+        !SIMPLE_CHECKBOX_TOKENS.has(value.toLowerCase().trim());
+
+      if (hasCustomValue) {
+        return (
+          <Input
+            value={value || ""}
+            onChange={(e) => updateField(field.id, e.target.value)}
+            className="h-8 text-xs"
+            placeholder="Custom result"
+          />
+        );
+      }
+
       return (
         <div className="flex items-center gap-2">
           <Checkbox
-            checked={!!value}
+            checked={value === "yes" || value === true || value === "Yes"}
             onCheckedChange={(checked) => updateField(field.id, !!checked)}
           />
-          <span className="text-xs text-muted-foreground">{value ? "Yes" : "No"}</span>
+          <span className="text-xs text-muted-foreground">{value === true || value === "yes" || value === "Yes" ? "Yes" : "No"}</span>
         </div>
       );
     }
