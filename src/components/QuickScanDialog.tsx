@@ -673,7 +673,10 @@ export default function QuickScanDialog() {
           ...exportResult,
           _customer_sign_date: header?.customer_sign_date,
           _customer_signed_name: header?.customer_signed_name,
-          _number_of_outlets: header?.number_of_outlets,
+          _number_of_outlets:
+            header?.number_of_outlets ??
+            exportResult.number_of_outlets ??
+            exportResult.no_of_outlets,
         },
         jobInfo,
         "scan-preview",
