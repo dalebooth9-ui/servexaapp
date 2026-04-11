@@ -136,7 +136,7 @@ export default function BatchScanDialog() {
       body: {
         images: imagePayloads,
         template_name: templateName,
-        fields: templateFields.map((f) => ({ id: f.id, label: f.label, type: f.type, options: f.options })),
+        fields: templateFields.map((f) => ({ id: f.id, label: f.label, type: f.type, section: f.section, options: f.options })),
       },
     });
     if (error) throw error;
