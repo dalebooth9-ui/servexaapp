@@ -137,6 +137,7 @@ export default function ScanReviewPanel({
     { key: "date", label: "Date" },
     { key: "po_ref", label: "PO / Reference" },
     { key: "riser_location", label: "Riser Location" },
+    { key: "number_of_outlets", label: "No. of Outlets" },
     { key: "customer_signed_name", label: "Customer Signed Name" },
     { key: "customer_sign_date", label: "Customer Sign Date" },
   ];
