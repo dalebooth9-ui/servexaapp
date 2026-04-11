@@ -336,7 +336,7 @@ RULES:
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
 5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
-6. YES/NO rows: ONLY map to "pass"/"fail" if there is a clear tick/circle on YES or NO. If the text contains descriptive annotations like "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", or any other written-out text, return that FULL text instead of forcing pass/fail/n/a.
+6. YES/NO CIRCLING: On these forms the technician answers by CIRCLING either "YES" or "NO" (the circle may look like a loop, underline, or scribble around the word). Be very flexible: if "YES" appears circled, highlighted, underlined, or is the only clearly marked option in the cell, the answer is "pass". If "NO" is circled/marked, the answer is "fail". OCR may render the circle as symbols like "$", "©", parentheses, or other artifacts — ignore those and focus on which word (YES or NO) is marked. If the text contains descriptive annotations like "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", or any other written-out text instead of YES/NO, return that FULL text instead of forcing pass/fail/n/a.
 7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar, return that full text.
 8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
@@ -417,7 +417,7 @@ HEADER: "Customer:" at TOP = COMPANY name. "Customer:" at BOTTOM signature block
 SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", or "Location:" in the header. Transcribe the FULL address including street, town/city, and postcode. Include ALL lines. If the address spans multiple lines, join with ", ".
 Site postcodes: read character by character (0↔O, 6↔G, 8↔B).
 AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy values from adjacent rows. Check the EXACT column each tick mark is in — YES/P column = "pass", NO/F column = "fail". If a field says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar descriptive text, return that FULL text.
-YES/NO: tick in YES column = "pass", tick in NO column = "fail".
+YES/NO CIRCLING: The technician circles either YES or NO. Be flexible — if "YES" is circled, underlined, or visually marked → "pass". If "NO" is marked → "fail". Ignore OCR artifacts around the circled word (e.g. "$", "©", parentheses). If NEITHER is clearly marked but descriptive text is present, return the full text.
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
 FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For "cabinet" condition fields, if there is no cabinet (exposed valve), return just "n/a" — NOT "N/A - EXPOSED VALVE".
