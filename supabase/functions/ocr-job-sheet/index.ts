@@ -429,6 +429,9 @@ YES/NO INTERPRETATION: Be very flexible. CIRCLED option = that answer. STRIKETHR
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
 FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For ALL cabinet-related fields (CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if "N/A" is written, return exactly "n/a" — NEVER append reasons like "EXPOSED VALVE".
+"N/A - EXPOSED VALVE" PRE-PRINTED TEXT: Some rows (especially glass and cabinet condition for breeching inlets) have "N/A - EXPOSED VALVE" pre-printed in the answer column. Return the FULL text "N/A - EXPOSED VALVE" — do NOT shorten to "NO" or just "N/A". The "N/A" prefix does NOT mean "NO".
+SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" are section headers, NOT fields. Do NOT extract values for them.
+ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
 INLINE COUNT ANNOTATIONS: If "NO OF OUTLETS: X" is written next to a landing valve row, extract the number into header.number_of_outlets. Still capture the YES/NO answer for that row separately.
 Blank fields → OMIT entirely.
 Template name "${templateName}" is NEVER a valid field value.
