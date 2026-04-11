@@ -2799,6 +2799,62 @@ export type Database = {
           },
         ]
       }
+      pending_whatsapp_scans: {
+        Row: {
+          created_at: string
+          created_job_id: string | null
+          engineer_phone: string
+          engineer_user_id: string
+          extracted_fields: Json | null
+          id: string
+          image_storage_path: string
+          ocr_confidence: number | null
+          ocr_path: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_job_id?: string | null
+          engineer_phone: string
+          engineer_user_id: string
+          extracted_fields?: Json | null
+          id?: string
+          image_storage_path: string
+          ocr_confidence?: number | null
+          ocr_path?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_job_id?: string | null
+          engineer_phone?: string
+          engineer_user_id?: string
+          extracted_fields?: Json | null
+          id?: string
+          image_storage_path?: string
+          ocr_confidence?: number | null
+          ocr_path?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_whatsapp_scans_created_job_id_fkey"
+            columns: ["created_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       photo_checklist_items: {
         Row: {
           created_at: string
