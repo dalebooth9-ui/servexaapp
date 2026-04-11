@@ -320,8 +320,22 @@ export function renderFilledFieldRow(
   const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
   doc.text(label, margin + 1, y + 3);
 
+  // ── Descriptive-text early exit ──
+  // If the value is a multi-word string (contains a space or dash beyond simple tokens
+  // like "yes", "no", "pass", "fail", "n/a"), render it verbatim regardless of field type.
+  const SIMPLE_TOKENS = new Set(["yes", "no", "pass", "fail", "n/a", "na", "true", "false", ""]);
+  const rawTextForCheck = getRawFieldText(value);
+  const isDescriptiveText =
+    typeof value === "string" &&
+    rawTextForCheck.length > 0 &&
+    !SIMPLE_TOKENS.has(rawTextForCheck.toLowerCase());
+
+  if (isDescriptiveText) {
+    const truncated = rawTextForCheck.substring(0, 60);
+    doc.text(truncated, margin + colSplit + 1, y + 3);
+  }
   // Value
-  if (field.type === "pass_fail") {
+  else if (field.type === "pass_fail") {
     const rawValue = getRawFieldText(value);
     const resultKind = getSimpleResultKind(value);
     const displayVal = resultKind === "positive"
