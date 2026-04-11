@@ -317,9 +317,10 @@ export function renderFilledFieldRow(
       : value === true
       ? "yes"
       : "";
-    // Preserve descriptive text like "NOT VISIBLE", "EXPOSED INLET", "EXPOSED OUTLETS" as-is
-    const isDescriptiveText = strVal.includes("not visible") || strVal.includes("not installed") || strVal.includes("not accessible") || strVal.includes("exposed");
-    const displayVal = isDescriptiveText
+    // If the value is not a simple yes/no/n/a token, render it verbatim (e.g. "N/A - EXPOSED VALVE")
+    const simpleTokens = ["yes", "no", "n/a", "na", "pass", "fail", "true", "false", ""];
+    const isSimpleToken = simpleTokens.includes(strVal);
+    const displayVal = !isSimpleToken && strVal
       ? String(value).toUpperCase()
       : isDrainField
       ? (strVal === "false" ? "NO" : "YES")
