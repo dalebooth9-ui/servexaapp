@@ -88,13 +88,24 @@ export async function generateJobSheetPdf(
     });
   }
 
-  const outletsField = template.fields.find((field) => {
+  const outletFields = template.fields.filter((field) => {
     const label = normalizeFieldLabel(field.label);
-    return label === "number of outlets" || label === "no of outlets" || label === "outlets";
+    return (
+      label.includes("number of outlets") ||
+      label.includes("no of outlets") ||
+      label === "outlets"
+    );
   });
-  const scannedOutletValue = resolvedFormData._number_of_outlets ?? resolvedFormData.number_of_outlets;
-  if (outletsField && !hasValue(resolvedFormData[outletsField.id]) && hasValue(scannedOutletValue)) {
-    resolvedFormData[outletsField.id] = scannedOutletValue;
+  const scannedOutletValue =
+    resolvedFormData._number_of_outlets ??
+    resolvedFormData.number_of_outlets ??
+    resolvedFormData.no_of_outlets;
+  if (hasValue(scannedOutletValue)) {
+    outletFields.forEach((field) => {
+      if (!hasValue(resolvedFormData[field.id])) {
+        resolvedFormData[field.id] = scannedOutletValue;
+      }
+    });
   }
 
   // Pre-fetch job-specific signatures (skip if jobId is not a valid UUID)
@@ -233,8 +244,8 @@ export async function generateJobSheetPdf(
   const riserLocValue = riserField && hasValue(resolvedFormData[riserField.id])
     ? String(resolvedFormData[riserField.id])
     : (jobInfo?.site as any)?.riser_location || "";
-  const numberOfOutletsValue = outletsField && hasValue(resolvedFormData[outletsField.id])
-    ? resolvedFormData[outletsField.id]
+  const numberOfOutletsValue = outletFields.find((field) => hasValue(resolvedFormData[field.id]))
+    ? resolvedFormData[outletFields.find((field) => hasValue(resolvedFormData[field.id]))!.id]
     : hasValue(scannedOutletValue)
     ? scannedOutletValue
     : null;
