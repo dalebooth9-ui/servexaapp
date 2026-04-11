@@ -323,6 +323,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         refNumber: referenceNumber,
         dateVal: dateStr,
         riserLocation: riserLocValue,
+        numberOfOutlets: extractedHeader.number_of_outlets || null,
       }, undefined, accentColor);
 
       // Scanned note
