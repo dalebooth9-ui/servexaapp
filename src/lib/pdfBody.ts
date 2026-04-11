@@ -365,6 +365,9 @@ export function renderFilledFieldRow(
       doc.text(rawValue, margin + colSplit + 1, y + 3);
     } else if (resultKind === "na") {
       doc.text("N/A", margin + colSplit + 1, y + 3);
+    } else if (resultKind === "empty" && !isDrainField) {
+      // If no value was captured at all (undefined/null), show dash not "NO"
+      doc.text("—", margin + colSplit + 1, y + 3);
     } else {
       const resolved = resultKind === "positive"
         ? true
