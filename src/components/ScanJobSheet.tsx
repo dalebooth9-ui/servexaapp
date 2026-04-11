@@ -642,13 +642,59 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     </div>
   );
 
+  const handleConfirmReview = (confirmedFields: Record<string, any>, confirmedHeader: Record<string, any>) => {
+    setExtractedHeader(confirmedHeader);
+
+    // Map header values into matching template form fields by label
+    const headerFieldMap: Record<string, string> = {};
+    for (const field of template.fields) {
+      const lbl = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+      if ((lbl.includes("site") || lbl === "site name" || lbl === "site address" || lbl === "location") && confirmedHeader.site) {
+        headerFieldMap[field.id] = confirmedHeader.site;
+      } else if ((lbl.includes("customer") || lbl.includes("client")) && confirmedHeader.customer) {
+        headerFieldMap[field.id] = confirmedHeader.customer;
+      } else if ((lbl.includes("riser location") || lbl === "riser" || lbl === "location") && confirmedHeader.riser_location) {
+        headerFieldMap[field.id] = confirmedHeader.riser_location;
+      } else if ((lbl.includes("date") || lbl === "inspection date" || lbl === "service date" || lbl === "visit date") && confirmedHeader.date) {
+        headerFieldMap[field.id] = confirmedHeader.date;
+      } else if ((lbl.includes("po") || lbl.includes("ref") || lbl.includes("reference") || lbl.includes("order number")) && confirmedHeader.po_ref) {
+        headerFieldMap[field.id] = confirmedHeader.po_ref;
+      } else if ((lbl.includes("engineer") || lbl.includes("technician")) && confirmedHeader.engineer) {
+        headerFieldMap[field.id] = confirmedHeader.engineer;
+      }
+    }
+
+    onExtracted({ ...headerFieldMap, ...confirmedFields });
+    toast({ title: "Fields applied", description: "Reviewed data has been populated into the form." });
+    setReviewData(null);
+    setOpen(false);
+    setImages([]);
+  };
+
+  const handleRescan = () => {
+    setReviewData(null);
+  };
+
   return (
     <>
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setOpen(true)} title="Scan handwritten sheet">
         <ScanLine className="h-3.5 w-3.5" />
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={open} onOpenChange={(v) => { if (!v) { setReviewData(null); } setOpen(v); }}>
+        {reviewData ? (
+          <DialogContent className="max-w-4xl p-0">
+            <ScanReviewPanel
+              imagePreviews={images.map((img) => img.preview)}
+              extractedFields={reviewData.fields}
+              extractedHeader={reviewData.header}
+              templateFields={template.fields}
+              templateName={template.name}
+              onConfirm={handleConfirmReview}
+              onRescan={handleRescan}
+            />
+          </DialogContent>
+        ) : (
+          <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <ScanLine className="h-4 w-4" /> Scan Handwritten Sheet
