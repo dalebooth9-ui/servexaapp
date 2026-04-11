@@ -11,6 +11,7 @@ import { cropSignatureFromScanSource } from "@/lib/signatureCrop";
 import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
 
 interface TemplateField {
   id: string;
@@ -535,8 +536,9 @@ export default function QuickScanDialog() {
       }
 
       const cleanedResult = cleanStructuredCommentFields(extracted, templateFields);
+      const normalizedResult = applyExposedOutletOverrides(cleanedResult, templateFields);
 
-      setResult(cleanedResult);
+      setResult(normalizedResult);
       setHeader(headerData);
       toast({ title: "Scan complete", description: `Detected: ${detectedCategory?.name || matchedCat?.name || "General"} — review the extracted data below.` });
     } catch (err: any) {
@@ -595,7 +597,10 @@ export default function QuickScanDialog() {
         customer: header?.customer || null,
         reference_number: header?.po_ref || "",
       };
-      const exportResult = cleanStructuredCommentFields(result, matchedTemplate.fields);
+      const exportResult = applyExposedOutletOverrides(
+        cleanStructuredCommentFields(result, matchedTemplate.fields),
+        matchedTemplate.fields,
+      );
 
       // Build preloaded signatures from header data so the preview PDF includes them
       const preloadedSignatures: any = {};
@@ -1051,9 +1056,10 @@ export default function QuickScanDialog() {
                           fields: matchedTemplate?.fields || [],
                         });
                         const cleanedResult = cleanStructuredCommentFields(syncedEdits.nextResult, matchedTemplate?.fields || []);
+                        const normalizedResult = applyExposedOutletOverrides(cleanedResult, matchedTemplate?.fields || []);
 
                         setHeader(syncedEdits.nextHeader);
-                        setResult(cleanedResult);
+                        setResult(normalizedResult);
                         setEditing(false);
                         toast({ title: "Changes saved" });
                       } else {

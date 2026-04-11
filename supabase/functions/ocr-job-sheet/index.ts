@@ -230,6 +230,22 @@ function normalizeExtractedCheckboxValues(extracted: Record<string, any> = {}, f
   return next;
 }
 
+function normalizeComparableExtractionValue(value: unknown) {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  if (value === null || value === undefined) return "";
+  return String(value).trim().toLowerCase();
+}
+
+function isNaEquivalent(value: unknown) {
+  const normalized = normalizeComparableExtractionValue(value);
+  return normalized === "n/a" || normalized === "na";
+}
+
+function containsExposedOutlets(value: unknown) {
+  return /exposed\s*outlets?/i.test(normalizeComparableExtractionValue(value));
+}
+
 function extractStructuredPayload(result: any) {
   const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
   if (toolCall?.function?.arguments?.trim()) {
@@ -653,10 +669,13 @@ serve(async (req) => {
       // AND the immediately next field in the same section is also forced to "n/a".
       const fieldArray = fields || [];
       const exposedOutletSections = new Set<string>();
+      let hasExposedOutlets = false;
       for (const f of fieldArray) {
         const val = bestExtraction.extracted[f.id];
-        if (typeof val === "string" && /exposed\s*outlets?/i.test(val)) {
-          exposedOutletSections.add((f.section || "").toLowerCase());
+        if (containsExposedOutlets(val)) {
+          hasExposedOutlets = true;
+          const sectionKey = (f.section || "").trim().toLowerCase();
+          if (sectionKey) exposedOutletSections.add(sectionKey);
         }
       }
       // Also do the consecutive-field rule
@@ -664,13 +683,15 @@ serve(async (req) => {
         const currentField = fieldArray[fi];
         const nextField = fieldArray[fi + 1];
         const currentVal = bestExtraction.extracted[currentField.id];
+        const currentSection = (currentField.section || "").trim().toLowerCase();
+        const nextSection = (nextField.section || "").trim().toLowerCase();
+        const nextLooksRelated = /cabinet/i.test(nextField.label || "") || /outlet/i.test(nextField.label || "");
         if (
-          typeof currentVal === "string" &&
-          /exposed\s*outlets?/i.test(currentVal) &&
-          (currentField.section || "").toLowerCase() === (nextField.section || "").toLowerCase()
+          containsExposedOutlets(currentVal) &&
+          ((currentSection && currentSection === nextSection) || nextLooksRelated)
         ) {
           const nextVal = bestExtraction.extracted[nextField.id];
-          if (!nextVal || (typeof nextVal === "string" && !/^n\/?a$/i.test(nextVal.trim()))) {
+          if (!isNaEquivalent(nextVal)) {
             console.log(`Post-process: field "${nextField.id}" set to "n/a" because previous field "${currentField.id}" has EXPOSED OUTLETS`);
             bestExtraction.extracted[nextField.id] = "n/a";
           }
@@ -678,23 +699,15 @@ serve(async (req) => {
       }
       // Force any cabinet-related field in an exposed-outlets section to n/a
       for (const f of fieldArray) {
-        const sec = (f.section || "").toLowerCase();
-        if (exposedOutletSections.has(sec) && /cabinet/i.test(f.label)) {
-          const val = bestExtraction.extracted[f.id];
-          const normalizedVal = typeof val === "string"
-            ? val.trim().toLowerCase()
-            : val === true
-              ? "yes"
-              : val === false
-                ? "no"
-                : val == null
-                  ? ""
-                  : String(val).trim().toLowerCase();
+        const sec = (f.section || "").trim().toLowerCase();
+        const label = f.label || "";
+        const shouldForceNa =
+          (sec && exposedOutletSections.has(sec) && /cabinet/i.test(label)) ||
+          (hasExposedOutlets && /outlet/i.test(label) && /cabinet/i.test(label));
 
-          if (normalizedVal !== "n/a" && normalizedVal !== "na") {
-            console.log(`Post-process: cabinet field "${f.id}" set to "n/a" because section has EXPOSED OUTLETS`);
-            bestExtraction.extracted[f.id] = "n/a";
-          }
+        if (shouldForceNa && !isNaEquivalent(bestExtraction.extracted[f.id])) {
+          console.log(`Post-process: cabinet field "${f.id}" set to "n/a" because exposed outlets were detected elsewhere on the sheet`);
+          bestExtraction.extracted[f.id] = "n/a";
         }
       }
 
