@@ -16,6 +16,7 @@ type TemplateField = {
   required: boolean;
   section: string;
   options?: string[];
+  allow_notes?: boolean;
 };
 
 interface Props {
@@ -24,7 +25,7 @@ interface Props {
   extractedHeader: Record<string, any>;
   templateFields: TemplateField[];
   templateName: string;
-  onConfirm: (fields: Record<string, any>, header: Record<string, any>) => void;
+  onConfirm: (fields: Record<string, any>, header: Record<string, any>, fieldNotes: Record<string, string>) => void;
   onRescan: () => void;
 }
 
@@ -61,6 +62,7 @@ export default function ScanReviewPanel({
 }: Props) {
   const [fields, setFields] = useState<Record<string, any>>({ ...extractedFields });
   const [header, setHeader] = useState<Record<string, any>>({ ...extractedHeader });
+  const [fieldNotes, setFieldNotes] = useState<Record<string, string>>({});
   const [customerMatch, setCustomerMatch] = useState<CustomerMatch | null>(null);
   const [allCustomers, setAllCustomers] = useState<string[]>([]);
 
@@ -118,6 +120,10 @@ export default function ScanReviewPanel({
 
   const updateField = (id: string, value: any) => {
     setFields((prev) => ({ ...prev, [id]: value }));
+  };
+
+  const updateNote = (id: string, value: string) => {
+    setFieldNotes((prev) => ({ ...prev, [id]: value }));
   };
 
   const updateHeader = (key: string, value: string) => {
@@ -308,6 +314,14 @@ export default function ScanReviewPanel({
                       <div key={field.id}>
                         <Label className="text-xs text-muted-foreground">{field.label}</Label>
                         <div className="mt-0.5">{renderFieldInput(field)}</div>
+                        <div className="mt-1">
+                          <Input
+                            value={fieldNotes[field.id] || ""}
+                            onChange={(e) => updateNote(field.id, e.target.value)}
+                            placeholder="Add note..."
+                            className="h-7 text-[11px] italic text-muted-foreground border-dashed"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -323,7 +337,7 @@ export default function ScanReviewPanel({
         <Button variant="ghost" size="sm" onClick={onRescan}>
           <ArrowLeft className="h-3.5 w-3.5 mr-1.5" /> Re-scan
         </Button>
-        <Button size="sm" onClick={() => onConfirm(fields, header)}>
+        <Button size="sm" onClick={() => onConfirm(fields, header, fieldNotes)}>
           <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Confirm & Fill Form
         </Button>
       </div>

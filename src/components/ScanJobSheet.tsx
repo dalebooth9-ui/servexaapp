@@ -642,7 +642,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     </div>
   );
 
-  const handleConfirmReview = (confirmedFields: Record<string, any>, confirmedHeader: Record<string, any>) => {
+  const handleConfirmReview = (confirmedFields: Record<string, any>, confirmedHeader: Record<string, any>, fieldNotes: Record<string, string>) => {
     setExtractedHeader(confirmedHeader);
 
     // Map header values into matching template form fields by label
@@ -664,7 +664,15 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       }
     }
 
-    onExtracted({ ...headerFieldMap, ...confirmedFields });
+    // Merge notes into the field data as {fieldId}_notes keys
+    const notesMap: Record<string, string> = {};
+    for (const [fieldId, note] of Object.entries(fieldNotes)) {
+      if (note.trim()) {
+        notesMap[`${fieldId}_notes`] = note.trim();
+      }
+    }
+
+    onExtracted({ ...headerFieldMap, ...confirmedFields, ...notesMap });
     toast({ title: "Fields applied", description: "Reviewed data has been populated into the form." });
     setReviewData(null);
     setOpen(false);
