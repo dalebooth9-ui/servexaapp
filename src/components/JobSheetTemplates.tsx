@@ -951,7 +951,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       jobInfo={jobInfo}
                       onExtracted={(data) => {
                         handleStartForm(tpl);
-                        setTimeout(() => setFormData((prev) => {
+                        setFormData((prev) => {
                           const merged = { ...prev };
                           const extracted = data as Record<string, any>;
 
@@ -1022,7 +1022,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             }
                           });
                           return merged;
-                        }), 100);
+                        });
                       }}
                     />
                     {userRole === "admin" && (
