@@ -419,7 +419,8 @@ AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy
 YES/NO: tick in YES column = "pass", tick in NO column = "fail".
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
-FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For "cabinet" condition fields, if there is no cabinet (exposed valve), return just "n/a" — NOT "N/A - EXPOSED VALVE".
+FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields.
+EXPOSED VALVE INFERENCE: If equipment type is "EXPOSED VALVE" or "EXPOSED", it means there is NO cabinet. ALL cabinet and glass fields for that riser/outlet MUST be "n/a" (e.g. cabinet condition, cabinet door, glass intact, glass panel, cabinet lock). Return just "n/a" — NOT "N/A - EXPOSED VALVE".
 Blank fields → OMIT entirely.
 Template name "${templateName}" is NEVER a valid field value.
 
