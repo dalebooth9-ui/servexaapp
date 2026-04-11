@@ -279,6 +279,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               date: { type: "string", description: "Date from the form header." },
               po_ref: { type: "string", description: "PO number or reference number." },
               riser_location: { type: "string", description: "Riser location if present. Capture the FULL text including any handwritten annotations in parentheses next to or below the pre-printed location text. For example if the form says 'BACK OF BUILDING' and the technician has written '(inside building)' next to it, return 'BACK OF BUILDING (inside building)'. Always include both the pre-printed text AND any handwritten additions." },
+              number_of_outlets: { type: "number", description: "Number of outlets/landing valves. Often written as an inline annotation like 'NO OF OUTLETS: 4' next to a landing valve condition row. Extract just the number." },
               engineer: { type: "string", description: "Engineer/technician name." },
               customer_signed_name: { type: "string", description: "Person's name from the SIGNATURE BLOCK at the bottom (not the company name). HANDWRITING: 'L' has a horizontal base with NO loop; 'P' has a closed loop at top. Prefer 'L' unless a closed loop is clearly visible." },
               customer_sign_date: { type: "string", description: "Date from the customer signature section." },
@@ -341,6 +342,7 @@ RULES:
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
 10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
 11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields, if there is no cabinet because the valve is exposed, just return "n/a" — not "N/A - EXPOSED VALVE".
+12. INLINE COUNT ANNOTATIONS: Technicians sometimes write counts like "NO OF OUTLETS: 4" or "NO OF OUTLETS: 2" next to a landing valve or condition row. Extract the number into the header field "number_of_outlets". The YES/NO answer for that row should still be captured separately in its own field.
 
 Use the extract_job_sheet tool.`;
 
@@ -419,6 +421,7 @@ YES/NO: tick in YES column = "pass", tick in NO column = "fail".
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
 FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For "cabinet" condition fields, if there is no cabinet (exposed valve), return just "n/a" — NOT "N/A - EXPOSED VALVE".
+INLINE COUNT ANNOTATIONS: If "NO OF OUTLETS: X" is written next to a landing valve row, extract the number into header.number_of_outlets. Still capture the YES/NO answer for that row separately.
 Blank fields → OMIT entirely.
 Template name "${templateName}" is NEVER a valid field value.
 
