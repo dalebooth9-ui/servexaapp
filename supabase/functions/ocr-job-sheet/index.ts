@@ -202,6 +202,34 @@ function hasMeaningfulValues(record: Record<string, any> = {}) {
   return Object.values(record).some((value) => value !== undefined && value !== null && value !== "");
 }
 
+function normalizeCheckboxFieldValue(value: unknown) {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  if (typeof value !== "string") return value;
+
+  const trimmed = value.trim();
+  const normalized = trimmed.toLowerCase();
+
+  if (normalized === "true") return "yes";
+  if (normalized === "false") return "no";
+  if (normalized === "yes" || normalized === "no" || normalized === "n/a" || normalized === "na") {
+    return normalized;
+  }
+
+  return trimmed;
+}
+
+function normalizeExtractedCheckboxValues(extracted: Record<string, any> = {}, fields: any[] = []) {
+  const next = { ...extracted };
+
+  for (const field of fields) {
+    if (field?.type !== "checkbox" || !(field.id in next)) continue;
+    next[field.id] = normalizeCheckboxFieldValue(next[field.id]);
+  }
+
+  return next;
+}
+
 function extractStructuredPayload(result: any) {
   const toolCall = result.choices?.[0]?.message?.tool_calls?.[0];
   if (toolCall?.function?.arguments?.trim()) {
@@ -234,8 +262,8 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {
-        type: "boolean",
-        description: `"${f.label}" — true if marked YES/ticked, false if NO. Omit if blank.`,
+        type: "string",
+        description: `"${f.label}" — Return "yes" if marked YES/ticked, "no" if marked NO, and "n/a" if explicitly marked N/A. IMPORTANT: If the row contains descriptive text or a printed/handwritten exception (e.g. "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", "N/A - EXPOSED VALVE"), return the FULL text exactly as written instead of forcing yes/no/n/a. Omit if blank.`,
       };
     } else if (f.type === "number") {
       fieldProperties[f.id] = {
@@ -346,7 +374,7 @@ RULES:
 8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
 10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
-11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields (including CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the technician writes "N/A" or "n/a", return EXACTLY "n/a" — do NOT append any reason like "EXPOSED VALVE". Each field's value must come ONLY from what is written next to THAT specific field.
+11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields (including CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the row literally only says "N/A" or "n/a", return EXACTLY "n/a". But if the same row shows a fuller exception like "N/A - EXPOSED VALVE", return the FULL text exactly as shown. Each field's value must come ONLY from what is written next to THAT specific field.
 12. INLINE COUNT ANNOTATIONS: Technicians sometimes write counts like "NO OF OUTLETS: 4" or "NO OF OUTLETS: 2" next to a landing valve or condition row. Extract the number into the header field "number_of_outlets". The YES/NO answer for that row should still be captured separately in its own field.
 13. "N/A - EXPOSED VALVE" OR "N/A – EXPOSED VALVE" PRE-PRINTED TEXT: Some rows have "N/A - EXPOSED VALVE" or "N/A – EXPOSED VALVE" pre-printed in the answer column (common on glass and cabinet condition rows for breeching inlets). This is NOT a "NO" answer — return the FULL text "N/A - EXPOSED VALVE" exactly. NEVER shorten it to "NO" or "N/A". The text "N/A" at the start does NOT mean "NO".
 14. SECTION HEADERS vs FIELD VALUES: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:", or section titles are NOT fields to extract — they are section headers. Do NOT create a field or value for them. Only extract rows that have an actual question with an answer.
@@ -428,7 +456,7 @@ AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy
 YES/NO INTERPRETATION: Be very flexible. CIRCLED option = that answer. STRIKETHROUGH on one option = the OTHER is the answer (e.g. YES/̶N̶O̶ → "pass"). Handwriting next to pre-printed YES/NO = still determine the YES/NO answer; capture inline notes separately. "NO ACCESS" is a descriptive exception, NOT the same as "NO". OCR artifacts ($, ©, parens) around circled words should be ignored.
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
-FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For ALL cabinet-related fields (CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if "N/A" is written, return exactly "n/a" — NEVER append reasons like "EXPOSED VALVE".
+FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For ALL cabinet-related fields (CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the row literally only says "N/A", return exactly "n/a". But if the row itself says "N/A - EXPOSED VALVE" (or similar descriptive exception text), return the FULL text exactly as shown.
 "N/A - EXPOSED VALVE" PRE-PRINTED TEXT: Some rows (especially glass and cabinet condition for breeching inlets) have "N/A - EXPOSED VALVE" pre-printed in the answer column. Return the FULL text "N/A - EXPOSED VALVE" — do NOT shorten to "NO" or just "N/A". The "N/A" prefix does NOT mean "NO".
 SECTION HEADERS: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:" are section headers, NOT fields. Do NOT extract values for them.
 ADJACENT FIELD CONTAMINATION: Read each row independently. If one row has YES circled and the next row has "N/A - EXPOSED VALVE", do NOT let the "N/A" contaminate the YES row. Each answer belongs ONLY to its own row.
@@ -600,9 +628,14 @@ serve(async (req) => {
     console.log(`OCR path used: ${ocrPath}`);
 
     if (bestExtraction) {
-      return new Response(JSON.stringify({
-        extracted: bestExtraction.extracted,
+      const normalizedExtraction = {
+        extracted: normalizeExtractedCheckboxValues(bestExtraction.extracted, fields),
         header: bestExtraction.header,
+      };
+
+      return new Response(JSON.stringify({
+        extracted: normalizedExtraction.extracted,
+        header: normalizedExtraction.header,
         _ocr_path: ocrPath,
       }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },

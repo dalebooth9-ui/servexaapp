@@ -280,7 +280,16 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
             } else {
               let displayVal = "";
               if (field.type === "checkbox") {
-                displayVal = val ? "Yes" : "No";
+                const normalizedVal = typeof val === "string" ? val.toLowerCase().trim() : "";
+                displayVal = normalizedVal === "yes" || normalizedVal === "true" || val === true
+                  ? "Yes"
+                  : normalizedVal === "no" || normalizedVal === "false" || val === false
+                  ? "No"
+                  : normalizedVal === "n/a" || normalizedVal === "na"
+                  ? "N/A"
+                  : val != null && val !== ""
+                  ? String(val)
+                  : "—";
               } else {
                 displayVal = val != null && val !== "" ? String(val) : "—";
               }
