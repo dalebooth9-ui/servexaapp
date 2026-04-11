@@ -186,6 +186,68 @@ export default function QuickScanDialog() {
       options: f.options,
     }));
 
+  const normalizeScanText = (value: unknown) =>
+    typeof value === "string" ? value.trim() : "";
+
+  const getCustomerSignedNameFieldId = (fields: TemplateField[] = []) =>
+    fields.find((field) => {
+      const label = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
+
+      if (!(label.includes("customer") || label.includes("client"))) return false;
+      if (
+        label.includes("detail") ||
+        label.includes("email") ||
+        label.includes("phone") ||
+        label.includes("address") ||
+        label.includes("company")
+      ) {
+        return false;
+      }
+
+      return (
+        label === "customer name" ||
+        label === "customer" ||
+        label === "client name" ||
+        label === "client" ||
+        label.includes("signed name") ||
+        label.includes("printed name") ||
+        label.includes("signatory")
+      );
+    })?.id;
+
+  const syncCustomerSignedNameEdits = ({
+    nextHeader,
+    nextResult,
+    previousHeader,
+    previousResult,
+    fields,
+  }: {
+    nextHeader: Record<string, any>;
+    nextResult: Record<string, any>;
+    previousHeader: Record<string, any> | null;
+    previousResult: Record<string, any> | null;
+    fields: TemplateField[];
+  }) => {
+    const customerSignedNameFieldId = getCustomerSignedNameFieldId(fields);
+    if (!customerSignedNameFieldId) return { nextHeader, nextResult };
+
+    const previousHeaderName = normalizeScanText(previousHeader?.customer_signed_name);
+    const nextHeaderName = normalizeScanText(nextHeader.customer_signed_name);
+    const previousFieldName = normalizeScanText(previousResult?.[customerSignedNameFieldId]);
+    const nextFieldName = normalizeScanText(nextResult[customerSignedNameFieldId]);
+
+    const headerChanged = nextHeaderName !== previousHeaderName;
+    const fieldChanged = nextFieldName !== previousFieldName;
+
+    if (fieldChanged && !headerChanged && nextFieldName) {
+      nextHeader.customer_signed_name = nextFieldName;
+    } else if (headerChanged && !fieldChanged && nextHeaderName) {
+      nextResult[customerSignedNameFieldId] = nextHeaderName;
+    }
+
+    return { nextHeader, nextResult };
+  };
+
   const invokeOcr = async (
     imagePayloads: { image_base64: string; mime_type: string }[],
     templateName: string,
@@ -868,9 +930,18 @@ export default function QuickScanDialog() {
                     size="sm"
                     onClick={() => {
                       if (editing) {
-                        // Save edits back
-                        setHeader((prev) => ({ ...prev, ...editHeader }));
-                        setResult((prev) => ({ ...prev, ...editResult }));
+                        const nextHeader = { ...(header || {}), ...editHeader };
+                        const nextResult = { ...(result || {}), ...editResult };
+                        const syncedEdits = syncCustomerSignedNameEdits({
+                          nextHeader,
+                          nextResult,
+                          previousHeader: header,
+                          previousResult: result,
+                          fields: matchedTemplate?.fields || [],
+                        });
+
+                        setHeader(syncedEdits.nextHeader);
+                        setResult(syncedEdits.nextResult);
                         setEditing(false);
                         toast({ title: "Changes saved" });
                       } else {
