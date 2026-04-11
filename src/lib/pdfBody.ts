@@ -343,7 +343,7 @@ export function renderFilledFieldRow(
 
   let extraY = 0;
   // Inline note
-  if (field.allow_notes && noteValue) {
+  if (noteValue) {
     doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 100, 100);
