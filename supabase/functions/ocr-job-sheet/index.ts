@@ -341,7 +341,7 @@ RULES:
 8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
 10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
-11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields, if there is no cabinet because the valve is exposed, just return "n/a" — not "N/A - EXPOSED VALVE".
+11. FIELD ISOLATION: Annotations like "EXPOSED VALVE", "EXPOSED INLET", or "EXPOSED" belong ONLY to the specific field they are written next to. Do NOT copy or bleed these annotations into adjacent or unrelated fields. For example, if "EXPOSED VALVE" is written next to a valve condition field, do NOT also put it on the cabinet condition field. For "cabinet" fields (including CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if the technician writes "N/A" or "n/a", return EXACTLY "n/a" — do NOT append any reason like "EXPOSED VALVE". Each field's value must come ONLY from what is written next to THAT specific field.
 12. INLINE COUNT ANNOTATIONS: Technicians sometimes write counts like "NO OF OUTLETS: 4" or "NO OF OUTLETS: 2" next to a landing valve or condition row. Extract the number into the header field "number_of_outlets". The YES/NO answer for that row should still be captured separately in its own field.
 
 Use the extract_job_sheet tool.`;
@@ -420,7 +420,7 @@ AIR RELEASE / VALVE FIELDS: Read EACH air release row independently. Do NOT copy
 YES/NO CIRCLING: The technician circles either YES or NO. Be flexible — if "YES" is circled, underlined, or visually marked → "pass". If "NO" is marked → "fail". Ignore OCR artifacts around the circled word (e.g. "$", "©", parentheses). If NEITHER is clearly marked but descriptive text is present, return the full text.
 P/F/N/A: tick beside P = "pass", F = "fail", N/A = "n/a".
 Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
-FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For "cabinet" condition fields, if there is no cabinet (exposed valve), return just "n/a" — NOT "N/A - EXPOSED VALVE".
+FIELD ISOLATION: Annotations like "EXPOSED VALVE" belong ONLY to the specific field they are written next to. Do NOT bleed them into adjacent fields. For ALL cabinet-related fields (CABINET KEYS, cabinet condition, cabinet door, cabinet glass/panel, cabinet lock), if "N/A" is written, return exactly "n/a" — NEVER append reasons like "EXPOSED VALVE".
 INLINE COUNT ANNOTATIONS: If "NO OF OUTLETS: X" is written next to a landing valve row, extract the number into header.number_of_outlets. Still capture the YES/NO answer for that row separately.
 Blank fields → OMIT entirely.
 Template name "${templateName}" is NEVER a valid field value.
