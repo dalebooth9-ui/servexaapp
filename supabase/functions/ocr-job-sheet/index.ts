@@ -380,6 +380,7 @@ RULES:
 14. SECTION HEADERS vs FIELD VALUES: Row labels like "EXTERNAL EQUIPMENT:", "INTERNAL EQUIPMENT:", or section titles are NOT fields to extract — they are section headers. Do NOT create a field or value for them. Only extract rows that have an actual question with an answer.
 15. ADJACENT FIELD CONTAMINATION: When a row has YES circled (e.g. "Is the Breeching Inlet in good condition? → YES") and the NEXT row has "N/A - EXPOSED VALVE", do NOT let the "N/A" from the next row contaminate the current row. Each row must be read independently. "N/A" in one row does NOT negate "YES" in the row above or below.
 16. MISSING ROWS: The template may contain fields that do NOT physically appear on the scanned sheet. If a template field has no matching row on the sheet, OMIT it — do NOT fill it with values borrowed from other sections. BUT if a row IS present on the sheet, you MUST extract its value (pass, fail, n/a, or descriptive text). Do NOT omit rows that exist. Only omit rows that are genuinely absent from the physical sheet.
+17. SECTION-SPECIFIC TERMINOLOGY: "EXPOSED INLET" and "EXPOSED OUTLETS" are EXTERNAL equipment concepts that refer to breeching inlets and landing valves. They NEVER apply to INTERNAL equipment fields (like outlet cabinets, landing valve padlocks inside, internal condition fields). If an INTERNAL section field has "N/A" written on the sheet, return exactly "n/a" — do NOT append "EXPOSED INLET" or "EXPOSED OUTLETS" to internal fields. These annotations only belong to EXTERNAL section fields where the physical inlet or outlet is exposed.
 
 Use the extract_job_sheet tool.`;
 
@@ -630,6 +631,24 @@ serve(async (req) => {
     console.log(`OCR path used: ${ocrPath}`);
 
     if (bestExtraction) {
+      // Post-processing: strip "EXPOSED INLET" from internal section fields
+      const internalFieldIds = (fields || [])
+        .filter((f: any) => {
+          const section = (f.section || "").toLowerCase();
+          return section.includes("internal");
+        })
+        .map((f: any) => f.id);
+
+      for (const fieldId of internalFieldIds) {
+        const val = bestExtraction.extracted[fieldId];
+        if (typeof val === "string" && /exposed\s*inlet/i.test(val)) {
+          // Strip the "EXPOSED INLET" annotation, keep just the base value
+          const cleaned = val.replace(/[-–—]\s*exposed\s*inlet/i, "").replace(/exposed\s*inlet/i, "").trim();
+          bestExtraction.extracted[fieldId] = cleaned || "n/a";
+          console.log(`Post-process: stripped "EXPOSED INLET" from internal field ${fieldId}: "${val}" → "${bestExtraction.extracted[fieldId]}"`);
+        }
+      }
+
       const normalizedExtraction = {
         extracted: normalizeExtractedCheckboxValues(bestExtraction.extracted, fields),
         header: bestExtraction.header,
