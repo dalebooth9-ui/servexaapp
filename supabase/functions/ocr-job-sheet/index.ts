@@ -648,10 +648,18 @@ serve(async (req) => {
         }
       }
 
-      // Post-processing: if a field says "EXPOSED OUTLETS", the next field in the same section must be "n/a"
-      // (e.g. "landing valve has padlock & strap? → YES - EXPOSED OUTLETS" means the next row
-      // "outlet cabinets in good condition?" is N/A because there are no cabinets)
+      // Post-processing: if ANY field in a section says "EXPOSED OUTLETS", then all
+      // subsequent fields in that same section that reference "cabinet" must be "n/a"
+      // AND the immediately next field in the same section is also forced to "n/a".
       const fieldArray = fields || [];
+      const exposedOutletSections = new Set<string>();
+      for (const f of fieldArray) {
+        const val = bestExtraction.extracted[f.id];
+        if (typeof val === "string" && /exposed\s*outlets?/i.test(val)) {
+          exposedOutletSections.add((f.section || "").toLowerCase());
+        }
+      }
+      // Also do the consecutive-field rule
       for (let fi = 0; fi < fieldArray.length - 1; fi++) {
         const currentField = fieldArray[fi];
         const nextField = fieldArray[fi + 1];
@@ -662,9 +670,20 @@ serve(async (req) => {
           (currentField.section || "").toLowerCase() === (nextField.section || "").toLowerCase()
         ) {
           const nextVal = bestExtraction.extracted[nextField.id];
-          if (nextVal && typeof nextVal === "string" && !/^n\/?a$/i.test(nextVal.trim())) {
+          if (!nextVal || (typeof nextVal === "string" && !/^n\/?a$/i.test(nextVal.trim()))) {
             console.log(`Post-process: field "${nextField.id}" set to "n/a" because previous field "${currentField.id}" has EXPOSED OUTLETS`);
             bestExtraction.extracted[nextField.id] = "n/a";
+          }
+        }
+      }
+      // Force any cabinet-related field in an exposed-outlets section to n/a
+      for (const f of fieldArray) {
+        const sec = (f.section || "").toLowerCase();
+        if (exposedOutletSections.has(sec) && /cabinet/i.test(f.label)) {
+          const val = bestExtraction.extracted[f.id];
+          if (val && typeof val === "string" && !/^n\/?a$/i.test(val.trim())) {
+            console.log(`Post-process: cabinet field "${f.id}" set to "n/a" because section has EXPOSED OUTLETS`);
+            bestExtraction.extracted[f.id] = "n/a";
           }
         }
       }
