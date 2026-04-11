@@ -642,10 +642,30 @@ serve(async (req) => {
       for (const fieldId of internalFieldIds) {
         const val = bestExtraction.extracted[fieldId];
         if (typeof val === "string" && /exposed\s*inlet/i.test(val)) {
-          // Strip the "EXPOSED INLET" annotation, keep just the base value
           const cleaned = val.replace(/[-–—]\s*exposed\s*inlet/i, "").replace(/exposed\s*inlet/i, "").trim();
           bestExtraction.extracted[fieldId] = cleaned || "n/a";
           console.log(`Post-process: stripped "EXPOSED INLET" from internal field ${fieldId}: "${val}" → "${bestExtraction.extracted[fieldId]}"`);
+        }
+      }
+
+      // Post-processing: if a field says "EXPOSED OUTLETS", the next field in the same section must be "n/a"
+      // (e.g. "landing valve has padlock & strap? → YES - EXPOSED OUTLETS" means the next row
+      // "outlet cabinets in good condition?" is N/A because there are no cabinets)
+      const fieldArray = fields || [];
+      for (let fi = 0; fi < fieldArray.length - 1; fi++) {
+        const currentField = fieldArray[fi];
+        const nextField = fieldArray[fi + 1];
+        const currentVal = bestExtraction.extracted[currentField.id];
+        if (
+          typeof currentVal === "string" &&
+          /exposed\s*outlets?/i.test(currentVal) &&
+          (currentField.section || "").toLowerCase() === (nextField.section || "").toLowerCase()
+        ) {
+          const nextVal = bestExtraction.extracted[nextField.id];
+          if (nextVal && typeof nextVal === "string" && !/^n\/?a$/i.test(nextVal.trim())) {
+            console.log(`Post-process: field "${nextField.id}" set to "n/a" because previous field "${currentField.id}" has EXPOSED OUTLETS`);
+            bestExtraction.extracted[nextField.id] = "n/a";
+          }
         }
       }
 
