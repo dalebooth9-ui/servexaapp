@@ -360,6 +360,8 @@ export default function AdminDashboard() {
         </div>
       )}
 
+      {isAdmin && <PendingWhatsAppScans />}
+
       {isAdmin && todaysJobs.length > 0 && (
         <Card className="mb-6">
           <CardHeader className="pb-3">
