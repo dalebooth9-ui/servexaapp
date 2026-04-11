@@ -569,15 +569,12 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
 
       if (data?.extracted) {
         const header = data.header || {};
-        if (header) setExtractedHeader(header);
 
         // Fuzzy-match engineer name against known profiles
         if (header.engineer) {
           const { data: profiles } = await supabase.from("profiles").select("user_id, full_name");
           if (profiles && profiles.length > 0) {
             const matched = fuzzyMatchEngineer(header.engineer, profiles.filter((p: any) => p.full_name));
-            // If fuzzy match returned the raw OCR text (no good match found),
-            // fall back to the job's assigned engineer(s) if available
             if (matched === header.engineer && jobInfo?.engineers?.length) {
               header.engineer = jobInfo.engineers[0];
             } else {
@@ -585,37 +582,15 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             }
           }
         } else if (jobInfo?.engineers?.length) {
-          // No OCR engineer name at all — use assigned engineer
           header.engineer = jobInfo.engineers[0];
         }
 
-        // Map extracted header values into matching template form fields by label
-        const headerFieldMap: Record<string, string> = {};
-        for (const field of template.fields) {
-          const lbl = field.label.toLowerCase().replace(/[:\s]+$/g, "").trim();
-          if ((lbl.includes("site") || lbl === "site name" || lbl === "site address" || lbl === "location") && header.site) {
-            headerFieldMap[field.id] = header.site;
-          } else if ((lbl.includes("customer") || lbl.includes("client")) && header.customer) {
-            headerFieldMap[field.id] = header.customer;
-          } else if ((lbl.includes("riser location") || lbl === "riser" || lbl === "location") && header.riser_location) {
-            headerFieldMap[field.id] = header.riser_location;
-          } else if ((lbl.includes("date") || lbl === "inspection date" || lbl === "service date" || lbl === "visit date") && header.date) {
-            headerFieldMap[field.id] = header.date;
-          } else if ((lbl.includes("po") || lbl.includes("ref") || lbl.includes("reference") || lbl.includes("order number")) && header.po_ref) {
-            headerFieldMap[field.id] = header.po_ref;
-          } else if ((lbl.includes("engineer") || lbl.includes("technician")) && header.engineer) {
-            headerFieldMap[field.id] = header.engineer;
-          }
-        }
-
-        // Merge: header field mappings first, then body fields (body takes priority if both present)
-        onExtracted({ ...headerFieldMap, ...data.extracted });
+        // Show review panel instead of immediately applying
+        setReviewData({ fields: data.extracted, header });
         toast({
-          title: "Fields extracted",
-          description: `Handwritten data read from ${images.length} image(s) and populated into the form.`,
+          title: "Data extracted — please review",
+          description: `Check the extracted values before confirming.`,
         });
-        setOpen(false);
-        setImages([]);
       } else {
         toast({ title: "No data extracted", description: "Could not read the handwritten content. Try a clearer photo.", variant: "destructive" });
       }
