@@ -951,7 +951,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       jobInfo={jobInfo}
                       onExtracted={(data) => {
                         handleStartForm(tpl);
-                        setTimeout(() => setFormData((prev) => {
+                        setFormData((prev) => {
                           const merged = { ...prev };
                           const extracted = data as Record<string, any>;
 
@@ -1022,7 +1022,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             }
                           });
                           return merged;
-                        }), 100);
+                        });
                       }}
                     />
                     {userRole === "admin" && (
@@ -1122,7 +1122,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions)}
                         </div>
                       </div>
-                      {field.allow_notes && (
+                      {(field.allow_notes || formData[`${field.id}_notes`]) && (
                         <div className="px-3 pb-1.5">
                           <Input
                             value={formData[`${field.id}_notes`] || ""}
@@ -1317,7 +1317,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           )}
                         </div>
                       </div>
-                      {field.allow_notes && formData[`${field.id}_notes`] && (
+                      {formData[`${field.id}_notes`] && (
                         <div className="px-3 pb-1.5">
                           <span className="text-[11px] text-muted-foreground italic">Note: {formData[`${field.id}_notes`]}</span>
                         </div>

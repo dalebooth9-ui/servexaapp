@@ -853,6 +853,14 @@ export default function QuickScanDialog() {
     }
   }
 
+  const visibleResultEntries = Object.entries((editing ? editResult : result) || {}).filter(([key, value]) => {
+    if (key.startsWith("_") || key.endsWith("_notes")) return false;
+    const activeResult = (editing ? editResult : result) || {};
+    const hasValue = value !== undefined && value !== null && value !== "";
+    const hasNote = !!activeResult[`${key}_notes`];
+    return hasValue || hasNote;
+  });
+
   return (
     <>
       <Button variant="outline" onClick={() => setOpen(true)}>
@@ -1164,42 +1172,57 @@ export default function QuickScanDialog() {
               {/* Extracted fields */}
               <div className="rounded-lg border p-4 space-y-3">
                 <p className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Extracted Data</p>
-                {Object.entries(result).filter(([, v]) => v !== undefined && v !== null && v !== "").length === 0 ? (
+                {visibleResultEntries.length === 0 ? (
                   <p className="text-sm text-muted-foreground italic">No data could be extracted from this sheet.</p>
                 ) : (
                   <div className="space-y-2">
-                    {Object.entries(result).filter(([, v]) => v !== undefined && v !== null && v !== "").map(([key, value]) => {
+                    {visibleResultEntries.map(([key, value]) => {
                       const fieldDef = matchedTemplate?.fields.find(f => f.id === key);
+                      const noteKey = `${key}_notes`;
+                      const noteValue = (editing ? editResult : result)?.[noteKey];
                       return (
                         <div key={key} className="flex items-start gap-2">
                           <Badge variant="secondary" className="shrink-0 mt-0.5 text-xs min-w-[100px]">
                             {fieldLabelMap[key] || key.replace(/_/g, " ")}
                           </Badge>
-                          {editing ? (
-                            fieldDef?.type === "pass_fail" ? (
-                              <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
-                                <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="pass">✅ Pass</SelectItem>
-                                  <SelectItem value="fail">❌ Fail</SelectItem>
-                                  <SelectItem value="n/a">N/A</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            ) : fieldDef?.type === "select" && fieldDef.options?.length ? (
-                              <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
-                                <SelectTrigger className="h-8 flex-1"><SelectValue /></SelectTrigger>
-                                <SelectContent>
-                                  {fieldDef.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                </SelectContent>
-                              </Select>
+                          <div className="flex-1 space-y-1">
+                            {editing ? (
+                              fieldDef?.type === "pass_fail" ? (
+                                <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
+                                  <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="pass">✅ Pass</SelectItem>
+                                    <SelectItem value="fail">❌ Fail</SelectItem>
+                                    <SelectItem value="n/a">N/A</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              ) : fieldDef?.type === "select" && fieldDef.options?.length ? (
+                                <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
+                                  <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    {fieldDef.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                  </SelectContent>
+                                </Select>
+                              ) : (
+                                <Input className="h-8 w-full" value={editResult[key] ?? ""} onChange={(e) => setEditResult((p) => ({ ...p, [key]: e.target.value }))} />
+                              )
                             ) : (
-                              <Input className="h-8 flex-1" value={editResult[key] ?? ""} onChange={(e) => setEditResult((p) => ({ ...p, [key]: e.target.value }))} />
-                            )
-                          ) : (
-                            <p className="text-sm flex-1">
-                              {value === true ? "✅ Yes" : value === false ? "❌ No" : value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
-                            </p>
-                          )}
+                              <p className="text-sm">
+                                {value === true ? "✅ Yes" : value === false ? "❌ No" : value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
+                              </p>
+                            )}
+
+                            {editing ? (
+                              <Input
+                                className="h-7 w-full text-xs border-dashed"
+                                placeholder="Add note..."
+                                value={editResult[noteKey] ?? ""}
+                                onChange={(e) => setEditResult((p) => ({ ...p, [noteKey]: e.target.value }))}
+                              />
+                            ) : noteValue ? (
+                              <p className="text-xs text-muted-foreground italic">Note: {String(noteValue)}</p>
+                            ) : null}
+                          </div>
                         </div>
                       );
                     })}
