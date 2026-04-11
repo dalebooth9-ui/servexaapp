@@ -258,7 +258,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        description: `"${f.label}" — If clearly ticked YES/P/PASS → "pass". If clearly ticked NO/F/FAIL → "fail". If marked N/A → "n/a". IMPORTANT: Any handwritten exception note beside the row (e.g. "NOT VISIBLE", "NO ACCESS", "NOT ACCESSIBLE", "NOT INSTALLED", "EXPOSED") OVERRIDES the printed pass/fail choice and must be returned EXACTLY as written. Only use pass/fail/n/a when there is a clear tick or circle and no overriding handwritten exception.${extraInstruction}`,
+        description: `"${f.label}" — ALWAYS extract this field if the row exists on the sheet. If clearly ticked YES/P/PASS or circled → "pass". If clearly ticked NO/F/FAIL or circled → "fail". If marked N/A → "n/a". If a handwritten exception note is written beside the row (e.g. "NOT VISIBLE", "NO ACCESS", "EXPOSED VALVE") return that FULL text instead. Do NOT omit this field — if the row is on the sheet, it MUST have a value.${extraInstruction}`,
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {
