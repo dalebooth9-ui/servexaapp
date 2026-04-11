@@ -229,8 +229,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
         : "";
       fieldProperties[f.id] = {
         type: "string",
-        enum: ["pass", "fail", "n/a"],
-        description: `"${f.label}" — YES/P/PASS → "pass". NO/F/FAIL → "fail". N/A → "n/a".${extraInstruction}`,
+        description: `"${f.label}" — If clearly ticked YES/P/PASS → "pass". If clearly ticked NO/F/FAIL → "fail". If marked N/A → "n/a". IMPORTANT: If the handwritten response is descriptive text instead of a simple tick (e.g. "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", "N/A – EXPOSED INLET"), return the FULL descriptive text EXACTLY as written — do NOT force it into pass/fail/n/a. Only use pass/fail/n/a when there is a clear tick or circle on YES/NO/P/F.${extraInstruction}`,
       };
     } else if (f.type === "checkbox") {
       fieldProperties[f.id] = {
@@ -330,9 +329,9 @@ RULES:
 3. Only map values that actually appear in the extracted text. If a field has no data, OMIT it.
 4. HEADER vs SIGNATURE BLOCK: "Customer:" in HEADER = COMPANY name. "Customer:" in SIGNATURE BLOCK = PERSON's name.
 5. SITE ADDRESS: Look for "Site:", "Site Address:", "Address:", "Location:" in the text. Include the FULL address with street, town/city, and postcode. Do NOT omit any part of the address.
-6. YES/NO rows → pass/fail. P/F/N/A rows → pass/fail/n/a.
-7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", or similar, return that full text.
-8. Descriptive text (e.g. "N/A – EXPOSED INLET") → return FULL text.
+6. YES/NO rows: ONLY map to "pass"/"fail" if there is a clear tick/circle on YES or NO. If the text contains descriptive annotations like "NOT VISIBLE", "NO ACCESS", "NOT INSTALLED", or any other written-out text, return that FULL text instead of forcing pass/fail/n/a.
+7. AIR RELEASE / VALVE FIELDS: Map each air release row to its own field independently. Do NOT duplicate values across rows. If a value says "N/A", "NOT INSTALLED", "NOT VISIBLE", or similar, return that full text.
+8. Ditto marks (" or ″ or similar repeat marks) mean the value is the SAME as the row immediately above. Copy the value from the previous row.
 9. Comments field: ONLY freeform remarks, not structured data from other fields.
 10. Character accuracy: For names, prefer L over P unless a closed loop is clearly visible.
 
