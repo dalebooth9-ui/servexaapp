@@ -681,7 +681,17 @@ serve(async (req) => {
         const sec = (f.section || "").toLowerCase();
         if (exposedOutletSections.has(sec) && /cabinet/i.test(f.label)) {
           const val = bestExtraction.extracted[f.id];
-          if (val && typeof val === "string" && !/^n\/?a$/i.test(val.trim())) {
+          const normalizedVal = typeof val === "string"
+            ? val.trim().toLowerCase()
+            : val === true
+              ? "yes"
+              : val === false
+                ? "no"
+                : val == null
+                  ? ""
+                  : String(val).trim().toLowerCase();
+
+          if (normalizedVal !== "n/a" && normalizedVal !== "na") {
             console.log(`Post-process: cabinet field "${f.id}" set to "n/a" because section has EXPOSED OUTLETS`);
             bestExtraction.extracted[f.id] = "n/a";
           }

@@ -183,6 +183,7 @@ export default function QuickScanDialog() {
       id: f.id,
       label: f.label,
       type: f.type,
+      section: f.section,
       options: f.options,
     }));
 
