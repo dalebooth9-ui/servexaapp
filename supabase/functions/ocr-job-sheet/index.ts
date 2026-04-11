@@ -116,11 +116,11 @@ serve(async (req) => {
                 po_ref: { type: "string", description: "PO number, reference number, or job reference" },
                 riser_location: { type: "string", description: "Riser location — look for 'Riser Location:', 'Location:', 'Address:' fields at the top of the form or in the header section. Always extract this if present." },
                 engineer: { type: "string", description: "Engineer name if present on the form" },
-                customer_signed_name: { type: "string", description: "The PRINTED or handwritten name of the customer written at the bottom of the form in the signature section, typically below a handwritten signature and next to or under 'Customer:' or 'Signature:' labels at the foot of the page. This is a person's name (e.g. 'Calvin', 'John Smith'). ONLY extract if a name is clearly written in the signature block at the bottom. Do NOT confuse with the company name in the header." },
+                customer_signed_name: { type: "string", description: "The PRINTED or handwritten name of the customer written at the bottom of the form in the signature section, typically below a handwritten signature and next to or under 'Customer:' or 'Signature:' labels at the foot of the page. This is a person's name (e.g. 'Calvin', 'John Smith'). ONLY extract if a name is clearly written in the signature block at the bottom. Do NOT confuse with the company name in the header. HANDWRITING WARNING: Common misreads for initials — 'L' is often misread as 'P', 'I', or 'T'. Look carefully at the stroke shape: 'L' has a horizontal base stroke, 'P' has a closed loop at the top. If the letter has a flat horizontal foot → it is 'L'. Also watch for 'C' vs 'G', 'B' vs 'D', 'M' vs 'N'." },
                 customer_sign_date: { type: "string", description: "The date written in the customer/signature section at the bottom of the form, next to a 'Date:' label in the signature block. May differ from the inspection date at the top." },
                 customer_signature_bbox: {
                   type: "object",
-                  description: "Bounding box of the customer's FULL HANDWRITTEN SIGNATURE (the ink scrawl/mark, NOT the printed name, and NEVER a logo, watermark, border, stamp, coloured curve, or any other pre-printed graphic). The box must cover the entire signature from far-left stroke to far-right stroke and full top-to-bottom height. Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
+                  description: "Bounding box of the customer's FULL HANDWRITTEN SIGNATURE (the ink scrawl/mark, NOT the printed name, and NEVER a logo, watermark, border, stamp, coloured curve, or any other pre-printed graphic). The box must cover the ENTIRE signature from the far-left stroke to the far-right stroke and full top-to-bottom height. IMPORTANT: Add at least 10% padding on ALL sides to ensure no strokes are cropped. Signatures are often wider and taller than they appear at first glance — err on the side of a LARGER box. Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
                   properties: {
                     x_min: { type: "number", description: "Left edge as percentage (0-100) of image width" },
                     y_min: { type: "number", description: "Top edge as percentage (0-100) of image height" },
@@ -131,7 +131,7 @@ serve(async (req) => {
                 },
                 engineer_signature_bbox: {
                   type: "object",
-                  description: "Bounding box of the engineer/technician's FULL HANDWRITTEN SIGNATURE (the ink scrawl/mark, NEVER a logo, watermark, border, stamp, coloured curve, or any other pre-printed graphic). The box must cover the entire signature from first stroke to last stroke. Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
+                  description: "Bounding box of the engineer/technician's FULL HANDWRITTEN SIGNATURE (the ink scrawl/mark, NEVER a logo, watermark, border, stamp, coloured curve, or any other pre-printed graphic). The box must cover the ENTIRE signature from first stroke to last stroke. IMPORTANT: Add at least 10% padding on ALL sides to ensure no strokes are cropped. Err on the side of a LARGER box. Coordinates are percentages (0-100) of the image dimensions. Only include if a visible handwritten signature mark exists.",
                   properties: {
                     x_min: { type: "number", description: "Left edge as percentage (0-100) of image width" },
                     y_min: { type: "number", description: "Top edge as percentage (0-100) of image height" },
@@ -173,9 +173,9 @@ SIGNATURE BLOCK EXTRACTION — At the BOTTOM of the form there is usually a sign
   • A handwritten signature mark (the ink scrawl) — for this, return its BOUNDING BOX coordinates as percentages (0-100) of the image width and height. Include the page_index (0-indexed) if multiple images.
     - customer_signature_bbox: the bounding box around the customer's handwritten signature mark
     - engineer_signature_bbox: the bounding box around the engineer/technician's handwritten signature mark
-  • The signature box must contain the FULL signature, not just the darkest flourish or one end of it.
-  • Ignore any pre-printed graphics entirely: logos, coloured arcs, watermarks, borders, boxes, stamps, ruled lines, and decorative marks are NEVER signatures.
-  • Add ~5% padding around each signature to avoid cropping too tight.
+   • The signature box must contain the FULL signature, not just the darkest flourish or one end of it. Signatures often have wide, sweeping strokes — include ALL of them.
+   • Ignore any pre-printed graphics entirely: logos, coloured arcs, watermarks, borders, boxes, stamps, ruled lines, and decorative marks are NEVER signatures.
+   • Add at least 10% padding around each signature to avoid cropping too tight. A box that is slightly too large is MUCH better than one that clips any part of the signature.
   IMPORTANT: customer_signed_name is a PERSON'S NAME, NOT a company name. It belongs to the person who physically signed the form at the bottom. It may be printed clearly below the signature.
 
 CRITICAL — For ALL fields (header and body): ONLY return values that are physically handwritten or typed by a human on the paper form. The following are NEVER valid field values:
