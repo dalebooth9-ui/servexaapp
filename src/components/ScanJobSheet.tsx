@@ -718,7 +718,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       </Button>
       <Dialog open={open} onOpenChange={(v) => { if (!v) { setReviewData(null); } setOpen(v); }}>
         {reviewData ? (
-          <DialogContent className="max-w-4xl p-0">
+          <DialogContent className="max-w-4xl p-0" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
             <ScanReviewPanel
               imagePreviews={images.map((img) => img.preview)}
               extractedFields={reviewData.fields}
@@ -730,7 +730,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
             />
           </DialogContent>
         ) : (
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg" onInteractOutside={(e) => e.preventDefault()} onPointerDownOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle className="text-sm flex items-center gap-2">
               <ScanLine className="h-4 w-4" /> Scan Handwritten Sheet
