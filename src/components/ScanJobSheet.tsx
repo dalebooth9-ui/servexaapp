@@ -530,6 +530,34 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
     setConvertingPdf(false);
   };
 
+  const resizeImageIfNeeded = (file: File, maxBytes = 3.5 * 1024 * 1024): Promise<string> =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        const base64 = dataUrl.split(",")[1];
+        // If under limit, use directly
+        if (base64.length * 0.75 <= maxBytes) {
+          resolve(base64);
+          return;
+        }
+        // Resize using canvas
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, Math.sqrt(maxBytes / (base64.length * 0.75)));
+          const canvas = document.createElement("canvas");
+          canvas.width = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          const ctx = canvas.getContext("2d")!;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          const resized = canvas.toDataURL("image/jpeg", 0.85).split(",")[1];
+          resolve(resized);
+        };
+        img.src = dataUrl;
+      };
+      reader.readAsDataURL(file);
+    });
+
   const toBase64 = (file: File): Promise<string> =>
     new Promise((resolve) => {
       const reader = new FileReader();
