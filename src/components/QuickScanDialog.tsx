@@ -1194,49 +1194,57 @@ export default function QuickScanDialog() {
                     {visibleResultEntries.map(([key, value]) => {
                       const fieldDef = matchedTemplate?.fields.find(f => f.id === key);
                       const noteKey = `${key}_notes`;
-                      const noteValue = (editing ? editResult : result)?.[noteKey];
+                      const activeResult = editing ? editResult : result;
+                      const currentValue = editing ? editResult[key] : value;
+                      const noteValue = activeResult?.[noteKey];
+
+                      const updateValue = (v: string) => {
+                        if (editing) {
+                          setEditResult((p) => ({ ...p, [key]: v }));
+                        } else {
+                          setResult((p) => p ? { ...p, [key]: v } : p);
+                        }
+                      };
+                      const updateNote = (v: string) => {
+                        if (editing) {
+                          setEditResult((p) => ({ ...p, [noteKey]: v }));
+                        } else {
+                          setResult((p) => p ? { ...p, [noteKey]: v } : p);
+                        }
+                      };
+
                       return (
                         <div key={key} className="flex items-start gap-2">
                           <Badge variant="secondary" className="shrink-0 mt-0.5 text-xs min-w-[100px]">
                             {fieldLabelMap[key] || key.replace(/_/g, " ")}
                           </Badge>
                           <div className="flex-1 space-y-1">
-                            {editing ? (
-                              fieldDef?.type === "pass_fail" ? (
-                                <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
-                                  <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="pass">✅ Pass</SelectItem>
-                                    <SelectItem value="fail">❌ Fail</SelectItem>
-                                    <SelectItem value="n/a">N/A</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              ) : fieldDef?.type === "select" && fieldDef.options?.length ? (
-                                <Select value={editResult[key] || ""} onValueChange={(v) => setEditResult((p) => ({ ...p, [key]: v }))}>
-                                  <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
-                                  <SelectContent>
-                                    {fieldDef.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
-                                  </SelectContent>
-                                </Select>
-                              ) : (
-                                <Input className="h-8 w-full" value={editResult[key] ?? ""} onChange={(e) => setEditResult((p) => ({ ...p, [key]: e.target.value }))} />
-                              )
+                            {fieldDef?.type === "pass_fail" ? (
+                              <Select value={String(currentValue || "")} onValueChange={updateValue}>
+                                <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="pass">✅ Pass</SelectItem>
+                                  <SelectItem value="fail">❌ Fail</SelectItem>
+                                  <SelectItem value="n/a">N/A</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            ) : fieldDef?.type === "select" && fieldDef.options?.length ? (
+                              <Select value={String(currentValue || "")} onValueChange={updateValue}>
+                                <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  {fieldDef.options.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+                                </SelectContent>
+                              </Select>
                             ) : (
-                              <p className="text-sm">
-                                {value === true ? "✅ Yes" : value === false ? "❌ No" : value === "pass" ? "✅ Pass" : value === "fail" ? "❌ Fail" : value === "n/a" ? "N/A" : String(value)}
-                              </p>
+                              <Input className="h-8 w-full" value={currentValue ?? ""} onChange={(e) => updateValue(e.target.value)} />
                             )}
 
-                            {editing ? (
-                              <Input
-                                className="h-7 w-full text-xs border-dashed"
-                                placeholder="Add note..."
-                                value={editResult[noteKey] ?? ""}
-                                onChange={(e) => setEditResult((p) => ({ ...p, [noteKey]: e.target.value }))}
-                              />
-                            ) : noteValue ? (
-                              <p className="text-xs text-muted-foreground italic">Note: {String(noteValue)}</p>
-                            ) : null}
+                            <Input
+                              className="h-7 w-full text-xs border-dashed italic text-muted-foreground"
+                              placeholder="Add note..."
+                              value={noteValue ?? ""}
+                              onChange={(e) => updateNote(e.target.value)}
+                            />
                           </div>
                         </div>
                       );
