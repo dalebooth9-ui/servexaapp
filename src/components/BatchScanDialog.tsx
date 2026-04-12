@@ -287,7 +287,8 @@ export default function BatchScanDialog() {
             template_id: r.matchedTemplate.id,
             submitted_by: userId,
             responses: r.result,
-            status: "draft",
+            status: "submitted",
+            submitted_at: new Date().toISOString(),
           });
         }
 

@@ -763,7 +763,7 @@ export default function QuickScanDialog() {
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData?.user?.id;
 
-      // If we have a matched template and extracted data, create a job_sheet_response
+      // If we have a matched template and extracted data, create a submitted job_sheet_response
       if (matchedTemplate && userId) {
         await supabase
           .from("job_sheet_responses")
@@ -772,7 +772,8 @@ export default function QuickScanDialog() {
             template_id: matchedTemplate.id,
             submitted_by: userId,
             responses: savedResult,
-            status: "draft",
+            status: "submitted",
+            submitted_at: new Date().toISOString(),
           });
       }
 
