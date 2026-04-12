@@ -298,7 +298,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const dateStr = extractedHeader.date ? parseExtractedDate(extractedHeader.date) : new Date().toLocaleDateString("en-GB");
 
       // Find riser location — prefer extracted header, then existing responses
-      let riserLocValue = extractedHeader.riser_location || "";
+      let riserLocValue = (extractedHeader.riser_location || "").replace(/\s*(GRAND\s+)?OUTLETS?\s*[:.]?\s*\d*/gi, "").replace(/\s*N(?:O\.?|UMBER)\s+OF\s+OUTLETS?\s*[:.]?\s*\d*/gi, "").trim();
       if (!riserLocValue) {
         const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
         if (riserField) {
