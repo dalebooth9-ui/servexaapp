@@ -462,12 +462,12 @@ export async function generateJobSheetPdf(
 
   renderPdfFooter(doc, declarationFooterY, footerText);
 
+  const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-  // Pass declarationFooterY so internal calc places logos at: declarationFooterY - logoH - 3 = logoRowY
   addAccreditationLogosToAllPages(doc, accredLogos, declarationFooterY, logoH);
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
