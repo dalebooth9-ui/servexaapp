@@ -277,9 +277,11 @@ export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = 
       }
 
       const logoH = 12; // bigger logos
+      const customerName = jobInfo?.customers?.name || jobInfo?.customer || null;
+      const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
-        loadAccreditationLogos(),
+        loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;

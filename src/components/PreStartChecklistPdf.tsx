@@ -34,9 +34,10 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const mr = pw - 14;
   const cw = mr - ml;
 
+  const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
 

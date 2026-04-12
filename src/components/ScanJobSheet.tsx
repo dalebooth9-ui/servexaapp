@@ -457,9 +457,10 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       renderPdfFooter(doc, footerStartY, footerText);
 
       // Watermark + Accreditations
+      const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
-        loadAccreditationLogos(),
+        loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       addAccreditationLogosToAllPages(doc, accredLogos, footerStartY, 12);
