@@ -329,7 +329,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               customer_sign_date: { type: "string", description: "Date from the customer signature section at the bottom of the form." },
               customer_signature_bbox: {
                 type: "object",
-                description: "IMPORTANT: Bounding box of the customer's handwritten SIGNATURE (the squiggly ink mark, NOT the printed name) at the bottom of the form, as percentages (0-100) of image dimensions. Add 10% padding on all sides. Look carefully — signatures are typically near 'Signed:', 'Signature:', or a signature line in the customer sign-off area. This MUST be provided if a handwritten signature mark is visible.",
+                description: "TIGHT bounding box around ONLY the customer's handwritten signature INK STROKES (the squiggly mark, NOT the printed name, NOT the label text, NOT the signature line). Return percentages (0-100) of image dimensions. The box should tightly wrap just the ink — do NOT add padding, the system adds padding automatically. A typical signature is only 10-18% of page width and 3-8% of page height. If your box exceeds 20% width or 15% height, it is too large — re-examine and tighten it.",
                 properties: {
                   x_min: { type: "number" }, y_min: { type: "number" },
                   x_max: { type: "number" }, y_max: { type: "number" },
@@ -338,7 +338,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               },
               engineer_signature_bbox: {
                 type: "object",
-                description: "Bounding box of the engineer's handwritten SIGNATURE (the squiggly ink mark) at the bottom of the form, as percentages (0-100) of image dimensions. Add 10% padding on all sides. Look carefully near 'Engineer Signature:', 'Technician:', or engineer sign-off area. This MUST be provided if a handwritten signature mark is visible.",
+                description: "TIGHT bounding box around ONLY the engineer's handwritten signature INK STROKES (the squiggly mark, NOT the printed name). Return percentages (0-100) of image dimensions. Do NOT add padding. A typical signature is only 10-18% of page width and 3-8% of page height.",
                 properties: {
                   x_min: { type: "number" }, y_min: { type: "number" },
                   x_max: { type: "number" }, y_max: { type: "number" },
