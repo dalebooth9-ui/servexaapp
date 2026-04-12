@@ -873,11 +873,15 @@ export default function QuickScanDialog() {
         if (customerBbox && typeof customerBbox === "object" && "x_min" in customerBbox) {
           const pageIdx = (customerBbox as any).page_index || 0;
           const sourceImage = images[pageIdx];
+          console.log("[QuickScan] Customer sig crop: pageIdx=", pageIdx, "sourceImage exists=", !!sourceImage, "bbox=", JSON.stringify(customerBbox));
           const cropped = sourceImage ? await cropSignatureFromScanSource(sourceImage, customerBbox as any, { mode: "field" }) : null;
+          console.log("[QuickScan] Customer sig crop result:", cropped ? `blob=${cropped.blob.size}bytes` : "null (rejected as blank or failed)");
           if (cropped?.blob) {
             await uploadSignature(cropped.blob, job.id, customerSignedName, "customer", userId);
             imported = true;
           }
+        } else {
+          console.log("[QuickScan] No valid customer_signature_bbox found in header");
         }
 
         if (!imported) {
