@@ -378,13 +378,7 @@ export function renderFilledFieldRow(
     const rawValue = getRawFieldText(value);
     const resultKind = getSimpleResultKind(value);
 
-    // If the OCR/user entered "pass" or "fail", honour that with colour
-    if (PASS_FAIL_TOKENS.has(rawValue.toLowerCase())) {
-      const isPassing = rawValue.toLowerCase() === "pass";
-      if (isPassing) { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-      else { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-      doc.text(isPassing ? "PASS" : "FAIL", margin + colSplit + 1, y + 3);
-    } else if (resultKind === "custom") {
+    if (resultKind === "custom") {
       doc.text(rawValue, margin + colSplit + 1, y + 3);
     } else if (resultKind === "na") {
       doc.text("N/A", margin + colSplit + 1, y + 3);
@@ -403,17 +397,8 @@ export function renderFilledFieldRow(
     }
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
     const displayVal = getYesNoFieldDisplayValue(field, value);
-    // Honour pass/fail values with proper colours even on yes_no / select fields
-    const rawYN = getRawFieldText(value);
-    if (PASS_FAIL_TOKENS.has(rawYN.toLowerCase())) {
-      const isPassing = rawYN.toLowerCase() === "pass";
-      if (isPassing) { doc.setTextColor(0, 128, 0); doc.setFont("helvetica", "bold"); }
-      else { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
-      doc.text(isPassing ? "PASS" : "FAIL", margin + colSplit + 1, y + 3);
-    } else if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); doc.text(displayVal, margin + colSplit + 1, y + 3);
-    } else {
+    if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
     doc.text(displayVal, margin + colSplit + 1, y + 3);
-    }
   } else if (field.type === "photo") {
     doc.text(value ? "✓ Captured" : "—", margin + colSplit + 1, y + 3);
   } else if (field.type === "signature") {
