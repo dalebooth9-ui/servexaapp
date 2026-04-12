@@ -439,7 +439,8 @@ export async function cropSignatureFromScanSource(
     }
 
     if (!finalCanvas) return null;
-    if (isCanvasMostlyBlank(finalCanvas, mode === "field" ? 0.0006 : 0.003)) return null;
+    // For field mode, skip blank check — always return the field area crop
+    if (mode !== "field" && isCanvasMostlyBlank(finalCanvas, 0.003)) return null;
 
     const blob = await new Promise<Blob | null>((resolve) => finalCanvas.toBlob((value) => resolve(value), "image/png"));
     if (!blob) return null;
