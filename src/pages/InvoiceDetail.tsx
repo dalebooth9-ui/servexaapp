@@ -65,14 +65,23 @@ export default function InvoiceDetail() {
     ]);
     setInvoice(invRes.data);
     setLineItems(itemsRes.data || []);
-    // Fetch customer accreditation logos
+    // Fetch customer accreditation logos (fall back to Viva Fire defaults)
+    const defaultLogos = [
+      "/accreditation/smas-logo.png",
+      "/accreditation/constructionline-logo.png",
+      "/accreditation/iso-9001-logo.jpg",
+      "/accreditation/bafe-logo.jpeg",
+    ];
     if (invRes.data?.customer_name) {
       const { data: cust } = await supabase
         .from("customers")
         .select("accreditation_logos")
         .ilike("name", invRes.data.customer_name)
         .maybeSingle();
-      setCustAccredLogos((cust as any)?.accreditation_logos || []);
+      const custLogos = (cust as any)?.accreditation_logos as string[] | undefined;
+      setCustAccredLogos(custLogos && custLogos.length > 0 ? custLogos : defaultLogos);
+    } else {
+      setCustAccredLogos(defaultLogos);
     }
     setLoading(false);
   };
