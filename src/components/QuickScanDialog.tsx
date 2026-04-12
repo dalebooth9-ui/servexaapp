@@ -603,7 +603,7 @@ export default function QuickScanDialog() {
         address: exportHeader.site || null,
         customer: exportHeader.customer || null,
         reference_number: exportHeader.po_ref || "",
-        customers: customerLogoUrl ? { name: exportHeader.customer || "", logo_url: customerLogoUrl } : undefined,
+        customers: { name: exportHeader.customer || "", logo_url: customerLogoUrl },
       };
       const exportResult = applyExposedOutletOverrides(
         cleanStructuredCommentFields(mergedResult, matchedTemplate.fields),

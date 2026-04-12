@@ -51,8 +51,8 @@ export async function renderPdfHeader(
 
   const companyName = branding.company_name || "";
   const companySubtitle = branding.company_subtitle || "";
-  // Fall back to Viva Fire logo unless a customer/org logo is explicitly set
-  const logoUrl = branding.logo_url || "/images/vivafire-logo-new.jpg";
+  // Only use logo if explicitly provided — no automatic Viva Fire fallback
+  const logoUrl = branding.logo_url || "";
 
   // --- Logo ---
   let logoBottomY = y;
