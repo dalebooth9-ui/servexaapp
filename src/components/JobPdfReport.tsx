@@ -594,12 +594,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
       // ── WATERMARK + ACCREDITATIONS on every page ──
+      const custAccredUrls = await fetchCustomerAccreditationLogos(job.customers?.name || job.customer);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
-        loadAccreditationLogos(),
+        loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark);
-      addAccreditationLogosToAllPages(doc, accredLogos, 279); // sits just above page-number line (286)
+      addAccreditationLogosToAllPages(doc, accredLogos, 279);
 
       // ── FOOTER on every page ──
       const pageCount = doc.getNumberOfPages();
