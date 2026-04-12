@@ -1,4 +1,25 @@
 import jsPDF from "jspdf";
+import { supabase } from "@/integrations/supabase/client";
+
+/**
+ * Fetch accreditation logo URLs for a customer from the database.
+ * Returns an empty array if customer not found or has none.
+ */
+export async function fetchCustomerAccreditationLogos(
+  customerName?: string | null
+): Promise<string[]> {
+  if (!customerName) return [];
+  try {
+    const { data } = await supabase
+      .from("customers")
+      .select("accreditation_logos")
+      .ilike("name", customerName)
+      .maybeSingle();
+    return (data as any)?.accreditation_logos || [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Load accreditation logos from an array of URLs.
