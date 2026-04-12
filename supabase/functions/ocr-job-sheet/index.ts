@@ -483,6 +483,14 @@ Blank fields → OMIT entirely.
 MISSING ROWS: If a template field has no matching row on the scanned sheet, OMIT it. Do NOT fill it with values from other sections. BUT if a row IS present, you MUST extract its value — do NOT skip rows that exist on the sheet.
 Template name "${templateName}" is NEVER a valid field value.
 
+SIGNATURE EXTRACTION (CRITICAL):
+- Look at the VERY BOTTOM of the form for the sign-off / signature section.
+- There are typically TWO signature areas: one for the engineer/technician, one for the customer/client.
+- For EACH signature area, extract: (1) the printed/handwritten NAME of the signer, (2) the DATE next to the signature, and (3) the BOUNDING BOX of the handwritten signature mark (the squiggly ink, not the name text).
+- The customer's name goes in customer_signed_name. The engineer's name goes in engineer.
+- Bounding boxes must be in percentage coordinates (0-100) with 10% padding on all sides.
+- Do NOT skip signatures — if ANY handwritten signature mark is visible, you MUST extract its bounding box.
+
 Use the extract_job_sheet tool.`;
 
   const userContentParts: any[] = [
