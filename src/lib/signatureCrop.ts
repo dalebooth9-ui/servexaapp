@@ -11,6 +11,10 @@ export interface ScanImageSource {
   preview: string;
 }
 
+export interface SignatureCropOptions {
+  mode?: "ink" | "field";
+}
+
 interface Rect {
   x: number;
   y: number;
@@ -86,6 +90,63 @@ const rectFromPercentBox = (bbox: SignatureBoundingBox, imageWidth: number, imag
     width: Math.max(1, right - x),
     height: Math.max(1, bottom - y),
   };
+};
+
+const createCenteredRect = (
+  centerX: number,
+  centerY: number,
+  width: number,
+  height: number,
+  maxWidth: number,
+  maxHeight: number,
+): Rect => {
+  const safeWidth = clamp(width, 1, maxWidth);
+  const safeHeight = clamp(height, 1, maxHeight);
+  const x = clamp(centerX - safeWidth / 2, 0, maxWidth - safeWidth);
+  const y = clamp(centerY - safeHeight / 2, 0, maxHeight - safeHeight);
+
+  return {
+    x,
+    y,
+    width: safeWidth,
+    height: safeHeight,
+  };
+};
+
+const buildSignatureFieldRect = (rect: Rect, imageWidth: number, imageHeight: number): Rect => {
+  const widthRatio = rect.width / Math.max(imageWidth, 1);
+  const heightRatio = rect.height / Math.max(imageHeight, 1);
+
+  const widthScale = widthRatio < 0.12 ? 2.8 : widthRatio < 0.22 ? 1.7 : 1.15;
+  const heightScale = heightRatio < 0.04 ? 2.4 : heightRatio < 0.08 ? 1.6 : 1.15;
+
+  let targetWidth = clamp(
+    Math.max(rect.width * widthScale, imageWidth * 0.18, 180),
+    rect.width,
+    imageWidth * 0.42,
+  );
+  const targetHeight = clamp(
+    Math.max(rect.height * heightScale, imageHeight * 0.045, 42),
+    rect.height,
+    imageHeight * 0.16,
+  );
+
+  if (targetWidth / Math.max(targetHeight, 1) < 3.4) {
+    targetWidth = clamp(
+      Math.max(targetWidth, targetHeight * 4.2),
+      rect.width,
+      imageWidth * 0.42,
+    );
+  }
+
+  return createCenteredRect(
+    rect.x + rect.width / 2,
+    rect.y + rect.height / 2,
+    targetWidth,
+    targetHeight,
+    imageWidth,
+    imageHeight,
+  );
 };
 
 const padRect = (rect: Rect, maxWidth: number, maxHeight: number, padX: number, padY: number): Rect => {
@@ -298,60 +359,87 @@ const findSignatureBounds = (canvas: HTMLCanvasElement, anchorRect: Rect): Rect 
   );
 };
 
-export async function cropSignatureFromScanSource(source: ScanImageSource, bbox: SignatureBoundingBox) {
+export async function cropSignatureFromScanSource(
+  source: ScanImageSource,
+  bbox: SignatureBoundingBox,
+  options: SignatureCropOptions = {},
+) {
   try {
     const image = await loadSourceImage(source);
     const normalizedBbox = normalizeBoundingBox(bbox);
     const initialRect = rectFromPercentBox(normalizedBbox, image.naturalWidth, image.naturalHeight);
-    const searchRect = padRect(
-      initialRect,
-      image.naturalWidth,
-      image.naturalHeight,
-      Math.max(initialRect.width * 0.3, 20),
-      Math.max(initialRect.height * 0.3, 15),
-    );
+    const mode = options.mode ?? "ink";
+    let finalCanvas: HTMLCanvasElement | null = null;
 
-    const searchCanvas = createCanvas(searchRect.width, searchRect.height);
-    const searchCtx = searchCanvas.getContext("2d");
-    if (!searchCtx) return null;
+    if (mode === "field") {
+      const fieldRect = buildSignatureFieldRect(initialRect, image.naturalWidth, image.naturalHeight);
+      finalCanvas = createCanvas(fieldRect.width, fieldRect.height);
+      const finalCtx = finalCanvas.getContext("2d");
+      if (!finalCtx) return null;
 
-    searchCtx.drawImage(
-      image,
-      searchRect.x,
-      searchRect.y,
-      searchRect.width,
-      searchRect.height,
-      0,
-      0,
-      searchRect.width,
-      searchRect.height,
-    );
+      finalCtx.drawImage(
+        image,
+        fieldRect.x,
+        fieldRect.y,
+        fieldRect.width,
+        fieldRect.height,
+        0,
+        0,
+        fieldRect.width,
+        fieldRect.height,
+      );
+    } else {
+      const searchRect = padRect(
+        initialRect,
+        image.naturalWidth,
+        image.naturalHeight,
+        Math.max(initialRect.width * 0.3, 20),
+        Math.max(initialRect.height * 0.3, 15),
+      );
 
-    const anchorRect = {
-      x: initialRect.x - searchRect.x,
-      y: initialRect.y - searchRect.y,
-      width: initialRect.width,
-      height: initialRect.height,
-    };
+      const searchCanvas = createCanvas(searchRect.width, searchRect.height);
+      const searchCtx = searchCanvas.getContext("2d");
+      if (!searchCtx) return null;
 
-    const refinedBounds = findSignatureBounds(searchCanvas, anchorRect) ?? padRect(anchorRect, searchCanvas.width, searchCanvas.height, 12, 10);
-    const finalCanvas = createCanvas(refinedBounds.width, refinedBounds.height);
-    const finalCtx = finalCanvas.getContext("2d");
-    if (!finalCtx) return null;
+      searchCtx.drawImage(
+        image,
+        searchRect.x,
+        searchRect.y,
+        searchRect.width,
+        searchRect.height,
+        0,
+        0,
+        searchRect.width,
+        searchRect.height,
+      );
 
-    finalCtx.drawImage(
-      searchCanvas,
-      refinedBounds.x,
-      refinedBounds.y,
-      refinedBounds.width,
-      refinedBounds.height,
-      0,
-      0,
-      refinedBounds.width,
-      refinedBounds.height,
-    );
+      const anchorRect = {
+        x: initialRect.x - searchRect.x,
+        y: initialRect.y - searchRect.y,
+        width: initialRect.width,
+        height: initialRect.height,
+      };
 
-    if (isCanvasMostlyBlank(finalCanvas)) return null;
+      const refinedBounds = findSignatureBounds(searchCanvas, anchorRect) ?? padRect(anchorRect, searchCanvas.width, searchCanvas.height, 12, 10);
+      finalCanvas = createCanvas(refinedBounds.width, refinedBounds.height);
+      const finalCtx = finalCanvas.getContext("2d");
+      if (!finalCtx) return null;
+
+      finalCtx.drawImage(
+        searchCanvas,
+        refinedBounds.x,
+        refinedBounds.y,
+        refinedBounds.width,
+        refinedBounds.height,
+        0,
+        0,
+        refinedBounds.width,
+        refinedBounds.height,
+      );
+    }
+
+    if (!finalCanvas) return null;
+    if (isCanvasMostlyBlank(finalCanvas, mode === "field" ? 0.0006 : 0.003)) return null;
 
     const blob = await new Promise<Blob | null>((resolve) => finalCanvas.toBlob((value) => resolve(value), "image/png"));
     if (!blob) return null;
