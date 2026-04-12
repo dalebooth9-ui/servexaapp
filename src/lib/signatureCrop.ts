@@ -15,6 +15,12 @@ export interface SignatureCropOptions {
   mode?: "ink" | "field";
 }
 
+export interface OcrCropPayload {
+  image_base64: string;
+  mime_type: string;
+  area: SignatureBoundingBox;
+}
+
 interface Rect {
   x: number;
   y: number;
@@ -78,6 +84,47 @@ const normalizeBoundingBox = (bbox: SignatureBoundingBox): SignatureBoundingBox 
   };
 };
 
+export const hasUsableSignatureBoundingBox = (
+  bbox: unknown,
+  options: { minWidth?: number; minHeight?: number; minArea?: number } = {},
+): bbox is SignatureBoundingBox => {
+  if (!bbox || typeof bbox !== "object") return false;
+
+  try {
+    const normalized = normalizeBoundingBox(bbox as SignatureBoundingBox);
+    const width = normalized.x_max - normalized.x_min;
+    const height = normalized.y_max - normalized.y_min;
+    const area = width * height;
+
+    return (
+      width >= (options.minWidth ?? 6) &&
+      height >= (options.minHeight ?? 2) &&
+      area >= (options.minArea ?? 24)
+    );
+  } catch {
+    return false;
+  }
+};
+
+export const remapBoundingBoxFromCrop = (
+  bbox: SignatureBoundingBox,
+  cropArea: SignatureBoundingBox,
+  pageIndex?: number,
+): SignatureBoundingBox => {
+  const normalizedBbox = normalizeBoundingBox(bbox);
+  const normalizedCrop = normalizeBoundingBox(cropArea);
+  const cropWidth = normalizedCrop.x_max - normalizedCrop.x_min;
+  const cropHeight = normalizedCrop.y_max - normalizedCrop.y_min;
+
+  return {
+    x_min: normalizedCrop.x_min + (normalizedBbox.x_min / 100) * cropWidth,
+    x_max: normalizedCrop.x_min + (normalizedBbox.x_max / 100) * cropWidth,
+    y_min: normalizedCrop.y_min + (normalizedBbox.y_min / 100) * cropHeight,
+    y_max: normalizedCrop.y_min + (normalizedBbox.y_max / 100) * cropHeight,
+    page_index: pageIndex ?? normalizedCrop.page_index ?? normalizedBbox.page_index ?? 0,
+  };
+};
+
 const rectFromPercentBox = (bbox: SignatureBoundingBox, imageWidth: number, imageHeight: number): Rect => {
   const x = Math.floor((bbox.x_min / 100) * imageWidth);
   const y = Math.floor((bbox.y_min / 100) * imageHeight);
@@ -91,6 +138,49 @@ const rectFromPercentBox = (bbox: SignatureBoundingBox, imageWidth: number, imag
     height: Math.max(1, bottom - y),
   };
 };
+
+export async function createOcrPayloadFromScanSource(
+  source: ScanImageSource,
+  area: SignatureBoundingBox,
+  options: { mimeType?: string; quality?: number } = {},
+): Promise<OcrCropPayload> {
+  const image = await loadSourceImage(source);
+  const normalizedArea = normalizeBoundingBox(area);
+  const cropRect = rectFromPercentBox(normalizedArea, image.naturalWidth, image.naturalHeight);
+  const canvas = createCanvas(cropRect.width, cropRect.height);
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) throw new Error("Failed to prepare OCR crop");
+
+  ctx.drawImage(
+    image,
+    cropRect.x,
+    cropRect.y,
+    cropRect.width,
+    cropRect.height,
+    0,
+    0,
+    cropRect.width,
+    cropRect.height,
+  );
+
+  const mimeType = options.mimeType ?? "image/jpeg";
+  const quality = options.quality ?? 0.9;
+  const dataUrl = mimeType === "image/png"
+    ? canvas.toDataURL(mimeType)
+    : canvas.toDataURL(mimeType, quality);
+  const image_base64 = dataUrl.split(",")[1];
+
+  if (!image_base64) {
+    throw new Error("Failed to encode OCR crop");
+  }
+
+  return {
+    image_base64,
+    mime_type: mimeType,
+    area: normalizedArea,
+  };
+}
 
 const createCenteredRect = (
   centerX: number,
