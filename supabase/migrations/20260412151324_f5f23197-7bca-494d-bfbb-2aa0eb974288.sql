@@ -1,0 +1,1 @@
+ALTER TABLE public.customers ADD COLUMN accreditation_logos text[] DEFAULT '{}' NOT NULL;
