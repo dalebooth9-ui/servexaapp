@@ -171,18 +171,11 @@ export async function renderPdfHeader(
   doc.setFont("helvetica", "normal");
   doc.text(data.refNumber, margin + maxWidth * 0.5 + 16, y + headerRowH + 4);
 
-  // Row 3: Riser Location + No. of Outlets
+  // Row 3: Riser Location
   doc.setFont("helvetica", "bold");
   doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
   doc.setFont("helvetica", "normal");
   doc.text(data.riserLocation, margin + 28, y + headerRowH * 2 + 4);
-
-  if (data.numberOfOutlets != null && data.numberOfOutlets !== "" && data.numberOfOutlets !== 0) {
-    doc.setFont("helvetica", "bold");
-    doc.text("No. of Outlets:", margin + maxWidth * 0.5 + 1, y + headerRowH * 2 + 4);
-    doc.setFont("helvetica", "normal");
-    doc.text(String(data.numberOfOutlets), margin + maxWidth * 0.5 + 28, y + headerRowH * 2 + 4);
-  }
 
   // Row 4 (optional): what3words location in W3W red
   if (hasW3W) {
