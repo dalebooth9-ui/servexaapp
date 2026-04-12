@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import CustomerPaperwork from "@/components/CustomerPaperwork";
+import CustomerAccreditationLogos from "@/components/CustomerAccreditationLogos";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -848,6 +849,9 @@ export default function CustomerDetail() {
         </div>
       </div>
 
+
+      {/* Customer Accreditation Logos */}
+      <CustomerAccreditationLogos customerId={id!} />
 
       {/* Customer Paperwork Section */}
       <CustomerPaperwork customerId={id} />
