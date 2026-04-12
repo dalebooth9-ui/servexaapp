@@ -455,9 +455,10 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const contentW = pw - ML - MR;
 
   // ── Watermark ────────────────────────────────────────────────────────
+  const custAccredUrls = await fetchCustomerAccreditationLogos(cert.customer_name);
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
 
