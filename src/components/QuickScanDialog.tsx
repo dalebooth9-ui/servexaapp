@@ -595,10 +595,25 @@ export default function QuickScanDialog() {
           section: f.section ?? "General",
         })),
       };
+      // Look up customer logo for correct branding on the PDF
+      let customerLogoUrl: string | null = null;
+      if (exportHeader.customer) {
+        try {
+          const { data: custMatch } = await supabase
+            .from("customers")
+            .select("logo_url")
+            .ilike("name", exportHeader.customer.trim())
+            .limit(1)
+            .maybeSingle();
+          customerLogoUrl = custMatch?.logo_url || null;
+        } catch { /* skip */ }
+      }
+
       const jobInfo = {
         address: exportHeader.site || null,
         customer: exportHeader.customer || null,
         reference_number: exportHeader.po_ref || "",
+        customers: customerLogoUrl ? { name: exportHeader.customer || "", logo_url: customerLogoUrl } : undefined,
       };
       const exportResult = applyExposedOutletOverrides(
         cleanStructuredCommentFields(mergedResult, matchedTemplate.fields),
