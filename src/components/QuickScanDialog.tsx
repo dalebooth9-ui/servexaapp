@@ -727,6 +727,9 @@ export default function QuickScanDialog() {
         ? `${header.customer} - ${detectedCategory?.name || "Scanned Sheet"}`
         : detectedCategory?.name || "Scanned Sheet";
 
+      // Determine overall result from scan data
+      const overallResult = (editing ? editResult : result)?.overall_result || null;
+
       const { data: job, error } = await supabase
         .from("jobs")
         .insert({
@@ -736,7 +739,8 @@ export default function QuickScanDialog() {
           status: "active",
           priority: "medium",
           category: detectedCategory?.slug || "general",
-        })
+          result: overallResult,
+        } as any)
         .select("id")
         .single();
 
