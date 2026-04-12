@@ -1152,31 +1152,31 @@ export default function QuickScanDialog() {
                         )}
                       </div>
                     )}
-                    {/* Customer — dropdown from system */}
-                    {(header.customer || editing) && (
-                      <div className="col-span-2 sm:col-span-1">
-                        <span className="text-muted-foreground text-xs">Customer:</span>
-                        {editing ? (
-                          <Select
-                            value={editHeader.customer || ""}
-                            onValueChange={(v) => setEditHeader((p) => ({ ...p, customer: v }))}
-                          >
-                            <SelectTrigger className="h-8 mt-1">
-                              <SelectValue placeholder="Select customer" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {customers.map((c) => (
-                                <SelectItem key={c.id} value={c.name}>
-                                  {c.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        ) : (
-                          <span className="font-medium ml-1">{header.customer}</span>
-                        )}
-                      </div>
-                    )}
+                    {/* Customer — always show dropdown so user can pick branding */}
+                    <div className="col-span-2 sm:col-span-1">
+                      <span className="text-muted-foreground text-xs">Customer:</span>
+                      <Select
+                        value={editHeader.customer || header?.customer || ""}
+                        onValueChange={(v) => {
+                          setEditHeader((p) => ({ ...p, customer: v }));
+                          if (header) setHeader((prev) => prev ? { ...prev, customer: v } : prev);
+                        }}
+                      >
+                        <SelectTrigger className="h-8 mt-1">
+                          <SelectValue placeholder="Select customer" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {customers.map((c) => (
+                            <SelectItem key={c.id} value={c.name}>
+                              <span className="flex items-center gap-2">
+                                {c.logo_url && <img src={c.logo_url} alt="" className="h-4 w-4 rounded object-contain" />}
+                                {c.name}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     {/* Site — text input */}
                     {(header.site || editing) && (
                       <div>
