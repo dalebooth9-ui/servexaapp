@@ -1,6 +1,6 @@
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 
 export type RamsFormData = Record<string, any>;
 
@@ -1041,9 +1041,10 @@ export async function generateRamsPdf(
   }
 
   // Watermark + Accreditations
+  const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
   addAccreditationLogosToAllPages(doc, accredLogos, PAGE_H - 21, 18);

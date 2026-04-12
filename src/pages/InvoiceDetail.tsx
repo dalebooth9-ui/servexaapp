@@ -34,6 +34,7 @@ export default function InvoiceDetail() {
   const { userRole } = useAuth();
   const { toast } = useToast();
   const [invoice, setInvoice] = useState<any>(null);
+  const [custAccredLogos, setCustAccredLogos] = useState<string[]>([]);
   const [lineItems, setLineItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -64,6 +65,15 @@ export default function InvoiceDetail() {
     ]);
     setInvoice(invRes.data);
     setLineItems(itemsRes.data || []);
+    // Fetch customer accreditation logos
+    if (invRes.data?.customer_name) {
+      const { data: cust } = await supabase
+        .from("customers")
+        .select("accreditation_logos")
+        .ilike("name", invRes.data.customer_name)
+        .maybeSingle();
+      setCustAccredLogos((cust as any)?.accreditation_logos || []);
+    }
     setLoading(false);
   };
 
@@ -775,14 +785,10 @@ export default function InvoiceDetail() {
                 <div style={{ flex: 1 }} />
 
                 {/* ── Accreditation footer ──────────────────────────────── */}
+                {custAccredLogos.length > 0 && (
                 <div style={{ borderTop: "2px solid #213D63", paddingTop: "0.6rem", marginTop: "2rem" }}>
                   <div className="flex items-center justify-center gap-6">
-                    {[
-                      "/accreditation/smas-logo.png",
-                      "/accreditation/constructionline-logo.png",
-                      "/accreditation/iso-9001-logo.jpg",
-                      "/accreditation/bafe-logo.jpeg",
-                    ].map((src) => (
+                    {custAccredLogos.map((src) => (
                       <img
                         key={src}
                         src={src}
@@ -793,6 +799,7 @@ export default function InvoiceDetail() {
                     ))}
                   </div>
                 </div>
+                )}
 
               </div>{/* end inner zIndex wrapper */}
             </div>{/* end printRef watermark wrapper */}

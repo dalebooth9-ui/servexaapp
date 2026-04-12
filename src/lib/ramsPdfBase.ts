@@ -5,7 +5,7 @@
  */
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 
 export type RamsFormData = Record<string, any>;
 
@@ -936,12 +936,13 @@ export async function finaliseAndReturn(
   jobInfo: RamsJobInfo | null,
   suffix: string
 ): Promise<{ base64: string; fileName: string }> {
+  const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
-  addAccreditationLogosToAllPages(doc, accredLogos, 278, 14); // above page-number footer, 14mm height
+  addAccreditationLogosToAllPages(doc, accredLogos, 278, 14);
   const ref = jobInfo?.reference_number || "rams";
   const fileName = `${ref}-${suffix}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];

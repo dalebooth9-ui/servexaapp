@@ -993,6 +993,7 @@ export type Database = {
       }
       customers: {
         Row: {
+          accreditation_logos: string[]
           address: string | null
           created_at: string
           created_by: string | null
@@ -1006,6 +1007,7 @@ export type Database = {
           xero_contact_id: string | null
         }
         Insert: {
+          accreditation_logos?: string[]
           address?: string | null
           created_at?: string
           created_by?: string | null
@@ -1019,6 +1021,7 @@ export type Database = {
           xero_contact_id?: string | null
         }
         Update: {
+          accreditation_logos?: string[]
           address?: string | null
           created_at?: string
           created_by?: string | null

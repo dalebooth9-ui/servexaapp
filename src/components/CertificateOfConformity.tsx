@@ -389,7 +389,7 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
 export async function generateConformityPdfBase64(cert: ConformityCert): Promise<{ base64: string; fileName: string }> {
   const { default: jsPDF } = await import("jspdf");
   const { loadWatermarkImage, addWatermarkToAllPages } = await import("@/lib/pdfWatermark");
-  const { loadAccreditationLogos, renderAccreditationLogos } = await import("@/lib/pdfAccreditations");
+  const { fetchCustomerAccreditationLogos, loadAccreditationLogos, renderAccreditationLogos } = await import("@/lib/pdfAccreditations");
 
   // ── Org branding — try stored JSON in test_notes first, then fetch live ──
   let orgCompanyName = "Viva Fire Protection Ltd";
@@ -455,9 +455,10 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const contentW = pw - ML - MR;
 
   // ── Watermark ────────────────────────────────────────────────────────
+  const custAccredUrls = await fetchCustomerAccreditationLogos(cert.customer_name);
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
 

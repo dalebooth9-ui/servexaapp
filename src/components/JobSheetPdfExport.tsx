@@ -7,7 +7,7 @@ import { useJobCategories } from "@/hooks/useJobCategories";
 
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
@@ -462,12 +462,12 @@ export async function generateJobSheetPdf(
 
   renderPdfFooter(doc, declarationFooterY, footerText);
 
+  const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
   const [watermark, accredLogos] = await Promise.all([
     loadWatermarkImage(),
-    loadAccreditationLogos(),
+    loadAccreditationLogos(custAccredUrls),
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-  // Pass declarationFooterY so internal calc places logos at: declarationFooterY - logoH - 3 = logoRowY
   addAccreditationLogosToAllPages(doc, accredLogos, declarationFooterY, logoH);
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();

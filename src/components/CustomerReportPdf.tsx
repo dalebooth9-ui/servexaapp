@@ -7,7 +7,7 @@ import jsPDF from "jspdf";
 import { renderPdfHeader, type PdfHeaderData, type PdfBranding } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, type PdfSignatureData } from "@/lib/pdfFooter";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
 
 interface Props {
   jobId: string;
@@ -23,6 +23,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
   const generate = async () => {
     setGenerating(true);
     try {
+      const custAccredUrls = await fetchCustomerAccreditationLogos(job.customers?.name || job.customer);
       const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, watermark, accredLogos] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("field_reports").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
@@ -31,7 +32,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
         supabase.from("job_signatures").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         loadWatermarkImage(),
-        loadAccreditationLogos(),
+        loadAccreditationLogos(custAccredUrls),
       ]);
 
       const submissions = subsRes.data || [];
