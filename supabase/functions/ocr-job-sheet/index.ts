@@ -329,7 +329,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               customer_sign_date: { type: "string", description: "Date from the customer signature section at the bottom of the form." },
               customer_signature_bbox: {
                 type: "object",
-                description: "TIGHT bounding box around ONLY the customer's handwritten signature INK STROKES (the squiggly mark, NOT the printed name, NOT the label text, NOT the signature line). Return percentages (0-100) of image dimensions. The box should tightly wrap just the ink — do NOT add padding, the system adds padding automatically. A typical signature is only 10-18% of page width and 3-8% of page height. If your box exceeds 20% width or 15% height, it is too large — re-examine and tighten it.",
+                description: "Bounding box for the FULL customer signature field area on the customer/client row at the bottom of the form. Include the handwritten signature and the surrounding signature line or box area for that customer row so the crop shows the whole signing area. Do NOT capture the engineer row, footer, or unrelated labels above or below. Return percentages (0-100) of image dimensions. A typical customer signature field is roughly 18-40% of page width and 4-12% of page height.",
                 properties: {
                   x_min: { type: "number" }, y_min: { type: "number" },
                   x_max: { type: "number" }, y_max: { type: "number" },
@@ -485,11 +485,13 @@ Template name "${templateName}" is NEVER a valid field value.
 
 SIGNATURE EXTRACTION (CRITICAL):
 - Look at the VERY BOTTOM of the form for the sign-off / signature section.
-- There are typically TWO signature areas: one for the engineer/technician, one for the customer/client.
-- For EACH signature area, extract: (1) the printed/handwritten NAME of the signer, (2) the DATE next to the signature, and (3) the BOUNDING BOX of the handwritten signature mark (the squiggly ink, not the name text).
+- There are typically TWO signature rows: one for the engineer/technician and one for the customer/client.
+- For EACH signature row, extract the printed/handwritten NAME of the signer and the DATE next to the signature.
 - The customer's name goes in customer_signed_name. The engineer's name goes in engineer.
-- Bounding boxes must be in percentage coordinates (0-100) with 10% padding on all sides.
-- Do NOT skip signatures — if ANY handwritten signature mark is visible, you MUST extract its bounding box.
+- For customer_signature_bbox, capture the FULL customer signature field area on the customer/client row — the whole signature line/box the customer signed on, not just the ink strokes.
+- Do NOT capture the entire footer or both rows together. Keep the box limited to the customer row only.
+- Bounding boxes must be in percentage coordinates (0-100).
+- Do NOT skip signatures — if any customer signature area is visible, you MUST extract customer_signed_name and customer_signature_bbox.
 
 Use the extract_job_sheet tool.`;
 

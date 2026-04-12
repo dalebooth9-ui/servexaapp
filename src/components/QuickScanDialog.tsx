@@ -626,7 +626,7 @@ export default function QuickScanDialog() {
             const pageIdx = bbox.page_index || 0;
             const sourceImage = images[pageIdx];
             if (sourceImage) {
-              const cropped = await cropSignatureFromScanSource(sourceImage, bbox);
+              const cropped = await cropSignatureFromScanSource(sourceImage, bbox, { mode: "field" });
               if (cropped?.image) {
                 preloadedSigImages[custSigId] = cropped.image;
               } else {
@@ -873,7 +873,7 @@ export default function QuickScanDialog() {
         if (customerBbox && typeof customerBbox === "object" && "x_min" in customerBbox) {
           const pageIdx = (customerBbox as any).page_index || 0;
           const sourceImage = images[pageIdx];
-          const cropped = sourceImage ? await cropSignatureFromScanSource(sourceImage, customerBbox as any) : null;
+          const cropped = sourceImage ? await cropSignatureFromScanSource(sourceImage, customerBbox as any, { mode: "field" }) : null;
           if (cropped?.blob) {
             await uploadSignature(cropped.blob, job.id, customerSignedName, "customer", userId);
             imported = true;
