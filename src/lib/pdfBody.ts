@@ -151,6 +151,21 @@ function getSimpleResultKind(value: unknown): "positive" | "negative" | "na" | "
   return "custom";
 }
 
+export function getYesNoFieldDisplayValue(field: PdfTemplateField, value: unknown): string {
+  const label = field.label.toLowerCase();
+  const isDrainField = label.includes("drain") || label.includes("drop leg");
+  const rawValue = getRawFieldText(value);
+  const resultKind = getSimpleResultKind(value);
+
+  if (resultKind === "custom") return rawValue;
+  if (isDrainField) return resultKind === "negative" ? "NO" : "YES";
+  if (resultKind === "positive") return "YES";
+  if (resultKind === "negative") return "NO";
+  if (resultKind === "na") return "N/A";
+
+  return hasRenderableValue(value) ? rawValue : "—";
+}
+
 /**
  * Build the set of field IDs that should be skipped in the PDF body
  * because they are already rendered in the header or footer areas.
@@ -379,26 +394,7 @@ export function renderFilledFieldRow(
       doc.text(resolved ? "YES" : "NO", margin + colSplit + 1, y + 3);
     }
   } else if (field.type === "yes_no" || (field.options && field.options.length <= 3 && field.options.some((o) => o.toLowerCase() === "yes"))) {
-    const lbl = field.label.toLowerCase();
-    const isDrainField = lbl.includes("drain") || lbl.includes("drop leg");
-    const isOutletField = lbl.includes("outlet") && (lbl.includes("condition") || lbl.includes("good") || lbl.includes("cabinet") || lbl.includes("cap") || lbl.includes("valve") || lbl.includes("operational"));
-    const rawValue = getRawFieldText(value);
-    const resultKind = getSimpleResultKind(value);
-    const displayVal = resultKind === "custom"
-      ? rawValue
-      : isDrainField
-      ? (resultKind === "negative" ? "NO" : "YES")
-      : isOutletField && (resultKind === "na" || resultKind === "empty")
-      ? "YES"
-      : resultKind === "positive"
-      ? "YES"
-      : resultKind === "negative"
-      ? "NO"
-      : resultKind === "na"
-      ? "N/A"
-      : hasRenderableValue(value)
-      ? rawValue
-      : "—";
+    const displayVal = getYesNoFieldDisplayValue(field, value);
     if (displayVal === "NO") { doc.setTextColor(200, 0, 0); doc.setFont("helvetica", "bold"); }
     doc.text(displayVal, margin + colSplit + 1, y + 3);
   } else if (field.type === "photo") {
