@@ -125,10 +125,11 @@ const isInkPixel = (r: number, g: number, b: number, alpha: number) => {
   const minChannel = Math.min(r, g, b);
   const saturation = maxChannel === 0 ? 0 : (maxChannel - minChannel) / maxChannel;
 
-  return luminance < 208 || (luminance < 228 && saturation > 0.12 && maxChannel < 235);
+  // Widened thresholds to capture lighter/thinner pen strokes and pencil signatures
+  return luminance < 220 || (luminance < 240 && saturation > 0.08 && maxChannel < 245);
 };
 
-const isCanvasMostlyBlank = (canvas: HTMLCanvasElement, minimumInkRatio = 0.008) => {
+const isCanvasMostlyBlank = (canvas: HTMLCanvasElement, minimumInkRatio = 0.003) => {
   const ctx = canvas.getContext("2d");
   if (!ctx) return true;
 
