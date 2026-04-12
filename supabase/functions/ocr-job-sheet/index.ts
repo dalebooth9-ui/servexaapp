@@ -338,7 +338,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               },
               engineer_signature_bbox: {
                 type: "object",
-                description: "Bounding box of the engineer's handwritten signature as percentages (0-100). Omit if unavailable.",
+                description: "Bounding box of the engineer's handwritten SIGNATURE (the squiggly ink mark) at the bottom of the form, as percentages (0-100) of image dimensions. Add 10% padding on all sides. Look carefully near 'Engineer Signature:', 'Technician:', or engineer sign-off area. This MUST be provided if a handwritten signature mark is visible.",
                 properties: {
                   x_min: { type: "number" }, y_min: { type: "number" },
                   x_max: { type: "number" }, y_max: { type: "number" },
