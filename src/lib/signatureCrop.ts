@@ -307,8 +307,8 @@ export async function cropSignatureFromScanSource(source: ScanImageSource, bbox:
       initialRect,
       image.naturalWidth,
       image.naturalHeight,
-      Math.max(initialRect.width * 1.5, image.naturalWidth * 0.09),
-      Math.max(initialRect.height * 1.8, image.naturalHeight * 0.05),
+      Math.max(initialRect.width * 0.3, 20),
+      Math.max(initialRect.height * 0.3, 15),
     );
 
     const searchCanvas = createCanvas(searchRect.width, searchRect.height);
