@@ -1,23 +1,34 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 
+/** Default Viva Fire accreditation logos used as fallback */
+const DEFAULT_ACCREDITATION_LOGOS = [
+  "/accreditation/smas-logo.png",
+  "/accreditation/constructionline-logo.png",
+  "/accreditation/iso-9001-logo.jpg",
+  "/accreditation/bafe-logo.jpeg",
+];
+
 /**
  * Fetch accreditation logo URLs for a customer from the database.
- * Returns an empty array if customer not found or has none.
+ * If the customer has their own, return those.
+ * If they have none, fall back to the default Viva Fire accreditation logos.
  */
 export async function fetchCustomerAccreditationLogos(
   customerName?: string | null
 ): Promise<string[]> {
-  if (!customerName) return [];
+  if (!customerName) return DEFAULT_ACCREDITATION_LOGOS;
   try {
     const { data } = await supabase
       .from("customers")
       .select("accreditation_logos")
       .ilike("name", customerName)
       .maybeSingle();
-    return (data as any)?.accreditation_logos || [];
+    const logos = (data as any)?.accreditation_logos as string[] | undefined;
+    if (logos && logos.length > 0) return logos;
+    return DEFAULT_ACCREDITATION_LOGOS;
   } catch {
-    return [];
+    return DEFAULT_ACCREDITATION_LOGOS;
   }
 }
 
