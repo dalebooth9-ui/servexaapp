@@ -891,10 +891,7 @@ export default function QuickScanDialog() {
     ? matchedTemplate.fields
         .filter((field) => {
           if (field.id.startsWith("_") || field.id.endsWith("_notes")) return false;
-          const value = activeResult[field.id];
-          const hasValue = value !== undefined && value !== null && value !== "";
-          const hasNote = !!activeResult[`${field.id}_notes`];
-          return hasValue || hasNote || field.type === "pass_fail";
+          return true;
         })
         .map((field) => [field.id, activeResult[field.id]] as [string, any])
     : Object.entries(activeResult).filter(([key, value]) => {
