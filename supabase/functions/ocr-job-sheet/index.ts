@@ -325,11 +325,11 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               riser_location: { type: "string", description: "Riser location if present. Capture the FULL text including any handwritten annotations in parentheses next to or below the pre-printed location text. For example if the form says 'BACK OF BUILDING' and the technician has written '(inside building)' next to it, return 'BACK OF BUILDING (inside building)'. Always include both the pre-printed text AND any handwritten additions." },
               number_of_outlets: { type: "number", description: "Number of outlets/landing valves. Often written as an inline annotation like 'NO OF OUTLETS: 4' next to a landing valve condition row. Extract just the number." },
               engineer: { type: "string", description: "Engineer/technician name." },
-              customer_signed_name: { type: "string", description: "Person's name from the SIGNATURE BLOCK at the bottom (not the company name). HANDWRITING: 'L' has a horizontal base with NO loop; 'P' has a closed loop at top. Prefer 'L' unless a closed loop is clearly visible." },
-              customer_sign_date: { type: "string", description: "Date from the customer signature section." },
+              customer_signed_name: { type: "string", description: "CRITICAL: Look at the BOTTOM of the form for the SIGNATURE BLOCK / SIGN-OFF section. There will typically be TWO signature areas — one for the engineer/technician and one for the customer/client. The customer signature area will have a PRINTED or HANDWRITTEN person's name (NOT the company name). This is often labelled 'Customer Name', 'Print Name', 'Signed by', 'Client', or similar. Extract the person's full name. HANDWRITING: 'L' has a horizontal base with NO loop; 'P' has a closed loop at top. Prefer 'L' unless a closed loop is clearly visible. This field MUST be extracted if any customer name appears in the signature area." },
+              customer_sign_date: { type: "string", description: "Date from the customer signature section at the bottom of the form." },
               customer_signature_bbox: {
                 type: "object",
-                description: "Bounding box of the customer's handwritten signature as percentages (0-100). Omit if unavailable.",
+                description: "IMPORTANT: Bounding box of the customer's handwritten SIGNATURE (the squiggly ink mark, NOT the printed name) at the bottom of the form, as percentages (0-100) of image dimensions. Add 10% padding on all sides. Look carefully — signatures are typically near 'Signed:', 'Signature:', or a signature line in the customer sign-off area. This MUST be provided if a handwritten signature mark is visible.",
                 properties: {
                   x_min: { type: "number" }, y_min: { type: "number" },
                   x_max: { type: "number" }, y_max: { type: "number" },
@@ -338,7 +338,7 @@ function buildExtractionTool(fields: any[], forVision: boolean) {
               },
               engineer_signature_bbox: {
                 type: "object",
-                description: "Bounding box of the engineer's handwritten signature as percentages (0-100). Omit if unavailable.",
+                description: "Bounding box of the engineer's handwritten SIGNATURE (the squiggly ink mark) at the bottom of the form, as percentages (0-100) of image dimensions. Add 10% padding on all sides. Look carefully near 'Engineer Signature:', 'Technician:', or engineer sign-off area. This MUST be provided if a handwritten signature mark is visible.",
                 properties: {
                   x_min: { type: "number" }, y_min: { type: "number" },
                   x_max: { type: "number" }, y_max: { type: "number" },
@@ -482,6 +482,14 @@ INLINE COUNT ANNOTATIONS: If "NO OF OUTLETS: X" is written next to a landing val
 Blank fields → OMIT entirely.
 MISSING ROWS: If a template field has no matching row on the scanned sheet, OMIT it. Do NOT fill it with values from other sections. BUT if a row IS present, you MUST extract its value — do NOT skip rows that exist on the sheet.
 Template name "${templateName}" is NEVER a valid field value.
+
+SIGNATURE EXTRACTION (CRITICAL):
+- Look at the VERY BOTTOM of the form for the sign-off / signature section.
+- There are typically TWO signature areas: one for the engineer/technician, one for the customer/client.
+- For EACH signature area, extract: (1) the printed/handwritten NAME of the signer, (2) the DATE next to the signature, and (3) the BOUNDING BOX of the handwritten signature mark (the squiggly ink, not the name text).
+- The customer's name goes in customer_signed_name. The engineer's name goes in engineer.
+- Bounding boxes must be in percentage coordinates (0-100) with 10% padding on all sides.
+- Do NOT skip signatures — if ANY handwritten signature mark is visible, you MUST extract its bounding box.
 
 Use the extract_job_sheet tool.`;
 
