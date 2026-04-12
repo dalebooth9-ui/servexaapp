@@ -728,7 +728,12 @@ export default function QuickScanDialog() {
         : detectedCategory?.name || "Scanned Sheet";
 
       // Determine overall result from scan data
-      const overallResult = (editing ? editResult : result)?.overall_result || null;
+      const activeScanResult = (editing ? editResult : result) || {};
+      const overallResult =
+        activeScanResult.overall_result ??
+        activeScanResult.pressure_test_result ??
+        activeScanResult.test_result ??
+        null;
 
       const { data: job, error } = await supabase
         .from("jobs")
@@ -871,13 +876,23 @@ export default function QuickScanDialog() {
     }
   }
 
-  const visibleResultEntries = Object.entries((editing ? editResult : result) || {}).filter(([key, value]) => {
-    if (key.startsWith("_") || key.endsWith("_notes")) return false;
-    const activeResult = (editing ? editResult : result) || {};
-    const hasValue = value !== undefined && value !== null && value !== "";
-    const hasNote = !!activeResult[`${key}_notes`];
-    return hasValue || hasNote;
-  });
+  const activeResult = (editing ? editResult : result) || {};
+  const visibleResultEntries = matchedTemplate
+    ? matchedTemplate.fields
+        .filter((field) => {
+          if (field.id.startsWith("_") || field.id.endsWith("_notes")) return false;
+          const value = activeResult[field.id];
+          const hasValue = value !== undefined && value !== null && value !== "";
+          const hasNote = !!activeResult[`${field.id}_notes`];
+          return hasValue || hasNote || field.type === "pass_fail";
+        })
+        .map((field) => [field.id, activeResult[field.id]] as [string, any])
+    : Object.entries(activeResult).filter(([key, value]) => {
+        if (key.startsWith("_") || key.endsWith("_notes")) return false;
+        const hasValue = value !== undefined && value !== null && value !== "";
+        const hasNote = !!activeResult[`${key}_notes`];
+        return hasValue || hasNote;
+      });
 
   return (
     <>

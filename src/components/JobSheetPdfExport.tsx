@@ -108,6 +108,43 @@ export async function generateJobSheetPdf(
     });
   }
 
+  const passFailFields = template.fields.filter((field) => field.type === "pass_fail");
+  const overallResultField = passFailFields.find((field) => {
+    const normalizedId = normalizeFieldLabel(field.id.replace(/_/g, " "));
+    const normalizedLabel = normalizeFieldLabel(field.label);
+    return normalizedId === "overall result" || normalizedLabel === "overall result";
+  });
+  const pressureTestResultField = passFailFields.find((field) => {
+    const normalizedId = normalizeFieldLabel(field.id.replace(/_/g, " "));
+    const normalizedLabel = normalizeFieldLabel(field.label);
+    return (
+      normalizedId === "pressure test result" ||
+      normalizedId === "test result" ||
+      normalizedLabel === "pressure test result"
+    );
+  });
+
+  if (pressureTestResultField && !hasValue(resolvedFormData[pressureTestResultField.id])) {
+    const pressureTestFallback =
+      resolvedFormData.pressure_test_result ??
+      resolvedFormData.test_result ??
+      resolvedFormData.overall_result;
+
+    if (hasValue(pressureTestFallback)) {
+      resolvedFormData[pressureTestResultField.id] = pressureTestFallback;
+    }
+  }
+
+  if (overallResultField && !hasValue(resolvedFormData[overallResultField.id])) {
+    const overallResultFallback =
+      resolvedFormData.overall_result ??
+      (pressureTestResultField ? resolvedFormData[pressureTestResultField.id] : undefined);
+
+    if (hasValue(overallResultFallback)) {
+      resolvedFormData[overallResultField.id] = overallResultFallback;
+    }
+  }
+
   // Pre-fetch job-specific signatures (skip if jobId is not a valid UUID)
   const isValidUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(jobId);
   let sigData: any[] | null = null;
