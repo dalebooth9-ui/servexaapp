@@ -759,11 +759,26 @@ export default function QuickScanDialog() {
         activeScanResult.test_result ??
         null;
 
+      // Look up customer record to link customer_id for branding
+      let customerId: string | null = null;
+      if (savedHeader.customer) {
+        try {
+          const { data: custMatch } = await supabase
+            .from("customers")
+            .select("id")
+            .ilike("name", savedHeader.customer.trim())
+            .limit(1)
+            .maybeSingle();
+          customerId = custMatch?.id || null;
+        } catch { /* skip */ }
+      }
+
       const { data: job, error } = await supabase
         .from("jobs")
         .insert({
           name: jobName,
           customer: savedHeader.customer || null,
+          customer_id: customerId,
           address: savedHeader.site || null,
           status: "active",
           priority: "medium",
