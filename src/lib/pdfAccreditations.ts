@@ -1,18 +1,16 @@
 import jsPDF from "jspdf";
 
-const LOGO_PATHS = [
-  "/accreditation/smas-logo.png",
-  "/accreditation/constructionline-logo.png",
-  "/accreditation/iso-9001-logo.jpg",
-  "/accreditation/bafe-logo.jpeg",
-];
-
-let cachedLogos: (HTMLImageElement | null)[] | null = null;
-
-export async function loadAccreditationLogos(): Promise<(HTMLImageElement | null)[]> {
-  if (cachedLogos) return cachedLogos;
+/**
+ * Load accreditation logos from an array of URLs.
+ * Returns an array of loaded HTMLImageElements (nulls for failed loads).
+ * If no URLs provided, returns an empty array (no logos).
+ */
+export async function loadAccreditationLogos(
+  urls?: string[]
+): Promise<(HTMLImageElement | null)[]> {
+  if (!urls || urls.length === 0) return [];
   const results = await Promise.all(
-    LOGO_PATHS.map(
+    urls.map(
       (src) =>
         new Promise<HTMLImageElement | null>((resolve) => {
           const img = new Image();
@@ -23,17 +21,11 @@ export async function loadAccreditationLogos(): Promise<(HTMLImageElement | null
         })
     )
   );
-  cachedLogos = results;
   return results;
 }
 
 /**
  * Render a centred row of faded accreditation logos above the footer.
- * @param doc        jsPDF instance
- * @param logos      Pre-loaded images (nulls are skipped)
- * @param rowY       Top Y position for the logo row
- * @param logoH      Height of each logo (default 7mm)
- * @param opacity    Opacity 0–1 (default 0.22 — subtle, like watermark)
  */
 export function renderAccreditationLogos(
   doc: jsPDF,
@@ -43,9 +35,8 @@ export function renderAccreditationLogos(
   opacity = 0.22
 ): void {
   const pageWidth = doc.internal.pageSize.getWidth();
-  const gap = 5; // gap between logos in mm
+  const gap = 5;
 
-  // Calculate total width first
   const dims = logos.map((img) => {
     if (!img) return null;
     const aspect = img.naturalWidth / img.naturalHeight;
@@ -77,7 +68,6 @@ export function renderAccreditationLogos(
 
 /**
  * Render accreditation logos on every page of the document.
- * Placed just above the footer (footerY is the top of the footer box).
  */
 export function addAccreditationLogosToAllPages(
   doc: jsPDF,
@@ -85,8 +75,9 @@ export function addAccreditationLogosToAllPages(
   footerY: number,
   logoH = 7
 ): void {
+  if (logos.length === 0) return;
   const pageCount = doc.getNumberOfPages();
-  const rowY = footerY - logoH - 3; // 3mm gap above footer
+  const rowY = footerY - logoH - 3;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
     renderAccreditationLogos(doc, logos, rowY, logoH);
