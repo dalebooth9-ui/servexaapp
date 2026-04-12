@@ -12,6 +12,7 @@ import { useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
+import { mergeQuickScanState } from "@/lib/quickScanState";
 
 interface TemplateField {
   id: string;
@@ -581,6 +582,8 @@ export default function QuickScanDialog() {
     }
     setGeneratingPdf(true);
     try {
+      const exportHeader = mergeQuickScanState(header, editHeader);
+      const mergedResult = mergeQuickScanState(result, editResult);
       const template = {
         id: matchedTemplate.id,
         name: matchedTemplate.name,
@@ -593,12 +596,12 @@ export default function QuickScanDialog() {
         })),
       };
       const jobInfo = {
-        address: header?.site || null,
-        customer: header?.customer || null,
-        reference_number: header?.po_ref || "",
+        address: exportHeader.site || null,
+        customer: exportHeader.customer || null,
+        reference_number: exportHeader.po_ref || "",
       };
       const exportResult = applyExposedOutletOverrides(
-        cleanStructuredCommentFields(result, matchedTemplate.fields),
+        cleanStructuredCommentFields(mergedResult, matchedTemplate.fields),
         matchedTemplate.fields,
       );
 
@@ -607,14 +610,14 @@ export default function QuickScanDialog() {
       const preloadedSigImages: Record<string, HTMLImageElement> = {};
 
       // Customer signature from scan header
-      if (header?.customer_signed_name) {
+      if (exportHeader.customer_signed_name) {
         const custSigId = "scan-customer";
-        preloadedSignatures.customerSig = { id: custSigId, signer_name: header.customer_signed_name, signer_role: "customer" };
+        preloadedSignatures.customerSig = { id: custSigId, signer_name: exportHeader.customer_signed_name, signer_role: "customer" };
 
         // Attempt to crop the customer signature image from the scanned sheet
-        if (header?.customer_signature_bbox && images.length > 0) {
+        if (exportHeader.customer_signature_bbox && images.length > 0) {
           try {
-            const bbox = header.customer_signature_bbox as any;
+            const bbox = exportHeader.customer_signature_bbox as any;
             const pageIdx = bbox.page_index || 0;
             const sourceImage = images[pageIdx];
             if (sourceImage) {
@@ -630,16 +633,16 @@ export default function QuickScanDialog() {
       }
 
       // Engineer signature — try profile lookup
-      if (header?.engineer) {
+      if (exportHeader.engineer) {
         const engSigId = "scan-engineer";
-        preloadedSignatures.engineerSig = { id: engSigId, signer_name: header.engineer, signer_role: "engineer" };
+        preloadedSignatures.engineerSig = { id: engSigId, signer_name: exportHeader.engineer, signer_role: "engineer" };
 
         // Try to load profile signature
         try {
           const { data: profMatch } = await supabase
             .from("profiles")
             .select("user_id, full_name, signature_data")
-            .ilike("full_name", header.engineer.trim())
+            .ilike("full_name", exportHeader.engineer.trim())
             .maybeSingle();
           if (profMatch?.signature_data) {
             const sigImg = new Image();
@@ -653,9 +656,9 @@ export default function QuickScanDialog() {
         } catch { /* skip */ }
 
         // Also try cropping from scan
-        if (!preloadedSigImages[engSigId] && header?.engineer_signature_bbox && images.length > 0) {
+        if (!preloadedSigImages[engSigId] && exportHeader.engineer_signature_bbox && images.length > 0) {
           try {
-            const bbox = header.engineer_signature_bbox as any;
+            const bbox = exportHeader.engineer_signature_bbox as any;
             const pageIdx = bbox.page_index || 0;
             const sourceImage = images[pageIdx];
             if (sourceImage) {
@@ -677,16 +680,16 @@ export default function QuickScanDialog() {
         // Inject customer_sign_date into formData so the PDF uses it for the signature date
         {
           ...exportResult,
-          _customer_sign_date: header?.customer_sign_date,
-          _customer_signed_name: header?.customer_signed_name,
+          _customer_sign_date: exportHeader.customer_sign_date,
+          _customer_signed_name: exportHeader.customer_signed_name,
           _number_of_outlets:
-            header?.number_of_outlets ??
+            exportHeader.number_of_outlets ??
             exportResult.number_of_outlets ??
             exportResult.no_of_outlets,
         },
         jobInfo,
         "scan-preview",
-        header?.engineer,
+        exportHeader.engineer,
         null,
         detectedCategory?.name,
         preloadedSignatures,
@@ -723,12 +726,18 @@ export default function QuickScanDialog() {
     if (!header && !result) return;
     setCreatingJob(true);
     try {
-      const jobName = header?.customer
-        ? `${header.customer} - ${detectedCategory?.name || "Scanned Sheet"}`
+      const savedHeader = mergeQuickScanState(header, editHeader);
+      const savedResult = applyExposedOutletOverrides(
+        cleanStructuredCommentFields(mergeQuickScanState(result, editResult), matchedTemplate?.fields || []),
+        matchedTemplate?.fields || [],
+      );
+
+      const jobName = savedHeader.customer
+        ? `${savedHeader.customer} - ${detectedCategory?.name || "Scanned Sheet"}`
         : detectedCategory?.name || "Scanned Sheet";
 
       // Determine overall result from scan data
-      const activeScanResult = (editing ? editResult : result) || {};
+      const activeScanResult = savedResult;
       const overallResult =
         activeScanResult.overall_result ??
         activeScanResult.pressure_test_result ??
@@ -739,8 +748,8 @@ export default function QuickScanDialog() {
         .from("jobs")
         .insert({
           name: jobName,
-          customer: header?.customer || null,
-          address: header?.site || null,
+          customer: savedHeader.customer || null,
+          address: savedHeader.site || null,
           status: "active",
           priority: "medium",
           category: detectedCategory?.slug || "general",
@@ -755,14 +764,14 @@ export default function QuickScanDialog() {
       const userId = userData?.user?.id;
 
       // If we have a matched template and extracted data, create a job_sheet_response
-      if (matchedTemplate && result && userId) {
+      if (matchedTemplate && userId) {
         await supabase
           .from("job_sheet_responses")
           .insert({
             job_id: job.id,
             template_id: matchedTemplate.id,
             submitted_by: userId,
-            responses: result,
+            responses: savedResult,
             status: "draft",
           });
       }
@@ -1078,7 +1087,9 @@ export default function QuickScanDialog() {
                         const normalizedResult = applyExposedOutletOverrides(cleanedResult, matchedTemplate?.fields || []);
 
                         setHeader(syncedEdits.nextHeader);
+                        setEditHeader(syncedEdits.nextHeader);
                         setResult(normalizedResult);
+                        setEditResult(normalizedResult);
                         setEditing(false);
                         toast({ title: "Changes saved" });
                       } else {
