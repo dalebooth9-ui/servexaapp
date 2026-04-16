@@ -508,6 +508,23 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
 
+    // Resolve the org_id for tenant-scoped inserts.
+    // Uses MELLOR_ORG_ID secret if set, otherwise falls back to the first organisation.
+    let orgId: string | null = Deno.env.get("MELLOR_ORG_ID") ?? null;
+    if (!orgId) {
+      const { data: orgRow } = await supabase
+        .from("organisations")
+        .select("id")
+        .limit(1)
+        .single();
+      orgId = orgRow?.id ?? null;
+    }
+    if (!orgId) {
+      console.warn("No org_id resolved — webhook records will have null org_id");
+    } else {
+      console.log(`Resolved org_id for webhook inserts: ${orgId}`);
+    }
+
     const expectedSecret = Deno.env.get("QUOTEHOUND_WEBHOOK_SECRET");
     if (!expectedSecret) {
       return new Response(
@@ -613,7 +630,7 @@ serve(async (req) => {
       } else {
         const { data: newCustomer, error: custErr } = await supabase
           .from("customers")
-          .insert({ name: clientName.trim(), email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null })
+          .insert({ name: clientName.trim(), email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null, ...(orgId ? { org_id: orgId } : {}) })
           .select("id")
           .single();
         if (custErr) console.error("Customer insert error:", custErr);
@@ -676,6 +693,7 @@ serve(async (req) => {
         address: jobAddress || null,
         priority: "medium",
         category: categorySlug,
+        ...(orgId ? { org_id: orgId } : {}),
       } as any)
       .select("id")
       .single();
