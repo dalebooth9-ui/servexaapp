@@ -630,7 +630,7 @@ serve(async (req) => {
       } else {
         const { data: newCustomer, error: custErr } = await supabase
           .from("customers")
-          .insert({ name: clientName.trim(), email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null })
+          .insert({ name: clientName.trim(), email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null, ...(orgId ? { org_id: orgId } : {}) })
           .select("id")
           .single();
         if (custErr) console.error("Customer insert error:", custErr);
@@ -693,6 +693,7 @@ serve(async (req) => {
         address: jobAddress || null,
         priority: "medium",
         category: categorySlug,
+        ...(orgId ? { org_id: orgId } : {}),
       } as any)
       .select("id")
       .single();
