@@ -42,6 +42,7 @@ const ResetPassword = lazy(() => import("@/pages/ResetPassword"));
 const NotFound = lazy(() => import("@/pages/NotFound"));
 const Servexa = lazy(() => import("@/pages/Servexa"));
 const HandoverSignOff = lazy(() => import("@/components/HandoverSignOffPage"));
+const JobHandover = lazy(() => import("@/pages/JobHandover"));
 const TermsOfService = lazy(() => import("@/pages/TermsOfService"));
 const PrivacyPolicy = lazy(() => import("@/pages/PrivacyPolicy"));
 const DataProcessingAgreement = lazy(() => import("@/pages/DataProcessingAgreement"));
@@ -150,6 +151,7 @@ const App = () => (
               <Route path="/fire-liability" element={<Suspense fallback={<PageFallback />}><FireProtectionLiability /></Suspense>} />
               <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
               <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
+              <Route path="/job-handover/:token" element={<Suspense fallback={<PageFallback />}><JobHandover /></Suspense>} />
               <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
             </Routes>
             <OfflineIndicator />
