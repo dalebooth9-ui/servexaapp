@@ -1357,6 +1357,9 @@ export default function Sites() {
                                        <ContextMenuItem onClick={() => openEdit(site)}>
                                          <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
                                        </ContextMenuItem>
+                                       <ContextMenuItem onClick={() => setFireLogSite(site)}>
+                                         <Flame className="mr-2 h-3.5 w-3.5" /> Fire log
+                                       </ContextMenuItem>
                                        {userRole === "admin" && (
                                          <ContextMenuItem onClick={() => openCreateJob(site, folder.id)}>
                                            <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
@@ -1457,6 +1460,9 @@ export default function Sites() {
                                            <DropdownMenuContent align="end" className="w-48">
                                              <DropdownMenuItem onClick={() => openEdit(site)}>
                                                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
+                                             </DropdownMenuItem>
+                                             <DropdownMenuItem onClick={() => setFireLogSite(site)}>
+                                               <Flame className="mr-2 h-3.5 w-3.5" /> Fire log
                                              </DropdownMenuItem>
                                              {userRole === "admin" && (
                                                <DropdownMenuItem onClick={() => openCreateJob(site, folder.id)}>
