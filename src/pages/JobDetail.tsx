@@ -43,6 +43,7 @@ import JobPdfReport from "@/components/JobPdfReport";
 import JobStatusPipeline, { ALL_JOB_STATUSES, getStatusLabel } from "@/components/JobStatusPipeline";
 import SignatureCapture from "@/components/SignatureCapture";
 import CustomerSignOffLink from "@/components/CustomerSignOffLink";
+import JobHandoverLink from "@/components/JobHandoverLink";
 import SendToCustomerMenu from "@/components/SendToCustomerMenu";
 import SubmissionList from "@/components/jobs/SubmissionList";
 import EngineerCertificates from "@/components/jobs/EngineerCertificates";
@@ -719,9 +720,15 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3 space-y-4">
           <SignatureCapture jobId={id!} />
-          <div className="border-t pt-3">
-            <p className="text-sm text-muted-foreground mb-2">Need the customer to sign off remotely?</p>
-            <CustomerSignOffLink jobId={id!} customerName={custName || ""} />
+          <div className="border-t pt-3 space-y-4">
+            <div>
+              <p className="text-sm font-medium mb-2">Customer handover sign-off</p>
+              <JobHandoverLink jobId={id!} customerId={(job as any).customer_id} customerName={custName || ""} />
+            </div>
+            <div className="border-t pt-3">
+              <p className="text-sm text-muted-foreground mb-2">Need the customer to sign off remotely (legacy)?</p>
+              <CustomerSignOffLink jobId={id!} customerName={custName || ""} />
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>
