@@ -454,7 +454,7 @@ export default function Defects() {
                         )}
                         {d.quote_id && (
                           <Button variant="ghost" size="sm" title="View Quote" onClick={() => navigate(`/invoices/${d.quote_id}`)}>
-                            <FileText className="h-3.5 w-3.5 text-blue-500" />
+                            <FileText className="h-3.5 w-3.5 text-primary" />
                           </Button>
                         )}
                         {d.status === "open" && (
