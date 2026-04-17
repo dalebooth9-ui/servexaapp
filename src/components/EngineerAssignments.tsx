@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { UserPlus, X, Paperclip, FileText, Loader2 } from "lucide-react";
+import { UserPlus, X, Paperclip, FileText, Loader2, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { jobCategoryToCertType, bestCertOfType, getCertStatus, certTypeLabel } from "@/lib/certStatus";
 
 type Engineer = { user_id: string; full_name: string; whatsapp_number: string | null };
 type Assignment = { id: string; engineer_id: string; assigned_at: string; profile?: Engineer };
@@ -30,6 +32,10 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
   const [selectedDocIds, setSelectedDocIds] = useState<Set<string>>(new Set());
   const [attaching, setAttaching] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
+
+  // Smart matching: job category + per-engineer certs
+  const [jobCertType, setJobCertType] = useState<string | null>(null);
+  const [engineerCerts, setEngineerCerts] = useState<Record<string, any[]>>({});
 
   const fetchAssignments = async () => {
     const { data } = await supabase.from("job_assignments").select("id, engineer_id, assigned_at").eq("job_id", jobId);
