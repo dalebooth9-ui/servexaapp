@@ -411,38 +411,60 @@ export default function AdminDashboard() {
         </Card>
       )}
 
-      {isAdmin && expiringDocs.length > 0 && (
-        <Card className="mb-6 border-warning/40">
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="h-5 w-5 text-warning" />
-              Engineer Certification Alerts
-              <Badge variant="secondary" className="ml-auto">{expiringDocs.length}</Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              {expiringDocs.map((doc) => (
-                <div key={doc.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                  <div className="flex items-center gap-3">
-                    <UserCheck className={`h-4 w-4 ${doc.is_expired ? "text-destructive" : "text-warning"}`} />
-                    <div>
-                      <p className="text-sm font-medium">{doc.engineer_name} — {doc.title}</p>
-                      <p className="text-xs text-muted-foreground capitalize">{doc.document_type.replace(/_/g, " ")}</p>
+      {expiringDocs.length > 0 && (() => {
+        const today = new Date();
+        const in30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const expiredCount = expiringDocs.filter((d) => d.is_expired).length;
+        const next30Count = expiringDocs.filter((d) => !d.is_expired && new Date(d.expiry_date) <= in30).length;
+        // Group by engineer
+        const groups = expiringDocs.reduce<Record<string, { name: string; docs: typeof expiringDocs }>>((acc, d) => {
+          if (!acc[d.engineer_id]) acc[d.engineer_id] = { name: d.engineer_name, docs: [] };
+          acc[d.engineer_id].docs.push(d);
+          return acc;
+        }, {});
+
+        return (
+          <Card className={`mb-6 ${expiredCount > 0 ? "border-destructive/40" : "border-warning/40"}`}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex flex-wrap items-center gap-2 text-lg">
+                <AlertTriangle className={`h-5 w-5 ${expiredCount > 0 ? "text-destructive" : "text-warning"}`} />
+                {isAdmin ? "Engineer Certification Alerts" : "Your Expiring Certifications"}
+                {expiredCount > 0 && <Badge variant="destructive">{expiredCount} expired</Badge>}
+                {next30Count > 0 && <Badge variant="outline" className="border-warning/50 text-warning">{next30Count} in next 30 days</Badge>}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Object.entries(groups).map(([engId, g]) => (
+                  <div key={engId} className="rounded-lg border">
+                    <div className="flex items-center justify-between border-b bg-muted/30 px-3 py-2">
+                      <div className="flex items-center gap-2">
+                        <UserCheck className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-semibold">{g.name}</span>
+                        <Badge variant="secondary" className="text-[10px]">{g.docs.length}</Badge>
+                      </div>
+                      {isAdmin && <Link to="/engineers" className="text-xs text-primary hover:underline">Manage</Link>}
+                    </div>
+                    <div className="divide-y">
+                      {g.docs.map((doc) => (
+                        <div key={doc.id} className="flex items-center justify-between px-3 py-2">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">{doc.title}</p>
+                            <p className="text-xs text-muted-foreground capitalize">{(doc.certification_type || doc.document_type).replace(/_/g, " ")}</p>
+                          </div>
+                          <span className={`shrink-0 text-sm font-medium ${doc.is_expired ? "text-destructive" : "text-warning"}`}>
+                            {doc.is_expired ? "Expired" : "Expires"} {new Date(doc.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <span className={`text-sm font-medium ${doc.is_expired ? "text-destructive" : "text-warning"}`}>
-                      {doc.is_expired ? "Expired" : "Expires"} {new Date(doc.expiry_date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                    </span>
-                    <Link to="/engineers" className="ml-3 text-xs text-primary hover:underline">View</Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <Card>
         <CardHeader>
