@@ -214,6 +214,7 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
               {assignments.map((a) => (
                 <Badge key={a.id} variant="secondary" className="gap-1.5 py-1 pl-2.5 pr-1.5">
                   {a.profile?.full_name || "Unknown"}
+                  {renderCertIcon(a.engineer_id)}
                   {userRole === "admin" && a.profile && (
                     <button
                       title="Attach certificates"
@@ -241,7 +242,12 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   {availableEngineers.map((e) => (
-                    <SelectItem key={e.user_id} value={e.user_id}>{e.full_name || e.user_id}</SelectItem>
+                    <SelectItem key={e.user_id} value={e.user_id}>
+                      <span className="inline-flex items-center gap-2">
+                        {e.full_name || e.user_id}
+                        {renderCertIcon(e.user_id)}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
