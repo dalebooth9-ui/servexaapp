@@ -1,6 +1,6 @@
 import { useAuth } from "@/hooks/useAuth";
 import EngineerDashboard from "@/components/EngineerDashboard";
-import AdminDashboard from "@/components/AdminDashboard";
+import DirectorDashboard from "@/components/DirectorDashboard";
 
 export default function Dashboard() {
   const { userRole } = useAuth();
@@ -13,5 +13,5 @@ export default function Dashboard() {
     return null;
   }
 
-  return <AdminDashboard />;
+  return <DirectorDashboard />;
 }
