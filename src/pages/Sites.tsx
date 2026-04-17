@@ -2182,6 +2182,16 @@ export default function Sites() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Fire Log dialog */}
+      <Dialog open={!!fireLogSite} onOpenChange={(o) => !o && setFireLogSite(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Fire Log</DialogTitle>
+          </DialogHeader>
+          {fireLogSite && <SiteFireLog siteId={fireLogSite.id} siteName={fireLogSite.name} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
