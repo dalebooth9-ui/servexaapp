@@ -7,9 +7,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { UserPlus, X, Paperclip, FileText, Loader2 } from "lucide-react";
+import { UserPlus, X, Paperclip, FileText, Loader2, ShieldCheck, ShieldAlert, ShieldX } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { jobCategoryToCertType, bestCertOfType, getCertStatus, certTypeLabel } from "@/lib/certStatus";
 
 type Engineer = { user_id: string; full_name: string; whatsapp_number: string | null };
 type Assignment = { id: string; engineer_id: string; assigned_at: string; profile?: Engineer };
@@ -31,6 +33,10 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
   const [attaching, setAttaching] = useState(false);
   const [docsLoading, setDocsLoading] = useState(false);
 
+  // Smart matching: job category + per-engineer certs
+  const [jobCertType, setJobCertType] = useState<string | null>(null);
+  const [engineerCerts, setEngineerCerts] = useState<Record<string, any[]>>({});
+
   const fetchAssignments = async () => {
     const { data } = await supabase.from("job_assignments").select("id, engineer_id, assigned_at").eq("job_id", jobId);
     if (!data || data.length === 0) { setAssignments([]); return; }
@@ -43,14 +49,62 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
   const fetchEngineers = async () => {
     const { data: roles } = await supabase.from("user_roles").select("user_id").eq("role", "engineer");
     if (!roles || roles.length === 0) return;
-    const { data: profiles } = await supabase.from("profiles").select("user_id, full_name, whatsapp_number").in("user_id", roles.map((r) => r.user_id));
+    const userIds = roles.map((r) => r.user_id);
+    const [{ data: profiles }, { data: certs }] = await Promise.all([
+      supabase.from("profiles").select("user_id, full_name, whatsapp_number").in("user_id", userIds),
+      supabase.from("engineer_documents" as any)
+        .select("engineer_id, title, certification_type, expiry_date")
+        .in("engineer_id", userIds)
+        .not("certification_type", "is", null),
+    ]);
     setAllEngineers(profiles || []);
+    const map: Record<string, any[]> = {};
+    ((certs as any[]) || []).forEach((c) => {
+      (map[c.engineer_id] = map[c.engineer_id] || []).push(c);
+    });
+    setEngineerCerts(map);
+  };
+
+  const fetchJobCategory = async () => {
+    const { data } = await supabase.from("jobs").select("category, job_type").eq("id", jobId).maybeSingle();
+    if (!data) { setJobCertType(null); return; }
+    setJobCertType(jobCategoryToCertType((data as any).category) || jobCategoryToCertType((data as any).job_type));
   };
 
   useEffect(() => {
     fetchAssignments();
+    fetchJobCategory();
     if (userRole === "admin") fetchEngineers();
   }, [jobId, userRole]);
+
+  const certMatch = (engineerId: string) => {
+    if (!jobCertType) return null;
+    const cert = bestCertOfType(engineerCerts[engineerId] || [], jobCertType);
+    if (!cert) return { kind: "missing" as const, cert: null as any };
+    const status = getCertStatus(cert.expiry_date);
+    return { kind: status, cert };
+  };
+
+  const renderCertIcon = (engineerId: string) => {
+    const m = certMatch(engineerId);
+    if (!m) return null;
+    const label = certTypeLabel(jobCertType);
+    let Icon = ShieldCheck, cls = "text-emerald-600 dark:text-emerald-400", tip = `Holds valid ${label} cert`;
+    if (m.kind === "missing") { Icon = ShieldAlert; cls = "text-amber-500"; tip = `No ${label} certification on file`; }
+    else if (m.kind === "expiring_soon") { Icon = ShieldAlert; cls = "text-amber-500"; tip = `${label} cert expires ${m.cert?.expiry_date ? format(new Date(m.cert.expiry_date), "dd MMM yyyy") : "soon"}`; }
+    else if (m.kind === "expired") { Icon = ShieldX; cls = "text-destructive"; tip = `Expired ${m.cert?.title || label} — expired ${m.cert?.expiry_date ? format(new Date(m.cert.expiry_date), "dd MMM yyyy") : ""}`; }
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className={`inline-flex items-center ${cls}`}><Icon className="h-3.5 w-3.5" /></span>
+          </TooltipTrigger>
+          <TooltipContent>{tip}</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
 
   const handleAssign = async () => {
     if (!selectedEngineerId) return;
@@ -160,6 +214,7 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
               {assignments.map((a) => (
                 <Badge key={a.id} variant="secondary" className="gap-1.5 py-1 pl-2.5 pr-1.5">
                   {a.profile?.full_name || "Unknown"}
+                  {renderCertIcon(a.engineer_id)}
                   {userRole === "admin" && a.profile && (
                     <button
                       title="Attach certificates"
@@ -187,7 +242,12 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
                 </SelectTrigger>
                 <SelectContent>
                   {availableEngineers.map((e) => (
-                    <SelectItem key={e.user_id} value={e.user_id}>{e.full_name || e.user_id}</SelectItem>
+                    <SelectItem key={e.user_id} value={e.user_id}>
+                      <span className="inline-flex items-center gap-2">
+                        {e.full_name || e.user_id}
+                        {renderCertIcon(e.user_id)}
+                      </span>
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

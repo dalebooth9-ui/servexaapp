@@ -1176,7 +1176,10 @@ export type Database = {
       }
       engineer_documents: {
         Row: {
+          certificate_number: string | null
+          certification_type: string | null
           created_at: string
+          date_obtained: string | null
           document_type: string
           engineer_id: string
           expiry_date: string | null
@@ -1184,13 +1187,17 @@ export type Database = {
           file_size: number | null
           file_url: string
           id: string
+          issuing_body: string | null
           notes: string | null
           title: string
           updated_at: string
           uploaded_by: string
         }
         Insert: {
+          certificate_number?: string | null
+          certification_type?: string | null
           created_at?: string
+          date_obtained?: string | null
           document_type?: string
           engineer_id: string
           expiry_date?: string | null
@@ -1198,13 +1205,17 @@ export type Database = {
           file_size?: number | null
           file_url: string
           id?: string
+          issuing_body?: string | null
           notes?: string | null
           title?: string
           updated_at?: string
           uploaded_by: string
         }
         Update: {
+          certificate_number?: string | null
+          certification_type?: string | null
           created_at?: string
+          date_obtained?: string | null
           document_type?: string
           engineer_id?: string
           expiry_date?: string | null
@@ -1212,6 +1223,7 @@ export type Database = {
           file_size?: number | null
           file_url?: string
           id?: string
+          issuing_body?: string | null
           notes?: string | null
           title?: string
           updated_at?: string

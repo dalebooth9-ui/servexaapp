@@ -5,7 +5,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Phone, Pencil, Plus, UserMinus, ArrowLeft, KeyRound, FileText, Upload, Trash2, Download, X, Loader2, Mail } from "lucide-react";
+import { Phone, Pencil, Plus, UserMinus, ArrowLeft, KeyRound, FileText, Upload, Trash2, Download, X, Loader2, Mail, ShieldCheck, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import SkillsCertsTab from "@/components/engineers/SkillsCertsTab";
+import SkillMatrixView from "@/components/engineers/SkillMatrixView";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
@@ -60,6 +63,9 @@ export default function Engineers() {
   const [docForm, setDocForm] = useState({ title: "", document_type: "certificate", expiry_date: "", notes: "" });
   const [pendingDocFiles, setPendingDocFiles] = useState<File[]>([]);
   const docFileRef = useRef<HTMLInputElement>(null);
+
+  // View toggle: list vs skill matrix
+  const [view, setView] = useState<"list" | "matrix">("list");
 
   const handleSendOnboarding = async () => {
     if (!onboardingEng || !onboardingEmail) return;
@@ -241,13 +247,26 @@ export default function Engineers() {
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold">Engineers</h1>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Engineer
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+            <Button variant={view === "list" ? "secondary" : "ghost"} size="sm" className="h-8" onClick={() => setView("list")}>
+              <ListIcon className="mr-1 h-4 w-4" /> List
+            </Button>
+            <Button variant={view === "matrix" ? "secondary" : "ghost"} size="sm" className="h-8" onClick={() => setView("matrix")}>
+              <LayoutGrid className="mr-1 h-4 w-4" /> Skill Matrix
+            </Button>
+          </div>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Engineer
+          </Button>
+        </div>
       </div>
 
+      {view === "matrix" ? (
+        <SkillMatrixView engineers={engineers.map((e) => ({ user_id: e.user_id, full_name: e.full_name }))} />
+      ) : (
       <Card>
         <CardContent className="p-0">
           {engLoading ? (
@@ -357,6 +376,7 @@ export default function Engineers() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Engineer Dialog */}
       <Dialog open={!!editEng} onOpenChange={(open) => { if (!open) setEditEng(null); }}>
@@ -420,90 +440,103 @@ export default function Engineers() {
         </DialogContent>
       </Dialog>
 
-      {/* Documents Dialog */}
+      {/* Documents / Skills & Certs Dialog */}
       <Dialog open={!!docsEng} onOpenChange={(open) => { if (!open) { setDocsEng(null); setDocs([]); } }}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              {docsEng?.full_name} — Certification Documents
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              {docsEng?.full_name} — Skills, Certs & Documents
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="flex justify-end">
-              <Button size="sm" onClick={() => setAddDocOpen(true)}>
-                <Plus className="mr-1 h-4 w-4" /> Add Document
-              </Button>
-            </div>
+          <Tabs defaultValue="skills" className="w-full">
+            <TabsList>
+              <TabsTrigger value="skills">Skills & Certs</TabsTrigger>
+              <TabsTrigger value="docs">All Documents</TabsTrigger>
+            </TabsList>
 
-            {docsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-              </div>
-            ) : docs.length === 0 ? (
-              <div className="py-8 text-center text-muted-foreground">No documents uploaded yet.</div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Title</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Expiry</TableHead>
-                    <TableHead className="w-24" />
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {docs.map((doc) => {
-                    const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
-                    const isExpiringSoon = doc.expiry_date && !isExpired && new Date(doc.expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-                    return (
-                      <TableRow key={doc.id}>
-                        <TableCell>
-                          <div className="font-medium">{doc.title}</div>
-                          <div className="text-xs text-muted-foreground">{doc.file_name}</div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">{doc.document_type.replace(/_/g, " ")}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {doc.expiry_date ? (
-                            <span className={isExpired ? "text-destructive font-medium" : isExpiringSoon ? "text-amber-500 font-medium" : ""}>
-                              {format(new Date(doc.expiry_date), "dd MMM yyyy")}
-                            </span>
-                          ) : <span className="text-muted-foreground">—</span>}
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="icon" onClick={() => handleDownloadDoc(doc)}>
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Document</AlertDialogTitle>
-                                  <AlertDialogDescription>Permanently delete "{doc.title}"? This cannot be undone.</AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteDoc(doc)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </TableCell>
+            <TabsContent value="skills" className="mt-4">
+              {docsEng && <SkillsCertsTab engineerId={docsEng.user_id} engineerName={docsEng.full_name || "Engineer"} />}
+            </TabsContent>
+
+            <TabsContent value="docs" className="mt-4">
+              <div className="space-y-4">
+                <div className="flex justify-end">
+                  <Button size="sm" onClick={() => setAddDocOpen(true)}>
+                    <Plus className="mr-1 h-4 w-4" /> Add Document
+                  </Button>
+                </div>
+
+                {docsLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : docs.length === 0 ? (
+                  <div className="py-8 text-center text-muted-foreground">No documents uploaded yet.</div>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Title</TableHead>
+                        <TableHead>Type</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead className="w-24" />
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </div>
+                    </TableHeader>
+                    <TableBody>
+                      {docs.map((doc) => {
+                        const isExpired = doc.expiry_date && new Date(doc.expiry_date) < new Date();
+                        const isExpiringSoon = doc.expiry_date && !isExpired && new Date(doc.expiry_date) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+                        return (
+                          <TableRow key={doc.id}>
+                            <TableCell>
+                              <div className="font-medium">{doc.title}</div>
+                              <div className="text-xs text-muted-foreground">{doc.file_name}</div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className="capitalize">{doc.document_type.replace(/_/g, " ")}</Badge>
+                            </TableCell>
+                            <TableCell>
+                              {doc.expiry_date ? (
+                                <span className={isExpired ? "text-destructive font-medium" : isExpiringSoon ? "text-amber-500 font-medium" : ""}>
+                                  {format(new Date(doc.expiry_date), "dd MMM yyyy")}
+                                </span>
+                              ) : <span className="text-muted-foreground">—</span>}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleDownloadDoc(doc)}>
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete Document</AlertDialogTitle>
+                                      <AlertDialogDescription>Permanently delete "{doc.title}"? This cannot be undone.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={() => handleDeleteDoc(doc)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
