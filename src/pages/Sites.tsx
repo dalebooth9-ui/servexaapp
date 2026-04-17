@@ -255,6 +255,9 @@ export default function Sites() {
   const [createJobSaving, setCreateJobSaving] = useState(false);
   const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
 
+  // Fire log dialog
+  const [fireLogSite, setFireLogSite] = useState<Site | null>(null);
+
   // Get a site and all its descendants (recursively)
   const getSiteAndDescendants = (rootId: string): Site[] => {
     const result: Site[] = [];
