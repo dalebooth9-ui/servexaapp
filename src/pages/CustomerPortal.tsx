@@ -110,9 +110,9 @@ export default function CustomerPortal() {
       // Jobs
       const { data: jobData } = await supabase
         .from("jobs")
-        .select("id, name, reference_number, status, priority, address, due_date, created_at, description, site_id")
+        .select("id, name, reference_number, status, priority, address, due_date, created_at, notes, site_id")
         .eq("customer_id", customerId).order("created_at", { ascending: false });
-      const jobList = (jobData || []) as Job[];
+      const jobList = (jobData || []) as any as Job[];
       setJobs(jobList);
       const jobIds = jobList.map(j => j.id);
 
@@ -124,11 +124,13 @@ export default function CustomerPortal() {
         setVisits((vd || []) as Visit[]);
       }
 
-      // Invoices
-      const { data: invData } = await supabase.from("invoices")
-        .select("id, invoice_number, document_type, status, total, subtotal, tax_amount, issue_date, due_date, created_at")
-        .eq("customer_id", customerId).order("created_at", { ascending: false });
-      setInvoices((invData || []).filter((i: any) => i.document_type === "invoice") as Invoice[]);
+      // Invoices (linked via job_id since invoices table has no customer_id)
+      if (jobIds.length) {
+        const { data: invData } = await supabase.from("invoices")
+          .select("id, invoice_number, document_type, status, total, subtotal, tax_amount, due_date, created_at, sent_at, paid_at, customer_name")
+          .in("job_id", jobIds).order("created_at", { ascending: false });
+        setInvoices(((invData || []) as any).filter((i: any) => i.document_type === "invoice") as Invoice[]);
+      }
 
       // Sites
       const { data: siteLinks } = await supabase.from("customer_sites").select("site_id").eq("customer_id", customerId);
@@ -321,7 +323,7 @@ export default function CustomerPortal() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium font-mono truncate">{inv.invoice_number}</p>
                         <p className="text-xs text-slate-500">
-                          {inv.issue_date ? format(new Date(inv.issue_date), "dd MMM yyyy") : "—"}
+                          {inv.sent_at ? format(new Date(inv.sent_at), "dd MMM yyyy") : format(new Date(inv.created_at), "dd MMM yyyy")}
                           {inv.due_date && <> · Due {format(new Date(inv.due_date), "dd MMM yyyy")}</>}
                         </p>
                       </div>
@@ -454,7 +456,7 @@ export default function CustomerPortal() {
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{j?.name || "Job"}</p>
                         <p className="text-xs text-slate-500">
-                          Signed by {s.customer_name} · {s.signed_at ? format(new Date(s.signed_at), "dd MMM yyyy") : "—"}
+                          Signed by {s.signer_name || "Customer"} · {s.signed_at ? format(new Date(s.signed_at), "dd MMM yyyy") : "—"}
                         </p>
                       </div>
                       <Badge className="bg-green-100 text-green-700 border-0">Signed</Badge>
@@ -509,10 +511,10 @@ function JobRow({ job, open, onToggle, photos }: { job: Job; open: boolean; onTo
       </button>
       {open && (
         <div className="px-3 pb-3 border-t border-slate-100 space-y-2 pt-2">
-          {job.description && (
+          {job.notes && (
             <div>
               <p className="text-xs font-medium text-slate-600 mb-1">Notes</p>
-              <p className="text-xs text-slate-700 whitespace-pre-wrap">{job.description}</p>
+              <p className="text-xs text-slate-700 whitespace-pre-wrap">{job.notes}</p>
             </div>
           )}
           {photos.length > 0 && (
@@ -527,7 +529,7 @@ function JobRow({ job, open, onToggle, photos }: { job: Job; open: boolean; onTo
               </div>
             </div>
           )}
-          {!job.description && photos.length === 0 && <p className="text-xs text-slate-400">No additional details.</p>}
+          {!job.notes && photos.length === 0 && <p className="text-xs text-slate-400">No additional details.</p>}
         </div>
       )}
     </div>
