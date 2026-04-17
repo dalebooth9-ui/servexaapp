@@ -171,7 +171,7 @@ export default function AdminDashboard() {
       })));
     };
     fetchExpiringDocs();
-  }, [user]);
+  }, [user, userRole]);
 
   const isAdmin = userRole === "admin";
 
