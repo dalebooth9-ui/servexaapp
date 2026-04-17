@@ -31,6 +31,8 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
+import SiteFireLog from "@/components/SiteFireLog";
+import { Flame } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 
