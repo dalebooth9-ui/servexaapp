@@ -55,6 +55,7 @@ const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
 const Defects = lazy(() => import("@/pages/Defects"));
 const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
+const FireLog = lazy(() => import("@/pages/FireLog"));
 
 const queryClient = new QueryClient();
 
@@ -152,6 +153,7 @@ const App = () => (
               <Route path="/servexa" element={<Suspense fallback={<PageFallback />}><Servexa /></Suspense>} />
               <Route path="/handover/:token" element={<Suspense fallback={<PageFallback />}><HandoverSignOff /></Suspense>} />
               <Route path="/job-handover/:token" element={<Suspense fallback={<PageFallback />}><JobHandover /></Suspense>} />
+              <Route path="/fire-log/:token" element={<Suspense fallback={<PageFallback />}><FireLog /></Suspense>} />
               <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
             </Routes>
             <OfflineIndicator />

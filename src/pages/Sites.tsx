@@ -31,6 +31,8 @@ import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuSeparator,
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import SiteDocumentDropZone from "@/components/SiteDocumentDropZone";
+import SiteFireLog from "@/components/SiteFireLog";
+import { Flame } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
 
@@ -252,6 +254,9 @@ export default function Sites() {
   const [createJobForm, setCreateJobForm] = useState({ name: "", reference_number: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "" });
   const [createJobSaving, setCreateJobSaving] = useState(false);
   const [allCustomers, setAllCustomers] = useState<{ id: string; name: string }[]>([]);
+
+  // Fire log dialog
+  const [fireLogSite, setFireLogSite] = useState<Site | null>(null);
 
   // Get a site and all its descendants (recursively)
   const getSiteAndDescendants = (rootId: string): Site[] => {
@@ -1352,6 +1357,9 @@ export default function Sites() {
                                        <ContextMenuItem onClick={() => openEdit(site)}>
                                          <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
                                        </ContextMenuItem>
+                                       <ContextMenuItem onClick={() => setFireLogSite(site)}>
+                                         <Flame className="mr-2 h-3.5 w-3.5" /> Fire log
+                                       </ContextMenuItem>
                                        {userRole === "admin" && (
                                          <ContextMenuItem onClick={() => openCreateJob(site, folder.id)}>
                                            <Briefcase className="mr-2 h-3.5 w-3.5" /> Create job
@@ -1452,6 +1460,9 @@ export default function Sites() {
                                            <DropdownMenuContent align="end" className="w-48">
                                              <DropdownMenuItem onClick={() => openEdit(site)}>
                                                <Pencil className="mr-2 h-3.5 w-3.5" /> Edit site
+                                             </DropdownMenuItem>
+                                             <DropdownMenuItem onClick={() => setFireLogSite(site)}>
+                                               <Flame className="mr-2 h-3.5 w-3.5" /> Fire log
                                              </DropdownMenuItem>
                                              {userRole === "admin" && (
                                                <DropdownMenuItem onClick={() => openCreateJob(site, folder.id)}>
@@ -2169,6 +2180,16 @@ export default function Sites() {
             </Button>
             <Button variant="outline" onClick={() => setCreateJobDialogOpen(false)}>Cancel</Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fire Log dialog */}
+      <Dialog open={!!fireLogSite} onOpenChange={(o) => !o && setFireLogSite(null)}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Fire Log</DialogTitle>
+          </DialogHeader>
+          {fireLogSite && <SiteFireLog siteId={fireLogSite.id} siteName={fireLogSite.name} />}
         </DialogContent>
       </Dialog>
     </div>
