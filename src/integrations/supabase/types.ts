@@ -1441,6 +1441,86 @@ export type Database = {
           },
         ]
       }
+      handover_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          expires_at: string
+          id: string
+          job_id: string
+          notes: string | null
+          org_id: string | null
+          signature_data: string | null
+          signed_at: string | null
+          signer_email: string | null
+          signer_name: string | null
+          status: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          expires_at?: string
+          id?: string
+          job_id: string
+          notes?: string | null
+          org_id?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          status?: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          expires_at?: string
+          id?: string
+          job_id?: string
+          notes?: string | null
+          org_id?: string | null
+          signature_data?: string | null
+          signed_at?: string | null
+          signer_email?: string | null
+          signer_name?: string | null
+          status?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_tokens_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_tokens_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_handover_tokens: {
         Row: {
           client_email: string | null
