@@ -16,6 +16,7 @@ import OnboardingTour from "@/components/OnboardingTour";
 import QuickScanDialog from "@/components/QuickScanDialog";
 import BatchScanDialog from "@/components/BatchScanDialog";
 import PendingWhatsAppScans from "@/components/PendingWhatsAppScans";
+import DefectSummaryCard from "@/components/DefectSummaryCard";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -367,6 +368,12 @@ export default function AdminDashboard() {
       )}
 
       {isAdmin && <PendingWhatsAppScans />}
+
+      {isAdmin && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <DefectSummaryCard />
+        </div>
+      )}
 
       {isAdmin && todaysJobs.length > 0 && (
         <Card className="mb-6">

@@ -1054,11 +1054,16 @@ export type Database = {
       defects: {
         Row: {
           asset_id: string | null
+          bs_standard_reference: string | null
+          category: string | null
           created_at: string
           description: string | null
           id: string
           job_id: string | null
+          location_on_site: string | null
           photo_url: string | null
+          photos: Json
+          quote_id: string | null
           reported_by: string
           resolution_notes: string | null
           resolved_at: string | null
@@ -1071,11 +1076,16 @@ export type Database = {
         }
         Insert: {
           asset_id?: string | null
+          bs_standard_reference?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
           job_id?: string | null
+          location_on_site?: string | null
           photo_url?: string | null
+          photos?: Json
+          quote_id?: string | null
           reported_by: string
           resolution_notes?: string | null
           resolved_at?: string | null
@@ -1088,11 +1098,16 @@ export type Database = {
         }
         Update: {
           asset_id?: string | null
+          bs_standard_reference?: string | null
+          category?: string | null
           created_at?: string
           description?: string | null
           id?: string
           job_id?: string | null
+          location_on_site?: string | null
           photo_url?: string | null
+          photos?: Json
+          quote_id?: string | null
           reported_by?: string
           resolution_notes?: string | null
           resolved_at?: string | null
@@ -1116,6 +1131,13 @@ export type Database = {
             columns: ["job_id"]
             isOneToOne: false
             referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_quote_id_fkey"
+            columns: ["quote_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
