@@ -1441,6 +1441,145 @@ export type Database = {
           },
         ]
       }
+      fire_log_entries: {
+        Row: {
+          attachments: Json
+          bs_standard: string | null
+          created_at: string
+          created_by: string | null
+          date_of_event: string
+          description: string | null
+          entry_type: string
+          id: string
+          linked_job_id: string | null
+          org_id: string | null
+          recorded_by: string | null
+          site_id: string
+          title: string
+        }
+        Insert: {
+          attachments?: Json
+          bs_standard?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_of_event?: string
+          description?: string | null
+          entry_type?: string
+          id?: string
+          linked_job_id?: string | null
+          org_id?: string | null
+          recorded_by?: string | null
+          site_id: string
+          title: string
+        }
+        Update: {
+          attachments?: Json
+          bs_standard?: string | null
+          created_at?: string
+          created_by?: string | null
+          date_of_event?: string
+          description?: string | null
+          entry_type?: string
+          id?: string
+          linked_job_id?: string | null
+          org_id?: string | null
+          recorded_by?: string | null
+          site_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fire_log_entries_linked_job_id_fkey"
+            columns: ["linked_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_log_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_log_entries_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_log_entries_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      fire_log_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          id: string
+          is_active: boolean
+          org_id: string | null
+          site_id: string
+          token: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          is_active?: boolean
+          org_id?: string | null
+          site_id: string
+          token?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          id?: string
+          is_active?: boolean
+          org_id?: string | null
+          site_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fire_log_tokens_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_log_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_log_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fire_log_tokens_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handover_tokens: {
         Row: {
           created_at: string
