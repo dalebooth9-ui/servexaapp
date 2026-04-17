@@ -64,6 +64,9 @@ export default function Engineers() {
   const [pendingDocFiles, setPendingDocFiles] = useState<File[]>([]);
   const docFileRef = useRef<HTMLInputElement>(null);
 
+  // View toggle: list vs skill matrix
+  const [view, setView] = useState<"list" | "matrix">("list");
+
   const handleSendOnboarding = async () => {
     if (!onboardingEng || !onboardingEmail) return;
     setSendingOnboarding(true);
@@ -244,11 +247,21 @@ export default function Engineers() {
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
         <ArrowLeft className="mr-1 h-4 w-4" /> Back
       </Button>
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold">Engineers</h1>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" /> Add Engineer
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md border bg-muted/40 p-0.5">
+            <Button variant={view === "list" ? "secondary" : "ghost"} size="sm" className="h-8" onClick={() => setView("list")}>
+              <ListIcon className="mr-1 h-4 w-4" /> List
+            </Button>
+            <Button variant={view === "matrix" ? "secondary" : "ghost"} size="sm" className="h-8" onClick={() => setView("matrix")}>
+              <LayoutGrid className="mr-1 h-4 w-4" /> Skill Matrix
+            </Button>
+          </div>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" /> Add Engineer
+          </Button>
+        </div>
       </div>
 
       <Card>
