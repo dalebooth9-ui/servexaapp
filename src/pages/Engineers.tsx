@@ -264,6 +264,9 @@ export default function Engineers() {
         </div>
       </div>
 
+      {view === "matrix" ? (
+        <SkillMatrixView engineers={engineers.map((e) => ({ user_id: e.user_id, full_name: e.full_name }))} />
+      ) : (
       <Card>
         <CardContent className="p-0">
           {engLoading ? (
@@ -373,6 +376,7 @@ export default function Engineers() {
           )}
         </CardContent>
       </Card>
+      )}
 
       {/* Edit Engineer Dialog */}
       <Dialog open={!!editEng} onOpenChange={(open) => { if (!open) setEditEng(null); }}>
