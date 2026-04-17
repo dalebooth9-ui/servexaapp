@@ -24,9 +24,8 @@ Deno.serve(async (req) => {
 
     const { data: tokenData, error } = await supabase
       .from("customer_portal_tokens")
-      .select("customer_id, customer_email")
+      .select("id, customer_id, customer_email, is_active, expires_at")
       .eq("token", token)
-      .gt("expires_at", new Date().toISOString())
       .maybeSingle();
 
     if (error || !tokenData) {
@@ -34,6 +33,24 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    if (tokenData.is_active === false) {
+      return new Response(JSON.stringify({ valid: false, reason: "deactivated" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (tokenData.expires_at && new Date(tokenData.expires_at) < new Date()) {
+      return new Response(JSON.stringify({ valid: false, reason: "expired" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Touch last_accessed (fire & forget)
+    supabase.from("customer_portal_tokens")
+      .update({ last_accessed: new Date().toISOString() })
+      .eq("id", tokenData.id)
+      .then(() => {});
 
     return new Response(JSON.stringify({ valid: true, customer_id: tokenData.customer_id }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -878,6 +878,9 @@ export type Database = {
           customer_id: string
           expires_at: string
           id: string
+          is_active: boolean
+          last_accessed: string | null
+          org_id: string | null
           token: string
         }
         Insert: {
@@ -887,6 +890,9 @@ export type Database = {
           customer_id: string
           expires_at?: string
           id?: string
+          is_active?: boolean
+          last_accessed?: string | null
+          org_id?: string | null
           token?: string
         }
         Update: {
@@ -896,6 +902,9 @@ export type Database = {
           customer_id?: string
           expires_at?: string
           id?: string
+          is_active?: boolean
+          last_accessed?: string | null
+          org_id?: string | null
           token?: string
         }
         Relationships: [
@@ -904,6 +913,20 @@ export type Database = {
             columns: ["customer_id"]
             isOneToOne: false
             referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_portal_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_portal_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
         ]

@@ -850,6 +850,13 @@ export default function CustomerDetail() {
       </div>
 
 
+      {/* Admin actions */}
+      {isAdmin && (
+        <div className="flex flex-wrap gap-2">
+          <CustomerPortalLink customerId={id!} customerEmail={customer.email} customerName={customer.name} />
+        </div>
+      )}
+
       {/* Customer Accreditation Logos */}
       <CustomerAccreditationLogos customerId={id!} />
 
