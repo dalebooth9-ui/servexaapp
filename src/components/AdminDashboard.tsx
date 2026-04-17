@@ -25,7 +25,7 @@ export default function AdminDashboard() {
   const [weeklyData, setWeeklyData] = useState<{ name: string; completed: number; created: number }[]>([]);
   const [recentSubmissions, setRecentSubmissions] = useState<any[]>([]);
   const [recentPhotoUrls, setRecentPhotoUrls] = useState<Record<string, string>>({});
-  const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; expiry_date: string; engineer_name: string; is_expired: boolean }[]>([]);
+  const [expiringDocs, setExpiringDocs] = useState<{ id: string; title: string; document_type: string; certification_type: string | null; expiry_date: string; engineer_id: string; engineer_name: string; is_expired: boolean }[]>([]);
   const [fileDragging, setFileDragging] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [submissionListType, setSubmissionListType] = useState<string | null>(null);
@@ -145,12 +145,18 @@ export default function AdminDashboard() {
     const fetchExpiringDocs = async () => {
       const thirtyDaysFromNow = new Date();
       thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
-      const { data: docs } = await supabase
+      let query = supabase
         .from("engineer_documents" as any)
-        .select("id, title, document_type, expiry_date, engineer_id")
+        .select("id, title, document_type, certification_type, expiry_date, engineer_id")
         .not("expiry_date", "is", null)
         .lte("expiry_date", thirtyDaysFromNow.toISOString().split("T")[0])
         .order("expiry_date", { ascending: true });
+
+      // Engineers see only their own
+      if (userRole !== "admin" && user?.id) {
+        query = query.eq("engineer_id", user.id);
+      }
+      const { data: docs } = await query;
 
       if (!docs || docs.length === 0) { setExpiringDocs([]); return; }
       const engIds = [...new Set((docs as any[]).map((d) => d.engineer_id))];
