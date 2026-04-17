@@ -14,13 +14,14 @@ import { format } from "date-fns";
 type Job = {
   id: string; name: string; reference_number: string; status: string;
   priority: string; address: string | null; due_date: string | null; created_at: string;
-  description: string | null; site_id: string | null;
+  notes: string | null; site_id: string | null;
 };
 type Visit = { id: string; job_id: string; scheduled_date: string; status: string; notes: string | null; };
 type Invoice = {
   id: string; invoice_number: string; document_type: string; status: string;
   total: number | null; subtotal: number | null; tax_amount: number | null;
-  issue_date: string | null; due_date: string | null; created_at: string;
+  due_date: string | null; created_at: string; sent_at: string | null; paid_at: string | null;
+  customer_name: string | null;
 };
 type LineItem = { id: string; description: string; quantity: number; unit_price: number; line_total: number | null };
 type Compliance = {
@@ -33,7 +34,7 @@ type Site = {
 };
 type SignOff = {
   id: string; job_id: string; status: string; signed_at: string | null;
-  customer_name: string; created_at: string; token: string;
+  signer_name: string | null; created_at: string; token: string;
 };
 
 const STATUS_COLORS: Record<string, string> = {
