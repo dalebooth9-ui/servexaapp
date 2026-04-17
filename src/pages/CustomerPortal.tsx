@@ -144,7 +144,7 @@ export default function CustomerPortal() {
         const { data: assets } = await supabase.from("assets").select("id, site_id").in("site_id", siteIds);
 
         const siteList: Site[] = (siteData || []).map((s: any) => {
-          const ft = (fireTokens || []).find((f: any) => f.site_id === s.id && f.is_active);
+          const ft = ((fireTokens as any) || []).find((f: any) => f.site_id === s.id && f.is_active);
           return {
             ...s,
             fire_log_token: ft?.token || null,
