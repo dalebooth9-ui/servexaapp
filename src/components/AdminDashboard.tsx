@@ -17,6 +17,7 @@ import QuickScanDialog from "@/components/QuickScanDialog";
 import BatchScanDialog from "@/components/BatchScanDialog";
 import PendingWhatsAppScans from "@/components/PendingWhatsAppScans";
 import DefectSummaryCard from "@/components/DefectSummaryCard";
+import PipelineValueCard from "@/components/PipelineValueCard";
 
 export default function AdminDashboard() {
   const { userRole, user } = useAuth();
@@ -294,6 +295,8 @@ export default function AdminDashboard() {
           ))}
         </div>
       )}
+
+      {isAdmin && <PipelineValueCard />}
 
       {isAdmin && weeklyData.length > 0 && (
         <Card className="mb-6">
