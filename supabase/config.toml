@@ -119,3 +119,6 @@ verify_jwt = false
 
 [functions.notify-new-job-from-api]
 verify_jwt = false
+
+[functions.process-email-queue]
+verify_jwt = true
