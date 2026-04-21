@@ -516,7 +516,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 <Label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
                   <Checkbox
                     checked={includePdf}
-                    onCheckedChange={(v) => setIncludePdf(!!v)}
+                    onCheckedChange={(v) => handleIncludePdfChange(!!v)}
                   />
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5 text-sm font-medium">
