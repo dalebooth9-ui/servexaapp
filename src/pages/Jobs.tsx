@@ -1598,13 +1598,23 @@ export default function Jobs() {
                       )}
                     </Link>
                     {isAdmin && (
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
-                        onClick={() => handleApproveJob(j.id)}
-                      >
-                        Approve
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
+                          onClick={() => handleApproveJob(j.id)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-3"
+                          onClick={() => openRejectDialog(j)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))}
