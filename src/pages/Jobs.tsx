@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
@@ -271,6 +272,38 @@ export default function Jobs() {
       setJobs((prev) => prev.map((j) => (ids.includes(j.id) ? { ...j, status: "active" } : j)));
       toast({ title: `${ids.length} job(s) approved`, description: "Status set to Active." });
       setSelectedPendingIds(new Set());
+    }
+  };
+
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingJob, setRejectingJob] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const openRejectDialog = (job: any) => {
+    setRejectingJob(job);
+    setRejectReason("");
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectJob = async () => {
+    if (!rejectingJob) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      toast({ title: "Reason required", description: "Please enter a rejection reason.", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status: "rejected", rejection_reason: reason } as any)
+      .eq("id", rejectingJob.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to reject job.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.map((j) => (j.id === rejectingJob.id ? { ...j, status: "rejected", rejection_reason: reason } : j)));
+      toast({ title: "Job rejected", description: "Status set to Rejected." });
+      setRejectDialogOpen(false);
+      setRejectingJob(null);
+      setRejectReason("");
     }
   };
 
@@ -1566,13 +1599,23 @@ export default function Jobs() {
                       )}
                     </Link>
                     {isAdmin && (
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
-                        onClick={() => handleApproveJob(j.id)}
-                      >
-                        Approve
-                      </Button>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
+                          onClick={() => handleApproveJob(j.id)}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          className="h-7 px-3"
+                          onClick={() => openRejectDialog(j)}
+                        >
+                          Reject
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))}
@@ -1810,6 +1853,41 @@ export default function Jobs() {
         file={poImportFile}
         onJobCreated={fetchJobs}
       />
+
+      {/* Reject Job Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject job</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {rejectingJob && (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-mono font-semibold">{rejectingJob.reference_number}</span> – {rejectingJob.name}
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="reject-reason">Reason for rejection</Label>
+              <Textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value.slice(0, 1000))}
+                placeholder="Explain why this job is being rejected..."
+                rows={4}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">{rejectReason.length}/1000</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleRejectJob} disabled={!rejectReason.trim()}>
+                Reject job
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
 
       {/* Save as Template Dialog */}
       <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
