@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -49,6 +49,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
   { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
   { to: "/defects", label: "Defects", icon: AlertTriangle, section: "more", adminOnly: false },
+  { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
 { to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
