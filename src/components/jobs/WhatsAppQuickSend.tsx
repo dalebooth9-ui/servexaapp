@@ -394,6 +394,18 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 : step === "attachments" ? "Add attachments"
                 : `WhatsApp — ${jobRef}`}
             </DialogTitle>
+            {step === "preview" && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                <Badge variant={includePdf ? "default" : "outline"} className="gap-1">
+                  <FileText className="h-3 w-3" />
+                  {includePdf ? "Job report PDF included" : "No PDF"}
+                </Badge>
+                <Badge variant={selectedPhotoIds.size > 0 ? "default" : "outline"} className="gap-1">
+                  <ImageIcon className="h-3 w-3" />
+                  {selectedPhotoIds.size} {selectedPhotoIds.size === 1 ? "image" : "images"}
+                </Badge>
+              </div>
+            )}
           </DialogHeader>
 
           <div className="space-y-3">
