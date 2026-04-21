@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { writeExcelFile } from "@/lib/excelUtils";
 import { format, addDays } from "date-fns";
+import { isLabourOrProfitPart } from "@/components/JobParts";
 
 interface ScheduleEntry {
   id: string;
