@@ -10,6 +10,8 @@ import { useUndoAction } from "@/hooks/useUndoAction";
 import ImportPartsDialog from "@/components/ImportPartsDialog";
 import PartsLibraryPicker from "@/components/PartsLibraryPicker";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -232,6 +234,7 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ quantity: "", unit_cost: "", sell_price: "" });
+  const [includeLabour, setIncludeLabour] = useState(false);
 
   const isAdmin = userRole === "admin";
 
@@ -517,12 +520,25 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
           </Button>
         )}
         {parts.length > 0 && (
+          <div className="flex items-center gap-2 px-2 border rounded-md h-8 bg-muted/30">
+            <Switch
+              id="include-labour"
+              checked={includeLabour}
+              onCheckedChange={setIncludeLabour}
+              className="scale-75"
+            />
+            <Label htmlFor="include-labour" className="text-xs cursor-pointer whitespace-nowrap">
+              Include labour & profit
+            </Label>
+          </div>
+        )}
+        {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
             const isNonMaterial = (p: any) => {
               const n = (p.name || "").toLowerCase();
               return /\b(labour|labor|daily\s*profit|profit|day\s*rate|day-rate|man\s*day|days?\s*on\s*site)\b/.test(n);
             };
-            const pickParts = parts.filter(p => (p.quantity ?? 0) > 0 && !isNonMaterial(p));
+            const pickParts = parts.filter(p => (p.quantity ?? 0) > 0 && (includeLabour || !isNonMaterial(p)));
             const rows = pickParts.map((p, i) =>
               `<tr>
                 <td>${i + 1}</td>
