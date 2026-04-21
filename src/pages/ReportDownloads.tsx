@@ -147,7 +147,7 @@ export default function ReportDownloads() {
         `Job Reference: ${fullJob.reference_number || ""}`,
         `Customer: ${fullJob.customers?.name || ""}`,
         `Site: ${fullJob.sites?.name || ""}`,
-        `Completed: ${fullJob.completed_at || fullJob.created_at}`,
+        `Completed: ${fullJob.updated_at || fullJob.created_at}`,
         `Generated: ${new Date().toISOString()}`,
         "",
         `Files:`,
@@ -246,9 +246,9 @@ export default function ReportDownloads() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="font-medium">{j.reference_number}</span>
                       <Badge variant="secondary" className="text-[10px]">Completed</Badge>
-                      {j.completed_at && (
+                      {j.updated_at && (
                         <span className="text-xs text-muted-foreground">
-                          {new Date(j.completed_at).toLocaleDateString("en-GB")}
+                          {new Date(j.updated_at).toLocaleDateString("en-GB")}
                         </span>
                       )}
                     </div>
