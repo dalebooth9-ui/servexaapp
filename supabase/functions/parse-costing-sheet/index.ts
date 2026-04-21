@@ -54,8 +54,35 @@ async function fetchExcelText(
   const texts: string[] = [];
   for (const sheetName of wb.SheetNames) {
     const sheet = wb.Sheets[sheetName];
-    const csv = XLSX.utils.sheet_to_csv(sheet);
-    texts.push(`=== Sheet: ${sheetName} ===\n${csv}`);
+    // Convert to array-of-arrays so column positions are preserved exactly,
+    // then render as a fixed-width table with explicit column letters (A, B, C...)
+    // and 1-based row numbers. This prevents the AI from mis-aligning columns
+    // when cells are blank (which CSV silently collapses).
+    const aoa = XLSX.utils.sheet_to_json<any[]>(sheet, {
+      header: 1,
+      defval: "",
+      blankrows: false,
+      raw: true,
+    });
+    if (!aoa.length) continue;
+    const maxCols = aoa.reduce((m, r) => Math.max(m, r.length), 0);
+    const colLetters = Array.from({ length: maxCols }, (_, i) => {
+      let n = i, s = "";
+      do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
+      return s;
+    });
+    const lines: string[] = [];
+    lines.push(`=== Sheet: ${sheetName} (${aoa.length} rows x ${maxCols} cols) ===`);
+    lines.push(`Columns: ${colLetters.join(" | ")}`);
+    aoa.forEach((row, idx) => {
+      const cells = colLetters.map((L, i) => {
+        const v = row[i];
+        const s = v == null ? "" : String(v).replace(/\s+/g, " ").trim();
+        return `${L}=${s}`;
+      });
+      lines.push(`Row ${idx + 1}: ${cells.join(" | ")}`);
+    });
+    texts.push(lines.join("\n"));
   }
   return texts.join("\n\n");
 }
@@ -69,51 +96,56 @@ async function extractPartsAndDays(
 }> {
   if (!csvText.trim()) return { parts: [], allocated_days: null };
 
-  const prompt = `You are a precise data extraction assistant for a fire protection company.
+  const prompt = `You are a precise spreadsheet data extractor for a fire protection company's costing sheet.
 
-Below is CSV data converted from a costing/quote spreadsheet. Extract every materials/parts/labour line item with ACCURATE quantities and PER-UNIT prices.
+The data below is the FULL spreadsheet rendered with one row per line. Each cell is shown as
+"<COLUMN_LETTER>=<value>" so column positions are unambiguous (blank cells included).
 
-STEP 1 — IDENTIFY COLUMNS BEFORE EXTRACTING:
-Scan the first 30 rows to locate the header row. Map these column meanings:
-  • DESCRIPTION column — labelled "Description", "Item", "Material", "Part", or the leftmost text column
-  • QUANTITY column — labelled "Qty", "Quantity", "No.", "No. Off", "Nos", "Nr", "Units", or contains small whole numbers (1–500)
-  • UNIT COST column — labelled "Unit Cost", "Cost", "Cost ea", "Cost each", "Buy", "Net Cost"
-  • UNIT SELL column — labelled "Unit Price", "Sell", "Sell ea", "Rate", "Price", "Unit Sell"
-  • TOTAL/EXTENDED column — labelled "Total", "Extended", "Line Total", "Amount", "Sub Total" — usually the rightmost number column
+TASK: extract EVERY materials / parts / labour LINE ITEM with the EXACT quantity and PER-UNIT prices.
 
-Once mapped, USE THE SAME COLUMNS for every line. Do NOT swap meanings between rows.
+=== STEP 1 — Lock the column map (do this ONCE per sheet, then NEVER swap) ===
+Find the header row (usually within the first 30 rows). Identify exactly which column letter
+holds each of these meanings — write them down mentally before extracting any data:
+  • DESC_COL — labelled "Description", "Item", "Material", "Part", or the leftmost text column with item names
+  • QTY_COL — labelled "Qty", "Quantity", "No.", "No. Off", "Nos", "Nr", "Units", "Off"
+  • UNIT_COST_COL — labelled "Unit Cost", "Cost", "Cost ea", "Cost each", "Buy", "Net Cost", "Cost £"
+  • UNIT_SELL_COL — labelled "Unit Price", "Sell", "Sell ea", "Rate", "Price", "Unit Sell", "Sell £"
+  • TOTAL_COL — labelled "Total", "Extended", "Line Total", "Amount", "Sub Total", "Total £"
 
-STEP 2 — APPLY THESE RULES PER LINE:
-- Quantities are WHOLE NUMBERS of physical items (e.g. 4, 8, 16). NEVER use 1 as a fallback if the cell has a real number — read it carefully.
-- If the quantity column is genuinely empty for a line, return null (system defaults to 1).
-- If the spreadsheet shows quantity 0, return 0 (do NOT change to 1).
-- unit_cost and sell_price are ALWAYS per ONE unit, never the line total.
-- If only a Total column exists: per_unit = total ÷ quantity.
-- Cross-check: quantity × unit_cost should approximately equal the Total column. If wildly off, you've mis-read a column — re-map and try again.
-- Strip £, $, commas, and spaces from numbers (e.g. "1,234.50" → 1234.50). Output raw numbers, NO thousands separators.
-- Skip header rows, total/subtotal rows, VAT rows, blank rows, and section headings (e.g. "MATERIALS", "LABOUR").
-- Extract EVERY line item — do not stop early. If there are 50 line items, return 50.
+Once you have these column letters, EVERY line item MUST read its quantity from QTY_COL and its
+per-unit price from UNIT_COST_COL / UNIT_SELL_COL. Do NOT guess from value ranges.
 
-EXAMPLES:
-- Row "Flanges, 4, £14.50, £58.00" → quantity=4, unit_cost=14.50, sell_price=14.50
-- Row "Labour, 8, £750, £6000" → quantity=8, unit_cost=750, sell_price=750
-- Row "Pipe 4 galv, 17, , 12.30, 209.10" → quantity=17, unit_cost=0, sell_price=12.30
+=== STEP 2 — Per-line rules ===
+- quantity = the raw number in QTY_COL for that row. Whole numbers (1, 4, 8, 17, 100…). DO NOT default to 1
+  if a real number is present. Only return null if QTY_COL is genuinely empty for that row.
+- If QTY_COL shows 0, return 0 (do NOT bump to 1).
+- unit_cost / sell_price are ALWAYS per single unit, never the line total.
+- If only TOTAL_COL exists (no per-unit column): per_unit = total ÷ quantity.
+- SANITY CHECK every line: quantity × unit_cost should be within 1% of TOTAL_COL.
+  If it isn't, you have read the wrong column — re-check the column map and try again BEFORE outputting.
+- Strip £, $, commas, spaces from numbers ("1,234.50" → 1234.50). No thousands separators in output.
+- Skip: header rows, blank rows, section titles ("MATERIALS", "LABOUR"), subtotal/total/VAT rows,
+  rows where DESC_COL is empty.
+- Extract EVERY data row. If there are 50, return 50.
 
-ALSO EXTRACT:
-- allocated_days: number of days on site / labour days. Look for "Days on site", "Allocated days", "Labour days", "Installation days", or sum the day-quantities of labour rows.
+=== STEP 3 — Allocated days ===
+Find labour days on site. Look for "Days on site", "Allocated days", "Labour days",
+"Installation days", or sum the day-quantities of labour rows.
 
-Respond with ONLY valid JSON (no markdown, no commentary):
+=== Output ===
+Respond with ONLY valid JSON, no markdown, no commentary:
 {
+  "column_map": {"desc": "B", "qty": "D", "unit_cost": "E", "unit_sell": "F", "total": "G"},
   "parts": [
     {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "unit_cost": 145.00, "sell_price": 195.00}
   ],
   "allocated_days": 3
 }
 
-If no days found, use null. If no parts found, use empty array.
+(column_map is for your own discipline — include it so you commit to one mapping.)
 
-CSV data (full sheet — read it all):
-${csvText.slice(0, 40000)}`;
+=== Spreadsheet data ===
+${csvText.slice(0, 60000)}`;
 
   const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -125,6 +157,7 @@ ${csvText.slice(0, 40000)}`;
       model: "google/gemini-2.5-pro",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 16000,
+      temperature: 0,
     }),
   });
 
