@@ -59,11 +59,11 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // Viva brand colours (matches RAMS / job sheets)
   // Viva logo blue (brighter, matches the flame mark)
-  const VIVA_NAVY: [number, number, number] = [29, 91, 165];
+  const VIVA_NAVY: [number, number, number] = [30, 174, 232];
   const VIVA_DARK: [number, number, number] = [33, 37, 41];
   const VIVA_GREY: [number, number, number] = [110, 117, 125];
   const VIVA_BORDER: [number, number, number] = [200, 200, 200];
-  const VIVA_NAVY_TINT: [number, number, number] = [229, 238, 250];
+  const VIVA_NAVY_TINT: [number, number, number] = [230, 245, 252];
 
   let y = 32;
 
