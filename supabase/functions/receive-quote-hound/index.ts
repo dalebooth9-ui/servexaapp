@@ -568,12 +568,22 @@ serve(async (req) => {
     const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
-    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? body.excelUrl
+    let excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? body.excelUrl
       ?? quote.costing_sheet_url ?? quote.costingSheetUrl ?? body.costing_sheet_url
       ?? quote.costing_url ?? quote.costingUrl ?? body.costing_url
       ?? quote.spreadsheet_url ?? quote.spreadsheetUrl ?? body.spreadsheet_url
       ?? quote.materials_url ?? quote.materialsUrl ?? body.materials_url
       ?? null;
+    // The Mellor must send a full signed URL (https://...). If they send only a
+    // relative storage path we cannot fetch it from their private bucket, so log
+    // a clear warning and drop the value to avoid storing a broken URL on the job.
+    if (excelUrl && typeof excelUrl === "string" && !/^https?:\/\//i.test(excelUrl)) {
+      console.warn(
+        `[receive-quote-hound] Costing sheet URL is a relative path ("${excelUrl}") — ` +
+        `The Mellor must send a full signed https URL for parts extraction to work. Skipping.`
+      );
+      excelUrl = null;
+    }
     const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
     const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
     // Log all top-level keys in the payload to help debug missing fields
