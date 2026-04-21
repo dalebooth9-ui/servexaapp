@@ -42,9 +42,9 @@ export default function ReportDownloads() {
     (async () => {
       const { data, error } = await supabase
         .from("jobs")
-        .select("id, reference_number, name, completed_at, created_at, customers(name), sites(name)")
+        .select("id, reference_number, name, updated_at, created_at, customers(name), sites(name)")
         .eq("status", "completed")
-        .order("completed_at", { ascending: false, nullsFirst: false })
+        .order("updated_at", { ascending: false })
         .limit(500);
       if (error) {
         toast({ title: "Failed to load jobs", description: error.message, variant: "destructive" });
