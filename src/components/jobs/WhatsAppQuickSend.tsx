@@ -160,9 +160,19 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
 
   const lastEngineerKey = `whatsappQuickSend:${currentUserId}:lastEngineer:${jobId}`;
   const lastStepKey = `whatsappQuickSend:${currentUserId}:lastStep:${jobId}`;
+  const lastAttachmentsKey = `whatsappQuickSend:${currentUserId}:lastAttachments:${jobId}`;
   // Legacy (pre-user-scoping) keys — migrated/cleaned on first read
   const legacyEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
   const legacyStepKey = `whatsappQuickSend:lastStep:${jobId}`;
+
+  const persistAttachments = (pdf: boolean, photoIds: Set<string>) => {
+    try {
+      localStorage.setItem(
+        lastAttachmentsKey,
+        JSON.stringify({ includePdf: pdf, photoIds: Array.from(photoIds) }),
+      );
+    } catch {}
+  };
 
   const isValidStep = (v: string | null): v is Step =>
     v === "compose" || v === "preview" || v === "attachments";
