@@ -178,9 +178,14 @@ ${csvText.slice(0, 60000)}`;
   const parts = (Array.isArray(parsed.parts) ? parsed.parts : [])
     .filter((p: any) => p?.name && typeof p.name === "string" && p.name.trim().length > 0)
     .map((p: any) => {
-      // Only default to 1 if quantity is genuinely absent (null/undefined), not if it's 0
+      // Quantity 0 must be preserved exactly. Only treat truly missing values
+      // (null/undefined/"") as 0 — never default to 1, since the spreadsheet
+      // explicitly shows 0 for unused line items.
       const rawQty = p.quantity;
-      const qty = rawQty == null || rawQty === "" ? 1 : Math.max(Number(rawQty) || 0, 0);
+      const qty =
+        rawQty == null || rawQty === ""
+          ? 0
+          : Math.max(Number(rawQty) || 0, 0);
       return {
         name: String(p.name).trim(),
         quantity: qty,
