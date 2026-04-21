@@ -129,7 +129,14 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       loaded = (profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id }));
     }
     setEngineers(loaded);
-    setSelectedEngineer((current) => (current && loaded.some((e) => e.id === current) ? current : ""));
+    setSelectedEngineer((current) => {
+      const valid = current && loaded.some((e) => e.id === current) ? current : "";
+      if (!valid) {
+        setStep("compose");
+        try { localStorage.setItem(lastStepKey, "compose"); } catch {}
+      }
+      return valid;
+    });
     setLoadingEngineers(false);
   };
 
