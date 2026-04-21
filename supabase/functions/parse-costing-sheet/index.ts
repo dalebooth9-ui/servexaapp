@@ -157,6 +157,7 @@ ${csvText.slice(0, 60000)}`;
       model: "google/gemini-2.5-pro",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 16000,
+      temperature: 0,
     }),
   });
 
