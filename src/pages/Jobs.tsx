@@ -1478,6 +1478,44 @@ export default function Jobs() {
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
+          {pendingReviewJobs.length > 0 && (
+            <div className="mb-4 rounded-lg border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-600 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-yellow-900 dark:text-yellow-200">
+                <span className="inline-block h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                Pending Review ({pendingReviewJobs.length})
+              </div>
+              <div className="space-y-1.5">
+                {pendingReviewJobs.map((j) => (
+                  <div
+                    key={j.id}
+                    className="flex items-center justify-between gap-3 rounded-md bg-background border border-yellow-300 dark:border-yellow-700 px-3 py-2"
+                  >
+                    <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0 flex items-center gap-2 hover:underline">
+                      <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
+                      <span className="text-sm font-medium truncate">{j.name}</span>
+                      <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                        {getCustomerName(j) || "Unassigned"}
+                      </span>
+                      {j.source && (
+                        <Badge variant="outline" className="border-orange-400 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300 text-[10px] h-4 px-1.5">
+                          {j.source}
+                        </Badge>
+                      )}
+                    </Link>
+                    {isAdmin && (
+                      <Button
+                        size="sm"
+                        className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
+                        onClick={() => handleApproveJob(j.id)}
+                      >
+                        Approve
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <Accordion type="multiple" value={openFolders} onValueChange={setOpenFolders} className="space-y-3">
             {customerNames.map((customerName) => (
               <DroppableCustomerFolder
