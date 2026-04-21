@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
@@ -82,6 +83,7 @@ export default function Jobs() {
   const [renameValue, setRenameValue] = useState("");
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState("");
   const [bulkPriorityValue, setBulkPriorityValue] = useState("");
@@ -257,6 +259,18 @@ export default function Jobs() {
     } else {
       setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: "active" } : j)));
       toast({ title: "Job approved", description: "Status set to Active." });
+    }
+  };
+
+  const handleBulkApprovePending = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    const { error } = await supabase.from("jobs").update({ status: "active" } as any).in("id", ids);
+    if (error) {
+      toast({ title: "Error", description: "Failed to approve jobs.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.map((j) => (ids.includes(j.id) ? { ...j, status: "active" } : j)));
+      toast({ title: `${ids.length} job(s) approved`, description: "Status set to Active." });
+      setSelectedPendingIds(new Set());
     }
   };
 
@@ -1480,9 +1494,45 @@ export default function Jobs() {
         >
           {pendingReviewJobs.length > 0 && (
             <div className="mb-4 rounded-lg border-2 border-yellow-400 bg-yellow-50 dark:bg-yellow-950/30 dark:border-yellow-600 p-3 space-y-2">
-              <div className="flex items-center gap-2 text-sm font-semibold text-yellow-900 dark:text-yellow-200">
-                <span className="inline-block h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
-                Pending Review ({pendingReviewJobs.length})
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 text-sm font-semibold text-yellow-900 dark:text-yellow-200">
+                  <span className="inline-block h-2 w-2 rounded-full bg-yellow-500 animate-pulse" />
+                  Pending Review ({pendingReviewJobs.length})
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-xs text-yellow-900 dark:text-yellow-200 cursor-pointer">
+                      <Checkbox
+                        checked={selectedPendingIds.size === pendingReviewJobs.length && pendingReviewJobs.length > 0}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedPendingIds(new Set(pendingReviewJobs.map((j) => j.id)));
+                          else setSelectedPendingIds(new Set());
+                        }}
+                      />
+                      Select all
+                    </label>
+                    {selectedPendingIds.size > 0 && (
+                      <>
+                        <span className="text-xs text-yellow-900 dark:text-yellow-200">{selectedPendingIds.size} selected</span>
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white h-7 px-3"
+                          onClick={() => handleBulkApprovePending(Array.from(selectedPendingIds))}
+                        >
+                          Approve selected
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-7 px-2 text-xs"
+                          onClick={() => setSelectedPendingIds(new Set())}
+                        >
+                          Clear
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 {pendingReviewJobs.map((j) => (
@@ -1490,6 +1540,19 @@ export default function Jobs() {
                     key={j.id}
                     className="flex items-center justify-between gap-3 rounded-md bg-background border border-yellow-300 dark:border-yellow-700 px-3 py-2"
                   >
+                    {isAdmin && (
+                      <Checkbox
+                        checked={selectedPendingIds.has(j.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedPendingIds((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(j.id);
+                            else next.delete(j.id);
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
                     <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0 flex items-center gap-2 hover:underline">
                       <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
                       <span className="text-sm font-medium truncate">{j.name}</span>
