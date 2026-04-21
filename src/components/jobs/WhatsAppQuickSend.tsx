@@ -302,7 +302,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
               <p className="text-sm text-muted-foreground">No engineers assigned to this job.</p>
             ) : step === "compose" ? (
               <>
-                <Select value={selectedEngineer} onValueChange={setSelectedEngineer}>
+                <Select value={selectedEngineer} onValueChange={(v) => { setSelectedEngineer(v); persistEngineer(v); }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select engineer" />
                   </SelectTrigger>
