@@ -40,9 +40,42 @@ interface JobPart {
 }
 
 // Shared helper — keep in sync with planner worksheet export
+// Identifies non-material cost lines (labour time, daily profit/markup, day rates).
+// Designed to be conservative: only matches names that are clearly labour/profit
+// entries, not material parts that happen to contain a similar word
+// (e.g. "Labour-saving bracket", "Profile rail", "Day tank sensor").
 export function isLabourOrProfitPart(name: string | null | undefined): boolean {
-  const n = (name || "").toLowerCase();
-  return /\b(labour|labor|daily\s*profit|profit|day\s*rate|day-rate|man\s*day|days?\s*on\s*site)\b/.test(n);
+  const raw = (name || "").trim().toLowerCase();
+  if (!raw) return false;
+
+  // Normalise punctuation so "labour:", "labour -", "labour/profit" all behave the same.
+  const n = raw.replace(/[._/\-:|]+/g, " ").replace(/\s+/g, " ").trim();
+
+  // 1. Exact / leading labels commonly used on costing sheets.
+  //    Examples covered:
+  //      "Labour", "Labour cost", "Labour charge", "Labour hours",
+  //      "Engineer labour", "Site labour", "Sub-contract labour",
+  //      "Labor", "Labor (hrs)"
+  if (/^(sub[\s-]*contract\s+|engineer\s+|site\s+|on[\s-]*site\s+|install(?:ation)?\s+|electrician\s+|fitter\s+|mate\s+|apprentice\s+)?labou?r\b/.test(n)) {
+    return true;
+  }
+
+  // 2. Profit / margin / markup lines.
+  //    Examples: "Daily profit", "Profit", "Profit margin", "Markup",
+  //              "Margin", "Gross profit", "Overhead & profit"
+  if (/^(daily\s+|gross\s+|net\s+|overhead\s+(?:and|&)\s+)?profit\b/.test(n)) return true;
+  if (/\bprofit\s+(margin|markup|uplift|%)\b/.test(n)) return true;
+  if (/^(mark[\s-]*up|margin|uplift)\b/.test(n)) return true;
+
+  // 3. Day-rate / man-day style entries.
+  //    Examples: "Day rate", "Daily rate", "Half day rate",
+  //              "Man day", "Man days", "1 man day", "2no man days",
+  //              "Days on site", "Day on site"
+  if (/^(half\s+|full\s+)?(day|daily)\s+rate\b/.test(n)) return true;
+  if (/\b\d*\s*(no\.?\s*)?man\s+days?\b/.test(n)) return true;
+  if (/\bdays?\s+on\s+site\b/.test(n)) return true;
+
+  return false;
 }
 
 // Inline add row shown between parts
