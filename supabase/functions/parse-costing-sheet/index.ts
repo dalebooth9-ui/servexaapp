@@ -91,7 +91,7 @@ async function extractPartsAndDays(
   csvText: string,
   lovableApiKey: string,
 ): Promise<{
-  parts: Array<{ name: string; quantity: number; unit_cost: number; sell_price: number }>;
+  parts: Array<{ name: string; quantity: number; unit_cost: number; sell_price: number; china_cost: number; uk_cost: number }>;
   allocated_days: number | null;
 }> {
   if (!csvText.trim()) return { parts: [], allocated_days: null };
