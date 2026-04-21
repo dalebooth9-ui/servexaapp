@@ -176,6 +176,40 @@ export default function JobApprovalAuditLog() {
             <SelectItem value="rejected">Rejected only</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant="outline"
+          size="default"
+          onClick={() => {
+            const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
+            const rows = visible.map((row) => {
+              const kind = classify(row.details);
+              const reason =
+                extractReason(row.details) ||
+                (kind === "rejected" ? row.job?.rejection_reason ?? "" : "");
+              return [
+                format(new Date(row.created_at), "yyyy-MM-dd HH:mm:ss"),
+                kind === "approved" ? "Approved" : "Rejected",
+                row.job?.reference_number || "",
+                row.job?.name || "",
+                row.actor?.full_name || "Unknown",
+                reason || "",
+              ];
+            });
+            const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+            const csv = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
+            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `audit-log-${format(new Date(), "yyyy-MM-dd")}.csv`;
+            a.click();
+            URL.revokeObjectURL(url);
+          }}
+          disabled={visible.length === 0}
+        >
+          <Download className="h-4 w-4" />
+          Export CSV ({visible.length})
+        </Button>
       </div>
 
       <Card>
