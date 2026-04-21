@@ -57,50 +57,56 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.addImage(logoBase64, fmt, pw / 2 - 28, 8, 56, 20);
   } catch {}
 
-  let y = 34;
+  // Viva brand colours
+  const VIVA_RED: [number, number, number] = [196, 30, 38];
+  const VIVA_DARK: [number, number, number] = [33, 37, 41];
+  const VIVA_GREY: [number, number, number] = [110, 117, 125];
+  const VIVA_BORDER: [number, number, number] = [200, 200, 200];
+  const VIVA_RED_TINT: [number, number, number] = [252, 232, 233];
 
-  // ── Title ─────────────────────────────────────────────────────────────
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 80, 80);
-  doc.text("Wet & Dry Riser Specialists", pw / 2, y, { align: "center" });
-  y += 6;
+  let y = 32;
 
-  doc.setFontSize(15);
+  // ── Title bar (Viva red) ──────────────────────────────────────────────
+  doc.setFillColor(...VIVA_RED);
+  doc.rect(ml, y, cw, 11, "F");
+  doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(20, 20, 20);
-  doc.text("Dry Riser System Pre-start Check List", pw / 2, y, { align: "center" });
-  y += 4;
+  doc.setTextColor(255, 255, 255);
+  doc.text("DRY RISER SYSTEM — PRE-START CHECK LIST", pw / 2, y + 7.2, { align: "center" });
+  y += 11;
 
-  doc.setDrawColor(20, 20, 20);
-  doc.setLineWidth(0.6);
-  doc.line(ml, y, mr, y);
-  y += 6;
+  doc.setFillColor(...VIVA_DARK);
+  doc.rect(ml, y, cw, 4.5, "F");
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
+  doc.text("WET & DRY RISER SPECIALISTS", pw / 2, y + 3.2, { align: "center" });
+  y += 4.5 + 4;
 
   // ── Contract details table ─────────────────────────────────────────────
   const halfW = cw / 2;
   doc.setLineWidth(0.3);
-  doc.setDrawColor(160, 160, 160);
+  doc.setDrawColor(...VIVA_BORDER);
 
-  // Row: Contract No. | Contract Name
   const rowH = 9;
-  doc.rect(ml, y, halfW, rowH);
-  doc.rect(ml + halfW, y, halfW, rowH);
-  doc.setFontSize(7.5);
+  doc.setFillColor(248, 248, 248);
+  doc.rect(ml, y, halfW, rowH, "FD");
+  doc.rect(ml + halfW, y, halfW, rowH, "FD");
+  doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(80, 80, 80);
-  doc.text("Contract No.", ml + 2, y + 3.5);
-  doc.text("Contract Name", ml + halfW + 2, y + 3.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(20, 20, 20);
+  doc.setTextColor(...VIVA_GREY);
+  doc.text("CONTRACT NO.", ml + 2, y + 3.2);
+  doc.text("CONTRACT NAME", ml + halfW + 2, y + 3.2);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...VIVA_DARK);
   doc.setFontSize(9);
   const ref = jobInfo?.reference_number || "";
   const contractName = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.name || "";
   doc.text(ref, ml + 2, y + 7.5);
   doc.text(contractName, ml + halfW + 2, y + 7.5);
-  y += rowH + 5;
+  y += rowH + 3;
 
-  // ── Site address ─────────────────────────────────────────────────────
+  // ── Site address row ─────────────────────────────────────────────────
   const siteAddr = [
     jobInfo?.site?.name,
     jobInfo?.site?.address || jobInfo?.address,
@@ -108,65 +114,77 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   ].filter(Boolean).join(", ");
 
   if (siteAddr) {
-    doc.setFontSize(8);
+    doc.setFillColor(248, 248, 248);
+    doc.rect(ml, y, cw, 7, "FD");
+    doc.setFontSize(7);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(80, 80, 80);
-    doc.text("Site:", ml, y);
+    doc.setTextColor(...VIVA_GREY);
+    doc.text("SITE", ml + 2, y + 3);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(20, 20, 20);
-    const addrLines = doc.splitTextToSize(siteAddr, cw - 12);
-    doc.text(addrLines, ml + 10, y);
-    y += addrLines.length * 4.5 + 4;
+    doc.setTextColor(...VIVA_DARK);
+    doc.setFontSize(8.5);
+    const addrLines = doc.splitTextToSize(siteAddr, cw - 18);
+    doc.text(addrLines, ml + 16, y + 4.5);
+    y += Math.max(7, addrLines.length * 4 + 2) + 4;
   }
 
-  // ── Section helper ─────────────────────────────────────────────────────
+  // ── Section helpers ───────────────────────────────────────────────────
   const sectionHeader = (title: string) => {
-    doc.setFillColor(30, 30, 30);
-    doc.rect(ml, y, cw, 6, "F");
-    doc.setFontSize(9);
+    doc.setFillColor(...VIVA_RED);
+    doc.rect(ml, y, cw, 5.5, "F");
+    doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(title, ml + 2, y + 4.2);
-    doc.setTextColor(20, 20, 20);
-    y += 6;
+    doc.text(title.toUpperCase(), ml + 2, y + 3.9);
+    y += 5.5;
   };
 
+  let altRow = false;
   const checkRow = (label: string, tall = false) => {
-    const h = tall ? 14 : 7;
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.25);
-    // Check box
-    doc.rect(ml, y, 10, h);
-    doc.setFontSize(7);
+    const h = tall ? 11 : 6;
+    if (altRow) {
+      doc.setFillColor(...VIVA_RED_TINT);
+      doc.rect(ml, y, cw, h, "F");
+    }
+    altRow = !altRow;
+    doc.setDrawColor(...VIVA_BORDER);
+    doc.setLineWidth(0.2);
+    doc.rect(ml, y, 11, h);
+    doc.setFontSize(6.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...VIVA_RED);
+    doc.text("CHECK &", ml + 1.2, y + (tall ? 4 : 2.6));
+    doc.text("INITIAL", ml + 1.2, y + (tall ? 7.5 : 5));
+    doc.rect(ml + 11, y, cw - 11, h);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(80, 80, 80);
-    doc.text("Check &", ml + 1, y + (tall ? 4 : 2.8));
-    doc.text("Initial", ml + 1, y + (tall ? 8 : 5.5));
-    // Label cell
-    doc.rect(ml + 10, y, cw - 10, h);
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(20, 20, 20);
-    const labelLines = doc.splitTextToSize(label, cw - 14);
-    doc.text(labelLines, ml + 12, y + (tall ? 4 : 4));
+    doc.setTextColor(...VIVA_DARK);
+    const labelLines = doc.splitTextToSize(label, cw - 15);
+    doc.text(labelLines, ml + 13, y + (tall ? 4 : 3.8));
     y += h;
   };
 
-  const freeTextRow = (label: string, rowCount = 1) => {
-    const h = 6 * rowCount;
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.25);
+  const freeTextRow = (label: string) => {
+    const h = 9;
+    if (altRow) {
+      doc.setFillColor(...VIVA_RED_TINT);
+      doc.rect(ml, y, cw, h, "F");
+    }
+    altRow = !altRow;
+    doc.setDrawColor(...VIVA_BORDER);
+    doc.setLineWidth(0.2);
     doc.rect(ml, y, cw, h);
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(20, 20, 20);
-    doc.text(label, ml + 2, y + 4.5);
+    doc.setTextColor(...VIVA_DARK);
+    const labelLines = doc.splitTextToSize(label, cw - 4);
+    doc.text(labelLines, ml + 2, y + 3.6);
     y += h;
   };
 
   // ── PRE-START REQUIREMENTS ─────────────────────────────────────────────
+  altRow = false;
   sectionHeader("Pre-start requirements");
-
   checkRow("Is the inlet (external) cabinet opening formed 605mm (H) × 405mm (W) × 300mm (D)?");
   checkRow("The bottom edge of the opening needs to be between 400–600mm above external FFL");
   checkRow("If no to question 1 please send external wall details/drawings to info@vivafire.co.uk");
@@ -176,89 +194,78 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   checkRow("What is the pipe centre off the finished floor of the horizontal pipe run?", true);
   checkRow("Are all routes clear of materials and scaffolds to allow access?");
   checkRow("Please send images of core holes and pipe run route when returning checklist.");
-
-  y += 3;
+  y += 2.5;
 
   // ── TESTING / COMMISSIONING ────────────────────────────────────────────
+  altRow = false;
   sectionHeader("Testing / Commissioning");
-
-  const tcItems = [
-    "Is water available on site close to the inlet locations?",
-    "Can the testing vehicle get within 10m of the inlet locations?",
-    "Are there any restrictions on commissioning between 8am – 16:00pm? *",
-    "Will an extra commissioning test be required for building control to witness?\n(If so there will be an extra charge of £150 per system)",
-  ];
-  tcItems.forEach((item) => checkRow(item, item.includes("\n")));
-
-  y += 3;
+  checkRow("Is water available on site close to the inlet locations?");
+  checkRow("Can the testing vehicle get within 10m of the inlet locations?");
+  checkRow("Are there any restrictions on commissioning between 8am – 16:00pm? *");
+  checkRow("Will an extra commissioning test be required for building control to witness? (If so there will be an extra charge of £150 per system)", true);
+  y += 2.5;
 
   // ── ACCOUNTS DETAILS ──────────────────────────────────────────────────
+  altRow = false;
   sectionHeader("Accounts Details");
-
-  const accountItems = [
-    "We work on 30-day EOM payment terms – please state if your payment terms differ.",
+  [
+    "We work on 30-day EOM payment terms — please state if your payment terms differ.",
     "Do you work on an application or invoice basis?",
     "Please give details of VAT on this project. (e.g. reverse charge / zero rated)",
-    "Is retention applicable on this project – if so what percentage?",
+    "Is retention applicable on this project — if so what percentage?",
     "When is the deadline for our application / invoice to be submitted?",
     "Please provide the email address and contact for our application / invoice to be sent to.",
     "Please provide your accounts address for any queries.",
-  ];
-  accountItems.forEach((item) => freeTextRow(item, 2));
+  ].forEach((item) => freeTextRow(item));
 
   y += 4;
 
-  // ── Comments box ──────────────────────────────────────────────────────
-  const commentsAvail = Math.min(ph - y - 52, 28);
-  if (commentsAvail > 8) {
-    doc.setFontSize(8.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(20, 20, 20);
-    doc.text("Comments:", ml, y + 4);
-    doc.setDrawColor(180, 180, 180);
-    doc.setLineWidth(0.25);
-    doc.rect(ml, y + 5, cw, commentsAvail);
-    y += commentsAvail + 7;
-  }
-
   // ── BS note ──────────────────────────────────────────────────────────
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "bolditalic");
-  doc.setTextColor(40, 40, 40);
-  const bsNote = "*Testing is carried out in accordance with BS 9990:2015 and comprises a visual inspection of the entire system, a hydraulic pressure test to 12 Bar at the inlet, for 15 minutes.";
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(...VIVA_GREY);
+  const bsNote = "*Testing is carried out in accordance with BS 9990:2015 and comprises a visual inspection of the entire system and a hydraulic pressure test to 12 Bar at the inlet for 15 minutes.";
   const bsLines = doc.splitTextToSize(bsNote, cw);
   doc.text(bsLines, ml, y);
-  y += bsLines.length * 4 + 4;
+  y += bsLines.length * 3.4 + 4;
 
-  // ── Sign-off line ─────────────────────────────────────────────────────
-  const sigY = ph - 46;
-  doc.setFontSize(8.5);
+  // ── Sign-off line (anchored above footer) ─────────────────────────────
+  const sigY = ph - 30;
+  doc.setDrawColor(...VIVA_DARK);
+  doc.setLineWidth(0.3);
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...VIVA_DARK);
+  doc.text("Signed:", ml, sigY);
+  doc.line(ml + 14, sigY + 0.5, ml + 70, sigY + 0.5);
+  doc.text("Print Name:", ml + 76, sigY);
+  doc.line(ml + 96, sigY + 0.5, ml + 145, sigY + 0.5);
+  doc.text("Date:", ml + 151, sigY);
+  doc.line(ml + 161, sigY + 0.5, mr, sigY + 0.5);
+
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(20, 20, 20);
-  doc.text("Signed _______________________________   Print _______________________________   Date: _______________", ml, sigY);
-
-  // ── Accounts contact ─────────────────────────────────────────────────
-  doc.setFontSize(7.5);
-  doc.setTextColor(80, 80, 80);
+  doc.setTextColor(...VIVA_GREY);
   doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, sigY + 6, { align: "center" });
 
   // ── Accreditation logos & footer ──────────────────────────────────────
-  const footerY = ph - 18;
-  const logoH = 12;
-  renderAccreditationLogos(doc, logos, footerY - logoH - 4, logoH);
+  const footerY = ph - 14;
+  const logoH = 10;
+  renderAccreditationLogos(doc, logos, footerY - logoH - 3, logoH);
 
-  doc.setDrawColor(30, 30, 30);
-  doc.setLineWidth(0.4);
-  doc.line(ml, footerY - 2, mr, footerY - 2);
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 80, 80);
+  doc.setFillColor(...VIVA_RED);
+  doc.rect(ml, footerY - 1, cw, 0.8, "F");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...VIVA_DARK);
   doc.text(
-    "Viva Fire Protection Limited, Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ",
-    pw / 2, footerY + 2, { align: "center" }
+    "Viva Fire Protection Limited  ·  Unit 1 Lady Road, St Johns Industrial Estate, Lees, Oldham OL4 3DZ",
+    pw / 2, footerY + 3, { align: "center" }
   );
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...VIVA_GREY);
   doc.text(
-    "Company Reg No: 06464084   Tel: 0845 269 8482   sales@vivafire.co.uk   www.vivafire.co.uk",
+    "Company Reg No: 06464084  ·  Tel: 0845 269 8482  ·  sales@vivafire.co.uk  ·  www.vivafire.co.uk",
     pw / 2, footerY + 7, { align: "center" }
   );
 
