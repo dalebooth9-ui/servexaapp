@@ -71,35 +71,38 @@ async function extractPartsAndDays(
 
   const prompt = `You are a precise data extraction assistant for a fire protection company.
 
-Below is CSV data from a costing/quote spreadsheet. Your job is to extract materials/parts/labour line items with ACCURATE quantities and PER-UNIT prices.
+Below is CSV data converted from a costing/quote spreadsheet. Extract every materials/parts/labour line item with ACCURATE quantities and PER-UNIT prices.
 
-CRITICAL RULES FOR QUANTITY EXTRACTION:
-- The quantity column is typically labelled "Qty", "No.", "No. Off", "Quantity", "Nos", "Nr" or similar
-- Quantities are WHOLE NUMBERS of physical items (e.g. 4, 8, 16, 32)
-- DO NOT confuse quantity with unit cost, sell price, or total price columns
-- If a row shows: "Flanges | 4 | £14.50 | £58.00" → quantity=4, unit_cost=14.50, sell_price=14.50 (per unit)
-- If a row shows: "Labour | 8 days | £750 | £6,000 total" → quantity=8, unit_cost=750, sell_price=750 (per unit, NOT 6000)
-- The total/extended price column = quantity × unit_cost. Use this to cross-check columns.
-- IMPORTANT: If the quantity cell is blank or genuinely absent, use null (NOT 1) — the system will default to 1 for null
-- IMPORTANT: If the spreadsheet shows a quantity of 0, return 0. Do NOT change 0 to 1.
-- Use the total ÷ unit_cost cross-check to infer the correct quantity when the quantity column is unclear
+STEP 1 — IDENTIFY COLUMNS BEFORE EXTRACTING:
+Scan the first 30 rows to locate the header row. Map these column meanings:
+  • DESCRIPTION column — labelled "Description", "Item", "Material", "Part", or the leftmost text column
+  • QUANTITY column — labelled "Qty", "Quantity", "No.", "No. Off", "Nos", "Nr", "Units", or contains small whole numbers (1–500)
+  • UNIT COST column — labelled "Unit Cost", "Cost", "Cost ea", "Cost each", "Buy", "Net Cost"
+  • UNIT SELL column — labelled "Unit Price", "Sell", "Sell ea", "Rate", "Price", "Unit Sell"
+  • TOTAL/EXTENDED column — labelled "Total", "Extended", "Line Total", "Amount", "Sub Total" — usually the rightmost number column
 
-CRITICAL RULES FOR PRICES — ALWAYS PER UNIT:
-- unit_cost and sell_price MUST be the price for ONE unit/item, never the total
-- If the sheet shows a "Total" or "Extended" column, that is quantity × unit price — do NOT use it as sell_price
-- To get per-unit sell price from a total: sell_price_per_unit = total_sell ÷ quantity
-- Example: 8 days labour, total sell £6,000 → sell_price = £6,000 ÷ 8 = £750 per day
+Once mapped, USE THE SAME COLUMNS for every line. Do NOT swap meanings between rows.
 
-EXTRACTION RULES:
-- Extract ALL line items: materials, components, fittings, labour, services
-- Skip header rows, total/subtotal rows, VAT rows, blank rows, section headings
-- Strip £ symbols and commas from costs. Use 0 if cost genuinely absent.
-- Keep descriptions concise but complete
+STEP 2 — APPLY THESE RULES PER LINE:
+- Quantities are WHOLE NUMBERS of physical items (e.g. 4, 8, 16). NEVER use 1 as a fallback if the cell has a real number — read it carefully.
+- If the quantity column is genuinely empty for a line, return null (system defaults to 1).
+- If the spreadsheet shows quantity 0, return 0 (do NOT change to 1).
+- unit_cost and sell_price are ALWAYS per ONE unit, never the line total.
+- If only a Total column exists: per_unit = total ÷ quantity.
+- Cross-check: quantity × unit_cost should approximately equal the Total column. If wildly off, you've mis-read a column — re-map and try again.
+- Strip £, $, commas, and spaces from numbers (e.g. "1,234.50" → 1234.50). Output raw numbers, NO thousands separators.
+- Skip header rows, total/subtotal rows, VAT rows, blank rows, and section headings (e.g. "MATERIALS", "LABOUR").
+- Extract EVERY line item — do not stop early. If there are 50 line items, return 50.
+
+EXAMPLES:
+- Row "Flanges, 4, £14.50, £58.00" → quantity=4, unit_cost=14.50, sell_price=14.50
+- Row "Labour, 8, £750, £6000" → quantity=8, unit_cost=750, sell_price=750
+- Row "Pipe 4 galv, 17, , 12.30, 209.10" → quantity=17, unit_cost=0, sell_price=12.30
 
 ALSO EXTRACT:
-- The number of allocated days / days on site. Look for "Days on site", "Allocated days", "Labour days", "Installation days", or labour rows with day quantities.
+- allocated_days: number of days on site / labour days. Look for "Days on site", "Allocated days", "Labour days", "Installation days", or sum the day-quantities of labour rows.
 
-Respond with ONLY valid JSON (no markdown, no explanation), in this exact format:
+Respond with ONLY valid JSON (no markdown, no commentary):
 {
   "parts": [
     {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "unit_cost": 145.00, "sell_price": 195.00}
@@ -107,10 +110,10 @@ Respond with ONLY valid JSON (no markdown, no explanation), in this exact format
   "allocated_days": 3
 }
 
-If no days found, use null for allocated_days. If no parts found, use empty array.
+If no days found, use null. If no parts found, use empty array.
 
-CSV data:
-${csvText.slice(0, 10000)}`;
+CSV data (full sheet — read it all):
+${csvText.slice(0, 40000)}`;
 
   const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -119,9 +122,9 @@ ${csvText.slice(0, 10000)}`;
       Authorization: `Bearer ${lovableApiKey}`,
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: "google/gemini-2.5-pro",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 6000,
+      max_tokens: 16000,
     }),
   });
 
@@ -131,7 +134,11 @@ ${csvText.slice(0, 10000)}`;
   }
 
   const aiData = await aiRes.json();
+  const finishReason = aiData?.choices?.[0]?.finish_reason;
   const raw = aiData?.choices?.[0]?.message?.content ?? "";
+  if (finishReason && finishReason !== "stop") {
+    console.warn(`AI extraction finish_reason=${finishReason} — output may be truncated`);
+  }
   const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const parsed = JSON.parse(cleaned);
 
