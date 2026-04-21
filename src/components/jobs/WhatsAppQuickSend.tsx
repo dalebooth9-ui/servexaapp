@@ -347,7 +347,10 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       if (data?.error) throw new Error(data.error);
       const attachNote = mediaUrls.length ? ` with ${mediaUrls.length} attachment${mediaUrls.length === 1 ? "" : "s"}` : "";
       toast({ title: "Sent", description: `WhatsApp message sent for ${jobRef}${attachNote}.` });
-      try { localStorage.removeItem(lastStepKey); } catch {}
+      try {
+        localStorage.removeItem(lastStepKey);
+        localStorage.removeItem(lastAttachmentsKey);
+      } catch {}
       setOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send message.", variant: "destructive" });
