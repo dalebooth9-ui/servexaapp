@@ -129,6 +129,21 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       });
     }
     setPhotos(enriched);
+    // Reconcile any restored photo selections against actually-available photos
+    setSelectedPhotoIds((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(enriched.map((p) => p.id));
+      const next = new Set<string>();
+      prev.forEach((id) => { if (validIds.has(id)) next.add(id); });
+      if (next.size !== prev.size) {
+        try {
+          const raw = localStorage.getItem(lastAttachmentsKey);
+          const includePdfStored = raw ? !!JSON.parse(raw)?.includePdf : false;
+          localStorage.setItem(lastAttachmentsKey, JSON.stringify({ includePdf: includePdfStored, photoIds: Array.from(next) }));
+        } catch {}
+      }
+      return next;
+    });
 
     const data = assignRes.data;
     let loaded: { id: string; name: string }[] = [];
