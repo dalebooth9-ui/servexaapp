@@ -370,11 +370,45 @@ export default function JobApprovalAuditLog() {
             <SelectItem value="rejected">Rejected only</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={exportCsv} disabled={totalCount === 0}>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              <Columns3 className="h-4 w-4" />
+              Columns ({selectedColumns.length}/{EXPORT_COLUMNS.length})
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3" align="end">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium">Export columns</p>
+              <button
+                type="button"
+                onClick={() => setSelectedColumns(EXPORT_COLUMNS.map((c) => c.key))}
+                className="text-xs text-primary hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="space-y-2">
+              {EXPORT_COLUMNS.map((c) => (
+                <Label key={c.key} className="flex items-center gap-2 text-sm font-normal cursor-pointer">
+                  <Checkbox
+                    checked={selectedColumns.includes(c.key)}
+                    onCheckedChange={() => toggleColumn(c.key)}
+                  />
+                  {c.label}
+                </Label>
+              ))}
+            </div>
+            {selectedColumns.length === 0 && (
+              <p className="mt-2 text-xs text-destructive">Select at least one column to enable export.</p>
+            )}
+          </PopoverContent>
+        </Popover>
+        <Button variant="outline" onClick={exportCsv} disabled={totalCount === 0 || selectedColumns.length === 0}>
           <Download className="h-4 w-4" />
           Export CSV ({totalCount})
         </Button>
-        <Button variant="outline" onClick={exportJson} disabled={totalCount === 0}>
+        <Button variant="outline" onClick={exportJson} disabled={totalCount === 0 || selectedColumns.length === 0}>
           <FileJson className="h-4 w-4" />
           Export JSON ({totalCount})
         </Button>
