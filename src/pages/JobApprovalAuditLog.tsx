@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
-import { ShieldCheck, XCircle, Search } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ShieldCheck, XCircle, Search, Download } from "lucide-react";
 
 type LogRow = {
   id: string;
