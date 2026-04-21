@@ -933,7 +933,10 @@ export default function Jobs() {
     setSelectedJobIds(checked ? new Set(allFilteredIds) : new Set());
   };
 
+  const pendingReviewJobs = filtered.filter((j) => j.status === "pending_review");
+
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
+    if (job.status === "pending_review") return acc;
     const key = getCustomerName(job)?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
     acc[key].push(job);
