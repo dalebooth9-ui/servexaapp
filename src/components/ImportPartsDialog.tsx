@@ -228,7 +228,9 @@ export default function ImportPartsDialog({
                     </TableHead>
                     <TableHead>Part / Material</TableHead>
                      <TableHead className="w-20 text-right">Qty</TableHead>
-                     {isAdmin && <TableHead className="w-24 text-right">Unit £</TableHead>}
+                     {isAdmin && <TableHead className="w-24 text-right">China £</TableHead>}
+                     {isAdmin && <TableHead className="w-24 text-right">UK £</TableHead>}
+                     {isAdmin && <TableHead className="w-24 text-right">Profit</TableHead>}
                      <TableHead>Notes</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
