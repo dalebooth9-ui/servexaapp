@@ -8,7 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, XCircle, Search, Download, FileJson, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShieldCheck, XCircle, Search, Download, FileJson, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight, Columns3 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+
+type ColumnKey = "when" | "action" | "job_reference" | "job_name" | "actor" | "reason";
+const EXPORT_COLUMNS: { key: ColumnKey; label: string }[] = [
+  { key: "when", label: "When" },
+  { key: "action", label: "Action" },
+  { key: "job_reference", label: "Job Reference" },
+  { key: "job_name", label: "Job Name" },
+  { key: "actor", label: "By" },
+  { key: "reason", label: "Reason" },
+];
+const COLUMNS_STORAGE_KEY = "auditLog:exportColumns";
 
 type LogRow = {
   id: string;
