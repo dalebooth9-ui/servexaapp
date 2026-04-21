@@ -260,17 +260,24 @@ export default function JobApprovalAuditLog() {
     URL.revokeObjectURL(url);
   }
 
+  function getCellValue(r: Awaited<ReturnType<typeof fetchExportRows>>[number], key: ColumnKey): string {
+    switch (key) {
+      case "when": return format(new Date(r.when), "yyyy-MM-dd HH:mm:ss");
+      case "action": return r.action;
+      case "job_reference": return r.job_reference || "";
+      case "job_name": return r.job_name || "";
+      case "actor": return r.actor_name || "Unknown";
+      case "reason": return r.reason || "";
+    }
+  }
+
   async function exportCsv() {
+    if (selectedColumns.length === 0) return;
     const rows = await fetchExportRows();
-    const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
-    const rowsCsv = rows.map((r) => [
-      format(new Date(r.when), "yyyy-MM-dd HH:mm:ss"),
-      r.action,
-      r.job_reference || "",
-      r.job_name || "",
-      r.actor_name || "Unknown",
-      r.reason || "",
-    ]);
+    // Preserve canonical column order regardless of toggle order
+    const cols = EXPORT_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+    const headers = cols.map((c) => c.label);
+    const rowsCsv = rows.map((r) => cols.map((c) => getCellValue(r, c.key)));
     const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
     const csv = [headers, ...rowsCsv].map((r) => r.map(escape).join(",")).join("\n");
     downloadBlob(
@@ -281,12 +288,21 @@ export default function JobApprovalAuditLog() {
 
   async function exportJson() {
     const rows = await fetchExportRows();
+    const cols = EXPORT_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+    const fieldMap: Record<ColumnKey, string> = {
+      when: "when", action: "action", job_reference: "job_reference",
+      job_name: "job_name", actor: "actor_name", reason: "reason",
+    };
+    const projected = cols.length === 0
+      ? rows
+      : rows.map((r) => Object.fromEntries(cols.map((c) => [fieldMap[c.key], (r as any)[fieldMap[c.key]]])));
     const payload = {
       exported_at: new Date().toISOString(),
       filter,
       search: search.trim() || null,
+      columns: cols.map((c) => c.label),
       count: rows.length,
-      rows,
+      rows: projected,
     };
     downloadBlob(
       new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8;" }),
