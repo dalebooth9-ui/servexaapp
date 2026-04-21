@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, XCircle, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShieldCheck, XCircle, Search, Download, FileJson, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 type LogRow = {
   id: string;
@@ -174,8 +174,7 @@ export default function JobApprovalAuditLog() {
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
   }
 
-  async function exportCsv() {
-    // Export the current filtered server-side result set (all pages)
+  async function fetchExportRows() {
     let q = supabase
       .from("job_activity_log")
       .select("id, job_id, user_id, action, details, created_at")
@@ -199,30 +198,67 @@ export default function JobApprovalAuditLog() {
     const jobMap = new Map((jobsRes.data || []).map((j: any) => [j.id, j]));
     const userMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
 
-    const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
-    const rowsCsv = filtered.map((r) => {
+    return filtered.map((r) => {
       const kind = classify(r.details);
       const job = jobMap.get(r.job_id);
       const actor = r.user_id ? userMap.get(r.user_id) : null;
       const reason = extractReason(r.details) || (kind === "rejected" ? job?.rejection_reason ?? "" : "");
-      return [
-        format(new Date(r.created_at), "yyyy-MM-dd HH:mm:ss"),
-        kind === "approved" ? "Approved" : "Rejected",
-        job?.reference_number || "",
-        job?.name || "",
-        actor?.full_name || "Unknown",
-        reason || "",
-      ];
+      return {
+        id: r.id,
+        when: r.created_at,
+        action: kind === "approved" ? "Approved" : "Rejected",
+        job_id: r.job_id,
+        job_reference: job?.reference_number || null,
+        job_name: job?.name || null,
+        actor_user_id: r.user_id,
+        actor_name: actor?.full_name || null,
+        reason: reason || null,
+        details: r.details,
+      };
     });
-    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-    const csv = [headers, ...rowsCsv].map((r) => r.map(escape).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  }
+
+  function downloadBlob(blob: Blob, filename: string) {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `audit-log-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function exportCsv() {
+    const rows = await fetchExportRows();
+    const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
+    const rowsCsv = rows.map((r) => [
+      format(new Date(r.when), "yyyy-MM-dd HH:mm:ss"),
+      r.action,
+      r.job_reference || "",
+      r.job_name || "",
+      r.actor_name || "Unknown",
+      r.reason || "",
+    ]);
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rowsCsv].map((r) => r.map(escape).join(",")).join("\n");
+    downloadBlob(
+      new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" }),
+      `audit-log-${format(new Date(), "yyyy-MM-dd")}.csv`,
+    );
+  }
+
+  async function exportJson() {
+    const rows = await fetchExportRows();
+    const payload = {
+      exported_at: new Date().toISOString(),
+      filter,
+      search: search.trim() || null,
+      count: rows.length,
+      rows,
+    };
+    downloadBlob(
+      new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8;" }),
+      `audit-log-${format(new Date(), "yyyy-MM-dd")}.json`,
+    );
   }
 
   return (
@@ -288,6 +324,10 @@ export default function JobApprovalAuditLog() {
         <Button variant="outline" onClick={exportCsv} disabled={totalCount === 0}>
           <Download className="h-4 w-4" />
           Export CSV ({totalCount})
+        </Button>
+        <Button variant="outline" onClick={exportJson} disabled={totalCount === 0}>
+          <FileJson className="h-4 w-4" />
+          Export JSON ({totalCount})
         </Button>
       </div>
 
