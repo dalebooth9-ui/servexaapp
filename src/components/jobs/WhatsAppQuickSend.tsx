@@ -539,7 +539,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                       <button
                         type="button"
                         className="text-xs text-primary hover:underline"
-                        onClick={() => setSelectedPhotoIds(new Set())}
+                        onClick={clearSelectedPhotos}
                       >
                         Clear
                       </button>
