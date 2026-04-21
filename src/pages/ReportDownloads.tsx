@@ -169,7 +169,7 @@ export default function ReportDownloads() {
           const isImage = ["jpg", "jpeg", "png", "webp", "gif", "heic"].includes(ext);
           const folder = isImage ? "Images" : "Documents";
           const name = s.file_name || `${s.type || "file"}-${s.id.slice(0, 8)}.${ext}`;
-          zip.file(`${root}/${folder}/${name}`, buf);
+          zip.file(`${rootDir}/${folder}/${name}`, buf);
           if (isImage) imgCount++;
           else docCount++;
           lines.push(`  - ${folder}/${name}`);
@@ -179,7 +179,7 @@ export default function ReportDownloads() {
       }
 
       lines.unshift(`Images: ${imgCount}`, `Documents: ${docCount}`, "");
-      zip.file(`${root}/MANIFEST.txt`, lines.join("\n"));
+      zip.file(`${rootDir}/MANIFEST.txt`, lines.join("\n"));
 
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
