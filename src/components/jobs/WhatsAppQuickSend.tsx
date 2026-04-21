@@ -203,13 +203,27 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       const savedStep = localStorage.getItem(lastStepKey);
       if (isValidStep(savedStep)) initialStep = savedStep;
     } catch {}
+    // Restore attachment selections (photo IDs reconciled after photos load)
+    let restoredPdf = false;
+    let restoredPhotoIds = new Set<string>();
+    try {
+      const raw = localStorage.getItem(lastAttachmentsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        restoredPdf = !!parsed?.includePdf;
+        if (Array.isArray(parsed?.photoIds)) {
+          restoredPhotoIds = new Set(parsed.photoIds.filter((x: any) => typeof x === "string"));
+        }
+      }
+    } catch {}
+
     setStep(initialStep);
     setSelectedEngineer(initial);
     setMessage("");
     setJob(null);
     setPhotos([]);
-    setSelectedPhotoIds(new Set());
-    setIncludePdf(false);
+    setSelectedPhotoIds(restoredPhotoIds);
+    setIncludePdf(restoredPdf);
     loadContext();
   };
 
