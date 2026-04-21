@@ -214,7 +214,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // ── ACCOUNTS DETAILS ──────────────────────────────────────────────────
   altRow = false;
-  sectionHeader("Accounts Details");
+  sectionHeader("Accounts Details", false);
   [
     "We work on 30-day EOM payment terms — please state if your payment terms differ.",
     "Do you work on an application or invoice basis?",
