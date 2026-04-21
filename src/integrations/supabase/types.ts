@@ -2780,6 +2780,7 @@ export type Database = {
           recurrence_start_date: string | null
           recurrence_unit: string | null
           reference_number: string
+          rejection_reason: string | null
           result: string | null
           site_id: string | null
           source: string | null
@@ -2812,6 +2813,7 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
           reference_number?: string
+          rejection_reason?: string | null
           result?: string | null
           site_id?: string | null
           source?: string | null
@@ -2844,6 +2846,7 @@ export type Database = {
           recurrence_start_date?: string | null
           recurrence_unit?: string | null
           reference_number?: string
+          rejection_reason?: string | null
           result?: string | null
           site_id?: string | null
           source?: string | null
