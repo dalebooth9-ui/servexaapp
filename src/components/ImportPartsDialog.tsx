@@ -269,6 +269,33 @@ export default function ImportPartsDialog({
                          />
                        </TableCell>
                        )}
+                       {isAdmin && (
+                       <TableCell>
+                         <Input
+                           type="number"
+                           value={part.sell_price}
+                           onChange={(e) => updatePart(idx, "sell_price", parseFloat(e.target.value) || 0)}
+                           className="h-8 text-sm text-right w-24"
+                           min="0"
+                           step="0.01"
+                         />
+                       </TableCell>
+                       )}
+                       {isAdmin && (() => {
+                         const profit = (part.sell_price - part.unit_cost) * (part.quantity || 0);
+                         const margin = part.sell_price > 0
+                           ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100
+                           : 0;
+                         const cls = profit >= 0 ? "text-emerald-600" : "text-destructive";
+                         return (
+                           <TableCell className={`text-right text-sm tabular-nums ${cls}`}>
+                             {profit >= 0 ? "+" : "-"}£{Math.abs(profit).toFixed(2)}
+                             <div className="text-[10px] text-muted-foreground">
+                               {margin.toFixed(0)}%
+                             </div>
+                           </TableCell>
+                         );
+                       })()}
                       <TableCell>
                         <Input
                           value={part.notes}
