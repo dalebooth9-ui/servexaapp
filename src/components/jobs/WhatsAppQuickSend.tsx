@@ -46,7 +46,19 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
   const [includePdf, setIncludePdf] = useState(false);
   const [sending, setSending] = useState(false);
   const [loadingEngineers, setLoadingEngineers] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("anon");
   const { toast } = useToast();
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setCurrentUserId(data.user?.id || "anon");
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setCurrentUserId(session?.user?.id || "anon");
+    });
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
 
   // Hidden trigger used to invoke CustomerReportPdf programmatically
   const pdfTriggerRef = useRef<HTMLButtonElement | null>(null);
