@@ -39,6 +39,12 @@ interface JobPart {
   sort_order: number;
 }
 
+// Shared helper — keep in sync with planner worksheet export
+export function isLabourOrProfitPart(name: string | null | undefined): boolean {
+  const n = (name || "").toLowerCase();
+  return /\b(labour|labor|daily\s*profit|profit|day\s*rate|day-rate|man\s*day|days?\s*on\s*site)\b/.test(n);
+}
+
 // Inline add row shown between parts
 function InlineAddRow({
   isAdmin,
