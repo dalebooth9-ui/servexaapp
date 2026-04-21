@@ -46,7 +46,19 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
   const [includePdf, setIncludePdf] = useState(false);
   const [sending, setSending] = useState(false);
   const [loadingEngineers, setLoadingEngineers] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string>("anon");
   const { toast } = useToast();
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth.getUser().then(({ data }) => {
+      if (active) setCurrentUserId(data.user?.id || "anon");
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setCurrentUserId(session?.user?.id || "anon");
+    });
+    return () => { active = false; sub.subscription.unsubscribe(); };
+  }, []);
 
   // Hidden trigger used to invoke CustomerReportPdf programmatically
   const pdfTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -146,8 +158,11 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     } catch {}
   };
 
-  const lastEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
-  const lastStepKey = `whatsappQuickSend:lastStep:${jobId}`;
+  const lastEngineerKey = `whatsappQuickSend:${currentUserId}:lastEngineer:${jobId}`;
+  const lastStepKey = `whatsappQuickSend:${currentUserId}:lastStep:${jobId}`;
+  // Legacy (pre-user-scoping) keys — migrated/cleaned on first read
+  const legacyEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
+  const legacyStepKey = `whatsappQuickSend:lastStep:${jobId}`;
 
   const isValidStep = (v: string | null): v is Step =>
     v === "compose" || v === "preview" || v === "attachments";
@@ -162,6 +177,18 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     let initial = "";
     let initialStep: Step = "compose";
     try {
+      // One-time migration from legacy (unscoped) keys for the active user
+      const legacyEng = localStorage.getItem(legacyEngineerKey);
+      if (legacyEng && !localStorage.getItem(lastEngineerKey)) {
+        localStorage.setItem(lastEngineerKey, legacyEng);
+      }
+      const legacyStep = localStorage.getItem(legacyStepKey);
+      if (legacyStep && !localStorage.getItem(lastStepKey)) {
+        localStorage.setItem(lastStepKey, legacyStep);
+      }
+      localStorage.removeItem(legacyEngineerKey);
+      localStorage.removeItem(legacyStepKey);
+
       initial = localStorage.getItem(lastEngineerKey) || "";
       const savedStep = localStorage.getItem(lastStepKey);
       if (isValidStep(savedStep)) initialStep = savedStep;
