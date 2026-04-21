@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, XCircle, Search, Download } from "lucide-react";
+import { ShieldCheck, XCircle, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
 
 type LogRow = {
   id: string;
@@ -22,10 +22,13 @@ type LogRow = {
 };
 
 type ActionKind = "approved" | "rejected" | "other";
+type SortKey = "created_at" | "actor" | "job";
+type SortDir = "asc" | "desc";
+
+const PAGE_SIZE = 25;
 
 function classify(details: string | null): ActionKind {
   if (!details) return "other";
-  // Approval = pending_review -> active
   if (/from\s+pending_review\s+to\s+active/i.test(details)) return "approved";
   if (/to\s+rejected/i.test(details)) return "rejected";
   return "other";
@@ -42,17 +45,63 @@ export default function JobApprovalAuditLog() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | ActionKind>("all");
+  const [page, setPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [counts, setCounts] = useState({ approved: 0, rejected: 0, total: 0 });
 
+  // Load global summary counts once
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from("job_activity_log")
+        .select("details")
+        .eq("action", "status_change")
+        .limit(5000);
+      let approved = 0, rejected = 0, total = 0;
+      for (const r of data || []) {
+        const k = classify((r as any).details);
+        if (k === "approved") { approved++; total++; }
+        else if (k === "rejected") { rejected++; total++; }
+      }
+      setCounts({ approved, rejected, total });
+    })();
+  }, []);
+
+  // Server-side pagination: we fetch a window ordered by created_at,
+  // then apply approve/reject classify filter. To keep page sizes consistent,
+  // we over-fetch and slice locally per page.
   useEffect(() => {
     (async () => {
       setLoading(true);
-      // Pull recent status_change entries — filter to approve/reject client-side
-      const { data: rows } = await supabase
+      // Order by created_at on the server (only DB-sortable column reliably).
+      const ascending = sortKey === "created_at" ? sortDir === "asc" : false;
+      const from = page * PAGE_SIZE;
+      const to = from + PAGE_SIZE - 1;
+
+      // Build query — for "approved" we can match on details substring server-side,
+      // for "rejected" likewise; otherwise fetch the page raw.
+      let q = supabase
         .from("job_activity_log")
-        .select("id, job_id, user_id, action, details, created_at")
-        .eq("action", "status_change")
-        .order("created_at", { ascending: false })
-        .limit(500);
+        .select("id, job_id, user_id, action, details, created_at", { count: "exact" })
+        .eq("action", "status_change");
+
+      if (filter === "approved") {
+        q = q.ilike("details", "%from pending_review to active%");
+      } else if (filter === "rejected") {
+        q = q.ilike("details", "%to rejected%");
+      } else {
+        q = q.or("details.ilike.%from pending_review to active%,details.ilike.%to rejected%");
+      }
+
+      if (search.trim()) {
+        q = q.ilike("details", `%${search.trim()}%`);
+      }
+
+      const { data: rows, count } = await q.order("created_at", { ascending }).range(from, to);
+
+      setTotalCount(count || 0);
 
       const filtered = (rows || []).filter((r) => {
         const k = classify(r.details);
@@ -83,38 +132,98 @@ export default function JobApprovalAuditLog() {
       );
       setLoading(false);
     })();
-  }, []);
+  }, [page, filter, search, sortKey, sortDir]);
 
+  // Reset to first page when filters/search/sort change
+  useEffect(() => {
+    setPage(0);
+  }, [filter, search, sortKey, sortDir]);
+
+  // Apply secondary client-side sort (actor/job) within the current page
   const visible = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return logs.filter((r) => {
-      const kind = classify(r.details);
-      if (filter !== "all" && kind !== filter) return false;
-      if (!q) return true;
-      const hay = [
-        r.job?.reference_number,
-        r.job?.name,
-        r.actor?.full_name,
-        r.details,
-        r.job?.rejection_reason,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase();
-      return hay.includes(q);
-    });
-  }, [logs, search, filter]);
-
-  const counts = useMemo(() => {
-    let approved = 0;
-    let rejected = 0;
-    for (const r of logs) {
-      const k = classify(r.details);
-      if (k === "approved") approved++;
-      else if (k === "rejected") rejected++;
+    const arr = [...logs];
+    if (sortKey === "actor") {
+      arr.sort((a, b) => {
+        const an = (a.actor?.full_name || "").toLowerCase();
+        const bn = (b.actor?.full_name || "").toLowerCase();
+        return sortDir === "asc" ? an.localeCompare(bn) : bn.localeCompare(an);
+      });
+    } else if (sortKey === "job") {
+      arr.sort((a, b) => {
+        const an = (a.job?.reference_number || a.job?.name || "").toLowerCase();
+        const bn = (b.job?.reference_number || b.job?.name || "").toLowerCase();
+        return sortDir === "asc" ? an.localeCompare(bn) : bn.localeCompare(an);
+      });
     }
-    return { approved, rejected };
-  }, [logs]);
+    return arr;
+  }, [logs, sortKey, sortDir]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir(key === "created_at" ? "desc" : "asc");
+    }
+  }
+
+  function SortIcon({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />;
+  }
+
+  async function exportCsv() {
+    // Export the current filtered server-side result set (all pages)
+    let q = supabase
+      .from("job_activity_log")
+      .select("id, job_id, user_id, action, details, created_at")
+      .eq("action", "status_change");
+    if (filter === "approved") q = q.ilike("details", "%from pending_review to active%");
+    else if (filter === "rejected") q = q.ilike("details", "%to rejected%");
+    else q = q.or("details.ilike.%from pending_review to active%,details.ilike.%to rejected%");
+    if (search.trim()) q = q.ilike("details", `%${search.trim()}%`);
+    const { data: rows } = await q.order("created_at", { ascending: false }).limit(5000);
+
+    const filtered = (rows || []).filter((r) => {
+      const k = classify(r.details);
+      return k === "approved" || k === "rejected";
+    });
+    const jobIds = Array.from(new Set(filtered.map((r) => r.job_id))).filter(Boolean);
+    const userIds = Array.from(new Set(filtered.map((r) => r.user_id).filter(Boolean))) as string[];
+    const [jobsRes, profilesRes] = await Promise.all([
+      jobIds.length ? supabase.from("jobs").select("id, reference_number, name, rejection_reason").in("id", jobIds) : Promise.resolve({ data: [] as any[] }),
+      userIds.length ? supabase.from("profiles").select("user_id, full_name").in("user_id", userIds) : Promise.resolve({ data: [] as any[] }),
+    ]);
+    const jobMap = new Map((jobsRes.data || []).map((j: any) => [j.id, j]));
+    const userMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
+
+    const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
+    const rowsCsv = filtered.map((r) => {
+      const kind = classify(r.details);
+      const job = jobMap.get(r.job_id);
+      const actor = r.user_id ? userMap.get(r.user_id) : null;
+      const reason = extractReason(r.details) || (kind === "rejected" ? job?.rejection_reason ?? "" : "");
+      return [
+        format(new Date(r.created_at), "yyyy-MM-dd HH:mm:ss"),
+        kind === "approved" ? "Approved" : "Rejected",
+        job?.reference_number || "",
+        job?.name || "",
+        actor?.full_name || "Unknown",
+        reason || "",
+      ];
+    });
+    const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+    const csv = [headers, ...rowsCsv].map((r) => r.map(escape).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `audit-log-${format(new Date(), "yyyy-MM-dd")}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   return (
     <div className="space-y-6 p-6">
@@ -131,7 +240,7 @@ export default function JobApprovalAuditLog() {
             <CardTitle className="text-sm text-muted-foreground">Total events</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-semibold">{logs.length}</div>
+            <div className="text-2xl font-semibold">{counts.total}</div>
           </CardContent>
         </Card>
         <Card>
@@ -160,7 +269,7 @@ export default function JobApprovalAuditLog() {
         <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search by job, person or reason…"
+            placeholder="Search by reason or status text…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-8"
@@ -176,39 +285,9 @@ export default function JobApprovalAuditLog() {
             <SelectItem value="rejected">Rejected only</SelectItem>
           </SelectContent>
         </Select>
-        <Button
-          variant="outline"
-          size="default"
-          onClick={() => {
-            const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
-            const rows = visible.map((row) => {
-              const kind = classify(row.details);
-              const reason =
-                extractReason(row.details) ||
-                (kind === "rejected" ? row.job?.rejection_reason ?? "" : "");
-              return [
-                format(new Date(row.created_at), "yyyy-MM-dd HH:mm:ss"),
-                kind === "approved" ? "Approved" : "Rejected",
-                row.job?.reference_number || "",
-                row.job?.name || "",
-                row.actor?.full_name || "Unknown",
-                reason || "",
-              ];
-            });
-            const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
-            const csv = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
-            const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `audit-log-${format(new Date(), "yyyy-MM-dd")}.csv`;
-            a.click();
-            URL.revokeObjectURL(url);
-          }}
-          disabled={visible.length === 0}
-        >
+        <Button variant="outline" onClick={exportCsv} disabled={totalCount === 0}>
           <Download className="h-4 w-4" />
-          Export CSV ({visible.length})
+          Export CSV ({totalCount})
         </Button>
       </div>
 
@@ -217,10 +296,31 @@ export default function JobApprovalAuditLog() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[160px]">When</TableHead>
+                <TableHead className="w-[180px]">
+                  <button
+                    className="inline-flex items-center gap-1.5 hover:text-foreground"
+                    onClick={() => toggleSort("created_at")}
+                  >
+                    When <SortIcon col="created_at" />
+                  </button>
+                </TableHead>
                 <TableHead className="w-[110px]">Action</TableHead>
-                <TableHead>Job</TableHead>
-                <TableHead>By</TableHead>
+                <TableHead>
+                  <button
+                    className="inline-flex items-center gap-1.5 hover:text-foreground"
+                    onClick={() => toggleSort("job")}
+                  >
+                    Job <SortIcon col="job" />
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    className="inline-flex items-center gap-1.5 hover:text-foreground"
+                    onClick={() => toggleSort("actor")}
+                  >
+                    By <SortIcon col="actor" />
+                  </button>
+                </TableHead>
                 <TableHead>Reason</TableHead>
               </TableRow>
             </TableHeader>
@@ -283,6 +383,35 @@ export default function JobApprovalAuditLog() {
           </Table>
         </CardContent>
       </Card>
+
+      <div className="flex items-center justify-between text-sm">
+        <div className="text-muted-foreground">
+          {totalCount === 0
+            ? "No results"
+            : `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, totalCount)} of ${totalCount}`}
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0 || loading}
+          >
+            <ChevronLeft className="h-4 w-4" /> Previous
+          </Button>
+          <span className="text-muted-foreground">
+            Page {page + 1} of {totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1 || loading}
+          >
+            Next <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
