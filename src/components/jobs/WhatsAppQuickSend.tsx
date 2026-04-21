@@ -129,6 +129,21 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       });
     }
     setPhotos(enriched);
+    // Reconcile any restored photo selections against actually-available photos
+    setSelectedPhotoIds((prev) => {
+      if (prev.size === 0) return prev;
+      const validIds = new Set(enriched.map((p) => p.id));
+      const next = new Set<string>();
+      prev.forEach((id) => { if (validIds.has(id)) next.add(id); });
+      if (next.size !== prev.size) {
+        try {
+          const raw = localStorage.getItem(lastAttachmentsKey);
+          const includePdfStored = raw ? !!JSON.parse(raw)?.includePdf : false;
+          localStorage.setItem(lastAttachmentsKey, JSON.stringify({ includePdf: includePdfStored, photoIds: Array.from(next) }));
+        } catch {}
+      }
+      return next;
+    });
 
     const data = assignRes.data;
     let loaded: { id: string; name: string }[] = [];
@@ -160,9 +175,19 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
 
   const lastEngineerKey = `whatsappQuickSend:${currentUserId}:lastEngineer:${jobId}`;
   const lastStepKey = `whatsappQuickSend:${currentUserId}:lastStep:${jobId}`;
+  const lastAttachmentsKey = `whatsappQuickSend:${currentUserId}:lastAttachments:${jobId}`;
   // Legacy (pre-user-scoping) keys — migrated/cleaned on first read
   const legacyEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
   const legacyStepKey = `whatsappQuickSend:lastStep:${jobId}`;
+
+  const persistAttachments = (pdf: boolean, photoIds: Set<string>) => {
+    try {
+      localStorage.setItem(
+        lastAttachmentsKey,
+        JSON.stringify({ includePdf: pdf, photoIds: Array.from(photoIds) }),
+      );
+    } catch {}
+  };
 
   const isValidStep = (v: string | null): v is Step =>
     v === "compose" || v === "preview" || v === "attachments";
@@ -193,13 +218,27 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       const savedStep = localStorage.getItem(lastStepKey);
       if (isValidStep(savedStep)) initialStep = savedStep;
     } catch {}
+    // Restore attachment selections (photo IDs reconciled after photos load)
+    let restoredPdf = false;
+    let restoredPhotoIds = new Set<string>();
+    try {
+      const raw = localStorage.getItem(lastAttachmentsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        restoredPdf = !!parsed?.includePdf;
+        if (Array.isArray(parsed?.photoIds)) {
+          restoredPhotoIds = new Set(parsed.photoIds.filter((x: any) => typeof x === "string"));
+        }
+      }
+    } catch {}
+
     setStep(initialStep);
     setSelectedEngineer(initial);
     setMessage("");
     setJob(null);
     setPhotos([]);
-    setSelectedPhotoIds(new Set());
-    setIncludePdf(false);
+    setSelectedPhotoIds(restoredPhotoIds);
+    setIncludePdf(restoredPdf);
     loadContext();
   };
 
@@ -208,8 +247,20 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      persistAttachments(includePdf, next);
       return next;
     });
+  };
+
+  const handleIncludePdfChange = (v: boolean) => {
+    setIncludePdf(v);
+    persistAttachments(v, selectedPhotoIds);
+  };
+
+  const clearSelectedPhotos = () => {
+    const next = new Set<string>();
+    setSelectedPhotoIds(next);
+    persistAttachments(includePdf, next);
   };
 
   const totalAttachments = (includePdf ? 1 : 0) + selectedPhotoIds.size;
@@ -296,7 +347,10 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       if (data?.error) throw new Error(data.error);
       const attachNote = mediaUrls.length ? ` with ${mediaUrls.length} attachment${mediaUrls.length === 1 ? "" : "s"}` : "";
       toast({ title: "Sent", description: `WhatsApp message sent for ${jobRef}${attachNote}.` });
-      try { localStorage.removeItem(lastStepKey); } catch {}
+      try {
+        localStorage.removeItem(lastStepKey);
+        localStorage.removeItem(lastAttachmentsKey);
+      } catch {}
       setOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send message.", variant: "destructive" });
@@ -465,7 +519,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 <Label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
                   <Checkbox
                     checked={includePdf}
-                    onCheckedChange={(v) => setIncludePdf(!!v)}
+                    onCheckedChange={(v) => handleIncludePdfChange(!!v)}
                   />
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-1.5 text-sm font-medium">
@@ -488,7 +542,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                       <button
                         type="button"
                         className="text-xs text-primary hover:underline"
-                        onClick={() => setSelectedPhotoIds(new Set())}
+                        onClick={clearSelectedPhotos}
                       >
                         Clear
                       </button>
