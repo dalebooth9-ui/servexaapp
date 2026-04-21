@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 
 const STATUSES = [
+  { value: "pending_review", label: "Pending Review", color: "bg-yellow-500" },
   { value: "active", label: "Active", color: "bg-blue-500" },
   { value: "in_progress", label: "In Progress", color: "bg-indigo-500" },
   { value: "awaiting_parts", label: "Awaiting Parts", color: "bg-amber-500" },
