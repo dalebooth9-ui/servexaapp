@@ -102,7 +102,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
             natH: probe.naturalHeight || 1,
             name: photo.file_name || "Photo",
             date: `${dateStr} ${timeStr}`,
-            caption: photo.content || photo.caption || "",
+            caption: (photo as any).content || (photo as any).caption || "",
           });
         } catch { /* skip failed images */ }
       }
