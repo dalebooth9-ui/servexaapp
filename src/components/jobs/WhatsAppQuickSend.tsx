@@ -146,13 +146,23 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       if (prev.size === 0) return prev;
       const validIds = new Set(enriched.map((p) => p.id));
       const next = new Set<string>();
-      prev.forEach((id) => { if (validIds.has(id)) next.add(id); });
-      if (next.size !== prev.size) {
+      const removed: string[] = [];
+      prev.forEach((id) => {
+        if (validIds.has(id)) next.add(id);
+        else removed.push(id);
+      });
+      if (removed.length > 0) {
         try {
           const raw = localStorage.getItem(lastAttachmentsKey);
           const includePdfStored = raw ? !!JSON.parse(raw)?.includePdf : false;
           localStorage.setItem(lastAttachmentsKey, JSON.stringify({ includePdf: includePdfStored, photoIds: Array.from(next) }));
         } catch {}
+        const shortIds = removed.map((id) => id.slice(0, 8)).join(", ");
+        toast({
+          title: `${removed.length} saved ${removed.length === 1 ? "photo" : "photos"} no longer available`,
+          description: `Removed from your selection because ${removed.length === 1 ? "it was" : "they were"} deleted or moved. (ref: ${shortIds})`,
+          variant: "destructive",
+        });
       }
       return next;
     });
