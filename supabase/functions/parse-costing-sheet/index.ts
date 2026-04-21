@@ -108,12 +108,16 @@ Find the header row (usually within the first 30 rows). Identify exactly which c
 holds each of these meanings — write them down mentally before extracting any data:
   • DESC_COL — labelled "Description", "Item", "Material", "Part", or the leftmost text column with item names
   • QTY_COL — labelled "Qty", "Quantity", "No.", "No. Off", "Nos", "Nr", "Units", "Off"
-  • UNIT_COST_COL — labelled "Unit Cost", "Cost", "Cost ea", "Cost each", "Buy", "Net Cost", "Cost £"
-  • UNIT_SELL_COL — labelled "Unit Price", "Sell", "Sell ea", "Rate", "Price", "Unit Sell", "Sell £"
+  • CHINA_COST_COL — labelled "China", "China Cost", "China £", "China Price", "Import Cost",
+    "Purchase", "Buy", "Net Cost" — the lower (purchase) per-unit price. This is our COST.
+  • UK_COST_COL — labelled "UK", "UK Cost", "UK £", "UK Price", "Sell", "Sell ea", "Rate",
+    "Unit Price", "Unit Sell", "Sell £" — the higher (sell) per-unit price. This is our SELL.
+  • If only ONE per-unit price column exists, use it as BOTH china_cost and uk_cost.
   • TOTAL_COL — labelled "Total", "Extended", "Line Total", "Amount", "Sub Total", "Total £"
 
-Once you have these column letters, EVERY line item MUST read its quantity from QTY_COL and its
-per-unit price from UNIT_COST_COL / UNIT_SELL_COL. Do NOT guess from value ranges.
+Once you have these column letters, EVERY line item MUST read its quantity from QTY_COL,
+its china_cost from CHINA_COST_COL and its uk_cost from UK_COST_COL. Do NOT guess from value ranges.
+The UK price is normally HIGHER than the China price — if they're reversed, you've swapped the columns.
 
 === STEP 2 — Per-line rules ===
 - quantity = the raw number in QTY_COL for that row. Whole numbers (1, 4, 8, 17, 100…). DO NOT default to 1
