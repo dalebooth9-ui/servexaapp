@@ -66,7 +66,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   let y = 32;
 
-  // ── Title bar (Viva red) ──────────────────────────────────────────────
+  // ── Title bar (Viva navy) ─────────────────────────────────────────────
   doc.setFillColor(...VIVA_NAVY);
   doc.rect(ml, y, cw, 11, "F");
   doc.setFontSize(13);
