@@ -568,12 +568,21 @@ serve(async (req) => {
     const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
     const description = quote.description ?? quote.notes ?? quote.scope_of_work ?? quote.scope ?? null;
-    const excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? body.excelUrl
+    let excelUrl = quote.excel_url ?? quote.excelUrl ?? body.excel_url ?? body.excelUrl
       ?? quote.costing_sheet_url ?? quote.costingSheetUrl ?? body.costing_sheet_url
       ?? quote.costing_url ?? quote.costingUrl ?? body.costing_url
       ?? quote.spreadsheet_url ?? quote.spreadsheetUrl ?? body.spreadsheet_url
       ?? quote.materials_url ?? quote.materialsUrl ?? body.materials_url
       ?? null;
+    // The Mellor sometimes sends just a relative storage path (e.g. "<owner>/<file>.xls")
+    // instead of a full URL. Normalise it to a full public URL on their storage bucket
+    // so that fetch() works.
+    const MELLOR_STORAGE_BASE = "https://rjhhvqbmtdddsqlslzsh.supabase.co/storage/v1/object/public/quote-excel/";
+    if (excelUrl && typeof excelUrl === "string" && !/^https?:\/\//i.test(excelUrl)) {
+      const cleaned = excelUrl.replace(/^\/+/, "").replace(/^quote-excel\//, "");
+      excelUrl = MELLOR_STORAGE_BASE + cleaned;
+      console.log(`Normalised relative excel path → ${excelUrl.slice(0, 100)}`);
+    }
     const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
     const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
     // Log all top-level keys in the payload to help debug missing fields
