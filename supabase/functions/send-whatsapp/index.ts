@@ -6,6 +6,9 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Twilio WhatsApp media limits: up to 10 media items per message; each fetched by Twilio at send time.
+const MAX_MEDIA = 10;
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -56,13 +59,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { engineerId, message, jobId } = await req.json();
+    const { engineerId, message, jobId, mediaUrls } = await req.json();
 
-    if (!engineerId || !message?.trim()) {
-      return new Response(JSON.stringify({ error: "engineerId and message are required" }), {
+    if (!engineerId || (!message?.trim() && (!Array.isArray(mediaUrls) || mediaUrls.length === 0))) {
+      return new Response(JSON.stringify({ error: "engineerId and message or mediaUrls are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Validate media URLs (must be https, max 10)
+    let validMedia: string[] = [];
+    if (Array.isArray(mediaUrls)) {
+      validMedia = mediaUrls
+        .filter((u): u is string => typeof u === "string" && /^https:\/\//i.test(u))
+        .slice(0, MAX_MEDIA);
     }
 
     // Get engineer's WhatsApp number
@@ -92,11 +103,12 @@ Deno.serve(async (req) => {
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
 
-    const twilioParams = new URLSearchParams({
-      From: fromNumber,
-      To: `whatsapp:${profile.whatsapp_number}`,
-      Body: message.trim(),
-    });
+    const twilioParams = new URLSearchParams();
+    twilioParams.set("From", fromNumber);
+    twilioParams.set("To", `whatsapp:${profile.whatsapp_number}`);
+    if (message?.trim()) twilioParams.set("Body", message.trim());
+    // URLSearchParams supports repeated keys — Twilio reads up to 10 MediaUrl values.
+    for (const u of validMedia) twilioParams.append("MediaUrl", u);
 
     const twilioRes = await fetch(twilioUrl, {
       method: "POST",
@@ -119,17 +131,18 @@ Deno.serve(async (req) => {
 
     // Log the outbound message as a submission if jobId provided
     if (jobId) {
+      const summary = `[Reply from office] ${message?.trim() || ""}${validMedia.length ? `\n(${validMedia.length} attachment${validMedia.length === 1 ? "" : "s"})` : ""}`.trim();
       await adminSupabase.from("submissions").insert({
         job_id: jobId,
         engineer_id: engineerId,
         type: "note",
-        content: `[Reply from office] ${message.trim()}`,
+        content: summary,
         whatsapp_message_id: twilioData.sid,
       });
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageSid: twilioData.sid }),
+      JSON.stringify({ success: true, messageSid: twilioData.sid, mediaSent: validMedia.length }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
