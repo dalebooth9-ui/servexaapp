@@ -232,6 +232,7 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ quantity: "", unit_cost: "", sell_price: "" });
+  const [includeLabour, setIncludeLabour] = useState(false);
 
   const isAdmin = userRole === "admin";
 
