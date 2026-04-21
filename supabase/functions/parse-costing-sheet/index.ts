@@ -123,9 +123,9 @@ The UK price is normally HIGHER than the China price — if they're reversed, yo
 - quantity = the raw number in QTY_COL for that row. Whole numbers (1, 4, 8, 17, 100…). DO NOT default to 1
   if a real number is present. Only return null if QTY_COL is genuinely empty for that row.
 - If QTY_COL shows 0, return 0 (do NOT bump to 1).
-- unit_cost / sell_price are ALWAYS per single unit, never the line total.
-- If only TOTAL_COL exists (no per-unit column): per_unit = total ÷ quantity.
-- SANITY CHECK every line: quantity × unit_cost should be within 1% of TOTAL_COL.
+- china_cost / uk_cost are ALWAYS per single unit, never the line total.
+- If only TOTAL_COL exists (no per-unit column): per_unit = total ÷ quantity (apply to both).
+- SANITY CHECK every line: quantity × uk_cost should be within 1% of TOTAL_COL.
   If it isn't, you have read the wrong column — re-check the column map and try again BEFORE outputting.
 - Strip £, $, commas, spaces from numbers ("1,234.50" → 1234.50). No thousands separators in output.
 - Skip: header rows, blank rows, section titles ("MATERIALS", "LABOUR"), subtotal/total/VAT rows,
@@ -139,9 +139,9 @@ Find labour days on site. Look for "Days on site", "Allocated days", "Labour day
 === Output ===
 Respond with ONLY valid JSON, no markdown, no commentary:
 {
-  "column_map": {"desc": "B", "qty": "D", "unit_cost": "E", "unit_sell": "F", "total": "G"},
+  "column_map": {"desc": "B", "qty": "D", "china_cost": "E", "uk_cost": "F", "total": "G"},
   "parts": [
-    {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "unit_cost": 145.00, "sell_price": 195.00}
+    {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "china_cost": 95.00, "uk_cost": 145.00}
   ],
   "allocated_days": 3
 }
