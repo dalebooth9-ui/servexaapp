@@ -140,14 +140,26 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
   };
 
   const lastEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
+  const lastStepKey = `whatsappQuickSend:lastStep:${jobId}`;
+
+  const isValidStep = (v: string | null): v is Step =>
+    v === "compose" || v === "preview" || v === "attachments";
+
+  const setStepPersist = (s: Step) => {
+    setStep(s);
+    try { localStorage.setItem(lastStepKey, s); } catch {}
+  };
 
   const handleOpen = () => {
     setOpen(true);
-    setStep("compose");
     let initial = "";
+    let initialStep: Step = "compose";
     try {
       initial = localStorage.getItem(lastEngineerKey) || "";
+      const savedStep = localStorage.getItem(lastStepKey);
+      if (isValidStep(savedStep)) initialStep = savedStep;
     } catch {}
+    setStep(initialStep);
     setSelectedEngineer(initial);
     setMessage("");
     setJob(null);
