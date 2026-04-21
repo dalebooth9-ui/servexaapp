@@ -541,11 +541,7 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         )}
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
-            const isNonMaterial = (p: any) => {
-              const n = (p.name || "").toLowerCase();
-              return /\b(labour|labor|daily\s*profit|profit|day\s*rate|day-rate|man\s*day|days?\s*on\s*site)\b/.test(n);
-            };
-            const pickParts = parts.filter(p => (p.quantity ?? 0) > 0 && (includeLabour || !isNonMaterial(p)));
+            const pickParts = parts.filter(p => (p.quantity ?? 0) > 0 && (includeLabour || !isLabourOrProfitPart(p.name)));
             const rows = pickParts.map((p, i) =>
               `<tr>
                 <td>${i + 1}</td>
