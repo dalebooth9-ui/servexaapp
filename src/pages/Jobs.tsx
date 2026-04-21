@@ -250,6 +250,16 @@ export default function Jobs() {
     }
   };
 
+  const handleApproveJob = async (jobId: string) => {
+    const { error } = await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
+    if (error) {
+      toast({ title: "Error", description: "Failed to approve job.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.map((j) => (j.id === jobId ? { ...j, status: "active" } : j)));
+      toast({ title: "Job approved", description: "Status set to Active." });
+    }
+  };
+
   const handleBulkPriorityChange = async (priority: string) => {
     const ids = Array.from(selectedJobIds);
     const { error } = await supabase.from("jobs").update({ priority } as any).in("id", ids);
