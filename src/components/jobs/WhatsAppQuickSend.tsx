@@ -132,10 +132,16 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     setLoadingEngineers(false);
   };
 
+  const lastEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
+
   const handleOpen = () => {
     setOpen(true);
     setStep("compose");
-    setSelectedEngineer("");
+    let initial = "";
+    try {
+      initial = localStorage.getItem(lastEngineerKey) || "";
+    } catch {}
+    setSelectedEngineer(initial);
     setMessage("");
     setJob(null);
     setPhotos([]);
