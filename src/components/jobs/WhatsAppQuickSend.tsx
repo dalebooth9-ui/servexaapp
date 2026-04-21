@@ -302,16 +302,34 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
               <p className="text-sm text-muted-foreground">No engineers assigned to this job.</p>
             ) : step === "compose" ? (
               <>
-                <Select value={selectedEngineer} onValueChange={(v) => { setSelectedEngineer(v); persistEngineer(v); }}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select engineer" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {engineers.map((eng) => (
-                      <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Select value={selectedEngineer} onValueChange={(v) => { setSelectedEngineer(v); persistEngineer(v); }}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select engineer" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {engineers.map((eng) => (
+                          <SelectItem key={eng.id} value={eng.id}>{eng.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {selectedEngineer && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedEngineer("");
+                        try { localStorage.removeItem(lastEngineerKey); } catch {}
+                        toast({ title: "Saved recipient cleared", description: "Pick a new engineer for this job." });
+                      }}
+                      className="text-xs text-muted-foreground hover:text-destructive underline whitespace-nowrap"
+                      title="Clear saved recipient for this job"
+                    >
+                      Clear saved
+                    </button>
+                  )}
+                </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Message (auto-filled with job details)</span>
