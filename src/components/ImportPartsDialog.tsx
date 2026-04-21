@@ -160,6 +160,7 @@ export default function ImportPartsDialog({
       // Preserve qty 0 — only coerce truly invalid values (NaN) to 0.
       quantity: Number.isFinite(p.quantity) ? p.quantity : 0,
       unit_cost: Number.isFinite(p.unit_cost) ? p.unit_cost : 0,
+      sell_price: Number.isFinite(p.sell_price) ? p.sell_price : 0,
       notes: p.notes.trim() || null,
       added_by: user.id,
     }));
