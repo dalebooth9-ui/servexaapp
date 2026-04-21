@@ -131,28 +131,46 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // ── Section helpers ───────────────────────────────────────────────────
   const INITIAL_COL_W = 22;
+  const SECTION_HEADER_H = 5.5;
+  const ROW_COUNT = 9 + 4 + 7;
+  const FOOTER_SAFE_TOP = ph - 56;
+  const SECTION_GAP = 2;
+  const uniformRowH = Math.max(
+    6.6,
+    Math.min(7.4, (FOOTER_SAFE_TOP - y - SECTION_HEADER_H * 3 - SECTION_GAP * 3) / ROW_COUNT)
+  );
+
+  const fitSingleLineFont = (text: string, maxWidth: number, preferred: number, min: number) => {
+    let size = preferred;
+    doc.setFontSize(size);
+    while (size > min && doc.getTextWidth(text) > maxWidth) {
+      size -= 0.2;
+      doc.setFontSize(size);
+    }
+    return size;
+  };
 
   const sectionHeader = (title: string, withInitialCol = true) => {
     doc.setFillColor(...VIVA_NAVY);
-    doc.rect(ml, y, cw, 5.5, "F");
+      doc.rect(ml, y, cw, SECTION_HEADER_H, "F");
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
-    doc.text(title.toUpperCase(), ml + 2, y + 3.9);
+      doc.text(title.toUpperCase(), ml + 2, y + 3.9);
     if (withInitialCol) {
       // Divider + right-aligned column title
       doc.setDrawColor(255, 255, 255);
       doc.setLineWidth(0.3);
-      doc.line(mr - INITIAL_COL_W, y, mr - INITIAL_COL_W, y + 5.5);
+        doc.line(mr - INITIAL_COL_W, y, mr - INITIAL_COL_W, y + SECTION_HEADER_H);
       doc.setFontSize(7.5);
       doc.text("CHECK & INITIAL", mr - INITIAL_COL_W / 2, y + 3.9, { align: "center" });
     }
-    y += 5.5;
+      y += SECTION_HEADER_H;
   };
 
   let altRow = false;
   const checkRow = (label: string) => {
-    const h = 8;
+    const h = uniformRowH;
     if (altRow) {
       doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
@@ -162,18 +180,18 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.setLineWidth(0.2);
     // Label cell (left)
     doc.rect(ml, y, cw - INITIAL_COL_W, h);
-    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...VIVA_DARK);
-    const labelLines = doc.splitTextToSize(label, cw - INITIAL_COL_W - 4);
-    doc.text(labelLines, ml + 2, y + 5);
+    const fontSize = fitSingleLineFont(label, cw - INITIAL_COL_W - 4, 7.1, 5.6);
+    doc.setFontSize(fontSize);
+    doc.text(label, ml + 2, y + h / 2 + 1.1);
     // Initial box (right) — left blank for customer
     doc.rect(mr - INITIAL_COL_W, y, INITIAL_COL_W, h);
     y += h;
   };
 
   const freeTextRow = (label: string) => {
-    const h = 9;
+    const h = uniformRowH;
     if (altRow) {
       doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
@@ -182,11 +200,11 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.setDrawColor(...VIVA_BORDER);
     doc.setLineWidth(0.2);
     doc.rect(ml, y, cw, h);
-    doc.setFontSize(8);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...VIVA_DARK);
-    const labelLines = doc.splitTextToSize(label, cw - 4);
-    doc.text(labelLines, ml + 2, y + 3.6);
+    const fontSize = fitSingleLineFont(label, cw - 4, 7, 5.4);
+    doc.setFontSize(fontSize);
+    doc.text(label, ml + 2, y + h / 2 + 1.1);
     y += h;
   };
 
@@ -202,7 +220,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   checkRow("What is the pipe centre off the finished floor of the horizontal pipe run?");
   checkRow("Are all routes clear of materials and scaffolds to allow access?");
   checkRow("Please send images of core holes and pipe run route when returning checklist.");
-  y += 2.5;
+  y += SECTION_GAP;
 
   // ── TESTING / COMMISSIONING ────────────────────────────────────────────
   altRow = false;
@@ -211,7 +229,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   checkRow("Can the testing vehicle get within 10m of the inlet locations?");
   checkRow("Are there any restrictions on commissioning between 8am – 16:00pm? *");
   checkRow("Will an extra commissioning test be required for building control to witness? (If so there will be an extra charge of £150 per system)");
-  y += 2.5;
+  y += SECTION_GAP;
 
   // ── ACCOUNTS DETAILS ──────────────────────────────────────────────────
   altRow = false;
@@ -226,7 +244,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     "Please provide your accounts address for any queries.",
   ].forEach((item) => freeTextRow(item));
 
-  y += 4;
+  y += SECTION_GAP;
 
   // ── Bottom stack (anchored, no overlap) ──────────────────────────────
   // From bottom up: footer band (ph-14) → logos (ph-26) → accounts line (ph-32)
