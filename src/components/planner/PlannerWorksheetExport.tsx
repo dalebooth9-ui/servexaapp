@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import { writeExcelFile } from "@/lib/excelUtils";
 import { format, addDays } from "date-fns";
+import { isLabourOrProfitPart } from "@/components/JobParts";
 
 interface ScheduleEntry {
   id: string;
@@ -92,7 +93,7 @@ function buildRows(
       if (job?.pressure_test_qty) scopeParts.push(`PT×${job.pressure_test_qty}`);
       if (job?.visual_qty) scopeParts.push(`Vis×${job.visual_qty}`);
 
-      const parts = job ? getPartsForJob(job.id) : [];
+      const parts = job ? getPartsForJob(job.id).filter(p => !isLabourOrProfitPart(p.name)) : [];
       const materialsStr = parts.map((p) => `${p.name}${p.quantity > 1 ? ` ×${p.quantity}` : ""}`).join(", ");
 
       // Combine schedule entry notes + job visit notes into one NOTES cell
