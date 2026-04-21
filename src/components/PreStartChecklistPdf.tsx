@@ -229,27 +229,31 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   y += 4;
 
   // ── Bottom stack (anchored, no overlap) ──────────────────────────────
-  const sigY = ph - 38;
+  // From bottom up: footer band (ph-14) → logos (ph-26) → accounts line (ph-32)
+  //   → print name/date row (ph-40) → signature row (ph-50)
+  const sigY = ph - 50;
+  const row2Y = ph - 40;
+
   doc.setDrawColor(...VIVA_DARK);
   doc.setLineWidth(0.3);
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...VIVA_DARK);
-  // Signature gets its own full-width row with extra vertical room
+
+  // Signature — full-width row with room above the next line
   doc.text("Signature:", ml, sigY);
   doc.line(ml + 18, sigY + 0.5, mr, sigY + 0.5);
 
-  // Print name + date on the row below
-  const row2Y = sigY + 8;
+  // Print name + date row
   doc.text("Print Name:", ml, row2Y);
-  doc.line(ml + 20, row2Y + 0.5, ml + 110, row2Y + 0.5);
-  doc.text("Date:", ml + 116, row2Y);
-  doc.line(ml + 126, row2Y + 0.5, mr, row2Y + 0.5);
+  doc.line(ml + 20, row2Y + 0.5, ml + 120, row2Y + 0.5);
+  doc.text("Date:", ml + 128, row2Y);
+  doc.line(ml + 140, row2Y + 0.5, mr, row2Y + 0.5);
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...VIVA_GREY);
-  doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, ph - 31, { align: "center" });
+  doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, ph - 32, { align: "center" });
 
   const logoH = 10;
   renderAccreditationLogos(doc, logos, ph - 26, logoH);
