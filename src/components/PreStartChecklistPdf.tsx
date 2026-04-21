@@ -59,11 +59,11 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // Viva brand colours (matches RAMS / job sheets)
   // Viva logo blue (brighter, matches the flame mark)
-  const VIVA_NAVY: [number, number, number] = [29, 91, 165];
+  const VIVA_NAVY: [number, number, number] = [30, 174, 232];
   const VIVA_DARK: [number, number, number] = [33, 37, 41];
   const VIVA_GREY: [number, number, number] = [110, 117, 125];
   const VIVA_BORDER: [number, number, number] = [200, 200, 200];
-  const VIVA_NAVY_TINT: [number, number, number] = [229, 238, 250];
+  const VIVA_NAVY_TINT: [number, number, number] = [230, 245, 252];
 
   let y = 32;
 
@@ -227,14 +227,6 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   ].forEach((item) => freeTextRow(item));
 
   y += 4;
-
-  // ── BS note ──────────────────────────────────────────────────────────
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "italic");
-  doc.setTextColor(...VIVA_GREY);
-  const bsNote = "*Testing is carried out in accordance with BS 9990:2015 and comprises a visual inspection of the entire system and a hydraulic pressure test to 12 Bar at the inlet for 15 minutes.";
-  const bsLines = doc.splitTextToSize(bsNote, cw);
-  doc.text(bsLines, ml, y);
 
   // ── Bottom stack (anchored, no overlap) ──────────────────────────────
   const sigY = ph - 38;
