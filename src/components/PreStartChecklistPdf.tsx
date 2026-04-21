@@ -129,19 +129,29 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   }
 
   // ── Section helpers ───────────────────────────────────────────────────
-  const sectionHeader = (title: string) => {
+  const INITIAL_COL_W = 22;
+
+  const sectionHeader = (title: string, withInitialCol = true) => {
     doc.setFillColor(...VIVA_NAVY);
     doc.rect(ml, y, cw, 5.5, "F");
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(255, 255, 255);
     doc.text(title.toUpperCase(), ml + 2, y + 3.9);
+    if (withInitialCol) {
+      // Divider + right-aligned column title
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.3);
+      doc.line(mr - INITIAL_COL_W, y, mr - INITIAL_COL_W, y + 5.5);
+      doc.setFontSize(7.5);
+      doc.text("CHECK & INITIAL", mr - INITIAL_COL_W / 2, y + 3.9, { align: "center" });
+    }
     y += 5.5;
   };
 
   let altRow = false;
   const checkRow = (label: string, tall = false) => {
-    const h = tall ? 11 : 6;
+    const h = tall ? 11 : 7;
     if (altRow) {
       doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
@@ -149,18 +159,15 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     altRow = !altRow;
     doc.setDrawColor(...VIVA_BORDER);
     doc.setLineWidth(0.2);
-    doc.rect(ml, y, 11, h);
-    doc.setFontSize(6.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...VIVA_NAVY);
-    doc.text("CHECK &", ml + 1.2, y + (tall ? 4 : 2.6));
-    doc.text("INITIAL", ml + 1.2, y + (tall ? 7.5 : 5));
-    doc.rect(ml + 11, y, cw - 11, h);
+    // Label cell (left)
+    doc.rect(ml, y, cw - INITIAL_COL_W, h);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...VIVA_DARK);
-    const labelLines = doc.splitTextToSize(label, cw - 15);
-    doc.text(labelLines, ml + 13, y + (tall ? 4 : 3.8));
+    const labelLines = doc.splitTextToSize(label, cw - INITIAL_COL_W - 4);
+    doc.text(labelLines, ml + 2, y + (tall ? 4 : 4.3));
+    // Initial box (right) — left blank for customer
+    doc.rect(mr - INITIAL_COL_W, y, INITIAL_COL_W, h);
     y += h;
   };
 
@@ -207,7 +214,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // ── ACCOUNTS DETAILS ──────────────────────────────────────────────────
   altRow = false;
-  sectionHeader("Accounts Details");
+  sectionHeader("Accounts Details", false);
   [
     "We work on 30-day EOM payment terms — please state if your payment terms differ.",
     "Do you work on an application or invoice basis?",
