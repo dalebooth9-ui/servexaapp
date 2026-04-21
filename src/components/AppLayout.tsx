@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
