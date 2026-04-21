@@ -129,7 +129,14 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       loaded = (profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id }));
     }
     setEngineers(loaded);
-    setSelectedEngineer((current) => (current && loaded.some((e) => e.id === current) ? current : ""));
+    setSelectedEngineer((current) => {
+      const valid = current && loaded.some((e) => e.id === current) ? current : "";
+      if (!valid) {
+        setStep("compose");
+        try { localStorage.setItem(lastStepKey, "compose"); } catch {}
+      }
+      return valid;
+    });
     setLoadingEngineers(false);
   };
 
@@ -140,14 +147,26 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
   };
 
   const lastEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
+  const lastStepKey = `whatsappQuickSend:lastStep:${jobId}`;
+
+  const isValidStep = (v: string | null): v is Step =>
+    v === "compose" || v === "preview" || v === "attachments";
+
+  const setStepPersist = (s: Step) => {
+    setStep(s);
+    try { localStorage.setItem(lastStepKey, s); } catch {}
+  };
 
   const handleOpen = () => {
     setOpen(true);
-    setStep("compose");
     let initial = "";
+    let initialStep: Step = "compose";
     try {
       initial = localStorage.getItem(lastEngineerKey) || "";
+      const savedStep = localStorage.getItem(lastStepKey);
+      if (isValidStep(savedStep)) initialStep = savedStep;
     } catch {}
+    setStep(initialStep);
     setSelectedEngineer(initial);
     setMessage("");
     setJob(null);
@@ -250,6 +269,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       if (data?.error) throw new Error(data.error);
       const attachNote = mediaUrls.length ? ` with ${mediaUrls.length} attachment${mediaUrls.length === 1 ? "" : "s"}` : "";
       toast({ title: "Sent", description: `WhatsApp message sent for ${jobRef}${attachNote}.` });
+      try { localStorage.removeItem(lastStepKey); } catch {}
       setOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send message.", variant: "destructive" });
@@ -320,7 +340,10 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                       type="button"
                       onClick={() => {
                         setSelectedEngineer("");
-                        try { localStorage.removeItem(lastEngineerKey); } catch {}
+                        try {
+                          localStorage.removeItem(lastEngineerKey);
+                          localStorage.removeItem(lastStepKey);
+                        } catch {}
                         toast({ title: "Saved recipient cleared", description: "Pick a new engineer for this job." });
                       }}
                       className="text-xs text-muted-foreground hover:text-destructive underline whitespace-nowrap"
@@ -352,7 +375,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 <div className="text-right text-xs text-muted-foreground">{message.length}/1600</div>
 
                 <Button
-                  onClick={() => setStep("preview")}
+                  onClick={() => setStepPersist("preview")}
                   disabled={!selectedEngineer || !message.trim()}
                   className="w-full"
                 >
@@ -385,7 +408,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
 
                 <Button
                   variant="outline"
-                  onClick={() => setStep("attachments")}
+                  onClick={() => setStepPersist("attachments")}
                   disabled={sending}
                   className="w-full"
                 >
@@ -396,7 +419,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setStep("compose")}
+                    onClick={() => setStepPersist("compose")}
                     disabled={sending}
                     className="flex-1"
                   >
@@ -480,11 +503,11 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep("preview")} className="flex-1">
+                  <Button variant="outline" onClick={() => setStepPersist("preview")} className="flex-1">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to preview
                   </Button>
-                  <Button onClick={() => setStep("preview")} disabled={overLimit} className="flex-1">
+                  <Button onClick={() => setStepPersist("preview")} disabled={overLimit} className="flex-1">
                     Done
                   </Button>
                 </div>
