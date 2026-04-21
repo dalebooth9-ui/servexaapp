@@ -91,7 +91,7 @@ async function extractPartsAndDays(
   csvText: string,
   lovableApiKey: string,
 ): Promise<{
-  parts: Array<{ name: string; quantity: number; unit_cost: number; sell_price: number }>;
+  parts: Array<{ name: string; quantity: number; unit_cost: number; sell_price: number; china_cost: number; uk_cost: number }>;
   allocated_days: number | null;
 }> {
   if (!csvText.trim()) return { parts: [], allocated_days: null };
@@ -108,20 +108,24 @@ Find the header row (usually within the first 30 rows). Identify exactly which c
 holds each of these meanings — write them down mentally before extracting any data:
   • DESC_COL — labelled "Description", "Item", "Material", "Part", or the leftmost text column with item names
   • QTY_COL — labelled "Qty", "Quantity", "No.", "No. Off", "Nos", "Nr", "Units", "Off"
-  • UNIT_COST_COL — labelled "Unit Cost", "Cost", "Cost ea", "Cost each", "Buy", "Net Cost", "Cost £"
-  • UNIT_SELL_COL — labelled "Unit Price", "Sell", "Sell ea", "Rate", "Price", "Unit Sell", "Sell £"
+  • CHINA_COST_COL — labelled "China", "China Cost", "China £", "China Price", "Import Cost",
+    "Purchase", "Buy", "Net Cost" — the lower (purchase) per-unit price. This is our COST.
+  • UK_COST_COL — labelled "UK", "UK Cost", "UK £", "UK Price", "Sell", "Sell ea", "Rate",
+    "Unit Price", "Unit Sell", "Sell £" — the higher (sell) per-unit price. This is our SELL.
+  • If only ONE per-unit price column exists, use it as BOTH china_cost and uk_cost.
   • TOTAL_COL — labelled "Total", "Extended", "Line Total", "Amount", "Sub Total", "Total £"
 
-Once you have these column letters, EVERY line item MUST read its quantity from QTY_COL and its
-per-unit price from UNIT_COST_COL / UNIT_SELL_COL. Do NOT guess from value ranges.
+Once you have these column letters, EVERY line item MUST read its quantity from QTY_COL,
+its china_cost from CHINA_COST_COL and its uk_cost from UK_COST_COL. Do NOT guess from value ranges.
+The UK price is normally HIGHER than the China price — if they're reversed, you've swapped the columns.
 
 === STEP 2 — Per-line rules ===
 - quantity = the raw number in QTY_COL for that row. Whole numbers (1, 4, 8, 17, 100…). DO NOT default to 1
   if a real number is present. Only return null if QTY_COL is genuinely empty for that row.
 - If QTY_COL shows 0, return 0 (do NOT bump to 1).
-- unit_cost / sell_price are ALWAYS per single unit, never the line total.
-- If only TOTAL_COL exists (no per-unit column): per_unit = total ÷ quantity.
-- SANITY CHECK every line: quantity × unit_cost should be within 1% of TOTAL_COL.
+- china_cost / uk_cost are ALWAYS per single unit, never the line total.
+- If only TOTAL_COL exists (no per-unit column): per_unit = total ÷ quantity (apply to both).
+- SANITY CHECK every line: quantity × uk_cost should be within 1% of TOTAL_COL.
   If it isn't, you have read the wrong column — re-check the column map and try again BEFORE outputting.
 - Strip £, $, commas, spaces from numbers ("1,234.50" → 1234.50). No thousands separators in output.
 - Skip: header rows, blank rows, section titles ("MATERIALS", "LABOUR"), subtotal/total/VAT rows,
@@ -135,9 +139,9 @@ Find labour days on site. Look for "Days on site", "Allocated days", "Labour day
 === Output ===
 Respond with ONLY valid JSON, no markdown, no commentary:
 {
-  "column_map": {"desc": "B", "qty": "D", "unit_cost": "E", "unit_sell": "F", "total": "G"},
+  "column_map": {"desc": "B", "qty": "D", "china_cost": "E", "uk_cost": "F", "total": "G"},
   "parts": [
-    {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "unit_cost": 145.00, "sell_price": 195.00}
+    {"name": "65mm Dry Riser Inlet Box", "quantity": 4, "china_cost": 95.00, "uk_cost": 145.00}
   ],
   "allocated_days": 3
 }
@@ -186,11 +190,24 @@ ${csvText.slice(0, 60000)}`;
         rawQty == null || rawQty === ""
           ? 0
           : Math.max(Number(rawQty) || 0, 0);
+      // Pull both China & UK columns. Fall back to legacy unit_cost/sell_price
+      // keys if the model emitted those instead.
+      const china = Math.max(
+        Number(p.china_cost) || Number(p.unit_cost) || 0,
+        0,
+      );
+      const uk = Math.max(
+        Number(p.uk_cost) || Number(p.sell_price) || Number(p.unit_cost) || 0,
+        0,
+      );
       return {
         name: String(p.name).trim(),
         quantity: qty,
-        unit_cost: Math.max(Number(p.unit_cost) || 0, 0),
-        sell_price: Math.max(Number(p.sell_price) || Number(p.unit_cost) || 0, 0),
+        // Persisted columns: unit_cost = China (purchase), sell_price = UK (sell)
+        unit_cost: china || uk,
+        sell_price: uk || china,
+        china_cost: china,
+        uk_cost: uk,
       };
     });
 

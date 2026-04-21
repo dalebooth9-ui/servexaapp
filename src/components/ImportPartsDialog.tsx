@@ -12,7 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 interface ParsedPart {
   name: string;
   quantity: number;
-  unit_cost: number;
+  unit_cost: number; // China / purchase cost
+  sell_price: number; // UK / sell price
   notes: string;
   selected: boolean;
 }
@@ -88,26 +89,31 @@ export default function ImportPartsDialog({
                 ? parseFloat(rawQty)
                 : 0;
 
-          // Cost can come back under several keys depending on the source
-          // (unit_cost / cost / price, plus uk_cost / china_cost from the
-          // multi-region parser). Pick the first non-zero value so UK prices
-          // aren't silently dropped.
-          const candidates = [
-            p.unit_cost,
-            p.uk_cost,
-            p.cost,
-            p.price,
-            p.sell_price,
-            p.china_cost,
-          ];
-          const cost = candidates
-            .map((v) => (v == null || v === "" ? NaN : parseFloat(v)))
-            .find((n) => Number.isFinite(n) && n > 0) ?? 0;
+          // Per-unit prices: prefer the explicit china_cost / uk_cost pair
+          // returned by parse-costing-sheet. Fall back to legacy single-price
+          // fields when the parser only knew one column.
+          const num = (v: any) => {
+            if (v == null || v === "") return NaN;
+            const n = parseFloat(String(v).replace(/[£$,\s]/g, ""));
+            return Number.isFinite(n) ? n : NaN;
+          };
+          const china =
+            [p.china_cost, p.unit_cost, p.cost, p.purchase_cost]
+              .map(num)
+              .find((n) => Number.isFinite(n) && n >= 0) ?? 0;
+          const uk =
+            [p.uk_cost, p.sell_price, p.price, p.unit_price]
+              .map(num)
+              .find((n) => Number.isFinite(n) && n >= 0) ?? 0;
+          // If only one side came back, mirror it so the row still imports.
+          const purchase = china > 0 ? china : uk;
+          const sell = uk > 0 ? uk : china;
 
           return {
             name: p.name || p.part || p.material || "",
             quantity: qty,
-            unit_cost: cost,
+            unit_cost: purchase,
+            sell_price: sell,
             notes: p.notes || p.description || "",
             selected: true,
           };
@@ -154,6 +160,7 @@ export default function ImportPartsDialog({
       // Preserve qty 0 — only coerce truly invalid values (NaN) to 0.
       quantity: Number.isFinite(p.quantity) ? p.quantity : 0,
       unit_cost: Number.isFinite(p.unit_cost) ? p.unit_cost : 0,
+      sell_price: Number.isFinite(p.sell_price) ? p.sell_price : 0,
       notes: p.notes.trim() || null,
       added_by: user.id,
     }));
@@ -175,7 +182,7 @@ export default function ImportPartsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Import Parts from Document</DialogTitle>
         </DialogHeader>
@@ -221,7 +228,9 @@ export default function ImportPartsDialog({
                     </TableHead>
                     <TableHead>Part / Material</TableHead>
                      <TableHead className="w-20 text-right">Qty</TableHead>
-                     {isAdmin && <TableHead className="w-24 text-right">Unit £</TableHead>}
+                     {isAdmin && <TableHead className="w-24 text-right">China £</TableHead>}
+                     {isAdmin && <TableHead className="w-24 text-right">UK £</TableHead>}
+                     {isAdmin && <TableHead className="w-24 text-right">Profit</TableHead>}
                      <TableHead>Notes</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
@@ -260,6 +269,33 @@ export default function ImportPartsDialog({
                          />
                        </TableCell>
                        )}
+                       {isAdmin && (
+                       <TableCell>
+                         <Input
+                           type="number"
+                           value={part.sell_price}
+                           onChange={(e) => updatePart(idx, "sell_price", parseFloat(e.target.value) || 0)}
+                           className="h-8 text-sm text-right w-24"
+                           min="0"
+                           step="0.01"
+                         />
+                       </TableCell>
+                       )}
+                       {isAdmin && (() => {
+                         const profit = (part.sell_price - part.unit_cost) * (part.quantity || 0);
+                         const margin = part.sell_price > 0
+                           ? ((part.sell_price - part.unit_cost) / part.sell_price) * 100
+                           : 0;
+                         const cls = profit >= 0 ? "text-emerald-600" : "text-destructive";
+                         return (
+                           <TableCell className={`text-right text-sm tabular-nums ${cls}`}>
+                             {profit >= 0 ? "+" : "-"}£{Math.abs(profit).toFixed(2)}
+                             <div className="text-[10px] text-muted-foreground">
+                               {margin.toFixed(0)}%
+                             </div>
+                           </TableCell>
+                         );
+                       })()}
                       <TableCell>
                         <Input
                           value={part.notes}
