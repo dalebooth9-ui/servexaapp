@@ -57,6 +57,7 @@ const Defects = lazy(() => import("@/pages/Defects"));
 const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
 const FireLog = lazy(() => import("@/pages/FireLog"));
 const ReportDownloads = lazy(() => import("@/pages/ReportDownloads"));
+const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
 
 const queryClient = new QueryClient();
 
