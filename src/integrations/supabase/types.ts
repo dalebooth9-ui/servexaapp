@@ -2782,6 +2782,7 @@ export type Database = {
           reference_number: string
           result: string | null
           site_id: string | null
+          source: string | null
           status: string
           updated_at: string
           visual_qty: number
@@ -2813,6 +2814,7 @@ export type Database = {
           reference_number?: string
           result?: string | null
           site_id?: string | null
+          source?: string | null
           status?: string
           updated_at?: string
           visual_qty?: number
@@ -2844,6 +2846,7 @@ export type Database = {
           reference_number?: string
           result?: string | null
           site_id?: string | null
+          source?: string | null
           status?: string
           updated_at?: string
           visual_qty?: number
