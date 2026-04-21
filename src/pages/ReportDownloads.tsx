@@ -134,11 +134,11 @@ export default function ReportDownloads() {
       const zip = new JSZip();
       const customer = safe(fullJob.customers?.name || "customer");
       const ref = safe(fullJob.reference_number || "job");
-      const root = `${customer}/${ref}`;
+      const rootDir = `${customer}/${ref}`;
 
       // Report PDF
       zip.file(
-        `${root}/Report/${ref}-report.pdf`,
+        `${rootDir}/Report/${ref}-report.pdf`,
         Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))
       );
 
