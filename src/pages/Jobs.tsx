@@ -85,6 +85,24 @@ export default function Jobs() {
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
   const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set());
+
+  // Keep selection in sync with the live jobs list — drop any IDs that are
+  // no longer pending_review (approved, rejected, deleted, etc.).
+  useEffect(() => {
+    setSelectedPendingIds((prev) => {
+      if (prev.size === 0) return prev;
+      const stillPending = new Set(
+        jobs.filter((j) => j.status === "pending_review").map((j) => j.id)
+      );
+      let changed = false;
+      const next = new Set<string>();
+      for (const id of prev) {
+        if (stillPending.has(id)) next.add(id);
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [jobs]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState("");
   const [bulkPriorityValue, setBulkPriorityValue] = useState("");
