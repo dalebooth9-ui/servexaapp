@@ -574,14 +574,15 @@ serve(async (req) => {
       ?? quote.spreadsheet_url ?? quote.spreadsheetUrl ?? body.spreadsheet_url
       ?? quote.materials_url ?? quote.materialsUrl ?? body.materials_url
       ?? null;
-    // The Mellor sometimes sends just a relative storage path (e.g. "<owner>/<file>.xls")
-    // instead of a full URL. Normalise it to a full public URL on their storage bucket
-    // so that fetch() works.
-    const MELLOR_STORAGE_BASE = "https://rjhhvqbmtdddsqlslzsh.supabase.co/storage/v1/object/public/quote-excel/";
+    // The Mellor must send a full signed URL (https://...). If they send only a
+    // relative storage path we cannot fetch it from their private bucket, so log
+    // a clear warning and drop the value to avoid storing a broken URL on the job.
     if (excelUrl && typeof excelUrl === "string" && !/^https?:\/\//i.test(excelUrl)) {
-      const cleaned = excelUrl.replace(/^\/+/, "").replace(/^quote-excel\//, "");
-      excelUrl = MELLOR_STORAGE_BASE + cleaned;
-      console.log(`Normalised relative excel path → ${excelUrl.slice(0, 100)}`);
+      console.warn(
+        `[receive-quote-hound] Costing sheet URL is a relative path ("${excelUrl}") — ` +
+        `The Mellor must send a full signed https URL for parts extraction to work. Skipping.`
+      );
+      excelUrl = null;
     }
     const pdfUrl = quote.pdf_url ?? quote.pdfUrl ?? body.pdf_url ?? null;
     const poUrl = quote.po_url ?? quote.poUrl ?? body.po_url ?? null;
