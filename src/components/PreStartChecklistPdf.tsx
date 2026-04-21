@@ -57,17 +57,17 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.addImage(logoBase64, fmt, pw / 2 - 28, 8, 56, 20);
   } catch {}
 
-  // Viva brand colours
-  const VIVA_RED: [number, number, number] = [196, 30, 38];
+  // Viva brand colours (matches RAMS / job sheets)
+  const VIVA_NAVY: [number, number, number] = [33, 61, 99];
   const VIVA_DARK: [number, number, number] = [33, 37, 41];
   const VIVA_GREY: [number, number, number] = [110, 117, 125];
   const VIVA_BORDER: [number, number, number] = [200, 200, 200];
-  const VIVA_RED_TINT: [number, number, number] = [252, 232, 233];
+  const VIVA_NAVY_TINT: [number, number, number] = [232, 238, 247];
 
   let y = 32;
 
   // ── Title bar (Viva red) ──────────────────────────────────────────────
-  doc.setFillColor(...VIVA_RED);
+  doc.setFillColor(...VIVA_NAVY);
   doc.rect(ml, y, cw, 11, "F");
   doc.setFontSize(13);
   doc.setFont("helvetica", "bold");
@@ -130,7 +130,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
 
   // ── Section helpers ───────────────────────────────────────────────────
   const sectionHeader = (title: string) => {
-    doc.setFillColor(...VIVA_RED);
+    doc.setFillColor(...VIVA_NAVY);
     doc.rect(ml, y, cw, 5.5, "F");
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "bold");
@@ -143,7 +143,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const checkRow = (label: string, tall = false) => {
     const h = tall ? 11 : 6;
     if (altRow) {
-      doc.setFillColor(...VIVA_RED_TINT);
+      doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
     }
     altRow = !altRow;
@@ -152,7 +152,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.rect(ml, y, 11, h);
     doc.setFontSize(6.5);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(...VIVA_RED);
+    doc.setTextColor(...VIVA_NAVY);
     doc.text("CHECK &", ml + 1.2, y + (tall ? 4 : 2.6));
     doc.text("INITIAL", ml + 1.2, y + (tall ? 7.5 : 5));
     doc.rect(ml + 11, y, cw - 11, h);
@@ -167,7 +167,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const freeTextRow = (label: string) => {
     const h = 9;
     if (altRow) {
-      doc.setFillColor(...VIVA_RED_TINT);
+      doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
     }
     altRow = !altRow;
@@ -253,7 +253,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const logoH = 10;
   renderAccreditationLogos(doc, logos, footerY - logoH - 3, logoH);
 
-  doc.setFillColor(...VIVA_RED);
+  doc.setFillColor(...VIVA_NAVY);
   doc.rect(ml, footerY - 1, cw, 0.8, "F");
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
