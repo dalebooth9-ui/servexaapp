@@ -235,10 +235,9 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const bsNote = "*Testing is carried out in accordance with BS 9990:2015 and comprises a visual inspection of the entire system and a hydraulic pressure test to 12 Bar at the inlet for 15 minutes.";
   const bsLines = doc.splitTextToSize(bsNote, cw);
   doc.text(bsLines, ml, y);
-  y += bsLines.length * 3.4 + 4;
 
-  // ── Sign-off line (anchored above footer) ─────────────────────────────
-  const sigY = ph - 30;
+  // ── Bottom stack (anchored, no overlap) ──────────────────────────────
+  const sigY = ph - 38;
   doc.setDrawColor(...VIVA_DARK);
   doc.setLineWidth(0.3);
   doc.setFontSize(8);
@@ -254,13 +253,12 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...VIVA_GREY);
-  doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, sigY + 6, { align: "center" });
+  doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, ph - 31, { align: "center" });
 
-  // ── Accreditation logos & footer ──────────────────────────────────────
-  const footerY = ph - 14;
   const logoH = 10;
-  renderAccreditationLogos(doc, logos, footerY - logoH - 3, logoH);
+  renderAccreditationLogos(doc, logos, ph - 26, logoH);
 
+  const footerY = ph - 14;
   doc.setFillColor(...VIVA_NAVY);
   doc.rect(ml, footerY - 1, cw, 0.8, "F");
   doc.setFontSize(7);
