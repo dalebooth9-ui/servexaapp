@@ -12,7 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 interface ParsedPart {
   name: string;
   quantity: number;
-  unit_cost: number;
+  unit_cost: number; // China / purchase cost
+  sell_price: number; // UK / sell price
   notes: string;
   selected: boolean;
 }
