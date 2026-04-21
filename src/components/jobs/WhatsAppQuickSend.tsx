@@ -364,7 +364,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 <div className="text-right text-xs text-muted-foreground">{message.length}/1600</div>
 
                 <Button
-                  onClick={() => setStep("preview")}
+                  onClick={() => setStepPersist("preview")}
                   disabled={!selectedEngineer || !message.trim()}
                   className="w-full"
                 >
@@ -397,7 +397,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
 
                 <Button
                   variant="outline"
-                  onClick={() => setStep("attachments")}
+                  onClick={() => setStepPersist("attachments")}
                   disabled={sending}
                   className="w-full"
                 >
@@ -408,7 +408,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setStep("compose")}
+                    onClick={() => setStepPersist("compose")}
                     disabled={sending}
                     className="flex-1"
                   >
@@ -492,11 +492,11 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" onClick={() => setStep("preview")} className="flex-1">
+                  <Button variant="outline" onClick={() => setStepPersist("preview")} className="flex-1">
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to preview
                   </Button>
-                  <Button onClick={() => setStep("preview")} disabled={overLimit} className="flex-1">
+                  <Button onClick={() => setStepPersist("preview")} disabled={overLimit} className="flex-1">
                     Done
                   </Button>
                 </div>
