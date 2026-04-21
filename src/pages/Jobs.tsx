@@ -274,6 +274,38 @@ export default function Jobs() {
     }
   };
 
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectingJob, setRejectingJob] = useState<any>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
+  const openRejectDialog = (job: any) => {
+    setRejectingJob(job);
+    setRejectReason("");
+    setRejectDialogOpen(true);
+  };
+
+  const handleRejectJob = async () => {
+    if (!rejectingJob) return;
+    const reason = rejectReason.trim();
+    if (!reason) {
+      toast({ title: "Reason required", description: "Please enter a rejection reason.", variant: "destructive" });
+      return;
+    }
+    const { error } = await supabase
+      .from("jobs")
+      .update({ status: "rejected", rejection_reason: reason } as any)
+      .eq("id", rejectingJob.id);
+    if (error) {
+      toast({ title: "Error", description: "Failed to reject job.", variant: "destructive" });
+    } else {
+      setJobs((prev) => prev.map((j) => (j.id === rejectingJob.id ? { ...j, status: "rejected", rejection_reason: reason } : j)));
+      toast({ title: "Job rejected", description: "Status set to Rejected." });
+      setRejectDialogOpen(false);
+      setRejectingJob(null);
+      setRejectReason("");
+    }
+  };
+
   const handleBulkPriorityChange = async (priority: string) => {
     const ids = Array.from(selectedJobIds);
     const { error } = await supabase.from("jobs").update({ priority } as any).in("id", ids);
