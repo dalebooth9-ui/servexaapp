@@ -77,13 +77,41 @@ export default function ImportPartsDialog({
 
       const { parts: parsed } = await res.json();
       setParts(
-        (parsed || []).map((p: any) => ({
-          name: p.name || p.part || p.material || "",
-          quantity: parseFloat(p.quantity) || 1,
-          unit_cost: parseFloat(p.unit_cost ?? p.cost ?? p.price ?? 0),
-          notes: p.notes || p.description || "",
-          selected: true,
-        }))
+        (parsed || []).map((p: any) => {
+          // Preserve quantity 0 exactly (don't fall back to 1) — a row showing
+          // 0 in the source sheet is intentionally empty for this job.
+          const rawQty = p.quantity;
+          const qty =
+            rawQty == null || rawQty === ""
+              ? 0
+              : Number.isFinite(parseFloat(rawQty))
+                ? parseFloat(rawQty)
+                : 0;
+
+          // Cost can come back under several keys depending on the source
+          // (unit_cost / cost / price, plus uk_cost / china_cost from the
+          // multi-region parser). Pick the first non-zero value so UK prices
+          // aren't silently dropped.
+          const candidates = [
+            p.unit_cost,
+            p.uk_cost,
+            p.cost,
+            p.price,
+            p.sell_price,
+            p.china_cost,
+          ];
+          const cost = candidates
+            .map((v) => (v == null || v === "" ? NaN : parseFloat(v)))
+            .find((n) => Number.isFinite(n) && n > 0) ?? 0;
+
+          return {
+            name: p.name || p.part || p.material || "",
+            quantity: qty,
+            unit_cost: cost,
+            notes: p.notes || p.description || "",
+            selected: true,
+          };
+        })
       );
     } catch (err: any) {
       toast({ title: "Parse Error", description: err.message, variant: "destructive" });
@@ -123,8 +151,9 @@ export default function ImportPartsDialog({
     const rows = selected.map((p) => ({
       job_id: jobId,
       name: p.name.trim(),
-      quantity: p.quantity || 1,
-      unit_cost: p.unit_cost || 0,
+      // Preserve qty 0 — only coerce truly invalid values (NaN) to 0.
+      quantity: Number.isFinite(p.quantity) ? p.quantity : 0,
+      unit_cost: Number.isFinite(p.unit_cost) ? p.unit_cost : 0,
       notes: p.notes.trim() || null,
       added_by: user.id,
     }));
