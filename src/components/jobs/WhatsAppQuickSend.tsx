@@ -339,7 +339,10 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                       type="button"
                       onClick={() => {
                         setSelectedEngineer("");
-                        try { localStorage.removeItem(lastEngineerKey); } catch {}
+                        try {
+                          localStorage.removeItem(lastEngineerKey);
+                          localStorage.removeItem(lastStepKey);
+                        } catch {}
                         toast({ title: "Saved recipient cleared", description: "Pick a new engineer for this job." });
                       }}
                       className="text-xs text-muted-foreground hover:text-destructive underline whitespace-nowrap"
