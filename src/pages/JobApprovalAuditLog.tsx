@@ -64,6 +64,25 @@ export default function JobApprovalAuditLog() {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [counts, setCounts] = useState({ approved: 0, rejected: 0, total: 0 });
+  const [selectedColumns, setSelectedColumns] = useState<ColumnKey[]>(() => {
+    try {
+      const raw = localStorage.getItem(COLUMNS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as ColumnKey[];
+        const valid = parsed.filter((k) => EXPORT_COLUMNS.some((c) => c.key === k));
+        if (valid.length > 0) return valid;
+      }
+    } catch {}
+    return EXPORT_COLUMNS.map((c) => c.key);
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(selectedColumns)); } catch {}
+  }, [selectedColumns]);
+
+  const toggleColumn = (key: ColumnKey) => {
+    setSelectedColumns((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  };
 
   // Load global summary counts once
   useEffect(() => {
