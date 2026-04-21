@@ -8,7 +8,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck, XCircle, Search, Download, FileJson, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { ShieldCheck, XCircle, Search, Download, FileJson, ArrowUp, ArrowDown, ArrowUpDown, ChevronLeft, ChevronRight, Columns3 } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+
+type ColumnKey = "when" | "action" | "job_reference" | "job_name" | "actor" | "reason";
+const EXPORT_COLUMNS: { key: ColumnKey; label: string }[] = [
+  { key: "when", label: "When" },
+  { key: "action", label: "Action" },
+  { key: "job_reference", label: "Job Reference" },
+  { key: "job_name", label: "Job Name" },
+  { key: "actor", label: "By" },
+  { key: "reason", label: "Reason" },
+];
+const COLUMNS_STORAGE_KEY = "auditLog:exportColumns";
 
 type LogRow = {
   id: string;
@@ -50,6 +64,25 @@ export default function JobApprovalAuditLog() {
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [counts, setCounts] = useState({ approved: 0, rejected: 0, total: 0 });
+  const [selectedColumns, setSelectedColumns] = useState<ColumnKey[]>(() => {
+    try {
+      const raw = localStorage.getItem(COLUMNS_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as ColumnKey[];
+        const valid = parsed.filter((k) => EXPORT_COLUMNS.some((c) => c.key === k));
+        if (valid.length > 0) return valid;
+      }
+    } catch {}
+    return EXPORT_COLUMNS.map((c) => c.key);
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem(COLUMNS_STORAGE_KEY, JSON.stringify(selectedColumns)); } catch {}
+  }, [selectedColumns]);
+
+  const toggleColumn = (key: ColumnKey) => {
+    setSelectedColumns((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]);
+  };
 
   // Load global summary counts once
   useEffect(() => {
@@ -227,17 +260,24 @@ export default function JobApprovalAuditLog() {
     URL.revokeObjectURL(url);
   }
 
+  function getCellValue(r: Awaited<ReturnType<typeof fetchExportRows>>[number], key: ColumnKey): string {
+    switch (key) {
+      case "when": return format(new Date(r.when), "yyyy-MM-dd HH:mm:ss");
+      case "action": return r.action;
+      case "job_reference": return r.job_reference || "";
+      case "job_name": return r.job_name || "";
+      case "actor": return r.actor_name || "Unknown";
+      case "reason": return r.reason || "";
+    }
+  }
+
   async function exportCsv() {
+    if (selectedColumns.length === 0) return;
     const rows = await fetchExportRows();
-    const headers = ["When", "Action", "Job Reference", "Job Name", "By", "Reason"];
-    const rowsCsv = rows.map((r) => [
-      format(new Date(r.when), "yyyy-MM-dd HH:mm:ss"),
-      r.action,
-      r.job_reference || "",
-      r.job_name || "",
-      r.actor_name || "Unknown",
-      r.reason || "",
-    ]);
+    // Preserve canonical column order regardless of toggle order
+    const cols = EXPORT_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+    const headers = cols.map((c) => c.label);
+    const rowsCsv = rows.map((r) => cols.map((c) => getCellValue(r, c.key)));
     const escape = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
     const csv = [headers, ...rowsCsv].map((r) => r.map(escape).join(",")).join("\n");
     downloadBlob(
@@ -248,12 +288,21 @@ export default function JobApprovalAuditLog() {
 
   async function exportJson() {
     const rows = await fetchExportRows();
+    const cols = EXPORT_COLUMNS.filter((c) => selectedColumns.includes(c.key));
+    const fieldMap: Record<ColumnKey, string> = {
+      when: "when", action: "action", job_reference: "job_reference",
+      job_name: "job_name", actor: "actor_name", reason: "reason",
+    };
+    const projected = cols.length === 0
+      ? rows
+      : rows.map((r) => Object.fromEntries(cols.map((c) => [fieldMap[c.key], (r as any)[fieldMap[c.key]]])));
     const payload = {
       exported_at: new Date().toISOString(),
       filter,
       search: search.trim() || null,
+      columns: cols.map((c) => c.label),
       count: rows.length,
-      rows,
+      rows: projected,
     };
     downloadBlob(
       new Blob([JSON.stringify(payload, null, 2)], { type: "application/json;charset=utf-8;" }),
@@ -321,11 +370,45 @@ export default function JobApprovalAuditLog() {
             <SelectItem value="rejected">Rejected only</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="outline" onClick={exportCsv} disabled={totalCount === 0}>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button variant="outline">
+              <Columns3 className="h-4 w-4" />
+              Columns ({selectedColumns.length}/{EXPORT_COLUMNS.length})
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-56 p-3" align="end">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-sm font-medium">Export columns</p>
+              <button
+                type="button"
+                onClick={() => setSelectedColumns(EXPORT_COLUMNS.map((c) => c.key))}
+                className="text-xs text-primary hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+            <div className="space-y-2">
+              {EXPORT_COLUMNS.map((c) => (
+                <Label key={c.key} className="flex items-center gap-2 text-sm font-normal cursor-pointer">
+                  <Checkbox
+                    checked={selectedColumns.includes(c.key)}
+                    onCheckedChange={() => toggleColumn(c.key)}
+                  />
+                  {c.label}
+                </Label>
+              ))}
+            </div>
+            {selectedColumns.length === 0 && (
+              <p className="mt-2 text-xs text-destructive">Select at least one column to enable export.</p>
+            )}
+          </PopoverContent>
+        </Popover>
+        <Button variant="outline" onClick={exportCsv} disabled={totalCount === 0 || selectedColumns.length === 0}>
           <Download className="h-4 w-4" />
           Export CSV ({totalCount})
         </Button>
-        <Button variant="outline" onClick={exportJson} disabled={totalCount === 0}>
+        <Button variant="outline" onClick={exportJson} disabled={totalCount === 0 || selectedColumns.length === 0}>
           <FileJson className="h-4 w-4" />
           Export JSON ({totalCount})
         </Button>
