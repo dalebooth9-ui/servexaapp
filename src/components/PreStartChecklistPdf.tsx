@@ -151,8 +151,8 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   };
 
   let altRow = false;
-  const checkRow = (label: string, tall = false) => {
-    const h = tall ? 11 : 7;
+  const checkRow = (label: string) => {
+    const h = 8;
     if (altRow) {
       doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
@@ -166,7 +166,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...VIVA_DARK);
     const labelLines = doc.splitTextToSize(label, cw - INITIAL_COL_W - 4);
-    doc.text(labelLines, ml + 2, y + (tall ? 4 : 4.3));
+    doc.text(labelLines, ml + 2, y + 5);
     // Initial box (right) — left blank for customer
     doc.rect(mr - INITIAL_COL_W, y, INITIAL_COL_W, h);
     y += h;
@@ -198,8 +198,8 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   checkRow("If no to question 1 please send external wall details/drawings to info@vivafire.co.uk");
   checkRow("Are all core holes at least 150mm diameter?");
   checkRow("Are all core holes at least 130mm centre off any walls or ceilings?");
-  checkRow("What is the floor to ceiling height where the horizontal pipe run will be routed?", true);
-  checkRow("What is the pipe centre off the finished floor of the horizontal pipe run?", true);
+  checkRow("What is the floor to ceiling height where the horizontal pipe run will be routed?");
+  checkRow("What is the pipe centre off the finished floor of the horizontal pipe run?");
   checkRow("Are all routes clear of materials and scaffolds to allow access?");
   checkRow("Please send images of core holes and pipe run route when returning checklist.");
   y += 2.5;
@@ -210,7 +210,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   checkRow("Is water available on site close to the inlet locations?");
   checkRow("Can the testing vehicle get within 10m of the inlet locations?");
   checkRow("Are there any restrictions on commissioning between 8am – 16:00pm? *");
-  checkRow("Will an extra commissioning test be required for building control to witness? (If so there will be an extra charge of £150 per system)", true);
+  checkRow("Will an extra commissioning test be required for building control to witness? (If so there will be an extra charge of £150 per system)");
   y += 2.5;
 
   // ── ACCOUNTS DETAILS ──────────────────────────────────────────────────
