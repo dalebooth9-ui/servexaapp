@@ -1,11 +1,15 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { MessageSquare, Send, ArrowLeft, Eye } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { MessageSquare, Send, ArrowLeft, Eye, FileText, Image as ImageIcon, Paperclip, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import CustomerReportPdf from "@/components/CustomerReportPdf";
+import { extractStoragePath } from "@/lib/fileUtils";
 
 type JobContext = {
   reference_number?: string | null;
@@ -17,7 +21,18 @@ type JobContext = {
   sites?: { name?: string | null; address?: string | null } | null;
 };
 
-type Step = "compose" | "preview";
+type SitePhoto = {
+  id: string;
+  file_url: string;
+  file_name: string | null;
+  storagePath: string | null;
+  thumbUrl: string | null;
+};
+
+type Step = "compose" | "preview" | "attachments";
+
+const SIGNED_URL_TTL_SEC = 60 * 60; // 1 hour — Twilio fetches immediately
+const MAX_TOTAL_MEDIA = 10; // Twilio WhatsApp media limit per message
 
 export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jobRef: string }) {
   const [open, setOpen] = useState(false);
@@ -26,9 +41,17 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
   const [selectedEngineer, setSelectedEngineer] = useState("");
   const [message, setMessage] = useState("");
   const [job, setJob] = useState<JobContext | null>(null);
+  const [photos, setPhotos] = useState<SitePhoto[]>([]);
+  const [selectedPhotoIds, setSelectedPhotoIds] = useState<Set<string>>(new Set());
+  const [includePdf, setIncludePdf] = useState(false);
   const [sending, setSending] = useState(false);
   const [loadingEngineers, setLoadingEngineers] = useState(false);
   const { toast } = useToast();
+
+  // Hidden trigger used to invoke CustomerReportPdf programmatically
+  const pdfTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // Resolver wired up while we await the PDF generation
+  const pdfResolverRef = useRef<((base64: string, fileName: string) => void) | null>(null);
 
   const buildDefaultMessage = (j: JobContext | null) => {
     if (!j) return "";
@@ -50,18 +73,50 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
   const loadContext = async () => {
     setLoadingEngineers(true);
 
-    const [assignRes, jobRes] = await Promise.all([
+    const [assignRes, jobRes, photosRes] = await Promise.all([
       supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
       supabase
         .from("jobs")
         .select("reference_number, name, description, scheduled_date, priority, customers(name, phone), sites(name, address)")
         .eq("id", jobId)
         .maybeSingle(),
+      supabase
+        .from("submissions")
+        .select("id, file_url, file_name, type")
+        .eq("job_id", jobId)
+        .eq("type", "photo")
+        .order("created_at", { ascending: false })
+        .limit(40),
     ]);
 
     const j = (jobRes.data as JobContext | null) || null;
     setJob(j);
     setMessage(buildDefaultMessage(j));
+
+    // Build photo previews via short signed URLs
+    const photoRows = (photosRes.data as any[]) || [];
+    const enriched: SitePhoto[] = [];
+    for (const p of photoRows) {
+      if (!p.file_url) continue;
+      const storagePath = extractStoragePath(p.file_url);
+      let thumbUrl: string | null = null;
+      if (storagePath) {
+        const { data: signed } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(storagePath, SIGNED_URL_TTL_SEC);
+        thumbUrl = signed?.signedUrl || null;
+      } else if (p.file_url.startsWith("http")) {
+        thumbUrl = p.file_url;
+      }
+      enriched.push({
+        id: p.id,
+        file_url: p.file_url,
+        file_name: p.file_name,
+        storagePath,
+        thumbUrl,
+      });
+    }
+    setPhotos(enriched);
 
     const data = assignRes.data;
     if (data && data.length > 0) {
@@ -83,19 +138,105 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     setSelectedEngineer("");
     setMessage("");
     setJob(null);
+    setPhotos([]);
+    setSelectedPhotoIds(new Set());
+    setIncludePdf(false);
     loadContext();
   };
 
+  const togglePhoto = (id: string) => {
+    setSelectedPhotoIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const totalAttachments = (includePdf ? 1 : 0) + selectedPhotoIds.size;
+  const overLimit = totalAttachments > MAX_TOTAL_MEDIA;
+
+  // Bridge: receive PDF base64 from CustomerReportPdf and resolve the awaiter
+  const handlePdfGenerated = (base64: string, fileName: string) => {
+    if (pdfResolverRef.current) {
+      pdfResolverRef.current(base64, fileName);
+      pdfResolverRef.current = null;
+    }
+  };
+
+  const generateReportPdf = (): Promise<{ base64: string; fileName: string }> =>
+    new Promise((resolve, reject) => {
+      if (!pdfTriggerRef.current) {
+        reject(new Error("Report generator unavailable"));
+        return;
+      }
+      pdfResolverRef.current = (base64, fileName) => resolve({ base64, fileName });
+      // Safety timeout
+      setTimeout(() => {
+        if (pdfResolverRef.current) {
+          pdfResolverRef.current = null;
+          reject(new Error("Report generation timed out"));
+        }
+      }, 60_000);
+      pdfTriggerRef.current.click();
+    });
+
+  const uploadPdfAndSign = async (base64: string, fileName: string): Promise<string> => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "application/pdf" });
+    const path = `whatsapp-attachments/${jobId}/${Date.now()}-${fileName.replace(/[^a-z0-9.\-_]/gi, "_")}`;
+    const { error: upErr } = await supabase.storage.from("submissions").upload(path, blob, {
+      contentType: "application/pdf",
+      upsert: true,
+    });
+    if (upErr) throw upErr;
+    const { data: signed, error: signErr } = await supabase.storage
+      .from("submissions")
+      .createSignedUrl(path, SIGNED_URL_TTL_SEC);
+    if (signErr || !signed?.signedUrl) throw signErr || new Error("Could not sign PDF URL");
+    return signed.signedUrl;
+  };
+
+  const collectMediaUrls = async (): Promise<string[]> => {
+    const urls: string[] = [];
+
+    if (includePdf) {
+      const { base64, fileName } = await generateReportPdf();
+      const signed = await uploadPdfAndSign(base64, fileName);
+      urls.push(signed);
+    }
+
+    for (const p of photos) {
+      if (!selectedPhotoIds.has(p.id)) continue;
+      if (urls.length >= MAX_TOTAL_MEDIA) break;
+      if (p.storagePath) {
+        const { data: signed } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(p.storagePath, SIGNED_URL_TTL_SEC);
+        if (signed?.signedUrl) urls.push(signed.signedUrl);
+      } else if (p.file_url.startsWith("https://")) {
+        urls.push(p.file_url);
+      }
+    }
+    return urls.slice(0, MAX_TOTAL_MEDIA);
+  };
+
   const handleSend = async () => {
-    if (!selectedEngineer || !message.trim()) return;
+    if (!selectedEngineer || (!message.trim() && totalAttachments === 0)) return;
+    if (overLimit) {
+      toast({ title: "Too many attachments", description: `WhatsApp allows up to ${MAX_TOTAL_MEDIA} files per message.`, variant: "destructive" });
+      return;
+    }
     setSending(true);
     try {
+      const mediaUrls = await collectMediaUrls();
       const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-        body: { engineerId: selectedEngineer, message: message.trim(), jobId },
+        body: { engineerId: selectedEngineer, message: message.trim(), jobId, mediaUrls },
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      toast({ title: "Sent", description: `WhatsApp message sent for ${jobRef}.` });
+      const attachNote = mediaUrls.length ? ` with ${mediaUrls.length} attachment${mediaUrls.length === 1 ? "" : "s"}` : "";
+      toast({ title: "Sent", description: `WhatsApp message sent for ${jobRef}${attachNote}.` });
       setOpen(false);
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "Failed to send message.", variant: "destructive" });
@@ -115,12 +256,29 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       >
         <MessageSquare className="h-4 w-4" />
       </button>
+
+      {/* Hidden CustomerReportPdf — only mounted when dialog open and a job context exists */}
+      {open && job && (
+        <div className="hidden" aria-hidden="true">
+          <CustomerReportPdf
+            jobId={jobId}
+            job={job}
+            onPdfGenerated={handlePdfGenerated}
+            trigger={<button ref={pdfTriggerRef} type="button">generate</button>}
+          />
+        </div>
+      )}
+
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {step === "preview" ? <Eye className="h-4 w-4 text-accent" /> : <Send className="h-4 w-4 text-accent" />}
-              {step === "preview" ? "Preview message" : `WhatsApp — ${jobRef}`}
+              {step === "preview" ? <Eye className="h-4 w-4 text-accent" />
+                : step === "attachments" ? <Paperclip className="h-4 w-4 text-accent" />
+                : <Send className="h-4 w-4 text-accent" />}
+              {step === "preview" ? "Preview message"
+                : step === "attachments" ? "Add attachments"
+                : `WhatsApp — ${jobRef}`}
             </DialogTitle>
           </DialogHeader>
 
@@ -160,9 +318,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                   rows={8}
                   maxLength={1600}
                 />
-                <div className="text-right text-xs text-muted-foreground">
-                  {message.length}/1600
-                </div>
+                <div className="text-right text-xs text-muted-foreground">{message.length}/1600</div>
 
                 <Button
                   onClick={() => setStep("preview")}
@@ -173,21 +329,38 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                   Preview before sending
                 </Button>
               </>
-            ) : (
+            ) : step === "preview" ? (
               <>
                 <div className="rounded-md border bg-muted/30 p-3 text-sm">
                   <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
                     <span>To: <span className="font-medium text-foreground">{recipientName}</span></span>
                     <span>{message.length} chars</span>
                   </div>
-                  {/* WhatsApp-style bubble preview */}
                   <div className="rounded-lg bg-[#dcf8c6] dark:bg-emerald-900/40 px-3 py-2 text-sm text-foreground whitespace-pre-wrap break-words shadow-sm">
                     {message}
                   </div>
+                  {totalAttachments > 0 && (
+                    <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                      <Paperclip className="h-3.5 w-3.5" />
+                      {totalAttachments} attachment{totalAttachments === 1 ? "" : "s"} ready to send
+                      {includePdf && <span className="ml-1">· Job report PDF</span>}
+                      {selectedPhotoIds.size > 0 && <span className="ml-1">· {selectedPhotoIds.size} photo{selectedPhotoIds.size === 1 ? "" : "s"}</span>}
+                    </div>
+                  )}
                   <p className="mt-2 text-[11px] text-muted-foreground">
                     This is exactly what {recipientName} will receive on WhatsApp.
                   </p>
                 </div>
+
+                <Button
+                  variant="outline"
+                  onClick={() => setStep("attachments")}
+                  disabled={sending}
+                  className="w-full"
+                >
+                  <Paperclip className="mr-2 h-4 w-4" />
+                  {totalAttachments > 0 ? `Edit attachments (${totalAttachments})` : "Add report PDF or site photos"}
+                </Button>
 
                 <div className="flex gap-2">
                   <Button
@@ -199,13 +372,89 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                     <ArrowLeft className="mr-2 h-4 w-4" />
                     Back to edit
                   </Button>
-                  <Button
-                    onClick={handleSend}
-                    disabled={sending}
-                    className="flex-1"
-                  >
-                    <Send className="mr-2 h-4 w-4" />
-                    {sending ? "Sending…" : "Send"}
+                  <Button onClick={handleSend} disabled={sending || overLimit} className="flex-1">
+                    {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+                    {sending ? "Sending…" : `Send${totalAttachments ? ` + ${totalAttachments}` : ""}`}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              // step === "attachments"
+              <>
+                <Label className="flex items-start gap-2 rounded-md border p-3 cursor-pointer hover:bg-muted/30">
+                  <Checkbox
+                    checked={includePdf}
+                    onCheckedChange={(v) => setIncludePdf(!!v)}
+                  />
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-1.5 text-sm font-medium">
+                      <FileText className="h-4 w-4 text-primary" />
+                      Job report PDF
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Generates the full customer report (photos, parts, signatures) and attaches it.
+                    </p>
+                  </div>
+                </Label>
+
+                <div>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <p className="text-sm font-medium flex items-center gap-1.5">
+                      <ImageIcon className="h-4 w-4 text-primary" />
+                      Site photos ({photos.length})
+                    </p>
+                    {photos.length > 0 && (
+                      <button
+                        type="button"
+                        className="text-xs text-primary hover:underline"
+                        onClick={() => setSelectedPhotoIds(new Set())}
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  {photos.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">No site photos uploaded for this job yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-3 gap-2 max-h-64 overflow-y-auto rounded-md border p-2">
+                      {photos.map((p) => {
+                        const checked = selectedPhotoIds.has(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => togglePhoto(p.id)}
+                            className={`relative aspect-square overflow-hidden rounded-md border transition-all ${checked ? "ring-2 ring-primary border-primary" : "border-border hover:border-primary/50"}`}
+                          >
+                            {p.thumbUrl ? (
+                              <img src={p.thumbUrl} alt={p.file_name || "photo"} className="h-full w-full object-cover" loading="lazy" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-muted text-xs text-muted-foreground">No preview</div>
+                            )}
+                            {checked && (
+                              <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                                <div className="rounded-full bg-primary text-primary-foreground h-6 w-6 flex items-center justify-center text-xs font-bold">✓</div>
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className={`text-xs ${overLimit ? "text-destructive" : "text-muted-foreground"}`}>
+                  {totalAttachments}/{MAX_TOTAL_MEDIA} attachments selected
+                  {overLimit && " — WhatsApp allows up to 10 files per message."}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button variant="outline" onClick={() => setStep("preview")} className="flex-1">
+                    <ArrowLeft className="mr-2 h-4 w-4" />
+                    Back to preview
+                  </Button>
+                  <Button onClick={() => setStep("preview")} disabled={overLimit} className="flex-1">
+                    Done
                   </Button>
                 </div>
               </>
