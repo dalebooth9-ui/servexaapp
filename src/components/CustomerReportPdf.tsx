@@ -49,26 +49,64 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
       }
 
-      // Pre-load photo images
+      // Pre-load photo images — preserve original bytes (no canvas re-encoding)
+      // so quality is retained, and capture intrinsic dimensions for proper scaling.
       const photos = submissions.filter((s: any) => s.type === "photo" && s.file_url);
-      const photoImages: { img: HTMLImageElement; name: string; date: string }[] = [];
-      const maxPhotos = 8;
+      type PhotoEntry = {
+        dataUrl: string;
+        format: "JPEG" | "PNG";
+        natW: number;
+        natH: number;
+        name: string;
+        date: string;
+        caption: string;
+      };
+      const photoImages: PhotoEntry[] = [];
+      const maxPhotos = 12;
       for (const photo of photos.slice(0, maxPhotos)) {
         try {
           const path = extractStoragePath(photo.file_url);
           if (!path) continue;
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-          if (!data?.signedUrl) continue;
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject();
-            img.src = data.signedUrl;
+          const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
+          if (!signed?.signedUrl) continue;
+
+          // 1. Download the raw bytes — no re-encoding, preserves original quality.
+          const res = await fetch(signed.signedUrl);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          const mime = blob.type || "image/jpeg";
+          const isPng = mime.includes("png");
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.onerror = () => reject(new Error("read fail"));
+            fr.readAsDataURL(blob);
           });
-          photoImages.push({ img, name: photo.file_name || "Photo", date: new Date(photo.created_at).toLocaleDateString("en-GB") });
+
+          // 2. Probe intrinsic size for aspect-ratio scaling (no stretching).
+          const probe = new Image();
+          probe.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            probe.onload = () => resolve();
+            probe.onerror = () => reject();
+            probe.src = dataUrl;
+          });
+
+          const ts = new Date(photo.created_at);
+          const dateStr = ts.toLocaleDateString("en-GB");
+          const timeStr = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          photoImages.push({
+            dataUrl,
+            format: isPng ? "PNG" : "JPEG",
+            natW: probe.naturalWidth || 1,
+            natH: probe.naturalHeight || 1,
+            name: photo.file_name || "Photo",
+            date: `${dateStr} ${timeStr}`,
+            caption: photo.content || photo.caption || "",
+          });
         } catch { /* skip failed images */ }
       }
+
 
       // Pre-load signature images
       const sigImages: Record<string, HTMLImageElement> = {};
