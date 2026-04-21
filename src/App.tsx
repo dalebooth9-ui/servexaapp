@@ -144,6 +144,7 @@ const App = () => (
               <Route path="/quote-approval" element={<Suspense fallback={<PageFallback />}><QuoteApproval /></Suspense>} />
               <Route path="/reports/engineers" element={<AdminRoute><EngineerReport /></AdminRoute>} />
               <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+              <Route path="/audit-log" element={<AdminRoute><JobApprovalAuditLog /></AdminRoute>} />
               <Route path="/report-downloads" element={<AccessRoute pageSlug="jobs"><ReportDownloads /></AccessRoute>} />
               <Route path="/reset-password" element={<Suspense fallback={<PageFallback />}><ResetPassword /></Suspense>} />
               <Route path="/terms" element={<Suspense fallback={<PageFallback />}><TermsOfService /></Suspense>} />
