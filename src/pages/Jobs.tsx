@@ -1854,6 +1854,41 @@ export default function Jobs() {
         onJobCreated={fetchJobs}
       />
 
+      {/* Reject Job Dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reject job</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {rejectingJob && (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-mono font-semibold">{rejectingJob.reference_number}</span> – {rejectingJob.name}
+              </p>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="reject-reason">Reason for rejection</Label>
+              <Textarea
+                id="reject-reason"
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value.slice(0, 1000))}
+                placeholder="Explain why this job is being rejected..."
+                rows={4}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">{rejectReason.length}/1000</p>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+              <Button variant="destructive" onClick={handleRejectJob} disabled={!rejectReason.trim()}>
+                Reject job
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
       {/* Save as Template Dialog */}
       <Dialog open={saveTemplateOpen} onOpenChange={setSaveTemplateOpen}>
         <DialogContent className="sm:max-w-sm">
