@@ -57,12 +57,12 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.addImage(logoBase64, fmt, pw / 2 - 28, 8, 56, 20);
   } catch {}
 
-  // Viva brand colours
-  const VIVA_RED: [number, number, number] = [196, 30, 38];
+  // Viva brand colours (matches RAMS / job sheets)
+  const VIVA_NAVY: [number, number, number] = [33, 61, 99];
   const VIVA_DARK: [number, number, number] = [33, 37, 41];
   const VIVA_GREY: [number, number, number] = [110, 117, 125];
   const VIVA_BORDER: [number, number, number] = [200, 200, 200];
-  const VIVA_RED_TINT: [number, number, number] = [252, 232, 233];
+  const VIVA_NAVY_TINT: [number, number, number] = [232, 238, 247];
 
   let y = 32;
 
