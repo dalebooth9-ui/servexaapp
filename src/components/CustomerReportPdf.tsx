@@ -49,26 +49,64 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
       }
 
-      // Pre-load photo images
+      // Pre-load photo images — preserve original bytes (no canvas re-encoding)
+      // so quality is retained, and capture intrinsic dimensions for proper scaling.
       const photos = submissions.filter((s: any) => s.type === "photo" && s.file_url);
-      const photoImages: { img: HTMLImageElement; name: string; date: string }[] = [];
-      const maxPhotos = 8;
+      type PhotoEntry = {
+        dataUrl: string;
+        format: "JPEG" | "PNG";
+        natW: number;
+        natH: number;
+        name: string;
+        date: string;
+        caption: string;
+      };
+      const photoImages: PhotoEntry[] = [];
+      const maxPhotos = 12;
       for (const photo of photos.slice(0, maxPhotos)) {
         try {
           const path = extractStoragePath(photo.file_url);
           if (!path) continue;
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-          if (!data?.signedUrl) continue;
-          const img = new Image();
-          img.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            img.onload = () => resolve();
-            img.onerror = () => reject();
-            img.src = data.signedUrl;
+          const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
+          if (!signed?.signedUrl) continue;
+
+          // 1. Download the raw bytes — no re-encoding, preserves original quality.
+          const res = await fetch(signed.signedUrl);
+          if (!res.ok) continue;
+          const blob = await res.blob();
+          const mime = blob.type || "image/jpeg";
+          const isPng = mime.includes("png");
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.onerror = () => reject(new Error("read fail"));
+            fr.readAsDataURL(blob);
           });
-          photoImages.push({ img, name: photo.file_name || "Photo", date: new Date(photo.created_at).toLocaleDateString("en-GB") });
+
+          // 2. Probe intrinsic size for aspect-ratio scaling (no stretching).
+          const probe = new Image();
+          probe.crossOrigin = "anonymous";
+          await new Promise<void>((resolve, reject) => {
+            probe.onload = () => resolve();
+            probe.onerror = () => reject();
+            probe.src = dataUrl;
+          });
+
+          const ts = new Date(photo.created_at);
+          const dateStr = ts.toLocaleDateString("en-GB");
+          const timeStr = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          photoImages.push({
+            dataUrl,
+            format: isPng ? "PNG" : "JPEG",
+            natW: probe.naturalWidth || 1,
+            natH: probe.naturalHeight || 1,
+            name: photo.file_name || "Photo",
+            date: `${dateStr} ${timeStr}`,
+            caption: (photo as any).content || (photo as any).caption || "",
+          });
         } catch { /* skip failed images */ }
       }
+
 
       // Pre-load signature images
       const sigImages: Record<string, HTMLImageElement> = {};
@@ -234,7 +272,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         y += 8;
       }
 
-      // === PHOTOS ===
+      // === PHOTOS — quality-preserved, aspect-correct, captioned ===
       if (photoImages.length > 0) {
         y = checkPage(40, y);
         doc.setFontSize(14);
@@ -244,25 +282,67 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setTextColor(0, 0, 0);
         y += 8;
 
-        const imgW = (maxWidth - 6) / 2;
-        const imgH = 45;
+        const gap = 6;
+        const cellW = (maxWidth - gap) / 2;     // 2-column grid
+        const cellH = 55;                        // image cell height (mm)
+        const captionH = 12;                     // 2 caption lines
+        const blockH = cellH + captionH + 4;     // total per photo
+
         let col = 0;
+        let figureNo = 0;
         for (const photo of photoImages) {
-          if (col === 0) y = checkPage(imgH + 10, y);
-          const xPos = margin + col * (imgW + 6);
+          figureNo++;
+          if (col === 0) y = checkPage(blockH, y);
+          const xPos = margin + col * (cellW + gap);
+
+          // Background cell (lets letterboxed images sit on a neutral surface)
+          doc.setFillColor(245, 247, 250);
+          doc.setDrawColor(220, 224, 230);
+          doc.setLineWidth(0.2);
+          doc.rect(xPos, y, cellW, cellH, "FD");
+
+          // Aspect-ratio-correct fit: contain within the cell, never upscale beyond
+          // the cell, never stretch. Centre inside the cell.
+          const ratio = photo.natW / photo.natH;
+          let drawW = cellW - 2;
+          let drawH = drawW / ratio;
+          if (drawH > cellH - 2) {
+            drawH = cellH - 2;
+            drawW = drawH * ratio;
+          }
+          const ix = xPos + (cellW - drawW) / 2;
+          const iy = y + (cellH - drawH) / 2;
+
           try {
-            doc.addImage(photo.img, "JPEG", xPos, y, imgW, imgH);
+            // compression: "NONE" preserves the original bytes (no jsPDF re-encoding).
+            doc.addImage(photo.dataUrl, photo.format, ix, iy, drawW, drawH, undefined, "NONE");
           } catch { /* skip bad image */ }
-          doc.setFontSize(10);
+
+          // Caption — figure number, file name, date, optional user note
+          doc.setTextColor(40, 40, 40);
+          doc.setFontSize(8.5);
+          doc.setFont("helvetica", "bold");
+          const head = `Fig. ${figureNo} — ${photo.name}`;
+          const headLines = doc.splitTextToSize(head, cellW);
+          doc.text(headLines[0], xPos, y + cellH + 4);
+
           doc.setFont("helvetica", "normal");
-          doc.text(`${photo.name} — ${photo.date}`, xPos, y + imgH + 3);
+          doc.setFontSize(7.5);
+          doc.setTextColor(110, 110, 110);
+          const meta = photo.caption
+            ? `${photo.date}  ·  ${photo.caption}`
+            : photo.date;
+          const metaLines = doc.splitTextToSize(meta, cellW);
+          doc.text(metaLines.slice(0, 1)[0] || "", xPos, y + cellH + 8);
+          doc.setTextColor(0, 0, 0);
+
           col++;
           if (col >= 2) {
             col = 0;
-            y += imgH + 8;
+            y += blockH;
           }
         }
-        if (col !== 0) y += imgH + 8;
+        if (col !== 0) y += blockH;
         y += 4;
       }
 
