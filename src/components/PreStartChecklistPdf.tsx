@@ -235,12 +235,16 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...VIVA_DARK);
-  doc.text("Signed:", ml, sigY);
-  doc.line(ml + 14, sigY + 0.5, ml + 70, sigY + 0.5);
-  doc.text("Print Name:", ml + 76, sigY);
-  doc.line(ml + 96, sigY + 0.5, ml + 145, sigY + 0.5);
-  doc.text("Date:", ml + 151, sigY);
-  doc.line(ml + 161, sigY + 0.5, mr, sigY + 0.5);
+  // Signature gets its own full-width row with extra vertical room
+  doc.text("Signature:", ml, sigY);
+  doc.line(ml + 18, sigY + 0.5, mr, sigY + 0.5);
+
+  // Print name + date on the row below
+  const row2Y = sigY + 8;
+  doc.text("Print Name:", ml, row2Y);
+  doc.line(ml + 20, row2Y + 0.5, ml + 110, row2Y + 0.5);
+  doc.text("Date:", ml + 116, row2Y);
+  doc.line(ml + 126, row2Y + 0.5, mr, row2Y + 0.5);
 
   doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
