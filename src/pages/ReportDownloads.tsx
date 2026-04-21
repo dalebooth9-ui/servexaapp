@@ -12,7 +12,7 @@ type CompletedJob = {
   id: string;
   reference_number: string;
   name: string | null;
-  completed_at: string | null;
+  updated_at: string;
   created_at: string;
   customers: { name: string | null } | null;
   sites: { name: string | null } | null;
