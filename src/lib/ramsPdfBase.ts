@@ -943,8 +943,10 @@ export async function finaliseAndReturn(
   ]);
   if (watermark) addWatermarkToAllPages(doc, watermark);
   addAccreditationLogosToAllPages(doc, accredLogos, 278, 14);
-  const ref = jobInfo?.reference_number || "rams";
-  const fileName = `${ref}-${suffix}.pdf`;
+  const customerName = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "job";
+  const slug = String(customerName).toLowerCase().replace(/[^a-z0-9]+/g, "");
+  const prefix = suffix.toUpperCase().replace(/[^A-Z0-9]+/g, "");
+  const fileName = `${prefix}-${slug || "job"}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
   return { base64, fileName };
 }

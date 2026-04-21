@@ -1049,9 +1049,10 @@ export async function generateRamsPdf(
   if (watermark) addWatermarkToAllPages(doc, watermark);
   addAccreditationLogosToAllPages(doc, accredLogos, PAGE_H - 21, 18);
 
-  const ref = jobInfo?.reference_number || "rams";
-  const typeSlug = ramsType ? `-${ramsType.replace(/_/g, "-")}` : "";
-  const fileName = `${ref}${typeSlug}-method-statement.pdf`;
+  const customerName = (jobInfo as any)?.customers?.name || (jobInfo as any)?.customer || (jobInfo as any)?.site?.name || "job";
+  const slug = String(customerName).toLowerCase().replace(/[^a-z0-9]+/g, "") || "job";
+  const typePrefix = ramsType ? ramsType.replace(/_/g, "").toUpperCase() : "";
+  const fileName = `RAMS${typePrefix ? `-${typePrefix}` : ""}-${slug}.pdf`;
   const base64 = doc.output("datauristring").split(",")[1];
   return { base64, fileName };
 }
