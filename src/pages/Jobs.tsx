@@ -84,11 +84,37 @@ export default function Jobs() {
   const [renameValue, setRenameValue] = useState("");
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
-  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set());
+  const PENDING_SELECTION_KEY = "jobs:selectedPendingIds";
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem(PENDING_SELECTION_KEY);
+      if (!raw) return new Set();
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? new Set(arr.filter((x) => typeof x === "string")) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  // Persist selection to localStorage whenever it changes.
+  useEffect(() => {
+    try {
+      if (selectedPendingIds.size === 0) {
+        localStorage.removeItem(PENDING_SELECTION_KEY);
+      } else {
+        localStorage.setItem(PENDING_SELECTION_KEY, JSON.stringify(Array.from(selectedPendingIds)));
+      }
+    } catch {
+      // ignore quota/availability errors
+    }
+  }, [selectedPendingIds]);
 
   // Keep selection in sync with the live jobs list — drop any IDs that are
   // no longer pending_review (approved, rejected, deleted, etc.).
+  // Skip pruning until jobs have actually loaded so a refresh doesn't wipe
+  // restored selections before data arrives.
   useEffect(() => {
+    if (jobs.length === 0) return;
     setSelectedPendingIds((prev) => {
       if (prev.size === 0) return prev;
       const stillPending = new Set(
