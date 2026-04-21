@@ -505,8 +505,9 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
         </Button>
         {parts.length > 0 && (
           <Button variant="outline" size="sm" onClick={() => {
+            const exportParts = parts.filter(p => includeLabour || !isLabourOrProfitPart(p.name));
             const headers = ["Part / Material", "Quantity", "Notes"];
-            const rows = parts.map(p => {
+            const rows = exportParts.map(p => {
               return [
                 `"${(p.name || "").replace(/"/g, '""')}"`,
                 p.quantity,
