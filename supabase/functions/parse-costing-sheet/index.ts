@@ -190,11 +190,24 @@ ${csvText.slice(0, 60000)}`;
         rawQty == null || rawQty === ""
           ? 0
           : Math.max(Number(rawQty) || 0, 0);
+      // Pull both China & UK columns. Fall back to legacy unit_cost/sell_price
+      // keys if the model emitted those instead.
+      const china = Math.max(
+        Number(p.china_cost) || Number(p.unit_cost) || 0,
+        0,
+      );
+      const uk = Math.max(
+        Number(p.uk_cost) || Number(p.sell_price) || Number(p.unit_cost) || 0,
+        0,
+      );
       return {
         name: String(p.name).trim(),
         quantity: qty,
-        unit_cost: Math.max(Number(p.unit_cost) || 0, 0),
-        sell_price: Math.max(Number(p.sell_price) || Number(p.unit_cost) || 0, 0),
+        // Persisted columns: unit_cost = China (purchase), sell_price = UK (sell)
+        unit_cost: china || uk,
+        sell_price: uk || china,
+        china_cost: china,
+        uk_cost: uk,
       };
     });
 
