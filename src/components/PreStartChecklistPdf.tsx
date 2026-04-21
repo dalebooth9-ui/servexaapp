@@ -151,8 +151,8 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   };
 
   let altRow = false;
-  const checkRow = (label: string, tall = false) => {
-    const h = tall ? 11 : 7;
+  const checkRow = (label: string) => {
+    const h = 8;
     if (altRow) {
       doc.setFillColor(...VIVA_NAVY_TINT);
       doc.rect(ml, y, cw, h, "F");
