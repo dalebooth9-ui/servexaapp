@@ -134,7 +134,11 @@ ${csvText.slice(0, 40000)}`;
   }
 
   const aiData = await aiRes.json();
+  const finishReason = aiData?.choices?.[0]?.finish_reason;
   const raw = aiData?.choices?.[0]?.message?.content ?? "";
+  if (finishReason && finishReason !== "stop") {
+    console.warn(`AI extraction finish_reason=${finishReason} — output may be truncated`);
+  }
   const cleaned = raw.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
   const parsed = JSON.parse(cleaned);
 
