@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -102,22 +102,21 @@ export default function JobApprovalAuditLog() {
     })();
   }, []);
 
-  // Server-side pagination: we fetch a window ordered by created_at,
-  // then apply approve/reject classify filter. To keep page sizes consistent,
-  // we over-fetch and slice locally per page.
+  // Server-side pagination + sorting (joins via PostgREST embed)
   useEffect(() => {
     (async () => {
       setLoading(true);
-      // Order by created_at on the server (only DB-sortable column reliably).
-      const ascending = sortKey === "created_at" ? sortDir === "asc" : false;
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
 
-      // Build query — for "approved" we can match on details substring server-side,
-      // for "rejected" likewise; otherwise fetch the page raw.
       let q = supabase
         .from("job_activity_log")
-        .select("id, job_id, user_id, action, details, created_at", { count: "exact" })
+        .select(
+          `id, job_id, user_id, action, details, created_at,
+           job:jobs!job_activity_log_job_id_fkey(reference_number, name, rejection_reason),
+           actor:profiles!job_activity_log_user_id_profiles_fkey(full_name)`,
+          { count: "exact" }
+        )
         .eq("action", "status_change");
 
       if (filter === "approved") {
@@ -132,35 +131,41 @@ export default function JobApprovalAuditLog() {
         q = q.ilike("details", `%${search.trim()}%`);
       }
 
-      const { data: rows, count } = await q.order("created_at", { ascending }).range(from, to);
+      const ascending = sortDir === "asc";
+      if (sortKey === "actor") {
+        // Sort by joined profile.full_name on the server, with stable tiebreaker
+        q = q
+          .order("full_name", { foreignTable: "actor", ascending, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      } else if (sortKey === "job") {
+        // Sort by job reference_number, then name as tiebreaker
+        q = q
+          .order("reference_number", { foreignTable: "job", ascending, nullsFirst: false })
+          .order("name", { foreignTable: "job", ascending, nullsFirst: false })
+          .order("created_at", { ascending: false });
+      } else {
+        q = q.order("created_at", { ascending });
+      }
+
+      const { data: rows, count } = await q.range(from, to);
 
       setTotalCount(count || 0);
 
-      const filtered = (rows || []).filter((r) => {
+      const filtered = (rows || []).filter((r: any) => {
         const k = classify(r.details);
         return k === "approved" || k === "rejected";
       });
 
-      const jobIds = Array.from(new Set(filtered.map((r) => r.job_id))).filter(Boolean);
-      const userIds = Array.from(new Set(filtered.map((r) => r.user_id).filter(Boolean))) as string[];
-
-      const [jobsRes, profilesRes] = await Promise.all([
-        jobIds.length
-          ? supabase.from("jobs").select("id, reference_number, name, rejection_reason").in("id", jobIds)
-          : Promise.resolve({ data: [] as any[] }),
-        userIds.length
-          ? supabase.from("profiles").select("user_id, full_name").in("user_id", userIds)
-          : Promise.resolve({ data: [] as any[] }),
-      ]);
-
-      const jobMap = new Map((jobsRes.data || []).map((j: any) => [j.id, j]));
-      const userMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
-
       setLogs(
-        filtered.map((r) => ({
-          ...r,
-          job: jobMap.get(r.job_id) || null,
-          actor: r.user_id ? userMap.get(r.user_id) || null : null,
+        filtered.map((r: any) => ({
+          id: r.id,
+          job_id: r.job_id,
+          user_id: r.user_id,
+          action: r.action,
+          details: r.details,
+          created_at: r.created_at,
+          job: r.job || null,
+          actor: r.actor || null,
         }))
       );
       setLoading(false);
@@ -172,24 +177,8 @@ export default function JobApprovalAuditLog() {
     setPage(0);
   }, [filter, search, sortKey, sortDir]);
 
-  // Apply secondary client-side sort (actor/job) within the current page
-  const visible = useMemo(() => {
-    const arr = [...logs];
-    if (sortKey === "actor") {
-      arr.sort((a, b) => {
-        const an = (a.actor?.full_name || "").toLowerCase();
-        const bn = (b.actor?.full_name || "").toLowerCase();
-        return sortDir === "asc" ? an.localeCompare(bn) : bn.localeCompare(an);
-      });
-    } else if (sortKey === "job") {
-      arr.sort((a, b) => {
-        const an = (a.job?.reference_number || a.job?.name || "").toLowerCase();
-        const bn = (b.job?.reference_number || b.job?.name || "").toLowerCase();
-        return sortDir === "asc" ? an.localeCompare(bn) : bn.localeCompare(an);
-      });
-    }
-    return arr;
-  }, [logs, sortKey, sortDir]);
+  // Server now returns rows already in the correct order; render as-is.
+  const visible = logs;
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
