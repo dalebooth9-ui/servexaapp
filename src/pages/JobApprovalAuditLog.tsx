@@ -325,6 +325,10 @@ export default function JobApprovalAuditLog() {
           <Download className="h-4 w-4" />
           Export CSV ({totalCount})
         </Button>
+        <Button variant="outline" onClick={exportJson} disabled={totalCount === 0}>
+          <FileJson className="h-4 w-4" />
+          Export JSON ({totalCount})
+        </Button>
       </div>
 
       <Card>
