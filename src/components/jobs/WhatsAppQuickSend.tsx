@@ -119,17 +119,24 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     setPhotos(enriched);
 
     const data = assignRes.data;
+    let loaded: { id: string; name: string }[] = [];
     if (data && data.length > 0) {
       const ids = data.map((d) => d.engineer_id);
       const { data: profiles } = await supabase
         .from("profiles")
         .select("user_id, full_name")
         .in("user_id", ids);
-      setEngineers((profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id })));
-    } else {
-      setEngineers([]);
+      loaded = (profiles || []).map((p) => ({ id: p.user_id, name: p.full_name || p.user_id }));
     }
+    setEngineers(loaded);
+    setSelectedEngineer((current) => (current && loaded.some((e) => e.id === current) ? current : ""));
     setLoadingEngineers(false);
+  };
+
+  const persistEngineer = (id: string) => {
+    try {
+      if (id) localStorage.setItem(lastEngineerKey, id);
+    } catch {}
   };
 
   const lastEngineerKey = `whatsappQuickSend:lastEngineer:${jobId}`;
