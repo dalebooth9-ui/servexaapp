@@ -177,24 +177,8 @@ export default function JobApprovalAuditLog() {
     setPage(0);
   }, [filter, search, sortKey, sortDir]);
 
-  // Apply secondary client-side sort (actor/job) within the current page
-  const visible = useMemo(() => {
-    const arr = [...logs];
-    if (sortKey === "actor") {
-      arr.sort((a, b) => {
-        const an = (a.actor?.full_name || "").toLowerCase();
-        const bn = (b.actor?.full_name || "").toLowerCase();
-        return sortDir === "asc" ? an.localeCompare(bn) : bn.localeCompare(an);
-      });
-    } else if (sortKey === "job") {
-      arr.sort((a, b) => {
-        const an = (a.job?.reference_number || a.job?.name || "").toLowerCase();
-        const bn = (b.job?.reference_number || b.job?.name || "").toLowerCase();
-        return sortDir === "asc" ? an.localeCompare(bn) : bn.localeCompare(an);
-      });
-    }
-    return arr;
-  }, [logs, sortKey, sortDir]);
+  // Server now returns rows already in the correct order; render as-is.
+  const visible = logs;
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
