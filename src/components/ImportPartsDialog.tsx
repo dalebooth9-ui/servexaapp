@@ -89,21 +89,25 @@ export default function ImportPartsDialog({
                 ? parseFloat(rawQty)
                 : 0;
 
-          // Cost can come back under several keys depending on the source
-          // (unit_cost / cost / price, plus uk_cost / china_cost from the
-          // multi-region parser). Pick the first non-zero value so UK prices
-          // aren't silently dropped.
-          const candidates = [
-            p.unit_cost,
-            p.uk_cost,
-            p.cost,
-            p.price,
-            p.sell_price,
-            p.china_cost,
-          ];
-          const cost = candidates
-            .map((v) => (v == null || v === "" ? NaN : parseFloat(v)))
-            .find((n) => Number.isFinite(n) && n > 0) ?? 0;
+          // Per-unit prices: prefer the explicit china_cost / uk_cost pair
+          // returned by parse-costing-sheet. Fall back to legacy single-price
+          // fields when the parser only knew one column.
+          const num = (v: any) => {
+            if (v == null || v === "") return NaN;
+            const n = parseFloat(String(v).replace(/[£$,\s]/g, ""));
+            return Number.isFinite(n) ? n : NaN;
+          };
+          const china =
+            [p.china_cost, p.unit_cost, p.cost, p.purchase_cost]
+              .map(num)
+              .find((n) => Number.isFinite(n) && n >= 0) ?? 0;
+          const uk =
+            [p.uk_cost, p.sell_price, p.price, p.unit_price]
+              .map(num)
+              .find((n) => Number.isFinite(n) && n >= 0) ?? 0;
+          // If only one side came back, mirror it so the row still imports.
+          const purchase = china > 0 ? china : uk;
+          const sell = uk > 0 ? uk : china;
 
           return {
             name: p.name || p.part || p.material || "",
