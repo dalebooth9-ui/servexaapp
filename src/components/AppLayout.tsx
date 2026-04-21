@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -53,6 +53,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
 { to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
+{ to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
