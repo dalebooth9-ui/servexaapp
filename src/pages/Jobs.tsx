@@ -82,6 +82,7 @@ export default function Jobs() {
   const [renameValue, setRenameValue] = useState("");
   const [customers, setCustomers] = useState<{ id: string; name: string }[]>([]);
   const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkStatusValue, setBulkStatusValue] = useState("");
   const [bulkPriorityValue, setBulkPriorityValue] = useState("");
