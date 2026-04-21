@@ -9,6 +9,7 @@ const STATUSES = [
   { value: "requires_revisit", label: "Requires Revisit", color: "bg-purple-500" },
   { value: "scheduled", label: "Scheduled", color: "bg-cyan-500" },
   { value: "completed", label: "Completed", color: "bg-green-500" },
+  { value: "rejected", label: "Rejected", color: "bg-red-500" },
   { value: "archived", label: "Archived", color: "bg-muted-foreground" },
 ];
 
