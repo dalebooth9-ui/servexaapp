@@ -247,8 +247,20 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
+      persistAttachments(includePdf, next);
       return next;
     });
+  };
+
+  const handleIncludePdfChange = (v: boolean) => {
+    setIncludePdf(v);
+    persistAttachments(v, selectedPhotoIds);
+  };
+
+  const clearSelectedPhotos = () => {
+    const next = new Set<string>();
+    setSelectedPhotoIds(next);
+    persistAttachments(includePdf, next);
   };
 
   const totalAttachments = (includePdf ? 1 : 0) + selectedPhotoIds.size;
