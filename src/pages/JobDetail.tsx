@@ -441,6 +441,21 @@ export default function JobDetail() {
                 <div className="flex items-start justify-between">
                    <div className="space-y-1.5 text-sm">
                     <div><span className="text-muted-foreground">Job Name:</span> <span className="font-medium">{job.name}</span></div>
+                    {(job as any).source && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Source:</span>
+                        <Badge
+                          variant="outline"
+                          className={
+                            (job as any).source === "Email Triage"
+                              ? "border-orange-500 bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300"
+                              : ""
+                          }
+                        >
+                          {(job as any).source}
+                        </Badge>
+                      </div>
+                    )}
                     <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
                     {jobW3W && (
                       <div className="flex items-center gap-1">
