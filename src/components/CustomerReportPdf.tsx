@@ -272,9 +272,32 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         y += 8;
       }
 
+      // === PHOTO INDEX (table of figures) ===
+      // We reserve an index page first, capture each figure's page/y as it's
+      // drawn, then come back and fill the index with clickable links.
+      type FigureRef = { no: number; name: string; caption: string; page: number; y: number };
+      const figureRefs: FigureRef[] = [];
+      let indexPageNo = -1;
+      let indexStartY = 0;
+      if (photoImages.length > 0) {
+        addPage();
+        indexPageNo = doc.getNumberOfPages();
+        let iy = await renderPdfHeader(doc, "CUSTOMER REPORT", branding, headerData);
+        iy += 4;
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 64, 175);
+        doc.text(`Photo Index (${photoImages.length})`, margin, iy);
+        doc.setTextColor(0, 0, 0);
+        iy += 8;
+        indexStartY = iy;
+        // Reset y so the photos section starts on a new page
+        addPage();
+        y = 20;
+      }
+
       // === PHOTOS — quality-preserved, aspect-correct, captioned ===
       if (photoImages.length > 0) {
-        y = checkPage(40, y);
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(30, 64, 175);
@@ -294,6 +317,14 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
           figureNo++;
           if (col === 0) y = checkPage(blockH, y);
           const xPos = margin + col * (cellW + gap);
+          // Record this figure's location for the index
+          figureRefs.push({
+            no: figureNo,
+            name: photo.name,
+            caption: photo.caption,
+            page: doc.getNumberOfPages(),
+            y,
+          });
 
           // Background cell (lets letterboxed images sit on a neutral surface)
           doc.setFillColor(245, 247, 250);
@@ -344,6 +375,44 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         }
         if (col !== 0) y += blockH;
         y += 4;
+      }
+
+      // === FILL PHOTO INDEX (now that figure positions are known) ===
+      if (indexPageNo > 0 && figureRefs.length > 0) {
+        const totalPages = doc.getNumberOfPages();
+        doc.setPage(indexPageNo);
+        let iy = indexStartY;
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(90, 90, 90);
+        doc.text("Fig.", margin, iy);
+        doc.text("Caption", margin + 14, iy);
+        doc.text("Page", pageWidth - margin - 12, iy);
+        iy += 2;
+        doc.setDrawColor(220, 224, 230);
+        doc.line(margin, iy, pageWidth - margin, iy);
+        iy += 5;
+        doc.setTextColor(0, 0, 0);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+
+        for (const f of figureRefs) {
+          if (iy > 270) break;
+          const captionTxt = f.caption ? `${f.name} — ${f.caption}` : f.name;
+          const lines = doc.splitTextToSize(captionTxt, pageWidth - margin * 2 - 14 - 18);
+          const rowH = Math.max(6, lines.length * 4.5);
+
+          doc.setTextColor(30, 64, 175);
+          doc.textWithLink(`${f.no}`, margin, iy, { pageNumber: f.page });
+          doc.textWithLink(lines[0], margin + 14, iy, { pageNumber: f.page });
+          for (let li = 1; li < lines.length; li++) {
+            doc.text(lines[li], margin + 14, iy + li * 4.5);
+          }
+          doc.textWithLink(`${f.page}`, pageWidth - margin - 12, iy, { pageNumber: f.page });
+          doc.setTextColor(0, 0, 0);
+          iy += rowH + 2;
+        }
+        doc.setPage(totalPages);
       }
 
       // === RECOMMENDATIONS ===
