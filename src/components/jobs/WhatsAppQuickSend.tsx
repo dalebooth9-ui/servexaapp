@@ -177,6 +177,18 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     let initial = "";
     let initialStep: Step = "compose";
     try {
+      // One-time migration from legacy (unscoped) keys for the active user
+      const legacyEng = localStorage.getItem(legacyEngineerKey);
+      if (legacyEng && !localStorage.getItem(lastEngineerKey)) {
+        localStorage.setItem(lastEngineerKey, legacyEng);
+      }
+      const legacyStep = localStorage.getItem(legacyStepKey);
+      if (legacyStep && !localStorage.getItem(lastStepKey)) {
+        localStorage.setItem(lastStepKey, legacyStep);
+      }
+      localStorage.removeItem(legacyEngineerKey);
+      localStorage.removeItem(legacyStepKey);
+
       initial = localStorage.getItem(lastEngineerKey) || "";
       const savedStep = localStorage.getItem(lastStepKey);
       if (isValidStep(savedStep)) initialStep = savedStep;
