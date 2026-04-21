@@ -112,7 +112,8 @@ export default function ImportPartsDialog({
           return {
             name: p.name || p.part || p.material || "",
             quantity: qty,
-            unit_cost: cost,
+            unit_cost: purchase,
+            sell_price: sell,
             notes: p.notes || p.description || "",
             selected: true,
           };
