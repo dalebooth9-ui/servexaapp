@@ -7,6 +7,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { MessageSquare, Send, ArrowLeft, Eye, FileText, Image as ImageIcon, Paperclip, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "@/components/CustomerReportPdf";
@@ -551,14 +562,31 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
                       <ImageIcon className="h-4 w-4 text-primary" />
                       Site photos ({photos.length})
                     </p>
-                    {photos.length > 0 && (
-                      <button
-                        type="button"
-                        className="text-xs text-primary hover:underline"
-                        onClick={clearSelectedPhotos}
-                      >
-                        Clear
-                      </button>
+                    {photos.length > 0 && selectedPhotoIds.size > 0 && (
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            className="text-xs text-primary hover:underline"
+                          >
+                            Clear
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Clear selected photos?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This will remove all {selectedPhotoIds.size} selected site {selectedPhotoIds.size === 1 ? "image" : "images"} from your attachment choices. You can re-select them at any time.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={clearSelectedPhotos}>
+                              Clear selection
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     )}
                   </div>
                   {photos.length === 0 ? (
