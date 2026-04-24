@@ -93,7 +93,7 @@ export type BlankTemplatePdfExportHandle = {
   print: () => Promise<void> | void;
 };
 
-const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false }, ref) {
+const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
