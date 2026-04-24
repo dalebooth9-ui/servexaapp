@@ -310,14 +310,44 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       }
 
       const logoH = 12; // bigger logos
-      const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
+      const custAccredUrls = isDryRiser ? [] : await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      if (!isDryRiser) {
+        addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      } else {
+        // Dry Riser: bordered declaration bar at the bottom of every page
+        const pageCount = doc.getNumberOfPages();
+        const barH = 12;
+        const barY = pageHeight - margin - barH;
+        const barX = margin;
+        const barW = pageWidth - margin * 2;
+        for (let p = 1; p <= pageCount; p++) {
+          doc.setPage(p);
+          doc.setDrawColor(0);
+          doc.setLineWidth(0.3);
+          doc.rect(barX, barY, barW, barH);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8.5);
+          doc.setTextColor(20, 20, 20);
+          doc.text(
+            "We have, today, carried out this inspection",
+            barX + barW / 2,
+            barY + 4.5,
+            { align: "center" },
+          );
+          doc.text(
+            "to the requirements of BS 9990:2015",
+            barX + barW / 2,
+            barY + 9,
+            { align: "center" },
+          );
+        }
+      }
 
       const fileName = [
         jobInfo?.reference_number || "blank",
