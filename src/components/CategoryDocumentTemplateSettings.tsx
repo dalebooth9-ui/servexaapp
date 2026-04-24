@@ -83,6 +83,7 @@ export default function CategoryDocumentTemplateSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [justUploadedId, setJustUploadedId] = useState<string | null>(null);
   const [newDocType, setNewDocType] = useState<string>("rams_pdf");
   const [newLabel, setNewLabel] = useState("");
   const [newCategory, setNewCategory] = useState<string>("");
