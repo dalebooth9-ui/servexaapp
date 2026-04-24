@@ -37,6 +37,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [uploadingManual, setUploadingManual] = useState(false);
   const [uploadingSlotId, setUploadingSlotId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [printingAll, setPrintingAll] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const slotUploadRef = useRef<HTMLInputElement>(null);
   const pendingSlotDoc = useRef<JobDoc | null>(null);
