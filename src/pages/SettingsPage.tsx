@@ -303,6 +303,9 @@ export default function SettingsPage() {
         {/* The Mellor Integration */}
         <QuoteHoundIntegrationCard />
 
+        {/* Customer Reassignment (admin-only) */}
+        <CustomerReassignWizard />
+
         {/* Document Re-attach Tool */}
         <JobDocumentReattachSettings />
 
