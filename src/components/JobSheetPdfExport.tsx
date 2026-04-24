@@ -481,6 +481,9 @@ export async function generateJobSheetPdf(
 
 export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, submittedBy, submittedAt, onPdfGenerated, trigger, mode = "preview", categoryName: categoryNameProp }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
@@ -501,8 +504,8 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
         const byteArray = new Uint8Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
         const blob = new Blob([byteArray], { type: "application/pdf" });
-        const url = URL.createObjectURL(blob);
         if (effectiveMode === "download") {
+          const url = URL.createObjectURL(blob);
           const link = document.createElement("a");
           link.href = url;
           link.download = fileName;
@@ -512,9 +515,10 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
           setTimeout(() => URL.revokeObjectURL(url), 1000);
           toast({ title: "PDF downloaded", description: fileName });
         } else {
-          window.open(url, "_blank");
-          setTimeout(() => URL.revokeObjectURL(url), 30000);
-          toast({ title: "PDF opened", description: fileName });
+          // In-app preview — no save, no new tab
+          setPreviewBlob(blob);
+          setPreviewName(fileName);
+          setPreviewOpen(true);
         }
       }
     } catch (err: any) {
@@ -524,18 +528,36 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
     }
   };
 
+  const previewDialog = (
+    <PdfPreviewDialog
+      open={previewOpen}
+      onOpenChange={setPreviewOpen}
+      blob={previewBlob}
+      fileName={previewName}
+      title={template.name}
+    />
+  );
+
   if (trigger) {
-    return <span onClick={() => generate()} className="cursor-pointer">{generating ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : trigger}</span>;
+    return (
+      <>
+        <span onClick={() => generate()} className="cursor-pointer">{generating ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : trigger}</span>
+        {previewDialog}
+      </>
+    );
   }
 
   return (
-    <div className="flex gap-1">
-      <Button variant="outline" size="sm" onClick={() => generate("preview")} disabled={generating} title="Preview PDF">
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => generate("download")} disabled={generating} title="Download PDF">
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-      </Button>
-    </div>
+    <>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" onClick={() => generate("preview")} disabled={generating} title="Preview PDF">
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => generate("download")} disabled={generating} title="Download PDF">
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+      {previewDialog}
+    </>
   );
 }
