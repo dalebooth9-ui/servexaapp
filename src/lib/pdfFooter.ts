@@ -134,8 +134,22 @@ export function renderPdfFooter(
   return footerY + footerH;
 }
 
+/** Source of the resolved footer declaration, useful for admin diagnostics. */
+export type FooterTextSource =
+  | "template" // explicit per-template footer_text
+  | "branding" // per-customer branding override
+  | "rule" // keyword-based fallback (e.g. extinguisher, sprinkler, hydrant, dry riser visual)
+  | "none"; // no footer rendered
+
+export interface ResolvedFooter {
+  text: string;
+  source: FooterTextSource;
+  /** Human-readable label describing which rule applied (e.g. "Dry Riser Visual → BS 9990:2015"). */
+  ruleLabel: string;
+}
+
 /**
- * Determine the default footer declaration text based on template type.
+ * Resolve the footer declaration text and report which rule was applied.
  *
  * Resolution order:
  *   1. Explicit per-template `footer_text` (set by admins on the template editor)
@@ -143,27 +157,54 @@ export function renderPdfFooter(
  *   3. Keyword-based fallback by template name
  *   4. Empty string (no footer rendered)
  */
+export function resolveFooterText(
+  templateName: string,
+  branding?: { footer_text?: string },
+  templateFooterText?: string | null,
+): ResolvedFooter {
+  if (templateFooterText && templateFooterText.trim()) {
+    return { text: templateFooterText, source: "template", ruleLabel: "Template footer override" };
+  }
+  if (branding?.footer_text) {
+    return { text: branding.footer_text, source: "branding", ruleLabel: "Customer branding override" };
+  }
+  const n = (templateName || "").toLowerCase();
+  if (n.includes("fire extinguisher") || n.includes("extinguisher")) {
+    return {
+      text: "We have, today, carried out this service / inspection\nto the requirements of BS 5306-3:2017",
+      source: "rule",
+      ruleLabel: "Extinguisher → BS 5306-3:2017",
+    };
+  }
+  if (n.includes("sprinkler")) {
+    return {
+      text: "We have, today, carried out this inspection\nto the requirements of BS EN 12845:2015",
+      source: "rule",
+      ruleLabel: "Sprinkler → BS EN 12845:2015",
+    };
+  }
+  if (n.includes("fire hydrant") || n.includes("hydrant")) {
+    return {
+      text: "We have, today, carried out this inspection\nto the requirements of BS 9990:2015 / NFCC Guidelines",
+      source: "rule",
+      ruleLabel: "Fire Hydrant → BS 9990:2015 / NFCC",
+    };
+  }
+  if (n.includes("dry riser") && n.includes("visual")) {
+    return {
+      text: "We have, today, carried out this inspection\nto the requirements of BS 9990:2015",
+      source: "rule",
+      ruleLabel: "Dry Riser Visual → BS 9990:2015",
+    };
+  }
+  return { text: "", source: "none", ruleLabel: "No footer (no matching rule)" };
+}
+
+/** Backwards-compatible string-only accessor. */
 export function getDefaultFooterText(
   templateName: string,
   branding?: { footer_text?: string },
   templateFooterText?: string | null,
 ): string {
-  if (templateFooterText && templateFooterText.trim()) return templateFooterText;
-  if (branding?.footer_text) return branding.footer_text;
-  const n = templateName.toLowerCase();
-  if (n.includes("fire extinguisher") || n.includes("extinguisher")) {
-    return "We have, today, carried out this service / inspection\nto the requirements of BS 5306-3:2017";
-  }
-  if (n.includes("sprinkler")) {
-    return "We have, today, carried out this inspection\nto the requirements of BS EN 12845:2015";
-  }
-  if (n.includes("fire hydrant") || n.includes("hydrant")) {
-    return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015 / NFCC Guidelines";
-  }
-  // BS 9990:2015 declaration is only applicable to the Dry Riser Visual inspection.
-  if (n.includes("dry riser") && n.includes("visual")) {
-    return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015";
-  }
-  // No default declaration for other templates — return empty so the footer is omitted.
-  return "";
+  return resolveFooterText(templateName, branding, templateFooterText).text;
 }
