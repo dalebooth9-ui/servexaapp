@@ -322,6 +322,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     }
   };
 
+  if (headless) return null;
+
   return (
     <div className="flex items-center gap-0.5">
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
