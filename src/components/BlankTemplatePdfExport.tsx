@@ -175,7 +175,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const colSplit = maxWidth * 0.68;
         // Dry Riser uses a compact declaration footer bar (no accreditation logos),
         // so it needs less reserved bottom space than the standard layout.
-        const footerSpace = isDryRiser ? 42 : 58;
+        const footerSpace = isDryRiser ? 56 : 58;
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
