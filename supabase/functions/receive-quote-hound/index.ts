@@ -646,12 +646,34 @@ serve(async (req) => {
     */
 
     // ── 2. Upsert customer ─────────────────────────────────────────────────────
+    // Strategy:
+    //   1. Exact (case-insensitive) match → reuse.
+    //   2. Fuzzy match via pg_trgm `find_similar_customer`:
+    //      - similarity >= 0.85 → auto-link to the existing customer and log
+    //        an `auto_merged` suggestion so an admin can audit/undo.
+    //      - similarity 0.55–0.85 → still create the new customer, but log a
+    //        `pending` merge suggestion for admin review.
+    //   3. Otherwise → create a brand-new customer.
     let customerId: string | null = null;
+    let pendingSuggestion: {
+      incoming_name: string;
+      existing_customer_id: string;
+      similarity: number;
+      new_customer_id: string | null;
+    } | null = null;
+    let autoMergedSuggestion: {
+      incoming_name: string;
+      existing_customer_id: string;
+      similarity: number;
+    } | null = null;
+
     if (clientName) {
+      const trimmedName = clientName.trim();
+      // 1. Exact (case-insensitive) match
       const { data: existingCustomers } = await supabase
         .from("customers")
         .select("id, name")
-        .ilike("name", clientName.trim())
+        .ilike("name", trimmedName)
         .limit(1);
 
       if (existingCustomers && existingCustomers.length > 0) {
@@ -662,13 +684,68 @@ serve(async (req) => {
           ...(jobAddress ? { address: jobAddress } : {}),
         }).eq("id", customerId);
       } else {
-        const { data: newCustomer, error: custErr } = await supabase
-          .from("customers")
-          .insert({ name: clientName.trim(), email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null, ...(orgId ? { org_id: orgId } : {}) })
-          .select("id")
-          .single();
-        if (custErr) console.error("Customer insert error:", custErr);
-        else customerId = newCustomer.id;
+        // 2. Fuzzy match against existing customers
+        let fuzzyMatch: { id: string; name: string; similarity: number } | null = null;
+        try {
+          const { data: similarRows, error: simErr } = await supabase.rpc(
+            "find_similar_customer",
+            { _name: trimmedName, _threshold: 0.55 },
+          );
+          if (simErr) {
+            console.warn("find_similar_customer RPC error:", simErr);
+          } else if (Array.isArray(similarRows) && similarRows.length > 0) {
+            const r: any = similarRows[0];
+            fuzzyMatch = { id: r.id, name: r.name, similarity: Number(r.similarity) };
+            console.log(
+              `[receive-quote-hound] Fuzzy match: "${trimmedName}" ↔ "${fuzzyMatch.name}" ` +
+              `(score=${fuzzyMatch.similarity.toFixed(3)})`,
+            );
+          }
+        } catch (e) {
+          console.warn("Fuzzy match call failed:", e);
+        }
+
+        if (fuzzyMatch && fuzzyMatch.similarity >= 0.85) {
+          // High confidence → auto-link
+          customerId = fuzzyMatch.id;
+          autoMergedSuggestion = {
+            incoming_name: trimmedName,
+            existing_customer_id: fuzzyMatch.id,
+            similarity: Number(fuzzyMatch.similarity.toFixed(3)),
+          };
+          await supabase.from("customers").update({
+            ...(contactEmail ? { email: contactEmail } : {}),
+            ...(contactPhone ? { phone: contactPhone } : {}),
+            ...(jobAddress ? { address: jobAddress } : {}),
+          }).eq("id", customerId);
+          console.log(
+            `[receive-quote-hound] AUTO-MERGED "${trimmedName}" into existing customer ` +
+            `"${fuzzyMatch.name}" (${fuzzyMatch.id}) at score ${fuzzyMatch.similarity.toFixed(3)}`,
+          );
+        } else {
+          // Medium / low confidence → create new customer
+          const { data: newCustomer, error: custErr } = await supabase
+            .from("customers")
+            .insert({ name: trimmedName, email: contactEmail || null, phone: contactPhone || null, address: jobAddress || null, ...(orgId ? { org_id: orgId } : {}) })
+            .select("id")
+            .single();
+          if (custErr) console.error("Customer insert error:", custErr);
+          else customerId = newCustomer.id;
+
+          if (fuzzyMatch && customerId) {
+            // Log a pending suggestion so an admin can review
+            pendingSuggestion = {
+              incoming_name: trimmedName,
+              existing_customer_id: fuzzyMatch.id,
+              similarity: Number(fuzzyMatch.similarity.toFixed(3)),
+              new_customer_id: customerId,
+            };
+            console.log(
+              `[receive-quote-hound] PENDING merge suggestion logged: "${trimmedName}" ↔ ` +
+              `"${fuzzyMatch.name}" (score=${fuzzyMatch.similarity.toFixed(3)})`,
+            );
+          }
+        }
       }
     }
 
