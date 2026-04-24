@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4.0.0";
+import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,7 +47,8 @@ Deno.serve(async (req) => {
     const { to_email, email_subject, email_body } = await req.json();
     if (!to_email) throw new Error("to_email is required");
 
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    const { RESEND_API_KEY } = requireEnv(["RESEND_API_KEY"] as const);
+    const resend = new Resend(RESEND_API_KEY);
 
     // Sample placeholder values for the test
     const vars: Record<string, string> = {
@@ -90,9 +92,11 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err: any) {
+    const cfg = missingEnvResponse(err, corsHeaders);
+    if (cfg) return cfg;
     console.error("Error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
-      status: err.message.includes("nauthorized") ? 401 : 500,
+      status: err.message?.includes("nauthorized") ? 401 : 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
