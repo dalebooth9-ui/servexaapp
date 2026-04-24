@@ -9,6 +9,8 @@ import { Download, Loader2, Search, FileArchive, Printer, FileText } from "lucid
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak } from "docx";
 import { useToast } from "@/hooks/use-toast";
 import { getCachedLogo } from "@/lib/logoCache";
+import { getWordExportConfig } from "@/lib/wordExportConfig";
+import { AlignmentType } from "docx";
 
 type CompletedJob = {
   id: string;
