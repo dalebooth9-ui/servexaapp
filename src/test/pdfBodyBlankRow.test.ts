@@ -56,8 +56,14 @@ describe("renderBlankFieldRow YES/NO checkbox rendering", () => {
     expect(labels).not.toContain("✓");
   });
 
-  it("renders YES/NO tick boxes for BS/EN standard reference labels", () => {
-    const field = buildField({ type: "yes_no", label: "BS9990:2015 7.4.3.1 Outlet cabinets in good condition" });
+  it.each([
+    ["BS9990:2015 7.4.3.1 Outlet cabinets in good condition"],
+    ["EN 3 extinguisher present"],
+    ["EN137 SCBA available"],
+    ["BS EN 671 hose reel fitted"],
+    ["BSEN671 hose reel fitted"],
+  ])("renders YES/NO tick boxes for standard reference label: %s", (label) => {
+    const field = buildField({ type: "yes_no", label });
     renderBlankFieldRow(doc, field, undefined, 50, { rowH: 6 });
 
     const labels = texts.map((t) => t.text);
