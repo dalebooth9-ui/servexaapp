@@ -312,20 +312,24 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       }
 
       const logoH = 12; // bigger logos
-      const custAccredUrls = isDryRiser ? [] : await fetchCustomerAccreditationLogos(customerName);
+      const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      const footerYForLogos = pageHeight - margin - 9;
       if (!isDryRiser) {
+        const footerYForLogos = pageHeight - margin - 9;
         addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
       } else {
-        // Dry Riser: bordered declaration bar at the bottom of every page
-        const pageCount = doc.getNumberOfPages();
+        // Dry Riser: accreditation logos sit just above the declaration bar
         const barH = 12;
         const barY = pageHeight - margin - barH;
+        const logoBaselineY = barY - 3; // logos render upward from this baseline
+        addAccreditationLogosToAllPages(doc, accredLogos, logoBaselineY, logoH);
+
+        // Bordered declaration bar at the very bottom of every page
+        const pageCount = doc.getNumberOfPages();
         const barX = margin;
         const barW = pageWidth - margin * 2;
         for (let p = 1; p <= pageCount; p++) {
