@@ -93,19 +93,24 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 export type BlankTemplatePdfExportHandle = {
   download: () => Promise<void> | void;
   print: () => Promise<void> | void;
+  preview: () => Promise<void> | void;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
   const [generating, setGenerating] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
     download: () => generate("download"),
     print: () => generate("print"),
+    preview: () => generate("preview"),
   }));
 
-  const generate = async (mode: "download" | "print" = "download") => {
+  const generate = async (mode: "download" | "print" | "preview" = "preview") => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
