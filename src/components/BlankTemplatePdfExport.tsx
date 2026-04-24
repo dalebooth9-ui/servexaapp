@@ -269,10 +269,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
           for (const field of sectionFields) {
-            // Allow scope_of_work and drain/drop leg fields to be pre-filled; leave other select fields blank
+            // Allow scope_of_work and drain/drop leg fields to be pre-filled on standard
+            // templates, but keep them blank on the Dry Riser worksheet.
             const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
             const isDrainField = field.label.toLowerCase().includes("drain") || field.label.toLowerCase().includes("drop leg");
-            const autoVal = (field.options && field.options.length > 0 && !isScopeField && !isDrainField) ? undefined : autoVals[field.id];
+            const allowAuto = !isDryRiser && (isScopeField || isDrainField);
+            const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
             y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH,
             });
