@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
