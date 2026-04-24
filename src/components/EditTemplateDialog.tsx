@@ -568,13 +568,52 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
           </TabsContent>
         </Tabs>
 
+        {/* QA panel — flags layout drift from the Dry Riser Visual reference */}
+        <div className="shrink-0 border-t pt-2">
+          <div
+            className={`rounded-md border px-3 py-2 text-xs ${
+              !qaReport.ok
+                ? "border-destructive/40 bg-destructive/5 text-destructive"
+                : qaReport.warnings.length > 0
+                  ? "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-400"
+                  : "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
+            }`}
+          >
+            <div className="flex items-center gap-2 font-medium">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span>Layout QA — {summariseQa(qaReport)}</span>
+            </div>
+            {(qaReport.errors.length > 0 || qaReport.warnings.length > 0) && (
+              <ul className="mt-1.5 ml-5 list-disc space-y-0.5 max-h-24 overflow-y-auto">
+                {qaReport.errors.map((i, k) => (
+                  <li key={`e${k}`}><span className="font-semibold">Blocker:</span> {i.message}</li>
+                ))}
+                {qaReport.warnings.map((i, k) => (
+                  <li key={`w${k}`} className="opacity-80">{i.message}</li>
+                ))}
+              </ul>
+            )}
+            {!qaReport.ok && (
+              <label className="mt-2 flex items-center gap-1.5 text-[11px] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={qaOverride}
+                  onChange={(e) => setQaOverride(e.target.checked)}
+                  className="h-3 w-3"
+                />
+                Save anyway (override QA)
+              </label>
+            )}
+          </div>
+        </div>
+
         <DialogFooter className="shrink-0 border-t pt-3">
           <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
             <Undo2 className="h-3.5 w-3.5 mr-1" /> Revert
           </Button>
           <div className="flex gap-2 ml-auto">
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving || (!qaReport.ok && !qaOverride)}>
               {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
               Save Changes
             </Button>
