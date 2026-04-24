@@ -44,6 +44,8 @@ type Props = {
   };
   /** Visual size override; defaults to icon-only sm button to fit alongside other actions. */
   size?: "sm" | "default";
+  /** When true, no UI is rendered; only the imperative ref API is exposed. */
+  headless?: boolean;
 };
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
