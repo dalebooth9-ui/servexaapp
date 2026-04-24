@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -95,10 +96,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Send via Twilio
-    const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID")!;
-    const authToken = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-    const rawFrom = Deno.env.get("TWILIO_WHATSAPP_NUMBER")!;
+    // Send via Twilio — fail fast with a clear error if any Twilio key is missing.
+    const { TWILIO_ACCOUNT_SID: accountSid, TWILIO_AUTH_TOKEN: authToken, TWILIO_WHATSAPP_NUMBER: rawFrom } =
+      requireEnv(["TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN", "TWILIO_WHATSAPP_NUMBER"] as const);
     const fromNumber = rawFrom.startsWith("whatsapp:") ? rawFrom : `whatsapp:${rawFrom}`;
 
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`;
@@ -146,6 +146,8 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
+    const cfg = missingEnvResponse(error, corsHeaders);
+    if (cfg) return cfg;
     console.error("Send WhatsApp error:", error);
     return new Response(
       JSON.stringify({ error: "Internal server error" }),
