@@ -93,6 +93,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [allTemplates, setAllTemplates] = useState<Template[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [engineerOptions, setEngineerOptions] = useState<string[]>([]);
@@ -185,6 +186,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       return normalizeCategory(t.job_category) === jobCategory;
     });
     setTemplates(filteredTpls);
+    setAllTemplates(allTpls);
     setResponses((respRes.data || []) as Response[]);
 
     let engineerNames: string[] = [];
@@ -765,7 +767,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           {/* Draft responses — exclude RAMS */}
           {(() => {
             const draftResps = responses.filter((r) => {
-              const tpl = templates.find((t) => t.id === r.template_id);
+              const tpl = allTemplates.find((t) => t.id === r.template_id);
               return (tpl as any)?.category !== "rams" && r.status === "draft";
             });
             if (!draftResps.length) return null;
@@ -774,7 +776,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">In Progress</p>
                 <div className="rounded-md border divide-y">
                   {draftResps.map((resp) => {
-                    const tpl = templates.find((t) => t.id === resp.template_id);
+                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
                     const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
                     return (
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
@@ -819,7 +821,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           {/* Completed responses — exclude RAMS */}
           {(() => {
             const completedResps = responses.filter((r) => {
-              const tpl = templates.find((t) => t.id === r.template_id);
+              const tpl = allTemplates.find((t) => t.id === r.template_id);
               return (tpl as any)?.category !== "rams" && r.status === "submitted";
             });
             if (!completedResps.length) return null;
@@ -828,7 +830,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Completed Reports</p>
                 <div className="rounded-md border divide-y">
                   {completedResps.map((resp) => {
-                    const tpl = templates.find((t) => t.id === resp.template_id);
+                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
                     const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
                     return (
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
