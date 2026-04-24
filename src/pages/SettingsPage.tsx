@@ -304,6 +304,9 @@ export default function SettingsPage() {
         {/* The Mellor Integration */}
         <QuoteHoundIntegrationCard />
 
+        {/* Customer merge suggestions (admin-only) */}
+        <CustomerMergeSuggestionsPanel />
+
         {/* Customer Reassignment (admin-only) */}
         <CustomerReassignWizard />
 
