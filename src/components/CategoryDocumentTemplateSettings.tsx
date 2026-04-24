@@ -311,8 +311,10 @@ export default function CategoryDocumentTemplateSettings() {
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                            aria-label={`Delete ${t.label}`}
+                            title="Delete template"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
                           </Button>
                         </TemplateRow>
                       ))}
