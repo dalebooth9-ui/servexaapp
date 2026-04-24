@@ -25,7 +25,14 @@ import {
   ShadingType,
   VerticalAlign,
   HeightRule,
+  Header,
+  Footer,
+  ImageRun,
+  Tab,
+  TabStopType,
+  TabStopPosition,
 } from "docx";
+import { getDefaultFooterText } from "@/lib/pdfFooter";
 
 type TemplateField = {
   id: string;
