@@ -395,7 +395,11 @@ export default function CategoryDocumentTemplateSettings() {
                           </div>
 
                           {/* Mobile collapsed menu */}
-                          {(isFileRow || (isGenerated && linked) || t.document_type === "uploaded_file") && (
+                          {(isFileRow || (isGenerated && linked) ||
+                            t.document_type === "uploaded_file" ||
+                            t.document_type === "quote" ||
+                            t.document_type === "purchase_order" ||
+                            t.document_type === "site_drawing") && (
                             <div className="sm:hidden" onClick={(e) => e.stopPropagation()}>
                               {/* Hidden mount of generated-row exports so the dropdown can trigger them */}
                               {isGenerated && linked && (
