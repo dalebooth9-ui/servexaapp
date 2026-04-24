@@ -44,14 +44,17 @@ interface BuildPlanInput {
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
   const { jobId, jobCategory, qtys, otherServiceType } = input;
 
-  // Pull all templates + existing responses for this job in parallel
-  const [tplsRes, respsRes] = await Promise.all([
+  // Pull all templates + existing responses + per-job template locks in parallel
+  const [tplsRes, respsRes, locksRes] = await Promise.all([
     supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked"),
     supabase.from("job_sheet_responses").select("id, template_id").eq("job_id", jobId),
+    supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
   ]);
 
   const allTemplates = (tplsRes.data || []) as TemplateOption[];
   const existing = (respsRes.data || []) as { id: string; template_id: string | null }[];
+  const locks = (locksRes.data || []) as { bucket: CategoryKey; template_id: string }[];
+  const lockByBucket = new Map<CategoryKey, string>(locks.map((l) => [l.bucket, l.template_id]));
 
   const plan: AttachPlan = { needsChoice: [], autoSlots: [], noMatches: [] };
 
@@ -78,6 +81,13 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
       if (narrowed.length > 0) candidates = narrowed;
     }
 
+    // 🔒 If this bucket is locked to a specific template on this job, use only that one
+    const lockedTemplateId = lockByBucket.get(b.key);
+    if (lockedTemplateId) {
+      const lockedTpl = allTemplates.find((t) => t.id === lockedTemplateId);
+      if (lockedTpl) candidates = [lockedTpl];
+    }
+
     if (candidates.length === 0) {
       plan.noMatches.push(b.key);
       continue;
@@ -102,6 +112,45 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
   }
 
   return plan;
+}
+
+/**
+ * Persist a per-job template lock so the same template is always used for this
+ * job + bucket combo on subsequent saves. Upsert on (job_id, bucket).
+ */
+export async function lockJobTemplate(
+  jobId: string,
+  bucket: CategoryKey,
+  templateId: string,
+  userId?: string | null
+) {
+  const { error } = await supabase
+    .from("job_template_locks")
+    .upsert(
+      { job_id: jobId, bucket, template_id: templateId, created_by: userId ?? null },
+      { onConflict: "job_id,bucket" }
+    );
+  if (error) throw error;
+}
+
+/** Remove a per-job template lock (allows the chooser to prompt again). */
+export async function unlockJobTemplate(jobId: string, bucket: CategoryKey) {
+  const { error } = await supabase
+    .from("job_template_locks")
+    .delete()
+    .eq("job_id", jobId)
+    .eq("bucket", bucket);
+  if (error) throw error;
+}
+
+/** List all locks for a job (used by the Job Documents UI). */
+export async function listJobTemplateLocks(jobId: string) {
+  const { data, error } = await supabase
+    .from("job_template_locks")
+    .select("bucket, template_id, job_sheet_templates(name)")
+    .eq("job_id", jobId);
+  if (error) throw error;
+  return (data || []) as { bucket: CategoryKey; template_id: string; job_sheet_templates: { name: string } | null }[];
 }
 
 interface InsertResponsesInput {

@@ -2740,6 +2740,51 @@ export type Database = {
           },
         ]
       }
+      job_template_locks: {
+        Row: {
+          bucket: string
+          created_at: string
+          created_by: string | null
+          id: string
+          job_id: string
+          template_id: string
+          updated_at: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id: string
+          template_id: string
+          updated_at?: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          job_id?: string
+          template_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_template_locks_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_template_locks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "job_sheet_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_templates: {
         Row: {
           address: string | null

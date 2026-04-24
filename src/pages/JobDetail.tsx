@@ -53,7 +53,7 @@ import InstallationProjects from "@/components/InstallationProjects";
 import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
-import { buildAttachPlan, insertDraftResponses, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
+import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
 
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
@@ -693,7 +693,22 @@ export default function JobDetail() {
               prefill,
               slots: choices.map((c) => ({ template: c.template })),
             });
-            toast({ title: `Attached ${choices.length} document${choices.length === 1 ? "" : "s"}` });
+
+            // Persist per-bucket locks (one lock per bucket; later choices in the same bucket just reaffirm)
+            const lockedBuckets = new Set<string>();
+            const lockOps = choices
+              .filter((c) => c.lock && !lockedBuckets.has(c.slot.bucket) && (lockedBuckets.add(c.slot.bucket), true))
+              .map((c) => lockJobTemplate(id!, c.slot.bucket, c.template.id, user.id));
+            if (lockOps.length > 0) {
+              try {
+                await Promise.all(lockOps);
+              } catch (lockErr: any) {
+                console.warn("Failed to save template lock:", lockErr);
+              }
+            }
+
+            const lockMsg = lockOps.length > 0 ? ` · locked ${lockOps.length} template${lockOps.length === 1 ? "" : "s"} for this job` : "";
+            toast({ title: `Attached ${choices.length} document${choices.length === 1 ? "" : "s"}${lockMsg}` });
             fetchData();
           } catch (e: any) {
             toast({ title: "Failed to attach documents", description: e?.message || String(e), variant: "destructive" });
