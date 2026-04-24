@@ -196,6 +196,13 @@ export default function CategoryDocumentTemplateSettings() {
           .eq("id", id);
         setTemplates((prev) => prev.map((t) => t.id === id ? { ...t, file_url: urlData.signedUrl, file_name: file.name } : t));
         setJustUploadedId(id);
+        // Scroll the row into view on the next paint so the pulse is visible.
+        requestAnimationFrame(() => {
+          const el = rowRefs.current.get(id);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        });
         setTimeout(() => setJustUploadedId((curr) => (curr === id ? null : curr)), 1800);
         toast({ title: "File uploaded", description: "View, Print and Download are now available." });
       }
