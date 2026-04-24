@@ -62,6 +62,8 @@ interface Props {
   template: Template;
   jobInfo?: JobInfo | null;
   showPrint?: boolean;
+  /** When true, no UI is rendered; only the imperative ref API is exposed. */
+  headless?: boolean;
 }
 
 /** How many blank sheets to generate based on template name + job quantities */
