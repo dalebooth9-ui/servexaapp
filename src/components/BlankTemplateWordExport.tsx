@@ -486,6 +486,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
   // --- Build header (logo) and footer (text) -----------------------------------
   const headerChildren: Paragraph[] = [];
   if (headerLogo) {
+    const logoSize = computeLogoSize(headerLogo.width, headerLogo.height);
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.LEFT,
@@ -493,7 +494,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
           new ImageRun({
             type: headerLogo.type,
             data: headerLogo.data,
-            transformation: { width: 130, height: 50 },
+            transformation: logoSize,
             altText: { title: "Logo", description: "Company logo", name: "Logo" },
           }),
         ],
