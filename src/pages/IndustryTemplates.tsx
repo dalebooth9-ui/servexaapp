@@ -852,7 +852,7 @@ export default function IndustryTemplates() {
       const zip = new JSZip();
       const usedNames = new Map<string, number>();
       for (const tpl of filtered) {
-        const doc = buildBlankTemplateDoc({
+        const doc = await buildBlankTemplateDoc({
           name: tpl.name,
           description: tpl.description,
           standard: tpl.standard,

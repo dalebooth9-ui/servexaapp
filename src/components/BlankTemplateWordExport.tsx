@@ -25,7 +25,14 @@ import {
   ShadingType,
   VerticalAlign,
   HeightRule,
+  Header,
+  Footer,
+  ImageRun,
+  Tab,
+  TabStopType,
+  TabStopPosition,
 } from "docx";
+import { getDefaultFooterText } from "@/lib/pdfFooter";
 
 type TemplateField = {
   id: string;
@@ -41,12 +48,28 @@ type Props = {
     description?: string;
     standard?: string;
     fields: TemplateField[];
+    footer_text?: string | null;
+    branding?: { logo_url?: string; footer_text?: string } | null;
   };
   /** Visual size override; defaults to icon-only sm button to fit alongside other actions. */
   size?: "sm" | "default";
   /** When true, no UI is rendered; only the imperative ref API is exposed. */
   headless?: boolean;
 };
+
+/** Fetch an image URL and return raw bytes + mime; returns null on any error. */
+async function fetchImageBytes(url: string): Promise<{ data: Uint8Array; type: "png" | "jpg" } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const mime = res.headers.get("content-type") || "";
+    const type: "png" | "jpg" = mime.includes("png") || url.toLowerCase().endsWith(".png") ? "png" : "jpg";
+    return { data: buf, type };
+  } catch {
+    return null;
+  }
+}
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
 const cellBorders = {
@@ -268,7 +291,16 @@ function renderSectionHeaderRow(sectionName: string): TableRow {
 }
 
 /** Build a docx Document for a blank template. Exported so bulk export can reuse it. */
-export function buildBlankTemplateDoc(template: Props["template"]): Document {
+export async function buildBlankTemplateDoc(template: Props["template"]): Promise<Document> {
+  // --- Branding assets: header logo + watermark + footer text -----------------
+  const customLogoUrl = template.branding?.logo_url?.trim();
+  const headerLogoUrl = customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
+  const [headerLogo, watermarkImg] = await Promise.all([
+    fetchImageBytes(headerLogoUrl),
+    fetchImageBytes("/images/viva-watermark.png"),
+  ]);
+  const footerText = getDefaultFooterText(template.name, template.branding || undefined, template.footer_text || undefined);
+
   // Skip pseudo "section" fields (their label is just a section header from OCR import)
   // and skip fields whose label exactly matches their section name.
   const renderable = template.fields.filter((f) => {
@@ -388,6 +420,54 @@ export function buildBlankTemplateDoc(template: Props["template"]): Document {
     })
   );
 
+  // --- Build header (logo) and footer (text) -----------------------------------
+  const headerChildren: Paragraph[] = [];
+  if (headerLogo) {
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        children: [
+          new ImageRun({
+            type: headerLogo.type,
+            data: headerLogo.data,
+            transformation: { width: 130, height: 50 },
+            altText: { title: "Logo", description: "Company logo", name: "Logo" },
+          }),
+        ],
+      }),
+    );
+  }
+  // Watermark — large faded image floating behind the page content.
+  if (watermarkImg) {
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            type: watermarkImg.type,
+            data: watermarkImg.data,
+            transformation: { width: 480, height: 480 },
+            altText: { title: "Watermark", description: "Watermark", name: "Watermark" },
+            floating: {
+              horizontalPosition: { relative: "page" as any, align: "center" as any },
+              verticalPosition: { relative: "page" as any, align: "center" as any },
+              behindDocument: true,
+              wrap: { type: "none" as any, side: "bothSides" as any },
+            },
+          }),
+        ],
+      }),
+    );
+  }
+  if (headerChildren.length === 0) {
+    headerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
+  }
+
+  const footerPara = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: footerText, size: 16, color: "666666" })],
+  });
+
   return new Document({
     styles: {
       default: { document: { run: { font: "Arial", size: 22 } } },
@@ -397,8 +477,14 @@ export function buildBlankTemplateDoc(template: Props["template"]): Document {
         properties: {
           page: {
             size: { width: 11906, height: 16838 }, // A4
-            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+            margin: { top: 1700, right: 1134, bottom: 1134, left: 1134, header: 567, footer: 567 },
           },
+        },
+        headers: {
+          default: new Header({ children: headerChildren }),
+        },
+        footers: {
+          default: new Footer({ children: [footerPara] }),
         },
         children,
       },
@@ -461,7 +547,7 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
   const download = async () => {
     setBusy(true);
     try {
-      const doc = buildBlankTemplateDoc(template);
+      const doc = await buildBlankTemplateDoc(template);
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
