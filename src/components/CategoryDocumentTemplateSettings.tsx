@@ -480,7 +480,7 @@ export default function CategoryDocumentTemplateSettings() {
                                       <DropdownMenuItem
                                         onClick={() => {
                                           const root = document.querySelector(`[data-row-actions="${t.id}"]`);
-                                          (root?.querySelector('button[title="Preview & download as Word"]') as HTMLButtonElement | null)?.click();
+                                          (root?.querySelector('button[title="Preview & download blank template as Word (.docx)"]') as HTMLButtonElement | null)?.click();
                                         }}
                                       >
                                         <FileText className="mr-2 h-3.5 w-3.5" /> Save as Word
