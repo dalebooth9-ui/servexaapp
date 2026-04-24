@@ -820,6 +820,36 @@ serve(async (req) => {
     // ── 6. Auto-attach documents ───────────────────────────────────────────────
     await autoAttachDocuments(supabase, newJob.id, categorySlug, customerId, isInstallation);
 
+    // ── 6a. Persist any customer merge suggestions raised in step 2 ───────────
+    if (autoMergedSuggestion) {
+      const { error: amErr } = await supabase
+        .from("customer_merge_suggestions" as any)
+        .insert({
+          incoming_name: autoMergedSuggestion.incoming_name,
+          existing_customer_id: autoMergedSuggestion.existing_customer_id,
+          new_customer_id: null,
+          similarity: autoMergedSuggestion.similarity,
+          source: "the_mellor",
+          related_job_id: newJob.id,
+          status: "auto_merged",
+        });
+      if (amErr) console.error("auto_merged suggestion insert error:", amErr);
+    }
+    if (pendingSuggestion) {
+      const { error: psErr } = await supabase
+        .from("customer_merge_suggestions" as any)
+        .insert({
+          incoming_name: pendingSuggestion.incoming_name,
+          existing_customer_id: pendingSuggestion.existing_customer_id,
+          new_customer_id: pendingSuggestion.new_customer_id,
+          similarity: pendingSuggestion.similarity,
+          source: "the_mellor",
+          related_job_id: newJob.id,
+          status: "pending",
+        });
+      if (psErr) console.error("pending merge suggestion insert error:", psErr);
+    }
+
     // ── 6b. Fill document slots with actual files from The Mellor ─────────────
     // The Mellor sends pdf_url (quote PDF), po_url (purchase order PDF), and
     // excel_url (costing spreadsheet). Backfill pre-created slots with real URLs.
