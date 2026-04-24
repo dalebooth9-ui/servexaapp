@@ -66,86 +66,113 @@ export default function ReportDownloads() {
     );
   }, [jobs, search]);
 
+  // Fetch full job + submissions
+  const fetchJobBundle = async (jobId: string) => {
+    const { data: fullJob, error: jobErr } = await supabase
+      .from("jobs")
+      .select("*, customers(*), sites(*)")
+      .eq("id", jobId)
+      .maybeSingle();
+    if (jobErr || !fullJob) throw new Error(jobErr?.message || "Job not found");
+
+    const { data: submissions } = await supabase
+      .from("submissions")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: true });
+
+    return { fullJob, submissions: (submissions as any[]) || [] };
+  };
+
+  // Generate the report PDF as base64 by mounting CustomerReportPdf headlessly
+  const generateReportPdfBase64 = async (jobId: string, fullJob: any): Promise<string> => {
+    return new Promise<string>(async (resolve, reject) => {
+      try {
+        const mod = await import("@/components/CustomerReportPdf");
+        const React = await import("react");
+        const ReactDOM = await import("react-dom/client");
+        const container = document.createElement("div");
+        container.style.display = "none";
+        document.body.appendChild(container);
+        const root = ReactDOM.createRoot(container);
+        let resolved = false;
+        const Component = mod.default;
+        const handle = (b64: string) => {
+          if (resolved) return;
+          resolved = true;
+          resolve(b64);
+          setTimeout(() => {
+            root.unmount();
+            container.remove();
+          }, 100);
+        };
+        root.render(
+          React.createElement(Component, {
+            jobId,
+            job: fullJob,
+            onPdfGenerated: (b64: string) => handle(b64),
+            trigger: React.createElement("span", { id: `auto-trigger-${jobId}` }),
+          })
+        );
+        setTimeout(() => {
+          const el = container.querySelector(`#auto-trigger-${jobId}`) as HTMLElement | null;
+          if (el?.parentElement) (el.parentElement as HTMLElement).click();
+        }, 50);
+        setTimeout(() => {
+          if (!resolved) reject(new Error("PDF generation timed out"));
+        }, 60000);
+      } catch (e) {
+        reject(e);
+      }
+    });
+  };
+
+  // Download all submission files (returns categorised buffers)
+  const fetchSubmissionFiles = async (subs: any[]) => {
+    const images: { name: string; buf: Uint8Array; ext: string }[] = [];
+    const documents: { name: string; buf: Uint8Array; ext: string }[] = [];
+    for (const s of subs) {
+      if (!s.file_url) continue;
+      const path = extractStoragePath(s.file_url);
+      if (!path) continue;
+      try {
+        const { data: blob, error: dlErr } = await supabase.storage.from("submissions").download(path);
+        if (dlErr || !blob) continue;
+        const buf = new Uint8Array(await blob.arrayBuffer());
+        const ext = (s.file_name || path).split(".").pop()?.toLowerCase() || "bin";
+        const isImage = ["jpg", "jpeg", "png", "webp", "gif", "heic"].includes(ext);
+        const name = s.file_name || `${s.type || "file"}-${s.id.slice(0, 8)}.${ext}`;
+        if (isImage) images.push({ name, buf, ext });
+        else documents.push({ name, buf, ext });
+      } catch {
+        /* skip failed */
+      }
+    }
+    return { images, documents };
+  };
+
   const downloadZip = async (job: CompletedJob) => {
     setBusyId(job.id);
+    setBusyAction("zip");
     try {
-      // 1. Fetch the full job (with relations) for the PDF generator
-      const { data: fullJob, error: jobErr } = await supabase
-        .from("jobs")
-        .select("*, customers(*), sites(*)")
-        .eq("id", job.id)
-        .maybeSingle();
-      if (jobErr || !fullJob) throw new Error(jobErr?.message || "Job not found");
-
-      // 2. Build the report PDF using the same generator as CustomerReportPdf
-      const pdfBase64 = await new Promise<string>(async (resolve, reject) => {
-        try {
-          const mod = await import("@/components/CustomerReportPdf");
-          // Render the component headlessly via its onPdfGenerated callback.
-          // We'll directly call the generator logic by simulating a click is messy —
-          // instead reuse the public API by mounting via a tiny renderer.
-          // Simpler: replicate by invoking the existing component through ReactDOM is overkill.
-          // So we emit base64 by importing a helper: fall back to dynamic build.
-          // (CustomerReportPdf encapsulates the generation; we trigger it via prop.)
-          const React = await import("react");
-          const ReactDOM = await import("react-dom/client");
-          const container = document.createElement("div");
-          container.style.display = "none";
-          document.body.appendChild(container);
-          const root = ReactDOM.createRoot(container);
-          let resolved = false;
-          const Component = mod.default;
-          const handle = (b64: string) => {
-            if (resolved) return;
-            resolved = true;
-            resolve(b64);
-            setTimeout(() => {
-              root.unmount();
-              container.remove();
-            }, 100);
-          };
-          root.render(
-            React.createElement(Component, {
-              jobId: job.id,
-              job: fullJob,
-              onPdfGenerated: (b64: string) => handle(b64),
-              trigger: React.createElement("span", { id: `auto-trigger-${job.id}` }),
-            })
-          );
-          // Auto-click the trigger after mount
-          setTimeout(() => {
-            const el = container.querySelector(`#auto-trigger-${job.id}`) as HTMLElement | null;
-            if (el?.parentElement) (el.parentElement as HTMLElement).click();
-          }, 50);
-          // Safety timeout
-          setTimeout(() => {
-            if (!resolved) reject(new Error("PDF generation timed out"));
-          }, 60000);
-        } catch (e) {
-          reject(e);
-        }
-      });
-
-      // 3. Fetch all submissions (photos, notes, files) for the job
-      const { data: submissions } = await supabase
-        .from("submissions")
-        .select("*")
-        .eq("job_id", job.id)
-        .order("created_at", { ascending: true });
+      const { fullJob, submissions } = await fetchJobBundle(job.id);
+      const pdfBase64 = await generateReportPdfBase64(job.id, fullJob);
+      const { images, documents } = await fetchSubmissionFiles(submissions);
 
       const zip = new JSZip();
       const customer = safe(fullJob.customers?.name || "customer");
       const ref = safe(fullJob.reference_number || "job");
       const rootDir = `${customer}/${ref}`;
 
-      // Report PDF
       zip.file(
         `${rootDir}/Report/${ref}-report.pdf`,
         Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))
       );
 
-      // Manifest
       const lines: string[] = [
+        `Images: ${images.length}`,
+        `Documents: ${documents.length}`,
+        "",
         `Job Reference: ${fullJob.reference_number || ""}`,
         `Customer: ${fullJob.customers?.name || ""}`,
         `Site: ${fullJob.sites?.name || ""}`,
@@ -154,33 +181,14 @@ export default function ReportDownloads() {
         "",
         `Files:`,
       ];
-
-      // Categorise & download each submission file
-      const subs = (submissions as any[]) || [];
-      let imgCount = 0;
-      let docCount = 0;
-      for (const s of subs) {
-        if (!s.file_url) continue;
-        const path = extractStoragePath(s.file_url);
-        if (!path) continue;
-        try {
-          const { data: blob, error: dlErr } = await supabase.storage.from("submissions").download(path);
-          if (dlErr || !blob) continue;
-          const buf = new Uint8Array(await blob.arrayBuffer());
-          const ext = (s.file_name || path).split(".").pop()?.toLowerCase() || "bin";
-          const isImage = ["jpg", "jpeg", "png", "webp", "gif", "heic"].includes(ext);
-          const folder = isImage ? "Images" : "Documents";
-          const name = s.file_name || `${s.type || "file"}-${s.id.slice(0, 8)}.${ext}`;
-          zip.file(`${rootDir}/${folder}/${name}`, buf);
-          if (isImage) imgCount++;
-          else docCount++;
-          lines.push(`  - ${folder}/${name}`);
-        } catch {
-          /* skip failed */
-        }
+      for (const f of images) {
+        zip.file(`${rootDir}/Images/${f.name}`, f.buf);
+        lines.push(`  - Images/${f.name}`);
       }
-
-      lines.unshift(`Images: ${imgCount}`, `Documents: ${docCount}`, "");
+      for (const f of documents) {
+        zip.file(`${rootDir}/Documents/${f.name}`, f.buf);
+        lines.push(`  - Documents/${f.name}`);
+      }
       zip.file(`${rootDir}/MANIFEST.txt`, lines.join("\n"));
 
       const blob = await zip.generateAsync({ type: "blob" });
@@ -195,12 +203,261 @@ export default function ReportDownloads() {
 
       toast({
         title: "ZIP downloaded",
-        description: `${ref} — ${imgCount} image(s), ${docCount} document(s) + report PDF.`,
+        description: `${ref} — ${images.length} image(s), ${documents.length} document(s) + report PDF.`,
       });
     } catch (err: any) {
       toast({ title: "Download failed", description: err.message, variant: "destructive" });
     } finally {
       setBusyId(null);
+      setBusyAction(null);
+    }
+  };
+
+  // Print: open report PDF + each PDF document in a new tab and trigger print.
+  // Images are combined into a single printable HTML page.
+  const printAll = async (job: CompletedJob) => {
+    setBusyId(job.id);
+    setBusyAction("print");
+    try {
+      const { fullJob, submissions } = await fetchJobBundle(job.id);
+      const pdfBase64 = await generateReportPdfBase64(job.id, fullJob);
+      const { images, documents } = await fetchSubmissionFiles(submissions);
+
+      const ref = fullJob.reference_number || "job";
+      const customerName = fullJob.customers?.name || "";
+      const siteName = fullJob.sites?.name || "";
+
+      // Build a single printable HTML page that embeds:
+      //  - the report PDF (as <embed>)
+      //  - each document PDF (as <embed>)
+      //  - all images
+      const reportPdfUrl = URL.createObjectURL(
+        new Blob([Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))], { type: "application/pdf" })
+      );
+
+      const docEmbeds: string[] = [];
+      for (const d of documents) {
+        if (d.ext === "pdf") {
+          const u = URL.createObjectURL(new Blob([d.buf], { type: "application/pdf" }));
+          docEmbeds.push(
+            `<div class="page"><h2>${d.name}</h2><embed src="${u}" type="application/pdf" class="pdf"/></div>`
+          );
+        } else {
+          docEmbeds.push(
+            `<div class="page"><h2>${d.name}</h2><p class="muted">Non-PDF document — please print from the source file.</p></div>`
+          );
+        }
+      }
+
+      const imageEmbeds = images
+        .map((img) => {
+          const u = URL.createObjectURL(new Blob([img.buf], { type: `image/${img.ext === "jpg" ? "jpeg" : img.ext}` }));
+          return `<div class="img-page"><img src="${u}" alt="${img.name}"/><div class="caption">${img.name}</div></div>`;
+        })
+        .join("");
+
+      const html = `<!doctype html><html><head><meta charset="utf-8"/>
+<title>Print — ${ref}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; color: #111; }
+  h1 { font-size: 18pt; margin: 0 0 4px; }
+  h2 { font-size: 13pt; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
+  .meta { font-size: 10pt; color: #555; margin-bottom: 16px; }
+  .page { page-break-after: always; height: 100vh; display: flex; flex-direction: column; }
+  .pdf { flex: 1; width: 100%; border: 0; }
+  .img-page { page-break-after: always; text-align: center; }
+  .img-page img { max-width: 100%; max-height: 95vh; object-fit: contain; }
+  .caption { font-size: 9pt; color: #666; margin-top: 6px; }
+  .muted { color: #888; font-size: 10pt; }
+  .cover { padding: 20mm 0; }
+</style></head><body>
+<div class="cover">
+  <h1>${ref}</h1>
+  <div class="meta">${[customerName, siteName].filter(Boolean).join(" · ")}</div>
+  <div class="meta">Generated: ${new Date().toLocaleString("en-GB")}</div>
+</div>
+<div class="page"><h2>Job Report</h2><embed src="${reportPdfUrl}" type="application/pdf" class="pdf"/></div>
+${docEmbeds.join("")}
+${imageEmbeds}
+<script>
+  window.addEventListener('load', () => {
+    setTimeout(() => { window.focus(); window.print(); }, 800);
+  });
+</script>
+</body></html>`;
+
+      const printWin = window.open("", "_blank");
+      if (!printWin) {
+        throw new Error("Pop-up blocked. Please allow pop-ups to use Print.");
+      }
+      printWin.document.open();
+      printWin.document.write(html);
+      printWin.document.close();
+
+      toast({
+        title: "Print ready",
+        description: `${ref} — opened in a new tab. Use the browser print dialog.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Print failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBusyId(null);
+      setBusyAction(null);
+    }
+  };
+
+  // Save as Word (.docx) — embeds report summary, image gallery, and a list of documents.
+  // PDFs cannot be embedded inside Word; they are listed and bundled separately if needed.
+  const downloadWord = async (job: CompletedJob) => {
+    setBusyId(job.id);
+    setBusyAction("word");
+    try {
+      const { fullJob, submissions } = await fetchJobBundle(job.id);
+      const { images, documents } = await fetchSubmissionFiles(submissions);
+
+      const ref = fullJob.reference_number || "job";
+      const customerName = fullJob.customers?.name || "";
+      const siteName = fullJob.sites?.name || "";
+
+      // Get pixel dimensions for an image so we can size it sensibly in Word.
+      const getDims = (buf: Uint8Array, ext: string): Promise<{ w: number; h: number }> =>
+        new Promise((resolve) => {
+          const url = URL.createObjectURL(new Blob([buf], { type: `image/${ext === "jpg" ? "jpeg" : ext}` }));
+          const im = new Image();
+          im.onload = () => {
+            URL.revokeObjectURL(url);
+            resolve({ w: im.naturalWidth || 600, h: im.naturalHeight || 400 });
+          };
+          im.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve({ w: 600, h: 400 });
+          };
+          im.src = url;
+        });
+
+      const imageBlocks: Paragraph[] = [];
+      for (const img of images) {
+        const ext = ["png", "jpg", "jpeg", "gif", "bmp"].includes(img.ext) ? img.ext : "png";
+        const type = (ext === "jpg" ? "jpeg" : ext) as "png" | "jpeg" | "gif" | "bmp";
+        const { w, h } = await getDims(img.buf, ext);
+        const maxW = 500;
+        const scale = Math.min(1, maxW / w);
+        imageBlocks.push(
+          new Paragraph({
+            children: [
+              new ImageRun({
+                type,
+                data: img.buf,
+                transformation: { width: Math.round(w * scale), height: Math.round(h * scale) },
+              } as any),
+            ],
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: img.name, italics: true, size: 18, color: "666666" })],
+            spacing: { after: 200 },
+          })
+        );
+      }
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children: [
+              new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                children: [new TextRun({ text: `Job Report — ${ref}`, bold: true })],
+              }),
+              new Paragraph({
+                children: [new TextRun({ text: [customerName, siteName].filter(Boolean).join(" · ") || "—" })],
+                spacing: { after: 100 },
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({ text: `Completed: `, bold: true }),
+                  new TextRun({
+                    text: new Date(fullJob.updated_at || fullJob.created_at).toLocaleString("en-GB"),
+                  }),
+                ],
+              }),
+              new Paragraph({
+                children: [
+                  new TextRun({ text: `Generated: `, bold: true }),
+                  new TextRun({ text: new Date().toLocaleString("en-GB") }),
+                ],
+                spacing: { after: 300 },
+              }),
+
+              new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                children: [new TextRun({ text: "Summary" })],
+              }),
+              new Paragraph({
+                children: [new TextRun({ text: fullJob.description || fullJob.name || "No description." })],
+                spacing: { after: 200 },
+              }),
+
+              new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                children: [new TextRun({ text: `Images (${images.length})` })],
+              }),
+              ...(imageBlocks.length
+                ? imageBlocks
+                : [new Paragraph({ children: [new TextRun({ text: "No images attached.", italics: true })] })]),
+
+              new Paragraph({ children: [new PageBreak()] }),
+              new Paragraph({
+                heading: HeadingLevel.HEADING_2,
+                children: [new TextRun({ text: `Documents (${documents.length})` })],
+              }),
+              ...(documents.length
+                ? documents.map(
+                    (d) =>
+                      new Paragraph({
+                        children: [new TextRun({ text: `• ${d.name}` })],
+                      })
+                  )
+                : [
+                    new Paragraph({
+                      children: [new TextRun({ text: "No documents attached.", italics: true })],
+                    }),
+                  ]),
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: "Note: PDFs and other documents cannot be embedded inside Word. Use the ZIP download to access the original files.",
+                    italics: true,
+                    size: 18,
+                    color: "888888",
+                  }),
+                ],
+                spacing: { before: 200 },
+              }),
+            ],
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${safe(ref)}-${safe(customerName || "customer")}-report.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+
+      toast({
+        title: "Word document ready",
+        description: `${ref} — ${images.length} image(s) embedded.`,
+      });
+    } catch (err: any) {
+      toast({ title: "Word export failed", description: err.message, variant: "destructive" });
+    } finally {
+      setBusyId(null);
+      setBusyAction(null);
     }
   };
 
