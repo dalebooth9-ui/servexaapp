@@ -518,7 +518,7 @@ export function renderBlankFieldRow(
     const isYesNoQuestion =
       field.type === "yes_no" ||
       lbl.endsWith("?") ||
-      /^(bs\s?(en\s?)?|en\s?)\d/i.test(lbl);
+      isStandardReference(lbl);
     const incompatibleType =
       field.type === "text" || field.type === "number" || field.type === "date" ||
       field.type === "textarea" || field.type === "long_text" ||
