@@ -68,8 +68,9 @@ export async function renderPdfHeader(
         logoImg.onerror = () => reject();
         logoImg.src = logoUrl;
       });
-      const logoMaxW = 130;
-      const logoMaxH = 40;
+      // Match the reference Argos sample: wide horizontal logo ~60mm × 28mm
+      const logoMaxW = 60;
+      const logoMaxH = 28;
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
       let lw = logoMaxH * aspect;
       let lh = logoMaxH;
