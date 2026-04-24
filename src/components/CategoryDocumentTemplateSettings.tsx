@@ -308,24 +308,6 @@ export default function CategoryDocumentTemplateSettings() {
                           </Button>
                         </TemplateRow>
                       ))}
-                          <div onClick={(e) => e.stopPropagation()}>
-                            <Switch
-                              checked={t.enabled}
-                              onCheckedChange={(v) => handleToggle(t.id, v)}
-                              disabled={saving === t.id}
-                            />
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
-                            onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                        );
-                      })}
                     </div>
                   </div>
                 );
