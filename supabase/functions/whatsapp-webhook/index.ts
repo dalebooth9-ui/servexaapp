@@ -221,6 +221,25 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
+      // Fetch job info once for friendly file naming
+      const { data: jobInfo } = await supabase
+        .from("jobs")
+        .select("reference_number, name, customer, customers(name)")
+        .eq("id", jobId)
+        .maybeSingle();
+
+      const sanitize = (s: string) =>
+        s.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+      const buildFriendlyName = (isImage: boolean, ext: string, idx: number) => {
+        const typeLabel = isImage ? "Photo" : "Document";
+        const jobRef = (jobInfo as any)?.reference_number || (jobInfo as any)?.name || "";
+        const customer = (jobInfo as any)?.customer || (jobInfo as any)?.customers?.name || "";
+        const parts = [typeLabel, jobRef, customer].filter(Boolean);
+        const base = sanitize(parts.join(" - ")) || `${typeLabel}_${Date.now()}`;
+        const suffix = numMedia > 1 ? ` (${idx + 1})` : "";
+        return `${base}${suffix}.${ext}`;
+      };
+
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
@@ -237,8 +256,9 @@ Deno.serve(async (req) => {
 
         const isImage = mediaType.startsWith("image/");
         const ext = mediaType.split("/")[1] || "bin";
-        const fileName = `${isImage ? "photo" : "document"}_${Date.now()}_${i}.${ext}`;
-        const storagePath = `${jobId}/${engineerId}/${fileName}`;
+        const friendlyName = buildFriendlyName(isImage, ext, i);
+        // Storage path stays unique to avoid collisions; file_name is the friendly label
+        const storagePath = `${jobId}/${engineerId}/${Date.now()}_${i}_${friendlyName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("submissions")
@@ -254,7 +274,7 @@ Deno.serve(async (req) => {
           engineer_id: engineerId,
           type: isImage ? "photo" : "document",
           file_url: storagePath,
-          file_name: fileName,
+          file_name: friendlyName,
           whatsapp_message_id: messageSid,
           content: messageBody || null,
         });
