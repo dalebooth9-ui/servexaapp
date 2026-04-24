@@ -323,26 +323,14 @@ ${imageEmbeds}
       const siteName = fullJob.sites?.name || "";
 
       // Load the Viva Fire logo (or customer override) so the Word doc matches the PDF header.
+      // Cached in-memory so repeated exports in the same session don't re-download it.
       const logoUrl = fullJob.customers?.logo_url && String(fullJob.customers.logo_url).trim() !== ""
         ? String(fullJob.customers.logo_url)
         : "/images/vivafire-logo-new.jpg";
-      let logoBuf: Uint8Array | null = null;
-      let logoType: "png" | "jpeg" = "jpeg";
-      let logoDims = { w: 400, h: 120 };
-      try {
-        const resp = await fetch(logoUrl);
-        if (resp.ok) {
-          logoBuf = new Uint8Array(await resp.arrayBuffer());
-          logoType = logoUrl.toLowerCase().endsWith(".png") ? "png" : "jpeg";
-          logoDims = await new Promise<{ w: number; h: number }>((resolve) => {
-            const u = URL.createObjectURL(new Blob([logoBuf!.buffer as ArrayBuffer], { type: `image/${logoType}` }));
-            const im = new Image();
-            im.onload = () => { URL.revokeObjectURL(u); resolve({ w: im.naturalWidth || 400, h: im.naturalHeight || 120 }); };
-            im.onerror = () => { URL.revokeObjectURL(u); resolve({ w: 400, h: 120 }); };
-            im.src = u;
-          });
-        }
-      } catch { /* fallback: no logo */ }
+      const cached = await getCachedLogo(logoUrl);
+      const logoBuf: Uint8Array | null = cached?.buf ?? null;
+      const logoType: "png" | "jpeg" = cached?.type ?? "jpeg";
+      const logoDims = cached?.dims ?? { w: 400, h: 120 };
 
       // Get pixel dimensions for an image so we can size it sensibly in Word.
       const getDims = (buf: Uint8Array, ext: string): Promise<{ w: number; h: number }> =>
