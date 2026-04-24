@@ -115,12 +115,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-      // For Dry Riser Pressure Test templates, force the Viva Fire logo from /public
-      // regardless of customer branding (this is a Viva-Fire-specific worksheet).
-      const isDryRiser = /dry\s*riser/i.test(template.name || "");
-      const branding = isDryRiser
-        ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
-        : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
+      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
@@ -160,7 +155,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         // Add a new page for every sheet after the first
         if (sysIdx > 0) doc.addPage();
 
-        const sheetTitle = isDryRiser ? "Dry Riser Pressure Test" : template.name;
+        const sheetTitle = template.name;
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName,
