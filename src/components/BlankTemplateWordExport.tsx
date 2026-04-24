@@ -74,6 +74,143 @@ function renderFieldRow(field: TemplateField): TableRow {
   });
 }
 
+/** Build a docx Document for a blank template. Exported so bulk export can reuse it. */
+export function buildBlankTemplateDoc(template: Props["template"]): Document {
+  const sectionMap = new Map<string, TemplateField[]>();
+  for (const f of template.fields) {
+    const key = f.section || "Details";
+    if (!sectionMap.has(key)) sectionMap.set(key, []);
+    sectionMap.get(key)!.push(f);
+  }
+
+  const children: (Paragraph | Table)[] = [
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: template.name, bold: true })],
+    }),
+  ];
+  if (template.standard) {
+    children.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: template.standard, italics: true, size: 20, color: "555555" })],
+        spacing: { after: 120 },
+      })
+    );
+  }
+  if (template.description) {
+    children.push(
+      new Paragraph({
+        children: [new TextRun({ text: template.description, size: 20 })],
+        spacing: { after: 240 },
+      })
+    );
+  }
+
+  for (const [sectionName, fields] of sectionMap) {
+    children.push(
+      new Paragraph({
+        heading: HeadingLevel.HEADING_2,
+        children: [new TextRun({ text: sectionName, bold: true })],
+        spacing: { before: 200, after: 100 },
+      })
+    );
+    children.push(
+      new Table({
+        width: { size: 9360, type: WidthType.DXA },
+        columnWidths: [3500, 5860],
+        rows: fields.map(renderFieldRow),
+      })
+    );
+  }
+
+  // Sign-off block
+  children.push(
+    new Paragraph({
+      heading: HeadingLevel.HEADING_2,
+      children: [new TextRun({ text: "Sign-off", bold: true })],
+      spacing: { before: 300, after: 100 },
+    }),
+    new Table({
+      width: { size: 9360, type: WidthType.DXA },
+      columnWidths: [3500, 5860],
+      rows: [
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: cellBorders,
+              width: { size: 3500, type: WidthType.DXA },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: "Engineer name", bold: true, size: 20 })] })],
+            }),
+            new TableCell({
+              borders: cellBorders,
+              width: { size: 5860, type: WidthType.DXA },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+            }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: cellBorders,
+              width: { size: 3500, type: WidthType.DXA },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: "Signature", bold: true, size: 20 })] })],
+            }),
+            new TableCell({
+              borders: cellBorders,
+              width: { size: 5860, type: WidthType.DXA },
+              margins: { top: 200, bottom: 200, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+            }),
+          ],
+        }),
+        new TableRow({
+          children: [
+            new TableCell({
+              borders: cellBorders,
+              width: { size: 3500, type: WidthType.DXA },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: "Date", bold: true, size: 20 })] })],
+            }),
+            new TableCell({
+              borders: cellBorders,
+              width: { size: 5860, type: WidthType.DXA },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+            }),
+          ],
+        }),
+      ],
+    })
+  );
+
+  return new Document({
+    styles: {
+      default: { document: { run: { font: "Arial", size: 22 } } },
+    },
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: 11906, height: 16838 }, // A4
+            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+          },
+        },
+        children,
+      },
+    ],
+  });
+}
+
+/** Filename-safe slug for a template name. */
+export function blankTemplateFileSlug(name: string): string {
+  return name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "template";
+}
+
 export default function BlankTemplateWordExport({ template, size = "sm" }: Props) {
   const [busy, setBusy] = useState(false);
   const { toast } = useToast();
@@ -81,142 +218,12 @@ export default function BlankTemplateWordExport({ template, size = "sm" }: Props
   const generate = async () => {
     setBusy(true);
     try {
-      // Group fields by section, preserving order
-      const sectionMap = new Map<string, TemplateField[]>();
-      for (const f of template.fields) {
-        const key = f.section || "Details";
-        if (!sectionMap.has(key)) sectionMap.set(key, []);
-        sectionMap.get(key)!.push(f);
-      }
-
-      const children: (Paragraph | Table)[] = [
-        new Paragraph({
-          heading: HeadingLevel.HEADING_1,
-          alignment: AlignmentType.CENTER,
-          children: [new TextRun({ text: template.name, bold: true })],
-        }),
-      ];
-      if (template.standard) {
-        children.push(
-          new Paragraph({
-            alignment: AlignmentType.CENTER,
-            children: [new TextRun({ text: template.standard, italics: true, size: 20, color: "555555" })],
-            spacing: { after: 120 },
-          })
-        );
-      }
-      if (template.description) {
-        children.push(
-          new Paragraph({
-            children: [new TextRun({ text: template.description, size: 20 })],
-            spacing: { after: 240 },
-          })
-        );
-      }
-
-      for (const [sectionName, fields] of sectionMap) {
-        children.push(
-          new Paragraph({
-            heading: HeadingLevel.HEADING_2,
-            children: [new TextRun({ text: sectionName, bold: true })],
-            spacing: { before: 200, after: 100 },
-          })
-        );
-        children.push(
-          new Table({
-            width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [3500, 5860],
-            rows: fields.map(renderFieldRow),
-          })
-        );
-      }
-
-      // Signature block
-      children.push(
-        new Paragraph({
-          heading: HeadingLevel.HEADING_2,
-          children: [new TextRun({ text: "Sign-off", bold: true })],
-          spacing: { before: 300, after: 100 },
-        }),
-        new Table({
-          width: { size: 9360, type: WidthType.DXA },
-          columnWidths: [3500, 5860],
-          rows: [
-            new TableRow({
-              children: [
-                new TableCell({
-                  borders: cellBorders,
-                  width: { size: 3500, type: WidthType.DXA },
-                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                  children: [new Paragraph({ children: [new TextRun({ text: "Engineer name", bold: true, size: 20 })] })],
-                }),
-                new TableCell({
-                  borders: cellBorders,
-                  width: { size: 5860, type: WidthType.DXA },
-                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                  children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-                }),
-              ],
-            }),
-            new TableRow({
-              children: [
-                new TableCell({
-                  borders: cellBorders,
-                  width: { size: 3500, type: WidthType.DXA },
-                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                  children: [new Paragraph({ children: [new TextRun({ text: "Signature", bold: true, size: 20 })] })],
-                }),
-                new TableCell({
-                  borders: cellBorders,
-                  width: { size: 5860, type: WidthType.DXA },
-                  margins: { top: 200, bottom: 200, left: 120, right: 120 },
-                  children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-                }),
-              ],
-            }),
-            new TableRow({
-              children: [
-                new TableCell({
-                  borders: cellBorders,
-                  width: { size: 3500, type: WidthType.DXA },
-                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                  children: [new Paragraph({ children: [new TextRun({ text: "Date", bold: true, size: 20 })] })],
-                }),
-                new TableCell({
-                  borders: cellBorders,
-                  width: { size: 5860, type: WidthType.DXA },
-                  margins: { top: 80, bottom: 80, left: 120, right: 120 },
-                  children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-                }),
-              ],
-            }),
-          ],
-        })
-      );
-
-      const doc = new Document({
-        styles: {
-          default: { document: { run: { font: "Arial", size: 22 } } },
-        },
-        sections: [
-          {
-            properties: {
-              page: {
-                size: { width: 11906, height: 16838 }, // A4
-                margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
-              },
-            },
-            children,
-          },
-        ],
-      });
-
+      const doc = buildBlankTemplateDoc(template);
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const safe = template.name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "template";
       a.href = url;
-      a.download = `${safe}-blank.docx`;
+      a.download = `${blankTemplateFileSlug(template.name)}-blank.docx`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
