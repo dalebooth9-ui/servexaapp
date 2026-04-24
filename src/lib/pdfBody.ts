@@ -30,6 +30,34 @@ export function isStandardReference(label: string): boolean {
   return /^(bs\s?(en\s?)?|en\s?)\d/i.test(label.trim());
 }
 
+export function isYesNoOptions(options?: string[]): boolean {
+  return Array.isArray(options)
+    && options.length > 0
+    && options.length <= 3
+    && options.some((o) => o.toLowerCase() === "yes")
+    && options.some((o) => o.toLowerCase() === "no");
+}
+
+const BLANK_YES_NO_INCOMPATIBLE_TYPES = new Set([
+  "text",
+  "number",
+  "date",
+  "textarea",
+  "long_text",
+  "signature",
+  "photo",
+  "image",
+  "file",
+]);
+
+export function isQuestionStyleYesNoField(field: Pick<PdfTemplateField, "label" | "type">): boolean {
+  const label = field.label.trim();
+  return (
+    (field.type === "yes_no" || label.endsWith("?") || isStandardReference(label))
+    && !BLANK_YES_NO_INCOMPATIBLE_TYPES.has(field.type)
+  );
+}
+
 /**
  * Auto-populate field values for a PDF export based on job/site data,
  * mirroring the online sheet logic.
@@ -149,6 +177,75 @@ function getRawFieldText(value: unknown): string {
 
 function hasRenderableValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
+}
+
+function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string): void {
+  doc.setFontSize(6);
+  doc.rect(x, y + 1, 3, 3);
+  doc.text("YES", x + 4, y + 3.5);
+  doc.rect(x + 14, y + 1, 3, 3);
+  doc.text("NO", x + 18, y + 3.5);
+
+  if (autoVal === "YES") {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text("✓", x + 0.5, y + 3.8);
+    doc.setFont("helvetica", "normal");
+  }
+
+  doc.setFontSize(8.5);
+}
+
+function truncateToWidth(doc: jsPDF, value: string, maxWidth: number): string {
+  if (maxWidth <= 0 || doc.getTextWidth(value) <= maxWidth) return value;
+
+  let result = value;
+  while (result.length > 1 && doc.getTextWidth(`${result}…`) > maxWidth) {
+    result = result.slice(0, -1);
+  }
+  return `${result}…`;
+}
+
+function renderBlankSelectOptions(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  options: string[],
+  maxX: number,
+  autoVal?: string,
+): void {
+  const normalizedAutoVal = getRawFieldText(autoVal).toLowerCase();
+  const upperCaseOptions = isYesNoOptions(options);
+
+  doc.setFontSize(6);
+  let optionX = x;
+
+  for (const opt of options) {
+    if (optionX + 3 >= maxX) break;
+
+    const label = upperCaseOptions ? opt.toUpperCase() : opt;
+    const maxLabelWidth = Math.max(6, maxX - optionX - 4);
+    const renderedLabel = truncateToWidth(doc, label, maxLabelWidth);
+
+    doc.rect(optionX, y + 1, 3, 3);
+
+    if (normalizedAutoVal && normalizedAutoVal === opt.toLowerCase()) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text("✓", optionX + 0.5, y + 3.8);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6);
+    }
+
+    doc.text(renderedLabel, optionX + 4, y + 3.5);
+    optionX += 4 + doc.getTextWidth(renderedLabel) + 3;
+  }
+
+  doc.setFontSize(8.5);
+}
+
+function renderBlankUnderline(doc: jsPDF, x: number, y: number, width: number): void {
+  doc.line(x, y + 3.5, x + Math.max(width, 8), y + 3.5);
 }
 
 function getSimpleResultKind(value: unknown): "positive" | "negative" | "na" | "custom" | "empty" {
