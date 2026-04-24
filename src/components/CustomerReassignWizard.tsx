@@ -115,12 +115,40 @@ export default function CustomerReassignWizard() {
 
   if (userRole !== "admin") return null;
 
-  const runPreview = async () => {
+  const runPreview = async (opts?: { skipSimilarCheck?: boolean }) => {
     if (!from) return;
     if (!to && !createNewName.trim()) {
       toast({ title: "Pick a target customer or enter a new name", variant: "destructive" });
       return;
     }
+
+    // Fuzzy-match guard: when creating a new target by name, warn if it's
+    // very similar to an existing customer so the admin doesn't accidentally
+    // create a near-duplicate (e.g. "Fireworks Fire Protection Ltd" vs
+    // "Fireworks Fire Protection").
+    if (!opts?.skipSimilarCheck && !to && createNewName.trim()) {
+      setCheckingSimilar(true);
+      try {
+        const { data, error } = await supabase.rpc("find_similar_customer", {
+          _name: createNewName.trim(),
+          _threshold: 0.55,
+        });
+        if (error) throw error;
+        const match = Array.isArray(data) && data.length > 0 ? (data[0] as any) : null;
+        if (match && match.id !== from.id && match.name?.toLowerCase() !== createNewName.trim().toLowerCase()) {
+          setSimilarMatch({ id: match.id, name: match.name, similarity: Number(match.similarity) });
+          setSimilarConfirmOpen(true);
+          setCheckingSimilar(false);
+          return; // wait for user to confirm in the dialog
+        }
+      } catch (e) {
+        // Non-fatal — log but continue
+        console.warn("Similarity check failed", e);
+      } finally {
+        setCheckingSimilar(false);
+      }
+    }
+
     setPreviewing(true);
     setPreview(null);
     try {
