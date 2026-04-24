@@ -318,7 +318,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, " ")
         .trim();
-    if (f.section && norm(ff.label) === norm(f.section)) return false;
+    if (f.section && norm(f.label) === norm(f.section)) return false;
     return true;
   });
 
