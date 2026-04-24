@@ -4,11 +4,12 @@ import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer } from "lucide-react";
+import { FileText, Download, Trash2, Upload, Loader2, Building2, Printer, Eye } from "lucide-react";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 import PreStartChecklistPdf from "@/components/PreStartChecklistPdf";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import type { RamsType } from "@/components/RamsPdfExport";
 
 type JobDoc = {
@@ -43,6 +44,10 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const pendingSlotDoc = useRef<JobDoc | null>(null);
   const [jobInfo, setJobInfo] = useState<any | null>(null);
   const [blankTemplates, setBlankTemplates] = useState<Record<string, any>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewMime, setPreviewMime] = useState<string>("application/pdf");
 
   const fetchDocs = async () => {
     const { data } = await supabase
@@ -374,7 +379,29 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 300);
       if (data?.signedUrl) url = data.signedUrl;
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Detect previewable types from the file name (or fall back to URL pathname)
+    const name = (doc.file_name || url).toLowerCase();
+    const ext = name.split("?")[0].split("#")[0].split(".").pop() || "";
+    const mimeMap: Record<string, string> = {
+      pdf: "application/pdf",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+      svg: "image/svg+xml",
+    };
+    const mime = mimeMap[ext];
+    if (mime) {
+      // View in-app — no save / no new tab
+      setPreviewUrl(url);
+      setPreviewName(doc.file_name || `${doc.label || "document"}.${ext}`);
+      setPreviewMime(mime);
+      setPreviewOpen(true);
+    } else {
+      // Non-previewable (e.g. .docx, .xlsx) — fall back to opening in a new tab
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   const handleUploadSlot = (doc: JobDoc) => {
@@ -608,6 +635,15 @@ ${sections}
           </>
         )}
       </div>
+
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        url={previewUrl}
+        fileName={previewName}
+        title={previewName}
+        mimeType={previewMime}
+      />
     </div>
   );
 }
@@ -721,8 +757,9 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
+          title="View document"
         >
-          <Download className="h-3 w-3" /> Open
+          <Eye className="h-3 w-3" /> View
         </Button>
       )}
 
@@ -732,8 +769,9 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
+          title="View document"
         >
-          <Download className="h-3 w-3" /> Open
+          <Eye className="h-3 w-3" /> View
         </Button>
       )}
       {isUploadSlot && isAdmin && onUploadSlot && (

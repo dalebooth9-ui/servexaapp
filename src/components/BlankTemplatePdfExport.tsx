@@ -1,6 +1,7 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Printer } from "lucide-react";
+import { Download, Eye, Loader2, Printer } from "lucide-react";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
@@ -92,19 +93,24 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 export type BlankTemplatePdfExportHandle = {
   download: () => Promise<void> | void;
   print: () => Promise<void> | void;
+  preview: () => Promise<void> | void;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
   const [generating, setGenerating] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
     download: () => generate("download"),
     print: () => generate("print"),
+    preview: () => generate("preview"),
   }));
 
-  const generate = async (mode: "download" | "print" = "download") => {
+  const generate = async (mode: "download" | "print" | "preview" = "preview") => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
@@ -312,6 +318,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         window.open(url, "_blank");
         setTimeout(() => URL.revokeObjectURL(url), 30000);
         toast({ title: "Blank sheet opened", description: "Print from the new tab." });
+      } else if (mode === "preview") {
+        const pdfBlob = doc.output("blob");
+        setPreviewBlob(pdfBlob);
+        setPreviewName(fileName);
+        setPreviewOpen(true);
       } else {
         doc.save(fileName);
         toast({ title: "PDF downloaded", description: fileName });
@@ -326,16 +337,28 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   if (headless) return null;
 
   return (
-    <div className="flex items-center gap-0.5">
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
-      </Button>
-      {showPrint && (
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template" aria-label={`Print ${template.name}`}>
-          <Printer className="h-3.5 w-3.5" aria-hidden />
+    <>
+      <div className="flex items-center gap-0.5">
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("preview")} disabled={generating} title="Preview blank template" aria-label={`Preview ${template.name}`}>
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Eye className="h-3.5 w-3.5" aria-hidden />}
         </Button>
-      )}
-    </div>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
+          <Download className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+        {showPrint && (
+          <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template" aria-label={`Print ${template.name}`}>
+            <Printer className="h-3.5 w-3.5" aria-hidden />
+          </Button>
+        )}
+      </div>
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blob={previewBlob}
+        fileName={previewName}
+        title={template.name}
+      />
+    </>
   );
 });
 
