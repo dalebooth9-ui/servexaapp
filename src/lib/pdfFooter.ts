@@ -115,6 +115,7 @@ export function renderPdfFooter(
   footerY: number,
   footerText: string
 ): number {
+  if (!footerText || !footerText.trim()) return footerY;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
