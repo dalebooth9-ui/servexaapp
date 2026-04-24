@@ -395,7 +395,7 @@ ${imageEmbeds}
                 children: [new TextRun({ text: "Summary" })],
               }),
               new Paragraph({
-                children: [new TextRun({ text: fullJob.description || fullJob.name || "No description." })],
+                children: [new TextRun({ text: fullJob.brief || fullJob.name || "No description." })],
                 spacing: { after: 200 },
               }),
 
