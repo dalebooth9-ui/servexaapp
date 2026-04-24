@@ -389,20 +389,20 @@ ${imageEmbeds}
               ...(logoBuf
                 ? [
                     new Paragraph({
-                      alignment: "center" as any,
+                      alignment: logoAlignment,
                       children: [
                         new ImageRun({
                           type: logoType,
                           data: logoBuf,
                           transformation: (() => {
-                            const maxW = 200;
+                            const maxW = wordCfg.logoMaxWidth;
                             const aspect = logoDims.w / logoDims.h;
                             const w = Math.min(maxW, logoDims.w);
                             return { width: Math.round(w), height: Math.round(w / aspect) };
                           })(),
                         } as any),
                       ],
-                      spacing: { after: 200 },
+                      spacing: { before: wordCfg.logoSpacingBefore, after: wordCfg.logoSpacingAfter },
                     }),
                   ]
                 : []),
