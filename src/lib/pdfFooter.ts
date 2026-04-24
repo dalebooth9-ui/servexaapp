@@ -136,8 +136,19 @@ export function renderPdfFooter(
 
 /**
  * Determine the default footer declaration text based on template type.
+ *
+ * Resolution order:
+ *   1. Explicit per-template `footer_text` (set by admins on the template editor)
+ *   2. Per-customer branding override (`branding.footer_text`)
+ *   3. Keyword-based fallback by template name
+ *   4. Empty string (no footer rendered)
  */
-export function getDefaultFooterText(templateName: string, branding?: { footer_text?: string }): string {
+export function getDefaultFooterText(
+  templateName: string,
+  branding?: { footer_text?: string },
+  templateFooterText?: string | null,
+): string {
+  if (templateFooterText && templateFooterText.trim()) return templateFooterText;
   if (branding?.footer_text) return branding.footer_text;
   const n = templateName.toLowerCase();
   if (n.includes("fire extinguisher") || n.includes("extinguisher")) {
