@@ -13,6 +13,7 @@ import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Sett
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { resolveFooterText } from "@/lib/pdfFooter";
 
 type TemplateField = {
   id: string;
@@ -500,6 +501,35 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                   <Label className="text-xs">Footer Declaration</Label>
                   <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have, today, carried out this inspection to the requirements of BS 9990:2015" rows={3} className="text-sm" />
                   <p className="text-[11px] text-muted-foreground">Overrides any automatic footer for this template. Leave blank to use the system default (or none).</p>
+                  {(() => {
+                    const resolved = resolveFooterText(
+                      templateName,
+                      { footer_text: undefined },
+                      footerText,
+                    );
+                    const variant: "default" | "secondary" | "outline" =
+                      resolved.source === "template" ? "default"
+                      : resolved.source === "rule" ? "secondary"
+                      : "outline";
+                    return (
+                      <div className="mt-2 rounded-md border bg-muted/40 p-2 space-y-1.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[11px] font-medium text-muted-foreground">Footer rule:</span>
+                          <Badge variant={variant} className="text-[10px] py-0 h-4">
+                            {resolved.source === "template" ? "Custom (this template)"
+                              : resolved.source === "rule" ? "Auto-matched"
+                              : "None"}
+                          </Badge>
+                          <span className="text-[11px] text-muted-foreground">{resolved.ruleLabel}</span>
+                        </div>
+                        {resolved.text ? (
+                          <pre className="text-[11px] whitespace-pre-wrap text-foreground/80 font-sans leading-snug">{resolved.text}</pre>
+                        ) : (
+                          <p className="text-[11px] italic text-muted-foreground">No footer declaration will be rendered on PDFs for this template.</p>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex items-center gap-3">
                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
