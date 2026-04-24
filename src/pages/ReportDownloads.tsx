@@ -9,6 +9,8 @@ import { Download, Loader2, Search, FileArchive, Printer, FileText } from "lucid
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak } from "docx";
 import { useToast } from "@/hooks/use-toast";
 import { getCachedLogo } from "@/lib/logoCache";
+import { getWordExportConfig } from "@/lib/wordExportConfig";
+import { AlignmentType } from "docx";
 
 type CompletedJob = {
   id: string;
@@ -327,10 +329,17 @@ ${imageEmbeds}
       const logoUrl = fullJob.customers?.logo_url && String(fullJob.customers.logo_url).trim() !== ""
         ? String(fullJob.customers.logo_url)
         : "/images/vivafire-logo-new.jpg";
-      const cached = await getCachedLogo(logoUrl);
+      const [cached, wordCfg] = await Promise.all([getCachedLogo(logoUrl), getWordExportConfig()]);
       const logoBuf: Uint8Array | null = cached?.buf ?? null;
       const logoType: "png" | "jpeg" = cached?.type ?? "jpeg";
       const logoDims = cached?.dims ?? { w: 400, h: 120 };
+      const alignmentMap = {
+        left: AlignmentType.LEFT,
+        center: AlignmentType.CENTER,
+        right: AlignmentType.RIGHT,
+      } as const;
+      const logoAlignment = alignmentMap[wordCfg.logoAlignment] ?? AlignmentType.CENTER;
+
 
       // Get pixel dimensions for an image so we can size it sensibly in Word.
       const getDims = (buf: Uint8Array, ext: string): Promise<{ w: number; h: number }> =>
@@ -380,20 +389,20 @@ ${imageEmbeds}
               ...(logoBuf
                 ? [
                     new Paragraph({
-                      alignment: "center" as any,
+                      alignment: logoAlignment,
                       children: [
                         new ImageRun({
                           type: logoType,
                           data: logoBuf,
                           transformation: (() => {
-                            const maxW = 200;
+                            const maxW = wordCfg.logoMaxWidth;
                             const aspect = logoDims.w / logoDims.h;
                             const w = Math.min(maxW, logoDims.w);
                             return { width: Math.round(w), height: Math.round(w / aspect) };
                           })(),
                         } as any),
                       ],
-                      spacing: { after: 200 },
+                      spacing: { before: wordCfg.logoSpacingBefore, after: wordCfg.logoSpacingAfter },
                     }),
                   ]
                 : []),
