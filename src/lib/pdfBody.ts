@@ -589,66 +589,47 @@ export function renderBlankFieldRow(
     doc.rect(bx + 20, y + 1, 3, 3); doc.text("N/A", bx + 24, y + 3.5);
     doc.setFontSize(8.5);
   } else if (field.type === "checkbox") {
+    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
+  } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
     const bx = margin + colSplit + 2;
-    doc.setFontSize(6);
-    doc.rect(bx, y + 1, 3, 3); doc.text("YES", bx + 4, y + 3.5);
-    doc.rect(bx + 14, y + 1, 3, 3); doc.text("NO", bx + 18, y + 3.5);
-    // If auto-value is YES, draw a tick in the YES box
-    if (autoVal === "YES") {
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.text("✓", bx + 0.5, y + 3.8);
-      doc.setFont("helvetica", "normal");
-    }
-    doc.setFontSize(8.5);
-  } else if (field.type === "select" && field.options && field.options.some(o => o.toLowerCase() === "yes") && field.options.some(o => o.toLowerCase() === "no")) {
+    renderBlankSelectOptions(doc, bx, y, field.options, margin + maxWidth - 2, autoVal);
+  } else if (field.type === "select" && field.options && field.options.length > 0) {
     const bx = margin + colSplit + 2;
-    doc.setFontSize(6);
-    let ox = bx;
-    for (const opt of field.options) {
-      doc.rect(ox, y + 1, 3, 3);
-      // If auto-value matches this option, draw a tick
-      if (autoVal && autoVal.toLowerCase() === opt.toLowerCase()) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.text("✓", ox + 0.5, y + 3.8);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(6);
-      }
-      doc.text(opt.toUpperCase(), ox + 4, y + 3.5);
-      ox += 4 + doc.getTextWidth(opt.toUpperCase()) + 3;
-    }
-    doc.setFontSize(8.5);
+    renderBlankSelectOptions(doc, bx, y, field.options, margin + maxWidth - 2, autoVal);
   } else {
-    const lbl = field.label.trim();
-    const isYesNoQuestion =
-      field.type === "yes_no" ||
-      lbl.endsWith("?") ||
-      isStandardReference(lbl);
-    const incompatibleType =
-      field.type === "text" || field.type === "number" || field.type === "date" ||
-      field.type === "textarea" || field.type === "long_text" ||
-      field.type === "signature" || field.type === "photo" ||
-      field.type === "image" || field.type === "file";
-
-    if (isYesNoQuestion && !incompatibleType) {
-      const bx = margin + colSplit + 2;
-      doc.setFontSize(6);
-      doc.rect(bx, y + 1, 3, 3); doc.text("YES", bx + 4, y + 3.5);
-      doc.rect(bx + 14, y + 1, 3, 3); doc.text("NO", bx + 18, y + 3.5);
-      if (autoVal === "YES") {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(9);
-        doc.text("✓", bx + 0.5, y + 3.8);
-        doc.setFont("helvetica", "normal");
-      }
-      doc.setFontSize(8.5);
+    if (isQuestionStyleYesNoField(field)) {
+      renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
     } else if (autoVal) {
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
       doc.text(truncVal, margin + colSplit + 2, y + 3.5);
       doc.setFontSize(8.5);
+    } else if (field.type === "date") {
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(8.5);
+    } else if (field.type === "number") {
+      renderBlankUnderline(doc, margin + colSplit + 2, y, Math.min(16, maxWidth - colSplit - 6));
+    } else if (field.type === "textarea" || field.type === "long_text") {
+      renderBlankUnderline(doc, margin + colSplit + 2, y, Math.max(20, maxWidth - colSplit - 6));
+    } else if (field.type === "signature") {
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text("Signature:", margin + colSplit + 2, y + 3.5);
+      doc.setTextColor(0, 0, 0);
+      renderBlankUnderline(doc, margin + colSplit + 16, y, Math.max(16, maxWidth - colSplit - 20));
+      doc.setFontSize(8.5);
+    } else if (field.type === "photo") {
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.text("□ Photo attached", margin + colSplit + 2, y + 3.5);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(8.5);
+    } else {
+      renderBlankUnderline(doc, margin + colSplit + 2, y, Math.max(20, maxWidth - colSplit - 6));
     }
   }
 
