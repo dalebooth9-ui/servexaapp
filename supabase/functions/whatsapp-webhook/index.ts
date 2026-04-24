@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { requireEnv, MissingEnvError } from "../_shared/requireEnv.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -11,11 +12,28 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const TWILIO_AUTH_TOKEN = Deno.env.get("TWILIO_AUTH_TOKEN")!;
-  const TWILIO_ACCOUNT_SID = Deno.env.get("TWILIO_ACCOUNT_SID")!;
-  const TWILIO_WHATSAPP_NUMBER = Deno.env.get("TWILIO_WHATSAPP_NUMBER")!;
+  let SUPABASE_URL: string, SUPABASE_SERVICE_ROLE_KEY: string;
+  let TWILIO_AUTH_TOKEN: string, TWILIO_ACCOUNT_SID: string, TWILIO_WHATSAPP_NUMBER: string;
+  try {
+    ({ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TWILIO_AUTH_TOKEN, TWILIO_ACCOUNT_SID, TWILIO_WHATSAPP_NUMBER } =
+      requireEnv([
+        "SUPABASE_URL",
+        "SUPABASE_SERVICE_ROLE_KEY",
+        "TWILIO_AUTH_TOKEN",
+        "TWILIO_ACCOUNT_SID",
+        "TWILIO_WHATSAPP_NUMBER",
+      ] as const));
+  } catch (err) {
+    if (err instanceof MissingEnvError) {
+      console.error("[whatsapp-webhook] missing configuration:", err.message);
+      // Return 503 with a clear JSON body so operators can see exactly which secret is missing.
+      return new Response(
+        JSON.stringify({ error: "missing_configuration", message: err.message, missing: err.missing }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    throw err;
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
