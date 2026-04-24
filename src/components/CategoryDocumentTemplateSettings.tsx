@@ -83,6 +83,7 @@ export default function CategoryDocumentTemplateSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [justUploadedId, setJustUploadedId] = useState<string | null>(null);
   const [newDocType, setNewDocType] = useState<string>("rams_pdf");
   const [newLabel, setNewLabel] = useState("");
   const [newCategory, setNewCategory] = useState<string>("");
@@ -193,7 +194,9 @@ export default function CategoryDocumentTemplateSettings() {
           .update({ file_url: urlData.signedUrl, file_name: file.name } as any)
           .eq("id", id);
         setTemplates((prev) => prev.map((t) => t.id === id ? { ...t, file_url: urlData.signedUrl, file_name: file.name } : t));
-        toast({ title: "File uploaded" });
+        setJustUploadedId(id);
+        setTimeout(() => setJustUploadedId((curr) => (curr === id ? null : curr)), 1800);
+        toast({ title: "File uploaded", description: "View, Print and Download are now available." });
       }
     }
     setUploadingFor(null);
@@ -321,6 +324,7 @@ export default function CategoryDocumentTemplateSettings() {
                           t={t}
                           linked={(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") ? resolveTemplate(t) : null}
                           uploading={uploadingFor === t.id}
+                          justUploaded={justUploadedId === t.id}
                           onUpload={() => handleUploadFile(t.id)}
                         >
                           <div onClick={(e) => e.stopPropagation()}>
@@ -367,12 +371,14 @@ function TemplateRow({
   t,
   linked,
   uploading,
+  justUploaded = false,
   onUpload,
   children,
 }: {
   t: DocTemplateRow;
   linked: JobSheetTemplate | null;
   uploading: boolean;
+  justUploaded?: boolean;
   onUpload: () => void;
   children: React.ReactNode;
 }) {
@@ -418,7 +424,9 @@ function TemplateRow({
 
   return (
     <div
-      className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
+      className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-all duration-500 ${
+        uploading ? "opacity-80 ring-1 ring-primary/40" : ""
+      } ${justUploaded ? "ring-2 ring-emerald-500/70 bg-emerald-500/5 animate-pulse" : ""}`}
       onClick={() => { if (t.file_url) window.open(t.file_url, "_blank", "noopener,noreferrer"); }}
     >
       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -426,7 +434,17 @@ function TemplateRow({
         <p className="text-sm font-medium truncate">{t.label}</p>
         <div className="flex items-center gap-2 mt-0.5">
           <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[t.document_type]}</Badge>
-          {t.file_name && (
+          {uploading && (
+            <span className="text-[10px] text-primary font-medium inline-flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
+            </span>
+          )}
+          {!uploading && justUploaded && (
+            <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+              ✓ Ready — View / Print / Download enabled
+            </span>
+          )}
+          {!uploading && !justUploaded && t.file_name && (
             <span className="text-[10px] text-muted-foreground truncate">{t.file_name}</span>
           )}
           {(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") && !linked && (
