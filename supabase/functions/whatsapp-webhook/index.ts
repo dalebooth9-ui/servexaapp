@@ -268,6 +268,44 @@ Deno.serve(async (req) => {
         return `${base}${suffix}.${ext}`;
       };
 
+      // Pre-fetch existing friendly file_names for this job+engineer so we
+      // can detect collisions and append a short disambiguator.
+      const { data: existingDocs } = await supabase
+        .from("submissions")
+        .select("file_name")
+        .eq("job_id", jobId)
+        .eq("engineer_id", engineerId);
+      const usedNames = new Set<string>(
+        (existingDocs || []).map((d: any) => (d.file_name || "").toLowerCase()),
+      );
+
+      // Short, URL-safe hash of an arbitrary string (5 chars, base36).
+      const shortHash = (s: string) => {
+        let h = 0;
+        for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+        return Math.abs(h).toString(36).slice(0, 5).padStart(5, "0");
+      };
+
+      const disambiguate = (name: string, seedKey: string): string => {
+        if (!usedNames.has(name.toLowerCase())) {
+          usedNames.add(name.toLowerCase());
+          return name;
+        }
+        const dot = name.lastIndexOf(".");
+        const stem = dot > 0 ? name.slice(0, dot) : name;
+        const ext = dot > 0 ? name.slice(dot) : "";
+        // First try a short content-derived hash, then fall back to timestamp + counter.
+        let candidate = `${stem} ~${shortHash(seedKey)}${ext}`;
+        let counter = 1;
+        while (usedNames.has(candidate.toLowerCase())) {
+          candidate = `${stem} ~${shortHash(seedKey)}-${Date.now().toString(36).slice(-4)}${counter}${ext}`;
+          counter++;
+          if (counter > 20) break; // safety
+        }
+        usedNames.add(candidate.toLowerCase());
+        return candidate;
+      };
+
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
@@ -284,7 +322,8 @@ Deno.serve(async (req) => {
 
         const isImage = mediaType.startsWith("image/");
         const ext = mediaType.split("/")[1] || "bin";
-        const friendlyName = buildFriendlyName(isImage, ext, i);
+        const rawFriendly = buildFriendlyName(isImage, ext, i);
+        const friendlyName = disambiguate(rawFriendly, `${mediaUrl}|${i}|${Date.now()}`);
         // Storage path stays unique to avoid collisions; file_name is the friendly label
         const storagePath = `${jobId}/${engineerId}/${Date.now()}_${i}_${friendlyName}`;
 
