@@ -283,233 +283,31 @@ export default function CategoryDocumentTemplateSettings() {
                       {cat?.name || slug}
                     </p>
                     <div className="space-y-2">
-                      {list.map((t) => {
-                        const isFileRow = !!t.file_url && (
-                          t.document_type === "uploaded_file" ||
-                          t.document_type === "quote" ||
-                          t.document_type === "purchase_order" ||
-                          t.document_type === "site_drawing"
-                        );
-                        const isGenerated = t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf";
-                        const linked = isGenerated ? resolveTemplate(t) : null;
-                        return (
-                        <div
+                      {list.map((t) => (
+                        <TemplateRow
                           key={t.id}
-                          className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
-                          onClick={() => {
-                            if (t.file_url) window.open(t.file_url, "_blank", "noopener,noreferrer");
-                          }}
+                          t={t}
+                          linked={(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") ? resolveTemplate(t) : null}
+                          uploading={uploadingFor === t.id}
+                          onUpload={() => handleUploadFile(t.id)}
                         >
-                          <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{t.label}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[t.document_type]}</Badge>
-                              {t.file_name && (
-                                <span className="text-[10px] text-muted-foreground truncate">{t.file_name}</span>
-                              )}
-                              {isGenerated && !linked && (
-                                <span className="text-[10px] text-muted-foreground italic">No matching template</span>
-                              )}
-                            </div>
+                          <div onClick={(e) => e.stopPropagation()}>
+                            <Switch
+                              checked={t.enabled}
+                              onCheckedChange={(v) => handleToggle(t.id, v)}
+                              disabled={saving === t.id}
+                            />
                           </div>
-
-                          {/* Desktop / tablet inline actions */}
-                          <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
-                            {isFileRow && (
-                              <>
-                                <Button
-                                  variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
-                                  onClick={() => window.open(t.file_url!, "_blank", "noopener,noreferrer")}
-                                  title="View file"
-                                >
-                                  <ExternalLink className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
-                                  onClick={() => {
-                                    const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
-                                    if (win) {
-                                      win.addEventListener("load", () => { try { win.print(); } catch { /* noop */ } });
-                                    }
-                                  }}
-                                  title="Print now"
-                                >
-                                  <Printer className="h-3.5 w-3.5" />
-                                </Button>
-                                <Button
-                                  variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
-                                  onClick={() => {
-                                    const a = document.createElement("a");
-                                    a.href = t.file_url!;
-                                    a.download = t.file_name || t.label;
-                                    document.body.appendChild(a);
-                                    a.click();
-                                    a.remove();
-                                  }}
-                                  title="Download file"
-                                >
-                                  <Download className="h-3.5 w-3.5" />
-                                </Button>
-                              </>
-                            )}
-                            {isGenerated && linked && (
-                              <>
-                                <BlankTemplatePdfExport
-                                  template={{
-                                    id: linked.id,
-                                    name: linked.name,
-                                    description: linked.description,
-                                    standard: linked.standard,
-                                    fields: linked.fields,
-                                    branding: linked.branding || {},
-                                  }}
-                                  jobInfo={null}
-                                  showPrint
-                                />
-                                <BlankTemplateWordExport
-                                  template={{
-                                    name: linked.name,
-                                    description: linked.description || undefined,
-                                    standard: linked.standard || undefined,
-                                    fields: linked.fields,
-                                  }}
-                                />
-                              </>
-                            )}
-                            {(t.document_type === "uploaded_file" ||
-                              t.document_type === "quote" ||
-                              t.document_type === "purchase_order" ||
-                              t.document_type === "site_drawing") && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-7 text-xs px-2 gap-1 shrink-0 ml-1"
-                                onClick={() => handleUploadFile(t.id)}
-                                disabled={uploadingFor === t.id}
-                              >
-                                {uploadingFor === t.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                                {t.file_name ? "Replace" : "Upload"}
-                              </Button>
-                            )}
-                          </div>
-
-                          {/* Mobile collapsed menu */}
-                          {(isFileRow || (isGenerated && linked) ||
-                            t.document_type === "uploaded_file" ||
-                            t.document_type === "quote" ||
-                            t.document_type === "purchase_order" ||
-                            t.document_type === "site_drawing") && (
-                            <div className="sm:hidden" onClick={(e) => e.stopPropagation()}>
-                              {/* Hidden mount of generated-row exports so the dropdown can trigger them */}
-                              {isGenerated && linked && (
-                                <div
-                                  className="hidden"
-                                  ref={(el) => {
-                                    if (el) (el as any).dataset.rowId = t.id;
-                                  }}
-                                  data-row-actions={t.id}
-                                >
-                                  <BlankTemplatePdfExport
-                                    template={{
-                                      id: linked.id,
-                                      name: linked.name,
-                                      description: linked.description,
-                                      standard: linked.standard,
-                                      fields: linked.fields,
-                                      branding: linked.branding || {},
-                                    }}
-                                    jobInfo={null}
-                                    showPrint
-                                  />
-                                  <BlankTemplateWordExport
-                                    template={{
-                                      name: linked.name,
-                                      description: linked.description || undefined,
-                                      standard: linked.standard || undefined,
-                                      fields: linked.fields,
-                                    }}
-                                  />
-                                </div>
-                              )}
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" title="More actions">
-                                    <MoreVertical className="h-4 w-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-48 bg-popover">
-                                  {isFileRow && (
-                                    <>
-                                      <DropdownMenuItem onClick={() => window.open(t.file_url!, "_blank", "noopener,noreferrer")}>
-                                        <ExternalLink className="mr-2 h-3.5 w-3.5" /> View
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
-                                          if (win) win.addEventListener("load", () => { try { win.print(); } catch { /* noop */ } });
-                                        }}
-                                      >
-                                        <Printer className="mr-2 h-3.5 w-3.5" /> Print now
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          const a = document.createElement("a");
-                                          a.href = t.file_url!;
-                                          a.download = t.file_name || t.label;
-                                          document.body.appendChild(a);
-                                          a.click();
-                                          a.remove();
-                                        }}
-                                      >
-                                        <Download className="mr-2 h-3.5 w-3.5" /> Download
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-                                  {isGenerated && linked && (
-                                    <>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          const root = document.querySelector(`[data-row-actions="${t.id}"]`);
-                                          (root?.querySelector('button[title="Download blank template"]') as HTMLButtonElement | null)?.click();
-                                        }}
-                                      >
-                                        <Download className="mr-2 h-3.5 w-3.5" /> Download PDF
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          const root = document.querySelector(`[data-row-actions="${t.id}"]`);
-                                          (root?.querySelector('button[title="Print blank template"]') as HTMLButtonElement | null)?.click();
-                                        }}
-                                      >
-                                        <Printer className="mr-2 h-3.5 w-3.5" /> Print now
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        onClick={() => {
-                                          const root = document.querySelector(`[data-row-actions="${t.id}"]`);
-                                          (root?.querySelector('button[title="Preview & download blank template as Word (.docx)"]') as HTMLButtonElement | null)?.click();
-                                        }}
-                                      >
-                                        <FileText className="mr-2 h-3.5 w-3.5" /> Save as Word
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-                                  {(t.document_type === "uploaded_file" ||
-                                    t.document_type === "quote" ||
-                                    t.document_type === "purchase_order" ||
-                                    t.document_type === "site_drawing") && (
-                                    <>
-                                      {(isFileRow || (isGenerated && linked)) && <DropdownMenuSeparator />}
-                                      <DropdownMenuItem onClick={() => handleUploadFile(t.id)} disabled={uploadingFor === t.id}>
-                                        <Upload className="mr-2 h-3.5 w-3.5" />
-                                        {t.file_name ? "Replace file" : "Upload file"}
-                                      </DropdownMenuItem>
-                                    </>
-                                  )}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
-                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </TemplateRow>
+                      ))}
                           <div onClick={(e) => e.stopPropagation()}>
                             <Switch
                               checked={t.enabled}
