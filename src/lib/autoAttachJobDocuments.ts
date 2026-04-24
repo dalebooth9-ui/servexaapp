@@ -166,7 +166,10 @@ interface InsertResponsesInput {
   slots: { template: TemplateOption }[];
 }
 
-/** Inserts draft job_sheet_responses for the given templates, with light prefill. */
+/** Inserts draft job_sheet_responses for the given templates, with light prefill.
+ *  Also ensures a matching `job_documents` row (document_type = 'blank_job_sheet')
+ *  exists for each template so the sheet shows up in the Documents tab.
+ */
 export async function insertDraftResponses(input: InsertResponsesInput) {
   const { jobId, userId, prefill, slots } = input;
   if (slots.length === 0) return;
@@ -204,4 +207,32 @@ export async function insertDraftResponses(input: InsertResponsesInput) {
 
   const { error } = await supabase.from("job_sheet_responses").insert(rows as any);
   if (error) throw error;
+
+  // Ensure each chosen template also surfaces in the Documents tab as a
+  // `blank_job_sheet` row. Skip templates that already have one to avoid duplicates.
+  const templateLabels = slots.map(({ template }) => template.name);
+  const { data: existingDocs } = await supabase
+    .from("job_documents" as any)
+    .select("label")
+    .eq("job_id", jobId)
+    .eq("document_type", "blank_job_sheet")
+    .in("label", templateLabels);
+  const existingLabels = new Set((existingDocs as any[] | null || []).map((d: any) => (d.label || "").toLowerCase()));
+
+  const docRows = slots
+    .filter(({ template }) => !existingLabels.has((template.name || "").toLowerCase()))
+    .map(({ template }) => ({
+      job_id: jobId,
+      document_type: "blank_job_sheet",
+      label: template.name,
+      file_url: null,
+      file_name: null,
+      source: "auto",
+      created_by: userId,
+    }));
+
+  if (docRows.length > 0) {
+    const { error: docErr } = await supabase.from("job_documents" as any).insert(docRows as any);
+    if (docErr) throw docErr;
+  }
 }
