@@ -252,15 +252,35 @@ export default function CategoryDocumentTemplateSettings() {
                             </div>
                           </div>
                           {t.file_url && t.document_type === "uploaded_file" && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 shrink-0 text-muted-foreground"
-                              onClick={(e) => { e.stopPropagation(); window.open(t.file_url!, "_blank", "noopener,noreferrer"); }}
-                              title="View file"
-                            >
-                              <ExternalLink className="h-3.5 w-3.5" />
-                            </Button>
+                            <>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
+                                  // Trigger print once the file loads
+                                  if (win) {
+                                    win.addEventListener("load", () => {
+                                      try { win.print(); } catch { /* noop */ }
+                                    });
+                                  }
+                                }}
+                                title="Print file"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={(e) => { e.stopPropagation(); window.open(t.file_url!, "_blank", "noopener,noreferrer"); }}
+                                title="View file"
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </Button>
+                            </>
                           )}
                           {t.document_type === "uploaded_file" && (
                             <Button
