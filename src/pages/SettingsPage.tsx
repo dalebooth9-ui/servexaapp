@@ -16,6 +16,7 @@ import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
 import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
+import CustomerReassignWizard from "@/components/CustomerReassignWizard";
 import { supabase } from "@/integrations/supabase/client";
 import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 import JobDocumentReattachSettings from "@/components/JobDocumentReattachSettings";
