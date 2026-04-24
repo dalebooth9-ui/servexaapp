@@ -169,7 +169,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
-        const footerSpace = 44; // footer(9) + logos(12+3) + sigs(15) + buffer
+        const footerSpace = 64; // comments(20) + sigs(15) + accred logos(12+3) + footer(9) + buffer
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
@@ -276,6 +276,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         // Comments box — bottom sits 10mm above the date/signature line
         const sigY = pageHeight - footerSpace - 10;
         const commentsBoxBottom = sigY - 10;
+        // If the section content already pushed past the comments area,
+        // start a new page so signatures and comments never overlap.
+        if (y + 8 > commentsBoxBottom) {
+          doc.addPage();
+          y = margin;
+        }
         const commentsBoxTop = y + 4;
         const commentsRectH = Math.max(commentsBoxBottom - commentsBoxTop, 4);
         doc.setFontSize(8.5);
