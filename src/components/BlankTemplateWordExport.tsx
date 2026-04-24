@@ -48,12 +48,28 @@ type Props = {
     description?: string;
     standard?: string;
     fields: TemplateField[];
+    footer_text?: string | null;
+    branding?: { logo_url?: string; footer_text?: string } | null;
   };
   /** Visual size override; defaults to icon-only sm button to fit alongside other actions. */
   size?: "sm" | "default";
   /** When true, no UI is rendered; only the imperative ref API is exposed. */
   headless?: boolean;
 };
+
+/** Fetch an image URL and return raw bytes + mime; returns null on any error. */
+async function fetchImageBytes(url: string): Promise<{ data: Uint8Array; type: "png" | "jpg" } | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const buf = new Uint8Array(await res.arrayBuffer());
+    const mime = res.headers.get("content-type") || "";
+    const type: "png" | "jpg" = mime.includes("png") || url.toLowerCase().endsWith(".png") ? "png" : "jpg";
+    return { data: buf, type };
+  } catch {
+    return null;
+  }
+}
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
 const cellBorders = {
