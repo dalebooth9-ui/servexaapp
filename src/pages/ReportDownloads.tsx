@@ -388,6 +388,26 @@ ${imageEmbeds}
           {
             properties: {},
             children: [
+              ...(logoBuf
+                ? [
+                    new Paragraph({
+                      alignment: "center" as any,
+                      children: [
+                        new ImageRun({
+                          type: logoType,
+                          data: logoBuf,
+                          transformation: (() => {
+                            const maxW = 200;
+                            const aspect = logoDims.w / logoDims.h;
+                            const w = Math.min(maxW, logoDims.w);
+                            return { width: Math.round(w), height: Math.round(w / aspect) };
+                          })(),
+                        } as any),
+                      ],
+                      spacing: { after: 200 },
+                    }),
+                  ]
+                : []),
               new Paragraph({
                 heading: HeadingLevel.HEADING_1,
                 children: [new TextRun({ text: `Job Report — ${ref}`, bold: true })],
