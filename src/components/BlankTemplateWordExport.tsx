@@ -451,7 +451,7 @@ export type BlankTemplateWordExportHandle = {
   download: () => Promise<void> | void;
 };
 
-const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm" }, ref) {
+const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm", headless = false }, ref) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
