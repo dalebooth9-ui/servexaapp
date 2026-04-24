@@ -516,19 +516,51 @@ ${imageEmbeds}
                       {[j.customers?.name, j.sites?.name, j.name].filter(Boolean).join(" · ") || "—"}
                     </div>
                   </div>
-                  <Button
-                    size="sm"
-                    onClick={() => downloadZip(j)}
-                    disabled={busyId === j.id}
-                    className="gap-1.5 shrink-0"
-                  >
-                    {busyId === j.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Download className="h-3.5 w-3.5" />
-                    )}
-                    {busyId === j.id ? "Building ZIP…" : "Download ZIP"}
-                  </Button>
+                  <div className="flex gap-1.5 shrink-0 flex-wrap justify-end">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => printAll(j)}
+                      disabled={busyId === j.id}
+                      className="gap-1.5"
+                      title="Open report and all attachments in a print-ready window"
+                    >
+                      {busyId === j.id && busyAction === "print" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Printer className="h-3.5 w-3.5" />
+                      )}
+                      Print
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => downloadWord(j)}
+                      disabled={busyId === j.id}
+                      className="gap-1.5"
+                      title="Download as Word (.docx) with embedded images"
+                    >
+                      {busyId === j.id && busyAction === "word" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <FileText className="h-3.5 w-3.5" />
+                      )}
+                      Word
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => downloadZip(j)}
+                      disabled={busyId === j.id}
+                      className="gap-1.5"
+                    >
+                      {busyId === j.id && busyAction === "zip" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      ZIP
+                    </Button>
+                  </div>
                 </li>
               ))}
             </ul>
