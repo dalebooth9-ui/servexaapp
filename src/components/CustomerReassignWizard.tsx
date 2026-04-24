@@ -62,6 +62,11 @@ export default function CustomerReassignWizard() {
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [running, setRunning] = useState(false);
 
+  // Fuzzy-match confirmation when typing a new target name
+  const [similarMatch, setSimilarMatch] = useState<{ id: string; name: string; similarity: number } | null>(null);
+  const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
+  const [checkingSimilar, setCheckingSimilar] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
