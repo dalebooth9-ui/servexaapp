@@ -68,8 +68,8 @@ export async function renderPdfHeader(
         logoImg.onerror = () => reject();
         logoImg.src = logoUrl;
       });
-      const logoMaxW = 70;
-      const logoMaxH = 20;
+      const logoMaxW = 90;
+      const logoMaxH = 28;
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
       let lw = logoMaxH * aspect;
       let lh = logoMaxH;
