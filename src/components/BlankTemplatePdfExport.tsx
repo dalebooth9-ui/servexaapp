@@ -155,7 +155,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         // Add a new page for every sheet after the first
         if (sysIdx > 0) doc.addPage();
 
-        const sheetTitle = isDryRiser ? "Dry Riser Pressure Test" : template.name;
+        const sheetTitle = template.name;
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName,
