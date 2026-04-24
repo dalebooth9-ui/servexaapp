@@ -1013,11 +1013,24 @@ export default function IndustryTemplates() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Industry Templates</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Pre-loaded industry-standard inspection &amp; service forms. Download as a blank PDF or import as an editable job sheet template.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Industry Templates</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Pre-loaded industry-standard inspection &amp; service forms. Download as a blank PDF or import as an editable job sheet template.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExportAllToWord}
+          disabled={bulkExporting || filtered.length === 0}
+          className="gap-1.5 shrink-0"
+          title="Download every visible template as .docx in a single zip"
+        >
+          {bulkExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
+          {bulkExporting ? "Packaging…" : `Export all to Word (${filtered.length})`}
+        </Button>
       </div>
 
 
