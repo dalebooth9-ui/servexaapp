@@ -487,7 +487,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           ],
         }),
         new TableRow({
-          height: { value: 700, rule: HeightRule.ATLEAST },
+          // ATLEAST so Word can expand if a real signature image is taller.
+          height: { value: 900, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
