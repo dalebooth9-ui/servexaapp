@@ -278,8 +278,8 @@ export default function JobDetail() {
           <h1 className="text-2xl font-bold">{job.name}</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono">{job.reference_number}</span>
-            {custName && <> • {custName}</>}
-            {job.address && <> • {job.address}</>}
+            {custName && <> • <span className="text-muted-foreground/80">Customer:</span> <span className="font-medium text-foreground">{custName}</span></>}
+            {job.address && <> • <span className="text-muted-foreground/80">Site:</span> <span className="font-medium text-foreground">{job.address}</span></>}
           </p>
           {jobW3W && (
             <a
