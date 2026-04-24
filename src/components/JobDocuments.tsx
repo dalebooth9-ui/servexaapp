@@ -579,22 +579,35 @@ ${sections}
         <p className="text-sm text-muted-foreground">No documents configured for this job type. Attach one manually below, or configure auto-attachments in Settings.</p>
       )}
 
-      {/* Admin actions */}
-      {userRole === "admin" && (
-        <div className="flex items-center gap-2 pt-2 border-t">
-          <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleManualUpload} />
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingManual}
-          >
-            {uploadingManual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-            Attach Document
-          </Button>
-        </div>
-      )}
+      {/* Actions */}
+      <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5"
+          onClick={handlePrintAll}
+          disabled={printingAll || docs.filter((d) => !!d.file_url).length === 0}
+          title="Open all attached files in a print-ready window"
+        >
+          {printingAll ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Printer className="h-3.5 w-3.5" />}
+          Print all
+        </Button>
+        {userRole === "admin" && (
+          <>
+            <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleManualUpload} />
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingManual}
+            >
+              {uploadingManual ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              Attach Document
+            </Button>
+          </>
+        )}
+      </div>
     </div>
   );
 }
