@@ -50,8 +50,10 @@ import EngineerCertificates from "@/components/jobs/EngineerCertificates";
 import AddNoteInput from "@/components/jobs/AddNoteInput";
 import JobDocuments from "@/components/JobDocuments";
 import InstallationProjects from "@/components/InstallationProjects";
+import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
+import { buildAttachPlan, insertDraftResponses, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
 
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
@@ -76,6 +78,8 @@ export default function JobDetail() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm, clearEditDraft] = useAutoSave(`job-edit-${id}`, { name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [chooserSlots, setChooserSlots] = useState<MatchSlot[]>([]);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
@@ -602,8 +606,58 @@ export default function JobDetail() {
                       updatePayload.other_service_type = editForm.other_service_type || null;
                     }
                     const { error } = await supabase.from("jobs").update(updatePayload).eq("id", id!);
-                    if (error) { toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" }); }
-                    else { toast({ title: "Job details updated" }); clearEditDraft(); setEditing(false); fetchData(); }
+                    if (error) {
+                      toast({ title: "Error", description: "Failed to save changes.", variant: "destructive" });
+                      setEditSaving(false);
+                      return;
+                    }
+                    toast({ title: "Job details updated" });
+                    clearEditDraft();
+                    setEditing(false);
+
+                    // Auto-attach relevant document templates based on category counts
+                    try {
+                      const plan = await buildAttachPlan({
+                        jobId: id!,
+                        jobCategory: job.category || null,
+                        qtys: {
+                          pressure_test: job.category !== "installation" ? (editForm.pressure_test_qty || 0) : 0,
+                          visual: job.category !== "installation" ? (editForm.visual_qty || 0) : 0,
+                          other: editForm.other_qty || 0,
+                        },
+                        otherServiceType: job.category !== "installation" ? (editForm.other_service_type || null) : null,
+                      });
+
+                      const prefill = {
+                        customerName: getCustomerName(job),
+                        siteName: job?.sites?.name || null,
+                        siteAddress: job?.sites?.address || editForm.address || null,
+                        referenceNumber: job?.reference_number || null,
+                        categoryLabel: jobCategories.find((c: any) => c.slug === job.category)?.name || job.category || null,
+                      };
+
+                      // Auto-attach unambiguous matches immediately
+                      if (plan.autoSlots.length > 0 && user) {
+                        await insertDraftResponses({
+                          jobId: id!,
+                          userId: user.id,
+                          prefill,
+                          slots: plan.autoSlots.map((s) => ({ template: s.template })),
+                        });
+                        toast({ title: `Attached ${plan.autoSlots.length} document${plan.autoSlots.length === 1 ? "" : "s"}` });
+                      }
+
+                      // Prompt for any ambiguous slots
+                      if (plan.needsChoice.length > 0) {
+                        setChooserSlots(plan.needsChoice);
+                        setChooserOpen(true);
+                      }
+                    } catch (e: any) {
+                      console.error("Auto-attach failed", e);
+                      toast({ title: "Document auto-attach failed", description: e?.message || String(e), variant: "destructive" });
+                    }
+
+                    fetchData();
                     setEditSaving(false);
                   }}>
                     <Save className="mr-1.5 h-3.5 w-3.5" /> {editSaving ? "Saving..." : "Save"}
@@ -617,6 +671,36 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      <AutoAttachTemplateChooser
+        open={chooserOpen}
+        slots={chooserSlots}
+        onCancel={() => { setChooserOpen(false); setChooserSlots([]); }}
+        onConfirm={async (choices) => {
+          setChooserOpen(false);
+          if (!user || choices.length === 0) { setChooserSlots([]); return; }
+          try {
+            const prefill = {
+              customerName: getCustomerName(job),
+              siteName: job?.sites?.name || null,
+              siteAddress: job?.sites?.address || job?.address || null,
+              referenceNumber: job?.reference_number || null,
+              categoryLabel: jobCategories.find((c: any) => c.slug === job.category)?.name || job.category || null,
+            };
+            await insertDraftResponses({
+              jobId: id!,
+              userId: user.id,
+              prefill,
+              slots: choices.map((c) => ({ template: c.template })),
+            });
+            toast({ title: `Attached ${choices.length} document${choices.length === 1 ? "" : "s"}` });
+            fetchData();
+          } catch (e: any) {
+            toast({ title: "Failed to attach documents", description: e?.message || String(e), variant: "destructive" });
+          }
+          setChooserSlots([]);
+        }}
+      />
 
       {/* Follow-up scheduling prompt on completion */}
       <Dialog open={followUpOpen} onOpenChange={setFollowUpOpen}>
