@@ -741,12 +741,17 @@ function DocRow({
       ) ?? null
     : null;
 
+  // Compute the exact friendly filename that will be used on download / preview
+  const friendlyName = buildFriendlyFileName(doc, jobInfo);
+  const downloadTooltip = `Download as: ${friendlyName}`;
+  const viewTooltip = `View — will download as: ${friendlyName}`;
+
   return (
     <div className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${isCustomerPaperwork ? "bg-primary/5 border-primary/20" : "bg-card"}`}>
       <FileText className={`h-4 w-4 shrink-0 ${isCustomerPaperwork ? "text-primary" : "text-muted-foreground"}`} />
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium truncate">{doc.label}</p>
-        <div className="flex items-center gap-1.5 mt-0.5">
+        <p className="text-sm font-medium truncate" title={doc.label}>{doc.label}</p>
+        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
           {isCustomerPaperwork ? (
             <Badge variant="outline" className="text-[10px] gap-0.5 border-primary/40 text-primary">
               <Building2 className="h-2.5 w-2.5" /> Customer Form
@@ -756,13 +761,17 @@ function DocRow({
               {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
             </Badge>
           )}
-          {doc.file_name && !UUID_RE.test(doc.file_name.replace(/\.[^.]+$/, "")) && (
-            <span className="text-[10px] text-muted-foreground truncate">{doc.file_name}</span>
-          )}
           {isUploadSlot && !hasFile && (
             <span className="text-[10px] text-muted-foreground italic">Awaiting upload</span>
           )}
         </div>
+        {/* Exact filename that will be downloaded — shown so engineers can verify before opening */}
+        <p
+          className="text-[10px] font-mono text-muted-foreground truncate mt-1"
+          title={friendlyName}
+        >
+          📄 {friendlyName}
+        </p>
       </div>
 
       {/* Action buttons */}
@@ -794,7 +803,7 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
-          title="View document"
+          title={viewTooltip}
         >
           <Eye className="h-3 w-3" /> View
         </Button>
@@ -806,7 +815,7 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
-          title="View document"
+          title={viewTooltip}
         >
           <Eye className="h-3 w-3" /> View
         </Button>
