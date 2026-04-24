@@ -349,6 +349,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       job_category: jobCategory || null,
       fields: fields as any,
       branding: branding as any,
+      footer_text: footerText.trim() || null,
     } as any).eq("id", template.id);
 
     if (error) {
