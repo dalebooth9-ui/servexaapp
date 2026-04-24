@@ -1130,7 +1130,13 @@ export default function IndustryTemplates() {
           title="Download every visible template as .docx in a single zip"
         >
           {bulkExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
-          {bulkExporting ? "Packaging…" : `Export all to Word (${filtered.length})`}
+          {bulkExporting
+            ? bulkProgress > 0 && bulkProgress < bulkTotal
+              ? `Generating ${bulkProgress} of ${bulkTotal}…`
+              : bulkProgress >= bulkTotal && bulkTotal > 0
+              ? "Packaging zip…"
+              : "Preparing…"
+            : `Export all to Word (${filtered.length})`}
         </Button>
       </div>
 
