@@ -259,8 +259,18 @@ function renderSectionHeaderRow(sectionName: string): TableRow {
 
 /** Build a docx Document for a blank template. Exported so bulk export can reuse it. */
 export function buildBlankTemplateDoc(template: Props["template"]): Document {
+  // Skip pseudo "section" fields (their label is just a section header from OCR import)
+  // and skip fields whose label exactly matches their section name.
+  const renderable = template.fields.filter((f) => {
+    if (f.type === "section") return false;
+    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    if (f.section && norm(f.label) === norm(f.section)) return false;
+    return true;
+  });
+
+  // Group fields by section, preserving insertion order
   const sectionMap = new Map<string, TemplateField[]>();
-  for (const f of template.fields) {
+  for (const f of renderable) {
     const key = f.section || "Details";
     if (!sectionMap.has(key)) sectionMap.set(key, []);
     sectionMap.get(key)!.push(f);
@@ -292,20 +302,16 @@ export function buildBlankTemplateDoc(template: Props["template"]): Document {
   }
 
   for (const [sectionName, fields] of sectionMap) {
-    children.push(
-      new Paragraph({
-        heading: HeadingLevel.HEADING_2,
-        children: [new TextRun({ text: sectionName, bold: true })],
-        spacing: { before: 200, after: 100 },
-      })
-    );
+    if (fields.length === 0) continue;
     children.push(
       new Table({
-        width: { size: 9360, type: WidthType.DXA },
-        columnWidths: [3500, 5860],
-        rows: fields.map(renderFieldRow),
+        width: { size: TABLE_W, type: WidthType.DXA },
+        columnWidths: [LABEL_COL, VALUE_COL],
+        rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderFieldRow)],
       })
     );
+    // Small gap between sections
+    children.push(new Paragraph({ children: [new TextRun({ text: " ", size: 12 })], spacing: { after: 60 } }));
   }
 
   // Sign-off block
@@ -316,36 +322,37 @@ export function buildBlankTemplateDoc(template: Props["template"]): Document {
       spacing: { before: 300, after: 100 },
     }),
     new Table({
-      width: { size: 9360, type: WidthType.DXA },
-      columnWidths: [3500, 5860],
+      width: { size: TABLE_W, type: WidthType.DXA },
+      columnWidths: [LABEL_COL, VALUE_COL],
       rows: [
         new TableRow({
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: 3500, type: WidthType.DXA },
+              width: { size: LABEL_COL, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: "Engineer name", bold: true, size: 20 })] })],
             }),
             new TableCell({
               borders: cellBorders,
-              width: { size: 5860, type: WidthType.DXA },
+              width: { size: VALUE_COL, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
         }),
         new TableRow({
+          height: { value: 700, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: 3500, type: WidthType.DXA },
+              width: { size: LABEL_COL, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: "Signature", bold: true, size: 20 })] })],
             }),
             new TableCell({
               borders: cellBorders,
-              width: { size: 5860, type: WidthType.DXA },
+              width: { size: VALUE_COL, type: WidthType.DXA },
               margins: { top: 200, bottom: 200, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
@@ -355,13 +362,13 @@ export function buildBlankTemplateDoc(template: Props["template"]): Document {
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: 3500, type: WidthType.DXA },
+              width: { size: LABEL_COL, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: "Date", bold: true, size: 20 })] })],
             }),
             new TableCell({
               borders: cellBorders,
-              width: { size: 5860, type: WidthType.DXA },
+              width: { size: VALUE_COL, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
