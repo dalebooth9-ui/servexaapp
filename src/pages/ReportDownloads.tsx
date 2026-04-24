@@ -239,7 +239,7 @@ export default function ReportDownloads() {
       const docEmbeds: string[] = [];
       for (const d of documents) {
         if (d.ext === "pdf") {
-          const u = URL.createObjectURL(new Blob([d.buf], { type: "application/pdf" }));
+          const u = URL.createObjectURL(new Blob([d.buf.buffer as ArrayBuffer], { type: "application/pdf" }));
           docEmbeds.push(
             `<div class="page"><h2>${d.name}</h2><embed src="${u}" type="application/pdf" class="pdf"/></div>`
           );
