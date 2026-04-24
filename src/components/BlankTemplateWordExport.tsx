@@ -444,7 +444,12 @@ function buildPreviewSections(template: Props["template"]): SectionPreview[] {
   return Array.from(sectionMap, ([name, fields]) => ({ name, fields }));
 }
 
-export default function BlankTemplateWordExport({ template, size = "sm" }: Props) {
+export type BlankTemplateWordExportHandle = {
+  openPreview: () => void;
+  download: () => Promise<void> | void;
+};
+
+const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm" }, ref) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
