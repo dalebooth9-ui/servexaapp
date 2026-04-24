@@ -392,9 +392,9 @@ function TemplateRow({
         </div>
       </div>
 
-      {/* Single mounted instance of the export components — drives both inline buttons (sm+) and mobile dropdown via refs */}
+      {/* Single mounted instance — buttons visible on sm+, hidden on mobile but refs still work */}
       {isGenerated && linked && (
-        <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
+        <div className="items-center [&>div]:flex hidden sm:flex" onClick={(e) => e.stopPropagation()}>
           <BlankTemplatePdfExport
             ref={pdfRef}
             template={{
@@ -419,9 +419,9 @@ function TemplateRow({
           />
         </div>
       )}
+      {/* Mobile-only: keep the export components mounted (off-screen) so refs are attached */}
       {isGenerated && linked && (
-        <div className="sm:hidden absolute -left-[9999px] top-0" aria-hidden onClick={(e) => e.stopPropagation()}>
-          {/* Hidden mount on mobile so refs are still attached */}
+        <div className="sm:hidden absolute -left-[9999px] top-0 pointer-events-none" aria-hidden>
           <BlankTemplatePdfExport
             ref={pdfRef}
             template={{
