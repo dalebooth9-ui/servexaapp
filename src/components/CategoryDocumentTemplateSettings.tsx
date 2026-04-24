@@ -226,6 +226,29 @@ export default function CategoryDocumentTemplateSettings() {
       <CardContent className="space-y-6">
         <input ref={fileInputRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={handleFileChange} />
 
+        {/* Debug banner: confirms supportsUpload logic version is loaded */}
+        {(() => {
+          const SUPPORTS_UPLOAD_VERSION = "v2-2026-04-24"; // bump when supportsUpload logic changes
+          const uploadable = new Set(["uploaded_file", "quote", "purchase_order", "site_drawing"]);
+          const drawings = templates.filter((t) => t.document_type === "site_drawing");
+          const drawingsSupported = drawings.filter((t) => uploadable.has(t.document_type)).length;
+          const ok = drawings.length === 0 || drawingsSupported === drawings.length;
+          return (
+            <div
+              className={`rounded-md border px-3 py-2 text-xs font-mono ${
+                ok ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300"
+                   : "border-destructive/40 bg-destructive/10 text-destructive"
+              }`}
+              data-testid="supports-upload-debug"
+            >
+              <span className="font-semibold">supportsUpload</span>: {SUPPORTS_UPLOAD_VERSION}
+              {" • "}site_drawing rows: {drawings.length}
+              {" • "}upload-enabled: {drawingsSupported}/{drawings.length}
+              {" • "}{ok ? "OK ✓" : "STALE ✗"}
+            </div>
+          );
+        })()}
+
         {/* Add new template row */}
         <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
           <p className="text-sm font-medium">Add Document Template</p>
