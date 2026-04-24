@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Pencil, FileText } from "lucide-react";
 import EditTemplateDialog from "./EditTemplateDialog";
+import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
+import BlankTemplateWordExport from "./BlankTemplateWordExport";
 
 type TemplateField = {
   id: string;
