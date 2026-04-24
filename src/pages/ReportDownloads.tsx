@@ -37,6 +37,7 @@ export default function ReportDownloads() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<"zip" | "print" | "word" | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
