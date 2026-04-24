@@ -162,20 +162,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const sheetTitle = isDryRiser ? "Dry Riser Pressure Test" : template.name;
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
-          customerName,
-          siteName,
-          siteAddress,
-          refNumber,
+          customerName: isDryRiser ? "" : customerName,
+          siteName: isDryRiser ? "" : siteName,
+          siteAddress: isDryRiser ? "" : siteAddress,
+          refNumber: isDryRiser ? "" : refNumber,
           dateVal,
-          riserLocation: riserLocValue,
+          riserLocation: isDryRiser ? "" : riserLocValue,
         }, template.standard, accentColor);
 
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
-        // Dry Riser uses a compact declaration footer bar (no accreditation logos),
-        // so it needs less reserved bottom space than the standard layout.
-        const footerSpace = isDryRiser ? 56 : 58;
+        // Dry Riser blank sheet has no declaration bar, just accreditation logos at the bottom.
+        const footerSpace = isDryRiser ? 44 : 58;
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
@@ -269,10 +268,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
 
           for (const field of sectionFields) {
-            // Allow scope_of_work and drain/drop leg fields to be pre-filled; leave other select fields blank
+            // Allow scope_of_work and drain/drop leg fields to be pre-filled on standard
+            // templates, but keep them blank on the Dry Riser worksheet.
             const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
             const isDrainField = field.label.toLowerCase().includes("drain") || field.label.toLowerCase().includes("drop leg");
-            const autoVal = (field.options && field.options.length > 0 && !isScopeField && !isDrainField) ? undefined : autoVals[field.id];
+            const allowAuto = !isDryRiser && (isScopeField || isDrainField);
+            const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
             y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH,
             });
@@ -318,42 +319,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      if (!isDryRiser) {
-        const footerYForLogos = pageHeight - margin - 9;
-        addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
-      } else {
-        // Dry Riser: accreditation logos sit just above the declaration bar
-        const barH = 12;
-        const barY = pageHeight - margin - barH;
-        const logoBaselineY = barY - 3; // logos render upward from this baseline
-        addAccreditationLogosToAllPages(doc, accredLogos, logoBaselineY, logoH);
-
-        // Bordered declaration bar at the very bottom of every page
-        const pageCount = doc.getNumberOfPages();
-        const barX = margin;
-        const barW = pageWidth - margin * 2;
-        for (let p = 1; p <= pageCount; p++) {
-          doc.setPage(p);
-          doc.setDrawColor(0);
-          doc.setLineWidth(0.3);
-          doc.rect(barX, barY, barW, barH);
-          doc.setFont("helvetica", "normal");
-          doc.setFontSize(8.5);
-          doc.setTextColor(20, 20, 20);
-          doc.text(
-            "We have, today, carried out this inspection",
-            barX + barW / 2,
-            barY + 4.5,
-            { align: "center" },
-          );
-          doc.text(
-            "to the requirements of BS 9990:2015",
-            barX + barW / 2,
-            barY + 9,
-            { align: "center" },
-          );
-        }
-      }
+      const footerYForLogos = pageHeight - margin - 9;
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
       const fileName = [
         jobInfo?.reference_number || "blank",
