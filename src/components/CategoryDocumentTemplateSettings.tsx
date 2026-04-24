@@ -456,16 +456,21 @@ function TemplateRow({
 
       {/* Desktop upload */}
       {supportsUpload && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="hidden sm:inline-flex h-7 text-xs px-2 gap-1 shrink-0 ml-1"
-          onClick={(e) => { e.stopPropagation(); onUpload(); }}
-          disabled={uploading}
-        >
-          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-          {t.file_name ? "Replace" : "Upload"}
-        </Button>
+        <TooltipProvider delayDuration={200}>
+          <TT label={t.file_name ? "Replace file" : "Upload file"}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:inline-flex h-7 text-xs px-2 gap-1 shrink-0 ml-1"
+              onClick={(e) => { e.stopPropagation(); onUpload(); }}
+              disabled={uploading}
+              aria-label={t.file_name ? `Replace file for ${t.label}` : `Upload file for ${t.label}`}
+            >
+              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              {t.file_name ? "Replace" : "Upload"}
+            </Button>
+          </TT>
+        </TooltipProvider>
       )}
 
       {/* Mobile collapsed menu */}
