@@ -392,36 +392,12 @@ function TemplateRow({
         </div>
       </div>
 
-      {/* Single mounted instance — buttons visible on sm+, hidden on mobile but refs still work */}
+      {/* Export components: always mounted (refs reachable on mobile too); visually collapsed on mobile so the More menu replaces them */}
       {isGenerated && linked && (
-        <div className="items-center [&>div]:flex hidden sm:flex" onClick={(e) => e.stopPropagation()}>
-          <BlankTemplatePdfExport
-            ref={pdfRef}
-            template={{
-              id: linked.id,
-              name: linked.name,
-              description: linked.description,
-              standard: linked.standard,
-              fields: linked.fields,
-              branding: linked.branding || {},
-            }}
-            jobInfo={null}
-            showPrint
-          />
-          <BlankTemplateWordExport
-            ref={wordRef}
-            template={{
-              name: linked.name,
-              description: linked.description || undefined,
-              standard: linked.standard || undefined,
-              fields: linked.fields,
-            }}
-          />
-        </div>
-      )}
-      {/* Mobile-only: keep the export components mounted (off-screen) so refs are attached */}
-      {isGenerated && linked && (
-        <div className="sm:hidden absolute -left-[9999px] top-0 pointer-events-none" aria-hidden>
+        <div
+          className="flex items-center w-0 overflow-hidden sm:w-auto sm:overflow-visible"
+          onClick={(e) => e.stopPropagation()}
+        >
           <BlankTemplatePdfExport
             ref={pdfRef}
             template={{
