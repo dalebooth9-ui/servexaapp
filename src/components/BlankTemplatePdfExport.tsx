@@ -289,8 +289,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         }
         const commentsBoxTop = y + 4;
         const maxCommentsH = 40; // ~5-6 lines — keeps page 1 self-contained
-        const availableH = commentsBoxBottom - commentsBoxTop;
-        const commentsRectH = Math.max(Math.min(availableH, maxCommentsH), 10);
+        const commentsAvailH = commentsBoxBottom - commentsBoxTop;
+        const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), 10);
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
