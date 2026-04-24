@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink } from "lucide-react";
+import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 
 type DocTemplate = {
