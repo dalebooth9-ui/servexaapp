@@ -62,6 +62,11 @@ export default function CustomerReassignWizard() {
   const [preview, setPreview] = useState<PreviewResult | null>(null);
   const [running, setRunning] = useState(false);
 
+  // Fuzzy-match confirmation when typing a new target name
+  const [similarMatch, setSimilarMatch] = useState<{ id: string; name: string; similarity: number } | null>(null);
+  const [similarConfirmOpen, setSimilarConfirmOpen] = useState(false);
+  const [checkingSimilar, setCheckingSimilar] = useState(false);
+
   useEffect(() => {
     if (!open) return;
     (async () => {
@@ -110,12 +115,40 @@ export default function CustomerReassignWizard() {
 
   if (userRole !== "admin") return null;
 
-  const runPreview = async () => {
+  const runPreview = async (opts?: { skipSimilarCheck?: boolean }) => {
     if (!from) return;
     if (!to && !createNewName.trim()) {
       toast({ title: "Pick a target customer or enter a new name", variant: "destructive" });
       return;
     }
+
+    // Fuzzy-match guard: when creating a new target by name, warn if it's
+    // very similar to an existing customer so the admin doesn't accidentally
+    // create a near-duplicate (e.g. "Fireworks Fire Protection Ltd" vs
+    // "Fireworks Fire Protection").
+    if (!opts?.skipSimilarCheck && !to && createNewName.trim()) {
+      setCheckingSimilar(true);
+      try {
+        const { data, error } = await supabase.rpc("find_similar_customer", {
+          _name: createNewName.trim(),
+          _threshold: 0.55,
+        });
+        if (error) throw error;
+        const match = Array.isArray(data) && data.length > 0 ? (data[0] as any) : null;
+        if (match && match.id !== from.id && match.name?.toLowerCase() !== createNewName.trim().toLowerCase()) {
+          setSimilarMatch({ id: match.id, name: match.name, similarity: Number(match.similarity) });
+          setSimilarConfirmOpen(true);
+          setCheckingSimilar(false);
+          return; // wait for user to confirm in the dialog
+        }
+      } catch (e) {
+        // Non-fatal — log but continue
+        console.warn("Similarity check failed", e);
+      } finally {
+        setCheckingSimilar(false);
+      }
+    }
+
     setPreviewing(true);
     setPreview(null);
     try {
@@ -353,10 +386,10 @@ export default function CustomerReassignWizard() {
               )}
               {step === 2 && (
                 <Button
-                  onClick={runPreview}
-                  disabled={previewing || (!to && !createNewName.trim())}
+                  onClick={() => runPreview()}
+                  disabled={previewing || checkingSimilar || (!to && !createNewName.trim())}
                 >
-                  {previewing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {(previewing || checkingSimilar) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Preview changes
                 </Button>
               )}
@@ -366,6 +399,61 @@ export default function CustomerReassignWizard() {
                   Apply reassignment
                 </Button>
               )}
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Fuzzy-match confirmation */}
+      <Dialog open={similarConfirmOpen} onOpenChange={(v) => { if (!v) setSimilarConfirmOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Possible duplicate detected</DialogTitle>
+            <DialogDescription>
+              We found an existing customer that looks very similar to the name you typed. Confirm which one you intended to use as the target before any changes are written.
+            </DialogDescription>
+          </DialogHeader>
+          {similarMatch && (
+            <div className="space-y-3">
+              <div className="rounded border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">You typed</div>
+                <div className="font-medium">{createNewName.trim()}</div>
+              </div>
+              <div className="rounded border p-3 bg-muted/40">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Existing match ({Math.round(similarMatch.similarity * 100)}% similar)</div>
+                <div className="font-medium">{similarMatch.name}</div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button variant="ghost" onClick={() => { setSimilarConfirmOpen(false); setSimilarMatch(null); }}>
+              Cancel
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!similarMatch) return;
+                  // Use the existing customer as the target instead
+                  setTo({ id: similarMatch.id, name: similarMatch.name, address: null });
+                  setCreateNewName("");
+                  setSimilarConfirmOpen(false);
+                  setSimilarMatch(null);
+                  // Re-run preview against the chosen existing customer
+                  setTimeout(() => runPreview({ skipSimilarCheck: true }), 0);
+                }}
+              >
+                Use existing
+              </Button>
+              <Button
+                onClick={() => {
+                  setSimilarConfirmOpen(false);
+                  setSimilarMatch(null);
+                  runPreview({ skipSimilarCheck: true });
+                }}
+              >
+                Create new anyway
+              </Button>
             </div>
           </DialogFooter>
         </DialogContent>
