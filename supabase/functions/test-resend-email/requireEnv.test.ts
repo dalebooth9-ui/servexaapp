@@ -2,8 +2,8 @@
 // send-whatsapp, whatsapp-webhook, send-engineer-onboarding, send-test-reminder,
 // send-weekly-report and test-resend-email edge functions.
 //
-// These simulate missing TWILIO_ACCOUNT_SID / RESEND_API_KEY and assert that
-// the standard error response is HTTP 503 with:
+// Simulates missing TWILIO_ACCOUNT_SID / RESEND_API_KEY and asserts that the
+// standard error response is HTTP 503 with:
 //   { error: "missing_configuration", missing: [...] }
 
 import {
@@ -15,7 +15,7 @@ import {
   MissingEnvError,
   missingEnvResponse,
   requireEnv,
-} from "./requireEnv.ts";
+} from "../_shared/requireEnv.ts";
 
 const TWILIO_KEYS = [
   "TWILIO_ACCOUNT_SID",
@@ -27,7 +27,6 @@ const RESEND_KEYS = ["RESEND_API_KEY"] as const;
 
 const ALL_KEYS = [...TWILIO_KEYS, ...RESEND_KEYS, "LOVABLE_API_KEY"];
 
-/** Snapshot + clear env vars under test, restore after the test runs. */
 function withClearedEnv<T>(keys: string[], fn: () => T | Promise<T>): Promise<T> {
   const snapshot = new Map<string, string | undefined>();
   for (const k of keys) {
@@ -48,7 +47,6 @@ const corsHeaders = { "Access-Control-Allow-Origin": "*" };
 
 Deno.test("requireEnv throws MissingEnvError listing TWILIO_ACCOUNT_SID when absent", async () => {
   await withClearedEnv([...ALL_KEYS], () => {
-    // Provide the other Twilio creds so only TWILIO_ACCOUNT_SID is missing.
     Deno.env.set("TWILIO_AUTH_TOKEN", "token");
     Deno.env.set("TWILIO_WHATSAPP_NUMBER", "+1234567890");
 
@@ -75,7 +73,7 @@ Deno.test("missingEnvResponse returns 503 + missing_configuration for missing TW
       err = e;
     }
     const res = missingEnvResponse(err, corsHeaders);
-    assertExists(res, "expected a Response");
+    assertExists(res);
     assertEquals(res!.status, 503);
     assertEquals(res!.headers.get("content-type"), "application/json");
     assertEquals(res!.headers.get("access-control-allow-origin"), "*");
