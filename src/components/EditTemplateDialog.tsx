@@ -14,6 +14,8 @@ import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, us
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { resolveFooterText } from "@/lib/pdfFooter";
+import { runTemplateQa, summariseQa } from "@/lib/templateQa";
+import { AlertTriangle } from "lucide-react";
 
 type TemplateField = {
   id: string;
