@@ -228,14 +228,42 @@ Deno.serve(async (req) => {
         .eq("id", jobId)
         .maybeSingle();
 
+      // Load workspace filename template (with sensible default)
+      const { data: fmtRow } = await supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", "filename_format")
+        .maybeSingle();
+      const fmtCfg = (fmtRow?.value as any) || {};
+      const template: string = fmtCfg.template || "{type} - {reference} - {customer}";
+
+      // Engineer name for {engineer} token
+      const { data: engProfileForName } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("user_id", engineerId)
+        .maybeSingle();
+
       const sanitize = (s: string) =>
         s.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+
       const buildFriendlyName = (isImage: boolean, ext: string, idx: number) => {
-        const typeLabel = isImage ? "Photo" : "Document";
-        const jobRef = (jobInfo as any)?.reference_number || (jobInfo as any)?.name || "";
-        const customer = (jobInfo as any)?.customer || (jobInfo as any)?.customers?.name || "";
-        const parts = [typeLabel, jobRef, customer].filter(Boolean);
-        const base = sanitize(parts.join(" - ")) || `${typeLabel}_${Date.now()}`;
+        const tokens: Record<string, string> = {
+          "{type}": isImage ? "Photo" : "Document",
+          "{reference}": (jobInfo as any)?.reference_number || "",
+          "{job_name}": (jobInfo as any)?.name || "",
+          "{customer}":
+            (jobInfo as any)?.customer || (jobInfo as any)?.customers?.name || "",
+          "{date}": new Date().toISOString().slice(0, 10),
+          "{engineer}": (engProfileForName as any)?.full_name || "",
+        };
+        let out = template;
+        Object.entries(tokens).forEach(([k, v]) => {
+          out = out.split(k).join(v || "");
+        });
+        // Collapse separator runs left by empty tokens (e.g. " -  - ")
+        out = out.replace(/\s*-\s*-\s*/g, " - ").replace(/^\s*-\s*|\s*-\s*$/g, "");
+        const base = sanitize(out) || `${isImage ? "Photo" : "Document"}_${Date.now()}`;
         const suffix = numMedia > 1 ? ` (${idx + 1})` : "";
         return `${base}${suffix}.${ext}`;
       };
