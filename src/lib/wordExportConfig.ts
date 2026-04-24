@@ -8,8 +8,10 @@ export interface WordExportConfig {
   logoSpacingAfter: number;
   /** Space (in twips) above the logo paragraph — controls top spacing. */
   logoSpacingBefore: number;
-  /** Max logo width in pixels in the Word doc. */
+  /** Max logo width in pixels in the Word doc (bounding box width). */
   logoMaxWidth: number;
+  /** Max logo height in pixels in the Word doc (bounding box height). */
+  logoMaxHeight: number;
 }
 
 export const DEFAULT_WORD_EXPORT_CONFIG: WordExportConfig = {
@@ -17,6 +19,7 @@ export const DEFAULT_WORD_EXPORT_CONFIG: WordExportConfig = {
   logoSpacingAfter: 200,
   logoSpacingBefore: 0,
   logoMaxWidth: 200,
+  logoMaxHeight: 80,
 };
 
 const SETTINGS_KEY = "word_export_config";

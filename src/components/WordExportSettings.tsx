@@ -109,6 +109,22 @@ export function WordExportSettings() {
               }
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="max-height">Max logo height (px)</Label>
+            <Input
+              id="max-height"
+              type="number"
+              min={20}
+              max={400}
+              value={config.logoMaxHeight}
+              onChange={(e) =>
+                setConfig({ ...config, logoMaxHeight: Math.max(20, Number(e.target.value) || 80) })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Logos fit within both bounds, preserving aspect ratio — keeps wide and tall logos visually consistent.
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-2">
