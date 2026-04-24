@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4.0.0";
+import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -348,7 +349,8 @@ Deno.serve(async (req) => {
 </html>`;
 
     // ── Send emails ──
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+    const { RESEND_API_KEY } = requireEnv(["RESEND_API_KEY"] as const);
+    const resend = new Resend(RESEND_API_KEY);
     const results: { email: string; success: boolean; error?: string }[] = [];
 
     for (const email of adminEmails) {
@@ -369,6 +371,8 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err: any) {
+    const cfg = missingEnvResponse(err, corsHeaders);
+    if (cfg) return cfg;
     console.error("Weekly report error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
