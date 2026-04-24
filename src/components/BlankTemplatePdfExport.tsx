@@ -304,9 +304,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           customerName: "",
         }, { blank: true });
 
-        const footerH = 9;
-        const footerY = pageHeight - margin - footerH;
-        renderPdfFooter(doc, footerY, footerText);
+        if (!isDryRiser) {
+          const footerH = 9;
+          const footerY = pageHeight - margin - footerH;
+          renderPdfFooter(doc, footerY, footerText);
+        }
       }
 
       const logoH = 12; // bigger logos
