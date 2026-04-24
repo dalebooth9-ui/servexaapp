@@ -169,7 +169,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
-        const footerSpace = 64; // comments(20) + sigs(15) + accred logos(12+3) + footer(9) + buffer
+        const footerSpace = 58; // mirror filled export bottom stack so one-page templates stay compact
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
@@ -254,7 +254,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           }
 
           // Page overflow check
-          if (y + layout.sectionHeaderH + sectionFields.length * layout.rowH > pageHeight - footerSpace) {
+          const sectionRowUnits = sectionFields.reduce((sum, field) => sum + (field.type === "signature" ? 2 : 1), 0);
+          if (y + layout.sectionHeaderH + sectionRowUnits * layout.rowH > pageHeight - footerSpace) {
             doc.addPage();
             y = margin;
           }
