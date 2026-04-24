@@ -932,15 +932,25 @@ export default function IndustryTemplates() {
   } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [bulkExporting, setBulkExporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
 
   /** Build a .docx for every visible template and download as a single .zip. */
   const handleExportAllToWord = async () => {
     if (!filtered.length) return;
     setBulkExporting(true);
+    setBulkProgress(0);
+    setBulkTotal(filtered.length);
     try {
       const zip = new JSZip();
       const usedNames = new Map<string, number>();
+      let i = 0;
       for (const tpl of filtered) {
+        i += 1;
+        setBulkProgress(i);
+        // Yield to the event loop so React can flush the progress update
+        // before the next (CPU-heavy) docx build starts.
+        await new Promise((r) => setTimeout(r, 0));
         const doc = await buildBlankTemplateDoc({
           name: tpl.name,
           description: tpl.description,
@@ -978,6 +988,8 @@ export default function IndustryTemplates() {
       });
     } finally {
       setBulkExporting(false);
+      setBulkProgress(0);
+      setBulkTotal(0);
     }
   };
 
@@ -1118,7 +1130,13 @@ export default function IndustryTemplates() {
           title="Download every visible template as .docx in a single zip"
         >
           {bulkExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileArchive className="h-4 w-4" />}
-          {bulkExporting ? "Packaging…" : `Export all to Word (${filtered.length})`}
+          {bulkExporting
+            ? bulkProgress > 0 && bulkProgress < bulkTotal
+              ? `Generating ${bulkProgress} of ${bulkTotal}…`
+              : bulkProgress >= bulkTotal && bulkTotal > 0
+              ? "Packaging zip…"
+              : "Preparing…"
+            : `Export all to Word (${filtered.length})`}
         </Button>
       </div>
 
