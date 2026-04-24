@@ -1,5 +1,37 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@4.0.0";
+
+const RESEND_GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
+
+async function sendResendEmail(payload: {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+}): Promise<{ error: any | null }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  if (!LOVABLE_API_KEY || !RESEND_API_KEY) {
+    return { error: { message: "Missing LOVABLE_API_KEY or RESEND_API_KEY" } };
+  }
+  try {
+    const res = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "X-Connection-Api-Key": RESEND_API_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return { error: { message: `Resend ${res.status}: ${text}` } };
+    }
+    return { error: null };
+  } catch (e: any) {
+    return { error: { message: e?.message || String(e) } };
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,8 +79,7 @@ Deno.serve(async (req) => {
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
+    // resend client replaced by sendResendEmail() helper
     // Load reminder settings
     const { data: settingsRow } = await supabase
       .from("app_settings")
@@ -160,7 +191,7 @@ Deno.serve(async (req) => {
       const bodyHtml = bodyText.replace(/\n/g, "<br/>");
 
       try {
-        const { error: emailErr } = await resend.emails.send({
+        const { error: emailErr } = await sendResendEmail({
           from: "Viva Fire & Protection <noreply@vivafire.co.uk>",
           to: [customerEmail],
           subject,

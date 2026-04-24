@@ -1,6 +1,38 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@4.0.0";
+
+const RESEND_GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
+
+async function sendResendEmail(payload: {
+  from: string;
+  to: string[];
+  subject: string;
+  html: string;
+}): Promise<{ error: any | null }> {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+  if (!LOVABLE_API_KEY || !RESEND_API_KEY) {
+    return { error: { message: "Missing LOVABLE_API_KEY or RESEND_API_KEY" } };
+  }
+  try {
+    const res = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "X-Connection-Api-Key": RESEND_API_KEY,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const text = await res.text();
+      return { error: { message: `Resend ${res.status}: ${text}` } };
+    }
+    return { error: null };
+  } catch (e: any) {
+    return { error: { message: e?.message || String(e) } };
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -108,18 +140,12 @@ serve(async (req) => {
         if (linkError) {
           console.error("Failed to generate recovery link:", linkError.message);
         } else {
-          const resendApiKey = Deno.env.get("RESEND_API_KEY");
-          if (resendApiKey) {
-            const resend = new Resend(resendApiKey);
-            const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
-            
-            // Build the recovery URL using the token hash
-            const actionLink = linkData?.properties?.action_link || "";
-
-            const { error: emailError } = await resend.emails.send({
-              from: "VivaFire <noreply@vivafire.co.uk>",
-              to: [email],
-              subject: "Set up your VivaFire account password",
+          const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
+          const actionLink = linkData?.properties?.action_link || "";
+          const { error: emailError } = await sendResendEmail({
+            from: "VivaFire <noreply@vivafire.co.uk>",
+            to: [email],
+            subject: "Set up your VivaFire account password",
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                   <h1 style="color: #333; font-size: 24px;">Welcome to VivaFire, ${full_name}!</h1>
@@ -137,15 +163,12 @@ serve(async (req) => {
                   </p>
                 </div>
               `,
-            });
+          });
 
-            if (emailError) {
-              console.error("Failed to send reset email:", emailError);
-            } else {
-              emailSent = true;
-            }
+          if (emailError) {
+            console.error("Failed to send reset email:", emailError);
           } else {
-            console.error("RESEND_API_KEY not configured");
+            emailSent = true;
           }
         }
       } catch (emailErr) {
