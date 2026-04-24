@@ -757,8 +757,9 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
+          title="View document"
         >
-          <Download className="h-3 w-3" /> Open
+          <Eye className="h-3 w-3" /> View
         </Button>
       )}
 
@@ -768,8 +769,9 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
+          title="View document"
         >
-          <Download className="h-3 w-3" /> Open
+          <Eye className="h-3 w-3" /> View
         </Button>
       )}
       {isUploadSlot && isAdmin && onUploadSlot && (
