@@ -11,8 +11,8 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer, Download, MoreVertical } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
-import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
-import BlankTemplateWordExport from "./BlankTemplateWordExport";
+import BlankTemplatePdfExport, { type BlankTemplatePdfExportHandle } from "./BlankTemplatePdfExport";
+import BlankTemplateWordExport, { type BlankTemplateWordExportHandle } from "./BlankTemplateWordExport";
 import {
   DropdownMenu,
   DropdownMenuContent,
