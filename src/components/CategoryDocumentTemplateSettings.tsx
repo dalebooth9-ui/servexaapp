@@ -20,6 +20,14 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+const TT = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>{children}</TooltipTrigger>
+    <TooltipContent side="top">{label}</TooltipContent>
+  </Tooltip>
+);
 
 type JobSheetTemplate = {
   id: string;
@@ -296,6 +304,7 @@ export default function CategoryDocumentTemplateSettings() {
                               checked={t.enabled}
                               onCheckedChange={(v) => handleToggle(t.id, v)}
                               disabled={saving === t.id}
+                              aria-label={`${t.enabled ? "Disable" : "Enable"} ${t.label}`}
                             />
                           </div>
                           <Button
@@ -303,8 +312,10 @@ export default function CategoryDocumentTemplateSettings() {
                             size="icon"
                             className="h-7 w-7 text-muted-foreground hover:text-destructive"
                             onClick={(e) => { e.stopPropagation(); handleDelete(t.id); }}
+                            aria-label={`Delete ${t.label}`}
+                            title="Delete template"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-3.5 w-3.5" aria-hidden />
                           </Button>
                         </TemplateRow>
                       ))}
@@ -425,31 +436,44 @@ function TemplateRow({
 
       {/* Desktop inline file actions */}
       {isFileRow && (
-        <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={viewFile} title="View file">
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={printFile} title="Print now">
-            <Printer className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={downloadFile} title="Download file">
-            <Download className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <TooltipProvider delayDuration={200}>
+          <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
+            <TT label="View file">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={viewFile} aria-label={`View ${t.label}`}>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            </TT>
+            <TT label="Print now">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={printFile} aria-label={`Print ${t.label}`}>
+                <Printer className="h-3.5 w-3.5" />
+              </Button>
+            </TT>
+            <TT label="Download file">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={downloadFile} aria-label={`Download ${t.label}`}>
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </TT>
+          </div>
+        </TooltipProvider>
       )}
 
       {/* Desktop upload */}
       {supportsUpload && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="hidden sm:inline-flex h-7 text-xs px-2 gap-1 shrink-0 ml-1"
-          onClick={(e) => { e.stopPropagation(); onUpload(); }}
-          disabled={uploading}
-        >
-          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-          {t.file_name ? "Replace" : "Upload"}
-        </Button>
+        <TooltipProvider delayDuration={200}>
+          <TT label={t.file_name ? "Replace file" : "Upload file"}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden sm:inline-flex h-7 text-xs px-2 gap-1 shrink-0 ml-1"
+              onClick={(e) => { e.stopPropagation(); onUpload(); }}
+              disabled={uploading}
+              aria-label={t.file_name ? `Replace file for ${t.label}` : `Upload file for ${t.label}`}
+            >
+              {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+              {t.file_name ? "Replace" : "Upload"}
+            </Button>
+          </TT>
+        </TooltipProvider>
       )}
 
       {/* Mobile collapsed menu */}
@@ -457,8 +481,8 @@ function TemplateRow({
         <div className="sm:hidden" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" title="More actions">
-                <MoreVertical className="h-4 w-4" />
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" aria-label={`More actions for ${t.label}`}>
+                <MoreVertical className="h-4 w-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48 bg-popover">
