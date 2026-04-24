@@ -403,6 +403,61 @@ export default function CustomerReassignWizard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Fuzzy-match confirmation */}
+      <Dialog open={similarConfirmOpen} onOpenChange={(v) => { if (!v) setSimilarConfirmOpen(false); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Possible duplicate detected</DialogTitle>
+            <DialogDescription>
+              We found an existing customer that looks very similar to the name you typed. Confirm which one you intended to use as the target before any changes are written.
+            </DialogDescription>
+          </DialogHeader>
+          {similarMatch && (
+            <div className="space-y-3">
+              <div className="rounded border p-3">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">You typed</div>
+                <div className="font-medium">{createNewName.trim()}</div>
+              </div>
+              <div className="rounded border p-3 bg-muted/40">
+                <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Existing match ({Math.round(similarMatch.similarity * 100)}% similar)</div>
+                <div className="font-medium">{similarMatch.name}</div>
+              </div>
+            </div>
+          )}
+          <DialogFooter className="gap-2 sm:justify-between">
+            <Button variant="ghost" onClick={() => { setSimilarConfirmOpen(false); setSimilarMatch(null); }}>
+              Cancel
+            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (!similarMatch) return;
+                  // Use the existing customer as the target instead
+                  setTo({ id: similarMatch.id, name: similarMatch.name, address: null });
+                  setCreateNewName("");
+                  setSimilarConfirmOpen(false);
+                  setSimilarMatch(null);
+                  // Re-run preview against the chosen existing customer
+                  setTimeout(() => runPreview({ skipSimilarCheck: true }), 0);
+                }}
+              >
+                Use existing
+              </Button>
+              <Button
+                onClick={() => {
+                  setSimilarConfirmOpen(false);
+                  setSimilarMatch(null);
+                  runPreview({ skipSimilarCheck: true });
+                }}
+              >
+                Create new anyway
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
