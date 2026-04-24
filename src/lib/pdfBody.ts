@@ -514,25 +514,28 @@ export function renderBlankFieldRow(
     }
     doc.setFontSize(8.5);
   } else {
-    // Detect question-style labels (covers BS-standard rows stored as plain text)
     const lbl = field.label.trim();
-    const looksLikeQuestion =
+    const isYesNoQuestion =
+      field.type === "yes_no" ||
       lbl.endsWith("?") ||
-      /^bs\s?\d/i.test(lbl) ||
-      /\b(is|are|does|do|has|have|was|were|can|should|must|shall)\b/i.test(
-        lbl.split(/\s+/).slice(0, 8).join(" ")
-      );
-    // Only skip YES/NO boxes for types where they are clearly inappropriate.
+      /^(bs|en)\s*\d/i.test(lbl);
     const incompatibleType =
-      field.type === "number" || field.type === "date" ||
+      field.type === "text" || field.type === "number" || field.type === "date" ||
+      field.type === "textarea" || field.type === "long_text" ||
       field.type === "signature" || field.type === "photo" ||
-      field.type === "textarea" || field.type === "long_text";
+      field.type === "image" || field.type === "file";
 
-    if (looksLikeQuestion && !incompatibleType) {
+    if (isYesNoQuestion && !incompatibleType) {
       const bx = margin + colSplit + 2;
       doc.setFontSize(6);
       doc.rect(bx, y + 1, 3, 3); doc.text("YES", bx + 4, y + 3.5);
       doc.rect(bx + 14, y + 1, 3, 3); doc.text("NO", bx + 18, y + 3.5);
+      if (autoVal === "YES") {
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.text("✓", bx + 0.5, y + 3.8);
+        doc.setFont("helvetica", "normal");
+      }
       doc.setFontSize(8.5);
     } else if (autoVal) {
       doc.setFont("helvetica", "normal");
