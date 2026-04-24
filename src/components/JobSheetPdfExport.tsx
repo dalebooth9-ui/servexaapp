@@ -26,6 +26,7 @@ type Template = {
   name: string;
   description: string | null;
   fields: PdfTemplateField[];
+  footer_text?: string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
