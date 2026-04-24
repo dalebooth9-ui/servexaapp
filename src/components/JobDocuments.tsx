@@ -431,7 +431,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (mime) {
       // View in-app — no save / no new tab
       setPreviewUrl(url);
-      setPreviewName(doc.file_name || `${doc.label || "document"}.${ext}`);
+      setPreviewName(buildFriendlyFileName(doc, jobInfo, ext));
       setPreviewMime(mime);
       setPreviewOpen(true);
     } else {
