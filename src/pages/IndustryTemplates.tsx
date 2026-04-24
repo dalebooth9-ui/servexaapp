@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil } from "lucide-react";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import BlankTemplateWordExport from "@/components/BlankTemplateWordExport";
 import EditTemplateDialog from "@/components/EditTemplateDialog";
 import { RamsType } from "@/lib/ramsDefaults";
 
@@ -1061,7 +1062,9 @@ export default function IndustryTemplates() {
                       <div className="flex items-center gap-2 pt-1 border-t border-border">
                         {/* Blank PDF download + print */}
                         <BlankTemplatePdfExport template={mockTemplate} jobInfo={null} showPrint />
-                        <span className="text-xs text-muted-foreground">Blank PDF</span>
+                        {/* Blank Word (.docx) download */}
+                        <BlankTemplateWordExport template={mockTemplate} />
+                        <span className="text-xs text-muted-foreground">Blank</span>
 
                         {/* Create RAMS */}
                         {CATEGORY_TO_RAMS_TYPE[tpl.category] && (
