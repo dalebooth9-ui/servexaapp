@@ -324,6 +324,7 @@ export default function CategoryDocumentTemplateSettings() {
                           t={t}
                           linked={(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") ? resolveTemplate(t) : null}
                           uploading={uploadingFor === t.id}
+                          justUploaded={justUploadedId === t.id}
                           onUpload={() => handleUploadFile(t.id)}
                         >
                           <div onClick={(e) => e.stopPropagation()}>
