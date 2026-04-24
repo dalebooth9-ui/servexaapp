@@ -38,7 +38,7 @@ type Props = {
   size?: "sm" | "default";
 };
 
-const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "CCCCCC" } as const;
+const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
 const cellBorders = {
   top: cellBorder,
   bottom: cellBorder,
@@ -46,21 +46,166 @@ const cellBorders = {
   right: cellBorder,
 };
 
-function renderFieldRow(field: TemplateField): TableRow {
-  let valueRun: TextRun;
+// Column widths in DXA — mirrors the PDF's ~68% / 32% split
+const LABEL_COL = 6360;
+const VALUE_COL = 3000;
+const TABLE_W = LABEL_COL + VALUE_COL; // 9360
+
+const CHECKBOX_EMPTY = "\u2610"; // ☐
+const CHECKBOX_TICK = "\u2611"; // ☑
+
+const SIMPLE_TOKEN_SET = new Set(["yes", "no"]);
+function isYesNoOptions(opts?: string[]): boolean {
+  if (!opts || opts.length === 0 || opts.length > 3) return false;
+  const lower = opts.map((o) => o.toLowerCase());
+  return lower.includes("yes") && lower.includes("no");
+}
+
+/** Build the value-cell content (Paragraph[]) for a blank field row, mirroring the PDF. */
+function buildValueCellChildren(field: TemplateField): Paragraph[] {
+  // Pass / Fail / N/A boxes
   if (field.type === "pass_fail") {
-    valueRun = new TextRun({ text: "☐ Pass    ☐ Fail    ☐ N/A" });
-  } else if (field.type === "select" && field.options?.length) {
-    valueRun = new TextRun({ text: field.options.map((o) => `☐ ${o}`).join("    ") });
-  } else {
-    valueRun = new TextRun({ text: " ".repeat(60), underline: { type: "single", color: "999999" } });
+    return [
+      new Paragraph({
+        children: [
+          new TextRun({ text: `${CHECKBOX_EMPTY} P    `, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} F    `, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} N/A`, size: 18 }),
+        ],
+      }),
+    ];
   }
+
+  // Yes / No checkbox-style field
+  if (field.type === "checkbox" || field.type === "yes_no") {
+    return [
+      new Paragraph({
+        children: [
+          new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 18 }),
+        ],
+      }),
+    ];
+  }
+
+  // Select with explicit options
+  if (field.type === "select" && field.options && field.options.length > 0) {
+    // Yes/No-style select renders as compact toggle row
+    if (isYesNoOptions(field.options)) {
+      return [
+        new Paragraph({
+          children: field.options.flatMap((opt, i) => [
+            new TextRun({ text: `${CHECKBOX_EMPTY} ${opt.toUpperCase()}`, size: 18 }),
+            ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 18 })] : []),
+          ]),
+        }),
+      ];
+    }
+    // Multi-option select — list each option with a checkbox
+    return [
+      new Paragraph({
+        children: field.options.flatMap((opt, i) => [
+          new TextRun({ text: `${CHECKBOX_EMPTY} ${opt}`, size: 18 }),
+          ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 18 })] : []),
+        ]),
+      }),
+    ];
+  }
+
+  // Date — labelled blank line with format hint
+  if (field.type === "date") {
+    return [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "_______ / _______ / _______",
+            size: 18,
+            color: "777777",
+          }),
+        ],
+      }),
+    ];
+  }
+
+  // Number — short underlined slot
+  if (field.type === "number") {
+    return [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: " ".repeat(20),
+            size: 18,
+            underline: { type: "single", color: "999999" },
+          }),
+        ],
+      }),
+    ];
+  }
+
+  // Photo — tickbox + placeholder note
+  if (field.type === "photo") {
+    return [
+      new Paragraph({
+        children: [
+          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "555555" }),
+        ],
+      }),
+    ];
+  }
+
+  // Signature — taller blank box (handled via row height)
+  if (field.type === "signature") {
+    return [
+      new Paragraph({
+        children: [new TextRun({ text: " ", size: 18 })],
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: "Signature: " + " ".repeat(40),
+            size: 16,
+            color: "777777",
+            underline: { type: "single", color: "999999" },
+          }),
+        ],
+      }),
+    ];
+  }
+
+  // Long text / textarea — multi-line blank
+  if (field.type === "textarea" || field.type === "long_text") {
+    return [
+      new Paragraph({ children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })] }),
+      new Paragraph({ children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })] }),
+      new Paragraph({ children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })] }),
+    ];
+  }
+
+  // Default: short text — single underlined line
+  return [
+    new Paragraph({
+      children: [
+        new TextRun({
+          text: " ".repeat(60),
+          size: 18,
+          underline: { type: "single", color: "999999" },
+        }),
+      ],
+    }),
+  ];
+}
+
+function renderFieldRow(field: TemplateField): TableRow {
+  // Signature rows need extra height to mirror the PDF's double-row signature area
+  const isTall = field.type === "signature" || field.type === "textarea" || field.type === "long_text";
   return new TableRow({
+    height: isTall ? { value: 700, rule: HeightRule.ATLEAST } : undefined,
     children: [
       new TableCell({
         borders: cellBorders,
-        width: { size: 3500, type: WidthType.DXA },
+        width: { size: LABEL_COL, type: WidthType.DXA },
         margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        verticalAlign: VerticalAlign.CENTER,
         children: [
           new Paragraph({
             children: [new TextRun({ text: field.label, bold: true, size: 20 })],
@@ -69,9 +214,44 @@ function renderFieldRow(field: TemplateField): TableRow {
       }),
       new TableCell({
         borders: cellBorders,
-        width: { size: 5860, type: WidthType.DXA },
+        width: { size: VALUE_COL, type: WidthType.DXA },
         margins: { top: 80, bottom: 80, left: 120, right: 120 },
-        children: [new Paragraph({ children: [valueRun] })],
+        verticalAlign: VerticalAlign.CENTER,
+        children: buildValueCellChildren(field),
+      }),
+    ],
+  });
+}
+
+/** Section header row — grey banner spanning label column with "RESULT" in value column, mirrors PDF. */
+function renderSectionHeaderRow(sectionName: string): TableRow {
+  const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
+  return new TableRow({
+    tableHeader: true,
+    children: [
+      new TableCell({
+        borders: cellBorders,
+        shading: headerShading,
+        width: { size: LABEL_COL, type: WidthType.DXA },
+        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        verticalAlign: VerticalAlign.CENTER,
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 20 })],
+          }),
+        ],
+      }),
+      new TableCell({
+        borders: cellBorders,
+        shading: headerShading,
+        width: { size: VALUE_COL, type: WidthType.DXA },
+        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        verticalAlign: VerticalAlign.CENTER,
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: "RESULT", bold: true, size: 20 })],
+          }),
+        ],
       }),
     ],
   });
