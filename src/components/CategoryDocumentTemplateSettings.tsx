@@ -433,17 +433,25 @@ function TemplateRow({
 
       {/* Desktop inline file actions */}
       {isFileRow && (
-        <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={viewFile} title="View file">
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={printFile} title="Print now">
-            <Printer className="h-3.5 w-3.5" />
-          </Button>
-          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={downloadFile} title="Download file">
-            <Download className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <TooltipProvider delayDuration={200}>
+          <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
+            <TT label="View file">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={viewFile} aria-label={`View ${t.label}`}>
+                <ExternalLink className="h-3.5 w-3.5" />
+              </Button>
+            </TT>
+            <TT label="Print now">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={printFile} aria-label={`Print ${t.label}`}>
+                <Printer className="h-3.5 w-3.5" />
+              </Button>
+            </TT>
+            <TT label="Download file">
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={downloadFile} aria-label={`Download ${t.label}`}>
+                <Download className="h-3.5 w-3.5" />
+              </Button>
+            </TT>
+          </div>
+        </TooltipProvider>
       )}
 
       {/* Desktop upload */}
