@@ -377,7 +377,10 @@ export default function CategoryDocumentTemplateSettings() {
                                 />
                               </>
                             )}
-                            {t.document_type === "uploaded_file" && (
+                            {(t.document_type === "uploaded_file" ||
+                              t.document_type === "quote" ||
+                              t.document_type === "purchase_order" ||
+                              t.document_type === "site_drawing") && (
                               <Button
                                 variant="outline"
                                 size="sm"
