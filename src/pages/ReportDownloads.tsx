@@ -324,7 +324,7 @@ ${imageEmbeds}
       // Get pixel dimensions for an image so we can size it sensibly in Word.
       const getDims = (buf: Uint8Array, ext: string): Promise<{ w: number; h: number }> =>
         new Promise((resolve) => {
-          const url = URL.createObjectURL(new Blob([buf], { type: `image/${ext === "jpg" ? "jpeg" : ext}` }));
+          const url = URL.createObjectURL(new Blob([buf.buffer as ArrayBuffer], { type: `image/${ext === "jpg" ? "jpeg" : ext}` }));
           const im = new Image();
           im.onload = () => {
             URL.revokeObjectURL(url);
