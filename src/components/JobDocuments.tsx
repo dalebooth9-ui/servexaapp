@@ -29,6 +29,42 @@ type Props = {
   engineers: { id: string; name: string }[];
 };
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+
+/**
+ * Build a friendly file name like "Dry Riser Pressure test - VFP-00123 - Acme Ltd.pdf"
+ * Falls back to existing file_name when it already looks meaningful.
+ */
+function buildFriendlyFileName(doc: JobDoc, jobInfo: any | null, ext?: string): string {
+  const sanitize = (s: string) =>
+    s.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
+
+  // Determine extension from existing file_name or fallback
+  const existing = doc.file_name || "";
+  const existingExt = (existing.split(".").pop() || "").toLowerCase();
+  const finalExt = (ext || existingExt || "pdf").toLowerCase();
+
+  // If the existing file_name is already descriptive (not a UUID), keep it
+  const baseExisting = existing.replace(/\.[^.]+$/, "");
+  const isUuidName = UUID_RE.test(baseExisting) || /^[0-9]{10,}$/.test(baseExisting);
+  if (existing && !isUuidName && baseExisting.length > 0) {
+    return existing;
+  }
+
+  const parts: string[] = [];
+  if (doc.label) parts.push(doc.label);
+  const jobRef = jobInfo?.reference_number;
+  const jobName = jobInfo?.name;
+  if (jobRef) parts.push(jobRef);
+  else if (jobName) parts.push(jobName);
+  const customer = jobInfo?.customer || jobInfo?.customers?.name;
+  if (customer) parts.push(customer);
+
+  const base = sanitize(parts.filter(Boolean).join(" - ")) || "Document";
+  return `${base}.${finalExt}`;
+}
+
+
 export default function JobDocuments({ jobId, job, engineers }: Props) {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
