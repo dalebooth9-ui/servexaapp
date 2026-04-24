@@ -42,3 +42,27 @@ describe("getYesNoFieldDisplayValue", () => {
     expect(getYesNoFieldDisplayValue(field, "")).toBe("YES");
   });
 });
+
+describe("isStandardReference", () => {
+  it.each([
+    "BS 9990",
+    "BS9990:2015 7.4.3.1 Outlet cabinets",
+    "EN 3 extinguisher",
+    "EN137 SCBA",
+    "BS EN 671",
+    "BSEN671 hose reel",
+    "bs en 12845",
+  ])("matches %s", (label) => {
+    expect(isStandardReference(label)).toBe(true);
+  });
+
+  it.each([
+    "Is the valve fitted?",
+    "BSI document review",
+    "Engineer name",
+    "EN route",
+    "",
+  ])("does not match %s", (label) => {
+    expect(isStandardReference(label)).toBe(false);
+  });
+});
