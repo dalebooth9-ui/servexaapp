@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import {
   Document,
-  Packer,ImageRun
-  
+  Packer,
+  ImageRun,
   Paragraph,
   TextRun,
   HeadingLevel,
@@ -28,7 +28,6 @@ import {
   HeightRule,
   Header,
   Footer,
-  ImageRun,
   Tab,
   TabStopType,
   TabStopPosition,
@@ -319,7 +318,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, " ")
         .trim();
-    if (f.section && norm(ff.label) === norm(f.section)) return false;
+    if (f.section && norm(f.label) === norm(f.section)) return false;
     return true;
   });
 
