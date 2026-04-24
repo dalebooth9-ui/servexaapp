@@ -79,8 +79,7 @@ Deno.serve(async (req) => {
     if (!isAdmin) {
       return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
-    const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
-
+    // resend client replaced by sendResendEmail() helper
     // Load reminder settings
     const { data: settingsRow } = await supabase
       .from("app_settings")
