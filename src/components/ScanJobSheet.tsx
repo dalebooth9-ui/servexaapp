@@ -262,7 +262,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
       const branding = customerLogoUrl
         ? { ...baseBranding, logo_url: customerLogoUrl }
         : baseBranding;
-      const footerText = getDefaultFooterText(template.name, branding);
+      const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
 
       // --- Load customer logo and extract dominant brand colour ---
       let brandLogoImg: HTMLImageElement | null = null;
