@@ -44,6 +44,10 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const pendingSlotDoc = useRef<JobDoc | null>(null);
   const [jobInfo, setJobInfo] = useState<any | null>(null);
   const [blankTemplates, setBlankTemplates] = useState<Record<string, any>>({});
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewMime, setPreviewMime] = useState<string>("application/pdf");
 
   const fetchDocs = async () => {
     const { data } = await supabase
