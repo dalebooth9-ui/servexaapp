@@ -8,6 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useNavigate } from "react-router-dom";
 import { Search, Download, Plus, CheckCircle2, Flame, Droplets, Wrench, Shield, Zap, Wind, AlertTriangle, Eye, FileText, Pencil } from "lucide-react";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
+import BlankTemplateWordExport from "@/components/BlankTemplateWordExport";
 import EditTemplateDialog from "@/components/EditTemplateDialog";
 import { RamsType } from "@/lib/ramsDefaults";
 
