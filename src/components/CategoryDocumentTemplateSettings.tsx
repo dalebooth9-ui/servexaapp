@@ -354,6 +354,13 @@ function TemplateRow({
 }) {
   const pdfRef = useRef<BlankTemplatePdfExportHandle>(null);
   const wordRef = useRef<BlankTemplateWordExportHandle>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  // Defer focus-stealing actions (window.open, print) until after the menu has
+  // closed and Radix has restored focus to the trigger. This keeps keyboard
+  // focus inside the menu while open and predictable on close.
+  const runAfterClose = (fn: () => void) => {
+    setTimeout(fn, 0);
+  };
 
   const isFileRow = !!t.file_url && (
     t.document_type === "uploaded_file" ||
