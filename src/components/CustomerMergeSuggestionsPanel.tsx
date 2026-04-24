@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ToastAction } from "@/components/ui/toast";
 import { Loader2, GitMerge, X, Check, RefreshCw, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { formatDistanceToNow } from "date-fns";
@@ -117,9 +118,41 @@ export default function CustomerMergeSuggestionsPanel() {
       .eq("id", s.id);
     setBusyId(null);
     setItems((cur) => cur.filter((x) => x.id !== s.id));
+
+    // Offer undo for ~12s using the snapshot returned by the edge function
+    const snapshot = (data as { undo_snapshot?: unknown })?.undo_snapshot;
+    const targetName = s.existing?.name ?? "existing customer";
+    const sourceName = s.incoming?.name ?? s.incoming_name;
+
     toast({
       title: "Customers merged",
-      description: `Moved records into "${s.existing?.name ?? "existing customer"}".`,
+      description: `Moved records into "${targetName}".`,
+      duration: 12000,
+      action: snapshot ? (
+        <ToastAction
+          altText="Undo merge"
+          onClick={async () => {
+            const { data: undoData, error: undoErr } = await supabase.functions.invoke("reassign-customer", {
+              body: { undo: true, undo_snapshot: snapshot },
+            });
+            if (undoErr || (undoData as { error?: string })?.error) {
+              toast({
+                title: "Undo failed",
+                description: undoErr?.message || (undoData as { error?: string })?.error || "Unknown error",
+                variant: "destructive",
+              });
+              return;
+            }
+            toast({
+              title: "Merge undone",
+              description: `Restored "${sourceName}" and reverted moved records.`,
+            });
+            load();
+          }}
+        >
+          Undo
+        </ToastAction>
+      ) : undefined,
     });
   };
 
