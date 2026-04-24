@@ -63,6 +63,7 @@ export default function CategoryDocumentTemplateSettings() {
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
+  const [jobSheetTemplates, setJobSheetTemplates] = useState<JobSheetTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
@@ -74,16 +75,42 @@ export default function CategoryDocumentTemplateSettings() {
   const pendingUploadId = useRef<string | null>(null);
 
   const fetchTemplates = async () => {
-    const { data } = await supabase
-      .from("category_document_templates" as any)
-      .select("*")
-      .order("category_slug")
-      .order("sort_order");
+    const [{ data }, { data: jst }] = await Promise.all([
+      supabase
+        .from("category_document_templates" as any)
+        .select("*")
+        .order("category_slug")
+        .order("sort_order"),
+      supabase
+        .from("job_sheet_templates")
+        .select("id,name,description,standard,fields,branding,category"),
+    ]);
     setTemplates((data as unknown as DocTemplate[]) || []);
+    const parsed = ((jst as any[]) || []).map((t) => ({
+      ...t,
+      fields: typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields,
+    })) as JobSheetTemplate[];
+    setJobSheetTemplates(parsed);
     setLoading(false);
   };
 
   useEffect(() => { fetchTemplates(); }, []);
+
+  const resolveTemplate = (row: DocTemplate): JobSheetTemplate | null => {
+    const target = normalizeName(row.label);
+    if (!target) return null;
+    const candidates = jobSheetTemplates.filter((t) => normalizeName(t.name) === target);
+    if (candidates.length === 0) {
+      // Fallback: contains match
+      const partial = jobSheetTemplates.find((t) =>
+        normalizeName(t.name).includes(target) || target.includes(normalizeName(t.name)),
+      );
+      return partial || null;
+    }
+    // Prefer same category
+    const sameCat = candidates.find((t) => (t.category || "") === row.category_slug);
+    return sameCat || candidates[0];
+  };
 
   const handleToggle = async (id: string, enabled: boolean) => {
     setSaving(id);
