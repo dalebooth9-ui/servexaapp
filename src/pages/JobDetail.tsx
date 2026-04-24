@@ -278,8 +278,8 @@ export default function JobDetail() {
           <h1 className="text-2xl font-bold">{job.name}</h1>
           <p className="text-sm text-muted-foreground">
             <span className="font-mono">{job.reference_number}</span>
-            {custName && <> • {custName}</>}
-            {job.address && <> • {job.address}</>}
+            {custName && <> • <span className="text-muted-foreground/80">Customer:</span> <span className="font-medium text-foreground">{custName}</span></>}
+            {job.address && <> • <span className="text-muted-foreground/80">Site:</span> <span className="font-medium text-foreground">{job.address}</span></>}
           </p>
           {jobW3W && (
             <a
@@ -456,7 +456,18 @@ export default function JobDetail() {
                         </Badge>
                       </div>
                     )}
-                    <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
+                    <div>
+                      <span className="text-muted-foreground">Customer:</span>{" "}
+                      <span className="font-medium">
+                        {job.customers?.name || job.customer || "—"}
+                      </span>
+                      {!job.customers?.name && job.customer && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                          unlinked
+                        </span>
+                      )}
+                    </div>
+                    <div><span className="text-muted-foreground">Site Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
                     {jobW3W && (
                       <div className="flex items-center gap-1">
                         <span className="text-muted-foreground">what3words:</span>
