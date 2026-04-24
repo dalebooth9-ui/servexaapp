@@ -485,6 +485,8 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
     download,
   }));
 
+  if (headless) return null;
+
   return (
     <>
       <Button
