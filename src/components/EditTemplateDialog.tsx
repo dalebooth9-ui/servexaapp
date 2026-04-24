@@ -320,7 +320,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setCompanyName(b.company_name || "");
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
-    setFooterText(b.footer_text || "");
+    setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     toast({ title: "Reverted to saved version" });
   };
 
