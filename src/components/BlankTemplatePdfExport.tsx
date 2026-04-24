@@ -1,6 +1,7 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Printer } from "lucide-react";
+import { Download, Eye, Loader2, Printer } from "lucide-react";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
