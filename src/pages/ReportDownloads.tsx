@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Download, Loader2, Search, FileArchive } from "lucide-react";
+import { Download, Loader2, Search, FileArchive, Printer, FileText } from "lucide-react";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak } from "docx";
 import { useToast } from "@/hooks/use-toast";
 
 type CompletedJob = {
