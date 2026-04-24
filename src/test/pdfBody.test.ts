@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getYesNoFieldDisplayValue, type PdfTemplateField } from "@/lib/pdfBody";
+import { getYesNoFieldDisplayValue, isStandardReference, type PdfTemplateField } from "@/lib/pdfBody";
 
 const buildField = (overrides: Partial<PdfTemplateField> = {}): PdfTemplateField => ({
   id: "field_id",
