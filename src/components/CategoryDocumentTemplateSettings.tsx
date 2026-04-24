@@ -90,6 +90,7 @@ export default function CategoryDocumentTemplateSettings() {
   const [adding, setAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadId = useRef<string | null>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const fetchTemplates = async () => {
     const [{ data }, { data: jst }] = await Promise.all([
