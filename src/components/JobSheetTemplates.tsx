@@ -93,6 +93,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [allTemplates, setAllTemplates] = useState<Template[]>([]);
   const [responses, setResponses] = useState<Response[]>([]);
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [engineerOptions, setEngineerOptions] = useState<string[]>([]);
