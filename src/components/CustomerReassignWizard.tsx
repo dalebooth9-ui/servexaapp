@@ -386,10 +386,10 @@ export default function CustomerReassignWizard() {
               )}
               {step === 2 && (
                 <Button
-                  onClick={runPreview}
-                  disabled={previewing || (!to && !createNewName.trim())}
+                  onClick={() => runPreview()}
+                  disabled={previewing || checkingSimilar || (!to && !createNewName.trim())}
                 >
-                  {previewing && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  {(previewing || checkingSimilar) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                   Preview changes
                 </Button>
               )}
