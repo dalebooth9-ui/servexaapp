@@ -1,0 +1,1 @@
+delete from public.category_document_templates where id = '977ded50-bdef-4bba-803a-2dd87c2e83b5';
