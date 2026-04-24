@@ -502,8 +502,9 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       for (const d of printable) {
         const url = await resolveDocUrl(d);
         if (!url) continue;
-        const name = d.file_name || d.label || "document";
-        const ext = (name.split(".").pop() || "").toLowerCase();
+        const rawName = d.file_name || d.label || "document";
+        const ext = (rawName.split(".").pop() || "pdf").toLowerCase();
+        const name = buildFriendlyFileName(d, jobInfo, ext);
         let kind: Resolved["kind"] = "other";
         if (ext === "pdf") kind = "pdf";
         else if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) kind = "image";
