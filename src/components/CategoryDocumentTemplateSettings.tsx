@@ -9,10 +9,17 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer, Download } from "lucide-react";
+import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer, Download, MoreVertical } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
 import BlankTemplateWordExport from "./BlankTemplateWordExport";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 
 type JobSheetTemplate = {
   id: string;
