@@ -311,23 +311,7 @@ export async function generateJobSheetPdf(
     w3wAddress,
   }, undefined, accentColor);
 
-  // --- Service scope line (PT / Visual / Other) ---
-  const scopeParts = [
-    (jobInfo?.pressure_test_qty ?? 0) > 0 ? `PT x ${jobInfo!.pressure_test_qty}` : null,
-    (jobInfo?.visual_qty ?? 0) > 0 ? `Vis x ${jobInfo!.visual_qty}` : null,
-    (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x ${jobInfo!.other_qty}` : null,
-  ].filter(Boolean).join("  |  ");
-  if (scopeParts) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
-    doc.setTextColor(...accentColor);
-    doc.text(`Service Scope: `, margin, y + 3.5);
-    const labelWidth = doc.getTextWidth("Service Scope: ");
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(0, 0, 0);
-    doc.text(scopeParts, margin + labelWidth, y + 3.5);
-    y += 6;
-  }
+  // Service scope line removed per request — kept off the job sheet PDF.
 
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
