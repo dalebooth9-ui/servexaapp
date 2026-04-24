@@ -355,6 +355,7 @@ function TemplateRow({
 }) {
   const pdfRef = useRef<BlankTemplatePdfExportHandle>(null);
   const wordRef = useRef<BlankTemplateWordExportHandle>(null);
+  const isMobile = useIsMobile();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   // Defer focus-stealing actions (window.open, print) until after the menu has
   // closed and Radix has restored focus to the trigger. This keeps keyboard
