@@ -410,35 +410,63 @@ function TemplateRow({
         </div>
       </div>
 
-      {/* Export components: always mounted (refs reachable on mobile too); visually collapsed on mobile so the More menu replaces them */}
+      {/* Export controllers: render full UI on desktop; on mobile render a
+          headless PDF controller (no DOM) and a headless Word controller
+          (Dialog only — its trigger is replaced by the More menu). */}
       {isGenerated && linked && (
-        <div
-          className="flex items-center w-0 overflow-hidden sm:w-auto sm:overflow-visible"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <BlankTemplatePdfExport
-            ref={pdfRef}
-            template={{
-              id: linked.id,
-              name: linked.name,
-              description: linked.description,
-              standard: linked.standard,
-              fields: linked.fields,
-              branding: linked.branding || {},
-            }}
-            jobInfo={null}
-            showPrint
-          />
-          <BlankTemplateWordExport
-            ref={wordRef}
-            template={{
-              name: linked.name,
-              description: linked.description || undefined,
-              standard: linked.standard || undefined,
-              fields: linked.fields,
-            }}
-          />
-        </div>
+        isMobile ? (
+          <>
+            <BlankTemplatePdfExport
+              ref={pdfRef}
+              template={{
+                id: linked.id,
+                name: linked.name,
+                description: linked.description,
+                standard: linked.standard,
+                fields: linked.fields,
+                branding: linked.branding || {},
+              }}
+              jobInfo={null}
+              showPrint
+              headless
+            />
+            <BlankTemplateWordExport
+              ref={wordRef}
+              template={{
+                name: linked.name,
+                description: linked.description || undefined,
+                standard: linked.standard || undefined,
+                fields: linked.fields,
+              }}
+              headless
+            />
+          </>
+        ) : (
+          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+            <BlankTemplatePdfExport
+              ref={pdfRef}
+              template={{
+                id: linked.id,
+                name: linked.name,
+                description: linked.description,
+                standard: linked.standard,
+                fields: linked.fields,
+                branding: linked.branding || {},
+              }}
+              jobInfo={null}
+              showPrint
+            />
+            <BlankTemplateWordExport
+              ref={wordRef}
+              template={{
+                name: linked.name,
+                description: linked.description || undefined,
+                standard: linked.standard || undefined,
+                fields: linked.fields,
+              }}
+            />
+          </div>
+        )
       )}
 
       {/* Desktop inline file actions */}
