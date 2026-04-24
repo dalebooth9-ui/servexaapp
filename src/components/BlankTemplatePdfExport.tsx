@@ -289,7 +289,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y = margin;
         }
         const commentsBoxTop = y + 4;
-        const maxCommentsH = 40; // ~5-6 lines — keeps page 1 self-contained
+        const maxCommentsH = isDryRiser ? 65 : 40; // Dry Riser target shows a tall comments box
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), 10);
         doc.setFontSize(8.5);
