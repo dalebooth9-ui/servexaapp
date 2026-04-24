@@ -28,7 +28,6 @@ import {
   HeightRule,
   Header,
   Footer,
-  ImageRun,
   Tab,
   TabStopType,
   TabStopPosition,
