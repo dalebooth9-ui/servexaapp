@@ -44,6 +44,8 @@ type Props = {
   };
   /** Visual size override; defaults to icon-only sm button to fit alongside other actions. */
   size?: "sm" | "default";
+  /** When true, no UI is rendered; only the imperative ref API is exposed. */
+  headless?: boolean;
 };
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
@@ -449,7 +451,7 @@ export type BlankTemplateWordExportHandle = {
   download: () => Promise<void> | void;
 };
 
-const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm" }, ref) {
+const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm", headless = false }, ref) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -485,16 +487,18 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
 
   return (
     <>
-      <Button
-        variant="outline"
-        size={size}
-        className="h-7 gap-1.5"
-        onClick={() => setOpen(true)}
-        title="Preview & download blank template as Word (.docx)"
-        aria-label={`Preview and download ${template.name} as Word document`}
-      >
-        <FileText className="h-3.5 w-3.5" aria-hidden />
-      </Button>
+      {!headless && (
+        <Button
+          variant="outline"
+          size={size}
+          className="h-7 gap-1.5"
+          onClick={() => setOpen(true)}
+          title="Preview & download blank template as Word (.docx)"
+          aria-label={`Preview and download ${template.name} as Word document`}
+        >
+          <FileText className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">

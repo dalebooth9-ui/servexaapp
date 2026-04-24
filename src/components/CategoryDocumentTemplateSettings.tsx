@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer, Download, MoreVertical } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import { useIsMobile } from "@/hooks/use-mobile";
 import BlankTemplatePdfExport, { type BlankTemplatePdfExportHandle } from "./BlankTemplatePdfExport";
 import BlankTemplateWordExport, { type BlankTemplateWordExportHandle } from "./BlankTemplateWordExport";
 import {
@@ -354,6 +355,7 @@ function TemplateRow({
 }) {
   const pdfRef = useRef<BlankTemplatePdfExportHandle>(null);
   const wordRef = useRef<BlankTemplateWordExportHandle>(null);
+  const isMobile = useIsMobile();
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   // Defer focus-stealing actions (window.open, print) until after the menu has
   // closed and Radix has restored focus to the trigger. This keeps keyboard
@@ -410,35 +412,63 @@ function TemplateRow({
         </div>
       </div>
 
-      {/* Export components: always mounted (refs reachable on mobile too); visually collapsed on mobile so the More menu replaces them */}
+      {/* Export controllers: render full UI on desktop; on mobile render a
+          headless PDF controller (no DOM) and a headless Word controller
+          (Dialog only — its trigger is replaced by the More menu). */}
       {isGenerated && linked && (
-        <div
-          className="flex items-center w-0 overflow-hidden sm:w-auto sm:overflow-visible"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <BlankTemplatePdfExport
-            ref={pdfRef}
-            template={{
-              id: linked.id,
-              name: linked.name,
-              description: linked.description,
-              standard: linked.standard,
-              fields: linked.fields,
-              branding: linked.branding || {},
-            }}
-            jobInfo={null}
-            showPrint
-          />
-          <BlankTemplateWordExport
-            ref={wordRef}
-            template={{
-              name: linked.name,
-              description: linked.description || undefined,
-              standard: linked.standard || undefined,
-              fields: linked.fields,
-            }}
-          />
-        </div>
+        isMobile ? (
+          <>
+            <BlankTemplatePdfExport
+              ref={pdfRef}
+              template={{
+                id: linked.id,
+                name: linked.name,
+                description: linked.description,
+                standard: linked.standard,
+                fields: linked.fields,
+                branding: linked.branding || {},
+              }}
+              jobInfo={null}
+              showPrint
+              headless
+            />
+            <BlankTemplateWordExport
+              ref={wordRef}
+              template={{
+                name: linked.name,
+                description: linked.description || undefined,
+                standard: linked.standard || undefined,
+                fields: linked.fields,
+              }}
+              headless
+            />
+          </>
+        ) : (
+          <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+            <BlankTemplatePdfExport
+              ref={pdfRef}
+              template={{
+                id: linked.id,
+                name: linked.name,
+                description: linked.description,
+                standard: linked.standard,
+                fields: linked.fields,
+                branding: linked.branding || {},
+              }}
+              jobInfo={null}
+              showPrint
+            />
+            <BlankTemplateWordExport
+              ref={wordRef}
+              template={{
+                name: linked.name,
+                description: linked.description || undefined,
+                standard: linked.standard || undefined,
+                fields: linked.fields,
+              }}
+            />
+          </div>
+        )
       )}
 
       {/* Desktop inline file actions */}

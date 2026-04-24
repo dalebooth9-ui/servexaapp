@@ -62,6 +62,8 @@ interface Props {
   template: Template;
   jobInfo?: JobInfo | null;
   showPrint?: boolean;
+  /** When true, no UI is rendered; only the imperative ref API is exposed. */
+  headless?: boolean;
 }
 
 /** How many blank sheets to generate based on template name + job quantities */
@@ -91,7 +93,7 @@ export type BlankTemplatePdfExportHandle = {
   print: () => Promise<void> | void;
 };
 
-const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false }, ref) {
+const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
@@ -319,6 +321,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       setGenerating(false);
     }
   };
+
+  if (headless) return null;
 
   return (
     <div className="flex items-center gap-0.5">
