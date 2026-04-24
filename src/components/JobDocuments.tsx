@@ -416,6 +416,109 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       return ao - bo;
     });
 
+  // Resolve a JobDoc.file_url into a fetchable URL (handling customer-paperwork paths).
+  const resolveDocUrl = async (doc: JobDoc): Promise<string | null> => {
+    if (!doc.file_url) return null;
+    if (doc.source === "customer_paperwork" && !doc.file_url.startsWith("http")) {
+      const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 600);
+      return data?.signedUrl || null;
+    }
+    return doc.file_url;
+  };
+
+  const handlePrintAll = async () => {
+    const printable = docs.filter((d) => !!d.file_url);
+    if (printable.length === 0) {
+      toast({ title: "Nothing to print", description: "No attached files on this job.", variant: "destructive" });
+      return;
+    }
+    setPrintingAll(true);
+    try {
+      type Resolved = { name: string; url: string; ext: string; kind: "pdf" | "image" | "other" };
+      const resolved: Resolved[] = [];
+      for (const d of printable) {
+        const url = await resolveDocUrl(d);
+        if (!url) continue;
+        const name = d.file_name || d.label || "document";
+        const ext = (name.split(".").pop() || "").toLowerCase();
+        let kind: Resolved["kind"] = "other";
+        if (ext === "pdf") kind = "pdf";
+        else if (["png", "jpg", "jpeg", "webp", "gif"].includes(ext)) kind = "image";
+        // For non-PDF/image files (doc/xls), fetch the bytes and convert to a blob URL so the
+        // print window can attempt to embed them; many browsers will simply offer a download.
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`Failed to fetch ${name}`);
+          const blob = await res.blob();
+          const blobUrl = URL.createObjectURL(blob);
+          resolved.push({ name, url: blobUrl, ext, kind });
+        } catch {
+          // skip files that fail to fetch (CORS, deleted, etc.)
+        }
+      }
+
+      if (resolved.length === 0) {
+        toast({ title: "No printable files", description: "Files could not be fetched for printing.", variant: "destructive" });
+        return;
+      }
+
+      const sections = resolved
+        .map((r) => {
+          if (r.kind === "pdf") {
+            return `<div class="page"><h2>${r.name}</h2><embed src="${r.url}" type="application/pdf" class="pdf"/></div>`;
+          }
+          if (r.kind === "image") {
+            return `<div class="img-page"><img src="${r.url}" alt="${r.name}"/><div class="caption">${r.name}</div></div>`;
+          }
+          return `<div class="page"><h2>${r.name}</h2><p class="muted">This file type (${r.ext.toUpperCase() || "unknown"}) cannot be embedded for printing. Open it directly to print.</p></div>`;
+        })
+        .join("");
+
+      const ref = job?.reference_number || jobInfo?.reference_number || "Job";
+      const title = `Print — ${ref}`;
+      const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title>
+<style>
+  @page { size: A4; margin: 12mm; }
+  body { font-family: -apple-system, system-ui, sans-serif; margin: 0; color: #111; }
+  h1 { font-size: 18pt; margin: 0 0 4px; }
+  h2 { font-size: 13pt; margin: 0 0 8px; padding-bottom: 4px; border-bottom: 1px solid #ccc; }
+  .meta { font-size: 10pt; color: #555; margin-bottom: 16px; }
+  .cover { padding: 20mm 0; }
+  .page { page-break-after: always; height: 100vh; display: flex; flex-direction: column; }
+  .pdf { flex: 1; width: 100%; border: 0; }
+  .img-page { page-break-after: always; text-align: center; }
+  .img-page img { max-width: 100%; max-height: 95vh; object-fit: contain; }
+  .caption { font-size: 9pt; color: #666; margin-top: 6px; }
+  .muted { color: #888; font-size: 10pt; }
+</style></head><body>
+<div class="cover">
+  <h1>${ref} — Job Documents</h1>
+  <div class="meta">${resolved.length} file(s) · Generated ${new Date().toLocaleString("en-GB")}</div>
+</div>
+${sections}
+<script>
+  window.addEventListener('load', () => {
+    setTimeout(() => { window.focus(); window.print(); }, 800);
+  });
+</script>
+</body></html>`;
+
+      const win = window.open("", "_blank");
+      if (!win) {
+        toast({ title: "Pop-up blocked", description: "Allow pop-ups to use Print all.", variant: "destructive" });
+        return;
+      }
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      toast({ title: "Print ready", description: `${resolved.length} file(s) opened in a new tab.` });
+    } catch (err: any) {
+      toast({ title: "Print failed", description: err.message, variant: "destructive" });
+    } finally {
+      setPrintingAll(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <input ref={slotUploadRef} type="file" className="hidden" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onChange={handleSlotFileChange} />
