@@ -311,10 +311,16 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 }
 
 export function renderFieldRow(field: TemplateField): TableRow {
-  const isTall =
-    field.type === "signature" || field.type === "textarea" || field.type === "long_text";
+  // Multi-line / signature rows need a generous *minimum* height so the row
+  // never visually clips, but use HeightRule.ATLEAST so Word can grow the row
+  // to fit longer content rather than overlapping the next row.
+  const isMultiLine = field.type === "textarea" || field.type === "long_text";
+  const isSignature = field.type === "signature";
+  let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined;
+  if (isMultiLine) height = { value: 1100, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 900, rule: HeightRule.ATLEAST };
   return new TableRow({
-    height: isTall ? { value: 700, rule: HeightRule.ATLEAST } : undefined,
+    height,
     children: [
       new TableCell({
         borders: cellBorders,
@@ -481,7 +487,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           ],
         }),
         new TableRow({
-          height: { value: 700, rule: HeightRule.ATLEAST },
+          // ATLEAST so Word can expand if a real signature image is taller.
+          height: { value: 900, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
