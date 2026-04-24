@@ -78,6 +78,8 @@ export default function JobDetail() {
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm, clearEditDraft] = useAutoSave(`job-edit-${id}`, { name: "", address: "", site_id: "", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
   const [editSaving, setEditSaving] = useState(false);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [chooserSlots, setChooserSlots] = useState<MatchSlot[]>([]);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
