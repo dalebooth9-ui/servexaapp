@@ -379,7 +379,29 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 300);
       if (data?.signedUrl) url = data.signedUrl;
     }
-    window.open(url, "_blank", "noopener,noreferrer");
+    // Detect previewable types from the file name (or fall back to URL pathname)
+    const name = (doc.file_name || url).toLowerCase();
+    const ext = name.split("?")[0].split("#")[0].split(".").pop() || "";
+    const mimeMap: Record<string, string> = {
+      pdf: "application/pdf",
+      png: "image/png",
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      gif: "image/gif",
+      webp: "image/webp",
+      svg: "image/svg+xml",
+    };
+    const mime = mimeMap[ext];
+    if (mime) {
+      // View in-app — no save / no new tab
+      setPreviewUrl(url);
+      setPreviewName(doc.file_name || `${doc.label || "document"}.${ext}`);
+      setPreviewMime(mime);
+      setPreviewOpen(true);
+    } else {
+      // Non-previewable (e.g. .docx, .xlsx) — fall back to opening in a new tab
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
   };
 
   const handleUploadSlot = (doc: JobDoc) => {
