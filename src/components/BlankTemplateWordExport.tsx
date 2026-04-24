@@ -485,20 +485,20 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
     download,
   }));
 
-  if (headless) return null;
-
   return (
     <>
-      <Button
-        variant="outline"
-        size={size}
-        className="h-7 gap-1.5"
-        onClick={() => setOpen(true)}
-        title="Preview & download blank template as Word (.docx)"
-        aria-label={`Preview and download ${template.name} as Word document`}
-      >
-        <FileText className="h-3.5 w-3.5" aria-hidden />
-      </Button>
+      {!headless && (
+        <Button
+          variant="outline"
+          size={size}
+          className="h-7 gap-1.5"
+          onClick={() => setOpen(true)}
+          title="Preview & download blank template as Word (.docx)"
+          aria-label={`Preview and download ${template.name} as Word document`}
+        >
+          <FileText className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
