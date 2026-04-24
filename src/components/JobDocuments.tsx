@@ -635,6 +635,15 @@ ${sections}
           </>
         )}
       </div>
+
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        url={previewUrl}
+        fileName={previewName}
+        title={previewName}
+        mimeType={previewMime}
+      />
     </div>
   );
 }
