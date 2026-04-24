@@ -148,6 +148,10 @@ export function getDefaultFooterText(templateName: string, branding?: { footer_t
   if (n.includes("fire hydrant") || n.includes("hydrant")) {
     return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015 / NFCC Guidelines";
   }
-  // Default — dry riser and anything else
-  return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015";
+  // BS 9990:2015 declaration is only applicable to the Dry Riser Visual inspection.
+  if (n.includes("dry riser") && n.includes("visual")) {
+    return "We have, today, carried out this inspection\nto the requirements of BS 9990:2015";
+  }
+  // No default declaration for other templates — return empty so the footer is omitted.
+  return "";
 }
