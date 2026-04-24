@@ -173,9 +173,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
-        // Dry Riser uses a compact declaration footer bar (no accreditation logos),
-        // so it needs less reserved bottom space than the standard layout.
-        const footerSpace = isDryRiser ? 56 : 58;
+        // Dry Riser blank sheet has no declaration bar, just accreditation logos at the bottom.
+        const footerSpace = isDryRiser ? 44 : 58;
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
