@@ -939,10 +939,18 @@ export default function IndustryTemplates() {
   const handleExportAllToWord = async () => {
     if (!filtered.length) return;
     setBulkExporting(true);
+    setBulkProgress(0);
+    setBulkTotal(filtered.length);
     try {
       const zip = new JSZip();
       const usedNames = new Map<string, number>();
+      let i = 0;
       for (const tpl of filtered) {
+        i += 1;
+        setBulkProgress(i);
+        // Yield to the event loop so React can flush the progress update
+        // before the next (CPU-heavy) docx build starts.
+        await new Promise((r) => setTimeout(r, 0));
         const doc = await buildBlankTemplateDoc({
           name: tpl.name,
           description: tpl.description,
@@ -980,6 +988,8 @@ export default function IndustryTemplates() {
       });
     } finally {
       setBulkExporting(false);
+      setBulkProgress(0);
+      setBulkTotal(0);
     }
   };
 
