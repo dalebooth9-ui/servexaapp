@@ -591,47 +591,19 @@ export function renderBlankFieldRow(
   } else if (field.type === "checkbox") {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
-    const bx = margin + colSplit + 2;
-    renderBlankSelectOptions(doc, bx, y, field.options, margin + maxWidth - 2, autoVal);
-  } else if (field.type === "select" && field.options && field.options.length > 0) {
-    const bx = margin + colSplit + 2;
-    renderBlankSelectOptions(doc, bx, y, field.options, margin + maxWidth - 2, autoVal);
-  } else {
-    if (isQuestionStyleYesNoField(field)) {
-      renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
-    } else if (autoVal) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
-      doc.text(truncVal, margin + colSplit + 2, y + 3.5);
-      doc.setFontSize(8.5);
-    } else if (field.type === "date") {
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(8.5);
-    } else if (field.type === "number") {
-      renderBlankUnderline(doc, margin + colSplit + 2, y, Math.min(16, maxWidth - colSplit - 6));
-    } else if (field.type === "textarea" || field.type === "long_text") {
-      renderBlankUnderline(doc, margin + colSplit + 2, y, Math.max(20, maxWidth - colSplit - 6));
-    } else if (field.type === "signature") {
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text("Signature:", margin + colSplit + 2, y + 3.5);
-      doc.setTextColor(0, 0, 0);
-      renderBlankUnderline(doc, margin + colSplit + 16, y, Math.max(16, maxWidth - colSplit - 20));
-      doc.setFontSize(8.5);
-    } else if (field.type === "photo") {
-      doc.setFontSize(8);
-      doc.setTextColor(120, 120, 120);
-      doc.text("□ Photo attached", margin + colSplit + 2, y + 3.5);
-      doc.setTextColor(0, 0, 0);
-      doc.setFontSize(8.5);
-    } else {
-      renderBlankUnderline(doc, margin + colSplit + 2, y, Math.max(20, maxWidth - colSplit - 6));
-    }
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
+  } else if (isQuestionStyleYesNoField(field)) {
+    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
+  } else if (autoVal) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
+    doc.text(truncVal, margin + colSplit + 2, y + 3.5);
+    doc.setFontSize(8.5);
   }
+  // For all other field types (text, number, date, textarea, signature, photo,
+  // generic select with no autoVal), leave the result cell blank — matches
+  // the original Dry Riser Pressure Test layout (empty cell, no underline).
 
   return y + rowH;
 }
