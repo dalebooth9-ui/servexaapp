@@ -57,18 +57,69 @@ type Props = {
   headless?: boolean;
 };
 
-/** Fetch an image URL and return raw bytes + mime; returns null on any error. */
-async function fetchImageBytes(url: string): Promise<{ data: Uint8Array; type: "png" | "jpg" } | null> {
+/** Fetch an image URL and return raw bytes + mime + natural pixel dimensions; returns null on any error. */
+async function fetchImageBytes(
+  url: string,
+): Promise<{ data: Uint8Array; type: "png" | "jpg"; width: number; height: number } | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
     const buf = new Uint8Array(await res.arrayBuffer());
     const mime = res.headers.get("content-type") || "";
     const type: "png" | "jpg" = mime.includes("png") || url.toLowerCase().endsWith(".png") ? "png" : "jpg";
-    return { data: buf, type };
+    // Decode to read intrinsic pixel dimensions for proportional scaling.
+    let width = 0;
+    let height = 0;
+    try {
+      const blob = new Blob([buf], { type: mime || (type === "png" ? "image/png" : "image/jpeg") });
+      const objectUrl = URL.createObjectURL(blob);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const i = new Image();
+        i.onload = () => resolve(i);
+        i.onerror = () => reject(new Error("decode failed"));
+        i.src = objectUrl;
+      });
+      width = img.naturalWidth;
+      height = img.naturalHeight;
+      URL.revokeObjectURL(objectUrl);
+    } catch {
+      // Fallback to a sensible default if decoding fails
+      width = 0;
+      height = 0;
+    }
+    return { data: buf, type, width, height };
   } catch {
     return null;
   }
+}
+
+/**
+ * Compute proportional pixel dimensions for a logo so it fits within the
+ * MAX_LOGO box without distortion or upscaling.
+ *
+ * docx-js `transformation` is in pixels (1 px = 9525 EMU).
+ *   MAX_LOGO_WIDTH_EMU  = 1_440_000 ≈ 2.5 cm
+ *   MAX_LOGO_HEIGHT_EMU =   720_000 ≈ 1.25 cm
+ */
+const EMU_PER_PX = 9525;
+const MAX_LOGO_WIDTH_EMU = 1_440_000;
+const MAX_LOGO_HEIGHT_EMU = 720_000;
+const MAX_LOGO_WIDTH_PX = MAX_LOGO_WIDTH_EMU / EMU_PER_PX; // ~151
+const MAX_LOGO_HEIGHT_PX = MAX_LOGO_HEIGHT_EMU / EMU_PER_PX; // ~75.6
+
+function computeLogoSize(naturalW: number, naturalH: number): { width: number; height: number } {
+  if (!naturalW || !naturalH) {
+    // Unknown intrinsic size — fall back to the max box, preserving the
+    // PDF's previous landscape-ish ratio.
+    return { width: Math.round(MAX_LOGO_WIDTH_PX), height: Math.round(MAX_LOGO_HEIGHT_PX) };
+  }
+  const scaleX = MAX_LOGO_WIDTH_PX / naturalW;
+  const scaleY = MAX_LOGO_HEIGHT_PX / naturalH;
+  const scale = Math.min(scaleX, scaleY, 1.0);
+  return {
+    width: Math.max(1, Math.round(naturalW * scale)),
+    height: Math.max(1, Math.round(naturalH * scale)),
+  };
 }
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
