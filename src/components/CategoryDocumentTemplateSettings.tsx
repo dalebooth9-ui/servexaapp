@@ -194,7 +194,9 @@ export default function CategoryDocumentTemplateSettings() {
           .update({ file_url: urlData.signedUrl, file_name: file.name } as any)
           .eq("id", id);
         setTemplates((prev) => prev.map((t) => t.id === id ? { ...t, file_url: urlData.signedUrl, file_name: file.name } : t));
-        toast({ title: "File uploaded" });
+        setJustUploadedId(id);
+        setTimeout(() => setJustUploadedId((curr) => (curr === id ? null : curr)), 1800);
+        toast({ title: "File uploaded", description: "View, Print and Download are now available." });
       }
     }
     setUploadingFor(null);
