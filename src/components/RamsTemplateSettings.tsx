@@ -38,23 +38,35 @@ export default function RamsTemplateSettings() {
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchTemplate = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("job_sheet_templates")
-      .select("*")
-      .eq("category", "rams")
-      .limit(1)
-      .maybeSingle();
+    setError(null);
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from("job_sheet_templates")
+        .select("*")
+        .eq("category", "rams")
+        .limit(1)
+        .maybeSingle();
 
-    if (data) {
-      setTemplate({
-        ...data,
-        fields: (typeof data.fields === "string" ? JSON.parse(data.fields) : data.fields) as TemplateField[],
-        branding: (data.branding as Record<string, any>) || {},
-      });
+      if (fetchErr) throw fetchErr;
+
+      if (data) {
+        setTemplate({
+          ...data,
+          fields: (typeof data.fields === "string" ? JSON.parse(data.fields) : data.fields) as TemplateField[],
+          branding: (data.branding as Record<string, any>) || {},
+        });
+      } else {
+        setTemplate(null);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to load RAMS template.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchTemplate(); }, []);
