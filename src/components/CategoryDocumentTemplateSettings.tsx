@@ -9,8 +9,24 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer } from "lucide-react";
+import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer, Download } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
+import BlankTemplateWordExport from "./BlankTemplateWordExport";
+
+type JobSheetTemplate = {
+  id: string;
+  name: string;
+  description: string | null;
+  standard?: string | null;
+  fields: any;
+  branding?: any;
+  category?: string | null;
+};
+
+function normalizeName(s: string | null | undefined) {
+  return (s || "").toLowerCase().replace(/\s+/g, " ").trim();
+}
 
 type DocTemplate = {
   id: string;
@@ -47,6 +63,7 @@ export default function CategoryDocumentTemplateSettings() {
   const { toast } = useToast();
   const { categories } = useJobCategories();
   const [templates, setTemplates] = useState<DocTemplate[]>([]);
+  const [jobSheetTemplates, setJobSheetTemplates] = useState<JobSheetTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
@@ -58,16 +75,42 @@ export default function CategoryDocumentTemplateSettings() {
   const pendingUploadId = useRef<string | null>(null);
 
   const fetchTemplates = async () => {
-    const { data } = await supabase
-      .from("category_document_templates" as any)
-      .select("*")
-      .order("category_slug")
-      .order("sort_order");
+    const [{ data }, { data: jst }] = await Promise.all([
+      supabase
+        .from("category_document_templates" as any)
+        .select("*")
+        .order("category_slug")
+        .order("sort_order"),
+      supabase
+        .from("job_sheet_templates")
+        .select("id,name,description,standard,fields,branding,category"),
+    ]);
     setTemplates((data as unknown as DocTemplate[]) || []);
+    const parsed = ((jst as any[]) || []).map((t) => ({
+      ...t,
+      fields: typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields,
+    })) as JobSheetTemplate[];
+    setJobSheetTemplates(parsed);
     setLoading(false);
   };
 
   useEffect(() => { fetchTemplates(); }, []);
+
+  const resolveTemplate = (row: DocTemplate): JobSheetTemplate | null => {
+    const target = normalizeName(row.label);
+    if (!target) return null;
+    const candidates = jobSheetTemplates.filter((t) => normalizeName(t.name) === target);
+    if (candidates.length === 0) {
+      // Fallback: contains match
+      const partial = jobSheetTemplates.find((t) =>
+        normalizeName(t.name).includes(target) || target.includes(normalizeName(t.name)),
+      );
+      return partial || null;
+    }
+    // Prefer same category
+    const sameCat = candidates.find((t) => (t.category || "") === row.category_slug);
+    return sameCat || candidates[0];
+  };
 
   const handleToggle = async (id: string, enabled: boolean) => {
     setSaving(id);
@@ -233,7 +276,16 @@ export default function CategoryDocumentTemplateSettings() {
                       {cat?.name || slug}
                     </p>
                     <div className="space-y-2">
-                      {list.map((t) => (
+                      {list.map((t) => {
+                        const isFileRow = !!t.file_url && (
+                          t.document_type === "uploaded_file" ||
+                          t.document_type === "quote" ||
+                          t.document_type === "purchase_order" ||
+                          t.document_type === "site_drawing"
+                        );
+                        const isGenerated = t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf";
+                        const linked = isGenerated ? resolveTemplate(t) : null;
+                        return (
                         <div
                           key={t.id}
                           className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
@@ -249,39 +301,77 @@ export default function CategoryDocumentTemplateSettings() {
                               {t.file_name && (
                                 <span className="text-[10px] text-muted-foreground truncate">{t.file_name}</span>
                               )}
+                              {isGenerated && !linked && (
+                                <span className="text-[10px] text-muted-foreground italic">No matching template</span>
+                              )}
                             </div>
                           </div>
-                          {t.file_url && t.document_type === "uploaded_file" && (
-                            <>
+
+                          {/* File-backed rows: View / Print / Download */}
+                          {isFileRow && (
+                            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 text-muted-foreground"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
-                                  // Trigger print once the file loads
-                                  if (win) {
-                                    win.addEventListener("load", () => {
-                                      try { win.print(); } catch { /* noop */ }
-                                    });
-                                  }
-                                }}
-                                title="Print file"
-                              >
-                                <Printer className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 text-muted-foreground"
-                                onClick={(e) => { e.stopPropagation(); window.open(t.file_url!, "_blank", "noopener,noreferrer"); }}
+                                variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={() => window.open(t.file_url!, "_blank", "noopener,noreferrer")}
                                 title="View file"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </Button>
-                            </>
+                              <Button
+                                variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={() => {
+                                  const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
+                                  if (win) {
+                                    win.addEventListener("load", () => { try { win.print(); } catch { /* noop */ } });
+                                  }
+                                }}
+                                title="Print now"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={() => {
+                                  const a = document.createElement("a");
+                                  a.href = t.file_url!;
+                                  a.download = t.file_name || t.label;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                }}
+                                title="Download file"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           )}
+
+                          {/* Generated rows: PDF view + print + Word */}
+                          {isGenerated && linked && (
+                            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                              <BlankTemplatePdfExport
+                                template={{
+                                  id: linked.id,
+                                  name: linked.name,
+                                  description: linked.description,
+                                  standard: linked.standard,
+                                  fields: linked.fields,
+                                  branding: linked.branding || {},
+                                }}
+                                jobInfo={null}
+                                showPrint
+                              />
+                              <BlankTemplateWordExport
+                                template={{
+                                  name: linked.name,
+                                  description: linked.description || undefined,
+                                  standard: linked.standard || undefined,
+                                  fields: linked.fields,
+                                }}
+                              />
+                            </div>
+                          )}
+
                           {t.document_type === "uploaded_file" && (
                             <Button
                               variant="outline"
@@ -310,7 +400,8 @@ export default function CategoryDocumentTemplateSettings() {
                             <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
