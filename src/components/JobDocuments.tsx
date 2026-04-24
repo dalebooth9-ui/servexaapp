@@ -9,6 +9,7 @@ import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 import PreStartChecklistPdf from "@/components/PreStartChecklistPdf";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import type { RamsType } from "@/components/RamsPdfExport";
 
 type JobDoc = {
