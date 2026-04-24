@@ -71,3 +71,27 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+
+## Required secrets — WhatsApp & Email functions
+
+These edge functions return **HTTP 503** with `{ "error": "missing_configuration", "missing": [...] }` until every secret below is set.
+
+### WhatsApp (Twilio)
+Used by `send-whatsapp` and `whatsapp-webhook`:
+
+| Secret | Purpose |
+|---|---|
+| `TWILIO_ACCOUNT_SID` | Twilio account identifier |
+| `TWILIO_AUTH_TOKEN` | Twilio auth token (signs/validates requests) |
+| `TWILIO_WHATSAPP_NUMBER` | Sender number in E.164 format (e.g. `+14155238886`) |
+
+### Email (Resend via Lovable AI Gateway)
+Used by `send-engineer-onboarding`, `send-test-reminder`, `send-weekly-report`, and `test-resend-email`:
+
+| Secret | Purpose |
+|---|---|
+| `LOVABLE_API_KEY` | Authenticates calls to the Lovable connector gateway |
+| `RESEND_API_KEY` | Resend connection key used by the gateway |
+
+### Where to add them
+In the Lovable editor, open **Cloud → Secrets** (or press **⌘K / Ctrl+K** and search for "Secrets"), click **Add secret**, paste the name exactly as shown above plus the value, and save. Edge functions pick up new values on their next invocation — no redeploy required.
