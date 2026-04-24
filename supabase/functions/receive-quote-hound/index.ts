@@ -559,11 +559,35 @@ serve(async (req) => {
     }
 
     // ── Normalise field names ──────────────────────────────────────────────────
-    const clientName = quote.client_name ?? quote.clientName ?? null;
+    // The "customer" is the contracting company who hires Viva Fire (e.g.
+    // "Fireworks Fire Protection"). The Mellor sometimes puts the SITE name
+    // (e.g. "7 Burlington Gardens") into `client_name`, so we prefer richer
+    // company-identifying fields first and only fall back to `client_name`
+    // when nothing better is provided.
+    const customerName =
+      quote.customer_name ?? quote.customerName ??
+      quote.account_name ?? quote.accountName ??
+      quote.company_name ?? quote.companyName ??
+      quote.company ?? quote.account ??
+      quote.for_company ?? quote.forCompany ??
+      quote.requested_by_company ?? quote.requestedByCompany ??
+      quote.contractor_name ?? quote.contractorName ??
+      quote.contractor ??
+      quote.bill_to ?? quote.billTo ??
+      quote.client_company ?? quote.clientCompany ??
+      body.customer_name ?? body.account_name ?? body.company_name ?? body.company ??
+      // Final fallback — the historic field, which The Mellor sometimes
+      // populates with the site name. Better than no customer at all.
+      quote.client_name ?? quote.clientName ?? null;
+    const clientName = customerName; // alias kept for downstream code
+    const siteName = quote.site_name ?? quote.siteName ?? quote.client_name ?? quote.clientName ?? null;
     const contactEmail = quote.contact_email ?? quote.contactEmail ?? null;
     const contactPhone = quote.contact_phone ?? quote.contactPhone ?? null;
     const contactName = quote.contact_name ?? quote.contactName ?? null;
-    const jobAddress = quote.job_address ?? quote.jobAddress ?? quote.address ?? null;
+    const jobAddress = quote.job_address ?? quote.jobAddress ?? quote.address ?? siteName ?? null;
+    console.log(
+      `[receive-quote-hound] Customer resolution → customer="${customerName}" site="${siteName}" address="${jobAddress}"`
+    );
     const jobType = quote.job_type ?? quote.jobType ?? quote.type ?? null;
     const quoteNumber = quote.reference ?? quote.quote_number ?? quote.quoteNumber ?? null;
     const value = quote.value ?? null;
