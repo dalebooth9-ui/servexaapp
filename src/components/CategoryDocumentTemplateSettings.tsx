@@ -447,6 +447,19 @@ function TemplateRow({
           {!uploading && !justUploaded && t.file_name && (
             <span className="text-[10px] text-muted-foreground truncate">{t.file_name}</span>
           )}
+          {!uploading && !justUploaded && !t.file_name && supportsUpload && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onUpload(); }}
+              className="text-[10px] font-medium text-primary hover:underline inline-flex items-center gap-1"
+              aria-label={`Upload file for ${t.label}`}
+            >
+              <Upload className="h-3 w-3" />
+              {t.document_type === "site_drawing"
+                ? "No drawing attached — click to upload"
+                : "No file attached — click to upload"}
+            </button>
+          )}
           {(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") && !linked && (
             <span className="text-[10px] text-muted-foreground italic">No matching template</span>
           )}
