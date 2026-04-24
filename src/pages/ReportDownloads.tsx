@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, Search, FileArchive, Printer, FileText } from "lucide-react";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak } from "docx";
 import { useToast } from "@/hooks/use-toast";
+import { getCachedLogo } from "@/lib/logoCache";
 
 type CompletedJob = {
   id: string;
