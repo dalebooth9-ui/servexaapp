@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FileText, Plus, Trash2, Upload, Loader2, FolderOpen, ExternalLink, Printer, Download, MoreVertical } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import { useIsMobile } from "@/hooks/use-mobile";
 import BlankTemplatePdfExport, { type BlankTemplatePdfExportHandle } from "./BlankTemplatePdfExport";
 import BlankTemplateWordExport, { type BlankTemplateWordExportHandle } from "./BlankTemplateWordExport";
 import {
