@@ -14,6 +14,9 @@ import {
   WidthType,
   BorderStyle,
   AlignmentType,
+  ShadingType,
+  VerticalAlign,
+  HeightRule,
 } from "docx";
 
 type TemplateField = {
