@@ -53,7 +53,7 @@ import InstallationProjects from "@/components/InstallationProjects";
 import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
-import { buildAttachPlan, insertDraftResponses, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
+import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
 
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
