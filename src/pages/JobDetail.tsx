@@ -456,7 +456,18 @@ export default function JobDetail() {
                         </Badge>
                       </div>
                     )}
-                    <div><span className="text-muted-foreground">Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
+                    <div>
+                      <span className="text-muted-foreground">Customer:</span>{" "}
+                      <span className="font-medium">
+                        {job.customers?.name || job.customer || "—"}
+                      </span>
+                      {!job.customers?.name && job.customer && (
+                        <span className="ml-2 text-[10px] uppercase tracking-wide text-amber-600 dark:text-amber-400">
+                          unlinked
+                        </span>
+                      )}
+                    </div>
+                    <div><span className="text-muted-foreground">Site Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
                     {jobW3W && (
                       <div className="flex items-center gap-1">
                         <span className="text-muted-foreground">what3words:</span>
