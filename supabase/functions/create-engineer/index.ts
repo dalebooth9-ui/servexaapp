@@ -163,15 +163,12 @@ serve(async (req) => {
                   </p>
                 </div>
               `,
-            });
+          });
 
-            if (emailError) {
-              console.error("Failed to send reset email:", emailError);
-            } else {
-              emailSent = true;
-            }
+          if (emailError) {
+            console.error("Failed to send reset email:", emailError);
           } else {
-            console.error("RESEND_API_KEY not configured");
+            emailSent = true;
           }
         }
       } catch (emailErr) {
