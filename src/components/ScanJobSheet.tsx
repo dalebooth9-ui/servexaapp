@@ -28,6 +28,7 @@ type Template = {
   id: string;
   name: string;
   fields: TemplateField[];
+  footer_text?: string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
