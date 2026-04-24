@@ -231,8 +231,9 @@ export default function ReportDownloads() {
       //  - the report PDF (as <embed>)
       //  - each document PDF (as <embed>)
       //  - all images
+      const reportBytes = Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0));
       const reportPdfUrl = URL.createObjectURL(
-        new Blob([Uint8Array.from(atob(pdfBase64), (c) => c.charCodeAt(0))], { type: "application/pdf" })
+        new Blob([reportBytes.buffer as ArrayBuffer], { type: "application/pdf" })
       );
 
       const docEmbeds: string[] = [];
