@@ -304,6 +304,7 @@ export default function CategoryDocumentTemplateSettings() {
                               checked={t.enabled}
                               onCheckedChange={(v) => handleToggle(t.id, v)}
                               disabled={saving === t.id}
+                              aria-label={`${t.enabled ? "Disable" : "Enable"} ${t.label}`}
                             />
                           </div>
                           <Button
