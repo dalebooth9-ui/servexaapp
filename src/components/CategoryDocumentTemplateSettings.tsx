@@ -481,42 +481,60 @@ function TemplateRow({
         <div className="sm:hidden" onClick={(e) => e.stopPropagation()}>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" aria-label={`More actions for ${t.label}`}>
+              <Button
+                ref={menuTriggerRef}
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 shrink-0 text-muted-foreground"
+                aria-label={`More actions for ${t.label}`}
+              >
                 <MoreVertical className="h-4 w-4" aria-hidden />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-popover">
+            <DropdownMenuContent
+              align="end"
+              className="w-48 bg-popover"
+              onCloseAutoFocus={(e) => {
+                // Always restore focus to the trigger when the menu closes,
+                // even if a menu action (print/preview/download) tried to move focus elsewhere.
+                e.preventDefault();
+                menuTriggerRef.current?.focus();
+              }}
+            >
               {isFileRow && (
                 <>
-                  <DropdownMenuItem onClick={viewFile}>
-                    <ExternalLink className="mr-2 h-3.5 w-3.5" /> View
+                  <DropdownMenuItem onSelect={() => runAfterClose(viewFile)}>
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" aria-hidden /> View
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={printFile}>
-                    <Printer className="mr-2 h-3.5 w-3.5" /> Print now
+                  <DropdownMenuItem onSelect={() => runAfterClose(printFile)}>
+                    <Printer className="mr-2 h-3.5 w-3.5" aria-hidden /> Print now
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={downloadFile}>
-                    <Download className="mr-2 h-3.5 w-3.5" /> Download
+                  <DropdownMenuItem onSelect={() => runAfterClose(downloadFile)}>
+                    <Download className="mr-2 h-3.5 w-3.5" aria-hidden /> Download
                   </DropdownMenuItem>
                 </>
               )}
               {isGenerated && (
                 <>
-                  <DropdownMenuItem onClick={() => pdfRef.current?.download()}>
-                    <Download className="mr-2 h-3.5 w-3.5" /> Download PDF
+                  <DropdownMenuItem onSelect={() => runAfterClose(() => pdfRef.current?.download())}>
+                    <Download className="mr-2 h-3.5 w-3.5" aria-hidden /> Download PDF
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => pdfRef.current?.print()}>
-                    <Printer className="mr-2 h-3.5 w-3.5" /> Print now
+                  <DropdownMenuItem onSelect={() => runAfterClose(() => pdfRef.current?.print())}>
+                    <Printer className="mr-2 h-3.5 w-3.5" aria-hidden /> Print now
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => wordRef.current?.openPreview()}>
-                    <FileText className="mr-2 h-3.5 w-3.5" /> Save as Word
+                  <DropdownMenuItem onSelect={() => runAfterClose(() => wordRef.current?.openPreview())}>
+                    <FileText className="mr-2 h-3.5 w-3.5" aria-hidden /> Save as Word
                   </DropdownMenuItem>
                 </>
               )}
               {supportsUpload && (
                 <>
                   {(isFileRow || isGenerated) && <DropdownMenuSeparator />}
-                  <DropdownMenuItem onClick={onUpload} disabled={uploading}>
-                    <Upload className="mr-2 h-3.5 w-3.5" />
+                  <DropdownMenuItem
+                    onSelect={() => runAfterClose(onUpload)}
+                    disabled={uploading}
+                  >
+                    <Upload className="mr-2 h-3.5 w-3.5" aria-hidden />
                     {t.file_name ? "Replace file" : "Upload file"}
                   </DropdownMenuItem>
                 </>
