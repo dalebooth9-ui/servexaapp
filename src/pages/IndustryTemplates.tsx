@@ -842,6 +842,55 @@ export default function IndustryTemplates() {
     job_category?: string | null; branding?: Record<string, any>;
   } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [bulkExporting, setBulkExporting] = useState(false);
+
+  /** Build a .docx for every visible template and download as a single .zip. */
+  const handleExportAllToWord = async () => {
+    if (!filtered.length) return;
+    setBulkExporting(true);
+    try {
+      const zip = new JSZip();
+      const usedNames = new Map<string, number>();
+      for (const tpl of filtered) {
+        const doc = buildBlankTemplateDoc({
+          name: tpl.name,
+          description: tpl.description,
+          standard: tpl.standard,
+          fields: tpl.fields as any,
+        });
+        const blob = await Packer.toBlob(doc);
+        let base = `${blankTemplateFileSlug(tpl.name)}-blank`;
+        const count = usedNames.get(base) || 0;
+        usedNames.set(base, count + 1);
+        const fileName = count === 0 ? `${base}.docx` : `${base}-${count + 1}.docx`;
+        // Group inside zip by category folder for tidiness
+        const folder = (CATEGORY_META[tpl.category]?.label || "Other").replace(/[^a-z0-9]+/gi, "-");
+        zip.file(`${folder}/${fileName}`, blob);
+      }
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      const stamp = new Date().toISOString().slice(0, 10);
+      a.href = url;
+      a.download = `industry-templates-${stamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      toast({
+        title: "Bulk Word export complete",
+        description: `${filtered.length} template${filtered.length === 1 ? "" : "s"} packaged as .docx`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Bulk export failed",
+        description: err?.message || "Unable to generate Word archive",
+        variant: "destructive",
+      });
+    } finally {
+      setBulkExporting(false);
+    }
+  };
 
   // Map template category → RAMS type
   const CATEGORY_TO_RAMS_TYPE: Record<string, RamsType> = {
