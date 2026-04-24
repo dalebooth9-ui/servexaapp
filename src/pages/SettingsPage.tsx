@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 import JobDocumentReattachSettings from "@/components/JobDocumentReattachSettings";
 import FilenameFormatSettings from "@/components/FilenameFormatSettings";
+import { WordExportSettings } from "@/components/WordExportSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://servexaapp.lovable.app/install";
