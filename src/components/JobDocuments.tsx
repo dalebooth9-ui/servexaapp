@@ -756,7 +756,7 @@ function DocRow({
               {DOC_TYPE_BADGE[doc.document_type] ?? "File"}
             </Badge>
           )}
-          {doc.file_name && (
+          {doc.file_name && !UUID_RE.test(doc.file_name.replace(/\.[^.]+$/, "")) && (
             <span className="text-[10px] text-muted-foreground truncate">{doc.file_name}</span>
           )}
           {isUploadSlot && !hasFile && (
