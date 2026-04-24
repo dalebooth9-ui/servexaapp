@@ -22,6 +22,15 @@ export interface AutoPopulateJobInfo {
 }
 
 /**
+ * Detect British/European standard reference prefixes at the start of a label,
+ * e.g. "BS 9990", "BS9990:2015", "EN 3", "EN137", "BS EN 671", "BSEN671".
+ * Centralised so all PDF heuristics stay in sync — do not inline this regex.
+ */
+export function isStandardReference(label: string): boolean {
+  return /^(bs\s?(en\s?)?|en\s?)\d/i.test(label.trim());
+}
+
+/**
  * Auto-populate field values for a PDF export based on job/site data,
  * mirroring the online sheet logic.
  */
@@ -518,7 +527,7 @@ export function renderBlankFieldRow(
     const isYesNoQuestion =
       field.type === "yes_no" ||
       lbl.endsWith("?") ||
-      /^(bs\s?(en\s?)?|en\s?)\d/i.test(lbl);
+      isStandardReference(lbl);
     const incompatibleType =
       field.type === "text" || field.type === "number" || field.type === "date" ||
       field.type === "textarea" || field.type === "long_text" ||
