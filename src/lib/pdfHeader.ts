@@ -51,9 +51,11 @@ export async function renderPdfHeader(
 
   const companyName = branding.company_name || "";
   const companySubtitle = branding.company_subtitle || "";
-  // Fall back to Viva Fire logo only when logo_url is strictly undefined (no branding info at all).
-  // When logo_url is null or "" it means a customer was selected but has no logo — skip the fallback.
-  const logoUrl = branding.logo_url === undefined ? "/images/vivafire-logo-new.jpg" : (branding.logo_url || "");
+  // Default to the Viva Fire logo for every PDF. Only override when the customer has
+  // their own uploaded logo (a real, non-empty URL on the customer record).
+  const logoUrl = branding.logo_url && branding.logo_url.trim() !== ""
+    ? branding.logo_url
+    : "/images/vivafire-logo-new.jpg";
 
   // --- Logo ---
   let logoBottomY = y;
