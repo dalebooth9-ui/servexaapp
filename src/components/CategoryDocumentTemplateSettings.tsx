@@ -371,12 +371,14 @@ function TemplateRow({
   t,
   linked,
   uploading,
+  justUploaded = false,
   onUpload,
   children,
 }: {
   t: DocTemplateRow;
   linked: JobSheetTemplate | null;
   uploading: boolean;
+  justUploaded?: boolean;
   onUpload: () => void;
   children: React.ReactNode;
 }) {
