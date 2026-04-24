@@ -1401,10 +1401,14 @@ function renderFormField(
     case "checkbox": {
       // Two explicit tick boxes — YES and NO — so the inspector must make a deliberate choice.
       // Tri-state: undefined/null = no answer yet; true = YES; false = NO.
+      // Air release valve fields get a third "NO ACCESS" option.
+      const lbl = (field.label || "").toLowerCase();
+      const isAirRelease = lbl.includes("air release");
       const isYes = value === true;
       const isNo = value === false;
+      const isNoAccess = typeof value === "string" && value.toUpperCase() === "NO ACCESS";
       return (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-1.5 cursor-pointer">
             <Checkbox
               checked={isYes}
@@ -1421,6 +1425,16 @@ function renderFormField(
             />
             <span className="text-xs text-muted-foreground">NO</span>
           </label>
+          {isAirRelease && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox
+                checked={isNoAccess}
+                onCheckedChange={(checked) => onChange(checked ? "NO ACCESS" : null)}
+                aria-label="No Access"
+              />
+              <span className="text-xs text-muted-foreground">NO ACCESS</span>
+            </label>
+          )}
         </div>
       );
     }
