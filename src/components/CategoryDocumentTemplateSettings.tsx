@@ -90,6 +90,7 @@ export default function CategoryDocumentTemplateSettings() {
   const [adding, setAdding] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingUploadId = useRef<string | null>(null);
+  const rowRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   const fetchTemplates = async () => {
     const [{ data }, { data: jst }] = await Promise.all([
@@ -195,6 +196,13 @@ export default function CategoryDocumentTemplateSettings() {
           .eq("id", id);
         setTemplates((prev) => prev.map((t) => t.id === id ? { ...t, file_url: urlData.signedUrl, file_name: file.name } : t));
         setJustUploadedId(id);
+        // Scroll the row into view on the next paint so the pulse is visible.
+        requestAnimationFrame(() => {
+          const el = rowRefs.current.get(id);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        });
         setTimeout(() => setJustUploadedId((curr) => (curr === id ? null : curr)), 1800);
         toast({ title: "File uploaded", description: "View, Print and Download are now available." });
       }
@@ -325,6 +333,10 @@ export default function CategoryDocumentTemplateSettings() {
                           linked={(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") ? resolveTemplate(t) : null}
                           uploading={uploadingFor === t.id}
                           justUploaded={justUploadedId === t.id}
+                          registerRef={(el) => {
+                            if (el) rowRefs.current.set(t.id, el);
+                            else rowRefs.current.delete(t.id);
+                          }}
                           onUpload={() => handleUploadFile(t.id)}
                         >
                           <div onClick={(e) => e.stopPropagation()}>
@@ -372,6 +384,7 @@ function TemplateRow({
   linked,
   uploading,
   justUploaded = false,
+  registerRef,
   onUpload,
   children,
 }: {
@@ -379,6 +392,7 @@ function TemplateRow({
   linked: JobSheetTemplate | null;
   uploading: boolean;
   justUploaded?: boolean;
+  registerRef?: (el: HTMLDivElement | null) => void;
   onUpload: () => void;
   children: React.ReactNode;
 }) {
@@ -424,7 +438,8 @@ function TemplateRow({
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-all duration-500 ${
+      ref={registerRef}
+      className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-all duration-500 scroll-mt-24 ${
         uploading ? "opacity-80 ring-1 ring-primary/40" : ""
       } ${justUploaded ? "ring-2 ring-emerald-500/70 bg-emerald-500/5 animate-pulse" : ""}`}
       onClick={() => { if (t.file_url) window.open(t.file_url, "_blank", "noopener,noreferrer"); }}
