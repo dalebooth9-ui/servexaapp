@@ -26,6 +26,7 @@ type Template = {
   name: string;
   description: string | null;
   fields: PdfTemplateField[];
+  footer_text?: string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -243,7 +244,7 @@ export async function generateJobSheetPdf(
   }
   // Customer logo always takes priority over the template's stored branding logo
   const branding = { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
-  const footerText = getDefaultFooterText(template.name, branding);
+  const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
 
   // --- Load customer logo and extract dominant brand colour ---
   let brandLogoImg: HTMLImageElement | null = null;

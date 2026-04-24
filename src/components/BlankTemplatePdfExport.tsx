@@ -26,6 +26,7 @@ type Template = {
   description: string | null;
   standard?: string | null;
   fields: PdfTemplateField[];
+  footer_text?: string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -109,7 +110,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
       const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
-      const footerText = getDefaultFooterText(template.name, branding);
+      const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
       const autoVals = getAutoPopulatedValues(template.name, template.fields, jobInfo ? { ...jobInfo, categoryName } : jobInfo);

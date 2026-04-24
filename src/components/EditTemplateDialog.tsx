@@ -249,7 +249,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setCompanyName(b.company_name || "");
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
-    setFooterText(b.footer_text || "");
+    setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     setInitialised(true);
   }
   if (!open && initialised) {
@@ -320,7 +320,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setCompanyName(b.company_name || "");
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
-    setFooterText(b.footer_text || "");
+    setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     toast({ title: "Reverted to saved version" });
   };
 
@@ -349,6 +349,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       job_category: jobCategory || null,
       fields: fields as any,
       branding: branding as any,
+      footer_text: footerText.trim() || null,
     } as any).eq("id", template.id);
 
     if (error) {
@@ -497,7 +498,8 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                 </div>
                 <div>
                   <Label className="text-xs">Footer Declaration</Label>
-                  <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have carried out the works in accordance with..." rows={3} className="text-sm" />
+                  <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have, today, carried out this inspection to the requirements of BS 9990:2015" rows={3} className="text-sm" />
+                  <p className="text-[11px] text-muted-foreground">Overrides any automatic footer for this template. Leave blank to use the system default (or none).</p>
                 </div>
                 <div className="flex items-center gap-3">
                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
