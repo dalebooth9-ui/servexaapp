@@ -276,7 +276,16 @@ export default function CategoryDocumentTemplateSettings() {
                       {cat?.name || slug}
                     </p>
                     <div className="space-y-2">
-                      {list.map((t) => (
+                      {list.map((t) => {
+                        const isFileRow = !!t.file_url && (
+                          t.document_type === "uploaded_file" ||
+                          t.document_type === "quote" ||
+                          t.document_type === "purchase_order" ||
+                          t.document_type === "site_drawing"
+                        );
+                        const isGenerated = t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf";
+                        const linked = isGenerated ? resolveTemplate(t) : null;
+                        return (
                         <div
                           key={t.id}
                           className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
@@ -292,39 +301,77 @@ export default function CategoryDocumentTemplateSettings() {
                               {t.file_name && (
                                 <span className="text-[10px] text-muted-foreground truncate">{t.file_name}</span>
                               )}
+                              {isGenerated && !linked && (
+                                <span className="text-[10px] text-muted-foreground italic">No matching template</span>
+                              )}
                             </div>
                           </div>
-                          {t.file_url && t.document_type === "uploaded_file" && (
-                            <>
+
+                          {/* File-backed rows: View / Print / Download */}
+                          {isFileRow && (
+                            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
                               <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 text-muted-foreground"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
-                                  // Trigger print once the file loads
-                                  if (win) {
-                                    win.addEventListener("load", () => {
-                                      try { win.print(); } catch { /* noop */ }
-                                    });
-                                  }
-                                }}
-                                title="Print file"
-                              >
-                                <Printer className="h-3.5 w-3.5" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 shrink-0 text-muted-foreground"
-                                onClick={(e) => { e.stopPropagation(); window.open(t.file_url!, "_blank", "noopener,noreferrer"); }}
+                                variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={() => window.open(t.file_url!, "_blank", "noopener,noreferrer")}
                                 title="View file"
                               >
                                 <ExternalLink className="h-3.5 w-3.5" />
                               </Button>
-                            </>
+                              <Button
+                                variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={() => {
+                                  const win = window.open(t.file_url!, "_blank", "noopener,noreferrer");
+                                  if (win) {
+                                    win.addEventListener("load", () => { try { win.print(); } catch { /* noop */ } });
+                                  }
+                                }}
+                                title="Print now"
+                              >
+                                <Printer className="h-3.5 w-3.5" />
+                              </Button>
+                              <Button
+                                variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground"
+                                onClick={() => {
+                                  const a = document.createElement("a");
+                                  a.href = t.file_url!;
+                                  a.download = t.file_name || t.label;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  a.remove();
+                                }}
+                                title="Download file"
+                              >
+                                <Download className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
                           )}
+
+                          {/* Generated rows: PDF view + print + Word */}
+                          {isGenerated && linked && (
+                            <div className="flex items-center" onClick={(e) => e.stopPropagation()}>
+                              <BlankTemplatePdfExport
+                                template={{
+                                  id: linked.id,
+                                  name: linked.name,
+                                  description: linked.description,
+                                  standard: linked.standard,
+                                  fields: linked.fields,
+                                  branding: linked.branding || {},
+                                }}
+                                jobInfo={null}
+                                showPrint
+                              />
+                              <BlankTemplateWordExport
+                                template={{
+                                  name: linked.name,
+                                  description: linked.description || undefined,
+                                  standard: linked.standard || undefined,
+                                  fields: linked.fields,
+                                }}
+                              />
+                            </div>
+                          )}
+
                           {t.document_type === "uploaded_file" && (
                             <Button
                               variant="outline"
