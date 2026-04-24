@@ -276,6 +276,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         // Comments box — bottom sits 10mm above the date/signature line
         const sigY = pageHeight - footerSpace - 10;
         const commentsBoxBottom = sigY - 10;
+        // If the section content already pushed past the comments area,
+        // start a new page so signatures and comments never overlap.
+        if (y + 8 > commentsBoxBottom) {
+          doc.addPage();
+          y = margin;
+        }
         const commentsBoxTop = y + 4;
         const commentsRectH = Math.max(commentsBoxBottom - commentsBoxTop, 4);
         doc.setFontSize(8.5);
