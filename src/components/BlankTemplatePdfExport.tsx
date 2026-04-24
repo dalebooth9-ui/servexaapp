@@ -115,7 +115,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-      const branding = { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
+      // Dry Riser worksheet: force Viva Fire branding regardless of customer logo
+      const isDryRiser = /dry\s*riser/i.test(template.name || "");
+      const branding = isDryRiser
+        ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
+        : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
       const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
         || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
@@ -155,7 +159,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         // Add a new page for every sheet after the first
         if (sysIdx > 0) doc.addPage();
 
-        const sheetTitle = template.name;
+        const sheetTitle = isDryRiser ? "Dry Riser Pressure Test" : template.name;
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName,
@@ -169,7 +173,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
-        const footerSpace = 58; // mirror filled export bottom stack so one-page templates stay compact
+        // Dry Riser uses a compact declaration footer bar (no accreditation logos),
+        // so it needs less reserved bottom space than the standard layout.
+        const footerSpace = isDryRiser ? 42 : 58;
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
@@ -283,7 +289,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y = margin;
         }
         const commentsBoxTop = y + 4;
-        const maxCommentsH = 40; // ~5-6 lines — keeps page 1 self-contained
+        const maxCommentsH = isDryRiser ? 65 : 40; // Dry Riser target shows a tall comments box
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), 10);
         doc.setFontSize(8.5);
@@ -298,20 +304,52 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           customerName: "",
         }, { blank: true });
 
-        const footerH = 9;
-        const footerY = pageHeight - margin - footerH;
-        renderPdfFooter(doc, footerY, footerText);
+        if (!isDryRiser) {
+          const footerH = 9;
+          const footerY = pageHeight - margin - footerH;
+          renderPdfFooter(doc, footerY, footerText);
+        }
       }
 
       const logoH = 12; // bigger logos
-      const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
+      const custAccredUrls = isDryRiser ? [] : await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      if (!isDryRiser) {
+        addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      } else {
+        // Dry Riser: bordered declaration bar at the bottom of every page
+        const pageCount = doc.getNumberOfPages();
+        const barH = 12;
+        const barY = pageHeight - margin - barH;
+        const barX = margin;
+        const barW = pageWidth - margin * 2;
+        for (let p = 1; p <= pageCount; p++) {
+          doc.setPage(p);
+          doc.setDrawColor(0);
+          doc.setLineWidth(0.3);
+          doc.rect(barX, barY, barW, barH);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8.5);
+          doc.setTextColor(20, 20, 20);
+          doc.text(
+            "We have, today, carried out this inspection",
+            barX + barW / 2,
+            barY + 4.5,
+            { align: "center" },
+          );
+          doc.text(
+            "to the requirements of BS 9990:2015",
+            barX + barW / 2,
+            barY + 9,
+            { align: "center" },
+          );
+        }
+      }
 
       const fileName = [
         jobInfo?.reference_number || "blank",
