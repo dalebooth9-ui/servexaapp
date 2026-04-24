@@ -438,7 +438,8 @@ function TemplateRow({
 
   return (
     <div
-      className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-all duration-500 ${
+      ref={registerRef}
+      className={`flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-all duration-500 scroll-mt-24 ${
         uploading ? "opacity-80 ring-1 ring-primary/40" : ""
       } ${justUploaded ? "ring-2 ring-emerald-500/70 bg-emerald-500/5 animate-pulse" : ""}`}
       onClick={() => { if (t.file_url) window.open(t.file_url, "_blank", "noopener,noreferrer"); }}
