@@ -513,29 +513,32 @@ export function renderBlankFieldRow(
       ox += 4 + doc.getTextWidth(opt.toUpperCase()) + 3;
     }
     doc.setFontSize(8.5);
-  } else if (autoVal) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
-    doc.text(truncVal, margin + colSplit + 2, y + 3.5);
-    doc.setFontSize(8.5);
   } else {
-    // Auto-render YES/NO tick boxes for question-style rows whose type
-    // wasn't explicitly set (covers BS-standard questions stored as plain text).
+    // Detect question-style labels (covers BS-standard rows stored as plain text)
     const lbl = field.label.trim();
     const looksLikeQuestion =
       lbl.endsWith("?") ||
       /^bs\s?\d/i.test(lbl) ||
-      /\b(is|are|does|do|has|have|was|were|can|should)\b/i.test(lbl.split(/\s+/).slice(0, 6).join(" "));
-    const isFreeText =
-      field.type === "text" || field.type === "textarea" || field.type === "long_text" ||
-      field.type === "number" || field.type === "date" || field.type === "signature" ||
-      field.type === "photo";
-    if (looksLikeQuestion && !isFreeText) {
+      /\b(is|are|does|do|has|have|was|were|can|should|must|shall)\b/i.test(
+        lbl.split(/\s+/).slice(0, 8).join(" ")
+      );
+    // Only skip YES/NO boxes for types where they are clearly inappropriate.
+    const incompatibleType =
+      field.type === "number" || field.type === "date" ||
+      field.type === "signature" || field.type === "photo" ||
+      field.type === "textarea" || field.type === "long_text";
+
+    if (looksLikeQuestion && !incompatibleType) {
       const bx = margin + colSplit + 2;
       doc.setFontSize(6);
       doc.rect(bx, y + 1, 3, 3); doc.text("YES", bx + 4, y + 3.5);
       doc.rect(bx + 14, y + 1, 3, 3); doc.text("NO", bx + 18, y + 3.5);
+      doc.setFontSize(8.5);
+    } else if (autoVal) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
+      doc.text(truncVal, margin + colSplit + 2, y + 3.5);
       doc.setFontSize(8.5);
     }
   }
