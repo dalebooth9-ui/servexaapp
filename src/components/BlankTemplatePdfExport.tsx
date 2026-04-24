@@ -169,7 +169,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
-        const footerSpace = 44; // footer(9) + logos(12+3) + sigs(15) + buffer
+        const footerSpace = 64; // comments(20) + sigs(15) + accred logos(12+3) + footer(9) + buffer
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
