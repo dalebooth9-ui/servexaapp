@@ -42,8 +42,8 @@ describe("renderBlankFieldRow YES/NO checkbox rendering", () => {
     ({ rects, texts } = instrument(doc));
   });
 
-  it("renders YES and NO tick boxes for a question-style label (text type)", () => {
-    const field = buildField({ type: "text", label: "Is the valve in good condition?" });
+  it("renders YES and NO tick boxes for a question-style label", () => {
+    const field = buildField({ type: "yes_no", label: "Is the valve in good condition?" });
     renderBlankFieldRow(doc, field, undefined, 50, { rowH: 6 });
 
     const labels = texts.map((t) => t.text);
