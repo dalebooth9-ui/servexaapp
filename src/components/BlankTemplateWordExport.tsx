@@ -57,8 +57,17 @@ type Props = {
   headless?: boolean;
 };
 
-/** Fetch an image URL and return raw bytes + mime; returns null on any error. */
-async function fetchImageBytes(url: string): Promise<{ data: Uint8Array; type: "png" | "jpg" } | null> {
+type CachedImage = { data: Uint8Array; type: "png" | "jpg" };
+type CacheEntry = CachedImage & { cachedAt: number };
+
+// Module-level in-memory cache for fetched logo/image bytes.
+// Key: full URL (so a refreshed signed URL transparently re-fetches).
+// Value: the same shape fetchImageBytesUncached returns + cachedAt timestamp.
+const IMAGE_CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes
+const imageBytesCache = new Map<string, CacheEntry>();
+
+/** Raw fetch — no caching. */
+async function fetchImageBytesUncached(url: string): Promise<CachedImage | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
@@ -70,6 +79,29 @@ async function fetchImageBytes(url: string): Promise<{ data: Uint8Array; type: "
     return null;
   }
 }
+
+/**
+ * Fetch an image URL and return raw bytes + mime; returns null on any error.
+ * Results are cached in-memory for 10 minutes, keyed by the full URL string,
+ * so repeated exports in the same session avoid the network round-trip while
+ * a rotated/expired signed URL (different string) still triggers a fresh fetch.
+ */
+async function fetchImageBytes(url: string): Promise<CachedImage | null> {
+  const now = Date.now();
+  const hit = imageBytesCache.get(url);
+  if (hit && now - hit.cachedAt < IMAGE_CACHE_TTL_MS) {
+    return { data: hit.data, type: hit.type };
+  }
+  const fresh = await fetchImageBytesUncached(url);
+  if (fresh) {
+    imageBytesCache.set(url, { ...fresh, cachedAt: now });
+  } else {
+    // Drop any stale entry on failure so we don't keep returning bad data.
+    imageBytesCache.delete(url);
+  }
+  return fresh;
+}
+
 
 const cellBorder = { style: BorderStyle.SINGLE, size: 4, color: "B4B4B4" } as const;
 const cellBorders = {
