@@ -318,3 +318,215 @@ export default function CategoryDocumentTemplateSettings() {
     </Card>
   );
 }
+
+type DocTemplateRow = {
+  id: string;
+  category_slug: string;
+  document_type: string;
+  label: string;
+  file_url: string | null;
+  file_name: string | null;
+};
+
+function TemplateRow({
+  t,
+  linked,
+  uploading,
+  onUpload,
+  children,
+}: {
+  t: DocTemplateRow;
+  linked: JobSheetTemplate | null;
+  uploading: boolean;
+  onUpload: () => void;
+  children: React.ReactNode;
+}) {
+  const pdfRef = useRef<BlankTemplatePdfExportHandle>(null);
+  const wordRef = useRef<BlankTemplateWordExportHandle>(null);
+
+  const isFileRow = !!t.file_url && (
+    t.document_type === "uploaded_file" ||
+    t.document_type === "quote" ||
+    t.document_type === "purchase_order" ||
+    t.document_type === "site_drawing"
+  );
+  const isGenerated = (t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") && !!linked;
+  const supportsUpload =
+    t.document_type === "uploaded_file" ||
+    t.document_type === "quote" ||
+    t.document_type === "purchase_order" ||
+    t.document_type === "site_drawing";
+
+  const viewFile = () => t.file_url && window.open(t.file_url, "_blank", "noopener,noreferrer");
+  const printFile = () => {
+    if (!t.file_url) return;
+    const win = window.open(t.file_url, "_blank", "noopener,noreferrer");
+    if (win) win.addEventListener("load", () => { try { win.print(); } catch { /* noop */ } });
+  };
+  const downloadFile = () => {
+    if (!t.file_url) return;
+    const a = document.createElement("a");
+    a.href = t.file_url;
+    a.download = t.file_name || t.label;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  return (
+    <div
+      className="flex items-center gap-3 rounded-lg border bg-card px-3 py-2.5 cursor-pointer hover:bg-muted/40 transition-colors"
+      onClick={() => { if (t.file_url) window.open(t.file_url, "_blank", "noopener,noreferrer"); }}
+    >
+      <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium truncate">{t.label}</p>
+        <div className="flex items-center gap-2 mt-0.5">
+          <Badge variant="secondary" className="text-[10px]">{DOC_TYPE_LABELS[t.document_type]}</Badge>
+          {t.file_name && (
+            <span className="text-[10px] text-muted-foreground truncate">{t.file_name}</span>
+          )}
+          {(t.document_type === "blank_job_sheet" || t.document_type === "rams_pdf") && !linked && (
+            <span className="text-[10px] text-muted-foreground italic">No matching template</span>
+          )}
+        </div>
+      </div>
+
+      {/* Single mounted instance of the export components — drives both inline buttons (sm+) and mobile dropdown via refs */}
+      {isGenerated && linked && (
+        <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
+          <BlankTemplatePdfExport
+            ref={pdfRef}
+            template={{
+              id: linked.id,
+              name: linked.name,
+              description: linked.description,
+              standard: linked.standard,
+              fields: linked.fields,
+              branding: linked.branding || {},
+            }}
+            jobInfo={null}
+            showPrint
+          />
+          <BlankTemplateWordExport
+            ref={wordRef}
+            template={{
+              name: linked.name,
+              description: linked.description || undefined,
+              standard: linked.standard || undefined,
+              fields: linked.fields,
+            }}
+          />
+        </div>
+      )}
+      {isGenerated && linked && (
+        <div className="sm:hidden absolute -left-[9999px] top-0" aria-hidden onClick={(e) => e.stopPropagation()}>
+          {/* Hidden mount on mobile so refs are still attached */}
+          <BlankTemplatePdfExport
+            ref={pdfRef}
+            template={{
+              id: linked.id,
+              name: linked.name,
+              description: linked.description,
+              standard: linked.standard,
+              fields: linked.fields,
+              branding: linked.branding || {},
+            }}
+            jobInfo={null}
+            showPrint
+          />
+          <BlankTemplateWordExport
+            ref={wordRef}
+            template={{
+              name: linked.name,
+              description: linked.description || undefined,
+              standard: linked.standard || undefined,
+              fields: linked.fields,
+            }}
+          />
+        </div>
+      )}
+
+      {/* Desktop inline file actions */}
+      {isFileRow && (
+        <div className="hidden sm:flex items-center" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={viewFile} title="View file">
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={printFile} title="Print now">
+            <Printer className="h-3.5 w-3.5" />
+          </Button>
+          <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" onClick={downloadFile} title="Download file">
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+
+      {/* Desktop upload */}
+      {supportsUpload && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:inline-flex h-7 text-xs px-2 gap-1 shrink-0 ml-1"
+          onClick={(e) => { e.stopPropagation(); onUpload(); }}
+          disabled={uploading}
+        >
+          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
+          {t.file_name ? "Replace" : "Upload"}
+        </Button>
+      )}
+
+      {/* Mobile collapsed menu */}
+      {(isFileRow || isGenerated || supportsUpload) && (
+        <div className="sm:hidden" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 text-muted-foreground" title="More actions">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48 bg-popover">
+              {isFileRow && (
+                <>
+                  <DropdownMenuItem onClick={viewFile}>
+                    <ExternalLink className="mr-2 h-3.5 w-3.5" /> View
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={printFile}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> Print now
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={downloadFile}>
+                    <Download className="mr-2 h-3.5 w-3.5" /> Download
+                  </DropdownMenuItem>
+                </>
+              )}
+              {isGenerated && (
+                <>
+                  <DropdownMenuItem onClick={() => pdfRef.current?.download()}>
+                    <Download className="mr-2 h-3.5 w-3.5" /> Download PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => pdfRef.current?.print()}>
+                    <Printer className="mr-2 h-3.5 w-3.5" /> Print now
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => wordRef.current?.openPreview()}>
+                    <FileText className="mr-2 h-3.5 w-3.5" /> Save as Word
+                  </DropdownMenuItem>
+                </>
+              )}
+              {supportsUpload && (
+                <>
+                  {(isFileRow || isGenerated) && <DropdownMenuSeparator />}
+                  <DropdownMenuItem onClick={onUpload} disabled={uploading}>
+                    <Upload className="mr-2 h-3.5 w-3.5" />
+                    {t.file_name ? "Replace file" : "Upload file"}
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {children}
+    </div>
+  );
+}
