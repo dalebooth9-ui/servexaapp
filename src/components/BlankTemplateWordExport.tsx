@@ -478,6 +478,11 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
     }
   };
 
+  useImperativeHandle(ref, () => ({
+    openPreview: () => setOpen(true),
+    download,
+  }));
+
   return (
     <>
       <Button
