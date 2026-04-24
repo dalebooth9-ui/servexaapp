@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Printer } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -86,10 +86,20 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
-export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = false }: Props) {
+export type BlankTemplatePdfExportHandle = {
+  download: () => Promise<void> | void;
+  print: () => Promise<void> | void;
+};
+
+const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false }, ref) {
   const [generating, setGenerating] = useState(false);
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
+
+  useImperativeHandle(ref, () => ({
+    download: () => generate("download"),
+    print: () => generate("print"),
+  }));
 
   const generate = async (mode: "download" | "print" = "download") => {
     setGenerating(true);
@@ -322,4 +332,6 @@ export default function BlankTemplatePdfExport({ template, jobInfo, showPrint = 
       )}
     </div>
   );
-}
+});
+
+export default BlankTemplatePdfExport;

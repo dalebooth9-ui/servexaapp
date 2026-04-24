@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
 import { FileText, Loader2, Download } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -444,7 +444,12 @@ function buildPreviewSections(template: Props["template"]): SectionPreview[] {
   return Array.from(sectionMap, ([name, fields]) => ({ name, fields }));
 }
 
-export default function BlankTemplateWordExport({ template, size = "sm" }: Props) {
+export type BlankTemplateWordExportHandle = {
+  openPreview: () => void;
+  download: () => Promise<void> | void;
+};
+
+const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm" }, ref) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -472,6 +477,11 @@ export default function BlankTemplateWordExport({ template, size = "sm" }: Props
       setBusy(false);
     }
   };
+
+  useImperativeHandle(ref, () => ({
+    openPreview: () => setOpen(true),
+    download,
+  }));
 
   return (
     <>
@@ -566,4 +576,6 @@ export default function BlankTemplateWordExport({ template, size = "sm" }: Props
       </Dialog>
     </>
   );
-}
+});
+
+export default BlankTemplateWordExport;
