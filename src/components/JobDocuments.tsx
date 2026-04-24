@@ -803,7 +803,7 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
-          title="View document"
+          title={viewTooltip}
         >
           <Eye className="h-3 w-3" /> View
         </Button>
@@ -815,7 +815,7 @@ function DocRow({
           size="sm"
           className="h-7 text-xs px-2 gap-1 shrink-0"
           onClick={() => onDownload(doc)}
-          title="View document"
+          title={viewTooltip}
         >
           <Eye className="h-3 w-3" /> View
         </Button>
