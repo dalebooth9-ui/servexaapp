@@ -279,17 +279,18 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y += 1;
         }
 
-        // Comments box — bottom sits 10mm above the date/signature line
+        // Comments box — taller, sits just above the date/signature line
         const sigY = pageHeight - footerSpace - 10;
-        const commentsBoxBottom = sigY - 10;
+        const commentsBoxBottom = sigY - 4;
         // If the section content already pushed past the comments area,
         // start a new page so signatures and comments never overlap.
-        if (y + 8 > commentsBoxBottom) {
+        const minCommentsH = 22; // ~3-4 lines of writing space
+        if (y + 4 + minCommentsH > commentsBoxBottom) {
           doc.addPage();
           y = margin;
         }
         const commentsBoxTop = y + 4;
-        const commentsRectH = Math.max(commentsBoxBottom - commentsBoxTop, 4);
+        const commentsRectH = Math.max(commentsBoxBottom - commentsBoxTop, minCommentsH);
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
