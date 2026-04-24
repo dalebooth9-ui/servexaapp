@@ -1396,16 +1396,32 @@ function renderFormField(
           className="text-xs border-0 bg-transparent shadow-none focus-visible:ring-1 resize-none w-full min-h-[40px]"
         />
       );
-    case "checkbox":
+    case "checkbox": {
+      // Two explicit tick boxes — YES and NO — so the inspector must make a deliberate choice.
+      // Tri-state: undefined/null = no answer yet; true = YES; false = NO.
+      const isYes = value === true;
+      const isNo = value === false;
       return (
-        <div className="flex items-center gap-2">
-          <Checkbox
-            checked={!!value}
-            onCheckedChange={(checked) => onChange(checked)}
-          />
-          <span className="text-xs text-muted-foreground">{value ? "YES" : "NO"}</span>
+        <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox
+              checked={isYes}
+              onCheckedChange={(checked) => onChange(checked ? true : null)}
+              aria-label="Yes"
+            />
+            <span className="text-xs text-muted-foreground">YES</span>
+          </label>
+          <label className="flex items-center gap-1.5 cursor-pointer">
+            <Checkbox
+              checked={isNo}
+              onCheckedChange={(checked) => onChange(checked ? false : null)}
+              aria-label="No"
+            />
+            <span className="text-xs text-muted-foreground">NO</span>
+          </label>
         </div>
       );
+    }
     case "pass_fail": {
       const normalizedValue = typeof value === "string" ? value.toLowerCase().trim() : "";
       const hasCustomValue = typeof value === "string" && value.trim() !== "" && !["pass", "fail", "n/a"].includes(normalizedValue);
