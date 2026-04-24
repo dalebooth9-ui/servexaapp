@@ -20,6 +20,14 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
+const TT = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <Tooltip>
+    <TooltipTrigger asChild>{children}</TooltipTrigger>
+    <TooltipContent side="top">{label}</TooltipContent>
+  </Tooltip>
+);
 
 type JobSheetTemplate = {
   id: string;
