@@ -393,16 +393,19 @@ export function renderSectionHeader(
   const sectionHeaderH = opts.sectionHeaderH ?? 6;
   const showResultLabel = opts.showResultLabel ?? true;
 
-  doc.setFillColor(230, 230, 230);
+  // Dark navy section header bar (matches Dry Riser Pressure Test reference layout)
+  doc.setFillColor(44, 62, 80); // #2c3e50
   doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-  doc.setDrawColor(0);
+  doc.setDrawColor(44, 62, 80);
   doc.rect(margin, y, maxWidth, sectionHeaderH);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
+  doc.setTextColor(255, 255, 255);
   doc.text(section.toUpperCase(), margin + 1, y + 4.5);
   if (showResultLabel) {
     doc.text("RESULT", margin + colSplit + 1, y + 4.5);
   }
+  doc.setTextColor(0, 0, 0);
 
   return y + sectionHeaderH;
 }
