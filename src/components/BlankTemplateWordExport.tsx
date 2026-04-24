@@ -420,6 +420,54 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
     })
   );
 
+  // --- Build header (logo) and footer (text) -----------------------------------
+  const headerChildren: Paragraph[] = [];
+  if (headerLogo) {
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.LEFT,
+        children: [
+          new ImageRun({
+            type: headerLogo.type,
+            data: headerLogo.data,
+            transformation: { width: 130, height: 50 },
+            altText: { title: "Logo", description: "Company logo", name: "Logo" },
+          }),
+        ],
+      }),
+    );
+  }
+  // Watermark — large faded image floating behind the page content.
+  if (watermarkImg) {
+    headerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [
+          new ImageRun({
+            type: watermarkImg.type,
+            data: watermarkImg.data,
+            transformation: { width: 480, height: 480 },
+            altText: { title: "Watermark", description: "Watermark", name: "Watermark" },
+            floating: {
+              horizontalPosition: { relative: "page" as any, align: "center" as any },
+              verticalPosition: { relative: "page" as any, align: "center" as any },
+              behindDocument: true,
+              wrap: { type: "none" as any, side: "bothSides" as any },
+            },
+          }),
+        ],
+      }),
+    );
+  }
+  if (headerChildren.length === 0) {
+    headerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
+  }
+
+  const footerPara = new Paragraph({
+    alignment: AlignmentType.CENTER,
+    children: [new TextRun({ text: footerText, size: 16, color: "666666" })],
+  });
+
   return new Document({
     styles: {
       default: { document: { run: { font: "Arial", size: 22 } } },
@@ -429,8 +477,14 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
         properties: {
           page: {
             size: { width: 11906, height: 16838 }, // A4
-            margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 },
+            margin: { top: 1700, right: 1134, bottom: 1134, left: 1134, header: 567, footer: 567 },
           },
+        },
+        headers: {
+          default: new Header({ children: headerChildren }),
+        },
+        footers: {
+          default: new Footer({ children: [footerPara] }),
         },
         children,
       },
