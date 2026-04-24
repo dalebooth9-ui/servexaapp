@@ -322,12 +322,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
 
   return (
     <div className="flex items-center gap-0.5">
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template">
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
+        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <Download className="h-3.5 w-3.5" aria-hidden />}
       </Button>
       {showPrint && (
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template">
-          <Printer className="h-3.5 w-3.5" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template" aria-label={`Print ${template.name}`}>
+          <Printer className="h-3.5 w-3.5" aria-hidden />
         </Button>
       )}
     </div>
