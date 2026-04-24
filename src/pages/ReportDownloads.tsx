@@ -329,10 +329,17 @@ ${imageEmbeds}
       const logoUrl = fullJob.customers?.logo_url && String(fullJob.customers.logo_url).trim() !== ""
         ? String(fullJob.customers.logo_url)
         : "/images/vivafire-logo-new.jpg";
-      const cached = await getCachedLogo(logoUrl);
+      const [cached, wordCfg] = await Promise.all([getCachedLogo(logoUrl), getWordExportConfig()]);
       const logoBuf: Uint8Array | null = cached?.buf ?? null;
       const logoType: "png" | "jpeg" = cached?.type ?? "jpeg";
       const logoDims = cached?.dims ?? { w: 400, h: 120 };
+      const alignmentMap = {
+        left: AlignmentType.LEFT,
+        center: AlignmentType.CENTER,
+        right: AlignmentType.RIGHT,
+      } as const;
+      const logoAlignment = alignmentMap[wordCfg.logoAlignment] ?? AlignmentType.CENTER;
+
 
       // Get pixel dimensions for an image so we can size it sensibly in Word.
       const getDims = (buf: Uint8Array, ext: string): Promise<{ w: number; h: number }> =>
