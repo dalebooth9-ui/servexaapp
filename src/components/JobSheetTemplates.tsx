@@ -767,7 +767,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           {/* Draft responses — exclude RAMS */}
           {(() => {
             const draftResps = responses.filter((r) => {
-              const tpl = templates.find((t) => t.id === r.template_id);
+              const tpl = allTemplates.find((t) => t.id === r.template_id);
               return (tpl as any)?.category !== "rams" && r.status === "draft";
             });
             if (!draftResps.length) return null;
@@ -776,7 +776,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">In Progress</p>
                 <div className="rounded-md border divide-y">
                   {draftResps.map((resp) => {
-                    const tpl = templates.find((t) => t.id === resp.template_id);
+                    const tpl = allTemplates.find((t) => t.id === resp.template_id);
                     const canEdit = userRole === "admin" || resp.submitted_by === user?.id;
                     return (
                       <div key={resp.id} className="flex items-center justify-between px-3 py-2 min-h-[38px]">
