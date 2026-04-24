@@ -302,6 +302,7 @@ export default function SettingsPage() {
         <CategoryDocumentTemplateSettings />
         <RamsTemplateSettings />
         <FilenameFormatSettings />
+        <WordExportSettings />
         <XeroSettings />
 
         {/* The Mellor Integration */}
