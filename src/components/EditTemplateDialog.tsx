@@ -327,6 +327,9 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     toast({ title: "Reverted to saved version" });
   };
 
+  const [qaOverride, setQaOverride] = useState(false);
+  const qaReport = runTemplateQa(fields as any);
+
   const handleSave = async () => {
     if (!template) return;
     if (!templateName.trim()) {
@@ -335,6 +338,16 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     }
     if (fields.length === 0) {
       toast({ title: "No fields", description: "Add at least one field.", variant: "destructive" });
+      return;
+    }
+
+    // QA gate — block publish on errors unless explicitly overridden.
+    if (!qaReport.ok && !qaOverride) {
+      toast({
+        title: "Layout doesn't match reference style",
+        description: `${qaReport.errors.length} blocking issue${qaReport.errors.length === 1 ? "" : "s"}. Review the QA panel and fix, or tick "Save anyway".`,
+        variant: "destructive",
+      });
       return;
     }
 
