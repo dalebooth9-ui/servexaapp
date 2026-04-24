@@ -291,7 +291,16 @@ function renderSectionHeaderRow(sectionName: string): TableRow {
 }
 
 /** Build a docx Document for a blank template. Exported so bulk export can reuse it. */
-export function buildBlankTemplateDoc(template: Props["template"]): Document {
+export async function buildBlankTemplateDoc(template: Props["template"]): Promise<Document> {
+  // --- Branding assets: header logo + watermark + footer text -----------------
+  const customLogoUrl = template.branding?.logo_url?.trim();
+  const headerLogoUrl = customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
+  const [headerLogo, watermarkImg] = await Promise.all([
+    fetchImageBytes(headerLogoUrl),
+    fetchImageBytes("/images/viva-watermark.png"),
+  ]);
+  const footerText = getDefaultFooterText(template.name, template.branding || undefined, template.footer_text || undefined);
+
   // Skip pseudo "section" fields (their label is just a section header from OCR import)
   // and skip fields whose label exactly matches their section name.
   const renderable = template.fields.filter((f) => {
