@@ -422,16 +422,28 @@ export function renderFilledFieldRow(
   doc.setFont("helvetica", "normal");
 
   let extraY = 0;
-  // Inline note
+  // Inline note — placed in the result column, immediately after the YES/NO answer
   if (noteValue) {
+    // Find roughly where the answer text ended in the result column
+    doc.setFontSize(8.5);
+    doc.setFont("helvetica", "bold");
+    const answerWidths: Record<string, number> = {
+      YES: doc.getTextWidth("YES"),
+      NO: doc.getTextWidth("NO"),
+      "N/A": doc.getTextWidth("N/A"),
+      "—": doc.getTextWidth("—"),
+    };
+    // Approximate: assume the rendered answer was YES/NO/N/A — leave a small gap
+    const startX = margin + colSplit + 1 + (answerWidths.YES + 2);
     doc.setFontSize(7);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 100, 100);
-    doc.text(`Note: ${noteValue}`.substring(0, 80), margin + 2, y + rowH + 2.5);
+    const maxNoteW = (margin + maxWidth) - startX - 1;
+    const lines = doc.splitTextToSize(`(${noteValue})`, Math.max(20, maxNoteW));
+    doc.text(lines[0], startX, y + 3);
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(8.5);
     doc.setFont("helvetica", "normal");
-    extraY = 3;
   }
 
   return y + rowH + extraY;
