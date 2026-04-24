@@ -21,6 +21,7 @@ import CustomerMergeSuggestionsPanel from "@/components/CustomerMergeSuggestions
 import { supabase } from "@/integrations/supabase/client";
 import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 import JobDocumentReattachSettings from "@/components/JobDocumentReattachSettings";
+import FilenameFormatSettings from "@/components/FilenameFormatSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://servexaapp.lovable.app/install";
@@ -299,6 +300,7 @@ export default function SettingsPage() {
         <JobTemplateSettings />
         <CategoryDocumentTemplateSettings />
         <RamsTemplateSettings />
+        <FilenameFormatSettings />
         <XeroSettings />
 
         {/* The Mellor Integration */}
