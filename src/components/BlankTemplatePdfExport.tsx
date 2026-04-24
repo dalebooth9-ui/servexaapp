@@ -162,12 +162,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const sheetTitle = isDryRiser ? "Dry Riser Pressure Test" : template.name;
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
-          customerName,
-          siteName,
-          siteAddress,
-          refNumber,
+          customerName: isDryRiser ? "" : customerName,
+          siteName: isDryRiser ? "" : siteName,
+          siteAddress: isDryRiser ? "" : siteAddress,
+          refNumber: isDryRiser ? "" : refNumber,
           dateVal,
-          riserLocation: riserLocValue,
+          riserLocation: isDryRiser ? "" : riserLocValue,
         }, template.standard, accentColor);
 
         const skipIds = buildSkipIds(template.fields);
