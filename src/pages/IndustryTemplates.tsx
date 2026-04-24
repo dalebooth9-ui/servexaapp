@@ -932,6 +932,8 @@ export default function IndustryTemplates() {
   } | null>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [bulkExporting, setBulkExporting] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+  const [bulkTotal, setBulkTotal] = useState(0);
 
   /** Build a .docx for every visible template and download as a single .zip. */
   const handleExportAllToWord = async () => {
