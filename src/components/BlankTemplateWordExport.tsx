@@ -576,4 +576,6 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
       </Dialog>
     </>
   );
-}
+});
+
+export default BlankTemplateWordExport;
