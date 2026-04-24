@@ -179,9 +179,7 @@ function buildValueCellChildren(field: TemplateField): Paragraph[] {
   if (field.type === "photo") {
     return [
       new Paragraph({
-        children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "555555" }),
-        ],
+        children: [new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "555555" })],
       }),
     ];
   }
@@ -208,9 +206,15 @@ function buildValueCellChildren(field: TemplateField): Paragraph[] {
   // Long text / textarea — multi-line blank
   if (field.type === "textarea" || field.type === "long_text") {
     return [
-      new Paragraph({ children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })] }),
-      new Paragraph({ children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })] }),
-      new Paragraph({ children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })] }),
+      new Paragraph({
+        children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })],
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })],
+      }),
+      new Paragraph({
+        children: [new TextRun({ text: " ".repeat(60), size: 18, underline: { type: "single", color: "999999" } })],
+      }),
     ];
   }
 
@@ -299,14 +303,22 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
     fetchImageBytes(headerLogoUrl),
     fetchImageBytes("/images/viva-watermark.png"),
   ]);
-  const footerText = getDefaultFooterText(template.name, template.branding || undefined, template.footer_text || undefined);
+  const footerText = getDefaultFooterText(
+    template.name,
+    template.branding || undefined,
+    template.footer_text || undefined,
+  );
 
   // Skip pseudo "section" fields (their label is just a section header from OCR import)
   // and skip fields whose label exactly matches their section name.
   const renderable = template.fields.filter((f) => {
     if (f.type === "section") return false;
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-    if (f.section && norm(f.label) === norm(f.section)) return false;
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
+    if (f.section && norm(ff.label) === norm(f.section)) return false;
     return true;
   });
 
@@ -331,7 +343,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
         alignment: AlignmentType.CENTER,
         children: [new TextRun({ text: template.standard, italics: true, size: 20, color: "555555" })],
         spacing: { after: 120 },
-      })
+      }),
     );
   }
   if (template.description) {
@@ -339,7 +351,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
       new Paragraph({
         children: [new TextRun({ text: template.description, size: 20 })],
         spacing: { after: 240 },
-      })
+      }),
     );
   }
 
@@ -350,7 +362,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
         width: { size: TABLE_W, type: WidthType.DXA },
         columnWidths: [LABEL_COL, VALUE_COL],
         rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderFieldRow)],
-      })
+      }),
     );
     // Small gap between sections
     children.push(new Paragraph({ children: [new TextRun({ text: " ", size: 12 })], spacing: { after: 60 } }));
@@ -417,7 +429,7 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
           ],
         }),
       ],
-    })
+    }),
   );
 
   // --- Build header (logo) and footer (text) -----------------------------------
@@ -494,7 +506,12 @@ export async function buildBlankTemplateDoc(template: Props["template"]): Promis
 
 /** Filename-safe slug for a template name. */
 export function blankTemplateFileSlug(name: string): string {
-  return name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "template";
+  return (
+    name
+      .replace(/[^a-z0-9]+/gi, "-")
+      .replace(/^-|-$/g, "")
+      .toLowerCase() || "template"
+  );
 }
 
 /** Build a value-cell preview string mirroring buildValueCellChildren for on-screen review. */
@@ -519,7 +536,11 @@ type SectionPreview = { name: string; fields: TemplateField[] };
 function buildPreviewSections(template: Props["template"]): SectionPreview[] {
   const renderable = template.fields.filter((f) => {
     if (f.type === "section") return false;
-    const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+    const norm = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim();
     if (f.section && norm(f.label) === norm(f.section)) return false;
     return true;
   });
@@ -537,7 +558,10 @@ export type BlankTemplateWordExportHandle = {
   download: () => Promise<void> | void;
 };
 
-const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport({ template, size = "sm", headless = false }, ref) {
+const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>(function BlankTemplateWordExport(
+  { template, size = "sm", headless = false },
+  ref,
+) {
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
@@ -590,19 +614,13 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
         <DialogContent className="max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Preview: {template.name}</DialogTitle>
-            <DialogDescription>
-              Review the blank Word document layout below. Download when ready.
-            </DialogDescription>
+            <DialogDescription>Review the blank Word document layout below. Download when ready.</DialogDescription>
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto rounded-md border bg-card p-6 text-sm">
             <h2 className="text-center text-xl font-bold">{template.name}</h2>
-            {template.standard && (
-              <p className="text-center italic text-muted-foreground mt-1">{template.standard}</p>
-            )}
-            {template.description && (
-              <p className="mt-3 text-muted-foreground">{template.description}</p>
-            )}
+            {template.standard && <p className="text-center italic text-muted-foreground mt-1">{template.standard}</p>}
+            {template.description && <p className="mt-3 text-muted-foreground">{template.description}</p>}
 
             {sections.map((s) => (
               <div key={s.name} className="mt-5">
@@ -612,17 +630,13 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
                       <th className="border border-border px-2 py-1.5 text-left font-bold uppercase w-[68%]">
                         {s.name}
                       </th>
-                      <th className="border border-border px-2 py-1.5 text-left font-bold uppercase">
-                        Result
-                      </th>
+                      <th className="border border-border px-2 py-1.5 text-left font-bold uppercase">Result</th>
                     </tr>
                   </thead>
                   <tbody>
                     {s.fields.map((f) => (
                       <tr key={f.id}>
-                        <td className="border border-border px-2 py-1.5 font-medium align-top">
-                          {f.label}
-                        </td>
+                        <td className="border border-border px-2 py-1.5 font-medium align-top">{f.label}</td>
                         <td className="border border-border px-2 py-1.5 align-top whitespace-pre-line text-muted-foreground">
                           {previewValueForField(f)}
                         </td>
