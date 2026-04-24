@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Shield, Pencil, FileText } from "lucide-react";
 import EditTemplateDialog from "./EditTemplateDialog";
+import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
+import BlankTemplateWordExport from "./BlankTemplateWordExport";
 
 type TemplateField = {
   id: string;
@@ -83,9 +85,29 @@ export default function RamsTemplateSettings() {
               </div>
             </div>
             {template && (
-              <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
-                <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit Fields
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <BlankTemplatePdfExport
+                  template={{
+                    id: template.id,
+                    name: template.name,
+                    description: template.description,
+                    fields: template.fields as any,
+                    branding: (template.branding as any) || {},
+                  }}
+                  jobInfo={null}
+                  showPrint
+                />
+                <BlankTemplateWordExport
+                  template={{
+                    name: template.name,
+                    description: template.description || undefined,
+                    fields: template.fields as any,
+                  }}
+                />
+                <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit Fields
+                </Button>
+              </div>
             )}
           </div>
         </CardHeader>
