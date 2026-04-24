@@ -796,6 +796,73 @@ export type Database = {
           },
         ]
       }
+      customer_merge_suggestions: {
+        Row: {
+          created_at: string
+          existing_customer_id: string
+          id: string
+          incoming_name: string
+          new_customer_id: string | null
+          related_job_id: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          similarity: number
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          existing_customer_id: string
+          id?: string
+          incoming_name: string
+          new_customer_id?: string | null
+          related_job_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity: number
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          existing_customer_id?: string
+          id?: string
+          incoming_name?: string
+          new_customer_id?: string | null
+          related_job_id?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          similarity?: number
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_merge_suggestions_existing_customer_id_fkey"
+            columns: ["existing_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_merge_suggestions_new_customer_id_fkey"
+            columns: ["new_customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_merge_suggestions_related_job_id_fkey"
+            columns: ["related_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       customer_notification_log: {
         Row: {
           customer_email: string
@@ -4039,6 +4106,14 @@ export type Database = {
         Args: { payload: Json; queue_name: string }
         Returns: number
       }
+      find_similar_customer: {
+        Args: { _name: string; _threshold?: number }
+        Returns: {
+          id: string
+          name: string
+          similarity: number
+        }[]
+      }
       generate_vfp_reference: { Args: never; Returns: string }
       get_user_org_id: { Args: never; Returns: string }
       has_role: {
@@ -4068,6 +4143,8 @@ export type Database = {
           read_ct: number
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
     }
     Enums: {
