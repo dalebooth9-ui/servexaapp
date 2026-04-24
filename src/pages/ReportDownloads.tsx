@@ -252,7 +252,7 @@ export default function ReportDownloads() {
 
       const imageEmbeds = images
         .map((img) => {
-          const u = URL.createObjectURL(new Blob([img.buf], { type: `image/${img.ext === "jpg" ? "jpeg" : img.ext}` }));
+          const u = URL.createObjectURL(new Blob([img.buf.buffer as ArrayBuffer], { type: `image/${img.ext === "jpg" ? "jpeg" : img.ext}` }));
           return `<div class="img-page"><img src="${u}" alt="${img.name}"/><div class="caption">${img.name}</div></div>`;
         })
         .join("");
