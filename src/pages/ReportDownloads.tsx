@@ -395,10 +395,18 @@ ${imageEmbeds}
                           type: logoType,
                           data: logoBuf,
                           transformation: (() => {
-                            const maxW = wordCfg.logoMaxWidth;
-                            const aspect = logoDims.w / logoDims.h;
-                            const w = Math.min(maxW, logoDims.w);
-                            return { width: Math.round(w), height: Math.round(w / aspect) };
+                            // Fit logo into a consistent bounding box (max width × max height),
+                            // preserving aspect ratio. This ensures wide and tall logos render
+                            // at visually comparable sizes across customers.
+                            const maxW = Math.max(1, wordCfg.logoMaxWidth);
+                            const maxH = Math.max(1, wordCfg.logoMaxHeight);
+                            const natW = Math.max(1, logoDims.w);
+                            const natH = Math.max(1, logoDims.h);
+                            const scale = Math.min(maxW / natW, maxH / natH, 1);
+                            return {
+                              width: Math.max(1, Math.round(natW * scale)),
+                              height: Math.max(1, Math.round(natH * scale)),
+                            };
                           })(),
                         } as any),
                       ],
