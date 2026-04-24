@@ -5,7 +5,9 @@ import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Shield, Pencil, FileText } from "lucide-react";
+import { Shield, Pencil, FileText, AlertCircle } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import EditTemplateDialog from "./EditTemplateDialog";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
 import BlankTemplateWordExport from "./BlankTemplateWordExport";
@@ -36,23 +38,35 @@ export default function RamsTemplateSettings() {
   const [editOpen, setEditOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [error, setError] = useState<string | null>(null);
+
   const fetchTemplate = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("job_sheet_templates")
-      .select("*")
-      .eq("category", "rams")
-      .limit(1)
-      .maybeSingle();
+    setError(null);
+    try {
+      const { data, error: fetchErr } = await supabase
+        .from("job_sheet_templates")
+        .select("*")
+        .eq("category", "rams")
+        .limit(1)
+        .maybeSingle();
 
-    if (data) {
-      setTemplate({
-        ...data,
-        fields: (typeof data.fields === "string" ? JSON.parse(data.fields) : data.fields) as TemplateField[],
-        branding: (data.branding as Record<string, any>) || {},
-      });
+      if (fetchErr) throw fetchErr;
+
+      if (data) {
+        setTemplate({
+          ...data,
+          fields: (typeof data.fields === "string" ? JSON.parse(data.fields) : data.fields) as TemplateField[],
+          branding: (data.branding as Record<string, any>) || {},
+        });
+      } else {
+        setTemplate(null);
+      }
+    } catch (e: any) {
+      setError(e?.message || "Failed to load RAMS template.");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => { fetchTemplate(); }, []);
@@ -113,9 +127,38 @@ export default function RamsTemplateSettings() {
         </CardHeader>
         <CardContent>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Loading…</p>
+            <div className="space-y-3" aria-busy="true" aria-live="polite">
+              <Skeleton className="h-3 w-32" />
+              <div className="rounded-md border divide-y">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="flex items-center justify-between px-3 py-2">
+                    <Skeleton className="h-4 w-48" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                ))}
+              </div>
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+          ) : error ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Couldn’t load RAMS template</AlertTitle>
+              <AlertDescription className="flex items-center justify-between gap-3">
+                <span>{error}</span>
+                <Button size="sm" variant="outline" onClick={fetchTemplate}>Retry</Button>
+              </AlertDescription>
+            </Alert>
           ) : !template ? (
-            <p className="text-sm text-muted-foreground">No RAMS template found.</p>
+            <div className="rounded-md border border-dashed p-6 text-center">
+              <Shield className="mx-auto h-6 w-6 text-muted-foreground" />
+              <p className="mt-2 text-sm font-medium">No RAMS template found</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                A RAMS template will appear here once it’s created.
+              </p>
+              <Button size="sm" variant="outline" className="mt-3" onClick={fetchTemplate}>
+                Refresh
+              </Button>
+            </div>
           ) : (
             <div className="space-y-4">
               {sections.map((section) => {
