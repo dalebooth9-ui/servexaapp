@@ -186,6 +186,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       return normalizeCategory(t.job_category) === jobCategory;
     });
     setTemplates(filteredTpls);
+    setAllTemplates(allTpls);
     setResponses((respRes.data || []) as Response[]);
 
     let engineerNames: string[] = [];
