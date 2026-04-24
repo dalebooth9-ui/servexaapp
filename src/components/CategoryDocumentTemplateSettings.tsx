@@ -384,6 +384,7 @@ function TemplateRow({
   linked,
   uploading,
   justUploaded = false,
+  registerRef,
   onUpload,
   children,
 }: {
@@ -391,6 +392,7 @@ function TemplateRow({
   linked: JobSheetTemplate | null;
   uploading: boolean;
   justUploaded?: boolean;
+  registerRef?: (el: HTMLDivElement | null) => void;
   onUpload: () => void;
   children: React.ReactNode;
 }) {
