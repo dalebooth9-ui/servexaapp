@@ -547,7 +547,7 @@ const BlankTemplateWordExport = forwardRef<BlankTemplateWordExportHandle, Props>
   const download = async () => {
     setBusy(true);
     try {
-      const doc = buildBlankTemplateDoc(template);
+      const doc = await buildBlankTemplateDoc(template);
       const blob = await Packer.toBlob(doc);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
