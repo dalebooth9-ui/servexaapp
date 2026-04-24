@@ -332,4 +332,6 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       )}
     </div>
   );
-}
+});
+
+export default BlankTemplatePdfExport;
