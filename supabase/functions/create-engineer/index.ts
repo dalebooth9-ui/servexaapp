@@ -140,18 +140,12 @@ serve(async (req) => {
         if (linkError) {
           console.error("Failed to generate recovery link:", linkError.message);
         } else {
-          const resendApiKey = Deno.env.get("RESEND_API_KEY");
-          if (resendApiKey) {
-            const resend = new Resend(resendApiKey);
-            const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
-            
-            // Build the recovery URL using the token hash
-            const actionLink = linkData?.properties?.action_link || "";
-
-            const { error: emailError } = await resend.emails.send({
-              from: "VivaFire <noreply@vivafire.co.uk>",
-              to: [email],
-              subject: "Set up your VivaFire account password",
+          const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
+          const actionLink = linkData?.properties?.action_link || "";
+          const { error: emailError } = await sendResendEmail({
+            from: "VivaFire <noreply@vivafire.co.uk>",
+            to: [email],
+            subject: "Set up your VivaFire account password",
               html: `
                 <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
                   <h1 style="color: #333; font-size: 24px;">Welcome to VivaFire, ${full_name}!</h1>
