@@ -96,6 +96,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
+  useImperativeHandle(ref, () => ({
+    download: () => generate("download"),
+    print: () => generate("print"),
+  }));
+
   const generate = async (mode: "download" | "print" = "download") => {
     setGenerating(true);
     try {
