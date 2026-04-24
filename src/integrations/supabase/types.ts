@@ -2650,6 +2650,7 @@ export type Database = {
           created_by: string | null
           description: string | null
           fields: Json
+          footer_text: string | null
           id: string
           job_category: string | null
           locked: boolean
@@ -2664,6 +2665,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           fields?: Json
+          footer_text?: string | null
           id?: string
           job_category?: string | null
           locked?: boolean
@@ -2678,6 +2680,7 @@ export type Database = {
           created_by?: string | null
           description?: string | null
           fields?: Json
+          footer_text?: string | null
           id?: string
           job_category?: string | null
           locked?: boolean
