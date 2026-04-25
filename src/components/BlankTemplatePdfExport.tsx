@@ -350,11 +350,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         setPreviewBlob(pdfBlob);
         setPreviewName(fileName);
         setPreviewOpen(true);
+      } else if (mode === "blob") {
+        // Silent build — caller uses the returned Blob directly (e.g. live preview embed).
+        return doc.output("blob") as Blob;
       } else {
         doc.save(fileName);
         toast({ title: "PDF downloaded", description: fileName });
       }
     } catch (err: any) {
+      // For silent blob builds, re-throw so the caller can handle it.
+      if (mode === "blob") {
+        setGenerating(false);
+        throw err;
+      }
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);
