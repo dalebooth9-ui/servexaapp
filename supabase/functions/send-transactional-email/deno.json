@@ -3,5 +3,6 @@
     "jsx": "react-jsx",
     "jsxImportSource": "npm:react@18.3.1",
     "types": ["npm:@types/react@18.3.1"]
-  }
+  },
+  "nodeModulesDir": "auto"
 }
