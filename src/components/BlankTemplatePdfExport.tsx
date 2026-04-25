@@ -324,19 +324,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const footerY = pageHeight - margin - footerH;
           renderPdfFooter(doc, footerY, footerText);
         } else {
-          // Dry Riser: black declaration band sits BELOW the accreditation logos
-          // along the bottom edge. Wording editable per template via branding.declaration_text.
+          // Dry Riser: declaration sits in a black-outlined box flush with the bottom edge.
           const declarationText =
             (template.branding?.declaration_text || "").trim() ||
             "Tested and inspected in accordance with BS 9990:2015";
           const declH = 9;
-          const declY = pageHeight - declH; // flush with bottom edge
-          doc.setFillColor(0, 0, 0);
-          doc.rect(0, declY, pageWidth, declH, "F");
+          const declY = pageHeight - margin - declH;
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(0.5);
+          doc.rect(margin, declY, pageWidth - margin * 2, declH);
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
-          doc.setTextColor(255, 255, 255);
-          const lines = doc.splitTextToSize(declarationText, pageWidth - 12) as string[];
+          doc.setTextColor(0, 0, 0);
+          const lines = doc.splitTextToSize(declarationText, pageWidth - margin * 2 - 4) as string[];
           const lineH = 4;
           const totalH = lines.length * lineH;
           let ty = declY + (declH - totalH) / 2 + lineH - 1;
@@ -345,7 +345,6 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             ty += lineH;
           });
         }
-      }
 
       const logoH = 12; // bigger logos
       const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
