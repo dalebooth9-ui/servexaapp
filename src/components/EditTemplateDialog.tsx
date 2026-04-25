@@ -453,6 +453,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       company_subtitle: companySubtitle.trim() || undefined,
       logo_url: logoUrl || undefined,
       footer_text: footerText.trim() || undefined,
+      declaration_text: declarationText.trim() || undefined,
     };
     const { error } = await supabase.from("job_sheet_templates").update({
       name: templateName.trim(),
