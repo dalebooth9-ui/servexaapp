@@ -1094,6 +1094,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       </Button>
                     )}
                     {userRole === "admin" && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadTemplateJson(tpl as any)} title="Export template as JSON">
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {userRole === "admin" && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDuplicateTemplate(tpl)} title="Duplicate template">
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
