@@ -657,6 +657,12 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
+      {hasNoData && (
+        <div className="mb-4 rounded-md border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+          No jobs scheduled yet. Create a job and assign it to an engineer to see it here.
+        </div>
+      )}
+
       {/* View Tabs */}
       <Tabs value={view} onValueChange={(v) => setView(v as any)} className="mb-4">
         <TabsList>
