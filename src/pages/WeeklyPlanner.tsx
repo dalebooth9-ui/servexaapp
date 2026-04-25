@@ -181,53 +181,62 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
-    const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
-      supabase.from("user_roles").select("user_id").eq("role", "engineer"),
-      supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit"]),
-      supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
-      supabase.from("sites").select("id, name, address, postcode").order("name"),
-      supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
-      supabase.from("planner_adhoc_entries").select("*").is("schedule_date", null),
-    ]);
-    const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
-    if (engineerIds.length > 0) {
-      const { data: profilesData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
-      setEngineers(profilesData || []);
-    } else {
-      setEngineers([]);
-    }
-    const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
-    setJobs(fetchedJobs);
-    setSites(sitesRes.data || []);
-    setSchedule((schedRes.data as ScheduleEntry[]) || []);
-    setAdhocEntries([...((adhocRangeRes.data as AdhocEntry[]) || []), ...((adhocUnallocRes.data as AdhocEntry[]) || [])]);
-
-    // Fetch parts and latest comments for scheduled jobs
-    const jobIds = fetchedJobs.map((j: any) => j.id);
-    if (jobIds.length > 0) {
-      const [partsRes, commentsRes, visitsRes] = await Promise.all([
-        supabase.from("job_parts").select("id, job_id, name, quantity, notes").in("job_id", jobIds),
-        supabase.from("submission_comments").select("id, content, created_at, submission_id, submissions!inner(job_id)").in("submissions.job_id", jobIds).order("created_at", { ascending: false }).limit(500),
-        supabase.from("job_visits").select("job_id, notes").in("job_id", jobIds).not("notes", "is", null).order("scheduled_date", { ascending: true }),
+    try {
+      const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
+        supabase.from("user_roles").select("user_id").eq("role", "engineer"),
+        supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit"]),
+        supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
+        supabase.from("sites").select("id, name, address, postcode").order("name"),
+        supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
+        supabase.from("planner_adhoc_entries").select("*").is("schedule_date", null),
       ]);
-      setJobParts((partsRes.data as any[]) || []);
-      // Build a map of job_id -> first visit note
-      const visitMap: Record<string, string> = {};
-      for (const v of ((visitsRes.data as any[]) || [])) {
-        if (v.notes && !visitMap[v.job_id]) visitMap[v.job_id] = v.notes;
+      const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
+      if (engineerIds.length > 0) {
+        const { data: profilesData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
+        setEngineers(profilesData || []);
+      } else {
+        setEngineers([]);
       }
-      setJobVisitNotes(visitMap);
-      setSubmissionComments(
-        ((commentsRes.data as any[]) || []).map((c: any) => ({
-          id: c.id,
-          content: c.content,
-          created_at: c.created_at,
-          submission_id: c.submission_id,
-          submission_job_id: c.submissions?.job_id,
-        }))
-      );
+      const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
+      setJobs(fetchedJobs);
+      setSites(sitesRes.data || []);
+      setSchedule((schedRes.data as ScheduleEntry[]) || []);
+      setAdhocEntries([...((adhocRangeRes.data as AdhocEntry[]) || []), ...((adhocUnallocRes.data as AdhocEntry[]) || [])]);
+
+      // Fetch parts and latest comments for scheduled jobs
+      const jobIds = fetchedJobs.map((j: any) => j.id);
+      if (jobIds.length > 0) {
+        const [partsRes, commentsRes, visitsRes] = await Promise.all([
+          supabase.from("job_parts").select("id, job_id, name, quantity, notes").in("job_id", jobIds),
+          supabase.from("submission_comments").select("id, content, created_at, submission_id, submissions!inner(job_id)").in("submissions.job_id", jobIds).order("created_at", { ascending: false }).limit(500),
+          supabase.from("job_visits").select("job_id, notes").in("job_id", jobIds).not("notes", "is", null).order("scheduled_date", { ascending: true }),
+        ]);
+        setJobParts((partsRes.data as any[]) || []);
+        // Build a map of job_id -> first visit note
+        const visitMap: Record<string, string> = {};
+        for (const v of ((visitsRes.data as any[]) || [])) {
+          if (v.notes && !visitMap[v.job_id]) visitMap[v.job_id] = v.notes;
+        }
+        setJobVisitNotes(visitMap);
+        setSubmissionComments(
+          ((commentsRes.data as any[]) || []).map((c: any) => ({
+            id: c.id,
+            content: c.content,
+            created_at: c.created_at,
+            submission_id: c.submission_id,
+            submission_job_id: c.submissions?.job_id,
+          }))
+        );
+      } else {
+        setJobParts([]);
+        setJobVisitNotes({});
+        setSubmissionComments([]);
+      }
+    } catch (err) {
+      console.error("Planner fetchData error:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }, [rangeStart, rangeEnd]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -560,6 +569,7 @@ export default function WeeklyPlanner() {
   // (blank worksheet removed — users print the completed planner instead)
 
   const isWeeklyNav = view === "grid" || view === "list" || view === "map";
+  const hasNoData = jobs.length === 0 && schedule.length === 0 && adhocEntries.length === 0;
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
 
@@ -646,6 +656,12 @@ export default function WeeklyPlanner() {
           </DropdownMenu>
         </div>
       </div>
+
+      {hasNoData && (
+        <div className="mb-4 rounded-md border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+          No jobs scheduled yet. Create a job and assign it to an engineer to see it here.
+        </div>
+      )}
 
       {/* View Tabs */}
       <Tabs value={view} onValueChange={(v) => setView(v as any)} className="mb-4">
