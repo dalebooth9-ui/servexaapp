@@ -345,6 +345,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             ty += lineH;
           });
         }
+      }
+
 
       const logoH = 12; // bigger logos
       const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
