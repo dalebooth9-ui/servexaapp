@@ -332,6 +332,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         template.name.replace(/\s+/g, "-").toLowerCase(),
         customerName.replace(/\s+/g, "-").toLowerCase() || null,
         systemQty > 1 ? `x${systemQty}` : null,
+        handfill ? "handfill" : null,
       ].filter(Boolean).join("-") + ".pdf";
 
       if (mode === "print") {
@@ -366,6 +367,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
           <Download className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download", true)} disabled={generating} title="Download printable handfill PDF (no borders or underlines)" aria-label={`Download ${template.name} as printable handfill PDF`}>
+          <PenLine className="h-3.5 w-3.5" aria-hidden />
         </Button>
         {showPrint && (
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template" aria-label={`Print ${template.name}`}>
