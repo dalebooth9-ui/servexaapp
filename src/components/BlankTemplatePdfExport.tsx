@@ -114,7 +114,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     getBlob: (o) => generate("blob", o?.handfill ?? false) as Promise<Blob | null>,
   }));
 
-  const generate = async (mode: "download" | "print" | "preview" = "preview", handfill = false) => {
+  const generate = async (mode: "download" | "print" | "preview" | "blob" = "preview", handfill = false): Promise<Blob | null | void> => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
