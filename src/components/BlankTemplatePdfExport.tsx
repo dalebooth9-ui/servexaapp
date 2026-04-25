@@ -320,21 +320,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const footerY = pageHeight - margin - footerH;
           renderPdfFooter(doc, footerY, footerText);
         } else {
-          // Dry Riser: declaration band sits just above the accreditation logos.
-          // Wording is editable per template via branding.declaration_text.
+          // Dry Riser: black declaration band sits BELOW the accreditation logos
+          // along the bottom edge. Wording editable per template via branding.declaration_text.
           const declarationText =
             (template.branding?.declaration_text || "").trim() ||
             "Tested and inspected in accordance with BS 9990:2015";
-          const declH = 10;
-          const declY = pageHeight - margin - 9 - 4 - declH;
-          doc.setDrawColor(60);
-          doc.setLineWidth(0.5);
-          doc.rect(margin, declY, maxWidth, declH);
+          const declH = 9;
+          const declY = pageHeight - declH; // flush with bottom edge
+          doc.setFillColor(0, 0, 0);
+          doc.rect(0, declY, pageWidth, declH, "F");
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
-          doc.setTextColor(33, 37, 41);
-          // Wrap if user enters longer text
-          const lines = doc.splitTextToSize(declarationText, maxWidth - 6) as string[];
+          doc.setTextColor(255, 255, 255);
+          const lines = doc.splitTextToSize(declarationText, pageWidth - 12) as string[];
           const lineH = 4;
           const totalH = lines.length * lineH;
           let ty = declY + (declH - totalH) / 2 + lineH - 1;
@@ -352,7 +350,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      const footerYForLogos = pageHeight - margin - 9;
+      // Lift accreditation logos on Dry Riser sheets to clear the bottom black declaration band
+      const footerYForLogos = isDryRiser
+        ? pageHeight - 9 - 2 - 12 // band(9) + gap(2) + logoH(12) → top of logo row
+        : pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
       const fileName = [
