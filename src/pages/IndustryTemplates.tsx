@@ -1251,11 +1251,9 @@ export default function IndustryTemplates() {
                         </p>
                         <p className="text-xs text-muted-foreground mt-2">{tpl.fields.length} fields</p>
                       </div>
-                      <div className="flex items-center gap-2 pt-1 border-t border-border">
-                        {/* Blank PDF download + print */}
-                        <BlankTemplatePdfExport template={mockTemplate} jobInfo={null} showPrint />
-                        {/* Blank Word (.docx) download */}
-                        <BlankTemplateWordExport template={mockTemplate} />
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border">
+                        {/* Combined Preview / Download (PDF or Word) / Print */}
+                        <BlankTemplateActions template={mockTemplate} />
                         <span className="text-xs text-muted-foreground">Blank</span>
 
                         {/* Create RAMS */}
