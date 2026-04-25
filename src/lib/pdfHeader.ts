@@ -109,10 +109,11 @@ export async function renderPdfHeader(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...accent);
-  doc.text(templateName.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
+  const titleY = compact ? logoBottomY + 2 : logoBottomY;
+  doc.text(templateName.toUpperCase(), pageWidth / 2, titleY, { align: "center" });
 
   // --- Standard (BS number) subtitle ---
-  let afterTitleY = logoBottomY + 4;
+  let afterTitleY = titleY + 4;
   if (standard) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);
