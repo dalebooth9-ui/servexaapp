@@ -264,9 +264,10 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         company_subtitle: companySubtitle || undefined,
         logo_url: logoUrl || undefined,
         footer_text: footerText || undefined,
+        declaration_text: declarationText || undefined,
       },
     }),
-    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl]
+    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText]
   );
 
   useEffect(() => {
