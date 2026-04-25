@@ -76,7 +76,6 @@ export default function AssetCategorySettings() {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm("Are you sure you want to delete ALL asset categories? This cannot be undone.")) return;
     const ids = categories.map((c) => c.id);
     const { error } = await supabase.from("asset_categories" as any).delete().in("id", ids);
     if (error) {
