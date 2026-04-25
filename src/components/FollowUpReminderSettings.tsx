@@ -30,7 +30,7 @@ Scheduled Date: {{scheduled_date}}
 
 Please could you confirm access arrangements for our engineer to attend on or around this date. If this date is not suitable, please let us know and we can arrange an alternative.
 
-If you have any questions, please don't hesitate to get in touch.
+Any questions, just give us a call or drop us an email.
 
 Kind regards,
 Viva Fire & Protection`,

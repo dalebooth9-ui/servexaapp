@@ -93,7 +93,7 @@ export default function SendToCustomerMenu({ jobId, job, customerEmail }: Props)
       ? `\n\nJob Reference: ${job.reference_number}\nJob: ${job.name}\nCustomer: ${customerName}${siteAddress ? `\nSite / Address: ${siteAddress}` : ""}\nDate: ${today}`
       : "";
 
-    setMessage(`Dear ${customerName},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).${ramsBlock}\n\nIf you have any questions, please don't hesitate to get in touch.\n\nKind regards,\nViva Fire Protection`);
+    setMessage(`Dear ${customerName},\n\nPlease find attached ${itemStr} for job ${job.reference_number} (${job.name}).${ramsBlock}\n\nAny questions, just give us a call or drop us an email.\n\nKind regards,\nViva Fire Protection`);
   };
 
   const handleDocToggleImmediate = (doc: DocOption) => {
