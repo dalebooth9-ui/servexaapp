@@ -281,18 +281,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y += 1;
         }
 
-        // Comments box — taller than before but capped, sits above the date/signature line
+        // Comments box — shrinks to fit remaining space rather than spilling
+        // to a new page. Only spills if there is literally no room left.
         const sigY = pageHeight - footerSpace - 10;
         const commentsBoxBottom = sigY - 4;
-        // Only spill to a new page if there isn't even room for a small (10mm) box.
-        if (y + 4 + 10 > commentsBoxBottom) {
+        const minCommentsH = 6;
+        if (y + 4 + minCommentsH > commentsBoxBottom) {
           doc.addPage();
           y = margin;
         }
         const commentsBoxTop = y + 4;
-        const maxCommentsH = isDryRiser ? 65 : 40; // Dry Riser target shows a tall comments box
+        const maxCommentsH = isDryRiser ? 65 : 35;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
-        const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), 10);
+        const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
