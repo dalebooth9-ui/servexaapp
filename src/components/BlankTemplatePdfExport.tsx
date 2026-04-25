@@ -350,7 +350,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      const footerYForLogos = pageHeight - margin - 9;
+      // Lift accreditation logos on Dry Riser sheets to clear the bottom black declaration band
+      const footerYForLogos = isDryRiser
+        ? pageHeight - 9 - 2 - 12 // band(9) + gap(2) + logoH(12) → top of logo row
+        : pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
       const fileName = [
