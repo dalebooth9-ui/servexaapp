@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Plus, Trash2, Package } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -75,7 +76,6 @@ export default function AssetCategorySettings() {
   };
 
   const handleDeleteAll = async () => {
-    if (!confirm("Are you sure you want to delete ALL asset categories? This cannot be undone.")) return;
     const ids = categories.map((c) => c.id);
     const { error } = await supabase.from("asset_categories" as any).delete().in("id", ids);
     if (error) {
@@ -110,12 +110,32 @@ export default function AssetCategorySettings() {
           <Button onClick={handleAdd} disabled={adding || !newName.trim()} size="sm">
             <Plus className="mr-1 h-4 w-4" /> Add
           </Button>
-          {categories.length > 0 && (
-            <Button onClick={handleDeleteAll} variant="destructive" size="sm">
-              <Trash2 className="mr-1 h-4 w-4" /> Delete All
-            </Button>
-          )}
         </div>
+        {categories.length > 0 && (
+          <div className="flex justify-end -mt-2">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive">
+                  <Trash2 className="mr-1 h-3 w-3" /> Delete all
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete all asset categories?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete all asset categories? This cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                    Yes, delete all
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
 
         {categories.length > 0 && (
           <Table>
