@@ -1,6 +1,6 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, Loader2, Printer } from "lucide-react";
+import { Download, Eye, Loader2, Printer, PenLine } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -91,9 +91,9 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 }
 
 export type BlankTemplatePdfExportHandle = {
-  download: () => Promise<void> | void;
-  print: () => Promise<void> | void;
-  preview: () => Promise<void> | void;
+  download: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  print: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  preview: (opts?: { handfill?: boolean }) => Promise<void> | void;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
@@ -105,12 +105,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: () => generate("download"),
-    print: () => generate("print"),
-    preview: () => generate("preview"),
+    download: (o) => generate("download", o?.handfill ?? false),
+    print: (o) => generate("print", o?.handfill ?? false),
+    preview: (o) => generate("preview", o?.handfill ?? false),
   }));
 
-  const generate = async (mode: "download" | "print" | "preview" = "preview") => {
+  const generate = async (mode: "download" | "print" | "preview" = "preview", handfill = false) => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
@@ -225,11 +225,13 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
               doc.addPage();
               y = margin;
             }
-            y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false });
+            y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false, handfill });
 
             for (const row of rows) {
-              doc.setDrawColor(180);
-              doc.rect(margin, y, maxWidth, inlineH);
+              if (!handfill) {
+                doc.setDrawColor(180);
+                doc.rect(margin, y, maxWidth, inlineH);
+              }
               doc.setFontSize(7);
               for (const { field, x: startX } of row) {
                 let ox2 = startX;
@@ -265,7 +267,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             y = margin;
           }
 
-          y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
+          y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, handfill });
 
           for (const field of sectionFields) {
             // Allow scope_of_work and drain/drop leg fields to be pre-filled on standard
@@ -275,7 +277,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             const allowAuto = !isDryRiser && (isScopeField || isDrainField);
             const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
             y = renderBlankFieldRow(doc, field, autoVal, y, {
-              margin, maxWidth, colSplit, rowH: layout.rowH,
+              margin, maxWidth, colSplit, rowH: layout.rowH, handfill,
             });
           }
           y += 1;
@@ -297,8 +299,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
-        doc.setDrawColor(180);
-        doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
+        if (!handfill) {
+          doc.setDrawColor(180);
+          doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
+        }
 
         renderPdfSignatures(doc, sigY, {
           dateStr: "",
@@ -319,7 +323,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
+      if (watermark && !handfill) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
@@ -328,6 +332,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         template.name.replace(/\s+/g, "-").toLowerCase(),
         customerName.replace(/\s+/g, "-").toLowerCase() || null,
         systemQty > 1 ? `x${systemQty}` : null,
+        handfill ? "handfill" : null,
       ].filter(Boolean).join("-") + ".pdf";
 
       if (mode === "print") {
@@ -362,6 +367,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         </Button>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download")} disabled={generating} title="Download blank template PDF" aria-label={`Download ${template.name} as PDF`}>
           <Download className="h-3.5 w-3.5" aria-hidden />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download", true)} disabled={generating} title="Download printable handfill PDF (no borders or underlines)" aria-label={`Download ${template.name} as printable handfill PDF`}>
+          <PenLine className="h-3.5 w-3.5" aria-hidden />
         </Button>
         {showPrint && (
           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("print")} disabled={generating} title="Print blank template" aria-label={`Print ${template.name}`}>
