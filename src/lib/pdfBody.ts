@@ -395,14 +395,17 @@ export function renderSectionHeader(
   const handfill = opts.handfill ?? false;
 
   if (handfill) {
-    // Minimal: bold heading text + a thin underline, no fill, no boxes
+    // Lightweight section band: subtle grey fill + thin border so the heading
+    // visually anchors the rows beneath it without overpowering the print.
+    doc.setFillColor(235, 235, 235);
+    doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
+    doc.setDrawColor(200);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, maxWidth, sectionHeaderH);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
-    doc.text(section.toUpperCase(), margin, y + 4);
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y + sectionHeaderH - 0.5, margin + maxWidth, y + sectionHeaderH - 0.5);
+    doc.text(section.toUpperCase(), margin + 2, y + 4.3);
     return y + sectionHeaderH;
   }
 
@@ -590,11 +593,12 @@ export function renderBlankFieldRow(
   const rowH = opts.rowH;
   const handfill = opts.handfill ?? false;
 
-  if (!handfill) {
-    doc.setDrawColor(180);
-    doc.rect(margin, y, colSplit, rowH);
-    doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
-  }
+  // Always draw the row borders so each field reads as a discrete box on the
+  // printed sheet. Use a lighter grey for the handfill version so the lines
+  // stay subtle on a printed/photocopied page.
+  doc.setDrawColor(handfill ? 200 : 180);
+  doc.rect(margin, y, colSplit, rowH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
