@@ -622,13 +622,13 @@ export function renderBlankFieldRow(
     doc.rect(bx + 20, y + 1, 3, 3); doc.text("N/A", bx + 24, y + 3.5);
     doc.setFontSize(8.5);
   } else if (field.type === "checkbox") {
-    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
+    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
     renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
   } else if (field.type === "select" && field.options && field.options.length > 0) {
     renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
   } else if (isQuestionStyleYesNoField(field)) {
-    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
+    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (autoVal) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
