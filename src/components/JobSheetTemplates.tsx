@@ -1142,6 +1142,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       </Card>
 
       <ImportTemplateDialog open={importOpen} onOpenChange={setImportOpen} onCreated={fetchData} />
+      <ImportTemplateJsonDialog open={importJsonOpen} onOpenChange={setImportJsonOpen} onImported={fetchData} />
       <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
 
       {/* Fill In dialog */}
