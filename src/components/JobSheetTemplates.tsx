@@ -1465,11 +1465,14 @@ function renderFormField(
       // Two explicit tick boxes — YES and NO — so the inspector must make a deliberate choice.
       // Tri-state: undefined/null = no answer yet; true = YES; false = NO.
       // Air release valve fields get a third "NO ACCESS" option.
+      // Fields flagged with allow_na get an additional "N/A" option.
       const lbl = (field.label || "").toLowerCase();
       const isAirRelease = lbl.includes("air release");
+      const allowNa = !!(field as any).allow_na;
       const isYes = value === true;
       const isNo = value === false;
       const isNoAccess = typeof value === "string" && value.toUpperCase() === "NO ACCESS";
+      const isNa = typeof value === "string" && ["n/a", "na"].includes(value.toLowerCase());
       return (
         <div className="flex items-center gap-3 flex-wrap">
           <label className="flex items-center gap-1.5 cursor-pointer">
@@ -1488,6 +1491,16 @@ function renderFormField(
             />
             <span className="text-xs text-muted-foreground">NO</span>
           </label>
+          {allowNa && (
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <Checkbox
+                checked={isNa}
+                onCheckedChange={(checked) => onChange(checked ? "N/A" : null)}
+                aria-label="N/A"
+              />
+              <span className="text-xs text-muted-foreground">N/A</span>
+            </label>
+          )}
           {isAirRelease && (
             <label className="flex items-center gap-1.5 cursor-pointer">
               <Checkbox
