@@ -501,6 +501,8 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
         {/* Editor + (optional) live preview, side-by-side */}
         <div className="flex flex-1 min-h-0 gap-3">
+        {/* ─── LEFT: editor ─── */}
+        <div className={`flex flex-col min-h-0 ${previewOpen ? "w-1/2 min-w-[420px]" : "flex-1"}`}>
         <Tabs defaultValue="fields" className="flex flex-col flex-1 min-h-0">
           <TabsList className="shrink-0 w-full grid grid-cols-2">
             <TabsTrigger value="fields" className="gap-1.5">
