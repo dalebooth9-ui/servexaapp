@@ -350,11 +350,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      // Lift accreditation logos on Dry Riser sheets to clear the bottom black declaration band
+      // For Dry Riser sheets, sit accreditation logos directly above the bottom black band
+      // and render them at full opacity (matches the printed worksheet reference).
       const footerYForLogos = isDryRiser
-        ? pageHeight - 9 - 2 - 12 // band(9) + gap(2) + logoH(12) → top of logo row
+        ? pageHeight - 9 // band top → logos placed 3mm above this
         : pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH, isDryRiser ? 1 : 0.22);
 
       const fileName = [
         jobInfo?.reference_number || "blank",
