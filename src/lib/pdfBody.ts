@@ -393,19 +393,19 @@ export function renderSectionHeader(
   const sectionHeaderH = opts.sectionHeaderH ?? 6;
   const showResultLabel = opts.showResultLabel ?? true;
 
-  // Dark navy section header bar (matches Dry Riser Pressure Test reference layout)
-  doc.setFillColor(44, 62, 80); // #2c3e50
+  // Light grey section header bar with black bold text (matches reference DOCX layout)
+  doc.setFillColor(217, 217, 217); // #D9D9D9
   doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-  doc.setDrawColor(44, 62, 80);
-  doc.rect(margin, y, maxWidth, sectionHeaderH);
+  doc.setDrawColor(180);
+  doc.rect(margin, y, colSplit, sectionHeaderH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, sectionHeaderH);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text(section.toUpperCase(), margin + 1, y + 4.5);
-  if (showResultLabel) {
-    doc.text("RESULT", margin + colSplit + 1, y + 4.5);
-  }
   doc.setTextColor(0, 0, 0);
+  doc.text(section.toUpperCase(), margin + 2, y + 4.3);
+  if (showResultLabel) {
+    doc.text("RESULT", margin + colSplit + 2, y + 4.3);
+  }
 
   return y + sectionHeaderH;
 }
