@@ -318,6 +318,22 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const footerH = 9;
           const footerY = pageHeight - margin - footerH;
           renderPdfFooter(doc, footerY, footerText);
+        } else {
+          // Dry Riser: BS 9990:2015 declaration band sits just above the accreditation logos
+          const declH = 10;
+          const declY = pageHeight - margin - 9 - 4 - declH;
+          doc.setDrawColor(60);
+          doc.setLineWidth(0.5);
+          doc.rect(margin, declY, maxWidth, declH);
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(33, 37, 41);
+          doc.text(
+            "Tested and inspected in accordance with BS 9990:2015",
+            pageWidth / 2,
+            declY + declH / 2 + 1.2,
+            { align: "center" }
+          );
         }
       }
 
