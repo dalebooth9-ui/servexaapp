@@ -1,6 +1,6 @@
 import { useState, forwardRef, useImperativeHandle } from "react";
 import { Button } from "@/components/ui/button";
-import { Download, Eye, Loader2, Printer } from "lucide-react";
+import { Download, Eye, Loader2, Printer, PenLine } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
@@ -91,9 +91,9 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 }
 
 export type BlankTemplatePdfExportHandle = {
-  download: () => Promise<void> | void;
-  print: () => Promise<void> | void;
-  preview: () => Promise<void> | void;
+  download: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  print: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  preview: (opts?: { handfill?: boolean }) => Promise<void> | void;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
@@ -105,12 +105,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: () => generate("download"),
-    print: () => generate("print"),
-    preview: () => generate("preview"),
+    download: (o) => generate("download", o?.handfill ?? false),
+    print: (o) => generate("print", o?.handfill ?? false),
+    preview: (o) => generate("preview", o?.handfill ?? false),
   }));
 
-  const generate = async (mode: "download" | "print" | "preview" = "preview") => {
+  const generate = async (mode: "download" | "print" | "preview" = "preview", handfill = false) => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
