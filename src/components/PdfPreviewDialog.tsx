@@ -46,9 +46,15 @@ export default function PdfPreviewDialog({
     return () => URL.revokeObjectURL(u);
   }, [blob]);
 
-  const src = objectUrl || urlProp || null;
   const isImage = mimeType.startsWith("image/");
   const downloadName = fileName || "document";
+  // Append the filename as a URL fragment so the browser's built-in PDF
+  // viewer (and any fallback UI) shows a human-readable name instead of the
+  // blob UUID. The fragment is ignored when fetching the blob.
+  const rawSrc = objectUrl || urlProp || null;
+  const src = rawSrc
+    ? `${rawSrc}${rawSrc.includes("#") ? "" : `#filename=${encodeURIComponent(downloadName)}`}`
+    : null;
 
   const handleDownload = () => {
     if (!src) return;
