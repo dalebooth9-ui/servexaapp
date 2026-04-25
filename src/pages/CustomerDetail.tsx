@@ -591,7 +591,8 @@ export default function CustomerDetail() {
     const { data: matchingTpls } = await supabase
       .from("job_sheet_templates")
       .select("id, fields")
-      .eq("category", jobDropForm.category);
+      .eq("category", jobDropForm.category)
+      .eq("status", "published");
     if (matchingTpls && matchingTpls.length > 0) {
       for (const tpl of matchingTpls) {
         const fields = (typeof tpl.fields === "string" ? JSON.parse(tpl.fields) : tpl.fields) as any[];

@@ -46,7 +46,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
 
   // Pull all templates + existing responses + per-job template locks in parallel
   const [tplsRes, respsRes, locksRes] = await Promise.all([
-    supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked"),
+    supabase.from("job_sheet_templates").select("id, name, category, job_category, fields, locked").eq("status", "published"),
     supabase.from("job_sheet_responses").select("id, template_id").eq("job_id", jobId),
     supabase.from("job_template_locks").select("bucket, template_id").eq("job_id", jobId),
   ]);

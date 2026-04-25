@@ -50,6 +50,7 @@ type Template = {
   fields: TemplateField[];
   created_at: string;
   locked?: boolean;
+  status?: "draft" | "published" | string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -261,6 +262,23 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       toast({ title: "Error toggling lock", variant: "destructive" });
     } else {
       toast({ title: newLocked ? "Template locked" : "Template unlocked" });
+      fetchData();
+    }
+  };
+
+  const handleTogglePublish = async (tpl: Template) => {
+    const current = (tpl.status ?? "published");
+    const next = current === "published" ? "draft" : "published";
+    const { error } = await supabase.from("job_sheet_templates").update({ status: next } as any).eq("id", tpl.id);
+    if (error) {
+      toast({ title: "Error updating status", variant: "destructive" });
+    } else {
+      toast({
+        title: next === "published" ? "Template published" : "Reverted to draft",
+        description: next === "published"
+          ? "This template is now available to new jobs."
+          : "Hidden from new jobs until you publish again.",
+      });
       fetchData();
     }
   };
@@ -903,7 +921,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             };
             const jobCategory = normalizeSlug(jobInfo?.category || "");
     const isInstallationJob = jobCategory?.includes("installation");
-            const nonRamsTemplates = templates.filter((tpl) => (tpl as any).category !== "rams");
+            const visibleByStatus = templates.filter((tpl) => {
+              const status = (tpl as any).status ?? "published";
+              return userRole === "admin" || status === "published";
+            });
+            const nonRamsTemplates = visibleByStatus.filter((tpl) => (tpl as any).category !== "rams");
             const visibleTemplates = isInstallationJob
               ? nonRamsTemplates.filter((tpl) => tpl.name.toLowerCase().includes("commissioning"))
               : nonRamsTemplates.filter((tpl) => {
@@ -927,6 +949,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <span className="text-[10px] text-muted-foreground shrink-0">{tpl.fields.length} fields</span>
                     {userRole === "admin" && (tpl as any).job_category && (
                       <Badge variant="outline" className="text-[10px] h-4 shrink-0">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
+                    )}
+                    {userRole === "admin" && ((tpl as any).status ?? "published") === "draft" && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 shrink-0 bg-amber-50 text-amber-700 border-amber-200"
+                        title="Draft — hidden from new jobs"
+                      >
+                        Draft
+                      </Badge>
                     )}
                   </div>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
@@ -1027,6 +1058,23 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                         });
                       }}
                     />
+                    {userRole === "admin" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleTogglePublish(tpl)}
+                        title={
+                          ((tpl as any).status ?? "published") === "published"
+                            ? "Move back to draft (hide from new jobs)"
+                            : "Publish (make available to new jobs)"
+                        }
+                      >
+                        {((tpl as any).status ?? "published") === "published"
+                          ? <Send className="h-3.5 w-3.5 text-emerald-600" />
+                          : <Send className="h-3.5 w-3.5 text-amber-600" />}
+                      </Button>
+                    )}
                     {userRole === "admin" && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleLock(tpl)} title={tpl.locked ? "Unlock template" : "Lock template"}>
                         {tpl.locked ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}

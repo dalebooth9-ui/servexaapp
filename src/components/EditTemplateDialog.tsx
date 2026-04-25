@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Settings2, List } from "lucide-react";
+import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Settings2, List, Send, FileEdit } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -34,6 +34,7 @@ type Template = {
   description: string | null;
   fields: TemplateField[];
   category?: string | null;
+  status?: "draft" | "published" | string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
@@ -330,7 +331,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [qaOverride, setQaOverride] = useState(false);
   const qaReport = runTemplateQa(fields as any);
 
-  const handleSave = async () => {
+  const handleSave = async (targetStatus: "draft" | "published") => {
     if (!template) return;
     if (!templateName.trim()) {
       toast({ title: "Name required", variant: "destructive" });
@@ -341,11 +342,12 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       return;
     }
 
-    // QA gate — block publish on errors unless explicitly overridden.
-    if (!qaReport.ok && !qaOverride) {
+    // QA gate — block PUBLISH on errors unless explicitly overridden.
+    // Drafts are allowed to save with QA issues so users can park work-in-progress.
+    if (targetStatus === "published" && !qaReport.ok && !qaOverride) {
       toast({
         title: "Layout doesn't match reference style",
-        description: `${qaReport.errors.length} blocking issue${qaReport.errors.length === 1 ? "" : "s"}. Review the QA panel and fix, or tick "Save anyway".`,
+        description: `${qaReport.errors.length} blocking issue${qaReport.errors.length === 1 ? "" : "s"}. Save as Draft, fix the issues, or tick "Save anyway".`,
         variant: "destructive",
       });
       return;
@@ -366,12 +368,18 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       fields: fields as any,
       branding: branding as any,
       footer_text: footerText.trim() || null,
+      status: targetStatus,
     } as any).eq("id", template.id);
 
     if (error) {
       toast({ title: "Error", description: "Failed to update template.", variant: "destructive" });
     } else {
-      toast({ title: "Template updated" });
+      toast({
+        title: targetStatus === "published" ? "Template published" : "Draft saved",
+        description: targetStatus === "published"
+          ? "New jobs will use this version."
+          : "Not visible to new jobs until you publish.",
+      });
       onSaved();
       onOpenChange(false);
     }
@@ -611,11 +619,40 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
           <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
             <Undo2 className="h-3.5 w-3.5 mr-1" /> Revert
           </Button>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto">
+            {template && (
+              <span
+                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                  (template.status ?? "published") === "draft"
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}
+                title={
+                  (template.status ?? "published") === "draft"
+                    ? "Draft — not visible to new jobs"
+                    : "Published — used by new jobs"
+                }
+              >
+                {(template.status ?? "published") === "draft" ? "Draft" : "Published"}
+              </span>
+            )}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || (!qaReport.ok && !qaOverride)}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Save Changes
+            <Button
+              variant="secondary"
+              onClick={() => handleSave("draft")}
+              disabled={saving}
+              title="Save changes as a draft. New jobs will keep using the last published version."
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <FileEdit className="h-4 w-4 mr-1" />}
+              Save Draft
+            </Button>
+            <Button
+              onClick={() => handleSave("published")}
+              disabled={saving || (!qaReport.ok && !qaOverride)}
+              title="Make this version available to new jobs."
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+              Publish
             </Button>
           </div>
         </DialogFooter>

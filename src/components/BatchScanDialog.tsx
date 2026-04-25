@@ -110,6 +110,7 @@ export default function BatchScanDialog() {
         .from("job_sheet_templates")
         .select("id, name, fields, job_category")
         .eq("job_category", matchedCat.slug)
+        .eq("status", "published")
         .limit(1);
 
       if (templates && templates.length > 0) {
