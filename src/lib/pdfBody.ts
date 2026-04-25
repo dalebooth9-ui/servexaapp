@@ -588,10 +588,13 @@ export function renderBlankFieldRow(
   const maxWidth = opts.maxWidth ?? (doc.internal.pageSize.getWidth() - margin * 2);
   const colSplit = opts.colSplit ?? maxWidth * 0.68;
   const rowH = opts.rowH;
+  const handfill = opts.handfill ?? false;
 
-  doc.setDrawColor(180);
-  doc.rect(margin, y, colSplit, rowH);
-  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
+  if (!handfill) {
+    doc.setDrawColor(180);
+    doc.rect(margin, y, colSplit, rowH);
+    doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
+  }
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
