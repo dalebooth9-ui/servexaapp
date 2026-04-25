@@ -55,7 +55,7 @@ export async function renderPdfHeader(
   // their own uploaded logo (a real, non-empty URL on the customer record).
   const logoUrl = branding.logo_url && branding.logo_url.trim() !== ""
     ? branding.logo_url
-    : "/images/vivafire-logo-new.jpg";
+    : "/images/vivafire-logo-new.png";
 
   // --- Logo ---
   let logoBottomY = y;
