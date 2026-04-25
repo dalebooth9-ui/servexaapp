@@ -1,7 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink, Loader2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Download, ExternalLink, Loader2, ChevronDown, FileText } from "lucide-react";
 
 export interface PdfPreviewDialogProps {
   open: boolean;
@@ -14,8 +22,23 @@ export interface PdfPreviewDialogProps {
   blob?: Blob | null;
   /** Suggested file name for the download button. */
   fileName?: string;
+  /** Optional alternative filenames the user can pick from in the dropdown. */
+  fileNameOptions?: string[];
   /** MIME type — used to decide between iframe (PDF / HTML) and <img>. Defaults to application/pdf. */
   mimeType?: string;
+}
+
+/** Slugify a candidate filename so it renders cleanly inside browser viewer chrome. */
+function sanitizeFileName(name: string, ext: string): string {
+  const base = (name || "document")
+    .replace(/\.[a-z0-9]{2,5}$/i, "") // strip existing extension
+    .trim()
+    .replace(/[^\w\-. ]+/g, "-")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+  return `${base || "document"}.${ext}`;
 }
 
 /**
@@ -24,6 +47,10 @@ export interface PdfPreviewDialogProps {
  * Renders PDFs and images directly via an <iframe>/<img>, so the user can
  * view documents without saving or downloading them first. A Download button
  * is always available inside the dialog for the cases where they do want a copy.
+ *
+ * The header includes a filename dropdown — picking a preset updates the URL
+ * fragment so the browser's built-in PDF viewer / fallback UI displays a
+ * descriptive name instead of the blob UUID.
  */
 export default function PdfPreviewDialog({
   open,
@@ -32,6 +59,7 @@ export default function PdfPreviewDialog({
   url: urlProp,
   blob,
   fileName,
+  fileNameOptions,
   mimeType = "application/pdf",
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -47,19 +75,51 @@ export default function PdfPreviewDialog({
   }, [blob]);
 
   const isImage = mimeType.startsWith("image/");
-  const downloadName = fileName || "document";
+  const ext = useMemo(() => {
+    if (isImage) return mimeType.split("/")[1]?.split("+")[0] || "png";
+    if (mimeType === "application/pdf") return "pdf";
+    return (fileName?.match(/\.([a-z0-9]{2,5})$/i)?.[1] || "bin").toLowerCase();
+  }, [mimeType, isImage, fileName]);
+
+  // Build the dropdown options: dedupe + sanitize.
+  const options = useMemo(() => {
+    const raw = [fileName, ...(fileNameOptions || [])].filter(
+      (n): n is string => typeof n === "string" && n.trim().length > 0,
+    );
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const n of raw) {
+      const clean = sanitizeFileName(n, ext);
+      if (!seen.has(clean)) {
+        seen.add(clean);
+        out.push(clean);
+      }
+    }
+    if (out.length === 0) out.push(sanitizeFileName("document", ext));
+    return out;
+  }, [fileName, fileNameOptions, ext]);
+
+  const [selectedName, setSelectedName] = useState<string>(options[0]);
+
+  // Reset selection whenever the dialog (re-)opens or the source changes.
+  useEffect(() => {
+    setSelectedName(options[0]);
+  }, [options, open]);
+
+  const downloadName = selectedName || options[0];
+
   // Append the filename as a URL fragment so the browser's built-in PDF
   // viewer (and any fallback UI) shows a human-readable name instead of the
   // blob UUID. The fragment is ignored when fetching the blob.
   const rawSrc = objectUrl || urlProp || null;
   const src = rawSrc
-    ? `${rawSrc}${rawSrc.includes("#") ? "" : `#filename=${encodeURIComponent(downloadName)}`}`
+    ? `${rawSrc.split("#")[0]}#filename=${encodeURIComponent(downloadName)}`
     : null;
 
   const handleDownload = () => {
     if (!rawSrc) return;
     const a = document.createElement("a");
-    a.href = rawSrc;
+    a.href = rawSrc.split("#")[0];
     a.download = downloadName;
     document.body.appendChild(a);
     a.click();
@@ -67,17 +127,48 @@ export default function PdfPreviewDialog({
   };
 
   const handleOpenInTab = () => {
-    if (rawSrc) window.open(rawSrc, "_blank", "noopener,noreferrer");
+    if (src) window.open(src, "_blank", "noopener,noreferrer");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-5xl w-[95vw] h-[90vh] p-0 flex flex-col gap-0">
-        <DialogHeader className="px-4 py-3 border-b shrink-0 flex-row items-center justify-between space-y-0">
-          <DialogTitle className="text-sm truncate pr-4">
+        <DialogHeader className="px-4 py-3 border-b shrink-0 flex-row items-center justify-between space-y-0 gap-2">
+          <DialogTitle className="text-sm truncate pr-2 flex-1 min-w-0">
             {title || downloadName}
           </DialogTitle>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 gap-1.5 max-w-[260px]"
+                  title="Choose filename"
+                  disabled={!src}
+                >
+                  <FileText className="h-3.5 w-3.5 shrink-0" />
+                  <span className="hidden sm:inline truncate">{downloadName}</span>
+                  <ChevronDown className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="max-w-[360px]">
+                <DropdownMenuLabel>Filename</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {options.map((name) => (
+                  <DropdownMenuItem
+                    key={name}
+                    onSelect={() => setSelectedName(name)}
+                    className="text-xs"
+                  >
+                    <span className="truncate">{name}</span>
+                    {name === downloadName && (
+                      <span className="ml-auto pl-2 text-muted-foreground">✓</span>
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button
               variant="ghost"
               size="sm"
