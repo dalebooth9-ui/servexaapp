@@ -33,6 +33,7 @@ type Template = {
     company_subtitle?: string;
     logo_url?: string;
     footer_text?: string;
+    declaration_text?: string;
   };
 };
 
