@@ -244,9 +244,6 @@ export default function Engineers() {
 
   return (
     <div>
-      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
-        <ArrowLeft className="mr-1 h-4 w-4" /> Back
-      </Button>
       <div className="mb-6 flex items-center justify-between gap-3 flex-wrap">
         <h1 className="text-2xl font-bold">Engineers</h1>
         <div className="flex items-center gap-2">

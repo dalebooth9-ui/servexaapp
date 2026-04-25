@@ -135,9 +135,6 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
-        <ArrowLeft className="mr-1 h-4 w-4" /> Back
-      </Button>
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Settings</h1>
         <p className="mt-1 text-sm text-muted-foreground">Configure your workspace — integrations, reminders, templates, and team access.</p>
