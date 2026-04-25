@@ -1215,12 +1215,13 @@ export default function IndustryTemplates() {
                   const isImported = imported.has(tpl.id);
                   const isImporting = importing === tpl.id;
                   // Build a minimal mock template/jobInfo for BlankTemplatePdfExport
+                  const normalizedFields = tpl.fields.map((f) => ({ ...f, section: f.section || "General" }));
                   const mockTemplate = {
                     id: tpl.id,
                     name: tpl.name,
                     description: tpl.description,
                     standard: tpl.standard,
-                    fields: tpl.fields,
+                    fields: normalizedFields,
                     branding: {},
                   };
                   return (
