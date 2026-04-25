@@ -94,6 +94,9 @@ export type BlankTemplatePdfExportHandle = {
   download: (opts?: { handfill?: boolean }) => Promise<void> | void;
   print: (opts?: { handfill?: boolean }) => Promise<void> | void;
   preview: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  /** Build the PDF and return the raw Blob without opening any UI.
+   *  Useful for embedding a live preview elsewhere (e.g. template editor). */
+  getBlob: (opts?: { handfill?: boolean }) => Promise<Blob | null>;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
@@ -105,12 +108,13 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: (o) => generate("download", o?.handfill ?? false),
-    print: (o) => generate("print", o?.handfill ?? false),
-    preview: (o) => generate("preview", o?.handfill ?? false),
+    download: (o) => generate("download", o?.handfill ?? false) as Promise<void>,
+    print: (o) => generate("print", o?.handfill ?? false) as Promise<void>,
+    preview: (o) => generate("preview", o?.handfill ?? false) as Promise<void>,
+    getBlob: (o) => generate("blob", o?.handfill ?? false) as Promise<Blob | null>,
   }));
 
-  const generate = async (mode: "download" | "print" | "preview" = "preview", handfill = false) => {
+  const generate = async (mode: "download" | "print" | "preview" | "blob" = "preview", handfill = false): Promise<Blob | null | void> => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
@@ -346,11 +350,19 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         setPreviewBlob(pdfBlob);
         setPreviewName(fileName);
         setPreviewOpen(true);
+      } else if (mode === "blob") {
+        // Silent build — caller uses the returned Blob directly (e.g. live preview embed).
+        return doc.output("blob") as Blob;
       } else {
         doc.save(fileName);
         toast({ title: "PDF downloaded", description: fileName });
       }
     } catch (err: any) {
+      // For silent blob builds, re-throw so the caller can handle it.
+      if (mode === "blob") {
+        setGenerating(false);
+        throw err;
+      }
       toast({ title: "Error generating PDF", description: err.message, variant: "destructive" });
     } finally {
       setGenerating(false);

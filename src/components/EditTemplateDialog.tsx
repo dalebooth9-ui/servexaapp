@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -9,13 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Settings2, List, Send, FileEdit } from "lucide-react";
+import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Settings2, List, Send, FileEdit, Eye, RefreshCw, PenLine } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { resolveFooterText } from "@/lib/pdfFooter";
 import { runTemplateQa, summariseQa } from "@/lib/templateQa";
 import { AlertTriangle } from "lucide-react";
+import BlankTemplatePdfExport, { type BlankTemplatePdfExportHandle } from "@/components/BlankTemplatePdfExport";
 
 type TemplateField = {
   id: string;
@@ -237,11 +238,99 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Live PDF preview state ───────────────────────────────────────────
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewHandfill, setPreviewHandfill] = useState(false);
+  const [previewBuilding, setPreviewBuilding] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const pdfExportRef = useRef<BlankTemplatePdfExportHandle>(null);
+  // Bumped on every relevant edit; the debounced effect below rebuilds the PDF.
+  const [previewVersion, setPreviewVersion] = useState(0);
+
+  // Build a "live" template object from the current dialog state so the
+  // preview reflects unsaved edits.
+  const livePreviewTemplate = useMemo(
+    () => ({
+      id: template?.id || "preview",
+      name: templateName || (template?.name ?? "Untitled template"),
+      description: templateDesc || null,
+      fields: fields as any,
+      footer_text: footerText || null,
+      branding: {
+        company_name: companyName || undefined,
+        company_subtitle: companySubtitle || undefined,
+        logo_url: logoUrl || undefined,
+        footer_text: footerText || undefined,
+      },
+    }),
+    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl]
+  );
+
   useEffect(() => {
     supabase.from("job_categories").select("slug, name").order("sort_order").then(({ data }) => {
       if (data) setJobCategories(data);
     });
   }, []);
+
+  // Debounce: bump previewVersion shortly after edits settle, so we don't
+  // rebuild the PDF on every keystroke.
+  useEffect(() => {
+    if (!previewOpen) return;
+    const t = setTimeout(() => setPreviewVersion((v) => v + 1), 500);
+    return () => clearTimeout(t);
+  }, [previewOpen, livePreviewTemplate, previewHandfill]);
+
+  // Rebuild the PDF whenever previewVersion changes.
+  useEffect(() => {
+    if (!previewOpen) return;
+    if (!pdfExportRef.current) return;
+    let cancelled = false;
+    let prevUrl: string | null = null;
+    setPreviewBuilding(true);
+    setPreviewError(null);
+    (async () => {
+      try {
+        const blob = await pdfExportRef.current!.getBlob({ handfill: previewHandfill });
+        if (cancelled || !blob) return;
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl((old) => {
+          prevUrl = old;
+          return url;
+        });
+      } catch (err: any) {
+        if (!cancelled) setPreviewError(err?.message || "Failed to build preview");
+      } finally {
+        if (!cancelled) setPreviewBuilding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      // Revoke the previous blob URL once the new one has replaced it.
+      if (prevUrl) setTimeout(() => URL.revokeObjectURL(prevUrl!), 100);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewVersion, previewOpen]);
+
+  // Clean up blob URL on close/unmount.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When dialog closes, drop the preview state.
+  useEffect(() => {
+    if (!open) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      setPreviewOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   if (open && template && !initialised) {
     setTemplateName(template.name);
@@ -388,14 +477,32 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl flex flex-col" style={{ height: "min(90vh, 760px)" }}>
+      <DialogContent
+        className={`${previewOpen ? "max-w-6xl" : "max-w-2xl"} flex flex-col transition-[max-width] duration-200`}
+        style={{ height: "min(90vh, 820px)" }}
+      >
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             Edit Template
-            {templateName && <span className="text-sm font-normal text-muted-foreground">— {templateName}</span>}
+            {templateName && <span className="text-sm font-normal text-muted-foreground truncate">— {templateName}</span>}
+            <Button
+              type="button"
+              variant={previewOpen ? "default" : "outline"}
+              size="sm"
+              className="ml-auto h-7 text-xs gap-1.5"
+              onClick={() => setPreviewOpen((v) => !v)}
+              title={previewOpen ? "Hide live PDF preview" : "Show live PDF preview"}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              {previewOpen ? "Hide preview" : "Preview printed PDF"}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
+        {/* Editor + (optional) live preview, side-by-side */}
+        <div className="flex flex-1 min-h-0 gap-3">
+        {/* ─── LEFT: editor ─── */}
+        <div className={`flex flex-col min-h-0 ${previewOpen ? "w-1/2 min-w-[420px]" : "flex-1"}`}>
         <Tabs defaultValue="fields" className="flex flex-col flex-1 min-h-0">
           <TabsList className="shrink-0 w-full grid grid-cols-2">
             <TabsTrigger value="fields" className="gap-1.5">
@@ -614,6 +721,80 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
             )}
           </div>
         </div>
+        </div>
+        {/* ─── RIGHT: live PDF preview ─── */}
+        {previewOpen && (
+          <div className="flex flex-col w-1/2 min-w-[420px] min-h-0 border rounded-md overflow-hidden bg-muted/30">
+            <div className="flex items-center gap-2 border-b px-2 py-1.5 bg-background">
+              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs font-medium truncate">Live PDF preview</span>
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                {previewBuilding ? "Rebuilding…" : "Up to date"}
+              </span>
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant={previewHandfill ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-[11px] px-2 gap-1"
+                  onClick={() => setPreviewHandfill((v) => !v)}
+                  title="Toggle printable handfill mode (no borders/underlines)"
+                >
+                  <PenLine className="h-3 w-3" />
+                  Handfill
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setPreviewVersion((v) => v + 1)}
+                  title="Refresh preview now"
+                  disabled={previewBuilding}
+                >
+                  {previewBuilding
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <RefreshCw className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 relative bg-neutral-200 dark:bg-neutral-900">
+              {previewError ? (
+                <div className="absolute inset-0 flex items-center justify-center p-4 text-xs text-destructive text-center">
+                  Preview failed: {previewError}
+                </div>
+              ) : previewUrl ? (
+                <iframe
+                  key={previewUrl}
+                  src={previewUrl}
+                  title="Template PDF preview"
+                  className="w-full h-full bg-white"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Building preview…
+                </div>
+              )}
+              {previewBuilding && previewUrl && (
+                <div className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1 shadow">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Updating
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        </div>
+
+        {/* Headless PDF builder — exposes getBlob() via ref. Always mounted
+            (when dialog is open) so the live preview can pull a fresh blob. */}
+        <BlankTemplatePdfExport
+          ref={pdfExportRef}
+          template={livePreviewTemplate as any}
+          jobInfo={null}
+          headless
+        />
 
         <DialogFooter className="shrink-0 border-t pt-3">
           <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
