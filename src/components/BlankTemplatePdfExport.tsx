@@ -320,7 +320,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const footerY = pageHeight - margin - footerH;
           renderPdfFooter(doc, footerY, footerText);
         } else {
-          // Dry Riser: BS 9990:2015 declaration band sits just above the accreditation logos
+          // Dry Riser: declaration band sits just above the accreditation logos.
+          // Wording is editable per template via branding.declaration_text.
+          const declarationText =
+            (template.branding?.declaration_text || "").trim() ||
+            "Tested and inspected in accordance with BS 9990:2015";
           const declH = 10;
           const declY = pageHeight - margin - 9 - 4 - declH;
           doc.setDrawColor(60);
@@ -329,12 +333,15 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           doc.setFont("helvetica", "bold");
           doc.setFontSize(9);
           doc.setTextColor(33, 37, 41);
-          doc.text(
-            "Tested and inspected in accordance with BS 9990:2015",
-            pageWidth / 2,
-            declY + declH / 2 + 1.2,
-            { align: "center" }
-          );
+          // Wrap if user enters longer text
+          const lines = doc.splitTextToSize(declarationText, maxWidth - 6) as string[];
+          const lineH = 4;
+          const totalH = lines.length * lineH;
+          let ty = declY + (declH - totalH) / 2 + lineH - 1;
+          lines.forEach((ln) => {
+            doc.text(ln, pageWidth / 2, ty, { align: "center" });
+            ty += lineH;
+          });
         }
       }
 
