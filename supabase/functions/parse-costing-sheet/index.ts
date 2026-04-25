@@ -49,7 +49,7 @@ async function fetchExcelText(
   supabase: ReturnType<typeof createClient>,
 ): Promise<string> {
   const buffer = await fetchExcelBytes(excelUrl, bucket, supabase);
-  const XLSX = await import("npm:xlsx@0.18.5");
+  const XLSX = await import("https://esm.sh/xlsx@0.18.5");
   const wb = XLSX.read(new Uint8Array(buffer), { type: "array" });
   const texts: string[] = [];
   for (const sheetName of wb.SheetNames) {
