@@ -50,6 +50,7 @@ type Template = {
   fields: TemplateField[];
   created_at: string;
   locked?: boolean;
+  status?: "draft" | "published" | string | null;
   branding?: {
     company_name?: string;
     company_subtitle?: string;
