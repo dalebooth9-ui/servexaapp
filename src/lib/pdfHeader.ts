@@ -70,16 +70,16 @@ export async function renderPdfHeader(
         logoImg.onerror = () => reject();
         logoImg.src = logoUrl;
       });
-      // Larger header logo for stronger brand presence
-      const logoMaxW = 110;
-      const logoMaxH = 52;
+      // Larger header logo for stronger brand presence (smaller in compact mode)
+      const logoMaxW = compact ? 70 : 110;
+      const logoMaxH = compact ? 32 : 52;
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
       let lw = logoMaxH * aspect;
       let lh = logoMaxH;
       if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
       const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
       doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
-      logoBottomY = y + lh + 3;
+      logoBottomY = y + lh + (compact ? 0 : 3);
     } catch {
       if (companyName) {
         doc.setFontSize(12);
