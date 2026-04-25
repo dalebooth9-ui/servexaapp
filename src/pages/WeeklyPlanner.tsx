@@ -569,6 +569,7 @@ export default function WeeklyPlanner() {
   // (blank worksheet removed — users print the completed planner instead)
 
   const isWeeklyNav = view === "grid" || view === "list" || view === "map";
+  const hasNoData = jobs.length === 0 && schedule.length === 0 && adhocEntries.length === 0;
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
 
