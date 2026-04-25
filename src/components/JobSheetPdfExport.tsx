@@ -243,8 +243,12 @@ export async function generateJobSheetPdf(
       customerLogoUrl = (freshJob as any)?.customers?.logo_url || null;
     } catch { /* use null */ }
   }
-  // Customer logo always takes priority over the template's stored branding logo
-  const branding = { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
+  // Dry Riser sheets: force Viva Fire branding regardless of customer logo, to match
+  // the Industry Templates page version (single source of truth for template look).
+  const isDryRiser = /dry\s*riser/i.test(template.name || "");
+  const branding = isDryRiser
+    ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
+    : { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
   const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
 
   // --- Load customer logo and extract dominant brand colour ---
