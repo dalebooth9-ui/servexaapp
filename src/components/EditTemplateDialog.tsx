@@ -418,6 +418,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
+    setDeclarationText(b.declaration_text ?? "");
     toast({ title: "Reverted to saved version" });
   };
 
