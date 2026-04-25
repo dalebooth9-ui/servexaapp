@@ -43,6 +43,7 @@ type TemplateField = {
   options?: string[];
   placeholder?: string;
   allow_notes?: boolean;
+  allow_na?: boolean;
 };
 
 type Template = {
