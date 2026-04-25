@@ -603,10 +603,24 @@ export function renderBlankFieldRow(
     const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
     doc.text(truncVal, margin + colSplit + 2, y + 3.5);
     doc.setFontSize(8.5);
+  } else if (
+    field.type === "text" ||
+    field.type === "number" ||
+    field.type === "date" ||
+    field.type === "textarea" ||
+    field.type === "long_text" ||
+    field.type === "select"
+  ) {
+    // Free-text / numeric / date / generic select fields: draw a light underline
+    // inside the result cell so engineers know to write a value.
+    const ulX = margin + colSplit + 3;
+    const ulW = maxWidth - colSplit - 6;
+    doc.setDrawColor(160);
+    doc.setLineWidth(0.2);
+    doc.line(ulX, y + rowH - 1.5, ulX + ulW, y + rowH - 1.5);
+    doc.setDrawColor(180);
   }
-  // For all other field types (text, number, date, textarea, signature, photo,
-  // generic select with no autoVal), leave the result cell blank — matches
-  // the original Dry Riser Pressure Test layout (empty cell, no underline).
+  // For signature/photo/file types, leave the result cell blank.
 
   return y + rowH;
 }
