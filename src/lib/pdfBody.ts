@@ -590,11 +590,12 @@ export function renderBlankFieldRow(
   const rowH = opts.rowH;
   const handfill = opts.handfill ?? false;
 
-  if (!handfill) {
-    doc.setDrawColor(180);
-    doc.rect(margin, y, colSplit, rowH);
-    doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
-  }
+  // Always draw the row borders so each field reads as a discrete box on the
+  // printed sheet. Use a lighter grey for the handfill version so the lines
+  // stay subtle on a printed/photocopied page.
+  doc.setDrawColor(handfill ? 200 : 180);
+  doc.rect(margin, y, colSplit, rowH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
