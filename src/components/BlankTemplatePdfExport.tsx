@@ -225,11 +225,13 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
               doc.addPage();
               y = margin;
             }
-            y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false });
+            y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, showResultLabel: false, handfill });
 
             for (const row of rows) {
-              doc.setDrawColor(180);
-              doc.rect(margin, y, maxWidth, inlineH);
+              if (!handfill) {
+                doc.setDrawColor(180);
+                doc.rect(margin, y, maxWidth, inlineH);
+              }
               doc.setFontSize(7);
               for (const { field, x: startX } of row) {
                 let ox2 = startX;
@@ -265,7 +267,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             y = margin;
           }
 
-          y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
+          y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH, handfill });
 
           for (const field of sectionFields) {
             // Allow scope_of_work and drain/drop leg fields to be pre-filled on standard
@@ -275,7 +277,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             const allowAuto = !isDryRiser && (isScopeField || isDrainField);
             const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
             y = renderBlankFieldRow(doc, field, autoVal, y, {
-              margin, maxWidth, colSplit, rowH: layout.rowH,
+              margin, maxWidth, colSplit, rowH: layout.rowH, handfill,
             });
           }
           y += 1;
@@ -297,8 +299,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         doc.setFontSize(8.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
-        doc.setDrawColor(180);
-        doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
+        if (!handfill) {
+          doc.setDrawColor(180);
+          doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
+        }
 
         renderPdfSignatures(doc, sigY, {
           dateStr: "",
@@ -319,7 +323,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
+      if (watermark && !handfill) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
