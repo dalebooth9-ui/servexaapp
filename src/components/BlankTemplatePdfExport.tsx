@@ -94,6 +94,9 @@ export type BlankTemplatePdfExportHandle = {
   download: (opts?: { handfill?: boolean }) => Promise<void> | void;
   print: (opts?: { handfill?: boolean }) => Promise<void> | void;
   preview: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  /** Build the PDF and return the raw Blob without opening any UI.
+   *  Useful for embedding a live preview elsewhere (e.g. template editor). */
+  getBlob: (opts?: { handfill?: boolean }) => Promise<Blob | null>;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
@@ -108,6 +111,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     download: (o) => generate("download", o?.handfill ?? false),
     print: (o) => generate("print", o?.handfill ?? false),
     preview: (o) => generate("preview", o?.handfill ?? false),
+    getBlob: (o) => generate("blob", o?.handfill ?? false) as Promise<Blob | null>,
   }));
 
   const generate = async (mode: "download" | "print" | "preview" = "preview", handfill = false) => {
