@@ -91,7 +91,7 @@ serve(async (req) => {
         body: `<h2>Job Completed</h2>
           <p>We're pleased to confirm that job <strong>${job.reference_number}</strong> — ${job.name} has been completed.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
-          <p>If you have any questions or require follow-up, please don't hesitate to contact us.</p>
+          <p>Any questions, just give us a call or drop us an email.</p>
           <p>Thank you,<br/>Servexa</p>`,
       },
       certificate_issued: {

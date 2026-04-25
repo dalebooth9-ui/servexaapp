@@ -95,7 +95,7 @@ serve(async (req) => {
             <h2>Invoice ${invoiceNumber}</h2>
             <p>Dear ${customerName || "Customer"},</p>
             <p>Please find attached your invoice for <strong>£${Number(total).toFixed(2)}</strong>.</p>
-            <p>If you have any questions, please don't hesitate to get in touch.</p>
+            <p>Any questions, just give us a call or drop us an email.</p>
             <p>Kind regards,<br/>Servexa</p>
           </div>
         `,
