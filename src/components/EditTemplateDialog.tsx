@@ -619,11 +619,40 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
           <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
             <Undo2 className="h-3.5 w-3.5 mr-1" /> Revert
           </Button>
-          <div className="flex gap-2 ml-auto">
+          <div className="flex items-center gap-2 ml-auto">
+            {template && (
+              <span
+                className={`inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full border ${
+                  (template.status ?? "published") === "draft"
+                    ? "bg-amber-50 text-amber-700 border-amber-200"
+                    : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                }`}
+                title={
+                  (template.status ?? "published") === "draft"
+                    ? "Draft — not visible to new jobs"
+                    : "Published — used by new jobs"
+                }
+              >
+                {(template.status ?? "published") === "draft" ? "Draft" : "Published"}
+              </span>
+            )}
             <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button onClick={handleSave} disabled={saving || (!qaReport.ok && !qaOverride)}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-              Save Changes
+            <Button
+              variant="secondary"
+              onClick={() => handleSave("draft")}
+              disabled={saving}
+              title="Save changes as a draft. New jobs will keep using the last published version."
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <FileEdit className="h-4 w-4 mr-1" />}
+              Save Draft
+            </Button>
+            <Button
+              onClick={() => handleSave("published")}
+              disabled={saving || (!qaReport.ok && !qaOverride)}
+              title="Make this version available to new jobs."
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Send className="h-4 w-4 mr-1" />}
+              Publish
             </Button>
           </div>
         </DialogFooter>
