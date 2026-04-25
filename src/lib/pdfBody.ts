@@ -158,6 +158,7 @@ export type PdfTemplateField = {
   section: string;
   options?: string[];
   allow_notes?: boolean;
+  allow_na?: boolean;
 };
 
 const POSITIVE_RESULT_TOKENS = new Set(["yes", "pass", "true"]);
@@ -179,12 +180,16 @@ function hasRenderableValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
 }
 
-function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string): void {
+function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string, includeNa?: boolean): void {
   doc.setFontSize(6);
   doc.rect(x, y + 1, 3, 3);
   doc.text("YES", x + 4, y + 3.5);
   doc.rect(x + 14, y + 1, 3, 3);
   doc.text("NO", x + 18, y + 3.5);
+  if (includeNa) {
+    doc.rect(x + 26, y + 1, 3, 3);
+    doc.text("N/A", x + 30, y + 3.5);
+  }
 
   if (autoVal === "YES") {
     doc.setFont("helvetica", "bold");
@@ -617,13 +622,13 @@ export function renderBlankFieldRow(
     doc.rect(bx + 20, y + 1, 3, 3); doc.text("N/A", bx + 24, y + 3.5);
     doc.setFontSize(8.5);
   } else if (field.type === "checkbox") {
-    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
+    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
     renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
   } else if (field.type === "select" && field.options && field.options.length > 0) {
     renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
   } else if (isQuestionStyleYesNoField(field)) {
-    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
+    renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (autoVal) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
