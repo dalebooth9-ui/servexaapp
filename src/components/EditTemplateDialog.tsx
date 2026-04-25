@@ -41,6 +41,7 @@ type Template = {
     company_subtitle?: string;
     logo_url?: string;
     footer_text?: string;
+    declaration_text?: string;
   };
 };
 
@@ -234,6 +235,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [companySubtitle, setCompanySubtitle] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [footerText, setFooterText] = useState("");
+  const [declarationText, setDeclarationText] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -262,9 +264,10 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         company_subtitle: companySubtitle || undefined,
         logo_url: logoUrl || undefined,
         footer_text: footerText || undefined,
+        declaration_text: declarationText || undefined,
       },
     }),
-    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl]
+    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText]
   );
 
   useEffect(() => {
@@ -343,6 +346,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
+    setDeclarationText(b.declaration_text ?? "");
     setInitialised(true);
   }
   if (!open && initialised) {
@@ -414,6 +418,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
+    setDeclarationText(b.declaration_text ?? "");
     toast({ title: "Reverted to saved version" });
   };
 
@@ -448,6 +453,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       company_subtitle: companySubtitle.trim() || undefined,
       logo_url: logoUrl || undefined,
       footer_text: footerText.trim() || undefined,
+      declaration_text: declarationText.trim() || undefined,
     };
     const { error } = await supabase.from("job_sheet_templates").update({
       name: templateName.trim(),
@@ -660,6 +666,19 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                       </div>
                     );
                   })()}
+                </div>
+                <div>
+                  <Label className="text-xs">Declaration Box (Dry Riser printable)</Label>
+                  <Textarea
+                    value={declarationText}
+                    onChange={(e) => setDeclarationText(e.target.value)}
+                    placeholder="e.g. Tested and inspected in accordance with BS 9990:2015"
+                    rows={2}
+                    className="text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Shown in the bordered band above the accreditation logos on the printable Dry Riser sheet. Leave blank for the default ("Tested and inspected in accordance with BS 9990:2015").
+                  </p>
                 </div>
                 <div className="flex items-center gap-3">
                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
