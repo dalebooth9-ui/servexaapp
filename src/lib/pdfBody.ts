@@ -614,21 +614,9 @@ export function renderBlankFieldRow(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(8.5);
     doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
-  } else if (
-    field.type === "text" ||
-    field.type === "number" ||
-    field.type === "textarea" ||
-    field.type === "long_text"
-  ) {
-    // Free-text / numeric / generic fields: draw a light underline
-    // inside the result cell so engineers know to write a value.
-    const ulX = margin + colSplit + 3;
-    const ulW = maxWidth - colSplit - 6;
-    doc.setDrawColor(160);
-    doc.setLineWidth(0.2);
-    doc.line(ulX, y + rowH - 1.5, ulX + ulW, y + rowH - 1.5);
-    doc.setDrawColor(180);
   }
+  // For text/number/textarea/signature/photo/file fields, leave the result cell
+  // empty so engineers can write in by hand on the printed sheet.
   // For signature/photo/file types, leave the result cell blank.
 
   return y + rowH;
