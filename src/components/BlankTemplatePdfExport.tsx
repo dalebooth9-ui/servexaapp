@@ -280,7 +280,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
             const isDrainField = field.label.toLowerCase().includes("drain") || field.label.toLowerCase().includes("drop leg");
             const allowAuto = !isDryRiser && (isScopeField || isDrainField);
-            const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
+            let autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
+            // On Dry Riser sheets, force the Scope of Work to match the sheet title
+            if (isDryRiser && isScopeField) autoVal = sheetTitle;
             y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH, handfill,
             });
