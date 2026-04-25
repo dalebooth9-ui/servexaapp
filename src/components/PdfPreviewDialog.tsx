@@ -57,9 +57,9 @@ export default function PdfPreviewDialog({
     : null;
 
   const handleDownload = () => {
-    if (!src) return;
+    if (!rawSrc) return;
     const a = document.createElement("a");
-    a.href = src;
+    a.href = rawSrc;
     a.download = downloadName;
     document.body.appendChild(a);
     a.click();
@@ -67,7 +67,7 @@ export default function PdfPreviewDialog({
   };
 
   const handleOpenInTab = () => {
-    if (src) window.open(src, "_blank", "noopener,noreferrer");
+    if (rawSrc) window.open(rawSrc, "_blank", "noopener,noreferrer");
   };
 
   return (
