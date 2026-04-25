@@ -721,6 +721,80 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
             )}
           </div>
         </div>
+        </div>
+        {/* ─── RIGHT: live PDF preview ─── */}
+        {previewOpen && (
+          <div className="flex flex-col w-1/2 min-w-[420px] min-h-0 border rounded-md overflow-hidden bg-muted/30">
+            <div className="flex items-center gap-2 border-b px-2 py-1.5 bg-background">
+              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-xs font-medium truncate">Live PDF preview</span>
+              <span className="text-[10px] text-muted-foreground shrink-0">
+                {previewBuilding ? "Rebuilding…" : "Up to date"}
+              </span>
+              <div className="ml-auto flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant={previewHandfill ? "default" : "outline"}
+                  size="sm"
+                  className="h-6 text-[11px] px-2 gap-1"
+                  onClick={() => setPreviewHandfill((v) => !v)}
+                  title="Toggle printable handfill mode (no borders/underlines)"
+                >
+                  <PenLine className="h-3 w-3" />
+                  Handfill
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={() => setPreviewVersion((v) => v + 1)}
+                  title="Refresh preview now"
+                  disabled={previewBuilding}
+                >
+                  {previewBuilding
+                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    : <RefreshCw className="h-3.5 w-3.5" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 min-h-0 relative bg-neutral-200 dark:bg-neutral-900">
+              {previewError ? (
+                <div className="absolute inset-0 flex items-center justify-center p-4 text-xs text-destructive text-center">
+                  Preview failed: {previewError}
+                </div>
+              ) : previewUrl ? (
+                <iframe
+                  key={previewUrl}
+                  src={previewUrl}
+                  title="Template PDF preview"
+                  className="w-full h-full bg-white"
+                />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Building preview…
+                </div>
+              )}
+              {previewBuilding && previewUrl && (
+                <div className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1 shadow">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Updating
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        </div>
+
+        {/* Headless PDF builder — exposes getBlob() via ref. Always mounted
+            (when dialog is open) so the live preview can pull a fresh blob. */}
+        <BlankTemplatePdfExport
+          ref={pdfExportRef}
+          template={livePreviewTemplate as any}
+          jobInfo={null}
+          headless
+        />
 
         <DialogFooter className="shrink-0 border-t pt-3">
           <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
