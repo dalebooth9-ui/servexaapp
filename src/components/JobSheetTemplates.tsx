@@ -266,6 +266,23 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  const handleTogglePublish = async (tpl: Template) => {
+    const current = (tpl.status ?? "published");
+    const next = current === "published" ? "draft" : "published";
+    const { error } = await supabase.from("job_sheet_templates").update({ status: next } as any).eq("id", tpl.id);
+    if (error) {
+      toast({ title: "Error updating status", variant: "destructive" });
+    } else {
+      toast({
+        title: next === "published" ? "Template published" : "Reverted to draft",
+        description: next === "published"
+          ? "This template is now available to new jobs."
+          : "Hidden from new jobs until you publish again.",
+      });
+      fetchData();
+    }
+  };
+
   const handleDuplicateTemplate = async (tpl: Template) => {
     const { error } = await supabase.from("job_sheet_templates").insert({
       name: tpl.name + " (copy)",
