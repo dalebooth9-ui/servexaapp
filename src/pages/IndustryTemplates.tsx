@@ -20,10 +20,39 @@ type FieldDef = {
   id: string;
   label: string;
   type: string;
-  section: string;
+  section?: string;
   required: boolean;
   options?: string[];
+  allow_notes?: boolean;
+  placeholder?: string;
 };
+
+// Canonical Dry Riser Pressure Test fields — kept in sync with the DB
+// `Dry Riser Pressure test` job_sheet_template so the Industry Templates page
+// renders identically to the version generated from the Jobs page.
+const DRY_RISER_PRESSURE_TEST_FIELDS: FieldDef[] = [
+  { id: "scope_of_work", type: "select", label: "Scope of Work:", options: ["Pressure Test", "Visual"], section: "General", required: true },
+  { id: "site_left_clean_tidy", type: "checkbox", label: "Site left clean & tidy?", section: "General", required: true, allow_notes: true },
+  { id: "drop_leg_drained", type: "checkbox", label: "Has the drop leg been drained?", section: "General", required: true, allow_notes: true },
+  { id: "cabinet_keys", type: "text", label: "Cabinet Keys :", section: "External Equipment", required: true },
+  { id: "breeching_inlet_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet in good condition?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "breeching_inlet_blank_plug_chain", type: "checkbox", label: "BS9990:2015 7.4.3.1 Does the breeching inlet have a blank plug & chain?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "breeching_inlet_glass_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet glass in good condition?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "relevant_signs_in_place", type: "checkbox", label: "BS9990:2015 8.1 Are all relevant signs in place?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "breeching_inlet_cabinet_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet cabinet in good condition?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "number_of_outlets", type: "number", label: "Number of outlets :", section: "Internal Equipment", required: true },
+  { id: "landing_valve_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the landing valve in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "landing_valve_blank_cap_chain", type: "checkbox", label: "BS9990:2015 7.4.3.1 Does the landing valve have a blank cap & chain?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "instantaneous_washers_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Are the instantaneous washers in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "landing_valve_padlock_strap", type: "checkbox", label: "BS9990:2015 4.1.5 Does the landing valve have a padlock & strap?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "outlet_cabinets_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Outlet cabinets in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "air_release_valve_installed_vertical_point", type: "checkbox", label: "BS9990:2015 4.1.3.34 Is an air release valve installed at the most vertical point of the riser stack?", section: "Air Release Valve", required: true, allow_notes: true },
+  { id: "air_release_valve_good_condition", type: "checkbox", label: "BS9990:2015 4.1.3.4 Is the air release valve in good condition?", section: "Air Release Valve", required: true, allow_notes: true },
+  { id: "pressure_test_result_pass", type: "pass_fail", label: "Pressure test result:", section: "Pressure Test Results", required: true },
+  { id: "test_pressure_bar", type: "number", label: "Test Pressure (bar):", section: "Pressure Test Results", required: true, placeholder: "e.g. 12" },
+  { id: "hold_time_minutes", type: "number", label: "Hold Time (minutes):", section: "Pressure Test Results", required: true, placeholder: "e.g. 15" },
+  { id: "leaks_detected", type: "checkbox", label: "Leaks Detected?", section: "Pressure Test Results", required: true },
+];
 
 type IndustryTemplate = {
   id: string;
