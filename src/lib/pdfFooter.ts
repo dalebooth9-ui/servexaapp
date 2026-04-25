@@ -171,28 +171,28 @@ export function resolveFooterText(
   const n = (templateName || "").toLowerCase();
   if (n.includes("fire extinguisher") || n.includes("extinguisher")) {
     return {
-      text: "We have, today, carried out this service / inspection\nto the requirements of BS 5306-3:2017",
+      text: "Tested and inspected in accordance with BS 5306-3:2017",
       source: "rule",
       ruleLabel: "Extinguisher → BS 5306-3:2017",
     };
   }
   if (n.includes("sprinkler")) {
     return {
-      text: "We have, today, carried out this inspection\nto the requirements of BS EN 12845:2015",
+      text: "Tested and inspected in accordance with BS EN 12845:2015",
       source: "rule",
       ruleLabel: "Sprinkler → BS EN 12845:2015",
     };
   }
   if (n.includes("fire hydrant") || n.includes("hydrant")) {
     return {
-      text: "We have, today, carried out this inspection\nto the requirements of BS 9990:2015 / NFCC Guidelines",
+      text: "Tested and inspected in accordance with BS 9990:2015 / NFCC Guidelines",
       source: "rule",
       ruleLabel: "Fire Hydrant → BS 9990:2015 / NFCC",
     };
   }
   if (n.includes("dry riser") && n.includes("visual")) {
     return {
-      text: "We have, today, carried out this inspection\nto the requirements of BS 9990:2015",
+      text: "Tested and inspected in accordance with BS 9990:2015",
       source: "rule",
       ruleLabel: "Dry Riser Visual → BS 9990:2015",
     };
