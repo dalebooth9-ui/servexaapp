@@ -167,6 +167,10 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
               <input type="checkbox" checked={!!field.allow_notes} onChange={(e) => onFieldChange(idx, "allow_notes", e.target.checked)} className="h-3 w-3" />
               Notes
             </label>
+            <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Show an N/A option alongside YES/NO on this field">
+              <input type="checkbox" checked={!!field.allow_na} onChange={(e) => onFieldChange(idx, "allow_na", e.target.checked)} className="h-3 w-3" />
+              N/A
+            </label>
             {isDropdown && (
               <button
                 type="button"
