@@ -428,6 +428,7 @@ export interface RenderFieldRowOpts {
   maxWidth?: number;
   colSplit?: number;
   rowH: number;
+  handfill?: boolean;
 }
 
 /**
