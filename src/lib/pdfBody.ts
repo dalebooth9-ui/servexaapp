@@ -393,19 +393,19 @@ export function renderSectionHeader(
   const sectionHeaderH = opts.sectionHeaderH ?? 6;
   const showResultLabel = opts.showResultLabel ?? true;
 
-  // Dark navy section header bar (matches Dry Riser Pressure Test reference layout)
-  doc.setFillColor(44, 62, 80); // #2c3e50
+  // Light grey section header bar with black bold text (matches reference DOCX layout)
+  doc.setFillColor(217, 217, 217); // #D9D9D9
   doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-  doc.setDrawColor(44, 62, 80);
-  doc.rect(margin, y, maxWidth, sectionHeaderH);
+  doc.setDrawColor(180);
+  doc.rect(margin, y, colSplit, sectionHeaderH);
+  doc.rect(margin + colSplit, y, maxWidth - colSplit, sectionHeaderH);
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text(section.toUpperCase(), margin + 1, y + 4.5);
-  if (showResultLabel) {
-    doc.text("RESULT", margin + colSplit + 1, y + 4.5);
-  }
   doc.setTextColor(0, 0, 0);
+  doc.text(section.toUpperCase(), margin + 2, y + 4.3);
+  if (showResultLabel) {
+    doc.text("RESULT", margin + colSplit + 2, y + 4.3);
+  }
 
   return y + sectionHeaderH;
 }
@@ -579,10 +579,14 @@ export function renderBlankFieldRow(
   doc.rect(margin, y, colSplit, rowH);
   doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
 
-  doc.setFont("helvetica", "normal");
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(8.5);
   const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
-  doc.text(label, margin + 1, y + 3.5);
+  doc.text(label, margin + 2, y + 3.5);
+  doc.setFont("helvetica", "normal");
+
+  const labelLower = field.label.toLowerCase();
+  const isDateField = field.type === "date" || /\bdate\b/.test(labelLower);
 
   if (field.type === "pass_fail") {
     const bx = margin + colSplit + 2;
@@ -595,6 +599,8 @@ export function renderBlankFieldRow(
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
     renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
+  } else if (field.type === "select" && field.options && field.options.length > 0) {
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
   } else if (isQuestionStyleYesNoField(field)) {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal);
   } else if (autoVal) {
@@ -603,15 +609,18 @@ export function renderBlankFieldRow(
     const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
     doc.text(truncVal, margin + colSplit + 2, y + 3.5);
     doc.setFontSize(8.5);
+  } else if (isDateField) {
+    // Render an underscored date placeholder: _______ / _______ / _______
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.5);
+    doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
   } else if (
     field.type === "text" ||
     field.type === "number" ||
-    field.type === "date" ||
     field.type === "textarea" ||
-    field.type === "long_text" ||
-    field.type === "select"
+    field.type === "long_text"
   ) {
-    // Free-text / numeric / date / generic select fields: draw a light underline
+    // Free-text / numeric / generic fields: draw a light underline
     // inside the result cell so engineers know to write a value.
     const ulX = margin + colSplit + 3;
     const ulW = maxWidth - colSplit - 6;
