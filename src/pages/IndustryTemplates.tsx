@@ -1306,7 +1306,7 @@ export default function IndustryTemplates() {
       <EditTemplateDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        template={editingTemplate}
+        template={editingTemplate ? { ...editingTemplate, fields: editingTemplate.fields.map((f) => ({ ...f, section: f.section || "General" })) } as any : null}
         onSaved={() => {
           toast({ title: "Template saved" });
           setEditOpen(false);
