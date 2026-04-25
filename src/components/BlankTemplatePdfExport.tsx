@@ -386,7 +386,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             <PenLine className="h-2 w-2 absolute -bottom-0.5 -right-0.5" aria-hidden />
           </span>
         </Button>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download", true)} disabled={generating} title="Download printable handfill PDF (no borders or underlines)" aria-label={`Download ${template.name} as printable handfill PDF`}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => generate("download", true)} disabled={generating} title="Download printable handfill PDF" aria-label={`Download ${template.name} as printable handfill PDF`}>
           <PenLine className="h-3.5 w-3.5" aria-hidden />
         </Button>
         {showPrint && (
