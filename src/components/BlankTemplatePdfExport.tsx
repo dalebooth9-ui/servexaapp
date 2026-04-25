@@ -120,9 +120,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
-      // Dry Riser worksheet: force Viva Fire branding regardless of customer logo
+      // Wet/Dry Riser worksheets: force Viva Fire branding regardless of customer logo
       const isDryRiser = /dry\s*riser/i.test(template.name || "");
-      const branding = isDryRiser
+      const isWetRiser = /wet\s*riser/i.test(template.name || "");
+      const isRiserTemplate = isDryRiser || isWetRiser;
+      const branding = isRiserTemplate
         ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
         : { ...(template.branding || {}), ...(customerLogoUrl ? { logo_url: customerLogoUrl } : {}) };
       const footerText = getDefaultFooterText(template.name, branding, template.footer_text);
