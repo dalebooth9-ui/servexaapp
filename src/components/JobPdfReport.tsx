@@ -587,8 +587,8 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
         if (hasVisual) {
           doc.rect(margin, y, maxWidth, 12);
-          doc.text("We have, today, carried out a visual check of the system", pageWidth / 2, y + 4.5, { align: "center" });
-          doc.text("to the requirements of BS 9990:2015", pageWidth / 2, y + 9, { align: "center" });
+          doc.text("Visual inspection completed in accordance with", pageWidth / 2, y + 4.5, { align: "center" });
+          doc.text("BS 9990:2015", pageWidth / 2, y + 9, { align: "center" });
           y += 14;
         }
       }
