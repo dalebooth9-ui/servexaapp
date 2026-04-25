@@ -158,6 +158,7 @@ export type PdfTemplateField = {
   section: string;
   options?: string[];
   allow_notes?: boolean;
+  allow_na?: boolean;
 };
 
 const POSITIVE_RESULT_TOKENS = new Set(["yes", "pass", "true"]);
