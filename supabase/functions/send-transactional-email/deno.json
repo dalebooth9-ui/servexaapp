@@ -1,12 +1,6 @@
 {
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "npm:react@18.3.1",
-    "types": ["npm:@types/react@18.3.1"]
-  },
-  "nodeModulesDir": "auto",
-  "imports": {
-    "@react-email/components": "npm:@react-email/components@0.0.22",
-    "react": "npm:react@18.3.1"
+    "jsxImportSource": "https://esm.sh/react@18.3.1"
   }
 }
