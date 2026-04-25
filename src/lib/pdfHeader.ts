@@ -41,13 +41,15 @@ export async function renderPdfHeader(
   branding: PdfBranding,
   data: PdfHeaderData,
   standard?: string | null,
-  accentColor?: RgbTriple | null
+  accentColor?: RgbTriple | null,
+  opts?: { compact?: boolean }
 ): Promise<number> {
   const accent = accentColor ?? DEFAULT_ACCENT;
+  const compact = !!opts?.compact;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
-  let y = 8;
+  let y = compact ? 6 : 8;
 
   const companyName = branding.company_name || "";
   const companySubtitle = branding.company_subtitle || "";
