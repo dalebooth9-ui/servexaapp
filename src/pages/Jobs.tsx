@@ -738,7 +738,8 @@ export default function Jobs() {
         const { data: matchingTemplates } = await supabase
           .from("job_sheet_templates")
           .select("id, name, fields")
-          .in("category", Array.from(categoriesToFetch));
+          .in("category", Array.from(categoriesToFetch))
+          .eq("status", "published");
         if (matchingTemplates && matchingTemplates.length > 0) {
           for (const tpl of matchingTemplates) {
             const tplName = (tpl.name || "").toLowerCase();
