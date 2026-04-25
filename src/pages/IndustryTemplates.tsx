@@ -1219,7 +1219,7 @@ export default function IndustryTemplates() {
                       <div className="flex-1">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-sm font-semibold text-foreground leading-snug">{tpl.name}</p>
-                          <span title={tpl.standard} className="text-[10px] shrink-0 font-semibold border rounded px-1.5 py-0.5 bg-secondary text-muted-foreground border-border truncate max-w-[110px] cursor-default">{tpl.standard.split(" — ")[0]}</span>
+                          <span title={tpl.standard} className="text-[10px] shrink-0 font-semibold border rounded px-1.5 py-0.5 bg-secondary text-muted-foreground border-border whitespace-normal break-words max-w-[140px] leading-tight cursor-default">{tpl.standard.split(" — ")[0]}</span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed">
                           {tpl.description.split(/(BS(?:\s+EN)?\s+[\d][\d\-.:]*(?::\d{4})?)/g).map((part, i) =>
