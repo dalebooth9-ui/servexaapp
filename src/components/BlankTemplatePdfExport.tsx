@@ -327,7 +327,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      if (watermark && !handfill) addWatermarkToAllPages(doc, watermark, accentColor);
+      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       const footerYForLogos = pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
