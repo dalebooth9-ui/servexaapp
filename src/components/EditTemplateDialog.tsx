@@ -667,6 +667,19 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                     );
                   })()}
                 </div>
+                <div>
+                  <Label className="text-xs">Declaration Box (Dry Riser printable)</Label>
+                  <Textarea
+                    value={declarationText}
+                    onChange={(e) => setDeclarationText(e.target.value)}
+                    placeholder="e.g. Tested and inspected in accordance with BS 9990:2015"
+                    rows={2}
+                    className="text-sm"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Shown in the bordered band above the accreditation logos on the printable Dry Riser sheet. Leave blank for the default ("Tested and inspected in accordance with BS 9990:2015").
+                  </p>
+                </div>
                 <div className="flex items-center gap-3">
                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
