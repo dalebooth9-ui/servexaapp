@@ -71,8 +71,8 @@ export async function renderPdfHeader(
         logoImg.src = logoUrl;
       });
       // Larger header logo for stronger brand presence (smaller in compact mode)
-      const logoMaxW = compact ? 110 : 110;
-      const logoMaxH = compact ? 48 : 52;
+      const logoMaxW = compact ? 80 : 85;
+      const logoMaxH = compact ? 36 : 40;
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
       let lw = logoMaxH * aspect;
       let lh = logoMaxH;
