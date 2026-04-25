@@ -20,10 +20,39 @@ type FieldDef = {
   id: string;
   label: string;
   type: string;
-  section: string;
+  section?: string;
   required: boolean;
   options?: string[];
+  allow_notes?: boolean;
+  placeholder?: string;
 };
+
+// Canonical Dry Riser Pressure Test fields — kept in sync with the DB
+// `Dry Riser Pressure test` job_sheet_template so the Industry Templates page
+// renders identically to the version generated from the Jobs page.
+const DRY_RISER_PRESSURE_TEST_FIELDS: FieldDef[] = [
+  { id: "scope_of_work", type: "select", label: "Scope of Work:", options: ["Pressure Test", "Visual"], section: "General", required: true },
+  { id: "site_left_clean_tidy", type: "checkbox", label: "Site left clean & tidy?", section: "General", required: true, allow_notes: true },
+  { id: "drop_leg_drained", type: "checkbox", label: "Has the drop leg been drained?", section: "General", required: true, allow_notes: true },
+  { id: "cabinet_keys", type: "text", label: "Cabinet Keys :", section: "External Equipment", required: true },
+  { id: "breeching_inlet_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet in good condition?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "breeching_inlet_blank_plug_chain", type: "checkbox", label: "BS9990:2015 7.4.3.1 Does the breeching inlet have a blank plug & chain?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "breeching_inlet_glass_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet glass in good condition?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "relevant_signs_in_place", type: "checkbox", label: "BS9990:2015 8.1 Are all relevant signs in place?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "breeching_inlet_cabinet_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the Breeching Inlet cabinet in good condition?", section: "External Equipment", required: true, allow_notes: true },
+  { id: "number_of_outlets", type: "number", label: "Number of outlets :", section: "Internal Equipment", required: true },
+  { id: "landing_valve_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Is the landing valve in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "landing_valve_blank_cap_chain", type: "checkbox", label: "BS9990:2015 7.4.3.1 Does the landing valve have a blank cap & chain?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "instantaneous_washers_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Are the instantaneous washers in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "landing_valve_padlock_strap", type: "checkbox", label: "BS9990:2015 4.1.5 Does the landing valve have a padlock & strap?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "outlet_cabinets_good_condition", type: "checkbox", label: "BS9990:2015 7.4.3.1 Outlet cabinets in good condition?", section: "Internal Equipment", required: true, allow_notes: true },
+  { id: "air_release_valve_installed_vertical_point", type: "checkbox", label: "BS9990:2015 4.1.3.34 Is an air release valve installed at the most vertical point of the riser stack?", section: "Air Release Valve", required: true, allow_notes: true },
+  { id: "air_release_valve_good_condition", type: "checkbox", label: "BS9990:2015 4.1.3.4 Is the air release valve in good condition?", section: "Air Release Valve", required: true, allow_notes: true },
+  { id: "pressure_test_result_pass", type: "pass_fail", label: "Pressure test result:", section: "Pressure Test Results", required: true },
+  { id: "test_pressure_bar", type: "number", label: "Test Pressure (bar):", section: "Pressure Test Results", required: true, placeholder: "e.g. 12" },
+  { id: "hold_time_minutes", type: "number", label: "Hold Time (minutes):", section: "Pressure Test Results", required: true, placeholder: "e.g. 15" },
+  { id: "leaks_detected", type: "checkbox", label: "Leaks Detected?", section: "Pressure Test Results", required: true },
+];
 
 type IndustryTemplate = {
   id: string;
@@ -60,27 +89,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
     standard: "BS 9990:2015",
     description: "Full 12-bar pressure test with flow and outlet checks, as required annually under BS 9990:2015.",
     category: "dry_riser",
-    fields: [
-      ...SITE_DETAIL_FIELDS,
-      { id: "riser_location", label: "Riser Location", type: "text", section: "Site Details", required: false },
-      { id: "riser_type", label: "Riser Type", type: "select", section: "System Details", required: true, options: ["Wet", "Dry"] },
-      { id: "no_of_outlets", label: "Number of Outlets", type: "number", section: "System Details", required: true },
-      { id: "inlet_breeching", label: "Inlet Breeching Condition", type: "select", section: "Inlet Checks", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
-      { id: "inlet_caps", label: "Inlet Caps Present & Undamaged", type: "select", section: "Inlet Checks", required: true, options: ["Yes", "No", "N/A"] },
-      { id: "inlet_valve", label: "Inlet Valve Condition", type: "select", section: "Inlet Checks", required: true, options: ["Satisfactory", "Unsatisfactory"] },
-      { id: "outlet_caps", label: "All Outlet Caps Present", type: "select", section: "Outlet Checks", required: true, options: ["Yes", "No"] },
-      { id: "outlet_valves", label: "All Outlet Valves Operational", type: "select", section: "Outlet Checks", required: true, options: ["Yes", "No"] },
-      { id: "landing_valves", label: "Landing Valve Condition", type: "select", section: "Outlet Checks", required: true, options: ["Satisfactory", "Unsatisfactory", "N/A"] },
-      { id: "pump_pressure", label: "Pump Pressure (bar)", type: "number", section: "Pressure Test Results", required: true },
-      { id: "static_pressure", label: "Static Test Pressure (bar)", type: "number", section: "Pressure Test Results", required: true },
-      { id: "duration_mins", label: "Duration (minutes)", type: "number", section: "Pressure Test Results", required: true },
-      { id: "pressure_drop", label: "Pressure Drop (bar)", type: "number", section: "Pressure Test Results", required: true },
-      { id: "test_result", label: "Pressure Test Result", type: "pass_fail", section: "Pressure Test Results", required: true },
-      { id: "signage_visible", label: "Signage Visible & Correct", type: "select", section: "General Checks", required: true, options: ["Yes", "No"] },
-      { id: "access_clear", label: "Access / Clearance Adequate", type: "select", section: "General Checks", required: true, options: ["Yes", "No"] },
-      ...RESULT_FIELDS,
-      { id: "bs_declaration", label: "This inspection has been carried out in accordance with BS 9990:2015", type: "checkbox", section: "Declaration", required: true },
-    ],
+    fields: DRY_RISER_PRESSURE_TEST_FIELDS,
   },
   {
     id: "dr-visual-live",
@@ -1206,12 +1215,13 @@ export default function IndustryTemplates() {
                   const isImported = imported.has(tpl.id);
                   const isImporting = importing === tpl.id;
                   // Build a minimal mock template/jobInfo for BlankTemplatePdfExport
+                  const normalizedFields = tpl.fields.map((f) => ({ ...f, section: f.section || "General" }));
                   const mockTemplate = {
                     id: tpl.id,
                     name: tpl.name,
                     description: tpl.description,
                     standard: tpl.standard,
-                    fields: tpl.fields,
+                    fields: normalizedFields,
                     branding: {},
                   };
                   return (
@@ -1296,7 +1306,7 @@ export default function IndustryTemplates() {
       <EditTemplateDialog
         open={editOpen}
         onOpenChange={setEditOpen}
-        template={editingTemplate}
+        template={editingTemplate ? { ...editingTemplate, fields: editingTemplate.fields.map((f) => ({ ...f, section: f.section || "General" })) } as any : null}
         onSaved={() => {
           toast({ title: "Template saved" });
           setEditOpen(false);
