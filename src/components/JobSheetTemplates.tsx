@@ -1059,6 +1059,23 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       }}
                     />
                     {userRole === "admin" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleTogglePublish(tpl)}
+                        title={
+                          ((tpl as any).status ?? "published") === "published"
+                            ? "Move back to draft (hide from new jobs)"
+                            : "Publish (make available to new jobs)"
+                        }
+                      >
+                        {((tpl as any).status ?? "published") === "published"
+                          ? <Send className="h-3.5 w-3.5 text-emerald-600" />
+                          : <Send className="h-3.5 w-3.5 text-amber-600" />}
+                      </Button>
+                    )}
+                    {userRole === "admin" && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleToggleLock(tpl)} title={tpl.locked ? "Unlock template" : "Lock template"}>
                         {tpl.locked ? <Lock className="h-3.5 w-3.5 text-amber-500" /> : <Unlock className="h-3.5 w-3.5" />}
                       </Button>
