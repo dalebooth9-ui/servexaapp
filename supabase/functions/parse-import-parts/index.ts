@@ -112,7 +112,7 @@ serve(async (req) => {
       const fileBytes = Uint8Array.from(atob(file_base64), c => c.charCodeAt(0));
       let combinedText = "";
       try {
-        const XLSX = await import("npm:xlsx@0.18.5");
+        const XLSX = await import("https://esm.sh/xlsx@0.18.5");
         const wb = XLSX.read(fileBytes, { type: "array" });
         const sheetsText: string[] = [];
         for (const sheetName of wb.SheetNames) {
