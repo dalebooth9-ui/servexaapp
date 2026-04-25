@@ -108,9 +108,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: (o) => generate("download", o?.handfill ?? false),
-    print: (o) => generate("print", o?.handfill ?? false),
-    preview: (o) => generate("preview", o?.handfill ?? false),
+    download: (o) => generate("download", o?.handfill ?? false) as Promise<void>,
+    print: (o) => generate("print", o?.handfill ?? false) as Promise<void>,
+    preview: (o) => generate("preview", o?.handfill ?? false) as Promise<void>,
     getBlob: (o) => generate("blob", o?.handfill ?? false) as Promise<Blob | null>,
   }));
 
