@@ -950,6 +950,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     {userRole === "admin" && (tpl as any).job_category && (
                       <Badge variant="outline" className="text-[10px] h-4 shrink-0">{(tpl as any).job_category.replace(/_/g, " ")}</Badge>
                     )}
+                    {userRole === "admin" && ((tpl as any).status ?? "published") === "draft" && (
+                      <Badge
+                        variant="outline"
+                        className="text-[10px] h-4 shrink-0 bg-amber-50 text-amber-700 border-amber-200"
+                        title="Draft — hidden from new jobs"
+                      >
+                        Draft
+                      </Badge>
+                    )}
                   </div>
                     <div className="flex items-center gap-1 shrink-0 ml-2">
                     <Button
