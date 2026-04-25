@@ -235,6 +235,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [companySubtitle, setCompanySubtitle] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [footerText, setFooterText] = useState("");
+  const [declarationText, setDeclarationText] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
