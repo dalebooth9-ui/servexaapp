@@ -41,13 +41,15 @@ export async function renderPdfHeader(
   branding: PdfBranding,
   data: PdfHeaderData,
   standard?: string | null,
-  accentColor?: RgbTriple | null
+  accentColor?: RgbTriple | null,
+  opts?: { compact?: boolean }
 ): Promise<number> {
   const accent = accentColor ?? DEFAULT_ACCENT;
+  const compact = !!opts?.compact;
   const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 10;
   const maxWidth = pageWidth - margin * 2;
-  let y = 8;
+  let y = compact ? 6 : 8;
 
   const companyName = branding.company_name || "";
   const companySubtitle = branding.company_subtitle || "";
@@ -68,16 +70,16 @@ export async function renderPdfHeader(
         logoImg.onerror = () => reject();
         logoImg.src = logoUrl;
       });
-      // Larger header logo for stronger brand presence
-      const logoMaxW = 110;
-      const logoMaxH = 52;
+      // Larger header logo for stronger brand presence (smaller in compact mode)
+      const logoMaxW = compact ? 70 : 110;
+      const logoMaxH = compact ? 32 : 52;
       const aspect = logoImg.naturalWidth / logoImg.naturalHeight;
       let lw = logoMaxH * aspect;
       let lh = logoMaxH;
       if (lw > logoMaxW) { lw = logoMaxW; lh = lw / aspect; }
       const fmt = logoUrl.toLowerCase().includes(".png") ? "PNG" : "JPEG";
       doc.addImage(logoImg, fmt, (pageWidth - lw) / 2, y, lw, lh);
-      logoBottomY = y + lh + 3;
+      logoBottomY = y + lh + (compact ? 0 : 3);
     } catch {
       if (companyName) {
         doc.setFontSize(12);
@@ -107,10 +109,11 @@ export async function renderPdfHeader(
   doc.setFont("helvetica", "bold");
   doc.setFontSize(14);
   doc.setTextColor(...accent);
-  doc.text(templateName.toUpperCase(), pageWidth / 2, logoBottomY, { align: "center" });
+  const titleY = compact ? logoBottomY + 2 : logoBottomY;
+  doc.text(templateName.toUpperCase(), pageWidth / 2, titleY, { align: "center" });
 
   // --- Standard (BS number) subtitle ---
-  let afterTitleY = logoBottomY + 4;
+  let afterTitleY = titleY + 4;
   if (standard) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8);

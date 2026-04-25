@@ -173,7 +173,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           refNumber: isDryRiser ? "" : refNumber,
           dateVal,
           riserLocation: isDryRiser ? "" : riserLocValue,
-        }, template.standard, accentColor);
+        }, template.standard, accentColor, { compact: isDryRiser });
 
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
@@ -298,7 +298,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y = margin;
         }
         const commentsBoxTop = y + 4;
-        const maxCommentsH = isDryRiser ? 65 : 35;
+        const maxCommentsH = isDryRiser ? 22 : 35;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
         doc.setFontSize(8.5);
