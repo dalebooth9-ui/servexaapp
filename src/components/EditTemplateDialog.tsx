@@ -273,6 +273,65 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     });
   }, []);
 
+  // Debounce: bump previewVersion shortly after edits settle, so we don't
+  // rebuild the PDF on every keystroke.
+  useEffect(() => {
+    if (!previewOpen) return;
+    const t = setTimeout(() => setPreviewVersion((v) => v + 1), 500);
+    return () => clearTimeout(t);
+  }, [previewOpen, livePreviewTemplate, previewHandfill]);
+
+  // Rebuild the PDF whenever previewVersion changes.
+  useEffect(() => {
+    if (!previewOpen) return;
+    if (!pdfExportRef.current) return;
+    let cancelled = false;
+    let prevUrl: string | null = null;
+    setPreviewBuilding(true);
+    setPreviewError(null);
+    (async () => {
+      try {
+        const blob = await pdfExportRef.current!.getBlob({ handfill: previewHandfill });
+        if (cancelled || !blob) return;
+        const url = URL.createObjectURL(blob);
+        setPreviewUrl((old) => {
+          prevUrl = old;
+          return url;
+        });
+      } catch (err: any) {
+        if (!cancelled) setPreviewError(err?.message || "Failed to build preview");
+      } finally {
+        if (!cancelled) setPreviewBuilding(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      // Revoke the previous blob URL once the new one has replaced it.
+      if (prevUrl) setTimeout(() => URL.revokeObjectURL(prevUrl!), 100);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previewVersion, previewOpen]);
+
+  // Clean up blob URL on close/unmount.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When dialog closes, drop the preview state.
+  useEffect(() => {
+    if (!open) {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      setPreviewOpen(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
   if (open && template && !initialised) {
     setTemplateName(template.name);
     setTemplateDesc(template.description || "");
