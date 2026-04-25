@@ -22,13 +22,15 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw,
+  FileText, Plus, ClipboardCheck, Send, Loader2, CheckCircle2, Eye, Camera, X, Trash2, Pencil, Copy, Lock, Unlock, RotateCcw, FileJson, Download,
 } from "lucide-react";
 import JobSheetPdfExport from "./JobSheetPdfExport";
 import BlankTemplatePdfExport from "./BlankTemplatePdfExport";
 import ScanJobSheet from "./ScanJobSheet";
 import ImportTemplateDialog from "./ImportTemplateDialog";
+import ImportTemplateJsonDialog from "./ImportTemplateJsonDialog";
 import EditTemplateDialog from "./EditTemplateDialog";
+import { downloadTemplateJson } from "@/lib/templateJson";
 import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
 
@@ -99,6 +101,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
   const [engineerOptions, setEngineerOptions] = useState<string[]>([]);
   const [importOpen, setImportOpen] = useState(false);
+  const [importJsonOpen, setImportJsonOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
@@ -719,9 +722,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </CardTitle>
             <div className="flex gap-1.5 items-center">
               {userRole === "admin" && (
-                <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
-                  <Plus className="h-3 w-3 mr-1" /> Import Template
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setImportJsonOpen(true)} title="Import a template definition from a JSON file">
+                    <FileJson className="h-3 w-3 mr-1" /> Import JSON
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                    <Plus className="h-3 w-3 mr-1" /> Import Template
+                  </Button>
+                </>
               )}
             </div>
           </div>
@@ -1086,6 +1094,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       </Button>
                     )}
                     {userRole === "admin" && (
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => downloadTemplateJson(tpl as any)} title="Export template as JSON">
+                        <Download className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                    {userRole === "admin" && (
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleDuplicateTemplate(tpl)} title="Duplicate template">
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
@@ -1129,6 +1142,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       </Card>
 
       <ImportTemplateDialog open={importOpen} onOpenChange={setImportOpen} onCreated={fetchData} />
+      <ImportTemplateJsonDialog open={importJsonOpen} onOpenChange={setImportJsonOpen} onImported={fetchData} />
       <EditTemplateDialog open={!!editingTemplate} onOpenChange={(v) => { if (!v) setEditingTemplate(null); }} template={editingTemplate} onSaved={fetchData} />
 
       {/* Fill In dialog */}
