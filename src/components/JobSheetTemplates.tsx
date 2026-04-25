@@ -921,7 +921,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             };
             const jobCategory = normalizeSlug(jobInfo?.category || "");
     const isInstallationJob = jobCategory?.includes("installation");
-            const nonRamsTemplates = templates.filter((tpl) => (tpl as any).category !== "rams");
+            const visibleByStatus = templates.filter((tpl) => {
+              const status = (tpl as any).status ?? "published";
+              return userRole === "admin" || status === "published";
+            });
+            const nonRamsTemplates = visibleByStatus.filter((tpl) => (tpl as any).category !== "rams");
             const visibleTemplates = isInstallationJob
               ? nonRamsTemplates.filter((tpl) => tpl.name.toLowerCase().includes("commissioning"))
               : nonRamsTemplates.filter((tpl) => {
