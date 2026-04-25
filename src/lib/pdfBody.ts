@@ -385,13 +385,26 @@ export function renderSectionHeader(
   doc: jsPDF,
   section: string,
   y: number,
-  opts: { margin?: number; maxWidth?: number; colSplit?: number; sectionHeaderH?: number; showResultLabel?: boolean } = {}
+  opts: { margin?: number; maxWidth?: number; colSplit?: number; sectionHeaderH?: number; showResultLabel?: boolean; handfill?: boolean } = {}
 ): number {
   const margin = opts.margin ?? 10;
   const maxWidth = opts.maxWidth ?? (doc.internal.pageSize.getWidth() - margin * 2);
   const colSplit = opts.colSplit ?? maxWidth * 0.68;
   const sectionHeaderH = opts.sectionHeaderH ?? 6;
   const showResultLabel = opts.showResultLabel ?? true;
+  const handfill = opts.handfill ?? false;
+
+  if (handfill) {
+    // Minimal: bold heading text + a thin underline, no fill, no boxes
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 0, 0);
+    doc.text(section.toUpperCase(), margin, y + 4);
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    doc.line(margin, y + sectionHeaderH - 0.5, margin + maxWidth, y + sectionHeaderH - 0.5);
+    return y + sectionHeaderH;
+  }
 
   // Light grey section header bar with black bold text (matches reference DOCX layout)
   doc.setFillColor(217, 217, 217); // #D9D9D9
