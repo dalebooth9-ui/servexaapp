@@ -238,6 +238,35 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
 
+  // ── Live PDF preview state ───────────────────────────────────────────
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewHandfill, setPreviewHandfill] = useState(false);
+  const [previewBuilding, setPreviewBuilding] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  const pdfExportRef = useRef<BlankTemplatePdfExportHandle>(null);
+  // Bumped on every relevant edit; the debounced effect below rebuilds the PDF.
+  const [previewVersion, setPreviewVersion] = useState(0);
+
+  // Build a "live" template object from the current dialog state so the
+  // preview reflects unsaved edits.
+  const livePreviewTemplate = useMemo(
+    () => ({
+      id: template?.id || "preview",
+      name: templateName || (template?.name ?? "Untitled template"),
+      description: templateDesc || null,
+      fields: fields as any,
+      footer_text: footerText || null,
+      branding: {
+        company_name: companyName || undefined,
+        company_subtitle: companySubtitle || undefined,
+        logo_url: logoUrl || undefined,
+        footer_text: footerText || undefined,
+      },
+    }),
+    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl]
+  );
+
   useEffect(() => {
     supabase.from("job_categories").select("slug, name").order("sort_order").then(({ data }) => {
       if (data) setJobCategories(data);
