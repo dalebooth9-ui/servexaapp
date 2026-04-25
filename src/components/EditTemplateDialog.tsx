@@ -331,7 +331,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [qaOverride, setQaOverride] = useState(false);
   const qaReport = runTemplateQa(fields as any);
 
-  const handleSave = async () => {
+  const handleSave = async (targetStatus: "draft" | "published") => {
     if (!template) return;
     if (!templateName.trim()) {
       toast({ title: "Name required", variant: "destructive" });
@@ -342,11 +342,12 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       return;
     }
 
-    // QA gate — block publish on errors unless explicitly overridden.
-    if (!qaReport.ok && !qaOverride) {
+    // QA gate — block PUBLISH on errors unless explicitly overridden.
+    // Drafts are allowed to save with QA issues so users can park work-in-progress.
+    if (targetStatus === "published" && !qaReport.ok && !qaOverride) {
       toast({
         title: "Layout doesn't match reference style",
-        description: `${qaReport.errors.length} blocking issue${qaReport.errors.length === 1 ? "" : "s"}. Review the QA panel and fix, or tick "Save anyway".`,
+        description: `${qaReport.errors.length} blocking issue${qaReport.errors.length === 1 ? "" : "s"}. Save as Draft, fix the issues, or tick "Save anyway".`,
         variant: "destructive",
       });
       return;
@@ -367,12 +368,18 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       fields: fields as any,
       branding: branding as any,
       footer_text: footerText.trim() || null,
+      status: targetStatus,
     } as any).eq("id", template.id);
 
     if (error) {
       toast({ title: "Error", description: "Failed to update template.", variant: "destructive" });
     } else {
-      toast({ title: "Template updated" });
+      toast({
+        title: targetStatus === "published" ? "Template published" : "Draft saved",
+        description: targetStatus === "published"
+          ? "New jobs will use this version."
+          : "Not visible to new jobs until you publish.",
+      });
       onSaved();
       onOpenChange(false);
     }
