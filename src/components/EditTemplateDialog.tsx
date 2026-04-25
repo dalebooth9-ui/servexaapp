@@ -477,14 +477,30 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl flex flex-col" style={{ height: "min(90vh, 760px)" }}>
+      <DialogContent
+        className={`${previewOpen ? "max-w-6xl" : "max-w-2xl"} flex flex-col transition-[max-width] duration-200`}
+        style={{ height: "min(90vh, 820px)" }}
+      >
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             Edit Template
-            {templateName && <span className="text-sm font-normal text-muted-foreground">— {templateName}</span>}
+            {templateName && <span className="text-sm font-normal text-muted-foreground truncate">— {templateName}</span>}
+            <Button
+              type="button"
+              variant={previewOpen ? "default" : "outline"}
+              size="sm"
+              className="ml-auto h-7 text-xs gap-1.5"
+              onClick={() => setPreviewOpen((v) => !v)}
+              title={previewOpen ? "Hide live PDF preview" : "Show live PDF preview"}
+            >
+              <Eye className="h-3.5 w-3.5" />
+              {previewOpen ? "Hide preview" : "Preview printed PDF"}
+            </Button>
           </DialogTitle>
         </DialogHeader>
 
+        {/* Editor + (optional) live preview, side-by-side */}
+        <div className="flex flex-1 min-h-0 gap-3">
         <Tabs defaultValue="fields" className="flex flex-col flex-1 min-h-0">
           <TabsList className="shrink-0 w-full grid grid-cols-2">
             <TabsTrigger value="fields" className="gap-1.5">
