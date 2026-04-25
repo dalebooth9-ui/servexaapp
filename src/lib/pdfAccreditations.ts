@@ -105,13 +105,14 @@ export function addAccreditationLogosToAllPages(
   doc: jsPDF,
   logos: (HTMLImageElement | null)[],
   footerY: number,
-  logoH = 7
+  logoH = 7,
+  opacity = 0.22,
 ): void {
   if (logos.length === 0) return;
   const pageCount = doc.getNumberOfPages();
   const rowY = footerY - logoH - 3;
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    renderAccreditationLogos(doc, logos, rowY, logoH);
+    renderAccreditationLogos(doc, logos, rowY, logoH, opacity);
   }
 }
