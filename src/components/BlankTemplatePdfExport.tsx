@@ -328,18 +328,24 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const declarationText =
             (template.branding?.declaration_text || "").trim() ||
             "Tested and inspected in accordance with BS 9990:2015";
-          const declH = 9;
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(9);
+          doc.setTextColor(0, 0, 0);
+          const padX = 4; // horizontal padding inside the box
+          const padY = 2.5; // vertical padding inside the box
+          const lineH = 4;
+          const lines = doc.splitTextToSize(
+            declarationText,
+            pageWidth - margin * 2 - padX * 2,
+          ) as string[];
+          const textH = lines.length * lineH;
+          const minDeclH = 9;
+          const declH = Math.max(minDeclH, textH + padY * 2);
           const declY = pageHeight - margin - declH;
           doc.setDrawColor(0, 0, 0);
           doc.setLineWidth(0.5);
           doc.rect(margin, declY, pageWidth - margin * 2, declH);
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
-          doc.setTextColor(0, 0, 0);
-          const lines = doc.splitTextToSize(declarationText, pageWidth - margin * 2 - 4) as string[];
-          const lineH = 4;
-          const totalH = lines.length * lineH;
-          let ty = declY + (declH - totalH) / 2 + lineH - 1;
+          let ty = declY + (declH - textH) / 2 + lineH - 1;
           lines.forEach((ln) => {
             doc.text(ln, pageWidth / 2, ty, { align: "center" });
             ty += lineH;
