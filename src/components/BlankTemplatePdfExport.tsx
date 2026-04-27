@@ -373,10 +373,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      // addAccreditationLogosToAllPages places the row at (footerY - logoH - 3),
-      // so we offset by logoH + 3 to land them flush at the bottom margin.
-      const footerYForLogos = pageHeight - margin + logoH + 3 - logoH;
-      // Simplifies to: pageHeight - margin + 3 (logos render at pageHeight - margin - logoH).
+      // addAccreditationLogosToAllPages renders the row at (footerY - logoH - 3).
+      // Pass footerY = pageHeight - margin + logoH + 3 so logos land flush at
+      // the bottom margin — directly under the Dry Riser declaration box.
+      const footerYForLogos = pageHeight - margin + logoH + 3;
       await renderBrandingOverlay(doc, {
         watermark,
         brandColor: accentColor,
