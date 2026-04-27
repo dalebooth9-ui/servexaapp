@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -99,13 +99,18 @@ export default function PdfPreviewDialog({
   const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
   const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
 
+  // Sequence counter so only the latest rebuild's result wins when the user
+  // toggles modes faster than the PDF can regenerate.
+  const rebuildSeq = useRef(0);
   const triggerRebuild = async (override: Partial<WatermarkSettings>) => {
     if (!onRebuildWithWatermark) return;
+    const id = ++rebuildSeq.current;
     setRebuilding(true);
     try {
       await onRebuildWithWatermark(override);
     } finally {
-      setRebuilding(false);
+      // Only clear the spinner if this was the latest invocation.
+      if (id === rebuildSeq.current) setRebuilding(false);
     }
   };
 
@@ -327,7 +332,7 @@ export default function PdfPreviewDialog({
             </Button>
           </div>
         </DialogHeader>
-        <div className="flex-1 min-h-0 bg-muted/40">
+        <div className="flex-1 min-h-0 bg-muted/40 relative">
           {!src ? (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm gap-2">
               <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
@@ -343,6 +348,13 @@ export default function PdfPreviewDialog({
               title={downloadName}
               className="w-full h-full border-0 bg-background"
             />
+          )}
+          {rebuilding && src && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm pointer-events-none">
+              <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Updating preview…
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>
