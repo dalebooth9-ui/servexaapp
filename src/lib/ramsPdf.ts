@@ -25,8 +25,10 @@ interface RamsJobInfo {
 
 const PAGE_W = 210;
 const PAGE_H = 297;
-const ML = 14;
-const MR = 14;
+// Standardised on PDF_DIMENSIONS.margin (10mm) — see ramsPdfBase.ts for the
+// rationale. Both modules must stay in lock-step.
+const ML = PDF_DIMENSIONS.margin;
+const MR = PDF_DIMENSIONS.margin;
 const CONTENT_W = PAGE_W - ML - MR;
 const SAFE_BOTTOM = PAGE_H - 56; // Extra margin to clear accreditation logos (~21mm) + footer (~15mm) + buffer
 
