@@ -1,4 +1,5 @@
 import jsPDF from "jspdf";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export interface AutoPopulateJobInfo {
   address?: string | null;
@@ -402,7 +403,7 @@ export function renderSectionHeader(
   if (handfill) {
     // Lightweight section band: subtle grey fill + thin border so the heading
     // visually anchors the rows beneath it without overpowering the print.
-    doc.setFillColor(235, 235, 235);
+    doc.setFillColor(...PDF_PALETTE.headerSoft);
     doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
     doc.setDrawColor(200);
     doc.setLineWidth(0.2);
@@ -415,9 +416,9 @@ export function renderSectionHeader(
   }
 
   // Light grey section header bar with black bold text (matches reference DOCX layout)
-  doc.setFillColor(217, 217, 217); // #D9D9D9
+  doc.setFillColor(...PDF_PALETTE.headerStrip);
   doc.rect(margin, y, maxWidth, sectionHeaderH, "F");
-  doc.setDrawColor(180);
+  doc.setDrawColor(...PDF_PALETTE.border);
   doc.rect(margin, y, colSplit, sectionHeaderH);
   doc.rect(margin + colSplit, y, maxWidth - colSplit, sectionHeaderH);
   doc.setFontSize(10);

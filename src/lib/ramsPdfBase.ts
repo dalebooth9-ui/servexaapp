@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type RamsFormData = Record<string, any>;
 
@@ -573,7 +574,7 @@ export async function buildSignOffPage(
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
   let hx = ML;
   for (const [lbl, w] of [["Operative Name", sigCols[0]], ["Signature", sigCols[1]], ["Date", sigCols[2]]] as [string, number][]) {
-    doc.setFillColor(230, 230, 230); doc.rect(hx, y, w, 7, "F"); doc.rect(hx, y, w, 7);
+    doc.setFillColor(...PDF_PALETTE.headerTable); doc.rect(hx, y, w, 7, "F"); doc.rect(hx, y, w, 7);
     doc.text(lbl, hx + 2, y + 4.5);
     hx += w;
   }
