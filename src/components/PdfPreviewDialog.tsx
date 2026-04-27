@@ -9,7 +9,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, ExternalLink, Loader2, ChevronDown, FileText } from "lucide-react";
+import { Download, ExternalLink, Loader2, ChevronDown, FileText, Droplet } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  useWatermarkSettings,
+  type WatermarkMode,
+  type WatermarkSettings,
+} from "@/hooks/useWatermarkSettings";
 
 export interface PdfPreviewDialogProps {
   open: boolean;
@@ -26,6 +39,10 @@ export interface PdfPreviewDialogProps {
   fileNameOptions?: string[];
   /** MIME type — used to decide between iframe (PDF / HTML) and <img>. Defaults to application/pdf. */
   mimeType?: string;
+  /** When true, show the watermark mode/opacity controls in the toolbar. Requires onRebuildWithWatermark. */
+  watermarkControls?: boolean;
+  /** Called when the user changes the watermark override; should rebuild the PDF and update `blob`. */
+  onRebuildWithWatermark?: (override: Partial<WatermarkSettings>) => Promise<void> | void;
 }
 
 /** Slugify a candidate filename so it renders cleanly inside browser viewer chrome. */
