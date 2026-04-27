@@ -312,7 +312,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const commentsBoxBottom = sigY - 4;
         const minCommentsH = 6;
         const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
-        const maxCommentsH = isDryRiser ? 22 : 35;
+        const maxCommentsH = isDryRiser ? 22 : 50;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
         doc.setFontSize(9.5);
