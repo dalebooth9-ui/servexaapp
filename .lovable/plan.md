@@ -1,115 +1,137 @@
-## Audit — Background Fill Palette (Data Rows)
+## Audit — Accreditation Logos, Watermark, Branding Overlay & Dimensions
 
-### Every fill colour found, grouped by intent
+The "happy path" is `renderBrandingOverlay()` in `src/lib/pdfBranding.ts`, which in one call:
+- applies the watermark to every page using the org-wide `WatermarkSettings` (mode + opacity)
+- applies accreditation logos to every page using the **same** opacity
+- honours per-export overrides
+- respects `mode === "none"` for both
 
-| Intent | RGB | Hex | Where it appears |
-|---|---|---|---|
-| **Section header — dark navy** | `33, 61, 99` | `#213D63` | `JobPdfReport.tsx:56` (section title bar), `ramsPdf.ts:975` (page-break header), shared brand navy |
-| **Section header — bright "navy"** | `30, 174, 232` | `#1EAEE8` | `PreStartChecklistPdf.tsx:68` (`VIVA_NAVY`) — **NOT navy, it's cyan/sky-blue** |
-| **Section header — text accent** | `33, 37, 41` | `#212529` | `PreStartChecklistPdf.tsx:69` (`VIVA_DARK`) |
-| **Section header — mid grey** | `217, 217, 217` | `#D9D9D9` | `pdfBody.ts:418` (`renderSectionHeader` default) |
-| **Section header — handfill grey** | `235, 235, 235` | `#EBEBEB` | `pdfBody.ts:405` (handfill mode) |
-| **Table header strip** | `230, 230, 230` | `#E6E6E6` | `ramsPdfBase.ts:576`, `ramsPdf.ts:934` (operative-signature column headers) |
-| **Zebra row — neutral** | `248, 248, 248` | `#F8F8F8` | `PreStartChecklistPdf.tsx:99,124` (contract & site rows) |
-| **Zebra row — tinted** | `230, 245, 252` | `#E6F5FC` | `PreStartChecklistPdf.tsx:181,202` (`VIVA_NAVY_TINT`) |
-| **Zebra row — pale slate** | `245, 247, 250` | `#F5F7FA` | `CustomerReportPdf.tsx:175,331` |
-| **Zebra row — light grey** | `240, 240, 240` | `#F0F0F0` | `CustomerReportPdf.tsx:251` |
-| **Title band — mid grey** | `210, 210, 210` | `#D2D2D2` | `CertificateOfConformity.tsx:493` (CoC title bands) |
-| **Pure white reset** | `255, 255, 255` | `#FFFFFF` | `CertificateOfConformity.tsx:624` |
-| **Cell fills (RAMS opt)** | caller-supplied `opts.fill` | varies | `ramsPdf.ts:172`, `ramsPdfBase.ts:193` (boxed cells) |
-| **Risk-rating cell** | caller-supplied `item.r/g/b` | varies | `ramsPdf.ts:287`, `ramsPdfBase.ts:313` (red/amber/green legend) |
-
-### Findings
-
-#### 1. The "navy" name collision is real and is shipping
-`JobPdfReport`, `RAMS`, and `pdfBranding` all treat `[33, 61, 99]` (dark blue `#213D63`) as the brand navy. `PreStartChecklistPdf.tsx` declares `VIVA_NAVY = [30, 174, 232]` — which is a **bright cyan**, completely different colour. So the Pre-Start checklist's section bars don't match any other document's section bars. **This is a bug, not a stylistic choice.**
-
-#### 2. Five different greys for "header strip"
-`#D9D9D9`, `#EBEBEB`, `#E6E6E6`, `#D2D2D2`, plus the cyan above. All used for the same conceptual element (a band that visually anchors the rows below). No central token.
-
-#### 3. Four different greys for "alternating row tint"
-`#F8F8F8`, `#E6F5FC`, `#F5F7FA`, `#F0F0F0`. Each generator picked its own. The shared `renderFilledFieldRow` in `pdfBody.ts` doesn't tint at all, so JobSheet / Blank / Scan render flat white rows while CustomerReport and PreStart get zebra-striping.
-
-#### 4. CertificateOfConformity uses a totally separate palette
-`#D2D2D2` for the three title bands. Doesn't appear anywhere else in the codebase. Harmless but unowned.
-
-#### 5. Local colour-token definitions (not shared)
-`PreStartChecklistPdf.tsx` declares `VIVA_NAVY / VIVA_DARK / VIVA_GREY / VIVA_BORDER / VIVA_NAVY_TINT` **inside the function body**. None of those tokens are exported. Every other generator hard-codes literals.
-
-#### 6. No connection to the dynamic branding engine
-The `mem://features/servexa-reports` rule says PDFs should theme from extracted brand colours, but every fill above is a static literal — only `JobSheetPdfExport` / `BlankTemplatePdfExport` / `CustomerReportPdf` consult the branding object for header tints. RAMS, CoC, JobPdfReport, and PreStart ignore branding entirely on row backgrounds.
+Every generator that bypasses this helper drifts in at least one dimension.
 
 ---
 
-## Proposed Consolidation Plan
+### 1. Path: branding overlay (watermark + accreditation, all pages)
 
-### 1. New module `src/lib/pdfPalette.ts`
-Single export of every named fill the document system is allowed to use:
+| Generator | Uses `renderBrandingOverlay`? | `accredFooterY` | `accredLogoH` | `brandColor` tint | Per-export override |
+|---|---|---|---|---|---|
+| `JobSheetPdfExport.tsx` | ✅ | `declarationFooterY` (computed) | `logoH` (computed) | `accentColor` ✅ | ❌ not passed |
+| `BlankTemplatePdfExport.tsx` | ✅ | computed | computed | not passed | ✅ `override` |
+| `CustomerReportPdf.tsx` | ✅ | `footerY` (computed) | default `7mm` | not passed | ❌ |
+| `ScanJobSheet.tsx` | ✅ | `footerStartY` | `12mm` | `accentColor` ✅ | ❌ |
+| `JobPdfReport.tsx` | ✅ | **`279` hard-coded** | default `7mm` | not passed | ❌ |
+| `ramsPdf.ts` | ✅ | **`PAGE_H - 21` (276)** | **`18mm`** | not passed | ❌ |
+| `ramsPdfBase.ts` | ✅ | **`278` hard-coded** | **`14mm`** | not passed | ❌ |
+| `PreStartChecklistPdf.tsx` | ❌ **rolls own** | `ph - 26` | `logoH` (computed) | n/a | reads `watermarkSettings` directly |
+| `CertificateOfConformity.tsx` | ❌ **rolls own** | `footerBandY - accrH - 6` | `accrH` | n/a | reads `watermarkSettings` directly |
 
+### 2. Drift summary
+
+#### A. Two generators bypass the unified helper entirely
+- **`PreStartChecklistPdf.tsx`** (lines 41-48, 286-287) — calls `addWatermarkToAllPages` + `renderAccreditationLogos` separately, manually gated by `watermarkSettings.mode !== "none"`.
+- **`CertificateOfConformity.tsx`** (lines 460-470, 610-611) — same pattern: dynamic-imports both helpers, gates manually.
+
+Both work, but they:
+- duplicate the `mode === "none"` gating logic (so any future change to the gating rule has to be made in three places),
+- ignore the per-export `WatermarkOverride` mechanism — the PDF preview dialog cannot tweak watermark/accreditation on these two outputs,
+- can drift in opacity/mode if `loadWatermarkSettings()` semantics change.
+
+#### B. Accreditation `accredFooterY` is hard-coded in three generators
+- `JobPdfReport.tsx`: `accredFooterY: 279` — magic number, no relation to actual footer position.
+- `ramsPdf.ts`: `accredFooterY: PAGE_H - 21` (= 276mm on A4) with `accredLogoH: 18` — a much taller logo strip than every other template.
+- `ramsPdfBase.ts`: `accredFooterY: 278` with `accredLogoH: 14` — different again.
+
+Compare with `JobSheetPdfExport`/`BlankTemplate`/`CustomerReport`/`Scan` which all pass a **computed** Y derived from where the actual footer/declaration ends. The hard-coded values risk overlapping or floating away from the footer if the footer chrome changes.
+
+#### C. Accreditation logo height varies 7→18 mm
+
+| Height | Templates |
+|---|---|
+| `7mm` (helper default) | `CustomerReportPdf`, `JobPdfReport` |
+| `12mm` | `ScanJobSheet` |
+| `14mm` | `ramsPdfBase` (variants) |
+| `18mm` | `ramsPdf` (Dry Riser) |
+| computed (per-template) | `JobSheetPdfExport`, `BlankTemplatePdfExport`, `PreStartChecklist`, `CertificateOfConformity` |
+
+→ **2.5× variance in the same logo across the same product.**
+
+#### D. Watermark dimensions are consistent (good)
+`addWatermarkToAllPages` is the single code path. Every caller gets the same `pageHeight * 0.85` watermark, centred, with the same opacity scale. ✅
+
+#### E. Brand-colour tint is inconsistent
+Only `JobSheetPdfExport` and `ScanJobSheet` pass `brandColor: accentColor` to tint the watermark. Every other generator sends `undefined` → untinted Viva Flame even when a customer's brand colour is available in `template.branding`. This contradicts `mem://features/servexa-reports` which says PDFs theme from extracted brand colours.
+
+#### F. Logo & header dimensions in document chrome (separate from accreditation)
+From the earlier header audit:
+- Logo height: 20mm (shared `renderPdfHeader`) vs 40mm (`PreStartChecklist`) vs `pw - MR - logoW` placement (Cert).
+- Header band height: ~30mm shared vs ~32-38mm bespoke.
+- Margin: consistent at `10mm` everywhere ✅ except `ML/MR = 14mm` in RAMS (`ramsPdfBase.ts`) and Cert (`CertificateOfConformity.tsx`).
+- Column widths: see prior data-row audit (68% / 55mm / 52mm / per-template).
+
+---
+
+## Prioritised Fix List
+
+### P0 — Migrate the two roll-your-own generators onto `renderBrandingOverlay`
+
+Highest leverage, lowest risk. Both currently miss the `WatermarkOverride` plumbing and duplicate gating logic.
+
+**Files:** `PreStartChecklistPdf.tsx`, `CertificateOfConformity.tsx`
+**Change:** Replace the manual `addWatermarkToAllPages` + `renderAccreditationLogos` pair at the end of each generator with a single `renderBrandingOverlay({ watermark, accredLogos, accredFooterY, accredLogoH })` call. Delete the local `watermarkSettings.mode !== "none"` gates.
+
+### P1 — Standardise `accredLogoH` to a single token
+
+Add to `src/lib/pdfPalette.ts` (or a new `pdfDimensions.ts`):
 ```ts
-export const PDF_PALETTE = {
-  // Brand
-  navy:        [33, 61, 99]   as [number, number, number], // #213D63
-  navyText:    [255, 255, 255] as [number, number, number],
-
-  // Section / table headers
-  headerStrip: [217, 217, 217] as [number, number, number], // #D9D9D9
-  headerSoft:  [235, 235, 235] as [number, number, number], // handfill mode
-
-  // Zebra row tint
-  zebra:       [248, 248, 248] as [number, number, number], // #F8F8F8
-
-  // Borders
-  border:      [180, 180, 180] as [number, number, number],
-  borderSoft:  [220, 220, 220] as [number, number, number],
-
-  // Text
-  ink:         [30, 30, 30]    as [number, number, number],
-  inkMuted:    [110, 117, 125] as [number, number, number],
-  white:       [255, 255, 255] as [number, number, number],
+export const PDF_DIMENSIONS = {
+  margin: 10,
+  accredLogoH: 12,     // settled middle ground
+  accredLogoGapToFooter: 3,
+  watermarkHeightRatio: 0.85,
+  headerHeight: 30,
+  headerLogoH: 20,
 } as const;
 ```
+Then drop the per-call `accredLogoH` overrides in `JobPdfReport`, `ramsPdf`, `ramsPdfBase`, `ScanJobSheet` so they all read `PDF_DIMENSIONS.accredLogoH`. Existing computed values in `JobSheetPdfExport` / `BlankTemplate` keep their dynamic logic but seeded from the token.
 
-Plus a small helper for branding override:
-```ts
-export function brandedNavy(branding?: BrandingTokens): [number, number, number] {
-  return branding?.primary ?? PDF_PALETTE.navy;
-}
-```
+### P2 — Replace hard-coded `accredFooterY` magic numbers with computed values
 
-### 2. Migrate generators
+**`JobPdfReport.tsx:604`** (`accredFooterY: 279`) → compute from `PAGE_H - PDF_DIMENSIONS.margin - footerHeight` like `CustomerReportPdf` does.
+**`ramsPdf.ts:1051`** (`PAGE_H - 21`) and **`ramsPdfBase.ts:946`** (`278`) → expose a `RAMS_FOOTER_TOP` constant in `ramsPdfBase.ts` and reference it in both files so they can never drift again.
 
-| Generator | Action |
-|---|---|
-| `pdfBody.ts` | Replace `217,217,217` and `235,235,235` literals with `PDF_PALETTE.headerStrip / headerSoft`. |
-| `ramsPdfBase.ts` & `ramsPdf.ts` | Replace `230,230,230` (header strip), `33,61,99` (page-break header) with palette tokens. |
-| `JobPdfReport.tsx` | Replace `33,61,99` with `brandedNavy(branding)` so the section title band themes per customer like the other reports already do. |
-| `PreStartChecklistPdf.tsx` | **Bug fix:** replace the `VIVA_NAVY = [30,174,232]` cyan with `brandedNavy(branding)` so checklist section bars match the rest of the platform. Replace `VIVA_NAVY_TINT` (`#E6F5FC`) and the loose `[248,248,248]` with `PDF_PALETTE.zebra` for one consistent zebra. Replace `VIVA_BORDER` with `PDF_PALETTE.border`. Delete the local token block. |
-| `CustomerReportPdf.tsx` | Collapse the three local greys (`#F5F7FA`, `#F0F0F0`) into `PDF_PALETTE.zebra` and `PDF_PALETTE.headerStrip`. |
-| `CertificateOfConformity.tsx` | Replace `#D2D2D2` title-band fill with `PDF_PALETTE.headerStrip` so CoC bands match every other "header strip" in the system. The white reset stays as `PDF_PALETTE.white`. |
+### P3 — Pass `brandColor` consistently for tinted watermark
 
-### 3. Wire zebra into the shared row helper
-Once `pdfRows.ts` exists (from the previous data-row plan), `drawFieldRow` reads `PDF_PALETTE.zebra` when the caller passes `zebra: true`. JobSheet / Blank / Scan get zebra-striping for free without touching their call sites.
+Currently only `JobSheetPdfExport` and `ScanJobSheet` benefit from per-customer tinting. Extend to:
+- `BlankTemplatePdfExport` — already computes `accentColor`-equivalent in `template.branding`; pass it through.
+- `CustomerReportPdf` — has `branding.primary`; pass it.
+- `JobPdfReport` — derive from `job.customers?.brand_color` if present, fallback to `PDF_PALETTE.navy` (already done in our earlier palette work — wire it through here).
 
-### 4. What stays bespoke (intentionally)
-- **RAMS risk-rating cells** (`ramsPdf.ts:287`) — caller-supplied `r,g,b` is correct: those are red/amber/green legend cells, not chrome.
-- **RAMS boxed cells** with `opts.fill` — caller-supplied is correct.
-- **Brand-overridable navy** — keep it as a function call, not a constant, so per-customer branding still wins.
+`ramsPdf` / `ramsPdfBase` / `PreStartChecklist` / `CertificateOfConformity` should explicitly **opt out** with a comment ("Viva-branded document — never tinted to customer colour") so the divergence is intentional, not accidental.
 
----
+### P4 — Standardise document margins
 
-## Files Touched
+`ML = MR = 14mm` in RAMS + Cert vs `margin = 10mm` everywhere else. Pick one. Recommend **10mm** everywhere (the more common value) and add `PDF_DIMENSIONS.margin = 10` as the single source. The 4mm RAMS gain isn't load-bearing — RAMS tables already use `CONTENT_W` derived from margins, so the rows will simply be 8mm wider (improvement, not regression).
 
-**New:** `src/lib/pdfPalette.ts`
+### P5 — Per-export `WatermarkOverride` plumbing
 
-**Modified:** `src/lib/pdfBody.ts`, `src/lib/ramsPdf.ts`, `src/lib/ramsPdfBase.ts`, `src/components/JobPdfReport.tsx`, `src/components/PreStartChecklistPdf.tsx`, `src/components/CustomerReportPdf.tsx`, `src/components/CertificateOfConformity.tsx`.
+After P0, the two ex-bespoke generators inherit override support for free, but the call sites (preview dialogs that trigger them) need to actually pass the override. Audit `PreStartChecklist` and `CoC` triggers and surface a watermark-control UI consistent with `BlankTemplatePdfExport`'s `watermarkControls`. This is the only fix that touches React components, not just PDF code.
 
-**Untouched:** `JobSheetPdfExport.tsx`, `BlankTemplatePdfExport.tsx`, `ScanJobSheet.tsx` — they already consume the shared helpers and inherit the palette change automatically.
+### P6 — Consolidate header chrome (already-known drift)
+
+This was covered by the earlier header-structure audit. The work that delivers it:
+- Extend `renderPdfHeader` with `{ variant: "centred" | "left" | "right" | "compact", showDetailGrid: boolean }`.
+- Migrate `JobPdfReport`, `CertificateOfConformity`, `PreStartChecklistPdf`, and the RAMS modules off their bespoke headers.
+
+Standalone plan if you want it as one task; otherwise pair with P3 since both touch the same files.
 
 ---
 
-## What I'm NOT proposing
+## Files Touched (cumulative for P0–P5)
 
-- **No re-paint of RAMS risk-matrix red/amber/green** — those are semantic, not brand.
-- **No change to logo/photo image rendering** — fills only.
-- **No new tokens for "success / warning / error"** until you ask for status indicators in PDFs.
+**New:** `src/lib/pdfDimensions.ts` (or extend `pdfPalette.ts`).
+**Modified:** `pdfBranding.ts`, `pdfAccreditations.ts` (default `logoH` → `PDF_DIMENSIONS.accredLogoH`), `JobPdfReport.tsx`, `ramsPdf.ts`, `ramsPdfBase.ts`, `ScanJobSheet.tsx`, `JobSheetPdfExport.tsx`, `BlankTemplatePdfExport.tsx`, `CustomerReportPdf.tsx`, `PreStartChecklistPdf.tsx`, `CertificateOfConformity.tsx`.
+
+---
+
+## Recommendation
+
+Implement **P0 + P1 + P2 + P4** as one batch. They're all "delete drift" work with no behaviour change for the user beyond visual consistency. **P3 + P5** are feature-bearing changes that warrant a separate review. **P6** is the largest and was already scoped in the header audit.
