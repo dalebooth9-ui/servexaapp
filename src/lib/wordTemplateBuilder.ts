@@ -395,9 +395,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const customLogoUrl = template.branding?.logo_url?.trim();
   const headerLogoUrl =
     customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
-  const [headerLogo, watermarkImg] = await Promise.all([
+  const [headerLogo, ...accredLogos] = await Promise.all([
     fetchImageBytes(headerLogoUrl),
-    fetchImageBytes("/images/viva-watermark.png"),
+    ...DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
   ]);
   const footerText = getDefaultFooterText(
     template.name,
@@ -423,29 +423,128 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     sectionMap.get(key)!.push(f);
   }
 
+  // Title — navy, centred, bold, sized to mirror the PDF (~15pt = size 30).
   const children: (Paragraph | Table)[] = [
     new Paragraph({
-      heading: HeadingLevel.HEADING_1,
       alignment: AlignmentType.CENTER,
-      children: [new TextRun({ text: template.name, bold: true })],
+      spacing: { before: 0, after: 60 },
+      children: [
+        new TextRun({
+          text: template.name.toUpperCase(),
+          bold: true,
+          size: 30,
+          color: BRAND_NAVY_HEX,
+          font: "Arial",
+        }),
+      ],
     }),
   ];
   if (template.standard) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
         children: [
-          new TextRun({ text: template.standard, italics: true, size: 20, color: "555555" }),
+          new TextRun({
+            text: template.standard,
+            bold: true,
+            size: 18,
+            color: BRAND_NAVY_HEX,
+            font: "Arial",
+          }),
         ],
-        spacing: { after: 120 },
       }),
     );
   }
+  // Navy separator line below the title (mirrors PDF rule).
+  children.push(
+    new Paragraph({
+      spacing: { after: 160 },
+      border: {
+        bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
+      },
+      children: [new TextRun({ text: "" })],
+    }),
+  );
+
+  // Customer / Date / Site / PO-REF / Riser Location detail grid (mirrors PDF).
+  const detailLabelColLeft = Math.round(TABLE_W * 0.18);
+  const detailValueColLeft = Math.round(TABLE_W * 0.52) - detailLabelColLeft;
+  const detailLabelColRight = Math.round(TABLE_W * 0.12);
+  const detailValueColRight = TABLE_W - Math.round(TABLE_W * 0.52) - detailLabelColRight;
+  const detailRowH = { value: 380, rule: HeightRule.ATLEAST } as const;
+  const detailLabelCell = (text: string, w: number) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: w, type: WidthType.DXA },
+      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [
+        new Paragraph({
+          children: [new TextRun({ text, bold: true, size: 18, font: "Arial" })],
+        }),
+      ],
+    });
+  const detailValueCell = (w: number) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: w, type: WidthType.DXA },
+      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+    });
+  const wideValueCell = (w: number, colSpan = 1) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: w, type: WidthType.DXA },
+      columnSpan: colSpan,
+      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+    });
+
+  children.push(
+    new Table({
+      width: { size: TABLE_W, type: WidthType.DXA },
+      columnWidths: [detailLabelColLeft, detailValueColLeft, detailLabelColRight, detailValueColRight],
+      rows: [
+        new TableRow({
+          height: detailRowH,
+          children: [
+            detailLabelCell("Customer:", detailLabelColLeft),
+            detailValueCell(detailValueColLeft),
+            detailLabelCell("DATE:", detailLabelColRight),
+            detailValueCell(detailValueColRight),
+          ],
+        }),
+        new TableRow({
+          height: detailRowH,
+          children: [
+            detailLabelCell("Site:", detailLabelColLeft),
+            detailValueCell(detailValueColLeft),
+            detailLabelCell("PO/REF:", detailLabelColRight),
+            detailValueCell(detailValueColRight),
+          ],
+        }),
+        new TableRow({
+          height: detailRowH,
+          children: [
+            detailLabelCell("Riser Location:", detailLabelColLeft),
+            wideValueCell(TABLE_W - detailLabelColLeft, 3),
+          ],
+        }),
+      ],
+    }),
+  );
+  children.push(
+    new Paragraph({ children: [new TextRun({ text: " ", size: 10 })], spacing: { after: 80 } }),
+  );
+
   if (template.description) {
     children.push(
       new Paragraph({
         children: [new TextRun({ text: template.description, size: 20 })],
-        spacing: { after: 240 },
+        spacing: { after: 200 },
       }),
     );
   }
