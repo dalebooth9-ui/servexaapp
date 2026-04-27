@@ -111,7 +111,7 @@ export function addWatermarkToAllPages(
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    const opacity = tintedDataUrl ? 0.10 : 0.08;
+    const opacity = tintedDataUrl ? WATERMARK_OPACITY : WATERMARK_OPACITY_UNTINTED;
     const gState = (doc as any).GState({ opacity });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
