@@ -397,6 +397,7 @@ export async function generateConformityPdfBase64(
   const { loadWatermarkImage } = await import("@/lib/pdfWatermark");
   const { fetchCustomerAccreditationLogos, loadAccreditationLogos } = await import("@/lib/pdfAccreditations");
   const { renderBrandingOverlay } = await import("@/lib/pdfBranding");
+  const { loadWatermarkSettings } = await import("@/hooks/useWatermarkSettings");
   const { PDF_DIMENSIONS } = await import("@/lib/pdfDimensions");
 
   // ── Org branding — try stored JSON in test_notes first, then fetch live ──
@@ -615,12 +616,22 @@ export async function generateConformityPdfBase64(
   const footerBandY = ph - 22;
   // Accreditation logos + watermark via the unified overlay. Logos sit above
   // the footer band; the helper handles gap + opacity from org settings.
+  //
+  // Read the org's saved watermark opacity explicitly here (instead of letting
+  // the helper resolve it silently) so the source is auditable at the call
+  // site, then merge any per-export override on top so the PDF preview dialog
+  // can still deviate from the org default.
+  const orgWatermarkSettings = await loadWatermarkSettings();
+  const resolvedOverride: WatermarkOverride = {
+    opacity: orgWatermarkSettings.opacity,
+    ...(watermarkOverride ?? {}),
+  };
   await renderBrandingOverlay(doc, {
     watermark,
     accredLogos: logos,
     accredFooterY: footerBandY - 3,
     accredLogoH: PDF_DIMENSIONS.accredLogoH,
-    override: watermarkOverride,
+    override: resolvedOverride,
   });
 
   doc.setDrawColor(30, 30, 30);
