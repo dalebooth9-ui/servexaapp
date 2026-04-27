@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderBrandingOverlay, type WatermarkOverride } from "@/lib/pdfBranding";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
@@ -290,13 +291,23 @@ export async function generatePreStartChecklistPdf(
   // Accreditation logos + watermark applied via the unified branding overlay.
   // accredFooterY = top edge of the navy footer band; the helper subtracts
   // logo height + gap internally to land the strip above the footer.
+  //
+  // Read the org's saved watermark opacity explicitly here (instead of letting
+  // the helper resolve it silently) so the source is auditable at the call
+  // site, then merge any per-export override on top so the PDF preview dialog
+  // can still deviate from the org default.
+  const orgWatermarkSettings = await loadWatermarkSettings();
+  const resolvedOverride: WatermarkOverride = {
+    opacity: orgWatermarkSettings.opacity,
+    ...(watermarkOverride ?? {}),
+  };
   const footerBandTop = ph - 14 - 1; // matches `footerY - 1` used below for the navy strip
   await renderBrandingOverlay(doc, {
     watermark,
     accredLogos: logos,
     accredFooterY: footerBandTop,
     accredLogoH: PDF_DIMENSIONS.accredLogoH,
-    override: watermarkOverride,
+    override: resolvedOverride,
   });
 
   const footerY = ph - 14;
