@@ -382,39 +382,73 @@ ${imageEmbeds}
         );
       }
 
+      // Header logo: fit within ~2.5cm × 1.25cm (≈ 94 × 47 px at 96 dpi),
+      // preserving aspect ratio.
+      const headerLogoBox = { maxW: 94, maxH: 47 };
+      const headerLogoTransform = (() => {
+        const natW = Math.max(1, logoDims.w);
+        const natH = Math.max(1, logoDims.h);
+        const scale = Math.min(headerLogoBox.maxW / natW, headerLogoBox.maxH / natH, 1);
+        return {
+          width: Math.max(1, Math.round(natW * scale)),
+          height: Math.max(1, Math.round(natH * scale)),
+        };
+      })();
+
+      const footerText = getDefaultFooterText("Job Report");
+
       const doc = new Document({
+        styles: {
+          default: {
+            document: {
+              run: { font: "Arial", size: 22 }, // 11pt
+            },
+          },
+        },
         sections: [
           {
-            properties: {},
+            properties: {
+              page: {
+                size: { width: 11906, height: 16838 }, // A4 in DXA
+                margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }, // 20mm
+              },
+            },
+            headers: {
+              default: new Header({
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.LEFT,
+                    children: logoBuf
+                      ? [
+                          new ImageRun({
+                            type: logoType,
+                            data: logoBuf,
+                            transformation: headerLogoTransform,
+                          } as any),
+                        ]
+                      : [new TextRun({ text: "" })],
+                  }),
+                ],
+              }),
+            },
+            footers: {
+              default: new Footer({
+                children: [
+                  new Paragraph({
+                    alignment: AlignmentType.CENTER,
+                    children: [
+                      new TextRun({
+                        text: footerText,
+                        font: "Arial",
+                        size: 16, // 8pt
+                        color: "666666",
+                      }),
+                    ],
+                  }),
+                ],
+              }),
+            },
             children: [
-              ...(logoBuf
-                ? [
-                    new Paragraph({
-                      alignment: logoAlignment,
-                      children: [
-                        new ImageRun({
-                          type: logoType,
-                          data: logoBuf,
-                          transformation: (() => {
-                            // Fit logo into a consistent bounding box (max width × max height),
-                            // preserving aspect ratio. This ensures wide and tall logos render
-                            // at visually comparable sizes across customers.
-                            const maxW = Math.max(1, wordCfg.logoMaxWidth);
-                            const maxH = Math.max(1, wordCfg.logoMaxHeight);
-                            const natW = Math.max(1, logoDims.w);
-                            const natH = Math.max(1, logoDims.h);
-                            const scale = Math.min(maxW / natW, maxH / natH, 1);
-                            return {
-                              width: Math.max(1, Math.round(natW * scale)),
-                              height: Math.max(1, Math.round(natH * scale)),
-                            };
-                          })(),
-                        } as any),
-                      ],
-                      spacing: { before: wordCfg.logoSpacingBefore, after: wordCfg.logoSpacingAfter },
-                    }),
-                  ]
-                : []),
               new Paragraph({
                 heading: HeadingLevel.HEADING_1,
                 children: [new TextRun({ text: `Job Report — ${ref}`, bold: true })],
