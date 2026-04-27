@@ -28,8 +28,11 @@ export interface RamsJobInfo {
 /* ─────────────────────────────────────── constants ── */
 export const PAGE_W = 210;
 export const PAGE_H = 297;
-export const ML = 14;
-export const MR = 14;
+// Standardised on PDF_DIMENSIONS.margin (10mm) so RAMS chrome aligns with
+// every other Servexa PDF. Column widths derive from ML/MR/CONTENT_W so the
+// dense risk tables stretch to fill the recovered 8mm automatically.
+export const ML = PDF_DIMENSIONS.margin;
+export const MR = PDF_DIMENSIONS.margin;
 export const CONTENT_W = PAGE_W - ML - MR;
 /** Top edge of the RAMS footer chrome — accreditation logos land just above
  *  this Y. Centralised so `ramsPdf.ts` and `ramsPdfBase.ts` cannot drift. */
