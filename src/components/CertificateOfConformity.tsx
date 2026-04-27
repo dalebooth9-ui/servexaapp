@@ -454,10 +454,11 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
-  // CoC uses the documented `marginWide` token (14mm) — the bespoke header
-  // chrome needs more breathing room than the standard 10mm margin.
-  const ML = PDF_DIMENSIONS.marginWide; // left margin
-  const MR = PDF_DIMENSIONS.marginWide; // right margin
+  // Standardised on PDF_DIMENSIONS.margin (10mm) so the CoC chrome aligns with
+  // every other Servexa PDF. All header / band / footer coordinates derive
+  // from ML / MR / contentW so the layout stretches automatically.
+  const ML = PDF_DIMENSIONS.margin; // left margin
+  const MR = PDF_DIMENSIONS.margin; // right margin
   const contentW = pw - ML - MR;
 
   // ── Watermark + accreditation logos ──────────────────────────────────
