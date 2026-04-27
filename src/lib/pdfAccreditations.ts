@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
+import { WATERMARK_OPACITY } from "@/lib/pdfWatermark";
 
 /** Default Viva Fire accreditation logos used as fallback */
 const DEFAULT_ACCREDITATION_LOGOS = [
@@ -64,7 +65,7 @@ export function renderAccreditationLogos(
   logos: (HTMLImageElement | null)[],
   rowY: number,
   logoH = 7,
-  opacity = 0.22
+  opacity = WATERMARK_OPACITY
 ): void {
   const pageWidth = doc.internal.pageSize.getWidth();
   const gap = 5;
@@ -106,7 +107,7 @@ export function addAccreditationLogosToAllPages(
   logos: (HTMLImageElement | null)[],
   footerY: number,
   logoH = 7,
-  opacity = 0.22,
+  opacity = WATERMARK_OPACITY,
 ): void {
   if (logos.length === 0) return;
   const pageCount = doc.getNumberOfPages();

@@ -1,6 +1,11 @@
 import jsPDF from "jspdf";
 import type { RgbTriple } from "@/lib/extractLogoColors";
 
+/** Shared watermark opacity values — accreditation logos use the same scale
+ *  so they blend identically to the Viva Flame watermark on every template. */
+export const WATERMARK_OPACITY = 0.10;
+export const WATERMARK_OPACITY_UNTINTED = 0.08;
+
 // --- Colour helpers (self-contained) ---
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
   r /= 255; g /= 255; b /= 255;
@@ -111,7 +116,7 @@ export function addWatermarkToAllPages(
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    const opacity = tintedDataUrl ? 0.10 : 0.08;
+    const opacity = tintedDataUrl ? WATERMARK_OPACITY : WATERMARK_OPACITY_UNTINTED;
     const gState = (doc as any).GState({ opacity });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
