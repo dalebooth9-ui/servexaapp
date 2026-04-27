@@ -23,6 +23,7 @@ import QuoteHoundIntegrationCard from "@/components/QuoteHoundIntegrationCard";
 import JobDocumentReattachSettings from "@/components/JobDocumentReattachSettings";
 import FilenameFormatSettings from "@/components/FilenameFormatSettings";
 import { WordExportSettings } from "@/components/WordExportSettings";
+import WatermarkSettings from "@/components/WatermarkSettings";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://servexaapp.lovable.app/install";
@@ -300,6 +301,7 @@ export default function SettingsPage() {
         <RamsTemplateSettings />
         <FilenameFormatSettings />
         <WordExportSettings />
+        <WatermarkSettings />
         <XeroSettings />
 
         {/* The Mellor Integration */}

@@ -4,6 +4,7 @@ import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos, renderAccreditationLogos } from "@/lib/pdfAccreditations";
+import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 
 export type PreStartJobInfo = {
   name?: string | null;
@@ -35,11 +36,16 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const cw = mr - ml;
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);
+  const watermarkSettings = await loadWatermarkSettings();
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark);
+  if (watermark)
+    addWatermarkToAllPages(doc, watermark, undefined, {
+      mode: watermarkSettings.mode,
+      opacity: watermarkSettings.opacity,
+    });
 
   // ── Logo ────────────────────────────────────────────────────────────
   try {
@@ -274,7 +280,9 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, ph - 32, { align: "center" });
 
   const logoH = 10;
-  renderAccreditationLogos(doc, logos, ph - 26, logoH);
+  if (watermarkSettings.mode !== "none") {
+    renderAccreditationLogos(doc, logos, ph - 26, logoH, watermarkSettings.opacity);
+  }
 
   const footerY = ph - 14;
   doc.setFillColor(...VIVA_NAVY);

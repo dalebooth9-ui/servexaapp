@@ -7,9 +7,10 @@ import { useToast } from "@/hooks/use-toast";
 import { Camera, FileDown, Loader2, MessageSquare, ScanLine, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import ScanReviewPanel from "@/components/ScanReviewPanel";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
@@ -463,8 +464,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      addAccreditationLogosToAllPages(doc, accredLogos, footerStartY, 12);
+      await renderBrandingOverlay(doc, { watermark, brandColor: accentColor, accredLogos, accredFooterY: footerStartY, accredLogoH: 12 });
 
       const safeSite = siteName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
       const downloadName = [

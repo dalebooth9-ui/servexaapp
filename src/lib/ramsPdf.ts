@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { renderBrandingOverlay } from "@/lib/pdfBranding";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 
 export type RamsFormData = Record<string, any>;
 
@@ -1046,8 +1047,7 @@ export async function generateRamsPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark);
-  addAccreditationLogosToAllPages(doc, accredLogos, PAGE_H - 21, 18);
+  await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: PAGE_H - 21, accredLogoH: 18 });
 
   const customerName = (jobInfo as any)?.customers?.name || (jobInfo as any)?.customer || (jobInfo as any)?.site?.name || "job";
   const slug = String(customerName).toLowerCase().replace(/[^a-z0-9]+/g, "") || "job";

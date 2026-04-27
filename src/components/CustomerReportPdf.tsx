@@ -6,8 +6,9 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import { renderPdfHeader, type PdfHeaderData, type PdfBranding } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, type PdfSignatureData } from "@/lib/pdfFooter";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { renderBrandingOverlay } from "@/lib/pdfBranding";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 
 interface Props {
   jobId: string;
@@ -472,9 +473,8 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === WATERMARK + ACCREDITATIONS ===
       if (watermark) {
-        addWatermarkToAllPages(doc, watermark);
       }
-      addAccreditationLogosToAllPages(doc, accredLogos, footerY);
+      await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: footerY });
 
       const fileName = `${job.reference_number}-customer-report.pdf`;
 

@@ -4,8 +4,9 @@ import { Download, Eye, Loader2, Printer, PenLine } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { renderBrandingOverlay, type WatermarkOverride } from "@/lib/pdfBranding";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
@@ -91,13 +92,15 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
+type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null };
+
 export type BlankTemplatePdfExportHandle = {
-  download: (opts?: { handfill?: boolean }) => Promise<void> | void;
-  print: (opts?: { handfill?: boolean }) => Promise<void> | void;
-  preview: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  download: (opts?: GenerateOpts) => Promise<void> | void;
+  print: (opts?: GenerateOpts) => Promise<void> | void;
+  preview: (opts?: GenerateOpts) => Promise<void> | void;
   /** Build the PDF and return the raw Blob without opening any UI.
    *  Useful for embedding a live preview elsewhere (e.g. template editor). */
-  getBlob: (opts?: { handfill?: boolean }) => Promise<Blob | null>;
+  getBlob: (opts?: GenerateOpts) => Promise<Blob | null>;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
@@ -105,17 +108,24 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Track which mode the preview was last built in so the dialog's regenerate
+  // callback can rebuild from the same parameters.
+  const [previewBuildArgs, setPreviewBuildArgs] = useState<{ handfill: boolean }>({ handfill: false });
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: (o) => generate("download", o?.handfill ?? false) as Promise<void>,
-    print: (o) => generate("print", o?.handfill ?? false) as Promise<void>,
-    preview: (o) => generate("preview", o?.handfill ?? false) as Promise<void>,
-    getBlob: (o) => generate("blob", o?.handfill ?? false) as Promise<Blob | null>,
+    download: (o) => generate("download", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
+    print: (o) => generate("print", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
+    preview: (o) => generate("preview", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
+    getBlob: (o) => generate("blob", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<Blob | null>,
   }));
 
-  const generate = async (mode: "download" | "print" | "preview" | "blob" = "preview", handfill = false): Promise<Blob | null | void> => {
+  const generate = async (
+    mode: "download" | "print" | "preview" | "blob" = "preview",
+    handfill = false,
+    watermarkOverride: WatermarkOverride | null = null,
+  ): Promise<Blob | null | void> => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
@@ -356,14 +366,21 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       // Dry Riser: drop logos right above the declaration box so the watermark's
-      // bottom edge is visible. Match the watermark opacity for a consistent look.
+      // bottom edge is visible.
       const declHApprox = 9; // matches min declH used above
       const footerYForLogos = isDryRiser
         ? pageHeight - margin - declHApprox - logoH - 1
         : pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      await renderBrandingOverlay(doc, {
+        watermark,
+        brandColor: accentColor,
+        accredLogos,
+        accredFooterY: footerYForLogos,
+        accredLogoH: logoH,
+        override: watermarkOverride,
+      });
+
 
       const fileName = [
         jobInfo?.reference_number || "blank",
@@ -383,6 +400,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const pdfBlob = doc.output("blob");
         setPreviewBlob(pdfBlob);
         setPreviewName(fileName);
+        setPreviewBuildArgs({ handfill });
         setPreviewOpen(true);
       } else if (mode === "blob") {
         // Silent build — caller uses the returned Blob directly (e.g. live preview embed).
@@ -435,6 +453,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         blob={previewBlob}
         fileName={previewName}
         title={template.name}
+        watermarkControls
+        onRebuildWithWatermark={async (override) => {
+          const blob = (await generate("blob", previewBuildArgs.handfill, override)) as Blob | null;
+          if (blob) setPreviewBlob(blob);
+        }}
       />
     </>
   );

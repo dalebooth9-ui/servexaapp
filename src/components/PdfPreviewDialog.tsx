@@ -9,7 +9,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Download, ExternalLink, Loader2, ChevronDown, FileText } from "lucide-react";
+import { Download, ExternalLink, Loader2, ChevronDown, FileText, Droplet } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  useWatermarkSettings,
+  type WatermarkMode,
+  type WatermarkSettings,
+} from "@/hooks/useWatermarkSettings";
 
 export interface PdfPreviewDialogProps {
   open: boolean;
@@ -26,6 +39,10 @@ export interface PdfPreviewDialogProps {
   fileNameOptions?: string[];
   /** MIME type — used to decide between iframe (PDF / HTML) and <img>. Defaults to application/pdf. */
   mimeType?: string;
+  /** When true, show the watermark mode/opacity controls in the toolbar. Requires onRebuildWithWatermark. */
+  watermarkControls?: boolean;
+  /** Called when the user changes the watermark override; should rebuild the PDF and update `blob`. */
+  onRebuildWithWatermark?: (override: Partial<WatermarkSettings>) => Promise<void> | void;
 }
 
 /** Slugify a candidate filename so it renders cleanly inside browser viewer chrome. */
@@ -61,8 +78,36 @@ export default function PdfPreviewDialog({
   fileName,
   fileNameOptions,
   mimeType = "application/pdf",
+  watermarkControls = false,
+  onRebuildWithWatermark,
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const { settings: savedWatermark, loaded: watermarkLoaded } = useWatermarkSettings();
+  // Local override the dialog applies on top of the saved org-wide setting.
+  // Reset to "use saved value" each time the dialog opens.
+  const [localMode, setLocalMode] = useState<WatermarkMode | "default">("default");
+  const [localOpacity, setLocalOpacity] = useState<number | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setLocalMode("default");
+      setLocalOpacity(null);
+    }
+  }, [open]);
+
+  const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
+  const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
+
+  const triggerRebuild = async (override: Partial<WatermarkSettings>) => {
+    if (!onRebuildWithWatermark) return;
+    setRebuilding(true);
+    try {
+      await onRebuildWithWatermark(override);
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   useEffect(() => {
     if (!blob) {
@@ -169,6 +214,95 @@ export default function PdfPreviewDialog({
                 ))}
               </DropdownMenuContent>
             </DropdownMenu>
+            {watermarkControls && onRebuildWithWatermark && watermarkLoaded && (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 gap-1.5"
+                    title="Watermark settings for this preview"
+                    disabled={!src || rebuilding}
+                  >
+                    {rebuilding ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Droplet className="h-3.5 w-3.5" />
+                    )}
+                    <span className="hidden sm:inline">Watermark</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="end" className="w-72 space-y-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Watermark for this preview</p>
+                    <p className="text-xs text-muted-foreground">
+                      Org default: <span className="font-medium capitalize">{savedWatermark.mode}</span>
+                      {savedWatermark.mode !== "none" && ` · ${Math.round(savedWatermark.opacity * 100)}%`}
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-xs">Mode</Label>
+                    <RadioGroup
+                      value={effectiveMode}
+                      onValueChange={(v) => {
+                        const next = v as WatermarkMode;
+                        setLocalMode(next);
+                        triggerRebuild({ mode: next, opacity: effectiveOpacity });
+                      }}
+                      className="grid grid-cols-3 gap-1"
+                    >
+                      {(["tinted", "untinted", "none"] as WatermarkMode[]).map((m) => (
+                        <Label
+                          key={m}
+                          htmlFor={`wm-${m}`}
+                          className="flex items-center gap-1.5 rounded-md border px-2 py-1.5 text-xs capitalize cursor-pointer hover:bg-accent has-[input:checked]:bg-accent has-[input:checked]:border-primary"
+                        >
+                          <RadioGroupItem id={`wm-${m}`} value={m} className="h-3 w-3" />
+                          {m}
+                        </Label>
+                      ))}
+                    </RadioGroup>
+                  </div>
+                  {effectiveMode !== "none" && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs">Opacity</Label>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {Math.round(effectiveOpacity * 100)}%
+                        </span>
+                      </div>
+                      <Slider
+                        value={[effectiveOpacity]}
+                        min={0}
+                        max={0.3}
+                        step={0.01}
+                        onValueChange={([v]) => setLocalOpacity(v)}
+                        onValueCommit={([v]) =>
+                          triggerRebuild({ mode: effectiveMode, opacity: v })
+                        }
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Accreditation logos use the same opacity so they always blend together.
+                      </p>
+                    </div>
+                  )}
+                  {(localMode !== "default" || localOpacity !== null) && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-full text-xs"
+                      onClick={() => {
+                        setLocalMode("default");
+                        setLocalOpacity(null);
+                        triggerRebuild({ mode: savedWatermark.mode, opacity: savedWatermark.opacity });
+                      }}
+                    >
+                      Reset to org default
+                    </Button>
+                  )}
+                </PopoverContent>
+              </Popover>
+            )}
             <Button
               variant="ghost"
               size="sm"
