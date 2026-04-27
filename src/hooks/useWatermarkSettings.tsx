@@ -6,13 +6,16 @@ export type WatermarkMode = "tinted" | "untinted" | "none";
 
 export interface WatermarkSettings {
   mode: WatermarkMode;
-  /** 0–0.30. Used for both the watermark and the accreditation logo row so they stay visually consistent. */
+  /** 0–0.30. Opacity of the Viva flame watermark. */
   opacity: number;
+  /** 0–1. Opacity of the accreditation logo row in the footer. Independent of the watermark. */
+  accreditationOpacity: number;
 }
 
 export const DEFAULT_WATERMARK_SETTINGS: WatermarkSettings = {
   mode: "tinted",
   opacity: 0.12,
+  accreditationOpacity: 0.85,
 };
 
 const SETTINGS_KEY = "pdf_watermark";
