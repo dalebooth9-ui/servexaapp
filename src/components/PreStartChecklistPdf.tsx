@@ -7,7 +7,6 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
-import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type PreStartJobInfo = {
   name?: string | null;
