@@ -205,7 +205,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             let ox = margin + 1;
 
             for (const field of sectionFields) {
-              doc.setFontSize(7);
+              doc.setFontSize(8);
               doc.setFont("helvetica", "bold");
               const labelW = doc.getTextWidth(field.label) + 1;
               let fieldW = labelW;
@@ -239,7 +239,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
                 doc.setDrawColor(180);
                 doc.rect(margin, y, maxWidth, inlineH);
               }
-              doc.setFontSize(7);
+              doc.setFontSize(8);
               for (const { field, x: startX } of row) {
                 let ox2 = startX;
                 doc.setFont("helvetica", "bold");
@@ -305,7 +305,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const maxCommentsH = isDryRiser ? 22 : 35;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
-        doc.setFontSize(8.5);
+        doc.setFontSize(9.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, y + 3);
         if (!handfill) {
@@ -329,7 +329,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             (template.branding?.declaration_text || "").trim() ||
             "Tested and inspected in accordance with BS 9990:2015";
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(9);
+          doc.setFontSize(10);
           doc.setTextColor(0, 0, 0);
           const padX = 4; // horizontal padding inside the box
           const padY = 2.5; // vertical padding inside the box
