@@ -11,6 +11,7 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import ScanReviewPanel from "@/components/ScanReviewPanel";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
@@ -464,7 +465,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      await renderBrandingOverlay(doc, { watermark, brandColor: accentColor, accredLogos, accredFooterY: footerStartY, accredLogoH: 12 });
+      await renderBrandingOverlay(doc, {
+        watermark,
+        brandColor: accentColor,
+        accredLogos,
+        accredFooterY: footerStartY,
+        accredLogoH: PDF_DIMENSIONS.accredLogoH,
+      });
 
       const safeSite = siteName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
       const downloadName = [

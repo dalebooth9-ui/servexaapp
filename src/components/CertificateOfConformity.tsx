@@ -389,8 +389,10 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
 /** Standalone PDF generator — matches actual Viva Fire Certificate of Conformity layout */
 export async function generateConformityPdfBase64(cert: ConformityCert): Promise<{ base64: string; fileName: string }> {
   const { default: jsPDF } = await import("jspdf");
-  const { loadWatermarkImage, addWatermarkToAllPages } = await import("@/lib/pdfWatermark");
-  const { fetchCustomerAccreditationLogos, loadAccreditationLogos, renderAccreditationLogos } = await import("@/lib/pdfAccreditations");
+  const { loadWatermarkImage } = await import("@/lib/pdfWatermark");
+  const { fetchCustomerAccreditationLogos, loadAccreditationLogos } = await import("@/lib/pdfAccreditations");
+  const { renderBrandingOverlay } = await import("@/lib/pdfBranding");
+  const { PDF_DIMENSIONS } = await import("@/lib/pdfDimensions");
 
   // ── Org branding — try stored JSON in test_notes first, then fetch live ──
   let orgCompanyName = "Viva Fire Protection Ltd";
@@ -455,19 +457,16 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const MR = 20; // right margin
   const contentW = pw - ML - MR;
 
-  // ── Watermark ────────────────────────────────────────────────────────
-  const { loadWatermarkSettings } = await import("@/hooks/useWatermarkSettings");
-  const watermarkSettings = await loadWatermarkSettings();
+  // ── Watermark + accreditation logos ──────────────────────────────────
+  // Both are applied at the end of this function via renderBrandingOverlay()
+  // so the CoC inherits the same opacity/mode/gating semantics as every other
+  // PDF in the system. (Viva-branded document — never tinted, brandColor
+  // omitted intentionally.)
   const custAccredUrls = await fetchCustomerAccreditationLogos(cert.customer_name);
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark)
-    addWatermarkToAllPages(doc, watermark, undefined, {
-      mode: watermarkSettings.mode,
-      opacity: watermarkSettings.opacity,
-    });
 
   // ── Logo — top right ─────────────────────────────────────────────────
   const logoW = 52;
@@ -606,10 +605,14 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
 
   // ── Footer area ──────────────────────────────────────────────────────
   const footerBandY = ph - 22;
-  const accrH = 12;
-  if (watermarkSettings.mode !== "none") {
-    renderAccreditationLogos(doc, logos, footerBandY - accrH - 6, accrH, watermarkSettings.opacity);
-  }
+  // Accreditation logos + watermark via the unified overlay. Logos sit above
+  // the footer band; the helper handles gap + opacity from org settings.
+  await renderBrandingOverlay(doc, {
+    watermark,
+    accredLogos: logos,
+    accredFooterY: footerBandY - 3,
+    accredLogoH: PDF_DIMENSIONS.accredLogoH,
+  });
 
   doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.3);

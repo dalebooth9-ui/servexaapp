@@ -2,10 +2,11 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, renderAccreditationLogos } from "@/lib/pdfAccreditations";
-import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 
 export type PreStartJobInfo = {
   name?: string | null;
@@ -37,16 +38,15 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const cw = mr - ml;
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);
-  const watermarkSettings = await loadWatermarkSettings();
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark)
-    addWatermarkToAllPages(doc, watermark, undefined, {
-      mode: watermarkSettings.mode,
-      opacity: watermarkSettings.opacity,
-    });
+  // Watermark + accreditation logos are applied at the END of the function via
+  // the unified renderBrandingOverlay() helper so this generator inherits the
+  // same gating, opacity scale, and per-export override semantics as every
+  // other PDF in the system. (Viva-branded document — never tinted to a
+  // customer brand colour, so brandColor is intentionally omitted.)
 
   // ── Logo ────────────────────────────────────────────────────────────
   try {
@@ -282,10 +282,16 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   doc.setTextColor(...VIVA_GREY);
   doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, ph - 32, { align: "center" });
 
-  const logoH = 10;
-  if (watermarkSettings.mode !== "none") {
-    renderAccreditationLogos(doc, logos, ph - 26, logoH, watermarkSettings.opacity);
-  }
+  // Accreditation logos + watermark applied via the unified branding overlay.
+  // accredFooterY = top edge of the navy footer band; the helper subtracts
+  // logo height + gap internally to land the strip above the footer.
+  const footerBandTop = ph - 14 - 1; // matches `footerY - 1` used below for the navy strip
+  await renderBrandingOverlay(doc, {
+    watermark,
+    accredLogos: logos,
+    accredFooterY: footerBandTop,
+    accredLogoH: PDF_DIMENSIONS.accredLogoH,
+  });
 
   const footerY = ph - 14;
   doc.setFillColor(...VIVA_NAVY);

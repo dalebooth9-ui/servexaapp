@@ -7,6 +7,7 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type RamsFormData = Record<string, any>;
@@ -30,7 +31,10 @@ export const PAGE_H = 297;
 export const ML = 14;
 export const MR = 14;
 export const CONTENT_W = PAGE_W - ML - MR;
-export const SAFE_BOTTOM = PAGE_H - 62; // reserve space for legend (14mm) + 18mm logos + footer
+/** Top edge of the RAMS footer chrome — accreditation logos land just above
+ *  this Y. Centralised so `ramsPdf.ts` and `ramsPdfBase.ts` cannot drift. */
+export const RAMS_FOOTER_TOP = 278;
+export const SAFE_BOTTOM = PAGE_H - 62; // reserve space for legend (14mm) + accreditation logos + footer
 export const COVER_SAFE_BOTTOM = PAGE_H - 52; // cover page content must not go below this
 
 export const RISK_FONT_SIZE = 6.5;
@@ -943,7 +947,12 @@ export async function finaliseAndReturn(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: 278, accredLogoH: 14 });
+  await renderBrandingOverlay(doc, {
+    watermark,
+    accredLogos,
+    accredFooterY: RAMS_FOOTER_TOP,
+    accredLogoH: PDF_DIMENSIONS.accredLogoH,
+  });
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "job";
   const slug = String(customerName).toLowerCase().replace(/[^a-z0-9]+/g, "");
   const prefix = suffix.toUpperCase().replace(/[^A-Z0-9]+/g, "");

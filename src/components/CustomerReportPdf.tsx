@@ -10,6 +10,7 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 
 interface Props {
   jobId: string;
@@ -472,10 +473,13 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       const footerY = doc.internal.pageSize.getHeight() - 18;
       renderPdfFooter(doc, footerY, footerText);
 
-      // === WATERMARK + ACCREDITATIONS ===
-      if (watermark) {
-      }
-      await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: footerY });
+      // === WATERMARK + ACCREDITATIONS (unified overlay) ===
+      await renderBrandingOverlay(doc, {
+        watermark,
+        accredLogos,
+        accredFooterY: footerY,
+        accredLogoH: PDF_DIMENSIONS.accredLogoH,
+      });
 
       const fileName = `${job.reference_number}-customer-report.pdf`;
 
