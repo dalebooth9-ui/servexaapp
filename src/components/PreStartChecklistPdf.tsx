@@ -280,7 +280,9 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   doc.text("For any accounts queries please contact accounts@vivafire.co.uk", pw / 2, ph - 32, { align: "center" });
 
   const logoH = 10;
-  renderAccreditationLogos(doc, logos, ph - 26, logoH);
+  if (watermarkSettings.mode !== "none") {
+    renderAccreditationLogos(doc, logos, ph - 26, logoH, watermarkSettings.opacity);
+  }
 
   const footerY = ph - 14;
   doc.setFillColor(...VIVA_NAVY);
