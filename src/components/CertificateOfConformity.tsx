@@ -606,7 +606,9 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   // ── Footer area ──────────────────────────────────────────────────────
   const footerBandY = ph - 22;
   const accrH = 12;
-  renderAccreditationLogos(doc, logos, footerBandY - accrH - 6, accrH);
+  if (watermarkSettings.mode !== "none") {
+    renderAccreditationLogos(doc, logos, footerBandY - accrH - 6, accrH, watermarkSettings.opacity);
+  }
 
   doc.setDrawColor(30, 30, 30);
   doc.setLineWidth(0.3);
