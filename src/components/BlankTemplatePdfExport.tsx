@@ -363,7 +363,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       const footerYForLogos = isDryRiser
         ? pageHeight - margin - declHApprox - logoH - 1
         : pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH, 0.22);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
 
       const fileName = [
         jobInfo?.reference_number || "blank",
