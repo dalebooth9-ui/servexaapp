@@ -360,18 +360,20 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       }
 
 
-      const logoH = 12; // bigger logos
+      // Accreditation logos sit at the very bottom of the page so they clear
+      // the bottom edge of the Viva Flame watermark (which extends to ~287mm
+      // on A4). Slightly smaller height keeps them from running off the page.
+      const logoH = isDryRiser ? 12 : 9;
       const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      // Dry Riser: drop logos right above the declaration box so the watermark's
-      // bottom edge is visible.
       const declHApprox = 9; // matches min declH used above
       const footerYForLogos = isDryRiser
         ? pageHeight - margin - declHApprox - logoH - 1
-        : pageHeight - margin - 9;
+        // Push to the very bottom so logos land below the watermark's bottom edge.
+        : pageHeight - 1;
       await renderBrandingOverlay(doc, {
         watermark,
         brandColor: accentColor,
