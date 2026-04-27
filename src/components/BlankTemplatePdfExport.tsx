@@ -400,6 +400,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const pdfBlob = doc.output("blob");
         setPreviewBlob(pdfBlob);
         setPreviewName(fileName);
+        setPreviewBuildArgs({ handfill });
         setPreviewOpen(true);
       } else if (mode === "blob") {
         // Silent build — caller uses the returned Blob directly (e.g. live preview embed).
