@@ -292,22 +292,18 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y += 1;
         }
 
-        // Comments box — shrinks to fit remaining space rather than spilling
-        // to a new page. Only spills if there is literally no room left.
+        // Comments box — always render on the current page, shrinking to fit
+        // the remaining space above the signature row.
         const sigY = pageHeight - footerSpace - 10;
         const commentsBoxBottom = sigY - 4;
         const minCommentsH = 6;
-        if (y + 4 + minCommentsH > commentsBoxBottom) {
-          doc.addPage();
-          y = margin;
-        }
-        const commentsBoxTop = y + 4;
+        const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
         const maxCommentsH = isDryRiser ? 22 : 35;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
         doc.setFontSize(9.5);
         doc.setFont("helvetica", "bold");
-        doc.text("Comments:", margin, y + 3);
+        doc.text("Comments:", margin, commentsBoxTop - 1);
         if (!handfill) {
           doc.setDrawColor(180);
           doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
@@ -361,13 +357,13 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadAccreditationLogos(custAccredUrls),
       ]);
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-      // For Dry Riser sheets, sit accreditation logos directly above the bottom black band
-      // and render them at full opacity (matches the printed worksheet reference).
-      // Dry Riser: sit logos just above the declaration box (box ~9mm tall + bottom margin 10mm)
+      // Dry Riser: drop logos right above the declaration box so the watermark's
+      // bottom edge is visible. Match the watermark opacity for a consistent look.
+      const declHApprox = 9; // matches min declH used above
       const footerYForLogos = isDryRiser
-        ? pageHeight - margin - 9 - logoH - 1
+        ? pageHeight - margin - declHApprox - logoH - 1
         : pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH, isDryRiser ? 1 : 0.22);
+      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH, 0.22);
 
       const fileName = [
         jobInfo?.reference_number || "blank",
