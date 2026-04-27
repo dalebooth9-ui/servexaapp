@@ -464,7 +464,13 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      await renderBrandingOverlay(doc, { watermark, brandColor: accentColor, accredLogos, accredFooterY: footerStartY, accredLogoH: 12 });
+      await renderBrandingOverlay(doc, {
+        watermark,
+        brandColor: accentColor,
+        accredLogos,
+        accredFooterY: footerStartY,
+        accredLogoH: PDF_DIMENSIONS.accredLogoH,
+      });
 
       const safeSite = siteName.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
       const downloadName = [

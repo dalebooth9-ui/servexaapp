@@ -3,6 +3,8 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
+import { RAMS_FOOTER_TOP } from "@/lib/ramsPdfBase";
 
 export type RamsFormData = Record<string, any>;
 
@@ -1048,7 +1050,12 @@ export async function generateRamsPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: PAGE_H - 21, accredLogoH: 18 });
+  await renderBrandingOverlay(doc, {
+    watermark,
+    accredLogos,
+    accredFooterY: RAMS_FOOTER_TOP,
+    accredLogoH: PDF_DIMENSIONS.accredLogoH,
+  });
 
   const customerName = (jobInfo as any)?.customers?.name || (jobInfo as any)?.customer || (jobInfo as any)?.site?.name || "job";
   const slug = String(customerName).toLowerCase().replace(/[^a-z0-9]+/g, "") || "job";

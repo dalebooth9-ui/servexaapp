@@ -8,6 +8,7 @@ import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { PDF_DIMENSIONS, resolveAccredFooterY } from "@/lib/pdfDimensions";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -601,7 +602,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: 279 });
+      // Accreditation logos sit just above the footer line drawn at y=286.
+      await renderBrandingOverlay(doc, {
+        watermark,
+        accredLogos,
+        accredFooterY: 286,
+        accredLogoH: PDF_DIMENSIONS.accredLogoH,
+      });
 
       // ── FOOTER on every page ──
       const pageCount = doc.getNumberOfPages();
