@@ -38,7 +38,10 @@ export default function WatermarkSettings() {
     );
   }
 
-  const dirty = draft.mode !== saved.mode || draft.opacity !== saved.opacity;
+  const dirty =
+    draft.mode !== saved.mode ||
+    draft.opacity !== saved.opacity ||
+    draft.accreditationOpacity !== saved.accreditationOpacity;
 
   const handleSave = async () => {
     setSaving(true);
@@ -86,24 +89,45 @@ export default function WatermarkSettings() {
         </div>
 
         {draft.mode !== "none" && (
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label>Opacity</Label>
-              <span className="text-sm text-muted-foreground tabular-nums">
-                {Math.round(draft.opacity * 100)}%
-              </span>
+          <>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Watermark opacity</Label>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {Math.round(draft.opacity * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[draft.opacity]}
+                min={0}
+                max={0.3}
+                step={0.01}
+                onValueChange={([v]) => setDraft({ ...draft, opacity: v })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Recommended 8–12% for the Viva flame watermark.
+              </p>
             </div>
-            <Slider
-              value={[draft.opacity]}
-              min={0}
-              max={0.3}
-              step={0.01}
-              onValueChange={([v]) => setDraft({ ...draft, opacity: v })}
-            />
-            <p className="text-xs text-muted-foreground">
-              Recommended 8–12%. Accreditation logos render at the same opacity.
-            </p>
-          </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Accreditation logo opacity</Label>
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {Math.round(draft.accreditationOpacity * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[draft.accreditationOpacity]}
+                min={0}
+                max={1}
+                step={0.05}
+                onValueChange={([v]) => setDraft({ ...draft, accreditationOpacity: v })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Controls the footer accreditation row independently from the watermark. 100% = fully solid.
+              </p>
+            </div>
+          </>
         )}
 
         <div className="flex items-center gap-2 pt-2">

@@ -87,17 +87,20 @@ export default function PdfPreviewDialog({
   // Reset to "use saved value" each time the dialog opens.
   const [localMode, setLocalMode] = useState<WatermarkMode | "default">("default");
   const [localOpacity, setLocalOpacity] = useState<number | null>(null);
+  const [localAccredOpacity, setLocalAccredOpacity] = useState<number | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
 
   useEffect(() => {
     if (open) {
       setLocalMode("default");
       setLocalOpacity(null);
+      setLocalAccredOpacity(null);
     }
   }, [open]);
 
   const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
   const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
+  const effectiveAccredOpacity = localAccredOpacity ?? savedWatermark.accreditationOpacity;
 
   // Sequence counter so only the latest rebuild's result wins when the user
   // toggles modes faster than the PDF can regenerate.
@@ -252,7 +255,11 @@ export default function PdfPreviewDialog({
                       onValueChange={(v) => {
                         const next = v as WatermarkMode;
                         setLocalMode(next);
-                        triggerRebuild({ mode: next, opacity: effectiveOpacity });
+                        triggerRebuild({
+                          mode: next,
+                          opacity: effectiveOpacity,
+                          accreditationOpacity: effectiveAccredOpacity,
+                        });
                       }}
                       className="grid grid-cols-3 gap-1"
                     >
@@ -269,29 +276,57 @@ export default function PdfPreviewDialog({
                     </RadioGroup>
                   </div>
                   {effectiveMode !== "none" && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs">Opacity</Label>
-                        <span className="text-xs text-muted-foreground tabular-nums">
-                          {Math.round(effectiveOpacity * 100)}%
-                        </span>
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Watermark opacity</Label>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {Math.round(effectiveOpacity * 100)}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={[effectiveOpacity]}
+                          min={0}
+                          max={0.3}
+                          step={0.01}
+                          onValueChange={([v]) => setLocalOpacity(v)}
+                          onValueCommit={([v]) =>
+                            triggerRebuild({
+                              mode: effectiveMode,
+                              opacity: v,
+                              accreditationOpacity: effectiveAccredOpacity,
+                            })
+                          }
+                        />
                       </div>
-                      <Slider
-                        value={[effectiveOpacity]}
-                        min={0}
-                        max={0.3}
-                        step={0.01}
-                        onValueChange={([v]) => setLocalOpacity(v)}
-                        onValueCommit={([v]) =>
-                          triggerRebuild({ mode: effectiveMode, opacity: v })
-                        }
-                      />
-                      <p className="text-[11px] text-muted-foreground">
-                        Accreditation logos use the same opacity so they always blend together.
-                      </p>
-                    </div>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-xs">Accreditation logo opacity</Label>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {Math.round(effectiveAccredOpacity * 100)}%
+                          </span>
+                        </div>
+                        <Slider
+                          value={[effectiveAccredOpacity]}
+                          min={0}
+                          max={1}
+                          step={0.05}
+                          onValueChange={([v]) => setLocalAccredOpacity(v)}
+                          onValueCommit={([v]) =>
+                            triggerRebuild({
+                              mode: effectiveMode,
+                              opacity: effectiveOpacity,
+                              accreditationOpacity: v,
+                            })
+                          }
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Independent of the watermark — set to 100% for fully solid logos.
+                        </p>
+                      </div>
+                    </>
                   )}
-                  {(localMode !== "default" || localOpacity !== null) && (
+                  {(localMode !== "default" || localOpacity !== null || localAccredOpacity !== null) && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -299,7 +334,12 @@ export default function PdfPreviewDialog({
                       onClick={() => {
                         setLocalMode("default");
                         setLocalOpacity(null);
-                        triggerRebuild({ mode: savedWatermark.mode, opacity: savedWatermark.opacity });
+                        setLocalAccredOpacity(null);
+                        triggerRebuild({
+                          mode: savedWatermark.mode,
+                          opacity: savedWatermark.opacity,
+                          accreditationOpacity: savedWatermark.accreditationOpacity,
+                        });
                       }}
                     >
                       Reset to org default
