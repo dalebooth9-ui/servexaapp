@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, Search, FileArchive, Printer, FileText } from "lucide-react";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak, Header, Footer } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak, Header, Footer, BorderStyle } from "docx";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import { useToast } from "@/hooks/use-toast";
 import { getCachedLogo } from "@/lib/logoCache";
 import { getWordExportConfig } from "@/lib/wordExportConfig";
+import { fetchImageBytes, DEFAULT_ACCREDITATION_LOGOS, BRAND_NAVY_HEX, type FetchedImage } from "@/lib/wordTemplateBuilder";
 import { AlignmentType } from "docx";
 
 type CompletedJob = {
@@ -382,9 +383,8 @@ ${imageEmbeds}
         );
       }
 
-      // Header logo: fit within ~2.5cm × 1.25cm (≈ 94 × 47 px at 96 dpi),
-      // preserving aspect ratio.
-      const headerLogoBox = { maxW: 94, maxH: 47 };
+      // Header logo: centred and larger to mirror the PDF (~85mm × 40mm).
+      const headerLogoBox = { maxW: 320, maxH: 150 };
       const headerLogoTransform = (() => {
         const natW = Math.max(1, logoDims.w);
         const natH = Math.max(1, logoDims.h);
@@ -395,7 +395,58 @@ ${imageEmbeds}
         };
       })();
 
+      // Accreditation logos for the footer (mirrors PDF).
+      const accredFetched: (FetchedImage | null)[] = await Promise.all(
+        DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
+      );
+      const validAccreds = accredFetched.filter((l): l is FetchedImage => !!l);
+      const ACCRED_H = 22;
+      const accredRuns = validAccreds.flatMap((logo, i) => {
+        const aspect = logo.width && logo.height ? logo.width / logo.height : 2;
+        const w = Math.max(1, Math.round(ACCRED_H * aspect));
+        return [
+          new ImageRun({
+            type: logo.type,
+            data: logo.data,
+            transformation: { width: w, height: ACCRED_H },
+          } as any),
+          ...(i < validAccreds.length - 1 ? [new TextRun({ text: "    " })] : []),
+        ];
+      });
+
       const footerText = getDefaultFooterText("Job Report");
+
+      const footerChildren: Paragraph[] = [];
+      if (validAccreds.length > 0) {
+        footerChildren.push(
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            spacing: { after: 80 },
+            children: accredRuns,
+          }),
+        );
+      }
+      footerChildren.push(
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          spacing: { before: 40 },
+          border: {
+            top: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+            left: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+            right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+          },
+          children: [
+            new TextRun({
+              text: footerText || " ",
+              bold: true,
+              font: "Arial",
+              size: 18,
+              color: "000000",
+            }),
+          ],
+        }),
+      );
 
       const doc = new Document({
         styles: {
@@ -410,14 +461,14 @@ ${imageEmbeds}
             properties: {
               page: {
                 size: { width: 11906, height: 16838 }, // A4 in DXA
-                margin: { top: 1134, right: 1134, bottom: 1134, left: 1134 }, // 20mm
+                margin: { top: 2700, right: 1134, bottom: 1700, left: 1134, header: 567, footer: 400 }, // larger top/bottom for centred logo + footer rect
               },
             },
             headers: {
               default: new Header({
                 children: [
                   new Paragraph({
-                    alignment: AlignmentType.LEFT,
+                    alignment: AlignmentType.CENTER,
                     children: logoBuf
                       ? [
                           new ImageRun({
@@ -432,26 +483,28 @@ ${imageEmbeds}
               }),
             },
             footers: {
-              default: new Footer({
-                children: [
-                  new Paragraph({
-                    alignment: AlignmentType.CENTER,
-                    children: [
-                      new TextRun({
-                        text: footerText,
-                        font: "Arial",
-                        size: 16, // 8pt
-                        color: "666666",
-                      }),
-                    ],
-                  }),
-                ],
-              }),
+              default: new Footer({ children: footerChildren }),
             },
             children: [
               new Paragraph({
-                heading: HeadingLevel.HEADING_1,
-                children: [new TextRun({ text: `Job Report — ${ref}`, bold: true })],
+                alignment: AlignmentType.CENTER,
+                spacing: { after: 60 },
+                children: [
+                  new TextRun({
+                    text: `JOB REPORT — ${ref}`.toUpperCase(),
+                    bold: true,
+                    size: 30,
+                    color: BRAND_NAVY_HEX,
+                    font: "Arial",
+                  }),
+                ],
+              }),
+              new Paragraph({
+                spacing: { after: 160 },
+                border: {
+                  bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
+                },
+                children: [new TextRun({ text: "" })],
               }),
               new Paragraph({
                 children: [new TextRun({ text: [customerName, siteName].filter(Boolean).join(" · ") || "—" })],
