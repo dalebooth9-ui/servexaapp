@@ -191,7 +191,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const sections = getSections(template.fields);
         const colSplit = maxWidth * 0.68;
         // Dry Riser blank sheet has no declaration bar, just accreditation logos at the bottom.
-        const footerSpace = isDryRiser ? 58 : 58;
+       // Standard sheets: shrink the reserved bottom strip so the signature row
+       // sits ~8mm lower on the page, leaving more room for the Comments box
+       // above it. Dry Riser keeps its existing 58mm reservation because of the
+       // BS-9990 declaration box at the very bottom.
+       const footerSpace = isDryRiser ? 58 : 50;
         const availableH = pageHeight - y - footerSpace;
 
         const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
@@ -308,7 +312,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const commentsBoxBottom = sigY - 4;
         const minCommentsH = 6;
         const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
-        const maxCommentsH = isDryRiser ? 22 : 35;
+        const maxCommentsH = isDryRiser ? 22 : 50;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
         doc.setFontSize(9.5);
