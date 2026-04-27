@@ -347,11 +347,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const textH = lines.length * lineH;
           const minDeclH = 9;
           const declH = Math.max(minDeclH, textH + padY * 2);
-          // Leave room beneath the declaration for the accreditation logo row
-          // (logos live UNDER the BS-9990 statement on Dry Riser sheets).
-          const dryRiserLogoH = 9;
-          const dryRiserLogoGap = 2;
-          const declY = pageHeight - margin - declH - dryRiserLogoH - dryRiserLogoGap;
+          // Declaration box sits flush at the bottom; accreditation logos go ABOVE it.
+          const declY = pageHeight - margin - declH;
           doc.setDrawColor(0, 0, 0);
           doc.setLineWidth(0.5);
           doc.rect(margin, declY, pageWidth - margin * 2, declH);
