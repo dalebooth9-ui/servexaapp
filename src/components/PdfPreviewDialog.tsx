@@ -87,17 +87,20 @@ export default function PdfPreviewDialog({
   // Reset to "use saved value" each time the dialog opens.
   const [localMode, setLocalMode] = useState<WatermarkMode | "default">("default");
   const [localOpacity, setLocalOpacity] = useState<number | null>(null);
+  const [localAccredOpacity, setLocalAccredOpacity] = useState<number | null>(null);
   const [rebuilding, setRebuilding] = useState(false);
 
   useEffect(() => {
     if (open) {
       setLocalMode("default");
       setLocalOpacity(null);
+      setLocalAccredOpacity(null);
     }
   }, [open]);
 
   const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
   const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
+  const effectiveAccredOpacity = localAccredOpacity ?? savedWatermark.accreditationOpacity;
 
   // Sequence counter so only the latest rebuild's result wins when the user
   // toggles modes faster than the PDF can regenerate.
