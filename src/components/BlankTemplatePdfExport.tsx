@@ -292,22 +292,18 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y += 1;
         }
 
-        // Comments box — shrinks to fit remaining space rather than spilling
-        // to a new page. Only spills if there is literally no room left.
+        // Comments box — always render on the current page, shrinking to fit
+        // the remaining space above the signature row.
         const sigY = pageHeight - footerSpace - 10;
         const commentsBoxBottom = sigY - 4;
         const minCommentsH = 6;
-        if (y + 4 + minCommentsH > commentsBoxBottom) {
-          doc.addPage();
-          y = margin;
-        }
-        const commentsBoxTop = y + 4;
+        const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
         const maxCommentsH = isDryRiser ? 22 : 35;
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
         const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
         doc.setFontSize(9.5);
         doc.setFont("helvetica", "bold");
-        doc.text("Comments:", margin, y + 3);
+        doc.text("Comments:", margin, commentsBoxTop - 1);
         if (!handfill) {
           doc.setDrawColor(180);
           doc.rect(margin, commentsBoxTop, maxWidth, commentsRectH);
