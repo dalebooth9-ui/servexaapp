@@ -19,12 +19,17 @@ export async function resolveWatermarkSettings(
   return {
     mode: override?.mode ?? base.mode,
     opacity: typeof override?.opacity === "number" ? override.opacity : base.opacity,
+    accreditationOpacity:
+      typeof override?.accreditationOpacity === "number"
+        ? override.accreditationOpacity
+        : base.accreditationOpacity,
   };
 }
 
-/** Render the Viva Flame watermark and accreditation logos on every page using
- *  the same opacity / mode so they always blend identically. Pass a per-export
- *  override (from the PDF preview dialog) to deviate from the org-wide default. */
+/** Render the Viva Flame watermark and accreditation logos on every page. The
+ *  watermark and accreditation logo row honour independent opacity values so
+ *  they can be tuned separately. Pass a per-export override (from the PDF
+ *  preview dialog) to deviate from the org-wide defaults. */
 export async function renderBrandingOverlay(
   doc: jsPDF,
   args: {
@@ -45,15 +50,15 @@ export async function renderBrandingOverlay(
     });
   }
 
-  // Accreditation logos honour the same mode + opacity. "none" hides them too
-  // so the footer stays consistent with the watermark choice.
+  // Accreditation logos honour the mode toggle (so "none" hides them too) but
+  // use their own dedicated opacity, independent of the watermark.
   if (settings.mode !== "none" && args.accredLogos.length > 0) {
     addAccreditationLogosToAllPages(
       doc,
       args.accredLogos,
       args.accredFooterY,
       args.accredLogoH ?? 7,
-      settings.opacity,
+      settings.accreditationOpacity,
     );
   }
 
