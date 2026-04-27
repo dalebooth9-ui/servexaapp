@@ -107,7 +107,7 @@ export function addAccreditationLogosToAllPages(
   logos: (HTMLImageElement | null)[],
   footerY: number,
   logoH = 7,
-  opacity = 0.22,
+  opacity = WATERMARK_OPACITY,
 ): void {
   if (logos.length === 0) return;
   const pageCount = doc.getNumberOfPages();
