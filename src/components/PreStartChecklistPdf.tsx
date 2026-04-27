@@ -36,11 +36,16 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const cw = mr - ml;
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);
+  const watermarkSettings = await loadWatermarkSettings();
   const [watermark, logos] = await Promise.all([
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark);
+  if (watermark)
+    addWatermarkToAllPages(doc, watermark, undefined, {
+      mode: watermarkSettings.mode,
+      opacity: watermarkSettings.opacity,
+    });
 
   // ── Logo ────────────────────────────────────────────────────────────
   try {
