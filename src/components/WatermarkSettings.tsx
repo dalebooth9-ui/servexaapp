@@ -38,7 +38,10 @@ export default function WatermarkSettings() {
     );
   }
 
-  const dirty = draft.mode !== saved.mode || draft.opacity !== saved.opacity;
+  const dirty =
+    draft.mode !== saved.mode ||
+    draft.opacity !== saved.opacity ||
+    draft.accreditationOpacity !== saved.accreditationOpacity;
 
   const handleSave = async () => {
     setSaving(true);
