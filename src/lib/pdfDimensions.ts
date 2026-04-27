@@ -11,7 +11,6 @@ export const PDF_DIMENSIONS: {
   pageWidth: number;
   pageHeight: number;
   margin: number;
-  marginWide: number;
   headerHeight: number;
   headerLogoH: number;
   accredLogoH: number;
@@ -23,14 +22,11 @@ export const PDF_DIMENSIONS: {
   pageWidth: 210,
   pageHeight: 297,
 
-  /** Default page margin used by JobSheet / BlankTemplate / CustomerReport / Scan / JobReport / PreStart / Cert. */
+  /** Single page margin used by every Servexa PDF generator (JobSheet,
+   *  BlankTemplate, CustomerReport, Scan, JobReport, PreStart, CoC, RAMS,
+   *  PhotoChecklist). Standardised at 10mm so the document chrome lines up
+   *  consistently across the whole product. */
   margin: 10,
-  /** Wider margin used by the Certificate of Conformity layout, whose bespoke
-   *  centred-header chrome needs more breathing room than the standard 10mm.
-   *  Kept as a separate token so the divergence is intentional rather than
-   *  hard-coded magic. (RAMS was previously also on this token but is now
-   *  standardised on the 10mm `margin`.) */
-  marginWide: 14,
 
   /** Header height for the shared `renderPdfHeader` chrome. */
   headerHeight: 30,
