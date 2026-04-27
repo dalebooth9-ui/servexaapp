@@ -16,6 +16,7 @@ import {
 import { Award, Loader2, FileDown, Pencil, CheckCircle2, X } from "lucide-react";
 import InlineSignaturePad from "@/components/InlineSignaturePad";
 import jsPDF from "jspdf";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type ConformityCert = {
   id: string;
@@ -485,7 +486,7 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
 
   // ── Title bands (grey shaded rows) ───────────────────────────────────
   let y = 38;
-  const bandColor: [number, number, number] = [210, 210, 210];
+  const bandColor: [number, number, number] = PDF_PALETTE.headerStrip;
   const bandH = 9;
   const bandGap = 2;
 

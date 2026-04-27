@@ -9,6 +9,7 @@ import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText, type PdfSig
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 interface Props {
   jobId: string;
@@ -172,7 +173,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === JOB DETAILS BOX ===
       y += 2;
-      doc.setFillColor(245, 247, 250);
+      doc.setFillColor(...PDF_PALETTE.zebra);
       doc.roundedRect(margin, y, maxWidth, 24, 2, 2, "F");
       doc.setFontSize(9);
       const col1 = margin + 4;
@@ -248,7 +249,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setTextColor(0, 0, 0);
         y += 8;
 
-        doc.setFillColor(240, 240, 240);
+        doc.setFillColor(...PDF_PALETTE.headerStrip);
         doc.rect(margin, y - 4, maxWidth, 8, "F");
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
@@ -328,8 +329,8 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
           });
 
           // Background cell (lets letterboxed images sit on a neutral surface)
-          doc.setFillColor(245, 247, 250);
-          doc.setDrawColor(220, 224, 230);
+          doc.setFillColor(...PDF_PALETTE.zebra);
+          doc.setDrawColor(...PDF_PALETTE.borderSoft);
           doc.setLineWidth(0.2);
           doc.rect(xPos, y, cellW, cellH, "FD");
 

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
@@ -53,13 +54,13 @@ function drawTableRow(
 }
 
 function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxWidth: number): number {
-  doc.setFillColor(33, 61, 99);
+  doc.setFillColor(...PDF_PALETTE.navy);
   doc.rect(margin, y, maxWidth, 9, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
-  doc.setTextColor(255, 255, 255);
+  doc.setTextColor(...PDF_PALETTE.navyText);
   doc.text(title.toUpperCase(), margin + 3, y + 6.5);
-  doc.setTextColor(30, 30, 30);
+  doc.setTextColor(...PDF_PALETTE.ink);
   return y + 9;
 }
 

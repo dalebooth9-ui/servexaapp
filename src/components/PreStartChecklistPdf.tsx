@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos, renderAccreditationLogos } from "@/lib/pdfAccreditations";
 import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type PreStartJobInfo = {
   name?: string | null;
@@ -63,13 +64,15 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     doc.addImage(logoBase64, fmt, pw / 2 - 28, 8, 56, 20);
   } catch {}
 
-  // Viva brand colours (matches RAMS / job sheets)
-  // Viva logo blue (brighter, matches the flame mark)
-  const VIVA_NAVY: [number, number, number] = [30, 174, 232];
-  const VIVA_DARK: [number, number, number] = [33, 37, 41];
-  const VIVA_GREY: [number, number, number] = [110, 117, 125];
-  const VIVA_BORDER: [number, number, number] = [200, 200, 200];
-  const VIVA_NAVY_TINT: [number, number, number] = [230, 245, 252];
+  // Brand colours sourced from the central palette so the checklist matches
+  // the rest of the document system (previously this file declared a local
+  // VIVA_NAVY = #1EAEE8 cyan, which did not match the brand navy used
+  // everywhere else).
+  const VIVA_NAVY = PDF_PALETTE.navy;
+  const VIVA_DARK = PDF_PALETTE.inkDark;
+  const VIVA_GREY = PDF_PALETTE.inkMuted;
+  const VIVA_BORDER = PDF_PALETTE.border;
+  const VIVA_NAVY_TINT = PDF_PALETTE.zebra;
 
   let y = 32;
 
@@ -96,7 +99,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   doc.setDrawColor(...VIVA_BORDER);
 
   const rowH = 9;
-  doc.setFillColor(248, 248, 248);
+  doc.setFillColor(...PDF_PALETTE.zebra);
   doc.rect(ml, y, halfW, rowH, "FD");
   doc.rect(ml + halfW, y, halfW, rowH, "FD");
   doc.setFontSize(7);
@@ -121,7 +124,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   ].filter(Boolean).join(", ");
 
   if (siteAddr) {
-    doc.setFillColor(248, 248, 248);
+    doc.setFillColor(...PDF_PALETTE.zebra);
     doc.rect(ml, y, cw, 7, "FD");
     doc.setFontSize(7);
     doc.setFont("helvetica", "bold");

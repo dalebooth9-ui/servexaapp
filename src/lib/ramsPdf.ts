@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
+import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type RamsFormData = Record<string, any>;
 
@@ -931,7 +932,7 @@ export async function generateRamsPdf(
   doc.setFont("helvetica", "bold"); doc.setFontSize(8.5);
   let hx = ML;
   for (const [lbl, w] of [["Operative Name", sigCols[0]], ["Signature", sigCols[1]], ["Date", sigCols[2]]] as [string, number][]) {
-    doc.setFillColor(230, 230, 230); doc.rect(hx, spy, w, 7, "F"); doc.rect(hx, spy, w, 7);
+    doc.setFillColor(...PDF_PALETTE.headerTable); doc.rect(hx, spy, w, 7, "F"); doc.rect(hx, spy, w, 7);
     doc.text(lbl, hx + 2, spy + 4.5);
     hx += w;
   }
@@ -972,7 +973,7 @@ export async function generateRamsPdf(
       const colW = [CONTENT_W * 0.35, CONTENT_W * 0.30, CONTENT_W * 0.35];
       const rowH = 7;
       // header
-      doc.setFillColor(33, 61, 99); doc.setTextColor(255, 255, 255);
+      doc.setFillColor(...PDF_PALETTE.navy); doc.setTextColor(...PDF_PALETTE.navyText);
       let px = ML;
       for (const [lbl, w] of [["Full Name", colW[0]], ["Role / Trade", colW[1]], ["Company", colW[2]]] as [string, number][]) {
         doc.rect(px, ppy, w, rowH, "F"); doc.rect(px, ppy, w, rowH);
