@@ -99,11 +99,27 @@ function tintWatermark(watermark: HTMLImageElement, color: RgbTriple): string {
   return canvas.toDataURL("image/png");
 }
 
+/** How the watermark should render. Mirrors WatermarkSettings.mode in
+ *  `useWatermarkSettings.tsx` so callers can stay decoupled from React. */
+export type WatermarkRenderMode = "tinted" | "untinted" | "none";
+
+export interface WatermarkRenderOptions {
+  /** When omitted defaults to "tinted" (when a brandColor is supplied) or "untinted" otherwise. */
+  mode?: WatermarkRenderMode;
+  /** Override the global opacity. When omitted falls back to WATERMARK_OPACITY. */
+  opacity?: number;
+}
+
 export function addWatermarkToAllPages(
   doc: jsPDF,
   watermark: HTMLImageElement,
-  brandColor?: RgbTriple | null
+  brandColor?: RgbTriple | null,
+  options: WatermarkRenderOptions = {},
 ) {
+  const mode: WatermarkRenderMode =
+    options.mode ?? (brandColor ? "tinted" : "untinted");
+  if (mode === "none") return;
+
   const pageCount = doc.getNumberOfPages();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -112,11 +128,15 @@ export function addWatermarkToAllPages(
   const x = (pageWidth - wmW) / 2;
   const yPos = (pageHeight - wmH) / 2 + 12;
 
-  const tintedDataUrl = brandColor ? tintWatermark(watermark, brandColor) : null;
+  const useTint = mode === "tinted" && !!brandColor;
+  const tintedDataUrl = useTint ? tintWatermark(watermark, brandColor!) : null;
+  const opacity =
+    typeof options.opacity === "number"
+      ? Math.max(0, Math.min(1, options.opacity))
+      : useTint ? WATERMARK_OPACITY : WATERMARK_OPACITY_UNTINTED;
 
   for (let i = 1; i <= pageCount; i++) {
     doc.setPage(i);
-    const opacity = tintedDataUrl ? WATERMARK_OPACITY : WATERMARK_OPACITY_UNTINTED;
     const gState = (doc as any).GState({ opacity });
     doc.saveGraphicsState();
     (doc as any).setGState(gState);
@@ -128,3 +148,4 @@ export function addWatermarkToAllPages(
     doc.restoreGraphicsState();
   }
 }
+
