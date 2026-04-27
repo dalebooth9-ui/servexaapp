@@ -453,8 +453,10 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
-  const ML = 20; // left margin
-  const MR = 20; // right margin
+  // CoC uses the documented `marginWide` token (14mm) — the bespoke header
+  // chrome needs more breathing room than the standard 10mm margin.
+  const ML = PDF_DIMENSIONS.marginWide; // left margin
+  const MR = PDF_DIMENSIONS.marginWide; // right margin
   const contentW = pw - ML - MR;
 
   // ── Watermark + accreditation logos ──────────────────────────────────

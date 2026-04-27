@@ -176,7 +176,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const doc = new jsPDF();
       let y = 15;
       const pageWidth = doc.internal.pageSize.getWidth();
-      const margin = 12;
+      const margin = PDF_DIMENSIONS.margin; // standardised at 10mm across all PDFs
       const maxWidth = pageWidth - margin * 2;
       const rowH = 8;
 
