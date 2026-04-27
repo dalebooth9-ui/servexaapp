@@ -87,6 +87,19 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Quick Word download (also available inside Download menu) */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-7 w-7"
+        disabled={busy}
+        onClick={() => run(() => wordRef.current?.download())}
+        title="Download as Word (.docx)"
+        aria-label={`Download ${template.name} as Word document`}
+      >
+        <FileText className="h-3.5 w-3.5" />
+      </Button>
+
       {/* Print */}
       <Button
         variant="ghost"
