@@ -25,9 +25,11 @@ export const PDF_DIMENSIONS: {
 
   /** Default page margin used by JobSheet / BlankTemplate / CustomerReport / Scan / JobReport / PreStart / Cert. */
   margin: 10,
-  /** Wider margin used by RAMS and CoC layouts where the bespoke header chrome
-   *  needs more breathing room. Kept as a separate token so the divergence is
-   *  intentional rather than hard-coded magic. */
+  /** Wider margin used by the Certificate of Conformity layout, whose bespoke
+   *  centred-header chrome needs more breathing room than the standard 10mm.
+   *  Kept as a separate token so the divergence is intentional rather than
+   *  hard-coded magic. (RAMS was previously also on this token but is now
+   *  standardised on the 10mm `margin`.) */
   marginWide: 14,
 
   /** Header height for the shared `renderPdfHeader` chrome. */
