@@ -148,9 +148,21 @@ export const cellBorders = {
 };
 
 // Column widths in DXA — mirrors the PDF's ~68% / 32% split
-export const LABEL_COL = 6360;
-export const VALUE_COL = 3000;
-export const TABLE_W = LABEL_COL + VALUE_COL; // 9360
+// A4 (11906) − 1134 left − 1134 right = 9638 content width.
+export const TABLE_W = 9638;
+export const LABEL_COL = Math.round(TABLE_W * 0.68); // 6554
+export const VALUE_COL = TABLE_W - LABEL_COL; // 3084
+
+/** Brand navy used for title text + separator, mirrors PDF accent. */
+export const BRAND_NAVY_HEX = "213D63";
+
+/** Default Viva Fire accreditation logos (mirrors pdfAccreditations.ts fallback). */
+export const DEFAULT_ACCREDITATION_LOGOS = [
+  "/accreditation/smas-logo.png",
+  "/accreditation/constructionline-logo.png",
+  "/accreditation/iso-9001-logo.jpg",
+  "/accreditation/bafe-logo.jpeg",
+];
 
 export const CHECKBOX_EMPTY = "\u2610"; // ☐
 export const CHECKBOX_TICK = "\u2611"; // ☑
