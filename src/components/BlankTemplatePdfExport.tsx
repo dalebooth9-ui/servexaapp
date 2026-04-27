@@ -280,11 +280,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
             // Allow scope_of_work and drain/drop leg fields to be pre-filled on standard
             // templates, but keep them blank on the Dry Riser worksheet.
             const isScopeField = field.id === "scope_of_work" || field.label.toLowerCase().replace(/[:\s]+$/g, "").trim().includes("scope of work");
+            // On Dry Riser sheets, the scope is already shown in the header title — skip the row entirely.
+            if (isDryRiser && isScopeField) continue;
             const isDrainField = field.label.toLowerCase().includes("drain") || field.label.toLowerCase().includes("drop leg");
             const allowAuto = !isDryRiser && (isScopeField || isDrainField);
-            let autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
-            // On Dry Riser sheets, force the Scope of Work to match the sheet title
-            if (isDryRiser && isScopeField) autoVal = sheetTitle;
+            const autoVal = (field.options && field.options.length > 0 && !allowAuto) ? undefined : (isDryRiser ? undefined : autoVals[field.id]);
             y = renderBlankFieldRow(doc, field, autoVal, y, {
               margin, maxWidth, colSplit, rowH: layout.rowH, handfill,
             });
