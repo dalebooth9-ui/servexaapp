@@ -33,8 +33,10 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
-  const ml = 14;
-  const mr = pw - 14;
+  // Standardised on PDF_DIMENSIONS.margin (10mm) so this generator's chrome
+  // lines up with every other Servexa PDF.
+  const ml = PDF_DIMENSIONS.margin;
+  const mr = pw - PDF_DIMENSIONS.margin;
   const cw = mr - ml;
 
   const custAccredUrls = await fetchCustomerAccreditationLogos(jobInfo?.customers?.name || jobInfo?.customer);

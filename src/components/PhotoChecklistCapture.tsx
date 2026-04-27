@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -368,7 +369,7 @@ export default function PhotoChecklistCapture({
     setGeneratingPdf(true);
     try {
       const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const W = 210, margin = 14;
+      const W = 210, margin = PDF_DIMENSIONS.margin; // 10mm — matches every other PDF
       let y = margin;
 
       // Header bar
