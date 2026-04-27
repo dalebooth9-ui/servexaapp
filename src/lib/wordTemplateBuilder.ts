@@ -434,7 +434,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           bold: true,
           size: 30,
           color: BRAND_NAVY_HEX,
-          font: "Arial",
+          font: "Helvetica",
         }),
       ],
     }),
@@ -450,7 +450,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             bold: true,
             size: 18,
             color: BRAND_NAVY_HEX,
-            font: "Arial",
+            font: "Helvetica",
           }),
         ],
       }),
@@ -481,7 +481,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       verticalAlign: VerticalAlign.CENTER,
       children: [
         new Paragraph({
-          children: [new TextRun({ text, bold: true, size: 18, font: "Arial" })],
+          children: [new TextRun({ text, bold: true, size: 18, font: "Helvetica" })],
         }),
       ],
     });
@@ -717,7 +717,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
         },
         children: [
-          new TextRun({ text: footerText, bold: true, size: 18, font: "Arial", color: "000000" }),
+          new TextRun({ text: footerText, bold: true, size: 18, font: "Helvetica", color: "000000" }),
         ],
       }),
     );

@@ -440,7 +440,7 @@ ${imageEmbeds}
             new TextRun({
               text: footerText || " ",
               bold: true,
-              font: "Arial",
+              font: "Helvetica",
               size: 18,
               color: "000000",
             }),
@@ -499,7 +499,7 @@ ${imageEmbeds}
                     bold: true,
                     size: 30,
                     color: BRAND_NAVY_HEX,
-                    font: "Arial",
+                    font: "Helvetica",
                   }),
                 ],
               }),
