@@ -363,8 +363,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       // For Dry Riser sheets, sit accreditation logos directly above the bottom black band
       // and render them at full opacity (matches the printed worksheet reference).
+      // Dry Riser: lift logos above the declaration box (declH ~9-15mm + bottom margin 10mm + small gap)
       const footerYForLogos = isDryRiser
-        ? pageHeight - 9 // band top → logos placed 3mm above this
+        ? pageHeight - margin - 14 - logoH - 2
         : pageHeight - margin - 9;
       addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH, isDryRiser ? 1 : 0.22);
 
