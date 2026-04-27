@@ -450,9 +450,11 @@ ${imageEmbeds}
 
       const doc = new Document({
         styles: {
+          // Helvetica to mirror the PDF (jspdf uses 'helvetica'). Word falls back
+          // to Arial when Helvetica is unavailable, which is visually identical.
           default: {
             document: {
-              run: { font: "Arial", size: 22 }, // 11pt
+              run: { font: { name: "Helvetica", hint: "default" }, size: 22 }, // 11pt
             },
           },
         },
@@ -461,7 +463,9 @@ ${imageEmbeds}
             properties: {
               page: {
                 size: { width: 11906, height: 16838 }, // A4 in DXA
-                margin: { top: 2700, right: 1134, bottom: 1700, left: 1134, header: 567, footer: 400 }, // larger top/bottom for centred logo + footer rect
+                // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
+                // 1mm = ~56.7 DXA → 10mm = 567 DXA.
+                margin: { top: 567, right: 567, bottom: 567, left: 567, header: 283, footer: 283 },
               },
             },
             headers: {
