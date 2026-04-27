@@ -327,7 +327,7 @@ export default function PdfPreviewDialog({
             </Button>
           </div>
         </DialogHeader>
-        <div className="flex-1 min-h-0 bg-muted/40">
+        <div className="flex-1 min-h-0 bg-muted/40 relative">
           {!src ? (
             <div className="h-full w-full flex items-center justify-center text-muted-foreground text-sm gap-2">
               <Loader2 className="h-4 w-4 animate-spin" /> Preparing preview…
@@ -343,6 +343,13 @@ export default function PdfPreviewDialog({
               title={downloadName}
               className="w-full h-full border-0 bg-background"
             />
+          )}
+          {rebuilding && src && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm pointer-events-none">
+              <div className="flex items-center gap-2 rounded-md border bg-background px-3 py-2 shadow-sm text-sm">
+                <Loader2 className="h-4 w-4 animate-spin" /> Updating preview…
+              </div>
+            </div>
           )}
         </div>
       </DialogContent>
