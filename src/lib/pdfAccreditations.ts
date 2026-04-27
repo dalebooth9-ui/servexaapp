@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
+import { WATERMARK_OPACITY } from "@/lib/pdfWatermark";
 
 /** Default Viva Fire accreditation logos used as fallback */
 const DEFAULT_ACCREDITATION_LOGOS = [
