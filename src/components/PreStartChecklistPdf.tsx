@@ -4,6 +4,7 @@ import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos, renderAccreditationLogos } from "@/lib/pdfAccreditations";
+import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 
 export type PreStartJobInfo = {
   name?: string | null;
