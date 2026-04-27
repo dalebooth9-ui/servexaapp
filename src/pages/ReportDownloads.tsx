@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Download, Loader2, Search, FileArchive, Printer, FileText } from "lucide-react";
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak, Header, Footer } from "docx";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, ImageRun, PageBreak, Header, Footer, BorderStyle } from "docx";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import { useToast } from "@/hooks/use-toast";
 import { getCachedLogo } from "@/lib/logoCache";
 import { getWordExportConfig } from "@/lib/wordExportConfig";
+import { fetchImageBytes, DEFAULT_ACCREDITATION_LOGOS, BRAND_NAVY_HEX, type FetchedImage } from "@/lib/wordTemplateBuilder";
 import { AlignmentType } from "docx";
 
 type CompletedJob = {
