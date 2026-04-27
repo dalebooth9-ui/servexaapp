@@ -306,9 +306,23 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           y += 1;
         }
 
-        // Comments box — always render on the current page, shrinking to fit
-        // the remaining space above the signature row.
-        const sigY = pageHeight - footerSpace - 10;
+        // ── Bottom stack (anchored upward from accreditation logos) ──────────
+        // The accreditation strip sits just above the footer/declaration. We
+        // anchor the signature block 4mm above the top of that strip so there's
+        // no wasted gap, and let the comments box expand upward to fill the
+        // recovered space above the signatures.
+        const _logoH = 9;            // mirrors `logoH` used below
+        const _logoGap = 3;          // mirrors helper's gap above logo row
+        const _dryRiserDeclH = 9;
+        const _dryRiserGap = 2;
+        const _footerYForLogos = isDryRiser
+          ? pageHeight - margin - _dryRiserDeclH - _dryRiserGap
+          : pageHeight - 1;
+        const accredStripTop = _footerYForLogos - _logoH - _logoGap;
+
+        const sigBlockHeight = 28; // 3-row signature block (Date / Name / Signature)
+        const sigY = accredStripTop - sigBlockHeight - 4;
+
         const commentsBoxBottom = sigY - 4;
         const minCommentsH = 6;
         const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
