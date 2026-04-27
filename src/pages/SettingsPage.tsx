@@ -301,6 +301,7 @@ export default function SettingsPage() {
         <RamsTemplateSettings />
         <FilenameFormatSettings />
         <WordExportSettings />
+        <WatermarkSettings />
         <XeroSettings />
 
         {/* The Mellor Integration */}
