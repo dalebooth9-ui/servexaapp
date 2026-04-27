@@ -99,13 +99,18 @@ export default function PdfPreviewDialog({
   const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
   const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
 
+  // Sequence counter so only the latest rebuild's result wins when the user
+  // toggles modes faster than the PDF can regenerate.
+  const rebuildSeq = useRef(0);
   const triggerRebuild = async (override: Partial<WatermarkSettings>) => {
     if (!onRebuildWithWatermark) return;
+    const id = ++rebuildSeq.current;
     setRebuilding(true);
     try {
       await onRebuildWithWatermark(override);
     } finally {
-      setRebuilding(false);
+      // Only clear the spinner if this was the latest invocation.
+      if (id === rebuildSeq.current) setRebuilding(false);
     }
   };
 
