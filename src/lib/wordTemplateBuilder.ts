@@ -434,7 +434,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           bold: true,
           size: 30,
           color: BRAND_NAVY_HEX,
-          font: "Arial",
+          font: "Helvetica",
         }),
       ],
     }),
@@ -450,7 +450,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             bold: true,
             size: 18,
             color: BRAND_NAVY_HEX,
-            font: "Arial",
+            font: "Helvetica",
           }),
         ],
       }),
@@ -481,7 +481,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       verticalAlign: VerticalAlign.CENTER,
       children: [
         new Paragraph({
-          children: [new TextRun({ text, bold: true, size: 18, font: "Arial" })],
+          children: [new TextRun({ text, bold: true, size: 18, font: "Helvetica" })],
         }),
       ],
     });
@@ -717,7 +717,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
         },
         children: [
-          new TextRun({ text: footerText, bold: true, size: 18, font: "Arial", color: "000000" }),
+          new TextRun({ text: footerText, bold: true, size: 18, font: "Helvetica", color: "000000" }),
         ],
       }),
     );
@@ -727,20 +727,26 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   return new Document({
     styles: {
-      default: { document: { run: { font: "Arial", size: 22 } } },
+      // Helvetica to mirror the PDF (jspdf uses 'helvetica'). Word falls back
+      // to Arial when Helvetica is unavailable, which is visually identical.
+      default: {
+        document: { run: { font: { name: "Helvetica", hint: "default" }, size: 22 } },
+      },
     },
     sections: [
       {
         properties: {
           page: {
             size: { width: 11906, height: 16838 }, // A4
+            // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
+            // 1mm = ~56.7 DXA → 10mm = 567 DXA.
             margin: {
-              top: 2700, // larger top to clear the bigger centred logo
-              right: 1134,
-              bottom: 1700, // larger bottom to clear accreditations + footer rect
-              left: 1134,
-              header: 567,
-              footer: 400,
+              top: 567,
+              right: 567,
+              bottom: 567,
+              left: 567,
+              header: 283, // 5mm
+              footer: 283, // 5mm
             },
           },
         },
