@@ -643,13 +643,23 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
 
-  // --- Header (logo) and footer (text) ---
+  // --- Header (centred logo, larger to mirror PDF) ---
   const headerChildren: Paragraph[] = [];
   if (headerLogo) {
-    const logoSize = computeLogoSize(headerLogo.width, headerLogo.height);
+    // Larger header box to match the PDF (~85mm × 40mm).
+    // 1px ≈ 9525 EMU; 1mm ≈ 36000 EMU → 85mm ≈ 321 px, 40mm ≈ 151 px.
+    const HEADER_LOGO_MAX_W = 320;
+    const HEADER_LOGO_MAX_H = 150;
+    const natW = Math.max(1, headerLogo.width);
+    const natH = Math.max(1, headerLogo.height);
+    const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
+    const logoSize = {
+      width: Math.max(1, Math.round(natW * scale)),
+      height: Math.max(1, Math.round(natH * scale)),
+    };
     headerChildren.push(
       new Paragraph({
-        alignment: AlignmentType.LEFT,
+        alignment: AlignmentType.CENTER,
         children: [
           new ImageRun({
             type: headerLogo.type,
@@ -660,36 +670,60 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         ],
       }),
     );
-  }
-  if (watermarkImg) {
-    headerChildren.push(
-      new Paragraph({
-        alignment: AlignmentType.CENTER,
-        children: [
-          new ImageRun({
-            type: watermarkImg.type,
-            data: watermarkImg.data,
-            transformation: { width: 480, height: 480 },
-            altText: { title: "Watermark", description: "Watermark", name: "Watermark" },
-            floating: {
-              horizontalPosition: { relative: "page" as any, align: "center" as any },
-              verticalPosition: { relative: "page" as any, align: "center" as any },
-              behindDocument: true,
-              wrap: { type: "none" as any, side: "bothSides" as any },
-            },
-          }),
-        ],
-      }),
-    );
-  }
-  if (headerChildren.length === 0) {
+  } else {
     headerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
   }
 
-  const footerPara = new Paragraph({
-    alignment: AlignmentType.CENTER,
-    children: [new TextRun({ text: footerText, size: 16, color: "666666" })],
-  });
+  // --- Footer (accreditation logos row + bordered bold centred declaration) ---
+  const footerChildren: Paragraph[] = [];
+  const validAccreds = (accredLogos as (FetchedImage | null)[]).filter(
+    (l): l is FetchedImage => !!l,
+  );
+  if (validAccreds.length > 0) {
+    // Render each logo as a small inline image at ~16px height, in one centred paragraph.
+    const ACCRED_H = 22; // px
+    const accredRuns = validAccreds.flatMap((logo, i) => {
+      const aspect = logo.width && logo.height ? logo.width / logo.height : 2;
+      const w = Math.max(1, Math.round(ACCRED_H * aspect));
+      return [
+        new ImageRun({
+          type: logo.type,
+          data: logo.data,
+          transformation: { width: w, height: ACCRED_H },
+          altText: { title: "Accreditation", description: "Accreditation logo", name: "Accred" },
+        }),
+        ...(i < validAccreds.length - 1
+          ? [new TextRun({ text: "    " })]
+          : []),
+      ];
+    });
+    footerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { after: 80 },
+        children: accredRuns,
+      }),
+    );
+  }
+  if (footerText && footerText.trim()) {
+    footerChildren.push(
+      new Paragraph({
+        alignment: AlignmentType.CENTER,
+        spacing: { before: 40 },
+        border: {
+          top: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+          bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+          left: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+          right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+        },
+        children: [
+          new TextRun({ text: footerText, bold: true, size: 18, font: "Arial", color: "000000" }),
+        ],
+      }),
+    );
+  } else {
+    footerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
+  }
 
   return new Document({
     styles: {
@@ -701,17 +735,17 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           page: {
             size: { width: 11906, height: 16838 }, // A4
             margin: {
-              top: 1700,
+              top: 2700, // larger top to clear the bigger centred logo
               right: 1134,
-              bottom: 1134,
+              bottom: 1700, // larger bottom to clear accreditations + footer rect
               left: 1134,
               header: 567,
-              footer: 567,
+              footer: 400,
             },
           },
         },
         headers: { default: new Header({ children: headerChildren }) },
-        footers: { default: new Footer({ children: [footerPara] }) },
+        footers: { default: new Footer({ children: footerChildren }) },
         children,
       },
     ],
