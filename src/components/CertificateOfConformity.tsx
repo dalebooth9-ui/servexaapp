@@ -16,6 +16,7 @@ import {
 import { Award, Loader2, FileDown, Pencil, CheckCircle2, X } from "lucide-react";
 import InlineSignaturePad from "@/components/InlineSignaturePad";
 import jsPDF from "jspdf";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 
 export type ConformityCert = {

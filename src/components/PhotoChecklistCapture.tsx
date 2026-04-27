@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
+import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
