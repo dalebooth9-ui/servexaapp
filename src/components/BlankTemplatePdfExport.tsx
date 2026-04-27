@@ -92,13 +92,15 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
+type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null };
+
 export type BlankTemplatePdfExportHandle = {
-  download: (opts?: { handfill?: boolean }) => Promise<void> | void;
-  print: (opts?: { handfill?: boolean }) => Promise<void> | void;
-  preview: (opts?: { handfill?: boolean }) => Promise<void> | void;
+  download: (opts?: GenerateOpts) => Promise<void> | void;
+  print: (opts?: GenerateOpts) => Promise<void> | void;
+  preview: (opts?: GenerateOpts) => Promise<void> | void;
   /** Build the PDF and return the raw Blob without opening any UI.
    *  Useful for embedding a live preview elsewhere (e.g. template editor). */
-  getBlob: (opts?: { handfill?: boolean }) => Promise<Blob | null>;
+  getBlob: (opts?: GenerateOpts) => Promise<Blob | null>;
 };
 
 const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(function BlankTemplatePdfExport({ template, jobInfo, showPrint = false, headless = false }, ref) {
@@ -106,17 +108,24 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
   const [previewName, setPreviewName] = useState<string>("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Track which mode the preview was last built in so the dialog's regenerate
+  // callback can rebuild from the same parameters.
+  const [previewBuildArgs, setPreviewBuildArgs] = useState<{ handfill: boolean }>({ handfill: false });
   const { toast } = useToast();
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: (o) => generate("download", o?.handfill ?? false) as Promise<void>,
-    print: (o) => generate("print", o?.handfill ?? false) as Promise<void>,
-    preview: (o) => generate("preview", o?.handfill ?? false) as Promise<void>,
-    getBlob: (o) => generate("blob", o?.handfill ?? false) as Promise<Blob | null>,
+    download: (o) => generate("download", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
+    print: (o) => generate("print", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
+    preview: (o) => generate("preview", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
+    getBlob: (o) => generate("blob", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<Blob | null>,
   }));
 
-  const generate = async (mode: "download" | "print" | "preview" | "blob" = "preview", handfill = false): Promise<Blob | null | void> => {
+  const generate = async (
+    mode: "download" | "print" | "preview" | "blob" = "preview",
+    handfill = false,
+    watermarkOverride: WatermarkOverride | null = null,
+  ): Promise<Blob | null | void> => {
     setGenerating(true);
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
