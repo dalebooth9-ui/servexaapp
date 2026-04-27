@@ -361,9 +361,9 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       }
 
 
-      // Accreditation logos. On Dry Riser sheets they sit UNDER the BS-9990
-      // declaration box (per customer mark-up). On all other templates they go
-      // at the very bottom of the page below the watermark.
+      // Accreditation logos. On Dry Riser sheets they sit ABOVE the BS-9990
+      // declaration box (which is flush at the bottom). On other templates they
+      // go at the very bottom of the page below the watermark.
       const logoH = 9;
       const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
@@ -371,9 +371,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadAccreditationLogos(custAccredUrls),
       ]);
       // addAccreditationLogosToAllPages renders the row at (footerY - logoH - 3).
+      const dryRiserDeclH = 9; // matches minDeclH
+      const dryRiserGap = 2;
       const footerYForLogos = isDryRiser
-        // Land logos flush at the bottom margin, directly below the declaration.
-        ? pageHeight - margin + logoH + 3
+        // Land logos in the gap directly above the declaration box.
+        ? pageHeight - margin - dryRiserDeclH - dryRiserGap
         // Push non-Dry-Riser logos to the very bottom edge of the page.
         : pageHeight - 1;
       await renderBrandingOverlay(doc, {
