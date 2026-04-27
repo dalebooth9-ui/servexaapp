@@ -78,8 +78,36 @@ export default function PdfPreviewDialog({
   fileName,
   fileNameOptions,
   mimeType = "application/pdf",
+  watermarkControls = false,
+  onRebuildWithWatermark,
 }: PdfPreviewDialogProps) {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const { settings: savedWatermark, loaded: watermarkLoaded } = useWatermarkSettings();
+  // Local override the dialog applies on top of the saved org-wide setting.
+  // Reset to "use saved value" each time the dialog opens.
+  const [localMode, setLocalMode] = useState<WatermarkMode | "default">("default");
+  const [localOpacity, setLocalOpacity] = useState<number | null>(null);
+  const [rebuilding, setRebuilding] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setLocalMode("default");
+      setLocalOpacity(null);
+    }
+  }, [open]);
+
+  const effectiveMode: WatermarkMode = localMode === "default" ? savedWatermark.mode : localMode;
+  const effectiveOpacity = localOpacity ?? savedWatermark.opacity;
+
+  const triggerRebuild = async (override: Partial<WatermarkSettings>) => {
+    if (!onRebuildWithWatermark) return;
+    setRebuilding(true);
+    try {
+      await onRebuildWithWatermark(override);
+    } finally {
+      setRebuilding(false);
+    }
+  };
 
   useEffect(() => {
     if (!blob) {
