@@ -7,7 +7,18 @@
  *
  * All values are in millimetres unless noted otherwise.
  */
-export const PDF_DIMENSIONS = {
+export const PDF_DIMENSIONS: {
+  pageWidth: number;
+  pageHeight: number;
+  margin: number;
+  marginWide: number;
+  headerHeight: number;
+  headerLogoH: number;
+  accredLogoH: number;
+  accredLogoGapToFooter: number;
+  watermarkHeightRatio: number;
+  footerBandH: number;
+} = {
   /** A4 page dimensions */
   pageWidth: 210,
   pageHeight: 297,
@@ -34,7 +45,7 @@ export const PDF_DIMENSIONS = {
 
   /** Standard footer band height (used to compute `accredFooterY`). */
   footerBandH: 18,
-} as const;
+};
 
 /**
  * Resolve the Y coordinate where the accreditation logo strip should land.
