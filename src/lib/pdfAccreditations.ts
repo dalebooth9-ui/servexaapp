@@ -64,7 +64,7 @@ export function renderAccreditationLogos(
   logos: (HTMLImageElement | null)[],
   rowY: number,
   logoH = 7,
-  opacity = 0.22
+  opacity = WATERMARK_OPACITY
 ): void {
   const pageWidth = doc.internal.pageSize.getWidth();
   const gap = 5;
