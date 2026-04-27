@@ -4,7 +4,7 @@ import { FileDown, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
-import { renderBrandingOverlay } from "@/lib/pdfBranding";
+import { renderBrandingOverlay, type WatermarkOverride } from "@/lib/pdfBranding";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 
@@ -28,7 +28,10 @@ interface Props {
   jobInfo: PreStartJobInfo | null;
 }
 
-export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | null): Promise<{ base64: string; fileName: string }> {
+export async function generatePreStartChecklistPdf(
+  jobInfo: PreStartJobInfo | null,
+  watermarkOverride: WatermarkOverride | null = null,
+): Promise<{ base64: string; fileName: string }> {
   const { default: jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const pw = doc.internal.pageSize.getWidth();
@@ -293,6 +296,7 @@ export async function generatePreStartChecklistPdf(jobInfo: PreStartJobInfo | nu
     accredLogos: logos,
     accredFooterY: footerBandTop,
     accredLogoH: PDF_DIMENSIONS.accredLogoH,
+    override: watermarkOverride,
   });
 
   const footerY = ph - 14;
