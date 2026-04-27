@@ -347,7 +347,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           const textH = lines.length * lineH;
           const minDeclH = 9;
           const declH = Math.max(minDeclH, textH + padY * 2);
-          const declY = pageHeight - margin - declH;
+          // Leave room beneath the declaration for the accreditation logo row
+          // (logos live UNDER the BS-9990 statement on Dry Riser sheets).
+          const dryRiserLogoH = 9;
+          const dryRiserLogoGap = 2;
+          const declY = pageHeight - margin - declH - dryRiserLogoH - dryRiserLogoGap;
           doc.setDrawColor(0, 0, 0);
           doc.setLineWidth(0.5);
           doc.rect(margin, declY, pageWidth - margin * 2, declH);
@@ -360,19 +364,20 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       }
 
 
-      // Accreditation logos sit at the very bottom of the page so they clear
-      // the bottom edge of the Viva Flame watermark (which extends to ~287mm
-      // on A4). Slightly smaller height keeps them from running off the page.
-      const logoH = isDryRiser ? 12 : 9;
+      // Accreditation logos. On Dry Riser sheets they sit UNDER the BS-9990
+      // declaration box (per customer mark-up). On all other templates they go
+      // at the very bottom of the page below the watermark.
+      const logoH = 9;
       const custAccredUrls = await fetchCustomerAccreditationLogos(customerName);
       const [watermark, accredLogos] = await Promise.all([
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      const declHApprox = 9; // matches min declH used above
+      // addAccreditationLogosToAllPages renders the row at (footerY - logoH - 3).
       const footerYForLogos = isDryRiser
-        ? pageHeight - margin - declHApprox - logoH - 1
-        // Push to the very bottom so logos land below the watermark's bottom edge.
+        // Land logos flush at the bottom margin, directly below the declaration.
+        ? pageHeight - margin + logoH + 3
+        // Push non-Dry-Riser logos to the very bottom edge of the page.
         : pageHeight - 1;
       await renderBrandingOverlay(doc, {
         watermark,
