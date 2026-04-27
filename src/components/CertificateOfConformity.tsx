@@ -18,6 +18,7 @@ import InlineSignaturePad from "@/components/InlineSignaturePad";
 import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import type { WatermarkOverride } from "@/lib/pdfBranding";
 
 export type ConformityCert = {
   id: string;
@@ -388,7 +389,10 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
 }
 
 /** Standalone PDF generator — matches actual Viva Fire Certificate of Conformity layout */
-export async function generateConformityPdfBase64(cert: ConformityCert): Promise<{ base64: string; fileName: string }> {
+export async function generateConformityPdfBase64(
+  cert: ConformityCert,
+  watermarkOverride: WatermarkOverride | null = null,
+): Promise<{ base64: string; fileName: string }> {
   const { default: jsPDF } = await import("jspdf");
   const { loadWatermarkImage } = await import("@/lib/pdfWatermark");
   const { fetchCustomerAccreditationLogos, loadAccreditationLogos } = await import("@/lib/pdfAccreditations");
@@ -616,6 +620,7 @@ export async function generateConformityPdfBase64(cert: ConformityCert): Promise
     accredLogos: logos,
     accredFooterY: footerBandY - 3,
     accredLogoH: PDF_DIMENSIONS.accredLogoH,
+    override: watermarkOverride,
   });
 
   doc.setDrawColor(30, 30, 30);
