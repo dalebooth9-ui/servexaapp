@@ -357,14 +357,21 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
-      if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
       // Dry Riser: drop logos right above the declaration box so the watermark's
-      // bottom edge is visible. Match the watermark opacity for a consistent look.
+      // bottom edge is visible.
       const declHApprox = 9; // matches min declH used above
       const footerYForLogos = isDryRiser
         ? pageHeight - margin - declHApprox - logoH - 1
         : pageHeight - margin - 9;
-      addAccreditationLogosToAllPages(doc, accredLogos, footerYForLogos, logoH);
+      await renderBrandingOverlay(doc, {
+        watermark,
+        brandColor: accentColor,
+        accredLogos,
+        accredFooterY: footerYForLogos,
+        accredLogoH: logoH,
+        override: watermarkOverride,
+      });
+
 
       const fileName = [
         jobInfo?.reference_number || "blank",
