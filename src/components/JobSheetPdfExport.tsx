@@ -7,8 +7,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useJobCategories } from "@/hooks/useJobCategories";
 
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { renderBrandingOverlay } from "@/lib/pdfBranding";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
@@ -457,8 +458,7 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark, accentColor);
-  addAccreditationLogosToAllPages(doc, accredLogos, declarationFooterY, logoH);
+  await renderBrandingOverlay(doc, { watermark, brandColor: accentColor, accredLogos, accredFooterY: declarationFooterY, accredLogoH: logoH });
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const fileName = [jobInfo?.reference_number || "job-sheet", safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";

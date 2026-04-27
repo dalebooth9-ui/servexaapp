@@ -4,8 +4,9 @@
  * Import these into ramsPdf.ts (dry riser) and ramsPdfVariants.ts.
  */
 import jsPDF from "jspdf";
-import { loadWatermarkImage, addWatermarkToAllPages } from "@/lib/pdfWatermark";
-import { fetchCustomerAccreditationLogos, loadAccreditationLogos, addAccreditationLogosToAllPages } from "@/lib/pdfAccreditations";
+import { loadWatermarkImage } from "@/lib/pdfWatermark";
+import { renderBrandingOverlay } from "@/lib/pdfBranding";
+import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 
 export type RamsFormData = Record<string, any>;
 
@@ -941,8 +942,7 @@ export async function finaliseAndReturn(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  if (watermark) addWatermarkToAllPages(doc, watermark);
-  addAccreditationLogosToAllPages(doc, accredLogos, 278, 14);
+  await renderBrandingOverlay(doc, { watermark, accredLogos, accredFooterY: 278, accredLogoH: 14 });
   const customerName = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "job";
   const slug = String(customerName).toLowerCase().replace(/[^a-z0-9]+/g, "");
   const prefix = suffix.toUpperCase().replace(/[^A-Z0-9]+/g, "");
