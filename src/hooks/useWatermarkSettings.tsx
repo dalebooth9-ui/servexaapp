@@ -12,7 +12,7 @@ export interface WatermarkSettings {
 
 export const DEFAULT_WATERMARK_SETTINGS: WatermarkSettings = {
   mode: "tinted",
-  opacity: 0.10,
+  opacity: 0.12,
 };
 
 const SETTINGS_KEY = "pdf_watermark";

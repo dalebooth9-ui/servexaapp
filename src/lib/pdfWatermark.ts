@@ -3,8 +3,8 @@ import type { RgbTriple } from "@/lib/extractLogoColors";
 
 /** Shared watermark opacity values — accreditation logos use the same scale
  *  so they blend identically to the Viva Flame watermark on every template. */
-export const WATERMARK_OPACITY = 0.10;
-export const WATERMARK_OPACITY_UNTINTED = 0.08;
+export const WATERMARK_OPACITY = 0.12;
+export const WATERMARK_OPACITY_UNTINTED = 0.12;
 
 // --- Colour helpers (self-contained) ---
 function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
