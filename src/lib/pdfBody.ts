@@ -181,7 +181,7 @@ function hasRenderableValue(value: unknown): boolean {
 }
 
 function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string, includeNa?: boolean): void {
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   doc.rect(x, y + 1, 3, 3);
   doc.text("YES", x + 4, y + 3.5);
   doc.rect(x + 14, y + 1, 3, 3);
@@ -193,12 +193,12 @@ function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: strin
 
   if (autoVal === "YES") {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.text("✓", x + 0.5, y + 3.8);
     doc.setFont("helvetica", "normal");
   }
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(9.5);
 }
 
 function truncateToWidth(doc: jsPDF, value: string, maxWidth: number): string {
@@ -222,7 +222,7 @@ function renderBlankSelectOptions(
   const normalizedAutoVal = getRawFieldText(autoVal).toLowerCase();
   const upperCaseOptions = isYesNoOptions(options);
 
-  doc.setFontSize(6);
+  doc.setFontSize(7);
   let optionX = x;
 
   for (const opt of options) {
@@ -236,17 +236,17 @@ function renderBlankSelectOptions(
 
     if (normalizedAutoVal && normalizedAutoVal === opt.toLowerCase()) {
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.text("✓", optionX + 0.5, y + 3.8);
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(6);
+      doc.setFontSize(7);
     }
 
     doc.text(renderedLabel, optionX + 4, y + 3.5);
     optionX += 4 + doc.getTextWidth(renderedLabel) + 3;
   }
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(9.5);
 }
 
 function renderBlankUnderline(doc: jsPDF, x: number, y: number, width: number): void {
@@ -407,7 +407,7 @@ export function renderSectionHeader(
     doc.setDrawColor(200);
     doc.setLineWidth(0.2);
     doc.rect(margin, y, maxWidth, sectionHeaderH);
-    doc.setFontSize(9);
+    doc.setFontSize(10);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
     doc.text(section.toUpperCase(), margin + 2, y + 4.3);
@@ -420,7 +420,7 @@ export function renderSectionHeader(
   doc.setDrawColor(180);
   doc.rect(margin, y, colSplit, sectionHeaderH);
   doc.rect(margin + colSplit, y, maxWidth - colSplit, sectionHeaderH);
-  doc.setFontSize(9);
+  doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   doc.text(section.toUpperCase(), margin + 2, y + 4.3);
@@ -464,7 +464,7 @@ export function renderFilledFieldRow(
   // Label
   doc.setFont("helvetica", "normal");
   doc.setTextColor(0, 0, 0);
-  doc.setFontSize(8.5);
+  doc.setFontSize(9.5);
   const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
   doc.text(label, margin + 1, y + 3);
 
@@ -556,7 +556,7 @@ export function renderFilledFieldRow(
   // Inline note — placed in the result column, immediately after the YES/NO answer
   if (noteValue) {
     // Find roughly where the answer text ended in the result column
-    doc.setFontSize(8.5);
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "bold");
     const answerWidths: Record<string, number> = {
       YES: doc.getTextWidth("YES"),
@@ -566,14 +566,14 @@ export function renderFilledFieldRow(
     };
     // Approximate: assume the rendered answer was YES/NO/N/A — leave a small gap
     const startX = margin + colSplit + 1 + (answerWidths.YES + 2);
-    doc.setFontSize(7);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "italic");
     doc.setTextColor(100, 100, 100);
     const maxNoteW = (margin + maxWidth) - startX - 1;
     const lines = doc.splitTextToSize(`(${noteValue})`, Math.max(20, maxNoteW));
     doc.text(lines[0], startX, y + 3);
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(8.5);
+    doc.setFontSize(9.5);
     doc.setFont("helvetica", "normal");
   }
 
@@ -606,7 +606,7 @@ export function renderBlankFieldRow(
   doc.rect(margin + colSplit, y, maxWidth - colSplit, rowH);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
+  doc.setFontSize(9.5);
   const label = doc.splitTextToSize(field.label, colSplit - 3).slice(0, 1)[0];
   doc.text(label, margin + 2, y + 3.5);
   doc.setFont("helvetica", "normal");
@@ -616,11 +616,11 @@ export function renderBlankFieldRow(
 
   if (field.type === "pass_fail") {
     const bx = margin + colSplit + 2;
-    doc.setFontSize(7.5);
+    doc.setFontSize(8.5);
     doc.rect(bx, y + 1, 3, 3); doc.text("P", bx + 4, y + 3.5);
     doc.rect(bx + 10, y + 1, 3, 3); doc.text("F", bx + 14, y + 3.5);
     doc.rect(bx + 20, y + 1, 3, 3); doc.text("N/A", bx + 24, y + 3.5);
-    doc.setFontSize(8.5);
+    doc.setFontSize(9.5);
   } else if (field.type === "checkbox") {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
@@ -631,14 +631,14 @@ export function renderBlankFieldRow(
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (autoVal) {
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
     doc.text(truncVal, margin + colSplit + 2, y + 3.5);
-    doc.setFontSize(8.5);
+    doc.setFontSize(9.5);
   } else if (isDateField) {
     // Render an underscored date placeholder: _______ / _______ / _______
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.5);
+    doc.setFontSize(9.5);
     doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
   }
   // For text/number/textarea/signature/photo/file fields, leave the result cell

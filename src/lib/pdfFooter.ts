@@ -123,7 +123,7 @@ export function renderPdfFooter(
 
   doc.setDrawColor(0);
   doc.rect(margin, footerY, maxWidth, footerH);
-  doc.setFontSize(7);
+  doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(0, 0, 0);
   const lines = footerText.split("\n");

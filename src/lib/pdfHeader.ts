@@ -82,11 +82,11 @@ export async function renderPdfHeader(
       logoBottomY = y + lh + (compact ? 4 : 3);
     } catch {
       if (companyName) {
-        doc.setFontSize(12);
+        doc.setFontSize(13);
         doc.setFont("helvetica", "bold");
         doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
         if (companySubtitle) {
-          doc.setFontSize(7);
+          doc.setFontSize(8);
           doc.setFont("helvetica", "normal");
           doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
         }
@@ -94,11 +94,11 @@ export async function renderPdfHeader(
       }
     }
   } else if (companyName) {
-    doc.setFontSize(12);
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
     doc.text(companyName, pageWidth / 2, y + 5, { align: "center" });
     if (companySubtitle) {
-      doc.setFontSize(7);
+      doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
       doc.text(companySubtitle, pageWidth / 2, y + 9, { align: "center" });
     }
@@ -107,7 +107,7 @@ export async function renderPdfHeader(
 
   // --- Title (uses extracted brand accent colour) ---
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(14);
+  doc.setFontSize(15);
   doc.setTextColor(...accent);
   const titleY = compact ? logoBottomY + 2 : logoBottomY;
   doc.text(templateName.toUpperCase(), pageWidth / 2, titleY, { align: "center" });
@@ -116,7 +116,7 @@ export async function renderPdfHeader(
   let afterTitleY = titleY + 4;
   if (standard) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
+    doc.setFontSize(9);
     doc.setTextColor(...accent);
     doc.text(standard, pageWidth / 2, afterTitleY, { align: "center" });
     afterTitleY += 4;
@@ -144,7 +144,7 @@ export async function renderPdfHeader(
   doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
   doc.line(margin, y + headerRowH * 3, margin + maxWidth, y + headerRowH * 3);
 
-  doc.setFontSize(8);
+  doc.setFontSize(9);
 
   // Row 1: Customer | DATE
   doc.setFont("helvetica", "bold");
