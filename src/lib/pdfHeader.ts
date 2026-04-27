@@ -139,7 +139,8 @@ export async function renderPdfHeader(
   const rowCount = hasW3W ? 4 : 3;
   const detailH = headerRowH * rowCount;
   doc.rect(margin, y, maxWidth, detailH);
-  doc.line(margin + maxWidth * 0.5, y, margin + maxWidth * 0.5, y + headerRowH * 2);
+  const splitX = margin + maxWidth * 0.7;
+  doc.line(splitX, y, splitX, y + headerRowH * 2);
   doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
   doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
   doc.line(margin, y + headerRowH * 3, margin + maxWidth, y + headerRowH * 3);
@@ -151,15 +152,15 @@ export async function renderPdfHeader(
   doc.text("Customer:", margin + 1, y + 4);
   doc.setFont("helvetica", "normal");
   doc.text(
-    doc.splitTextToSize(data.customerName, maxWidth * 0.5 - 22).slice(0, 1).join(""),
+    doc.splitTextToSize(data.customerName, maxWidth * 0.7 - 22).slice(0, 1).join(""),
     margin + 19,
     y + 4
   );
 
   doc.setFont("helvetica", "bold");
-  doc.text("DATE:", margin + maxWidth * 0.5 + 1, y + 4);
+  doc.text("DATE:", splitX + 1, y + 4);
   doc.setFont("helvetica", "normal");
-  doc.text(String(data.dateVal), margin + maxWidth * 0.5 + 14, y + 4);
+  doc.text(String(data.dateVal), splitX + 14, y + 4);
 
   // Row 2: Site | PO/REF
   const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
@@ -167,15 +168,15 @@ export async function renderPdfHeader(
   doc.text("Site:", margin + 1, y + headerRowH + 4);
   doc.setFont("helvetica", "normal");
   doc.text(
-    doc.splitTextToSize(siteStr, maxWidth * 0.5 - 12).slice(0, 1).join(""),
+    doc.splitTextToSize(siteStr, maxWidth * 0.7 - 12).slice(0, 1).join(""),
     margin + 10,
     y + headerRowH + 4
   );
 
   doc.setFont("helvetica", "bold");
-  doc.text("PO/REF:", margin + maxWidth * 0.5 + 1, y + headerRowH + 4);
+  doc.text("PO/REF:", splitX + 1, y + headerRowH + 4);
   doc.setFont("helvetica", "normal");
-  doc.text(data.refNumber, margin + maxWidth * 0.5 + 16, y + headerRowH + 4);
+  doc.text(data.refNumber, splitX + 16, y + headerRowH + 4);
 
   // Row 3: Riser Location
   doc.setFont("helvetica", "bold");
