@@ -453,6 +453,11 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         blob={previewBlob}
         fileName={previewName}
         title={template.name}
+        watermarkControls
+        onRebuildWithWatermark={async (override) => {
+          const blob = (await generate("blob", previewBuildArgs.handfill, override)) as Blob | null;
+          if (blob) setPreviewBlob(blob);
+        }}
       />
     </>
   );
