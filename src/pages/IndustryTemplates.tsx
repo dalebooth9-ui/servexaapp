@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ type FieldDef = {
   required: boolean;
   options?: string[];
   allow_notes?: boolean;
+  allow_na?: boolean;
   placeholder?: string;
 };
 
@@ -933,6 +934,19 @@ const CATEGORY_ORDER = [
   "passive_fire", "gas_suppression", "kitchen_suppression", "water_mist",
   "hose_reel", "fire_risk_assessment", "installation",
 ];
+
+function buildTemplateOverride(row: any, tpl: IndustryTemplate) {
+  return {
+    id: row.id,
+    name: row.name || tpl.name,
+    description: row.description ?? `${tpl.standard} — ${tpl.description}`,
+    fields: (typeof row.fields === "string" ? JSON.parse(row.fields) : row.fields || tpl.fields) as FieldDef[],
+    category: row.category ?? tpl.category,
+    job_category: row.job_category ?? tpl.job_category ?? tpl.category,
+    branding: (row.branding as Record<string, any>) || {},
+    footer_text: row.footer_text ?? null,
+  };
+}
 
 
 
