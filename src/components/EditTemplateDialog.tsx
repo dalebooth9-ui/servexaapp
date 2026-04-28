@@ -50,7 +50,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   template: Template | null;
-  onSaved: () => void;
+  onSaved: (updatedTemplate?: Template) => void;
 };
 
 const FIELD_TYPE_LABELS: Record<string, string> = {
@@ -474,13 +474,22 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     if (error) {
       toast({ title: "Error", description: "Failed to update template.", variant: "destructive" });
     } else {
+      const updatedTemplate: Template = {
+        ...(template as Template),
+        name: templateName.trim(),
+        description: templateDesc.trim() || null,
+        category: templateCategory || null,
+        status: targetStatus,
+        fields: fields.map((field) => ({ ...field })),
+        branding,
+      };
       toast({
         title: targetStatus === "published" ? "Template published" : "Draft saved",
         description: targetStatus === "published"
           ? "New jobs will use this version."
           : "Not visible to new jobs until you publish.",
       });
-      onSaved();
+      onSaved(updatedTemplate);
       onOpenChange(false);
     }
     setSaving(false);
