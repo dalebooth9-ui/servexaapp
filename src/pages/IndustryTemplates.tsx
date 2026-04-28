@@ -1140,7 +1140,7 @@ export default function IndustryTemplates() {
       if (!dbId) {
         const { data: existing } = await supabase
           .from("job_sheet_templates")
-          .select("id, name, description, fields, category, job_category, branding")
+          .select("id, name, description, fields, category, job_category, branding, footer_text")
           .eq("name", tpl.name)
           .maybeSingle();
         if (existing) {
@@ -1175,7 +1175,7 @@ export default function IndustryTemplates() {
         }
       }
       if (!dbId) throw new Error("Could not obtain template record.");
-      setEditingTemplate({
+      setEditingTemplate(importedTemplateOverrides[tpl.id] || {
         id: dbId,
         name: tpl.name,
         description: `${tpl.standard} — ${tpl.description}`,
