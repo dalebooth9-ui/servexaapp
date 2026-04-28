@@ -8,6 +8,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderBrandingOverlay, type WatermarkOverride } from "@/lib/pdfBranding";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
+import { renderPdfHeader } from "@/lib/pdfHeader";
 
 export type PreStartJobInfo = {
   name?: string | null;
@@ -54,22 +55,6 @@ export async function generatePreStartChecklistPdf(
   // other PDF in the system. (Viva-branded document — never tinted to a
   // customer brand colour, so brandColor is intentionally omitted.)
 
-  // ── Logo ────────────────────────────────────────────────────────────
-  try {
-    const logoUrl = jobInfo?.customers?.logo_url
-      ? jobInfo.customers.logo_url
-      : `${window.location.origin}/images/vivafire-logo-new.jpg`;
-    const res = await fetch(logoUrl);
-    const blob = await res.blob();
-    const reader = new FileReader();
-    const logoBase64 = await new Promise<string>((resolve) => {
-      reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
-      reader.readAsDataURL(blob);
-    });
-    const fmt = logoUrl.toLowerCase().endsWith(".png") ? "PNG" : "JPEG";
-    doc.addImage(logoBase64, fmt, pw / 2 - 28, 8, 56, 20);
-  } catch {}
-
   // Brand colours sourced from the central palette so the checklist matches
   // the rest of the document system (previously this file declared a local
   // VIVA_NAVY = #1EAEE8 cyan, which did not match the brand navy used
@@ -80,47 +65,77 @@ export async function generatePreStartChecklistPdf(
   const VIVA_BORDER = PDF_PALETTE.border;
   const VIVA_NAVY_TINT = PDF_PALETTE.zebra;
 
-  let y = 32;
-
-  // ── Title bar (Viva navy) ─────────────────────────────────────────────
-  doc.setFillColor(...VIVA_NAVY);
-  doc.rect(ml, y, cw, 11, "F");
-  doc.setFontSize(13);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("DRY RISER SYSTEM — PRE-START CHECK LIST", pw / 2, y + 7.2, { align: "center" });
-  y += 11;
-
-  doc.setFillColor(...VIVA_DARK);
-  doc.rect(ml, y, cw, 4.5, "F");
-  doc.setFontSize(7.5);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(255, 255, 255);
-  doc.text("WET & DRY RISER SPECIALISTS", pw / 2, y + 3.2, { align: "center" });
-  y += 4.5 + 4;
-
-  // ── Contract details table ─────────────────────────────────────────────
-  const halfW = cw / 2;
-  doc.setLineWidth(0.3);
-  doc.setDrawColor(...VIVA_BORDER);
-
-  const rowH = 9;
-  doc.setFillColor(...PDF_PALETTE.zebra);
-  doc.rect(ml, y, halfW, rowH, "FD");
-  doc.rect(ml + halfW, y, halfW, rowH, "FD");
-  doc.setFontSize(7);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...VIVA_GREY);
-  doc.text("CONTRACT NO.", ml + 2, y + 3.2);
-  doc.text("CONTRACT NAME", ml + halfW + 2, y + 3.2);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...VIVA_DARK);
-  doc.setFontSize(9);
+  // ── Header — centred logo + navy banner + dark sub-band + contract row ─
+  // Driven by renderPdfHeader's `style` config so the chrome stays in sync
+  // with every other Servexa PDF.
   const ref = jobInfo?.reference_number || "";
   const contractName = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.name || "";
-  doc.text(ref, ml + 2, y + 7.5);
-  doc.text(contractName, ml + halfW + 2, y + 7.5);
-  y += rowH + 3;
+  const logoUrl = jobInfo?.customers?.logo_url
+    ? jobInfo.customers.logo_url
+    : `${window.location.origin}/images/vivafire-logo-new.jpg`;
+
+  let y = await renderPdfHeader(
+    doc,
+    "", // title text unused — replaced by titleBands
+    { logo_url: logoUrl },
+    {
+      customerName: "",
+      siteName: "",
+      siteAddress: "",
+      refNumber: ref,
+      dateVal: "",
+      riserLocation: "",
+    },
+    null,
+    null,
+    {
+      style: {
+        logo: { topY: 8, maxW: 56, maxH: 20 },
+        title: { hidden: true },
+        titleStartY: 32,
+        separator: false,
+        detailGrid: false,
+        titleBands: [
+          {
+            text: "DRY RISER SYSTEM — PRE-START CHECK LIST",
+            fontSize: 13,
+            height: 11,
+            fillColor: VIVA_NAVY,
+            textColor: [255, 255, 255],
+            gapBelow: 0,
+          },
+          {
+            text: "WET & DRY RISER SPECIALISTS",
+            fontSize: 7.5,
+            height: 4.5,
+            fillColor: VIVA_DARK,
+            textColor: [255, 255, 255],
+            gapBelow: 4,
+          },
+        ],
+        customRows: [
+          {
+            height: 9,
+            fillColor: PDF_PALETTE.zebra,
+            cells: [
+              {
+                widthFraction: 0.5,
+                label: { text: "CONTRACT NO.", color: VIVA_GREY },
+                value: { text: ref, color: VIVA_DARK, bold: true },
+              },
+              {
+                widthFraction: 0.5,
+                label: { text: "CONTRACT NAME", color: VIVA_GREY },
+                value: { text: contractName, color: VIVA_DARK, bold: true },
+              },
+            ],
+            gapBelow: 3,
+          },
+        ],
+      },
+    }
+  );
+
 
   // ── Site address row ─────────────────────────────────────────────────
   const siteAddr = [
