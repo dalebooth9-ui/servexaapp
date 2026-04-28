@@ -224,9 +224,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
               const labelW = doc.getTextWidth(field.label) + 1;
               let fieldW = labelW;
               if (field.type === "pass_fail") fieldW += 32;
-              else if (field.type === "number") fieldW += 14;
+              else if (field.type === "number") fieldW += field.allow_na ? 34 : 14;
+              else if (["text", "short_text", "textarea", "date"].includes(field.type)) fieldW += field.allow_na ? 45 : 22;
               else if (field.type === "select" && field.options) {
-                for (const opt of field.options) fieldW += 4 + doc.getTextWidth(opt) + 2;
+                const hasNa = field.options.some((opt) => opt.toLowerCase() === "n/a" || opt.toLowerCase() === "na");
+                const options = field.allow_na && !hasNa ? [...field.options, "N/A"] : field.options;
+                for (const opt of options) fieldW += 4 + doc.getTextWidth(opt) + 2;
                 fieldW += 4;
               }
               fieldW += 2; // gap
