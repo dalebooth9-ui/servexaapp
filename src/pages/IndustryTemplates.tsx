@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,6 +25,7 @@ type FieldDef = {
   required: boolean;
   options?: string[];
   allow_notes?: boolean;
+  allow_na?: boolean;
   placeholder?: string;
 };
 
@@ -934,6 +935,19 @@ const CATEGORY_ORDER = [
   "hose_reel", "fire_risk_assessment", "installation",
 ];
 
+function buildTemplateOverride(row: any, tpl: IndustryTemplate) {
+  return {
+    id: row.id,
+    name: row.name || tpl.name,
+    description: row.description ?? `${tpl.standard} — ${tpl.description}`,
+    fields: (typeof row.fields === "string" ? JSON.parse(row.fields) : row.fields || tpl.fields) as FieldDef[],
+    category: row.category ?? tpl.category,
+    job_category: row.job_category ?? tpl.job_category ?? tpl.category,
+    branding: (row.branding as Record<string, any>) || {},
+    footer_text: row.footer_text ?? null,
+  };
+}
+
 
 
 export default function IndustryTemplates() {
@@ -946,6 +960,7 @@ export default function IndustryTemplates() {
   const [imported, setImported] = useState<Set<string>>(new Set());
   // Maps industry template id → db record id (after import)
   const [importedDbIds, setImportedDbIds] = useState<Record<string, string>>({});
+  const [importedTemplateOverrides, setImportedTemplateOverrides] = useState<Record<string, any>>({});
   const [editingTemplate, setEditingTemplate] = useState<{
     id: string; name: string; description: string | null;
     fields: FieldDef[]; category?: string | null;
@@ -955,6 +970,31 @@ export default function IndustryTemplates() {
   const [bulkExporting, setBulkExporting] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("job_sheet_templates")
+      .select("id, name, description, fields, category, job_category, branding, footer_text")
+      .in("name", INDUSTRY_TEMPLATES.map((tpl) => tpl.name))
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const nextImported = new Set<string>();
+        const nextIds: Record<string, string> = {};
+        const nextOverrides: Record<string, any> = {};
+        data.forEach((row: any) => {
+          const tpl = INDUSTRY_TEMPLATES.find((item) => item.name === row.name);
+          if (!tpl) return;
+          nextImported.add(tpl.id);
+          nextIds[tpl.id] = row.id;
+          nextOverrides[tpl.id] = buildTemplateOverride(row, tpl);
+        });
+        setImported(nextImported);
+        setImportedDbIds(nextIds);
+        setImportedTemplateOverrides(nextOverrides);
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   /** Build a .docx for every visible template and download as a single .zip. */
   const handleExportAllToWord = async () => {
@@ -1069,6 +1109,19 @@ export default function IndustryTemplates() {
       if (dbId) {
         setImported((prev) => new Set(prev).add(tpl.id));
         setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+        setImportedTemplateOverrides((prev) => ({
+          ...prev,
+          [tpl.id]: {
+            id: dbId,
+            name: tpl.name,
+            description: `${tpl.standard} — ${tpl.description}`,
+            fields: tpl.fields,
+            category: tpl.category,
+            job_category: tpl.job_category ?? tpl.category,
+            branding: {},
+            footer_text: null,
+          },
+        }));
       }
       toast({ title: "Template imported", description: `"${tpl.name}" added to your Job Sheet Templates.` });
     } catch (err: any) {
@@ -1087,22 +1140,16 @@ export default function IndustryTemplates() {
       if (!dbId) {
         const { data: existing } = await supabase
           .from("job_sheet_templates")
-          .select("id, name, description, fields, category, job_category, branding")
+          .select("id, name, description, fields, category, job_category, branding, footer_text")
           .eq("name", tpl.name)
           .maybeSingle();
         if (existing) {
           dbId = existing.id;
+          const importedOverride = buildTemplateOverride(existing, tpl);
           setImported((prev) => new Set(prev).add(tpl.id));
           setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
-          setEditingTemplate({
-            id: dbId,
-            name: existing.name,
-            description: existing.description,
-            fields: (typeof existing.fields === "string" ? JSON.parse(existing.fields) : existing.fields) as FieldDef[],
-            category: existing.category,
-            job_category: existing.job_category,
-            branding: (existing.branding as Record<string, any>) || {},
-          });
+          setImportedTemplateOverrides((prev) => ({ ...prev, [tpl.id]: importedOverride }));
+          setEditingTemplate(importedOverride);
           setEditOpen(true);
           return;
         }
@@ -1111,11 +1158,24 @@ export default function IndustryTemplates() {
         if (dbId) {
           setImported((prev) => new Set(prev).add(tpl.id));
           setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+          setImportedTemplateOverrides((prev) => ({
+            ...prev,
+            [tpl.id]: {
+              id: dbId,
+              name: tpl.name,
+              description: `${tpl.standard} — ${tpl.description}`,
+              fields: tpl.fields,
+              category: tpl.category,
+              job_category: tpl.job_category ?? tpl.category,
+              branding: {},
+              footer_text: null,
+            },
+          }));
           toast({ title: "Template imported", description: `"${tpl.name}" saved. You can now edit it.` });
         }
       }
       if (!dbId) throw new Error("Could not obtain template record.");
-      setEditingTemplate({
+      setEditingTemplate(importedTemplateOverrides[tpl.id] || {
         id: dbId,
         name: tpl.name,
         description: `${tpl.standard} — ${tpl.description}`,
@@ -1226,15 +1286,18 @@ export default function IndustryTemplates() {
                 {templates.map((tpl) => {
                   const isImported = imported.has(tpl.id);
                   const isImporting = importing === tpl.id;
+                  const savedTemplate = importedTemplateOverrides[tpl.id];
+                  const actionTemplate = savedTemplate || tpl;
                   // Build a minimal mock template/jobInfo for BlankTemplatePdfExport
-                  const normalizedFields = tpl.fields.map((f) => ({ ...f, section: f.section || "General" }));
+                  const normalizedFields = actionTemplate.fields.map((f: FieldDef) => ({ ...f, section: f.section || "General" }));
                   const mockTemplate = {
-                    id: tpl.id,
-                    name: tpl.name,
-                    description: tpl.description,
+                    id: actionTemplate.id,
+                    name: actionTemplate.name,
+                    description: actionTemplate.description,
                     standard: tpl.standard,
                     fields: normalizedFields,
-                    branding: {},
+                    branding: savedTemplate?.branding || {},
+                    footer_text: savedTemplate?.footer_text ?? null,
                   };
                   return (
                     <div key={tpl.id} className="rounded-xl border bg-card p-4 flex flex-col gap-3 hover:shadow-sm transition-shadow">
@@ -1317,8 +1380,14 @@ export default function IndustryTemplates() {
         open={editOpen}
         onOpenChange={setEditOpen}
         template={editingTemplate ? { ...editingTemplate, fields: editingTemplate.fields.map((f) => ({ ...f, section: f.section || "General" })) } as any : null}
-        onSaved={() => {
+        onSaved={(updatedTemplate) => {
           toast({ title: "Template saved" });
+          if (editingTemplate && updatedTemplate) {
+            setImportedTemplateOverrides((prev) => ({
+              ...prev,
+              [Object.keys(importedDbIds).find((key) => importedDbIds[key] === editingTemplate.id) || editingTemplate.id]: updatedTemplate,
+            }));
+          }
           setEditOpen(false);
         }}
       />

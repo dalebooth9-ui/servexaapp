@@ -224,9 +224,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
               const labelW = doc.getTextWidth(field.label) + 1;
               let fieldW = labelW;
               if (field.type === "pass_fail") fieldW += 32;
-              else if (field.type === "number") fieldW += 14;
+              else if (field.type === "number") fieldW += field.allow_na ? 34 : 14;
+              else if (["text", "short_text", "textarea", "date"].includes(field.type)) fieldW += field.allow_na ? 45 : 22;
               else if (field.type === "select" && field.options) {
-                for (const opt of field.options) fieldW += 4 + doc.getTextWidth(opt) + 2;
+                const hasNa = field.options.some((opt) => opt.toLowerCase() === "n/a" || opt.toLowerCase() === "na");
+                const options = field.allow_na && !hasNa ? [...field.options, "N/A"] : field.options;
+                for (const opt of options) fieldW += 4 + doc.getTextWidth(opt) + 2;
                 fieldW += 4;
               }
               fieldW += 2; // gap
@@ -266,8 +269,20 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
                   doc.rect(ox2 + 20, y + 1, 3, 3); doc.text("N/A", ox2 + 24, y + 3.5);
                 } else if (field.type === "number") {
                   doc.line(ox2, y + 3.5, ox2 + 10, y + 3.5);
+                  if (field.allow_na) {
+                    doc.rect(ox2 + 13, y + 1, 3, 3);
+                    doc.text("N/A", ox2 + 17, y + 3.5);
+                  }
+                } else if (["text", "short_text", "textarea", "date"].includes(field.type)) {
+                  doc.line(ox2, y + 3.5, ox2 + 18, y + 3.5);
+                  if (field.allow_na) {
+                    doc.rect(ox2 + 21, y + 1, 3, 3);
+                    doc.text("N/A", ox2 + 25, y + 3.5);
+                  }
                 } else if (field.type === "select" && field.options) {
-                  for (const opt of field.options) {
+                  const hasNa = field.options.some((opt) => opt.toLowerCase() === "n/a" || opt.toLowerCase() === "na");
+                  const options = field.allow_na && !hasNa ? [...field.options, "N/A"] : field.options;
+                  for (const opt of options) {
                     const optLabel = opt.length > 8 ? opt.slice(0, 7) + "…" : opt;
                     doc.rect(ox2, y + 1, 3, 3);
                     doc.text(optLabel, ox2 + 4, y + 3.5);
