@@ -55,7 +55,7 @@ const DRY_RISER_PRESSURE_TEST_FIELDS: FieldDef[] = [
   { id: "pressure_test_result_pass", type: "pass_fail", label: "Pressure test result:", section: "Pressure Test Results", required: true, allow_notes: true },
   { id: "test_pressure_bar", type: "number", label: "Test Pressure (bar):", section: "Pressure Test Results", required: true, allow_notes: true, placeholder: "e.g. 12" },
   { id: "hold_time_minutes", type: "number", label: "Hold Time (minutes):", section: "Pressure Test Results", required: true, allow_notes: true, placeholder: "e.g. 15" },
-  { id: "leaks_detected", type: "checkbox", label: "Leaks Detected?", section: "Pressure Test Results", required: true, allow_notes: true },
+  { id: "leaks_detected", type: "text", label: "Leaks Detected?", section: "Pressure Test Results", required: true, allow_notes: true, placeholder: "e.g. None / describe" },
   { id: "site_left_clean_tidy", type: "checkbox", label: "Site left clean & tidy?", required: true, allow_notes: true },
   { id: "custom_field_1771517560408", type: "checkbox", label: "Has the drop leg been drained?", required: true, allow_notes: true },
   { id: "customer_name", type: "text", label: "Customer Name:", required: true },
