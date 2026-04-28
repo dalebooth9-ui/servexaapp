@@ -9,6 +9,7 @@ import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_DIMENSIONS, resolveAccredFooterY } from "@/lib/pdfDimensions";
+import { renderPdfHeader } from "@/lib/pdfHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
