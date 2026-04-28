@@ -1380,12 +1380,12 @@ export default function IndustryTemplates() {
         open={editOpen}
         onOpenChange={setEditOpen}
         template={editingTemplate ? { ...editingTemplate, fields: editingTemplate.fields.map((f) => ({ ...f, section: f.section || "General" })) } as any : null}
-        onSaved={() => {
+        onSaved={(updatedTemplate) => {
           toast({ title: "Template saved" });
-          if (editingTemplate) {
+          if (editingTemplate && updatedTemplate) {
             setImportedTemplateOverrides((prev) => ({
               ...prev,
-              [Object.keys(importedDbIds).find((key) => importedDbIds[key] === editingTemplate.id) || editingTemplate.id]: editingTemplate,
+              [Object.keys(importedDbIds).find((key) => importedDbIds[key] === editingTemplate.id) || editingTemplate.id]: updatedTemplate,
             }));
           }
           setEditOpen(false);
