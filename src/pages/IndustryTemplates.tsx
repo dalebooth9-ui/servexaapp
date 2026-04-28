@@ -1286,15 +1286,18 @@ export default function IndustryTemplates() {
                 {templates.map((tpl) => {
                   const isImported = imported.has(tpl.id);
                   const isImporting = importing === tpl.id;
+                  const savedTemplate = importedTemplateOverrides[tpl.id];
+                  const actionTemplate = savedTemplate || tpl;
                   // Build a minimal mock template/jobInfo for BlankTemplatePdfExport
-                  const normalizedFields = tpl.fields.map((f) => ({ ...f, section: f.section || "General" }));
+                  const normalizedFields = actionTemplate.fields.map((f: FieldDef) => ({ ...f, section: f.section || "General" }));
                   const mockTemplate = {
-                    id: tpl.id,
-                    name: tpl.name,
-                    description: tpl.description,
+                    id: actionTemplate.id,
+                    name: actionTemplate.name,
+                    description: actionTemplate.description,
                     standard: tpl.standard,
                     fields: normalizedFields,
-                    branding: {},
+                    branding: savedTemplate?.branding || {},
+                    footer_text: savedTemplate?.footer_text ?? null,
                   };
                   return (
                     <div key={tpl.id} className="rounded-xl border bg-card p-4 flex flex-col gap-3 hover:shadow-sm transition-shadow">
