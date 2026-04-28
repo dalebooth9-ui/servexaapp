@@ -1382,6 +1382,12 @@ export default function IndustryTemplates() {
         template={editingTemplate ? { ...editingTemplate, fields: editingTemplate.fields.map((f) => ({ ...f, section: f.section || "General" })) } as any : null}
         onSaved={() => {
           toast({ title: "Template saved" });
+          if (editingTemplate) {
+            setImportedTemplateOverrides((prev) => ({
+              ...prev,
+              [Object.keys(importedDbIds).find((key) => importedDbIds[key] === editingTemplate.id) || editingTemplate.id]: editingTemplate,
+            }));
+          }
           setEditOpen(false);
         }}
       />
