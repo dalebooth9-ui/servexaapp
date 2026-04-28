@@ -1109,6 +1109,19 @@ export default function IndustryTemplates() {
       if (dbId) {
         setImported((prev) => new Set(prev).add(tpl.id));
         setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+        setImportedTemplateOverrides((prev) => ({
+          ...prev,
+          [tpl.id]: {
+            id: dbId,
+            name: tpl.name,
+            description: `${tpl.standard} — ${tpl.description}`,
+            fields: tpl.fields,
+            category: tpl.category,
+            job_category: tpl.job_category ?? tpl.category,
+            branding: {},
+            footer_text: null,
+          },
+        }));
       }
       toast({ title: "Template imported", description: `"${tpl.name}" added to your Job Sheet Templates.` });
     } catch (err: any) {
@@ -1132,17 +1145,11 @@ export default function IndustryTemplates() {
           .maybeSingle();
         if (existing) {
           dbId = existing.id;
+          const importedOverride = buildTemplateOverride(existing, tpl);
           setImported((prev) => new Set(prev).add(tpl.id));
           setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
-          setEditingTemplate({
-            id: dbId,
-            name: existing.name,
-            description: existing.description,
-            fields: (typeof existing.fields === "string" ? JSON.parse(existing.fields) : existing.fields) as FieldDef[],
-            category: existing.category,
-            job_category: existing.job_category,
-            branding: (existing.branding as Record<string, any>) || {},
-          });
+          setImportedTemplateOverrides((prev) => ({ ...prev, [tpl.id]: importedOverride }));
+          setEditingTemplate(importedOverride);
           setEditOpen(true);
           return;
         }
@@ -1151,6 +1158,19 @@ export default function IndustryTemplates() {
         if (dbId) {
           setImported((prev) => new Set(prev).add(tpl.id));
           setImportedDbIds((prev) => ({ ...prev, [tpl.id]: dbId }));
+          setImportedTemplateOverrides((prev) => ({
+            ...prev,
+            [tpl.id]: {
+              id: dbId,
+              name: tpl.name,
+              description: `${tpl.standard} — ${tpl.description}`,
+              fields: tpl.fields,
+              category: tpl.category,
+              job_category: tpl.job_category ?? tpl.category,
+              branding: {},
+              footer_text: null,
+            },
+          }));
           toast({ title: "Template imported", description: `"${tpl.name}" saved. You can now edit it.` });
         }
       }
