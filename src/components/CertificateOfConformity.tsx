@@ -510,7 +510,7 @@ export async function generateConformityPdfBase64(
       },
     }
   );
-  y += 6;
+  y += 8;
 
   // ── BUILDING section (left-aligned) ─────────────────────────────────
   doc.setFontSize(10);
