@@ -970,6 +970,31 @@ export default function IndustryTemplates() {
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
 
+  useEffect(() => {
+    let cancelled = false;
+    supabase
+      .from("job_sheet_templates")
+      .select("id, name, description, fields, category, job_category, branding, footer_text")
+      .in("name", INDUSTRY_TEMPLATES.map((tpl) => tpl.name))
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const nextImported = new Set<string>();
+        const nextIds: Record<string, string> = {};
+        const nextOverrides: Record<string, any> = {};
+        data.forEach((row: any) => {
+          const tpl = INDUSTRY_TEMPLATES.find((item) => item.name === row.name);
+          if (!tpl) return;
+          nextImported.add(tpl.id);
+          nextIds[tpl.id] = row.id;
+          nextOverrides[tpl.id] = buildTemplateOverride(row, tpl);
+        });
+        setImported(nextImported);
+        setImportedDbIds(nextIds);
+        setImportedTemplateOverrides(nextOverrides);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   /** Build a .docx for every visible template and download as a single .zip. */
   const handleExportAllToWord = async () => {
     if (!filtered.length) return;
