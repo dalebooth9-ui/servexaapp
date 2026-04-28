@@ -219,14 +219,20 @@ function renderBlankSelectOptions(
   options: string[],
   maxX: number,
   autoVal?: string,
+  appendNa?: boolean,
 ): void {
   const normalizedAutoVal = getRawFieldText(autoVal).toLowerCase();
   const upperCaseOptions = isYesNoOptions(options);
 
+  // Append an N/A pseudo-option when the field is flagged allow_na and the
+  // option list does not already include it.
+  const hasNaInOptions = options.some((o) => NA_RESULT_TOKENS.has(o.toLowerCase()));
+  const renderedOptions = appendNa && !hasNaInOptions ? [...options, "N/A"] : options;
+
   doc.setFontSize(7);
   let optionX = x;
 
-  for (const opt of options) {
+  for (const opt of renderedOptions) {
     if (optionX + 3 >= maxX) break;
 
     const label = upperCaseOptions ? opt.toUpperCase() : opt;
