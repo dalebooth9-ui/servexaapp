@@ -960,6 +960,7 @@ export default function IndustryTemplates() {
   const [imported, setImported] = useState<Set<string>>(new Set());
   // Maps industry template id → db record id (after import)
   const [importedDbIds, setImportedDbIds] = useState<Record<string, string>>({});
+  const [importedTemplateOverrides, setImportedTemplateOverrides] = useState<Record<string, any>>({});
   const [editingTemplate, setEditingTemplate] = useState<{
     id: string; name: string; description: string | null;
     fields: FieldDef[]; category?: string | null;
