@@ -477,42 +477,39 @@ export async function generateConformityPdfBase64(
     loadAccreditationLogos(custAccredUrls),
   ]);
 
-  // ── Logo — top right ─────────────────────────────────────────────────
-  const logoW = 52;
-  const logoH = 20;
-  try {
-    const logoUrl = `${window.location.origin}/images/vivafire-logo-new.jpg`;
-    const res = await fetch(logoUrl);
-    const blob = await res.blob();
-    const logoBase64 = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve((reader.result as string).split(",")[1]);
-      reader.readAsDataURL(blob);
-    });
-    doc.addImage(logoBase64, "JPEG", pw - MR - logoW, 10, logoW, logoH);
-  } catch {}
-
-  // ── Title bands (grey shaded rows) ───────────────────────────────────
-  let y = 38;
-  const bandColor: [number, number, number] = PDF_PALETTE.headerStrip;
-  const bandH = 9;
-  const bandGap = 2;
-
-  const drawTitleBand = (text: string, fontSize: number) => {
-    doc.setFillColor(...bandColor);
-    doc.rect(ML, y, contentW, bandH, "F");
-    doc.setFontSize(fontSize);
-    doc.setFont("helvetica", "bolditalic");
-    doc.setTextColor(30, 30, 30);
-    doc.text(text, pw / 2, y + 6.2, { align: "center" });
-    y += bandH + bandGap;
-  };
-
-  drawTitleBand(systemTypeTitle, 12);
-  drawTitleBand("Certificate of Conformity", 14);
-  drawTitleBand(`Certificate Number ${cert.certificate_number || "—"}`, 12);
-
-  y += 8;
+  // ── Header — right-aligned Viva logo + three grey title bands ────────
+  // Driven by renderPdfHeader's `style` config so the chrome stays in sync
+  // with every other Servexa PDF (margins, palette, accent rules).
+  let y = await renderPdfHeader(
+    doc,
+    "", // title text unused — replaced by titleBands
+    { logo_url: `${window.location.origin}/images/vivafire-logo-new.jpg` },
+    {
+      customerName: "",
+      siteName: "",
+      siteAddress: "",
+      refNumber: "",
+      dateVal: "",
+      riserLocation: "",
+    },
+    null,
+    null,
+    {
+      style: {
+        logo: { position: "right", topY: 10, maxW: 52, maxH: 20, format: "JPEG", noFallbackText: true },
+        title: { hidden: true },
+        titleStartY: 38,
+        separator: false,
+        detailGrid: false,
+        titleBands: [
+          { text: systemTypeTitle, fontSize: 12, fontStyle: "bolditalic" },
+          { text: "Certificate of Conformity", fontSize: 14, fontStyle: "bolditalic" },
+          { text: `Certificate Number ${cert.certificate_number || "—"}`, fontSize: 12, fontStyle: "bolditalic" },
+        ],
+      },
+    }
+  );
+  y += 6;
 
   // ── BUILDING section (left-aligned) ─────────────────────────────────
   doc.setFontSize(10);
