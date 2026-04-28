@@ -183,48 +183,36 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const addPage = () => { doc.addPage(); y = 15; };
       const checkPage = (needed: number) => { if (y + needed > 275) addPage(); };
 
-      // ── HEADER (white background, logo then title) ──
-      // Logo centred at top
-      let logoBottomY = 10;
-      if (logoDataUrl) {
-        try {
-          const tmpImg = new Image();
-          tmpImg.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            tmpImg.onload = () => resolve();
-            tmpImg.onerror = () => reject();
-            tmpImg.src = logoDataUrl!;
-          });
-          const logoMaxH = 20;
-          const logoMaxW = 70;
-          const aspect = tmpImg.naturalWidth / tmpImg.naturalHeight;
-          let logoW = logoMaxH * aspect;
-          let logoH = logoMaxH;
-          if (logoW > logoMaxW) { logoW = logoMaxW; logoH = logoW / aspect; }
-          const logoX = (pageWidth - logoW) / 2;
-          const fmt = logoDataUrl.includes("image/png") ? "PNG" : "JPEG";
-          doc.addImage(tmpImg, fmt, logoX, 8, logoW, logoH);
-          logoBottomY = 8 + logoH + 3;
-        } catch { /* skip logo */ }
-      }
-
-      // Title below logo — dark text on white bg
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(33, 61, 99);
-      doc.text("JOB REPORT", pageWidth / 2, logoBottomY, { align: "center" });
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(100, 100, 100);
-      doc.text(`${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`, pageWidth / 2, logoBottomY + 6, { align: "center" });
-
-      // Separator line
-      doc.setDrawColor(33, 61, 99);
-      doc.setLineWidth(0.5);
-      doc.line(margin, logoBottomY + 8, pageWidth - margin, logoBottomY + 8);
-
-      doc.setTextColor(30, 30, 30);
-      y = logoBottomY + 13;
+      // ── HEADER ──
+      // Use the shared renderPdfHeader helper with a JOB-REPORT-specific
+      // style (smaller logo box, larger title, REF-and-date subtitle line,
+      // no Customer/Site detail grid — those are drawn separately below).
+      y = await renderPdfHeader(
+        doc,
+        "JOB REPORT",
+        { logo_url: logoDataUrl ? job.customers?.logo_url || "/images/vivafire-logo-new.jpg" : "" },
+        {
+          customerName: "",
+          siteName: "",
+          siteAddress: "",
+          refNumber: job.reference_number || "",
+          dateVal: new Date().toLocaleDateString("en-GB"),
+          riserLocation: "",
+        },
+        null,
+        null,
+        {
+          style: {
+            logo: { maxW: 70, maxH: 20 },
+            title: { fontSize: 16 },
+            subtitleLine: {
+              text: `${job.reference_number}  |  Generated ${new Date().toLocaleDateString("en-GB")}`,
+            },
+            detailGrid: false,
+          },
+        }
+      );
+      y += 3;
 
       // ── JOB DETAILS TABLE ──
       doc.setFontSize(11);
