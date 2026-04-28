@@ -19,6 +19,7 @@ import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import type { WatermarkOverride } from "@/lib/pdfBranding";
+import { renderPdfHeader } from "@/lib/pdfHeader";
 
 export type ConformityCert = {
   id: string;
