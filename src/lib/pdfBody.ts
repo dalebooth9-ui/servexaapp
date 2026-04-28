@@ -636,15 +636,30 @@ export function renderBlankFieldRow(
     const truncVal = doc.splitTextToSize(autoVal, maxWidth - colSplit - 4).slice(0, 1).join("");
     doc.text(truncVal, margin + colSplit + 2, y + 3.5);
     doc.setFontSize(9.5);
+    if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
   } else if (isDateField) {
     // Render an underscored date placeholder: _______ / _______ / _______
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
     doc.text("_______ / _______ / _______", margin + colSplit + 2, y + 3.5);
+    if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
+  } else if (field.allow_na) {
+    // Plain text/number/textarea field with N/A allowed — show an N/A tickbox
+    // on the right edge of the result cell so the engineer can mark the field
+    // as not applicable instead of writing a value.
+    renderBlankNaBox(doc, margin + maxWidth - 12, y);
   }
   // For text/number/textarea/signature/photo/file fields, leave the result cell
   // empty so engineers can write in by hand on the printed sheet.
   // For signature/photo/file types, leave the result cell blank.
 
   return y + rowH;
+}
+
+function renderBlankNaBox(doc: jsPDF, x: number, y: number): void {
+  const prevSize = (doc as any).internal.getFontSize?.() ?? 9.5;
+  doc.setFontSize(7);
+  doc.rect(x, y + 1, 3, 3);
+  doc.text("N/A", x + 4, y + 3.5);
+  doc.setFontSize(prevSize);
 }
