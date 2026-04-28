@@ -219,14 +219,20 @@ function renderBlankSelectOptions(
   options: string[],
   maxX: number,
   autoVal?: string,
+  appendNa?: boolean,
 ): void {
   const normalizedAutoVal = getRawFieldText(autoVal).toLowerCase();
   const upperCaseOptions = isYesNoOptions(options);
 
+  // Append an N/A pseudo-option when the field is flagged allow_na and the
+  // option list does not already include it.
+  const hasNaInOptions = options.some((o) => NA_RESULT_TOKENS.has(o.toLowerCase()));
+  const renderedOptions = appendNa && !hasNaInOptions ? [...options, "N/A"] : options;
+
   doc.setFontSize(7);
   let optionX = x;
 
-  for (const opt of options) {
+  for (const opt of renderedOptions) {
     if (optionX + 3 >= maxX) break;
 
     const label = upperCaseOptions ? opt.toUpperCase() : opt;
@@ -625,11 +631,16 @@ export function renderBlankFieldRow(
   } else if (field.type === "checkbox") {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && isYesNoOptions(field.options)) {
-    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na);
   } else if (field.type === "select" && field.options && field.options.length > 0) {
-    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal);
+    renderBlankSelectOptions(doc, margin + colSplit + 2, y, field.options, margin + maxWidth - 2, autoVal, !!field.allow_na);
   } else if (isQuestionStyleYesNoField(field)) {
     renderBlankYesNoBoxes(doc, margin + colSplit + 2, y, autoVal, !!field.allow_na);
+  } else if (field.type === "signature" || field.type === "photo" || field.type === "file") {
+    // Capture-style fields: leave the cell blank for the engineer to fill in,
+    // but render an N/A tickbox on the right edge when allow_na is enabled so
+    // the field can be marked as not applicable on the printed sheet.
+    if (field.allow_na) renderBlankNaBox(doc, margin + maxWidth - 12, y);
   } else if (autoVal) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
@@ -649,9 +660,8 @@ export function renderBlankFieldRow(
     // as not applicable instead of writing a value.
     renderBlankNaBox(doc, margin + maxWidth - 12, y);
   }
-  // For text/number/textarea/signature/photo/file fields, leave the result cell
-  // empty so engineers can write in by hand on the printed sheet.
-  // For signature/photo/file types, leave the result cell blank.
+  // For text/number/textarea/signature/photo/file fields without allow_na,
+  // leave the result cell empty so engineers can write/sign in by hand.
 
   return y + rowH;
 }
