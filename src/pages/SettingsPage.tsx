@@ -11,6 +11,7 @@ import ComplianceReminderSettings from "@/components/ComplianceReminderSettings"
 import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
+import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
