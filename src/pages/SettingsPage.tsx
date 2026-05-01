@@ -293,6 +293,7 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
         <UserRoleSettings />
+        <EmailDeliveryTestCard />
         <FollowUpReminderSettings />
         <ComplianceReminderSettings />
         <JobCategorySettings />
