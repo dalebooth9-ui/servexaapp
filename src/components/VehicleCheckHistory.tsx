@@ -72,7 +72,25 @@ export default function VehicleCheckHistory() {
         .eq("engineer_id", user.id)
         .order("created_at", { ascending: false })
         .limit(30);
-      setRows((data as any) || []);
+      const list = ((data as any) || []) as Row[];
+      // Resolve private storage paths to signed URLs (1h)
+      await Promise.all(
+        list.map(async (r) => {
+          const paths = r.defect_photo_urls || [];
+          if (paths.length === 0) return;
+          const signed = await Promise.all(
+            paths.map(async (p) => {
+              if (/^https?:\/\//i.test(p)) return p;
+              const { data: s } = await supabase.storage
+                .from("vehicle-checks")
+                .createSignedUrl(p, 3600);
+              return s?.signedUrl || "";
+            })
+          );
+          r.defect_photo_urls = signed.filter(Boolean);
+        })
+      );
+      setRows(list);
     };
     load();
     const channel = supabase
