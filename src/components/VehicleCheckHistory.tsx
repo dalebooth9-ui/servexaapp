@@ -301,22 +301,37 @@ export default function VehicleCheckHistory() {
                           <Camera className="h-3 w-3" />
                           Defect photos ({photoPaths.length})
                         </p>
-                        {photoStates && photoStates.some((p) => p?.error) && (
+                        <div className="flex items-center gap-2">
+                          {photoStates && photoStates.some((p) => p?.error) && (
+                            <button
+                              type="button"
+                              className="text-[10px] text-primary hover:underline"
+                              onClick={() => {
+                                setSigned((s) => {
+                                  const next = { ...s };
+                                  delete next[r.id];
+                                  return next;
+                                });
+                                signPhotosFor(r);
+                              }}
+                            >
+                              Retry
+                            </button>
+                          )}
                           <button
                             type="button"
-                            className="text-[10px] text-primary hover:underline"
-                            onClick={() => {
-                              setSigned((s) => {
-                                const next = { ...s };
-                                delete next[r.id];
-                                return next;
-                              });
-                              signPhotosFor(r);
-                            }}
+                            disabled={!!downloading[r.id]}
+                            onClick={() => downloadAllPhotos(r)}
+                            className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                           >
-                            Retry
+                            {downloading[r.id] ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                            {downloading[r.id] ? "Preparing…" : "Download all"}
                           </button>
-                        )}
+                        </div>
                       </div>
                       {isSigning || !photoStates ? (
                         <div className="flex gap-2">
