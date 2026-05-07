@@ -127,19 +127,9 @@ export default function VehicleCheckHistory() {
     if (downloading[row.id]) return;
     setDownloading((s) => ({ ...s, [row.id]: true }));
     try {
-      // Ensure URLs are signed
-      let states = signed[row.id];
-      if (!states) {
-        await signPhotosFor(row);
-        states = (await new Promise<PhotoState[]>((resolve) => {
-          setSigned((s) => {
-            resolve(s[row.id] || []);
-            return s;
-          });
-        }));
-      }
+      const states = signed[row.id] || (await signPhotosFor(row));
       const paths = row.defect_photo_urls || [];
-      const current = signed[row.id] || states || [];
+      const current = states || [];
       const zip = new JSZip();
       let added = 0;
       await Promise.all(
