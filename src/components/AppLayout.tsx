@@ -49,6 +49,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
   { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
   { to: "/defects", label: "Defects", icon: AlertTriangle, section: "more", adminOnly: false },
+  { to: "/defects/review", label: "Defects Review", icon: AlertTriangle, section: "admin", adminOnly: true },
   { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
