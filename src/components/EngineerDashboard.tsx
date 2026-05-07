@@ -647,6 +647,15 @@ export default function EngineerDashboard() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Vehicle check hard block */}
+      {vehicleCheckDone === false && (
+        <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
+          <div className="max-w-lg mx-auto px-4 pt-6">
+            <VehicleCheckSheet onComplete={() => setVehicleCheckDone(true)} />
+          </div>
+        </div>
+      )}
+
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-1 pt-2 pb-24">
         {tabContent[activeTab]}
