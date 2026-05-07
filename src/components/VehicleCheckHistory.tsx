@@ -60,6 +60,7 @@ export default function VehicleCheckHistory() {
   // signed URLs keyed by check id, parallel to defect_photo_urls order
   const [signed, setSigned] = useState<Record<string, PhotoState[]>>({});
   const [signing, setSigning] = useState<Record<string, boolean>>({});
+  const [downloading, setDownloading] = useState<Record<string, boolean>>({});
 
   const [lightboxPhotos, setLightboxPhotos] = useState<{ id: string; url: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
