@@ -99,13 +99,29 @@ export default function EngineerDashboard() {
   useEffect(() => {
     if (!user) return;
     const today = format(new Date(), "yyyy-MM-dd");
-    supabase
-      .from("vehicle_checks")
-      .select("id")
-      .eq("engineer_id", user.id)
-      .eq("check_date", today)
-      .maybeSingle()
-      .then(({ data }) => setVehicleCheckDone(!!data));
+    const load = async () => {
+      const { data } = await supabase
+        .from("vehicle_checks")
+        .select("status")
+        .eq("engineer_id", user.id)
+        .eq("check_date", today)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      setVehicleCheckDone(data?.status === "accepted");
+    };
+    load();
+    const channel = supabase
+      .channel("vehicle-checks-dashboard")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vehicle_checks", filter: `engineer_id=eq.${user.id}` },
+        () => load()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
 
   // Elapsed timer
@@ -651,7 +667,7 @@ export default function EngineerDashboard() {
       {vehicleCheckDone === false && (
         <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
           <div className="max-w-lg mx-auto px-4 pt-6">
-            <VehicleCheckSheet onComplete={() => setVehicleCheckDone(true)} />
+            <VehicleCheckSheet onAccepted={() => setVehicleCheckDone(true)} />
           </div>
         </div>
       )}

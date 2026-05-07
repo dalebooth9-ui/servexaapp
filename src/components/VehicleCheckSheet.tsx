@@ -5,9 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Loader2, Car, AlertTriangle, Camera, X, CheckCircle2 } from "lucide-react";
+import { Loader2, Car, AlertTriangle, Camera, X, CheckCircle2, Clock, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 
@@ -28,12 +27,26 @@ const CHECK_ITEMS = [
   { key: "first_aid_kit", label: "First aid kit present" },
 ];
 
+type LatestCheck = {
+  id: string;
+  status: string;
+  rejection_reason: string | null;
+  vehicle_reg: string | null;
+  items: Record<string, "ok" | "defect"> | null;
+  has_defects: boolean;
+  defect_notes: string | null;
+} | null;
+
 type Props = {
-  onComplete: () => void;
+  onAccepted: () => void;
 };
 
-export default function VehicleCheckSheet({ onComplete }: Props) {
+export default function VehicleCheckSheet({ onAccepted }: Props) {
   const { user } = useAuth();
+  const today = format(new Date(), "yyyy-MM-dd");
+
+  const [latest, setLatest] = useState<LatestCheck | undefined>(undefined); // undefined = loading
+  const [showForm, setShowForm] = useState(false);
   const [vehicleReg, setVehicleReg] = useState("");
   const [mileage, setMileage] = useState("");
   const [items, setItems] = useState<Record<string, "ok" | "defect" | null>>(
@@ -43,20 +56,56 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
   const [photos, setPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  // Prefill last vehicle reg
+  const loadLatest = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("vehicle_checks")
+      .select("id, status, rejection_reason, vehicle_reg, items, has_defects, defect_notes")
+      .eq("engineer_id", user.id)
+      .eq("check_date", today)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    setLatest((data as any) ?? null);
+    if (data?.status === "accepted") onAccepted();
+  };
+
+  useEffect(() => {
+    loadLatest();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Realtime: react to admin review
   useEffect(() => {
     if (!user) return;
-    supabase
-      .from("vehicle_checks")
-      .select("vehicle_reg")
-      .eq("engineer_id", user.id)
-      .order("check_date", { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (data?.vehicle_reg) setVehicleReg(data.vehicle_reg);
-      });
+    const channel = supabase
+      .channel("vehicle-checks-self")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "vehicle_checks", filter: `engineer_id=eq.${user.id}` },
+        () => loadLatest()
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Prefill from latest (rejected) check when opening form
+  const startResubmit = () => {
+    if (latest) {
+      setVehicleReg(latest.vehicle_reg || "");
+      if (latest.items) {
+        setItems({
+          ...Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null])),
+          ...latest.items,
+        });
+      }
+      setDefectNotes(latest.defect_notes || "");
+    }
+    setShowForm(true);
+  };
 
   const hasDefects = Object.values(items).some((v) => v === "defect");
   const allAnswered = Object.values(items).every((v) => v !== null);
@@ -88,7 +137,6 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
 
     setSubmitting(true);
     try {
-      // Upload photos
       const photoUrls: string[] = [];
       for (const photo of photos) {
         const ext = photo.name.split(".").pop();
@@ -102,18 +150,21 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
 
       const { error } = await supabase.from("vehicle_checks").insert({
         engineer_id: user.id,
-        check_date: format(new Date(), "yyyy-MM-dd"),
+        check_date: today,
         vehicle_reg: vehicleReg.trim() || null,
         mileage: mileage ? parseInt(mileage) : null,
         items: items as any,
         has_defects: hasDefects,
         defect_notes: hasDefects ? defectNotes.trim() : null,
         defect_photo_urls: photoUrls,
-      });
+        status: "pending",
+      } as any);
 
       if (error) throw error;
-      toast.success(hasDefects ? "Check submitted — admins notified of defects" : "Vehicle check complete");
-      onComplete();
+      toast.success("Submitted — awaiting admin review");
+      setShowForm(false);
+      setPhotos([]);
+      await loadLatest();
     } catch (e: any) {
       toast.error(e.message || "Failed to submit check");
     } finally {
@@ -121,6 +172,67 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
     }
   };
 
+  // ── Render: loading
+  if (latest === undefined) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // ── Render: pending review (after submit, before form re-open)
+  if (!showForm && latest && latest.status === "pending") {
+    return (
+      <div className="space-y-4 pb-6">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-primary/15 p-2.5">
+            <Car className="h-6 w-6 text-primary" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Daily Vehicle Check</h2>
+            <p className="text-xs text-muted-foreground">Awaiting admin review</p>
+          </div>
+        </div>
+        <Card className="p-6 text-center space-y-3">
+          <Clock className="h-10 w-10 text-amber-500 mx-auto" />
+          <p className="font-semibold">Your check is awaiting admin review</p>
+          <p className="text-sm text-muted-foreground">
+            You'll get access to today's jobs as soon as it's accepted. This page will update automatically.
+          </p>
+        </Card>
+        <Button variant="outline" className="w-full" onClick={startResubmit}>
+          <RotateCcw className="h-4 w-4 mr-2" /> Edit & resubmit
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Render: rejected, prompt to resubmit
+  if (!showForm && latest && latest.status === "rejected") {
+    return (
+      <div className="space-y-4 pb-6">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-destructive/15 p-2.5">
+            <AlertTriangle className="h-6 w-6 text-destructive" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold">Vehicle check rejected</h2>
+            <p className="text-xs text-muted-foreground">Please correct and resubmit</p>
+          </div>
+        </div>
+        <Card className="p-4 border-destructive/30 bg-destructive/5 space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-destructive">Admin reason</p>
+          <p className="text-sm">{latest.rejection_reason || "No reason provided."}</p>
+        </Card>
+        <Button onClick={startResubmit} size="lg" className="w-full h-14">
+          <RotateCcw className="h-5 w-5 mr-2" /> Resubmit check
+        </Button>
+      </div>
+    );
+  }
+
+  // ── Render: form (new submission or resubmission)
   return (
     <div className="space-y-4 pb-6">
       <div className="flex items-center gap-3">
@@ -128,10 +240,21 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
           <Car className="h-6 w-6 text-primary" />
         </div>
         <div>
-          <h2 className="text-xl font-bold">Daily Vehicle Check</h2>
+          <h2 className="text-xl font-bold">
+            {latest?.status === "rejected" ? "Resubmit Vehicle Check" : "Daily Vehicle Check"}
+          </h2>
           <p className="text-xs text-muted-foreground">Required before viewing today's jobs</p>
         </div>
       </div>
+
+      {latest?.status === "rejected" && latest.rejection_reason && (
+        <Card className="p-3 border-destructive/30 bg-destructive/5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-destructive mb-1">
+            Previous rejection
+          </p>
+          <p className="text-sm">{latest.rejection_reason}</p>
+        </Card>
+      )}
 
       <Card className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
@@ -250,7 +373,7 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
         ) : (
           <>
             <CheckCircle2 className="h-5 w-5 mr-2" />
-            Submit Check & View Jobs
+            Submit for review
           </>
         )}
       </Button>
@@ -258,6 +381,11 @@ export default function VehicleCheckSheet({ onComplete }: Props) {
         <p className="text-xs text-center text-muted-foreground">
           {Object.values(items).filter((v) => v === null).length} items remaining
         </p>
+      )}
+      {latest && (
+        <Button variant="ghost" className="w-full" onClick={() => setShowForm(false)}>
+          Cancel
+        </Button>
       )}
     </div>
   );

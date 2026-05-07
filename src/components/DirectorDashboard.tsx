@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
+import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -463,6 +464,11 @@ export default function DirectorDashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Vehicle check reviews */}
+          <div className="md:col-span-2 lg:col-span-3">
+            <VehicleCheckReviewCard />
+          </div>
 
           {/* Recent Activity */}
           <Card className="md:col-span-2 lg:col-span-3">
