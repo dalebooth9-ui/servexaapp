@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera } from "lucide-react";
+import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera, ImageOff } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import PhotoLightbox from "@/components/PhotoLightbox";
 
@@ -50,9 +50,15 @@ const STATUS_META: Record<string, { label: string; cls: string; Icon: any }> = {
   rejected: { label: "Rejected", cls: "bg-destructive/15 text-destructive border-destructive/30", Icon: XCircle },
 };
 
+type PhotoState = { url: string; error: boolean } | null;
+
 export default function VehicleCheckHistory() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
+  // signed URLs keyed by check id, parallel to defect_photo_urls order
+  const [signed, setSigned] = useState<Record<string, PhotoState[]>>({});
+  const [signing, setSigning] = useState<Record<string, boolean>>({});
+
   const [lightboxPhotos, setLightboxPhotos] = useState<{ id: string; url: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -72,25 +78,7 @@ export default function VehicleCheckHistory() {
         .eq("engineer_id", user.id)
         .order("created_at", { ascending: false })
         .limit(30);
-      const list = ((data as any) || []) as Row[];
-      // Resolve private storage paths to signed URLs (1h)
-      await Promise.all(
-        list.map(async (r) => {
-          const paths = r.defect_photo_urls || [];
-          if (paths.length === 0) return;
-          const signed = await Promise.all(
-            paths.map(async (p) => {
-              if (/^https?:\/\//i.test(p)) return p;
-              const { data: s } = await supabase.storage
-                .from("vehicle-checks")
-                .createSignedUrl(p, 3600);
-              return s?.signedUrl || "";
-            })
-          );
-          r.defect_photo_urls = signed.filter(Boolean);
-        })
-      );
-      setRows(list);
+      setRows(((data as any) || []) as Row[]);
     };
     load();
     const channel = supabase
@@ -98,13 +86,37 @@ export default function VehicleCheckHistory() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "vehicle_checks", filter: `engineer_id=eq.${user.id}` },
-        () => load()
+        () => {
+          // Invalidate signed URLs so they refresh on next expand
+          setSigned({});
+          load();
+        }
       )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  const signPhotosFor = async (row: Row) => {
+    if (signed[row.id] || signing[row.id]) return;
+    const paths = row.defect_photo_urls || [];
+    if (paths.length === 0) return;
+    setSigning((s) => ({ ...s, [row.id]: true }));
+    const results: PhotoState[] = await Promise.all(
+      paths.map(async (p) => {
+        if (!p) return { url: "", error: true };
+        if (/^https?:\/\//i.test(p)) return { url: p, error: false };
+        const { data, error } = await supabase.storage
+          .from("vehicle-checks")
+          .createSignedUrl(p, 3600);
+        if (error || !data?.signedUrl) return { url: "", error: true };
+        return { url: data.signedUrl, error: false };
+      })
+    );
+    setSigned((s) => ({ ...s, [row.id]: results }));
+    setSigning((s) => ({ ...s, [row.id]: false }));
+  };
 
   if (rows === null) {
     return (
@@ -129,8 +141,18 @@ export default function VehicleCheckHistory() {
         const items = r.items || {};
         const defects = ALL_KEYS.filter((k) => items[k] === "defect");
         const missing = ALL_KEYS.filter((k) => items[k] === undefined || items[k] === null);
+        const photoPaths = r.defect_photo_urls || [];
+        const photoStates = signed[r.id];
+        const isSigning = signing[r.id];
+        const validUrls = (photoStates || []).filter((p): p is { url: string; error: false } => !!p && !p.error).map((p) => p.url);
+
         return (
-          <Collapsible key={r.id}>
+          <Collapsible
+            key={r.id}
+            onOpenChange={(open) => {
+              if (open) signPhotosFor(r);
+            }}
+          >
             <Card className="overflow-hidden">
               <CollapsibleTrigger className="w-full flex items-center gap-3 p-3 text-left active:bg-muted/40 transition-colors">
                 <div className={`rounded-lg p-2 ${meta.cls.split(" ")[0]}`}>
@@ -219,24 +241,78 @@ export default function VehicleCheckHistory() {
                     </div>
                   )}
 
-                  {(r.defect_photo_urls?.length ?? 0) > 0 && (
+                  {photoPaths.length > 0 && (
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                        <Camera className="h-3 w-3" />
-                        Defect photos ({r.defect_photo_urls!.length})
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        {r.defect_photo_urls!.map((url, i) => (
+                      <div className="flex items-center justify-between mb-1.5">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                          <Camera className="h-3 w-3" />
+                          Defect photos ({photoPaths.length})
+                        </p>
+                        {photoStates && photoStates.some((p) => p?.error) && (
                           <button
-                            key={i}
                             type="button"
-                            onClick={() => openGallery(r.defect_photo_urls!, i)}
-                            className="h-16 w-16 rounded-md overflow-hidden border hover:ring-2 hover:ring-primary transition"
+                            className="text-[10px] text-primary hover:underline"
+                            onClick={() => {
+                              setSigned((s) => {
+                                const next = { ...s };
+                                delete next[r.id];
+                                return next;
+                              });
+                              signPhotosFor(r);
+                            }}
                           >
-                            <img src={url} alt={`Defect photo ${i + 1}`} className="h-full w-full object-cover" />
+                            Retry
                           </button>
-                        ))}
+                        )}
                       </div>
+                      {isSigning || !photoStates ? (
+                        <div className="flex gap-2">
+                          {photoPaths.map((_, i) => (
+                            <div key={i} className="h-16 w-16 rounded-md border bg-muted animate-pulse" />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {photoStates.map((p, i) =>
+                            p && !p.error ? (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => {
+                                  // Map index in validUrls
+                                  const validIdx = photoStates
+                                    .slice(0, i + 1)
+                                    .filter((x) => x && !x.error).length - 1;
+                                  openGallery(validUrls, validIdx);
+                                }}
+                                className="h-16 w-16 rounded-md overflow-hidden border hover:ring-2 hover:ring-primary transition"
+                              >
+                                <img
+                                  src={p.url}
+                                  alt={`Defect photo ${i + 1}`}
+                                  className="h-full w-full object-cover"
+                                  onError={() => {
+                                    setSigned((s) => {
+                                      const arr = [...(s[r.id] || [])];
+                                      arr[i] = { url: "", error: true };
+                                      return { ...s, [r.id]: arr };
+                                    });
+                                  }}
+                                />
+                              </button>
+                            ) : (
+                              <div
+                                key={i}
+                                className="h-16 w-16 rounded-md border bg-muted/40 flex flex-col items-center justify-center text-muted-foreground"
+                                title="Photo could not be loaded"
+                              >
+                                <ImageOff className="h-4 w-4" />
+                                <span className="text-[8px] mt-0.5">Unavailable</span>
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
