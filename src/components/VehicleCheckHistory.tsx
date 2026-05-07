@@ -8,8 +8,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Car } from "lucide-react";
+import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import PhotoLightbox from "@/components/PhotoLightbox";
 
 const ITEM_LABELS: Record<string, string> = {
   tyres: "Tyres",
@@ -40,6 +41,7 @@ type Row = {
   items: Record<string, "ok" | "defect"> | null;
   defect_notes: string | null;
   rejection_reason: string | null;
+  defect_photo_urls: string[] | null;
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; Icon: any }> = {
@@ -51,17 +53,44 @@ const STATUS_META: Record<string, { label: string; cls: string; Icon: any }> = {
 export default function VehicleCheckHistory() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [lightboxPhotos, setLightboxPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const openGallery = (urls: string[], idx: number) => {
+    setLightboxPhotos(urls.map((u, i) => ({ id: `${i}`, url: u })));
+    setLightboxIndex(idx);
+    setLightboxOpen(true);
+  };
 
   useEffect(() => {
     if (!user) return;
     const load = async () => {
       const { data } = await supabase
         .from("vehicle_checks")
-        .select("id, check_date, created_at, status, has_defects, vehicle_reg, mileage, items, defect_notes, rejection_reason")
+        .select("id, check_date, created_at, status, has_defects, vehicle_reg, mileage, items, defect_notes, rejection_reason, defect_photo_urls")
         .eq("engineer_id", user.id)
         .order("created_at", { ascending: false })
         .limit(30);
-      setRows((data as any) || []);
+      const list = ((data as any) || []) as Row[];
+      // Resolve private storage paths to signed URLs (1h)
+      await Promise.all(
+        list.map(async (r) => {
+          const paths = r.defect_photo_urls || [];
+          if (paths.length === 0) return;
+          const signed = await Promise.all(
+            paths.map(async (p) => {
+              if (/^https?:\/\//i.test(p)) return p;
+              const { data: s } = await supabase.storage
+                .from("vehicle-checks")
+                .createSignedUrl(p, 3600);
+              return s?.signedUrl || "";
+            })
+          );
+          r.defect_photo_urls = signed.filter(Boolean);
+        })
+      );
+      setRows(list);
     };
     load();
     const channel = supabase
@@ -189,12 +218,41 @@ export default function VehicleCheckHistory() {
                       <p className="text-muted-foreground whitespace-pre-line">{r.defect_notes}</p>
                     </div>
                   )}
+
+                  {(r.defect_photo_urls?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                        <Camera className="h-3 w-3" />
+                        Defect photos ({r.defect_photo_urls!.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {r.defect_photo_urls!.map((url, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => openGallery(r.defect_photo_urls!, i)}
+                            className="h-16 w-16 rounded-md overflow-hidden border hover:ring-2 hover:ring-primary transition"
+                          >
+                            <img src={url} alt={`Defect photo ${i + 1}`} className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CollapsibleContent>
             </Card>
           </Collapsible>
         );
       })}
+
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        currentIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        onIndexChange={setLightboxIndex}
+      />
     </div>
   );
 }
