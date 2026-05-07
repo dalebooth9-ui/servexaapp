@@ -41,6 +41,7 @@ type Row = {
   items: Record<string, "ok" | "defect"> | null;
   defect_notes: string | null;
   rejection_reason: string | null;
+  defect_photo_urls: string[] | null;
 };
 
 const STATUS_META: Record<string, { label: string; cls: string; Icon: any }> = {
