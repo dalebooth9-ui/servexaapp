@@ -4055,6 +4055,45 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_checks: {
+        Row: {
+          check_date: string
+          created_at: string
+          defect_notes: string | null
+          defect_photo_urls: string[] | null
+          engineer_id: string
+          has_defects: boolean
+          id: string
+          items: Json
+          mileage: number | null
+          vehicle_reg: string | null
+        }
+        Insert: {
+          check_date?: string
+          created_at?: string
+          defect_notes?: string | null
+          defect_photo_urls?: string[] | null
+          engineer_id: string
+          has_defects?: boolean
+          id?: string
+          items?: Json
+          mileage?: number | null
+          vehicle_reg?: string | null
+        }
+        Update: {
+          check_date?: string
+          created_at?: string
+          defect_notes?: string | null
+          defect_photo_urls?: string[] | null
+          engineer_id?: string
+          has_defects?: boolean
+          id?: string
+          items?: Json
+          mileage?: number | null
+          vehicle_reg?: string | null
+        }
+        Relationships: []
+      }
       xero_connections: {
         Row: {
           access_token: string
