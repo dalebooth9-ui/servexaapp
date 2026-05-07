@@ -121,6 +121,64 @@ export default function VehicleCheckHistory() {
     setSigning((s) => ({ ...s, [row.id]: false }));
   };
 
+  const downloadAllPhotos = async (row: Row) => {
+    if (downloading[row.id]) return;
+    setDownloading((s) => ({ ...s, [row.id]: true }));
+    try {
+      // Ensure URLs are signed
+      let states = signed[row.id];
+      if (!states) {
+        await signPhotosFor(row);
+        states = (await new Promise<PhotoState[]>((resolve) => {
+          setSigned((s) => {
+            resolve(s[row.id] || []);
+            return s;
+          });
+        }));
+      }
+      const paths = row.defect_photo_urls || [];
+      const current = signed[row.id] || states || [];
+      const zip = new JSZip();
+      let added = 0;
+      await Promise.all(
+        current.map(async (p, i) => {
+          if (!p || p.error || !p.url) return;
+          try {
+            const res = await fetch(p.url);
+            if (!res.ok) return;
+            const blob = await res.blob();
+            const orig = paths[i] || `photo-${i + 1}`;
+            const name = orig.split("/").pop() || `photo-${i + 1}.jpg`;
+            zip.file(`${String(i + 1).padStart(2, "0")}-${name}`, blob);
+            added++;
+          } catch {
+            /* skip */
+          }
+        })
+      );
+      if (added === 0) {
+        toast.error("No photos available to download");
+        return;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const dateStr = format(parseISO(row.check_date), "yyyy-MM-dd");
+      const reg = row.vehicle_reg ? `-${row.vehicle_reg.replace(/\s+/g, "")}` : "";
+      a.download = `vehicle-check-${dateStr}${reg}-defect-photos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${added} photo${added === 1 ? "" : "s"}`);
+    } catch (e) {
+      toast.error("Failed to download photos");
+    } finally {
+      setDownloading((s) => ({ ...s, [row.id]: false }));
+    }
+  };
+
   if (rows === null) {
     return (
       <Card className="p-4 flex items-center justify-center">
