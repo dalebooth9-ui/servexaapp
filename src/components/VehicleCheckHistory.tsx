@@ -8,8 +8,9 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Car } from "lucide-react";
+import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera } from "lucide-react";
 import { format, parseISO } from "date-fns";
+import PhotoLightbox from "@/components/PhotoLightbox";
 
 const ITEM_LABELS: Record<string, string> = {
   tyres: "Tyres",
