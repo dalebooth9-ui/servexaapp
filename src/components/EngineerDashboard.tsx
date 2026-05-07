@@ -667,7 +667,7 @@ export default function EngineerDashboard() {
       {vehicleCheckDone === false && (
         <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
           <div className="max-w-lg mx-auto px-4 pt-6">
-            <VehicleCheckSheet onComplete={() => setVehicleCheckDone(true)} />
+            <VehicleCheckSheet onAccepted={() => setVehicleCheckDone(true)} />
           </div>
         </div>
       )}
