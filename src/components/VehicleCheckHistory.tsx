@@ -8,9 +8,11 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera, ImageOff } from "lucide-react";
+import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera, ImageOff, Download } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import JSZip from "jszip";
+import { toast } from "sonner";
 
 const ITEM_LABELS: Record<string, string> = {
   tyres: "Tyres",
@@ -58,6 +60,7 @@ export default function VehicleCheckHistory() {
   // signed URLs keyed by check id, parallel to defect_photo_urls order
   const [signed, setSigned] = useState<Record<string, PhotoState[]>>({});
   const [signing, setSigning] = useState<Record<string, boolean>>({});
+  const [downloading, setDownloading] = useState<Record<string, boolean>>({});
 
   const [lightboxPhotos, setLightboxPhotos] = useState<{ id: string; url: string }[]>([]);
   const [lightboxIndex, setLightboxIndex] = useState(0);
@@ -98,10 +101,11 @@ export default function VehicleCheckHistory() {
     };
   }, [user]);
 
-  const signPhotosFor = async (row: Row) => {
-    if (signed[row.id] || signing[row.id]) return;
+  const signPhotosFor = async (row: Row): Promise<PhotoState[]> => {
+    if (signed[row.id]) return signed[row.id];
+    if (signing[row.id]) return [];
     const paths = row.defect_photo_urls || [];
-    if (paths.length === 0) return;
+    if (paths.length === 0) return [];
     setSigning((s) => ({ ...s, [row.id]: true }));
     const results: PhotoState[] = await Promise.all(
       paths.map(async (p) => {
@@ -116,6 +120,55 @@ export default function VehicleCheckHistory() {
     );
     setSigned((s) => ({ ...s, [row.id]: results }));
     setSigning((s) => ({ ...s, [row.id]: false }));
+    return results;
+  };
+
+  const downloadAllPhotos = async (row: Row) => {
+    if (downloading[row.id]) return;
+    setDownloading((s) => ({ ...s, [row.id]: true }));
+    try {
+      const states = signed[row.id] || (await signPhotosFor(row));
+      const paths = row.defect_photo_urls || [];
+      const current = states || [];
+      const zip = new JSZip();
+      let added = 0;
+      await Promise.all(
+        current.map(async (p, i) => {
+          if (!p || p.error || !p.url) return;
+          try {
+            const res = await fetch(p.url);
+            if (!res.ok) return;
+            const blob = await res.blob();
+            const orig = paths[i] || `photo-${i + 1}`;
+            const name = orig.split("/").pop() || `photo-${i + 1}.jpg`;
+            zip.file(`${String(i + 1).padStart(2, "0")}-${name}`, blob);
+            added++;
+          } catch {
+            /* skip */
+          }
+        })
+      );
+      if (added === 0) {
+        toast.error("No photos available to download");
+        return;
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const dateStr = format(parseISO(row.check_date), "yyyy-MM-dd");
+      const reg = row.vehicle_reg ? `-${row.vehicle_reg.replace(/\s+/g, "")}` : "";
+      a.download = `vehicle-check-${dateStr}${reg}-defect-photos.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success(`Downloaded ${added} photo${added === 1 ? "" : "s"}`);
+    } catch (e) {
+      toast.error("Failed to download photos");
+    } finally {
+      setDownloading((s) => ({ ...s, [row.id]: false }));
+    }
   };
 
   if (rows === null) {
@@ -248,22 +301,37 @@ export default function VehicleCheckHistory() {
                           <Camera className="h-3 w-3" />
                           Defect photos ({photoPaths.length})
                         </p>
-                        {photoStates && photoStates.some((p) => p?.error) && (
+                        <div className="flex items-center gap-2">
+                          {photoStates && photoStates.some((p) => p?.error) && (
+                            <button
+                              type="button"
+                              className="text-[10px] text-primary hover:underline"
+                              onClick={() => {
+                                setSigned((s) => {
+                                  const next = { ...s };
+                                  delete next[r.id];
+                                  return next;
+                                });
+                                signPhotosFor(r);
+                              }}
+                            >
+                              Retry
+                            </button>
+                          )}
                           <button
                             type="button"
-                            className="text-[10px] text-primary hover:underline"
-                            onClick={() => {
-                              setSigned((s) => {
-                                const next = { ...s };
-                                delete next[r.id];
-                                return next;
-                              });
-                              signPhotosFor(r);
-                            }}
+                            disabled={!!downloading[r.id]}
+                            onClick={() => downloadAllPhotos(r)}
+                            className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline disabled:opacity-50 disabled:no-underline"
                           >
-                            Retry
+                            {downloading[r.id] ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Download className="h-3 w-3" />
+                            )}
+                            {downloading[r.id] ? "Preparing…" : "Download all"}
                           </button>
-                        )}
+                        </div>
                       </div>
                       {isSigning || !photoStates ? (
                         <div className="flex gap-2">
