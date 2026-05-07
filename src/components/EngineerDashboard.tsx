@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
+import VehicleCheckHistory from "@/components/VehicleCheckHistory";
 
 type ScheduledJob = {
   id: string;
