@@ -101,10 +101,11 @@ export default function VehicleCheckHistory() {
     };
   }, [user]);
 
-  const signPhotosFor = async (row: Row) => {
-    if (signed[row.id] || signing[row.id]) return;
+  const signPhotosFor = async (row: Row): Promise<PhotoState[]> => {
+    if (signed[row.id]) return signed[row.id];
+    if (signing[row.id]) return [];
     const paths = row.defect_photo_urls || [];
-    if (paths.length === 0) return;
+    if (paths.length === 0) return [];
     setSigning((s) => ({ ...s, [row.id]: true }));
     const results: PhotoState[] = await Promise.all(
       paths.map(async (p) => {
@@ -119,6 +120,7 @@ export default function VehicleCheckHistory() {
     );
     setSigned((s) => ({ ...s, [row.id]: results }));
     setSigning((s) => ({ ...s, [row.id]: false }));
+    return results;
   };
 
   const downloadAllPhotos = async (row: Row) => {
