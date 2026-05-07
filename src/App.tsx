@@ -54,6 +54,7 @@ const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
 const Defects = lazy(() => import("@/pages/Defects"));
+const DefectsReview = lazy(() => import("@/pages/DefectsReview"));
 const QuoteApproval = lazy(() => import("@/pages/QuoteApproval"));
 const FireLog = lazy(() => import("@/pages/FireLog"));
 const ReportDownloads = lazy(() => import("@/pages/ReportDownloads"));
