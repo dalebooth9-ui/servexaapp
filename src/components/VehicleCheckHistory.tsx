@@ -245,6 +245,14 @@ export default function VehicleCheckHistory() {
           </Collapsible>
         );
       })}
+
+      <PhotoLightbox
+        photos={lightboxPhotos}
+        currentIndex={lightboxIndex}
+        open={lightboxOpen}
+        onOpenChange={setLightboxOpen}
+        onIndexChange={setLightboxIndex}
+      />
     </div>
   );
 }
