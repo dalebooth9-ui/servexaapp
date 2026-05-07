@@ -4066,6 +4066,10 @@ export type Database = {
           id: string
           items: Json
           mileage: number | null
+          rejection_reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
           vehicle_reg: string | null
         }
         Insert: {
@@ -4078,6 +4082,10 @@ export type Database = {
           id?: string
           items?: Json
           mileage?: number | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
           vehicle_reg?: string | null
         }
         Update: {
@@ -4090,6 +4098,10 @@ export type Database = {
           id?: string
           items?: Json
           mileage?: number | null
+          rejection_reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
           vehicle_reg?: string | null
         }
         Relationships: []
