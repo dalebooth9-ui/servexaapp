@@ -93,6 +93,20 @@ export default function EngineerDashboard() {
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [vehicleCheckDone, setVehicleCheckDone] = useState<boolean | null>(null);
+
+  // Check today's vehicle check
+  useEffect(() => {
+    if (!user) return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    supabase
+      .from("vehicle_checks")
+      .select("id")
+      .eq("engineer_id", user.id)
+      .eq("check_date", today)
+      .maybeSingle()
+      .then(({ data }) => setVehicleCheckDone(!!data));
+  }, [user]);
 
   // Elapsed timer
   useEffect(() => {
