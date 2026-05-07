@@ -13,6 +13,7 @@ import {
   ChevronRight, Zap, ArrowRight
 } from "lucide-react";
 import { format } from "date-fns";
+import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 
 type ScheduledJob = {
   id: string;
