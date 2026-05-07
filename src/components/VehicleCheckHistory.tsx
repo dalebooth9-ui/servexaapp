@@ -53,6 +53,15 @@ const STATUS_META: Record<string, { label: string; cls: string; Icon: any }> = {
 export default function VehicleCheckHistory() {
   const { user } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
+  const [lightboxPhotos, setLightboxPhotos] = useState<{ id: string; url: string }[]>([]);
+  const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  const openGallery = (urls: string[], idx: number) => {
+    setLightboxPhotos(urls.map((u, i) => ({ id: `${i}`, url: u })));
+    setLightboxIndex(idx);
+    setLightboxOpen(true);
+  };
 
   useEffect(() => {
     if (!user) return;
