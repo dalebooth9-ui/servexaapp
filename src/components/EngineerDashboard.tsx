@@ -13,6 +13,7 @@ import {
   ChevronRight, Zap, ArrowRight
 } from "lucide-react";
 import { format } from "date-fns";
+import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 
 type ScheduledJob = {
   id: string;
@@ -92,6 +93,20 @@ export default function EngineerDashboard() {
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
+  const [vehicleCheckDone, setVehicleCheckDone] = useState<boolean | null>(null);
+
+  // Check today's vehicle check
+  useEffect(() => {
+    if (!user) return;
+    const today = format(new Date(), "yyyy-MM-dd");
+    supabase
+      .from("vehicle_checks")
+      .select("id")
+      .eq("engineer_id", user.id)
+      .eq("check_date", today)
+      .maybeSingle()
+      .then(({ data }) => setVehicleCheckDone(!!data));
+  }, [user]);
 
   // Elapsed timer
   useEffect(() => {
@@ -632,6 +647,15 @@ export default function EngineerDashboard() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Vehicle check hard block */}
+      {vehicleCheckDone === false && (
+        <div className="fixed inset-0 z-[60] bg-background overflow-y-auto">
+          <div className="max-w-lg mx-auto px-4 pt-6">
+            <VehicleCheckSheet onComplete={() => setVehicleCheckDone(true)} />
+          </div>
+        </div>
+      )}
+
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-1 pt-2 pb-24">
         {tabContent[activeTab]}
