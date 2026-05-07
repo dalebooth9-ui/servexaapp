@@ -140,48 +140,54 @@ export default function VehicleCheckHistory() {
                     </div>
                   )}
 
-                  {defects.length > 0 && (
-                    <div>
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Item-by-item
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        {ALL_KEYS.length - defects.length - missing.length} OK · {defects.length} defect · {missing.length} unanswered
+                      </p>
+                    </div>
+                    <ul className="divide-y rounded-md border">
+                      {ALL_KEYS.map((k) => {
+                        const v = items[k];
+                        const isDefect = v === "defect";
+                        const isOk = v === "ok";
+                        const StatusIcon = isOk ? CheckCircle2 : isDefect ? XCircle : AlertTriangle;
+                        const statusLabel = isOk ? "OK" : isDefect ? "Defect" : "Not answered";
+                        const statusCls = isOk
+                          ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30"
+                          : isDefect
+                          ? "bg-destructive/15 text-destructive border-destructive/30"
+                          : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
+                        const iconCls = isOk
+                          ? "text-green-500"
+                          : isDefect
+                          ? "text-destructive"
+                          : "text-amber-500";
+                        return (
+                          <li key={k} className="flex items-center justify-between px-2.5 py-1.5 text-xs">
+                            <span className="flex items-center gap-2">
+                              <StatusIcon className={`h-3.5 w-3.5 ${iconCls}`} />
+                              {ITEM_LABELS[k]}
+                            </span>
+                            <Badge variant="outline" className={`text-[10px] ${statusCls}`}>
+                              {statusLabel}
+                            </Badge>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+
+                  {defects.length > 0 && r.defect_notes && (
+                    <div className="text-xs">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-destructive mb-1">
-                        Failed items
+                        Defect notes
                       </p>
-                      <ul className="text-xs space-y-0.5">
-                        {defects.map((k) => (
-                          <li key={k} className="flex items-center gap-2">
-                            <XCircle className="h-3 w-3 text-destructive" />
-                            {ITEM_LABELS[k]}
-                          </li>
-                        ))}
-                      </ul>
-                      {r.defect_notes && (
-                        <p className="text-xs text-muted-foreground mt-2 whitespace-pre-line">
-                          {r.defect_notes}
-                        </p>
-                      )}
+                      <p className="text-muted-foreground whitespace-pre-line">{r.defect_notes}</p>
                     </div>
-                  )}
-
-                  {missing.length > 0 && (
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-600 mb-1">
-                        Not answered
-                      </p>
-                      <ul className="text-xs space-y-0.5">
-                        {missing.map((k) => (
-                          <li key={k} className="flex items-center gap-2 text-muted-foreground">
-                            <AlertTriangle className="h-3 w-3 text-amber-500" />
-                            {ITEM_LABELS[k]}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {defects.length === 0 && missing.length === 0 && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />
-                      All {ALL_KEYS.length} checks passed.
-                    </p>
                   )}
                 </div>
               </CollapsibleContent>
