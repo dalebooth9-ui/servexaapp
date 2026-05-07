@@ -652,6 +652,11 @@ export default function EngineerDashboard() {
           </button>
         ))}
       </div>
+
+      <div className="space-y-2 pt-2">
+        <h3 className="text-sm font-semibold px-1">Vehicle check history</h3>
+        <VehicleCheckHistory />
+      </div>
     </div>
   );
 
