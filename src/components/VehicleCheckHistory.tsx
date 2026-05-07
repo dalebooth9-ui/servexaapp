@@ -59,7 +59,7 @@ export default function VehicleCheckHistory() {
     const load = async () => {
       const { data } = await supabase
         .from("vehicle_checks")
-        .select("id, check_date, created_at, status, has_defects, vehicle_reg, mileage, items, defect_notes, rejection_reason")
+        .select("id, check_date, created_at, status, has_defects, vehicle_reg, mileage, items, defect_notes, rejection_reason, defect_photo_urls")
         .eq("engineer_id", user.id)
         .order("created_at", { ascending: false })
         .limit(30);
