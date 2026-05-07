@@ -218,6 +218,27 @@ export default function VehicleCheckHistory() {
                       <p className="text-muted-foreground whitespace-pre-line">{r.defect_notes}</p>
                     </div>
                   )}
+
+                  {(r.defect_photo_urls?.length ?? 0) > 0 && (
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                        <Camera className="h-3 w-3" />
+                        Defect photos ({r.defect_photo_urls!.length})
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {r.defect_photo_urls!.map((url, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => openGallery(r.defect_photo_urls!, i)}
+                            className="h-16 w-16 rounded-md overflow-hidden border hover:ring-2 hover:ring-primary transition"
+                          >
+                            <img src={url} alt={`Defect photo ${i + 1}`} className="h-full w-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CollapsibleContent>
             </Card>
