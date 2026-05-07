@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
+import VehicleCheckHistory from "@/components/VehicleCheckHistory";
 
 type ScheduledJob = {
   id: string;
@@ -650,6 +651,11 @@ export default function EngineerDashboard() {
             <ChevronRight className="h-5 w-5 text-muted-foreground" />
           </button>
         ))}
+      </div>
+
+      <div className="space-y-2 pt-2">
+        <h3 className="text-sm font-semibold px-1">Vehicle check history</h3>
+        <VehicleCheckHistory />
       </div>
     </div>
   );
