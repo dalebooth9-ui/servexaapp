@@ -464,6 +464,11 @@ export default function DirectorDashboard() {
             </CardContent>
           </Card>
 
+          {/* Vehicle check reviews */}
+          <div className="md:col-span-2 lg:col-span-3">
+            <VehicleCheckReviewCard />
+          </div>
+
           {/* Recent Activity */}
           <Card className="md:col-span-2 lg:col-span-3">
             <CardHeader className="pb-2">
