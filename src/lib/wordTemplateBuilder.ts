@@ -519,7 +519,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Navy separator line below the title (mirrors PDF rule).
   children.push(
     new Paragraph({
-      spacing: { after: 60 },
+      spacing: { before: 0, after: 20 },
       border: {
         bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
       },
