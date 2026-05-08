@@ -8,13 +8,17 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Eye, Download, Printer, Loader2, FileText, FileType, PenLine } from "lucide-react";
+import { Eye, Download, Printer, Loader2, FileText, FileType, PenLine, FileStack } from "lucide-react";
 import BlankTemplatePdfExport, {
   type BlankTemplatePdfExportHandle,
 } from "@/components/BlankTemplatePdfExport";
 import BlankTemplateWordExport, {
   type BlankTemplateWordExportHandle,
 } from "@/components/BlankTemplateWordExport";
+import { downloadBlob } from "@/lib/regenerateTemplateExports";
+import { blankTemplateFileSlug, buildBlankTemplateDoc } from "@/lib/wordTemplateBuilder";
+import { Packer } from "docx";
+import { useToast } from "@/hooks/use-toast";
 
 type Props = {
   template: any;
@@ -31,12 +35,44 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
   const wordRef = useRef<BlankTemplateWordExportHandle>(null);
   const [busy, setBusy] = useState(false);
 
+  const { toast } = useToast();
+
   const run = async (fn: () => Promise<any> | any) => {
     setBusy(true);
     try {
       await fn();
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Regenerate BOTH PDF and Word from the same template object — guarantees
+   * both files reflect the identical template version. Word doc is built
+   * inline via the headless ref; PDF blob is built via getBlob(). Both
+   * generators share the layout helpers proven equivalent by
+   * `wordPdfFullParity.test.ts`.
+   */
+  const downloadBoth = async () => {
+    const slug = blankTemplateFileSlug(template.name);
+    try {
+      const [pdfBlob, wordDoc] = await Promise.all([
+        pdfRef.current?.getBlob() ?? Promise.resolve(null),
+        buildBlankTemplateDoc(template),
+      ]);
+      const docxBlob = await Packer.toBlob(wordDoc);
+      if (pdfBlob) downloadBlob(pdfBlob, `${slug}-blank.pdf`);
+      downloadBlob(docxBlob, `${slug}-blank.docx`);
+      toast({
+        title: "Regenerated PDF + Word",
+        description: `${template.name} — both files exported from the same template version.`,
+      });
+    } catch (err: any) {
+      toast({
+        title: "Regeneration failed",
+        description: err?.message ?? "Unable to export both formats.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -76,6 +112,9 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => run(() => wordRef.current?.download())}>
             <FileText className="h-3.5 w-3.5 mr-2" /> Word (.docx)
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => run(downloadBoth)}>
+            <FileStack className="h-3.5 w-3.5 mr-2" /> PDF + Word (same version)
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => run(() => pdfRef.current?.download({ handfill: true }))}>
