@@ -323,30 +323,32 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 }
 
 export function renderFieldRow(field: TemplateField): TableRow {
-  // Multi-line / signature rows need a generous *minimum* height so the row
-  // never visually clips, but use HeightRule.ATLEAST so Word can grow the row
-  // to fit longer content rather than overlapping the next row.
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
-  let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined;
-  if (isMultiLine) height = { value: 1100, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 900, rule: HeightRule.ATLEAST };
+  // Compact rows to mirror the PDF (≈6mm rows). EXACT keeps rows tight; multi-line/signature use ATLEAST.
+  let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
+    { value: 340, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 900, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 700, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
       new TableCell({
         borders: cellBorders,
         width: { size: LABEL_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
-          new Paragraph({ children: [new TextRun({ text: field.label, bold: true, size: 20 })] }),
+          new Paragraph({
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: field.label, bold: true, size: 16 })],
+          }),
         ],
       }),
       new TableCell({
         borders: cellBorders,
         width: { size: VALUE_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: buildValueCellChildren(field),
       }),
@@ -359,16 +361,18 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
+    height: { value: 320, rule: HeightRule.ATLEAST },
     children: [
       new TableCell({
         borders: cellBorders,
         shading: headerShading,
         width: { size: LABEL_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
           new Paragraph({
-            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 20 })],
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 16 })],
           }),
         ],
       }),
@@ -376,10 +380,13 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
         borders: cellBorders,
         shading: headerShading,
         width: { size: VALUE_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
-          new Paragraph({ children: [new TextRun({ text: "RESULT", bold: true, size: 20 })] }),
+          new Paragraph({
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: "RESULT", bold: true, size: 16 })],
+          }),
         ],
       }),
     ],
@@ -543,8 +550,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (template.description) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: template.description, size: 20 })],
-        spacing: { after: 200 },
+        children: [new TextRun({ text: template.description, size: 16 })],
+        spacing: { after: 80 },
       }),
     );
   }
@@ -560,83 +567,81 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     );
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: " ", size: 12 })],
-        spacing: { after: 60 },
+        children: [new TextRun({ text: "", size: 4 })],
+        spacing: { after: 20 },
       }),
     );
   }
 
-  // Sign-off block
+  // Comments box (mirrors PDF "Comments:" label + bordered empty box)
   children.push(
     new Paragraph({
-      heading: HeadingLevel.HEADING_2,
-      children: [new TextRun({ text: "Sign-off", bold: true })],
-      spacing: { before: 300, after: 100 },
+      spacing: { before: 80, after: 20 },
+      children: [new TextRun({ text: "Comments:", bold: true, size: 16 })],
     }),
     new Table({
       width: { size: TABLE_W, type: WidthType.DXA },
-      columnWidths: [LABEL_COL, VALUE_COL],
+      columnWidths: [TABLE_W],
       rows: [
         new TableRow({
+          height: { value: 600, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: "Engineer name", bold: true, size: 20 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
+              width: { size: TABLE_W, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
         }),
+      ],
+    }),
+  );
+
+  // Two-column sign-off block: Date / Technician / Signature  |  Date / Customer / Signature
+  // Mirrors PDF renderPdfSignatures layout.
+  const sigColLabel = Math.round(TABLE_W * 0.10);
+  const sigColValue = Math.round(TABLE_W * 0.40) - sigColLabel;
+  const sigLabelCell = (text: string) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: sigColLabel, type: WidthType.DXA },
+      margins: { top: 30, bottom: 30, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text, bold: true, size: 16 })] })],
+    });
+  const sigValueCell = (tall = false) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: sigColValue, type: WidthType.DXA },
+      margins: { top: tall ? 100 : 40, bottom: tall ? 100 : 40, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+    });
+  children.push(
+    new Paragraph({ children: [new TextRun({ text: "", size: 4 })], spacing: { after: 20 } }),
+    new Table({
+      width: { size: TABLE_W, type: WidthType.DXA },
+      columnWidths: [sigColLabel, sigColValue, sigColLabel, sigColValue],
+      rows: [
         new TableRow({
-          // ATLEAST so Word can expand if a real signature image is taller.
-          height: { value: 900, rule: HeightRule.ATLEAST },
-          children: [
-            new TableCell({
-              borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: "Signature", bold: true, size: 20 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
-              margins: { top: 200, bottom: 200, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-            }),
-          ],
+          children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           children: [
-            new TableCell({
-              borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: "Date", bold: true, size: 20 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-            }),
+            sigLabelCell("Technician:"),
+            sigValueCell(),
+            sigLabelCell("Customer:"),
+            sigValueCell(),
+          ],
+        }),
+        new TableRow({
+          height: { value: 500, rule: HeightRule.ATLEAST },
+          children: [
+            sigLabelCell("Signature:"),
+            sigValueCell(true),
+            sigLabelCell("Signature:"),
+            sigValueCell(true),
           ],
         }),
       ],
@@ -648,8 +653,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (headerLogo) {
     // Larger header box to match the PDF (~85mm × 40mm).
     // 1px ≈ 9525 EMU; 1mm ≈ 36000 EMU → 85mm ≈ 321 px, 40mm ≈ 151 px.
-    const HEADER_LOGO_MAX_W = 320;
-    const HEADER_LOGO_MAX_H = 150;
+    // Match PDF header logo (~50mm wide, ~22mm tall). 1mm ≈ 3.78 px.
+    const HEADER_LOGO_MAX_W = 190;
+    const HEADER_LOGO_MAX_H = 85;
     const natW = Math.max(1, headerLogo.width);
     const natH = Math.max(1, headerLogo.height);
     const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
