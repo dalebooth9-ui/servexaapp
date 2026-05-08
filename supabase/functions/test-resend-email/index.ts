@@ -51,8 +51,10 @@ serve(async (req) => {
 
     // Validate env (clear 503 if missing)
     const { LOVABLE_API_KEY } = requireEnv(["LOVABLE_API_KEY"] as const);
+    // The linked Resend connector is exposed as RESEND_API_KEY_1 in this project.
+    // Prefer it over the legacy/manual RESEND_API_KEY, which is not a gateway credential.
     const RESEND_API_KEY =
-      Deno.env.get("RESEND_API_KEY") ?? Deno.env.get("RESEND_API_KEY_1");
+      Deno.env.get("RESEND_API_KEY_1") ?? Deno.env.get("RESEND_API_KEY");
     if (!RESEND_API_KEY) {
       return new Response(
         JSON.stringify({
