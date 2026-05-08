@@ -123,7 +123,7 @@ export async function fadeImageBytes(
 ): Promise<FetchedImage> {
   try {
     if (typeof document === "undefined" || typeof Image === "undefined") return img;
-    const blob = new Blob([img.data], {
+    const blob = new Blob([img.data as BlobPart], {
       type: img.type === "png" ? "image/png" : "image/jpeg",
     });
     const url = URL.createObjectURL(blob);
