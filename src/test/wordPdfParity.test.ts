@@ -205,6 +205,25 @@ describe.each(FIXTURES)("Word ↔ PDF parity — $name", (template) => {
     expect(tokens).toContain("Customer:");
   });
 
+  it("protects the Comments + sign-off block from page-2 overflow", async () => {
+    // Word natively splits table rows across pages. For the sign-off block
+    // we need every row marked unsplittable (`<w:cantSplit/>`) so a single
+    // row never breaks across page 1/2. There are exactly 4 such rows:
+    // 1× Comments cell + 3× sign-off (Date / Name / Signature). Allow >=4
+    // so future extra rows added with the same protection are OK.
+    const { "word/document.xml": docXml } = await unpackDocx(template);
+    const cantSplitMatches = docXml.match(/<w:cantSplit\s*\/>/g) || [];
+    expect(
+      cantSplitMatches.length,
+      "Comments + every sign-off row must set <w:cantSplit/> to prevent mid-row page breaks",
+    ).toBeGreaterThanOrEqual(4);
+
+    // The "Comments:" label paragraph must use <w:keepNext/> so it stays
+    // glued to the box that follows it (otherwise the label could end up
+    // alone at the bottom of page 1 with the box on page 2).
+    expect(docXml).toMatch(/<w:keepNext\s*\/>/);
+  });
+
   it("renders the same footer declaration the PDF would render", async () => {
     const { "word/footer1.xml": footerXml } = await unpackDocx(template);
     if (expectedFooter) {
