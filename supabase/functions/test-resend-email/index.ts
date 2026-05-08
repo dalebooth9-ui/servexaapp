@@ -50,10 +50,18 @@ serve(async (req) => {
     }
 
     // Validate env (clear 503 if missing)
-    const { LOVABLE_API_KEY, RESEND_API_KEY } = requireEnv([
-      "LOVABLE_API_KEY",
-      "RESEND_API_KEY",
-    ] as const);
+    const { LOVABLE_API_KEY } = requireEnv(["LOVABLE_API_KEY"] as const);
+    const RESEND_API_KEY =
+      Deno.env.get("RESEND_API_KEY") ?? Deno.env.get("RESEND_API_KEY_1");
+    if (!RESEND_API_KEY) {
+      return new Response(
+        JSON.stringify({
+          error: "missing_configuration",
+          missing: ["RESEND_API_KEY"],
+        }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     // Parse body
     let body: any = {};
