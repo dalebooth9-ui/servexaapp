@@ -119,20 +119,23 @@ describe("Word inter-table gap is zero-flush", () => {
         .filter((i) => i >= 0);
       expect(tableIdxs.length).toBeGreaterThanOrEqual(2);
 
+      // For every table except the very last, the IMMEDIATELY following
+      // top-level block must be the flush gap-collapser paragraph. Anything
+      // else (a default paragraph, a missing spacer, a stray blank, or the
+      // next table butted directly with no spacer) means Word will render
+      // the two tables either fused together or with a visible gap.
       for (let k = 0; k < tableIdxs.length - 1; k++) {
-        const from = tableIdxs[k];
-        const to = tableIdxs[k + 1];
-        const between = blocks.slice(from + 1, to);
-
-        // Exactly one paragraph between two consecutive tables — no stray blanks.
+        const after = blocks[tableIdxs[k] + 1];
+        expect(after, `No block after table #${k}`).toBeDefined();
         expect(
-          between.length,
-          `Expected exactly 1 paragraph between tables #${k} and #${k + 1}, got ${between.length}`,
-        ).toBe(1);
-        expect(between[0].kind).toBe("p");
-
-        const check = isFlushGapParagraph(between[0].xml);
-        expect(check.ok, `Gap paragraph between tables #${k}/${k + 1} is not flush: ${check.reason}`).toBe(true);
+          after.kind,
+          `Expected a paragraph immediately after table #${k}, got <w:${after.kind}>`,
+        ).toBe("p");
+        const check = isFlushGapParagraph(after.xml);
+        expect(
+          check.ok,
+          `Paragraph after table #${k} is not the flush gap-collapser: ${check.reason}\nXML: ${after.xml.slice(0, 400)}`,
+        ).toBe(true);
       }
     });
   }
