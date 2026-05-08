@@ -364,6 +364,19 @@ Deno.serve(async (req) => {
           whatsapp_message_id: messageSid,
           content: messageBody || null,
         });
+        savedCount++;
+      }
+
+      // Send confirmation back to engineer
+      if (savedCount > 0) {
+        const ji: any = jobInfo || {};
+        const ref = ji.reference_number || "job";
+        const jobName = ji.name ? ` — ${ji.name}` : "";
+        const siteName = ji.sites?.name ? ` — ${ji.sites.name}` : (ji.sites?.address ? ` — ${ji.sites.address}` : "");
+        const noun = savedCount === 1 ? "Photo" : `${savedCount} files`;
+        await sendWhatsApp(twilioSender, from,
+          `✅ ${noun} saved to job ${ref}${jobName}${siteName}`
+        );
       }
 
       return twimlResponse();
