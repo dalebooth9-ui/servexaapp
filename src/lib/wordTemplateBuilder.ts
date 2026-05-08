@@ -15,6 +15,10 @@ import {
   HeightRule,
   Header,
   Footer,
+  HorizontalPositionAlign,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionAlign,
+  VerticalPositionRelativeFrom,
 } from "docx";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import {
