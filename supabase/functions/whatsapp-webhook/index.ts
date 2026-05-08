@@ -240,10 +240,10 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
-      // Fetch job info once for friendly file naming
+      // Fetch job info once for friendly file naming + confirmation message
       const { data: jobInfo } = await supabase
         .from("jobs")
-        .select("reference_number, name, customer, customers(name)")
+        .select("reference_number, name, customer, customers(name), sites(name, address)")
         .eq("id", jobId)
         .maybeSingle();
 
