@@ -55,7 +55,7 @@ async function getBodyXml(template: WordTemplateInput): Promise<string> {
 /** Top-level body children in order, each tagged as 'tbl' or 'p' with raw XML. */
 function topLevelBlocks(bodyXml: string): { kind: "tbl" | "p"; xml: string }[] {
   // Match body content
-  const bodyMatch = bodyXml.match(/<w:body>([\s\S]*?)<\/w:body>/);
+  const bodyMatch = bodyXml.match(/<w:body(?:\s[^>]*)?>([\s\S]*?)<\/w:body>/);
   if (!bodyMatch) return [];
   const body = bodyMatch[1];
   const out: { kind: "tbl" | "p"; xml: string }[] = [];
