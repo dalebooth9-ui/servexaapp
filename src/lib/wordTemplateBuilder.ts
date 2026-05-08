@@ -689,11 +689,49 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
 
-  // --- Header (centred logo, larger to mirror PDF) ---
+  // --- Header (centred logo + page-wide watermark behind document text) ---
   const headerChildren: Paragraph[] = [];
+
+  // Watermark — anchored in the header so it repeats on every page, sized to
+  // ~150mm and centred on the page, drawn BEHIND the document so it shows
+  // through table cells. Header is the only place a floating image will tile
+  // across pages in Word.
+  if (watermark) {
+    const WM_W_PX = 567; // ≈ 150mm wide
+    const aspect =
+      watermark.width && watermark.height ? watermark.width / watermark.height : 1;
+    const WM_H_PX = Math.round(WM_W_PX / aspect);
+    headerChildren.push(
+      new Paragraph({
+        children: [
+          new ImageRun({
+            type: watermark.type,
+            data: watermark.data,
+            transformation: { width: WM_W_PX, height: WM_H_PX },
+            floating: {
+              horizontalPosition: {
+                relative: HorizontalPositionRelativeFrom.PAGE,
+                align: HorizontalPositionAlign.CENTER,
+              },
+              verticalPosition: {
+                relative: VerticalPositionRelativeFrom.PAGE,
+                align: VerticalPositionAlign.CENTER,
+              },
+              behindDocument: true,
+              allowOverlap: true,
+            },
+            altText: {
+              title: "Watermark",
+              description: "Viva Fire watermark",
+              name: "Watermark",
+            },
+          }),
+        ],
+      }),
+    );
+  }
+
   if (headerLogo) {
-    // Larger header box to match the PDF (~85mm × 40mm).
-    // 1px ≈ 9525 EMU; 1mm ≈ 36000 EMU → 85mm ≈ 321 px, 40mm ≈ 151 px.
     // Match PDF header logo (~50mm wide, ~22mm tall). 1mm ≈ 3.78 px.
     const HEADER_LOGO_MAX_W = 190;
     const HEADER_LOGO_MAX_H = 85;
@@ -717,7 +755,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         ],
       }),
     );
-  } else {
+  } else if (headerChildren.length === 0) {
     headerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
   }
 
