@@ -163,6 +163,7 @@ Deno.serve(async (req) => {
           .ilike("name", `%${escaped}%`)
           .limit(10);
         if (sitesErr) console.error(`[fuzzy-match] sites err:`, sitesErr);
+        console.log(`[fuzzy-match] matchingSites rows:`, JSON.stringify(matchingSites));
 
         let bySiteName: any[] = [];
         if (matchingSites && matchingSites.length > 0) {
