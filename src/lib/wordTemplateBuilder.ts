@@ -576,8 +576,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Comments box (mirrors PDF "Comments:" label + bordered empty box)
   children.push(
     new Paragraph({
-      spacing: { before: 160, after: 40 },
-      children: [new TextRun({ text: "Comments:", bold: true, size: 18 })],
+      spacing: { before: 80, after: 20 },
+      children: [new TextRun({ text: "Comments:", bold: true, size: 16 })],
     }),
     new Table({
       width: { size: TABLE_W, type: WidthType.DXA },
