@@ -875,15 +875,15 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         properties: {
           page: {
             size: { width: 11906, height: 16838 }, // A4
-            // Tightened margins (~7mm) to give the body more vertical room so
-            // the Comments + sign-off block fits on page 1.
+            // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
+            // 1mm = ~56.7 DXA → 10mm = 567 DXA.
             margin: {
-              top: 397,
-              right: 454,
-              bottom: 397,
-              left: 454,
-              header: 198,
-              footer: 198,
+              top: 567,
+              right: 567,
+              bottom: 567,
+              left: 567,
+              header: 283, // 5mm
+              footer: 283, // 5mm
             },
           },
         },
