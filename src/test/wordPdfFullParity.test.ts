@@ -206,6 +206,8 @@ describe.each(FIXTURES)("Word ↔ PDF full parity — $name", (template) => {
     const { "word/document.xml": docXml } = await unpackDocx(template);
     const tokens = textNodes(docXml);
     const allowed = new Set<string>([
+      template.name.toUpperCase(), // title (PDF renders this in the header)
+      ...(template.standard ? [template.standard] : []),
       ...expected.headerDetailLabels,
       ...expected.sections.flatMap((s) => [s.name.toUpperCase(), ...s.fieldLabels]),
       expected.commentsLabel,

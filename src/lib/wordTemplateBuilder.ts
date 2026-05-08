@@ -684,8 +684,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   // Two-column sign-off block: Date / Technician / Signature  |  Date / Customer / Signature
   // Mirrors PDF renderPdfSignatures layout.
+  // Sign-off table spans the full TABLE_W to match the PDF's
+  // renderPdfSignatures, which uses the full content width split into two
+  // equal halves. Each half is split label/value at ~20%/80%.
   const sigColLabel = Math.round(TABLE_W * 0.10);
-  const sigColValue = Math.round(TABLE_W * 0.40) - sigColLabel;
+  const sigColValue = Math.round(TABLE_W * 0.50) - sigColLabel;
   const sigLabelCell = (text: string) =>
     new TableCell({
       borders: cellBorders,
