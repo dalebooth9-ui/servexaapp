@@ -603,8 +603,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (template.description) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: template.description, size: 16 })],
-        spacing: { after: 80 },
+        children: [new TextRun({ text: template.description, size: 14 })],
+        spacing: { after: 40 },
       }),
     );
   }
@@ -620,8 +620,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     );
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: "", size: 4 })],
-        spacing: { after: 20 },
+        children: [new TextRun({ text: "", size: 2 })],
+        spacing: { after: 0 },
       }),
     );
   }
