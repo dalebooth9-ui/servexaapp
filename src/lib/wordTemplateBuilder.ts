@@ -15,6 +15,10 @@ import {
   HeightRule,
   Header,
   Footer,
+  HorizontalPositionAlign,
+  HorizontalPositionRelativeFrom,
+  VerticalPositionAlign,
+  VerticalPositionRelativeFrom,
 } from "docx";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
 import {
@@ -331,11 +335,12 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 export function renderFieldRow(field: TemplateField): TableRow {
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
-  // Compact rows to mirror the PDF (≈6mm rows). EXACT keeps rows tight; multi-line/signature use ATLEAST.
+  // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
+  // service templates fit on a single A4 page.
   let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
-    { value: 340, rule: HeightRule.ATLEAST };
-  if (isMultiLine) height = { value: 900, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 700, rule: HeightRule.ATLEAST };
+    { value: 280, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 700, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 560, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
@@ -367,7 +372,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
-    height: { value: 320, rule: HeightRule.ATLEAST },
+    height: { value: 260, rule: HeightRule.ATLEAST },
     children: [
       new TableCell({
         borders: cellBorders,
@@ -408,8 +413,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const customLogoUrl = template.branding?.logo_url?.trim();
   const headerLogoUrl =
     customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
-  const [headerLogo, ...accredLogos] = await Promise.all([
+  const watermarkUrl = "/images/viva-watermark.png";
+  const [headerLogo, watermark, ...accredLogos] = await Promise.all([
     fetchImageBytes(headerLogoUrl),
+    fetchImageBytes(watermarkUrl),
     ...DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
   ]);
   const footerText = getDefaultFooterText(
@@ -610,12 +617,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 600, rule: HeightRule.ATLEAST },
+          height: { value: 420, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
               width: { size: TABLE_W, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              margins: { top: 50, bottom: 50, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
@@ -640,7 +647,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: sigColValue, type: WidthType.DXA },
-      margins: { top: tall ? 100 : 40, bottom: tall ? 100 : 40, left: 100, right: 60 },
+      margins: { top: tall ? 70 : 30, bottom: tall ? 70 : 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
     });
@@ -656,12 +663,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 340, rule: HeightRule.ATLEAST },
+          height: { value: 280, rule: HeightRule.ATLEAST },
           children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 340, rule: HeightRule.ATLEAST },
+          height: { value: 280, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Technician:"),
             sigValueCell(),
@@ -671,7 +678,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 500, rule: HeightRule.ATLEAST },
+          height: { value: 380, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
@@ -683,11 +690,49 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
 
-  // --- Header (centred logo, larger to mirror PDF) ---
+  // --- Header (centred logo + page-wide watermark behind document text) ---
   const headerChildren: Paragraph[] = [];
+
+  // Watermark — anchored in the header so it repeats on every page, sized to
+  // ~150mm and centred on the page, drawn BEHIND the document so it shows
+  // through table cells. Header is the only place a floating image will tile
+  // across pages in Word.
+  if (watermark) {
+    const WM_W_PX = 567; // ≈ 150mm wide
+    const aspect =
+      watermark.width && watermark.height ? watermark.width / watermark.height : 1;
+    const WM_H_PX = Math.round(WM_W_PX / aspect);
+    headerChildren.push(
+      new Paragraph({
+        children: [
+          new ImageRun({
+            type: watermark.type,
+            data: watermark.data,
+            transformation: { width: WM_W_PX, height: WM_H_PX },
+            floating: {
+              horizontalPosition: {
+                relative: HorizontalPositionRelativeFrom.PAGE,
+                align: HorizontalPositionAlign.CENTER,
+              },
+              verticalPosition: {
+                relative: VerticalPositionRelativeFrom.PAGE,
+                align: VerticalPositionAlign.CENTER,
+              },
+              behindDocument: true,
+              allowOverlap: true,
+            },
+            altText: {
+              title: "Watermark",
+              description: "Viva Fire watermark",
+              name: "Watermark",
+            },
+          }),
+        ],
+      }),
+    );
+  }
+
   if (headerLogo) {
-    // Larger header box to match the PDF (~85mm × 40mm).
-    // 1px ≈ 9525 EMU; 1mm ≈ 36000 EMU → 85mm ≈ 321 px, 40mm ≈ 151 px.
     // Match PDF header logo (~50mm wide, ~22mm tall). 1mm ≈ 3.78 px.
     const HEADER_LOGO_MAX_W = 190;
     const HEADER_LOGO_MAX_H = 85;
@@ -711,7 +756,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         ],
       }),
     );
-  } else {
+  } else if (headerChildren.length === 0) {
     headerChildren.push(new Paragraph({ children: [new TextRun({ text: " " })] }));
   }
 
