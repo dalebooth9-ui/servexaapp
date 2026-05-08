@@ -335,11 +335,12 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 export function renderFieldRow(field: TemplateField): TableRow {
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
-  // Compact rows to mirror the PDF (≈6mm rows). EXACT keeps rows tight; multi-line/signature use ATLEAST.
+  // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
+  // service templates fit on a single A4 page.
   let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
-    { value: 340, rule: HeightRule.ATLEAST };
-  if (isMultiLine) height = { value: 900, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 700, rule: HeightRule.ATLEAST };
+    { value: 280, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 700, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 560, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
