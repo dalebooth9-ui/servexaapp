@@ -20,7 +20,6 @@ import { useAuth } from "@/hooks/useAuth";
 
 const ROOT_DOMAIN = "vivafire.co.uk";
 const SENDER_SUBDOMAIN = `notify.${ROOT_DOMAIN}`;
-const EXPECTED_NS = ["ns3.lovable.cloud", "ns4.lovable.cloud"];
 
 type SendState =
   | { kind: "idle" }
@@ -62,94 +61,90 @@ async function dohQuery(name: string, type: string): Promise<string[]> {
 async function runDomainStatusChecks(): Promise<DomainStatus> {
   const checks: DnsCheck[] = [];
 
-  // 1. NS delegation
+  // 1. SPF — Resend requires include:amazonses.com
   try {
-    const ns = (await dohQuery(SENDER_SUBDOMAIN, "NS")).map((s) => s.toLowerCase());
-    const matched = EXPECTED_NS.every((expected) => ns.includes(expected));
+    const txt = await dohQuery(SENDER_SUBDOMAIN, "TXT");
+    const spf = txt.find((t) => t.toLowerCase().startsWith("v=spf1"));
+    const hasResend = spf ? /amazonses\.com|_spf\.resend\.com/i.test(spf) : false;
     checks.push({
-      label: "NS delegation",
-      detail: matched
-        ? `${SENDER_SUBDOMAIN} delegated to Lovable nameservers`
-        : ns.length === 0
-        ? `No NS records found for ${SENDER_SUBDOMAIN} — DNS not yet propagated`
-        : `NS records found but do not match Lovable's nameservers`,
-      status: matched ? "ok" : "fail",
-      records: ns.length ? ns : ["(none)"],
+      label: "SPF record (Resend)",
+      detail: spf
+        ? hasResend
+          ? "SPF authorises Resend (Amazon SES) to send"
+          : "SPF present but does not include Resend/Amazon SES"
+        : "No SPF (v=spf1) record found",
+      status: spf && hasResend ? "ok" : spf ? "warn" : "fail",
+      records: spf ? [spf] : ["(none)"],
     });
   } catch (err: any) {
     checks.push({
-      label: "NS delegation",
+      label: "SPF record (Resend)",
+      detail: `Lookup failed: ${err?.message || "unknown error"}`,
+      status: "warn",
+      records: [],
+    });
+  }
+
+  // 2. DKIM — Resend publishes the selector "resend"
+  try {
+    const recs = await dohQuery(`resend._domainkey.${SENDER_SUBDOMAIN}`, "TXT");
+    const dk = recs.find((r) => r.toLowerCase().includes("p=") || r.toLowerCase().includes("k=rsa"));
+    checks.push({
+      label: "DKIM signing key (Resend)",
+      detail: dk ? "DKIM key published at resend._domainkey" : "No DKIM key found at resend._domainkey",
+      status: dk ? "ok" : "fail",
+      records: dk ? [dk.slice(0, 80) + (dk.length > 80 ? "…" : "")] : ["(none)"],
+    });
+  } catch (err: any) {
+    checks.push({
+      label: "DKIM signing key (Resend)",
       detail: `Lookup failed: ${err?.message || "unknown error"}`,
       status: "fail",
       records: [],
     });
   }
 
-  // 2. MX records on the subdomain (managed by Lovable)
+  // 3. MX — Resend bounce handling via Amazon SES feedback
   try {
-    const mx = await dohQuery(SENDER_SUBDOMAIN, "MX");
+    const mx = await dohQuery(`send.${SENDER_SUBDOMAIN}`, "MX");
+    const hasSes = mx.some((m) => /amazonses\.com|feedback-smtp/i.test(m));
     checks.push({
-      label: "MX records",
+      label: "MX (bounce handling)",
       detail: mx.length
-        ? "Mail exchange records present"
-        : "No MX records resolving — DNS may still be propagating",
-      status: mx.length ? "ok" : "warn",
+        ? hasSes
+          ? "Resend bounce MX configured (feedback-smtp)"
+          : "MX present but not Resend's feedback host"
+        : "No MX record on send subdomain — bounce tracking disabled",
+      status: hasSes ? "ok" : mx.length ? "warn" : "warn",
       records: mx.length ? mx : ["(none)"],
     });
   } catch (err: any) {
     checks.push({
-      label: "MX records",
+      label: "MX (bounce handling)",
       detail: `Lookup failed: ${err?.message || "unknown error"}`,
       status: "warn",
       records: [],
     });
   }
 
-  // 3. SPF on the subdomain
+  // 4. DMARC on the root domain (recommended)
   try {
-    const txt = await dohQuery(SENDER_SUBDOMAIN, "TXT");
-    const spf = txt.find((t) => t.toLowerCase().startsWith("v=spf1"));
+    const recs = await dohQuery(`_dmarc.${ROOT_DOMAIN}`, "TXT");
+    const dmarc = recs.find((r) => r.toLowerCase().startsWith("v=dmarc1"));
     checks.push({
-      label: "SPF record",
-      detail: spf
-        ? "SPF policy published"
-        : "No SPF (v=spf1) record found yet",
-      status: spf ? "ok" : "warn",
-      records: spf ? [spf] : ["(none)"],
+      label: "DMARC policy",
+      detail: dmarc ? "DMARC policy published on root domain" : "No DMARC policy found (recommended for deliverability)",
+      status: dmarc ? "ok" : "warn",
+      records: dmarc ? [dmarc] : ["(none)"],
     });
   } catch (err: any) {
     checks.push({
-      label: "SPF record",
+      label: "DMARC policy",
       detail: `Lookup failed: ${err?.message || "unknown error"}`,
       status: "warn",
       records: [],
     });
   }
-
-  // 4. DKIM (Lovable typically publishes a selector under the subdomain).
-  // Try common selectors; if any resolve, treat as OK.
-  const dkimSelectors = ["lovable", "default", "k1", "mail", "smtp"];
-  let dkimFound: { selector: string; record: string } | null = null;
-  for (const sel of dkimSelectors) {
-    try {
-      const recs = await dohQuery(`${sel}._domainkey.${SENDER_SUBDOMAIN}`, "TXT");
-      const dk = recs.find((r) => r.toLowerCase().includes("v=dkim1") || r.toLowerCase().includes("k=rsa"));
-      if (dk) {
-        dkimFound = { selector: sel, record: dk };
-        break;
-      }
-    } catch {
-      // ignore individual selector failures
-    }
-  }
-  checks.push({
-    label: "DKIM signing key",
-    detail: dkimFound
-      ? `DKIM key found (selector: ${dkimFound.selector})`
-      : "No DKIM key resolved yet on common selectors",
-    status: dkimFound ? "ok" : "warn",
-    records: dkimFound ? [dkimFound.record.slice(0, 80) + (dkimFound.record.length > 80 ? "…" : "")] : ["(none)"],
-  });
 
   const hasFail = checks.some((c) => c.status === "fail");
   const hasWarn = checks.some((c) => c.status === "warn");
@@ -251,7 +246,7 @@ export default function EmailDeliveryTestCard() {
           <CardTitle className="text-lg">Email delivery & domain status</CardTitle>
         </div>
         <CardDescription>
-          Live DNS check for <strong>{SENDER_SUBDOMAIN}</strong>, plus a one-click test send to confirm delivery end-to-end.
+          Live DNS check for <strong>{SENDER_SUBDOMAIN}</strong> against Resend's required records (SPF, DKIM, MX, DMARC), plus a one-click test send.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">
