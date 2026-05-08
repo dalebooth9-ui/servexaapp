@@ -710,12 +710,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 280, rule: HeightRule.ATLEAST },
+          height: { value: 240, rule: HeightRule.ATLEAST },
           children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 280, rule: HeightRule.ATLEAST },
+          height: { value: 240, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Technician:"),
             sigValueCell(),
@@ -725,7 +725,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 380, rule: HeightRule.ATLEAST },
+          height: { value: 320, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
