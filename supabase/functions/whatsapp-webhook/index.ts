@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
 
     // Handle media messages (photos, documents)
     if (numMedia > 0) {
+      console.log(`[media-msg] numMedia=${numMedia} messageBody="${messageBody}"`);
       // Check if message body / caption contains a job reference.
       // Supports any prefix-style ref, e.g. VFP-00124, TM-2026-0608, QUO-00021, JOB-2026-001.
       const jobRefPattern = /\b[A-Z]{2,6}(?:-[A-Z0-9]+){1,4}\b/gi;
