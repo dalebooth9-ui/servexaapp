@@ -205,9 +205,14 @@ describe.each(FIXTURES)("Word ↔ PDF full parity — $name", (template) => {
   it("never includes text the PDF would not render (no spurious body labels)", async () => {
     const { "word/document.xml": docXml } = await unpackDocx(template);
     const tokens = textNodes(docXml);
+    const { resolveTemplateDisplayTitle } = await import("@/lib/templateDisplayTitle");
+    const { title: displayTitle, subtitle: displaySubtitle } = resolveTemplateDisplayTitle(
+      template.name,
+      { brandingSubtitle: template.branding?.company_subtitle ?? null },
+    );
     const allowed = new Set<string>([
-      template.name.toUpperCase(), // title (PDF renders this in the header)
-      ...(template.standard ? [template.standard] : []),
+      displayTitle.toUpperCase(), // shared resolver — same in PDF + Word
+      ...(template.standard ? [template.standard] : displaySubtitle ? [displaySubtitle] : []),
       ...expected.headerDetailLabels,
       ...expected.sections.flatMap((s) => [s.name.toUpperCase(), ...s.fieldLabels]),
       expected.commentsLabel,
