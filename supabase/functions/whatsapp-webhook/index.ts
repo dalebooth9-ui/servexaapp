@@ -118,6 +118,7 @@ Deno.serve(async (req) => {
 
     // Handle media messages (photos, documents)
     if (numMedia > 0) {
+      console.log(`[media-msg] numMedia=${numMedia} messageBody="${messageBody}"`);
       // Check if message body / caption contains a job reference.
       // Supports any prefix-style ref, e.g. VFP-00124, TM-2026-0608, QUO-00021, JOB-2026-001.
       const jobRefPattern = /\b[A-Z]{2,6}(?:-[A-Z0-9]+){1,4}\b/gi;
@@ -156,7 +157,7 @@ Deno.serve(async (req) => {
           .ilike("name", `%${escaped}%`)
           .limit(10);
         if (byJobNameErr) console.error(`[fuzzy-match] byJobName err:`, byJobNameErr);
-        console.log(`[fuzzy-match] byJobName rows:`, JSON.stringify(byJobName));
+        console.log(`[fuzzy-match] byJobName count=${(byJobName||[]).length} rows:`, JSON.stringify(byJobName));
 
         // 2. Jobs whose linked site name matches (via site_id FK)
         const { data: matchingSites, error: sitesErr } = await supabase
@@ -217,11 +218,13 @@ Deno.serve(async (req) => {
       // If a caption was provided but matched nothing, prompt the engineer
       // instead of silently dropping or guessing.
       if (!jobId && fuzzyAttemptedNoMatch) {
+        console.log(`[media-msg] FINAL jobId=null (no fuzzy match, fallback skipped)`);
         await sendWhatsApp(twilioSender, from,
           `⚠️ Couldn't find a job matching "${strippedBody.slice(0, 80)}". Please resend with the job reference number (e.g. VFP-00123 or TM-2026-0608).`
         );
         return twimlResponse();
       }
+      console.log(`[media-msg] FINAL resolved jobId=${jobId}`);
 
       // If still no job AND we have an image with no meaningful text body → auto-scan
       const hasOnlyImage = !jobId && numMedia >= 1;
