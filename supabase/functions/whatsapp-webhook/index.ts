@@ -88,14 +88,15 @@ Deno.serve(async (req) => {
       .eq("whatsapp_number", from)
       .maybeSingle();
 
-    console.log(`Profile lookup for ${from}: found=${!!profile}, error=${profileError?.message}`);
+    console.log(`[profile-lookup] normalisedFrom="${from}" rawFrom="${rawFrom}" found=${!!profile} error=${profileError?.message ?? "none"} engineerId=${profile?.user_id ?? "n/a"}`);
 
     if (!profile) {
-      console.log(`Unknown WhatsApp number: ${from} — no matching profile`);
+      console.log(`[profile-lookup] Unknown WhatsApp number: ${from} — no matching profile`);
       return twimlResponse();
     }
 
     const engineerId = profile.user_id;
+    console.log(`[profile-lookup] resolved engineerId=${engineerId} for from=${from}`);
     const twilioSender = { accountSid: TWILIO_ACCOUNT_SID, authToken: TWILIO_AUTH_TOKEN, fromNumber: TWILIO_WHATSAPP_NUMBER };
 
     // Handle location messages
