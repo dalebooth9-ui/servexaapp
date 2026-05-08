@@ -654,7 +654,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // ─────────────────────────────────────────────────────────────────────
   children.push(
     new Paragraph({
-      spacing: { before: 20, after: 10 },
+      spacing: { before: 0, after: 0 },
       keepNext: true, // glue "Comments:" label to its box
       keepLines: true,
       children: [new TextRun({ text: "Comments:", bold: true, size: 14 })],
