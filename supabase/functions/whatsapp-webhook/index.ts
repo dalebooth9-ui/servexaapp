@@ -218,11 +218,13 @@ Deno.serve(async (req) => {
       // If a caption was provided but matched nothing, prompt the engineer
       // instead of silently dropping or guessing.
       if (!jobId && fuzzyAttemptedNoMatch) {
+        console.log(`[media-msg] FINAL jobId=null (no fuzzy match, fallback skipped)`);
         await sendWhatsApp(twilioSender, from,
           `⚠️ Couldn't find a job matching "${strippedBody.slice(0, 80)}". Please resend with the job reference number (e.g. VFP-00123 or TM-2026-0608).`
         );
         return twimlResponse();
       }
+      console.log(`[media-msg] FINAL resolved jobId=${jobId}`);
 
       // If still no job AND we have an image with no meaningful text body → auto-scan
       const hasOnlyImage = !jobId && numMedia >= 1;
