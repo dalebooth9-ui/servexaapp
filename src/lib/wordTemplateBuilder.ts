@@ -372,7 +372,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
-    height: { value: 320, rule: HeightRule.ATLEAST },
+    height: { value: 260, rule: HeightRule.ATLEAST },
     children: [
       new TableCell({
         borders: cellBorders,
