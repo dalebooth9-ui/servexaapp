@@ -647,7 +647,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: sigColValue, type: WidthType.DXA },
-      margins: { top: tall ? 100 : 40, bottom: tall ? 100 : 40, left: 100, right: 60 },
+      margins: { top: tall ? 70 : 30, bottom: tall ? 70 : 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
     });
@@ -663,12 +663,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 340, rule: HeightRule.ATLEAST },
+          height: { value: 280, rule: HeightRule.ATLEAST },
           children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 340, rule: HeightRule.ATLEAST },
+          height: { value: 280, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Technician:"),
             sigValueCell(),
@@ -678,7 +678,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 500, rule: HeightRule.ATLEAST },
+          height: { value: 380, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
