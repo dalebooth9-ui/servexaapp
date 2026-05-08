@@ -597,7 +597,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
   children.push(
-    new Paragraph({ children: [new TextRun({ text: " ", size: 10 })], spacing: { after: 80 } }),
+    new Paragraph({ children: [new TextRun({ text: " ", size: 8 })], spacing: { after: 20 } }),
   );
 
   if (template.description) {
