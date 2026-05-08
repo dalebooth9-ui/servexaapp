@@ -653,8 +653,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (headerLogo) {
     // Larger header box to match the PDF (~85mm × 40mm).
     // 1px ≈ 9525 EMU; 1mm ≈ 36000 EMU → 85mm ≈ 321 px, 40mm ≈ 151 px.
-    const HEADER_LOGO_MAX_W = 320;
-    const HEADER_LOGO_MAX_H = 150;
+    // Match PDF header logo (~50mm wide, ~22mm tall). 1mm ≈ 3.78 px.
+    const HEADER_LOGO_MAX_W = 190;
+    const HEADER_LOGO_MAX_H = 85;
     const natW = Math.max(1, headerLogo.width);
     const natH = Math.max(1, headerLogo.height);
     const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
