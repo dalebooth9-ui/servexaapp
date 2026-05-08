@@ -187,12 +187,12 @@ Deno.serve(async (req) => {
           jobId = matches[0].id;
           console.log(`[fuzzy-match] single match → job ${matches[0].reference_number} (${jobId})`);
         } else if (matches.length > 1) {
-          const refs = candidates
+          const refs = matches
             .slice(0, 10)
             .map((j: any) => j.reference_number || j.name || j.id)
             .join(", ");
           await sendWhatsApp(twilioSender, from,
-            `Found ${candidates.length} jobs matching "${term}": ${refs} — please resend with the reference number.`
+            `Found ${matches.length} jobs matching "${term}": ${refs} — please resend with the reference number.`
           );
           return twimlResponse();
         }
