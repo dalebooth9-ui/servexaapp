@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,7 +100,7 @@ serve(async (req) => {
     const displayName = full_name || "there";
 
     const { error: emailError } = await resend.emails.send({
-      from: "Servexa <noreply@notify.vivafire.co.uk>",
+      from: await getFromAddress("password_reset"),
       to: [email],
       subject: "Reset your VivaFire password",
       html: `

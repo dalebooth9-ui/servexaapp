@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,7 +74,7 @@ serve(async (req) => {
       // empty body is allowed
     }
     const to: string | undefined = body?.to;
-    const from: string = body?.from || "Servexa <noreply@notify.vivafire.co.uk>";
+    const from: string = body?.from || (await getFromAddress("test"));
     const subject: string = body?.subject || "Servexa — Resend gateway test";
 
     if (!to || typeof to !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {

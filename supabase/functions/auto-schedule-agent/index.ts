@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -147,7 +148,7 @@ Rules:
               method: "POST",
               headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                from: "Servexa <noreply@notify.vivafire.co.uk>",
+                from: await getFromAddress("auto_schedule"),
                 to: [act.customer_email],
                 subject: act.email_subject || `Update on your job: ${act.job_name}`,
                 html: `<p>${act.email_body || act.action_detail}</p>`,

@@ -1286,6 +1286,27 @@ export type Database = {
           },
         ]
       }
+      email_from_settings: {
+        Row: {
+          email_type: string
+          from_address: string
+          from_name: string
+          updated_at: string
+        }
+        Insert: {
+          email_type: string
+          from_address: string
+          from_name?: string
+          updated_at?: string
+        }
+        Update: {
+          email_type?: string
+          from_address?: string
+          from_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string

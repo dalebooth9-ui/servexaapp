@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const RESEND_GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
 
@@ -143,7 +144,7 @@ serve(async (req) => {
           const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
           const actionLink = linkData?.properties?.action_link || "";
           const { error: emailError } = await sendResendEmail({
-            from: "Servexa <noreply@notify.vivafire.co.uk>",
+            from: await getFromAddress("onboarding"),
             to: [email],
             subject: "Set up your VivaFire account password",
               html: `
