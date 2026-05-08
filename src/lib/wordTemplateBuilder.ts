@@ -584,7 +584,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       columnWidths: [TABLE_W],
       rows: [
         new TableRow({
-          height: { value: 700, rule: HeightRule.ATLEAST },
+          height: { value: 600, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
