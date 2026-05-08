@@ -18,7 +18,8 @@ const AVAILABLE_MAILBOXES = [
 
 const EMAIL_TYPES: { key: string; label: string; description: string }[] = [
   { key: "default",        label: "Default (fallback)",     description: "Used when a specific type below isn't configured." },
-  { key: "customer",       label: "Customer emails",        description: "notify-customer, send-customer-email." },
+  { key: "customer",       label: "Customer emails",        description: "Ad-hoc emails sent to customers from job pages." },
+  { key: "customer_notification", label: "Customer notifications", description: "Job completed, report ready, sign-off requests etc." },
   { key: "invoice",        label: "Invoices",               description: "Invoice PDFs sent to customers." },
   { key: "reminder",       label: "Reminders & follow-ups", description: "Visit reminders, compliance expiry, test reminders." },
   { key: "visit_notification", label: "Visit notifications", description: "Letting customers know an engineer is on the way / has arrived." },
