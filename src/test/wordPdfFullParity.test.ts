@@ -100,12 +100,21 @@ async function unpackDocx(template: WordTemplateInput) {
   return out;
 }
 
+function decodeXmlEntities(s: string): string {
+  return s
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'");
+}
+
 function textNodes(xml: string): string[] {
   const re = /<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/g;
   const out: string[] = [];
   let m: RegExpExecArray | null;
   while ((m = re.exec(xml)) !== null) {
-    const t = m[1];
+    const t = decodeXmlEntities(m[1]);
     if (t.trim().length > 0) out.push(t);
   }
   return out;
