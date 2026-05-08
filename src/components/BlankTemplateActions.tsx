@@ -16,7 +16,8 @@ import BlankTemplateWordExport, {
   type BlankTemplateWordExportHandle,
 } from "@/components/BlankTemplateWordExport";
 import { downloadBlob } from "@/lib/regenerateTemplateExports";
-import { blankTemplateFileSlug } from "@/lib/wordTemplateBuilder";
+import { blankTemplateFileSlug, buildBlankTemplateDoc } from "@/lib/wordTemplateBuilder";
+import { Packer } from "docx";
 import { useToast } from "@/hooks/use-toast";
 
 type Props = {
