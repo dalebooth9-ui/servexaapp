@@ -74,7 +74,7 @@ serve(async (req) => {
       // empty body is allowed
     }
     const to: string | undefined = body?.to;
-    const from: string = body?.from || "Servexa <noreply@notify.vivafire.co.uk>";
+    const from: string = body?.from || (await getFromAddress("test"));
     const subject: string = body?.subject || "Servexa — Resend gateway test";
 
     if (!to || typeof to !== "string" || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
