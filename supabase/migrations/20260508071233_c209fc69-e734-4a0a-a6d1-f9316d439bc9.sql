@@ -1,0 +1,1 @@
+UPDATE public.app_settings SET value = '"+447886078482"'::jsonb WHERE key = 'business_whatsapp_number';
