@@ -143,7 +143,7 @@ serve(async (req) => {
           const appUrl = Deno.env.get("APP_URL") || supabaseUrl;
           const actionLink = linkData?.properties?.action_link || "";
           const { error: emailError } = await sendResendEmail({
-            from: "VivaFire <noreply@vivafire.co.uk>",
+            from: "Servexa <noreply@notify.vivafire.co.uk>",
             to: [email],
             subject: "Set up your VivaFire account password",
               html: `

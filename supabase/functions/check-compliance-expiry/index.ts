@@ -39,7 +39,7 @@ async function sendEmail(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Servexa <noreply@vivafire.co.uk>",
+      from: "Servexa <noreply@notify.vivafire.co.uk>",
       to: [to],
       subject,
       html,

@@ -355,7 +355,7 @@ Deno.serve(async (req) => {
 
     for (const email of adminEmails) {
       const { error: emailErr } = await resend.emails.send({
-        from: "Viva Fire & Protection <noreply@vivafire.co.uk>",
+        from: "Servexa <noreply@notify.vivafire.co.uk>",
         to: [email],
         subject: `${isTest ? "[TEST] " : ""}Weekly Report: ${weekLabel} – ${completedCount} jobs completed, £${revenue.toLocaleString()} revenue`,
         html,

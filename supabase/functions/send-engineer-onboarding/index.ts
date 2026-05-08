@@ -161,7 +161,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "noreply@vivafire.co.uk",
+        from: "Servexa <noreply@notify.vivafire.co.uk>",
         to: [to_email],
         subject: "Install the Servexa app on your phone",
         html,
@@ -179,7 +179,7 @@ serve(async (req) => {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          from: "onboarding@resend.dev",
+          from: "Servexa <noreply@notify.vivafire.co.uk>",
           to: [to_email],
           subject: "Install the Servexa app on your phone",
           html,

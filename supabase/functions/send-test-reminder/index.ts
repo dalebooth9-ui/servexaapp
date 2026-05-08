@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     const bodyHtml = bodyText.replace(/\n/g, "<br/>");
 
     const { error: emailErr } = await resend.emails.send({
-      from: "Viva Fire & Protection <noreply@vivafire.co.uk>",
+      from: "Servexa <noreply@notify.vivafire.co.uk>",
       to: [to_email],
       subject,
       html: `
