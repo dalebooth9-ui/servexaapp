@@ -412,8 +412,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const customLogoUrl = template.branding?.logo_url?.trim();
   const headerLogoUrl =
     customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
-  const [headerLogo, ...accredLogos] = await Promise.all([
+  const watermarkUrl = "/images/viva-watermark.png";
+  const [headerLogo, watermark, ...accredLogos] = await Promise.all([
     fetchImageBytes(headerLogoUrl),
+    fetchImageBytes(watermarkUrl),
     ...DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
   ]);
   const footerText = getDefaultFooterText(
