@@ -59,31 +59,34 @@ function topLevelBlocks(bodyXml: string): { kind: "tbl" | "p"; xml: string }[] {
   if (!bodyMatch) return [];
   const body = bodyMatch[1];
   const out: { kind: "tbl" | "p"; xml: string }[] = [];
-  // Naive top-level scanner: walk and consume <w:tbl>...</w:tbl> or <w:p>...</w:p>
-  const re = /<w:(tbl|p)(?:\s[^>]*)?>/g;
+  // Strict top-level scanner: an open tag is `<w:tbl>` / `<w:tbl ` / `<w:p>` / `<w:p ` —
+  // the trailing char distinguishes them from `<w:tblPr>`, `<w:pPr>`, etc.
+  const openRe = /<w:(tbl|p)(?=[\s>])/g;
+  const closeRe = (tag: "tbl" | "p") => new RegExp(`</w:${tag}>`, "g");
   let m: RegExpExecArray | null;
-  while ((m = re.exec(body)) !== null) {
+  while ((m = openRe.exec(body)) !== null) {
     const tag = m[1] as "tbl" | "p";
-    const open = m.index;
-    // find matching close, accounting for nesting (paragraphs can nest in cells)
-    const closeTag = `</w:${tag}>`;
-    const openTag = `<w:${tag}`;
+    const start = m.index;
     let depth = 1;
-    let i = re.lastIndex;
-    while (depth > 0 && i < body.length) {
-      const nextOpen = body.indexOf(openTag, i);
-      const nextClose = body.indexOf(closeTag, i);
-      if (nextClose === -1) break;
-      if (nextOpen !== -1 && nextOpen < nextClose) {
+    let i = openRe.lastIndex;
+    const innerOpen = new RegExp(`<w:${tag}(?=[\\s>])`, "g");
+    const innerClose = closeRe(tag);
+    while (depth > 0) {
+      innerOpen.lastIndex = i;
+      innerClose.lastIndex = i;
+      const o = innerOpen.exec(body);
+      const c = innerClose.exec(body);
+      if (!c) throw new Error(`Unclosed <w:${tag}> at ${start}`);
+      if (o && o.index < c.index) {
         depth++;
-        i = nextOpen + openTag.length;
+        i = o.index + o[0].length;
       } else {
         depth--;
-        i = nextClose + closeTag.length;
+        i = c.index + c[0].length;
       }
     }
-    out.push({ kind: tag, xml: body.slice(open, i) });
-    re.lastIndex = i;
+    out.push({ kind: tag, xml: body.slice(start, i) });
+    openRe.lastIndex = i;
   }
   return out;
 }
