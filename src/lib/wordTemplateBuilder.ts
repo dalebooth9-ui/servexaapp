@@ -746,7 +746,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // through table cells. Header is the only place a floating image will tile
   // across pages in Word.
   if (watermark) {
-    const WM_W_PX = 567; // ≈ 150mm wide
+    const WM_W_PX = 850; // ≈ 225mm wide
     const aspect =
       watermark.width && watermark.height ? watermark.width / watermark.height : 1;
     const WM_H_PX = Math.round(WM_W_PX / aspect);
