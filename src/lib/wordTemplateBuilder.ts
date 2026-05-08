@@ -617,12 +617,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 600, rule: HeightRule.ATLEAST },
+          height: { value: 420, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
               width: { size: TABLE_W, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              margins: { top: 50, bottom: 50, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
