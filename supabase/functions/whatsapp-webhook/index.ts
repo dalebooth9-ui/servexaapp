@@ -424,6 +424,7 @@ Deno.serve(async (req) => {
       };
 
       let savedCount = 0;
+      const savedPaths: string[] = [];
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
@@ -465,17 +466,38 @@ Deno.serve(async (req) => {
           content: messageBody || null,
         });
         savedCount++;
+        savedPaths.push(storagePath);
       }
 
-      // Send confirmation back to engineer
+      // Send confirmation back to engineer with matched job + download link/folder
       if (savedCount > 0) {
         const ji: any = jobInfo || {};
         const ref = ji.reference_number || "job";
         const jobName = ji.name ? ` — ${ji.name}` : "";
         const siteName = ji.sites?.name ? ` — ${ji.sites.name}` : (ji.sites?.address ? ` — ${ji.sites.address}` : "");
         const noun = savedCount === 1 ? "Photo" : `${savedCount} files`;
+        const folderPath = `submissions/${jobId}/${engineerId}`;
+
+        // Generate a signed download link (7-day expiry) for the first saved file
+        let linkLine = "";
+        try {
+          const { data: signed } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(savedPaths[0], 60 * 60 * 24 * 7);
+          if (signed?.signedUrl) {
+            linkLine = savedCount === 1
+              ? `\n📥 Download: ${signed.signedUrl}`
+              : `\n📥 First file: ${signed.signedUrl}\n📁 Folder: ${folderPath}`;
+          } else {
+            linkLine = `\n📁 Folder: ${folderPath}`;
+          }
+        } catch (e) {
+          console.error("[confirmation] signed URL error:", e);
+          linkLine = `\n📁 Folder: ${folderPath}`;
+        }
+
         await sendWhatsApp(twilioSender, from,
-          `✅ ${noun} saved to job ${ref}${jobName}${siteName}`
+          `✅ ${noun} saved to job ${ref}${jobName}${siteName}${linkLine}`
         );
       }
 
