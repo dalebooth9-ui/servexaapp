@@ -22,6 +22,7 @@ const EMAIL_TYPES: { key: string; label: string; description: string }[] = [
   { key: "customer_notification", label: "Customer notifications", description: "Job completed, report ready, sign-off requests etc." },
   { key: "invoice",        label: "Invoices",               description: "Invoice PDFs sent to customers." },
   { key: "reminder",       label: "Reminders & follow-ups", description: "Visit reminders, compliance expiry, test reminders." },
+  { key: "compliance_reminder", label: "Compliance reminders", description: "Certificate / compliance expiry notifications to customers." },
   { key: "visit_notification", label: "Visit notifications", description: "Letting customers know an engineer is on the way / has arrived." },
   { key: "quote_followup", label: "Quote follow-ups",       description: "Chasing customers after a quote has been sent." },
   { key: "onboarding",     label: "Engineer onboarding",    description: "Install link & engineer account creation emails." },
