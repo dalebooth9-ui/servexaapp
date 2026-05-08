@@ -113,6 +113,53 @@ export async function fetchImageBytes(url: string): Promise<FetchedImage | null>
 }
 
 /**
+ * Re-rasterise an image at a reduced alpha so it can be embedded as a faded
+ * watermark. docx-js's `ImageRun` has no opacity option, so we bake the alpha
+ * directly into the PNG bytes via a canvas.
+ */
+export async function fadeImageBytes(
+  img: FetchedImage,
+  opacity: number,
+): Promise<FetchedImage> {
+  try {
+    if (typeof document === "undefined" || typeof Image === "undefined") return img;
+    const blob = new Blob([img.data], {
+      type: img.type === "png" ? "image/png" : "image/jpeg",
+    });
+    const url = URL.createObjectURL(blob);
+    const el = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("decode failed"));
+      i.src = url;
+    });
+    const w = el.naturalWidth || img.width || 1;
+    const h = el.naturalHeight || img.height || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(url);
+      return img;
+    }
+    ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+    ctx.drawImage(el, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    const blobOut: Blob = await new Promise((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+        "image/png",
+      ),
+    );
+    const data = new Uint8Array(await blobOut.arrayBuffer());
+    return { data, type: "png", width: w, height: h };
+  } catch {
+    return img;
+  }
+}
+
+/**
  * Compute proportional pixel dimensions for a logo so it fits within the
  * MAX_LOGO box without distortion or upscaling.
  *
