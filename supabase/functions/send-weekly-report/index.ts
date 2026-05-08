@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -355,7 +356,7 @@ Deno.serve(async (req) => {
 
     for (const email of adminEmails) {
       const { error: emailErr } = await resend.emails.send({
-        from: "Servexa <noreply@notify.vivafire.co.uk>",
+        from: await getFromAddress("weekly_report"),
         to: [email],
         subject: `${isTest ? "[TEST] " : ""}Weekly Report: ${weekLabel} – ${completedCount} jobs completed, £${revenue.toLocaleString()} revenue`,
         html,

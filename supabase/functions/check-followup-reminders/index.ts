@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const RESEND_GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
 
@@ -200,7 +201,7 @@ Deno.serve(async (req) => {
 
       try {
         const { error: emailErr } = await sendResendEmail({
-          from: "Servexa <noreply@notify.vivafire.co.uk>",
+          from: await getFromAddress("reminder"),
           to: [customerEmail],
           subject,
           html: `

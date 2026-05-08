@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getFromAddress } from "../_shared/emailFrom.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -114,7 +115,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Servexa <noreply@notify.vivafire.co.uk>",
+        from: await getFromAddress("customer"),
         to: [customerEmail],
         subject: template.subject,
         html: template.body,
