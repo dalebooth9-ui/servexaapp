@@ -654,10 +654,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // ─────────────────────────────────────────────────────────────────────
   children.push(
     new Paragraph({
-      spacing: { before: 80, after: 20 },
+      spacing: { before: 20, after: 10 },
       keepNext: true, // glue "Comments:" label to its box
       keepLines: true,
-      children: [new TextRun({ text: "Comments:", bold: true, size: 16 })],
+      children: [new TextRun({ text: "Comments:", bold: true, size: 14 })],
     }),
     new Table({
       width: { size: TABLE_W, type: WidthType.DXA },
@@ -665,12 +665,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 320, rule: HeightRule.ATLEAST },
+          height: { value: 260, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
               width: { size: TABLE_W, type: WidthType.DXA },
-              margins: { top: 50, bottom: 50, left: 120, right: 120 },
+              margins: { top: 30, bottom: 30, left: 100, right: 100 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
@@ -687,22 +687,22 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: sigColLabel, type: WidthType.DXA },
-      margins: { top: 30, bottom: 30, left: 100, right: 60 },
+      margins: { top: 20, bottom: 20, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text, bold: true, size: 16 })] })],
+      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text, bold: true, size: 14 })] })],
     });
   const sigValueCell = (tall = false) =>
     new TableCell({
       borders: cellBorders,
       width: { size: sigColValue, type: WidthType.DXA },
-      margins: { top: tall ? 70 : 30, bottom: tall ? 70 : 30, left: 100, right: 60 },
+      margins: { top: tall ? 50 : 20, bottom: tall ? 50 : 20, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text: " " })] })],
     });
   children.push(
     new Paragraph({
-      children: [new TextRun({ text: "", size: 4 })],
-      spacing: { after: 20 },
+      children: [new TextRun({ text: "", size: 2 })],
+      spacing: { after: 0 },
       keepNext: true, // glue spacer to the sign-off table that follows
     }),
     new Table({
