@@ -8,13 +8,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
-import { Eye, Download, Printer, Loader2, FileText, FileType, PenLine } from "lucide-react";
+import { Eye, Download, Printer, Loader2, FileText, FileType, PenLine, FileStack } from "lucide-react";
 import BlankTemplatePdfExport, {
   type BlankTemplatePdfExportHandle,
 } from "@/components/BlankTemplatePdfExport";
 import BlankTemplateWordExport, {
   type BlankTemplateWordExportHandle,
 } from "@/components/BlankTemplateWordExport";
+import { downloadBlob } from "@/lib/regenerateTemplateExports";
+import { blankTemplateFileSlug } from "@/lib/wordTemplateBuilder";
+import { useToast } from "@/hooks/use-toast";
 
 type Props = {
   template: any;
