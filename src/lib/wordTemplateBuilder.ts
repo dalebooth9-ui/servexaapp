@@ -17,6 +17,12 @@ import {
   Footer,
 } from "docx";
 import { getDefaultFooterText } from "@/lib/pdfFooter";
+import {
+  buildSkipIds,
+  getSections,
+  getSectionFields,
+  type PdfTemplateField,
+} from "@/lib/pdfBody";
 
 export type TemplateField = {
   id: string;
