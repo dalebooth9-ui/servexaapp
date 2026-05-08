@@ -154,6 +154,7 @@ Deno.serve(async (req) => {
           .ilike("name", `%${escaped}%`)
           .limit(10);
         if (byJobNameErr) console.error(`[fuzzy-match] byJobName err:`, byJobNameErr);
+        console.log(`[fuzzy-match] byJobName rows:`, JSON.stringify(byJobName));
 
         // 2. Jobs whose linked site name matches (via site_id FK)
         const { data: matchingSites, error: sitesErr } = await supabase
@@ -162,6 +163,7 @@ Deno.serve(async (req) => {
           .ilike("name", `%${escaped}%`)
           .limit(10);
         if (sitesErr) console.error(`[fuzzy-match] sites err:`, sitesErr);
+        console.log(`[fuzzy-match] matchingSites rows:`, JSON.stringify(matchingSites));
 
         let bySiteName: any[] = [];
         if (matchingSites && matchingSites.length > 0) {
