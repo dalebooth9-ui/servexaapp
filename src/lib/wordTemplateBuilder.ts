@@ -519,7 +519,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Navy separator line below the title (mirrors PDF rule).
   children.push(
     new Paragraph({
-      spacing: { after: 60 },
+      spacing: { before: 0, after: 20 },
       border: {
         bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
       },
@@ -598,7 +598,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
   children.push(
-    new Paragraph({ children: [new TextRun({ text: " ", size: 8 })], spacing: { after: 20 } }),
+    new Paragraph({ children: [new TextRun({ text: "", size: 2 })], spacing: { before: 0, after: 0 } }),
   );
 
   if (template.description) {
@@ -622,7 +622,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         children: [new TextRun({ text: "", size: 2 })],
-        spacing: { after: 0 },
+        spacing: { before: 0, after: 0 },
       }),
     );
   }
@@ -654,7 +654,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // ─────────────────────────────────────────────────────────────────────
   children.push(
     new Paragraph({
-      spacing: { before: 20, after: 10 },
+      spacing: { before: 0, after: 0 },
       keepNext: true, // glue "Comments:" label to its box
       keepLines: true,
       children: [new TextRun({ text: "Comments:", bold: true, size: 14 })],
@@ -746,7 +746,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // through table cells. Header is the only place a floating image will tile
   // across pages in Word.
   if (watermark) {
-    const WM_W_PX = 567; // ≈ 150mm wide
+    const WM_W_PX = 850; // ≈ 225mm wide
     const aspect =
       watermark.width && watermark.height ? watermark.width / watermark.height : 1;
     const WM_H_PX = Math.round(WM_W_PX / aspect);
