@@ -27,6 +27,7 @@ import {
   getSectionFields,
   type PdfTemplateField,
 } from "@/lib/pdfBody";
+import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 
 export type TemplateField = {
   id: string;
@@ -483,14 +484,22 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     if (fields.length > 0) sectionMap.set(section, fields);
   }
 
-  // Title — navy, centred, bold, sized to mirror the PDF (~15pt = size 30).
+  // Title — uses the SAME shared resolver the PDF uses, so the printed
+  // title (and optional subtitle) is identical between Word and PDF for
+  // every template name. See `src/lib/templateDisplayTitle.ts`.
+  const { title: displayTitle, subtitle: displaySubtitle } = resolveTemplateDisplayTitle(
+    template.name,
+    { brandingSubtitle: template.branding?.["company_subtitle" as keyof typeof template.branding] as string | undefined ?? null },
+  );
+  const subtitleText = template.standard || displaySubtitle;
+
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
       spacing: { before: 0, after: 60 },
       children: [
         new TextRun({
-          text: template.name.toUpperCase(),
+          text: displayTitle.toUpperCase(),
           bold: true,
           size: 30,
           color: BRAND_NAVY_HEX,
@@ -499,14 +508,14 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       ],
     }),
   ];
-  if (template.standard) {
+  if (subtitleText) {
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
         spacing: { after: 80 },
         children: [
           new TextRun({
-            text: template.standard,
+            text: subtitleText,
             bold: true,
             size: 18,
             color: BRAND_NAVY_HEX,
