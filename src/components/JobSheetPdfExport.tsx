@@ -13,6 +13,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import {
   PdfTemplateField,
   buildSkipIds,
