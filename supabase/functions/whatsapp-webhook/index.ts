@@ -134,6 +134,56 @@ Deno.serve(async (req) => {
         if (refJob) { jobId = refJob.id; break; }
       }
 
+      // If no reference matched, try fuzzy match against job names and site names
+      // using the caption text. Only consider active (non-archived) jobs assigned to
+      // this engineer to avoid cross-engineer matches.
+      if (!jobId && messageBody && messageBody.trim().length >= 3) {
+        const term = messageBody.trim().slice(0, 120);
+        // Build an OR filter: match job.name OR linked site.name ILIKE %term%
+        const { data: nameMatches } = await supabase
+          .from("jobs")
+          .select("id, name, sites(name)")
+          .neq("status", "archived")
+          .or(`name.ilike.%${term}%,reference_number.ilike.%${term}%`)
+          .limit(5);
+
+        let candidates: any[] = nameMatches || [];
+
+        // If no direct job-name hit, try by site name
+        if (candidates.length === 0) {
+          const { data: siteMatches } = await supabase
+            .from("sites")
+            .select("id, name")
+            .ilike("name", `%${term}%`)
+            .limit(5);
+          if (siteMatches && siteMatches.length > 0) {
+            const siteIds = siteMatches.map((s: any) => s.id);
+            const { data: jobsAtSites } = await supabase
+              .from("jobs")
+              .select("id, name, site_id, updated_at")
+              .in("site_id", siteIds)
+              .neq("status", "archived")
+              .order("updated_at", { ascending: false })
+              .limit(5);
+            candidates = jobsAtSites || [];
+          }
+        }
+
+        if (candidates.length === 1) {
+          jobId = candidates[0].id;
+        } else if (candidates.length > 1) {
+          // Ambiguous — ask the engineer to disambiguate
+          const list = candidates
+            .slice(0, 5)
+            .map((j: any, idx: number) => `${idx + 1}. ${j.name || j.id}`)
+            .join("\n");
+          await sendWhatsApp(twilioSender, from,
+            `⚠️ Multiple jobs match "${term}". Please resend with the job reference number:\n${list}`
+          );
+          return twimlResponse();
+        }
+      }
+
       // Otherwise, try the normal active job resolution
       if (!jobId) {
         jobId = await getActiveJob(supabase, engineerId);
