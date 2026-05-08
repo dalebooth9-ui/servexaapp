@@ -56,7 +56,7 @@ serve(async (req) => {
             "Authorization": `Bearer ${RESEND_API_KEY}`,
           },
           body: JSON.stringify({
-            from: "noreply@vivafire.co.uk",
+            from: "Servexa <noreply@notify.vivafire.co.uk>",
             to: customer.email,
             subject: `Reminder: Service visit tomorrow for ${job.name}`,
             html: `

@@ -192,7 +192,7 @@ Deno.serve(async (req) => {
 
       try {
         const { error: emailErr } = await sendResendEmail({
-          from: "Viva Fire & Protection <noreply@vivafire.co.uk>",
+          from: "Servexa <noreply@notify.vivafire.co.uk>",
           to: [customerEmail],
           subject,
           html: `

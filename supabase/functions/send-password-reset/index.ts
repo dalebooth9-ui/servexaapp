@@ -99,7 +99,7 @@ serve(async (req) => {
     const displayName = full_name || "there";
 
     const { error: emailError } = await resend.emails.send({
-      from: "VivaFire <noreply@vivafire.co.uk>",
+      from: "Servexa <noreply@notify.vivafire.co.uk>",
       to: [email],
       subject: "Reset your VivaFire password",
       html: `

@@ -131,7 +131,7 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Servexa <noreply@vivafire.co.uk>",
+        from: "Servexa <noreply@notify.vivafire.co.uk>",
         to: [customerEmail],
         subject,
         html: styledHtml,

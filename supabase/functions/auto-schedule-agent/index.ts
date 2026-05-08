@@ -147,7 +147,7 @@ Rules:
               method: "POST",
               headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
               body: JSON.stringify({
-                from: "noreply@vivafire.co.uk",
+                from: "Servexa <noreply@notify.vivafire.co.uk>",
                 to: [act.customer_email],
                 subject: act.email_subject || `Update on your job: ${act.job_name}`,
                 html: `<p>${act.email_body || act.action_detail}</p>`,
