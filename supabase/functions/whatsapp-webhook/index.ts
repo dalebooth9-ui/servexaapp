@@ -134,48 +134,55 @@ Deno.serve(async (req) => {
         if (refJob) { jobId = refJob.id; break; }
       }
 
-      // If no reference matched, try fuzzy match against job names and site names
-      // using the caption text. Only consider active (non-archived) jobs assigned to
-      // this engineer to avoid cross-engineer matches.
+      // If no reference matched, try fuzzy match against job name OR linked site name
+      // using the caption text. Combined search (not fallback): any job where
+      //   jobs.name ILIKE %caption%  OR  jobs.site → sites.name ILIKE %caption%.
       if (!jobId && messageBody && messageBody.trim().length >= 3) {
         const term = messageBody.trim().slice(0, 120);
-        // Build an OR filter: match job.name OR linked site.name ILIKE %term%
-        const { data: nameMatches } = await supabase
+        const escaped = term.replace(/[%_,()]/g, " ");
+
+        // 1. Jobs whose own name matches
+        const { data: byJobName } = await supabase
           .from("jobs")
           .select("id, name, sites(name)")
           .neq("status", "archived")
-          .or(`name.ilike.%${term}%,reference_number.ilike.%${term}%`)
-          .limit(5);
+          .ilike("name", `%${escaped}%`)
+          .limit(10);
 
-        let candidates: any[] = nameMatches || [];
+        // 2. Jobs whose linked site name matches (via site_id FK)
+        const { data: matchingSites } = await supabase
+          .from("sites")
+          .select("id, name")
+          .ilike("name", `%${escaped}%`)
+          .limit(10);
 
-        // If no direct job-name hit, try by site name
-        if (candidates.length === 0) {
-          const { data: siteMatches } = await supabase
-            .from("sites")
-            .select("id, name")
-            .ilike("name", `%${term}%`)
-            .limit(5);
-          if (siteMatches && siteMatches.length > 0) {
-            const siteIds = siteMatches.map((s: any) => s.id);
-            const { data: jobsAtSites } = await supabase
-              .from("jobs")
-              .select("id, name, site_id, updated_at")
-              .in("site_id", siteIds)
-              .neq("status", "archived")
-              .order("updated_at", { ascending: false })
-              .limit(5);
-            candidates = jobsAtSites || [];
-          }
+        let bySiteName: any[] = [];
+        if (matchingSites && matchingSites.length > 0) {
+          const siteIds = matchingSites.map((s: any) => s.id);
+          const { data } = await supabase
+            .from("jobs")
+            .select("id, name, sites(name)")
+            .in("site_id", siteIds)
+            .neq("status", "archived")
+            .order("updated_at", { ascending: false })
+            .limit(10);
+          bySiteName = data || [];
         }
+
+        // Merge + dedupe by job id
+        const merged = new Map<string, any>();
+        for (const j of [...(byJobName || []), ...bySiteName]) merged.set(j.id, j);
+        const candidates = Array.from(merged.values());
 
         if (candidates.length === 1) {
           jobId = candidates[0].id;
         } else if (candidates.length > 1) {
-          // Ambiguous — ask the engineer to disambiguate
           const list = candidates
             .slice(0, 5)
-            .map((j: any, idx: number) => `${idx + 1}. ${j.name || j.id}`)
+            .map((j: any, idx: number) => {
+              const site = j.sites?.name ? ` (${j.sites.name})` : "";
+              return `${idx + 1}. ${j.name || j.id}${site}`;
+            })
             .join("\n");
           await sendWhatsApp(twilioSender, from,
             `⚠️ Multiple jobs match "${term}". Please resend with the job reference number:\n${list}`
