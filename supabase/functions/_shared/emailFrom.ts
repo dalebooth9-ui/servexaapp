@@ -7,11 +7,10 @@ import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-
 const FALLBACK_FROM = "Servexa <noreply@vivafire.co.uk>";
 
 function buildFrom(name: string | null | undefined, address: string): string {
-  const cleanAddr = (address || "").trim();
-  const cleanName = (name || "").trim();
-  if (!cleanAddr) return FALLBACK_FROM;
-  if (!cleanName) return cleanAddr;
-  return `${cleanName} <${cleanAddr}>`;
+  const addr = (address || "").trim();
+  const nm = (name || "").trim();
+  if (!addr) return FALLBACK_FROM;
+  return nm ? `${nm} <${addr}>` : addr;
 }
 
 export async function getFromAddress(
@@ -27,20 +26,14 @@ export async function getFromAddress(
 
     const { data } = await supabase
       .from("email_from_settings")
-      .select("from_name, from_address")
+      .select("email_type, from_name, from_address")
       .in("email_type", [emailType, "default"]);
 
     if (data && data.length) {
-      const match = data.find((r: any) => r.email_type === emailType) ?? data[0];
-      // The .in() loses ordering; re-find explicitly:
-      const exact = (data as any[]).find((r) => true && r.from_address);
-      const row = (data as any[]).find((r) => r) && (
-        (data as any[]).find((r: any) => r.from_address && (r.email_type === emailType)) ||
-        (data as any[]).find((r: any) => r.from_address)
-      );
-      if (row) return buildFrom(row.from_name, row.from_address);
-      if (match) return buildFrom(match.from_name, match.from_address);
-      if (exact) return buildFrom(exact.from_name, exact.from_address);
+      const exact = (data as any[]).find((r) => r.email_type === emailType);
+      const def = (data as any[]).find((r) => r.email_type === "default");
+      const row = exact ?? def;
+      if (row?.from_address) return buildFrom(row.from_name, row.from_address);
     }
   } catch (err) {
     console.error(`[emailFrom] lookup failed for ${emailType}:`, err);
