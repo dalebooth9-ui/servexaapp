@@ -13,6 +13,7 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
+import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -305,7 +306,12 @@ export async function generateJobSheetPdf(
     } catch { /* skip */ }
   }
 
-  let y = await renderPdfHeader(doc, isDryRiser ? "Dry Riser Pressure Test" : template.name, branding, {
+  const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(
+    template.name,
+    { brandingSubtitle: branding.company_subtitle ?? null },
+  );
+
+  let y = await renderPdfHeader(doc, sheetTitle, branding, {
     customerName: isDryRiser ? "" : customerName,
     siteName: isDryRiser ? "" : siteDisplay,
     siteAddress: "",
@@ -314,7 +320,7 @@ export async function generateJobSheetPdf(
     riserLocation: isDryRiser ? "" : riserLocValue,
     numberOfOutlets: isDryRiser ? null : numberOfOutletsValue,
     w3wAddress: isDryRiser ? undefined : w3wAddress,
-  }, undefined, accentColor);
+  }, sheetSubtitle, accentColor);
 
   // Service scope line removed per request — kept off the job sheet PDF.
 

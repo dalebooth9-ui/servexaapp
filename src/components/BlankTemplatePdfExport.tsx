@@ -20,6 +20,7 @@ import {
   renderBlankFieldRow,
   getAutoPopulatedValues,
 } from "@/lib/pdfBody";
+import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { useJobCategories } from "@/hooks/useJobCategories";
 
 type Template = {
@@ -176,7 +177,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         // Add a new page for every sheet after the first
         if (sysIdx > 0) doc.addPage();
 
-        const sheetTitle = isDryRiser ? "Dry Riser Pressure Test" : template.name;
+        const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(
+          template.name,
+          { brandingSubtitle: template.branding?.company_subtitle ?? null },
+        );
 
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName: isDryRiser ? "" : customerName,
@@ -185,7 +189,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           refNumber: isDryRiser ? "" : refNumber,
           dateVal,
           riserLocation: isDryRiser ? "" : riserLocValue,
-        }, template.standard, accentColor, { compact: isDryRiser });
+        }, template.standard || sheetSubtitle, accentColor, { compact: isDryRiser });
 
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
