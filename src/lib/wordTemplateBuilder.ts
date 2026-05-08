@@ -43,7 +43,12 @@ export type WordTemplateInput = {
   standard?: string;
   fields: TemplateField[];
   footer_text?: string | null;
-  branding?: { logo_url?: string; footer_text?: string; company_subtitle?: string } | null;
+  branding?: {
+    logo_url?: string;
+    footer_text?: string;
+    company_subtitle?: string;
+    declaration_text?: string;
+  } | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -467,11 +472,21 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     fetchImageBytes(watermarkUrl),
     ...DEFAULT_ACCREDITATION_LOGOS.map((u) => fetchImageBytes(u)),
   ]);
-  const footerText = getDefaultFooterText(
+  // Match the PDF: every Dry/Wet Riser template gets the BS 9990:2015
+  // declaration in a bordered box, even if `getDefaultFooterText` would
+  // otherwise return empty (it only matches "dry riser visual"). PDF logic
+  // lives in BlankTemplatePdfExport (`isDryRiser` branch).
+  const isRiserTemplate = /(dry|wet)\s*riser/i.test(template.name || "");
+  let footerText = getDefaultFooterText(
     template.name,
     template.branding || undefined,
     template.footer_text || undefined,
   );
+  if ((!footerText || !footerText.trim()) && isRiserTemplate) {
+    footerText =
+      (template.branding?.declaration_text || "").trim() ||
+      "Tested and inspected in accordance with BS 9990:2015";
+  }
 
   // Use the SAME section/skip logic the PDF uses, so the two outputs always
   // contain the same rows in the same order. See `wordPdfParity.test.ts`.
@@ -800,9 +815,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   }
 
   if (headerLogo) {
-    // Match PDF header logo (~50mm wide, ~22mm tall). 1mm ≈ 3.78 px.
-    const HEADER_LOGO_MAX_W = 190;
-    const HEADER_LOGO_MAX_H = 85;
+    // Match PDF header logo (~85mm wide, ~40mm tall — see pdfHeader.ts
+    // logoMaxW/logoMaxH defaults). 1mm ≈ 3.78 px.
+    const HEADER_LOGO_MAX_W = 321;
+    const HEADER_LOGO_MAX_H = 151;
     const natW = Math.max(1, headerLogo.width);
     const natH = Math.max(1, headerLogo.height);
     const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
