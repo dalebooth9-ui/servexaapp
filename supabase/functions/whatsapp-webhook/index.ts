@@ -140,46 +140,53 @@ Deno.serve(async (req) => {
       // Strip out any reference-number patterns we already tried, then use the
       // remaining caption text as the fuzzy search term.
       const strippedBody = (messageBody || "").replace(jobRefPattern, " ").replace(/\s+/g, " ").trim();
+      console.log(`[fuzzy-match] jobId=${jobId} strippedBody="${strippedBody}" candidatesFromRef=${candidates.length}`);
       if (!jobId && strippedBody.length >= 3) {
         const term = strippedBody.slice(0, 120);
-        const escaped = term.replace(/[%_,()]/g, " ");
+        const escaped = term.replace(/[%_,()]/g, " ").trim();
+        console.log(`[fuzzy-match] searching with term="${escaped}"`);
 
         // 1. Jobs whose own name matches
-        const { data: byJobName } = await supabase
+        const { data: byJobName, error: byJobNameErr } = await supabase
           .from("jobs")
           .select("id, name, reference_number, sites(name)")
           .neq("status", "archived")
           .ilike("name", `%${escaped}%`)
           .limit(10);
+        if (byJobNameErr) console.error(`[fuzzy-match] byJobName err:`, byJobNameErr);
 
         // 2. Jobs whose linked site name matches (via site_id FK)
-        const { data: matchingSites } = await supabase
+        const { data: matchingSites, error: sitesErr } = await supabase
           .from("sites")
           .select("id, name")
           .ilike("name", `%${escaped}%`)
           .limit(10);
+        if (sitesErr) console.error(`[fuzzy-match] sites err:`, sitesErr);
 
         let bySiteName: any[] = [];
         if (matchingSites && matchingSites.length > 0) {
           const siteIds = matchingSites.map((s: any) => s.id);
-          const { data } = await supabase
+          const { data, error: bySiteErr } = await supabase
             .from("jobs")
             .select("id, name, reference_number, sites(name)")
             .in("site_id", siteIds)
             .neq("status", "archived")
             .order("updated_at", { ascending: false })
             .limit(10);
+          if (bySiteErr) console.error(`[fuzzy-match] bySite err:`, bySiteErr);
           bySiteName = data || [];
         }
 
         // Merge + dedupe by job id
         const merged = new Map<string, any>();
         for (const j of [...(byJobName || []), ...bySiteName]) merged.set(j.id, j);
-        const candidates = Array.from(merged.values());
+        const matches = Array.from(merged.values());
+        console.log(`[fuzzy-match] byJobName=${(byJobName||[]).length} bySite=${bySiteName.length} merged=${matches.length}`);
 
-        if (candidates.length === 1) {
-          jobId = candidates[0].id;
-        } else if (candidates.length > 1) {
+        if (matches.length === 1) {
+          jobId = matches[0].id;
+          console.log(`[fuzzy-match] single match → job ${matches[0].reference_number} (${jobId})`);
+        } else if (matches.length > 1) {
           const refs = candidates
             .slice(0, 10)
             .map((j: any) => j.reference_number || j.name || j.id)
