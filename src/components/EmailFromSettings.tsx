@@ -24,6 +24,7 @@ const EMAIL_TYPES: { key: string; label: string; description: string }[] = [
   { key: "visit_notification", label: "Visit notifications", description: "Letting customers know an engineer is on the way / has arrived." },
   { key: "quote_followup", label: "Quote follow-ups",       description: "Chasing customers after a quote has been sent." },
   { key: "onboarding",     label: "Engineer onboarding",    description: "Install link & engineer account creation emails." },
+  { key: "engineer_notification", label: "Engineer notifications", description: "Job assignments, schedule changes, and other alerts to engineers." },
   { key: "password_reset", label: "Password resets",        description: "Engineer / staff password reset links." },
   { key: "weekly_report",  label: "Weekly management report", description: "Monday morning executive summary." },
   { key: "auto_schedule",  label: "Auto-scheduler agent",   description: "Notifications produced by the auto-schedule agent." },
