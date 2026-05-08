@@ -169,6 +169,14 @@ Deno.serve(async (req) => {
       const siteAddress = job.address || "";
 
       if (!customerEmail) continue;
+      // Skip placeholder/invalid emails (e.g. tbc@, noemail@, placeholder@)
+      const emailLower = customerEmail.toLowerCase().trim();
+      const localPart = emailLower.split("@")[0] || "";
+      const placeholderLocals = ["tbc", "tba", "noemail", "no-email", "none", "placeholder", "unknown", "n/a", "na"];
+      if (placeholderLocals.includes(localPart) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+        console.log(`Skipping placeholder email: ${customerEmail}`);
+        continue;
+      }
 
       const scheduledDateFormatted = new Date(visit.scheduled_date).toLocaleDateString("en-GB", {
         weekday: "long", day: "numeric", month: "long", year: "numeric",
