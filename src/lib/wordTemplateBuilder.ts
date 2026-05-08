@@ -323,30 +323,32 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 }
 
 export function renderFieldRow(field: TemplateField): TableRow {
-  // Multi-line / signature rows need a generous *minimum* height so the row
-  // never visually clips, but use HeightRule.ATLEAST so Word can grow the row
-  // to fit longer content rather than overlapping the next row.
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
-  let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined;
-  if (isMultiLine) height = { value: 1100, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 900, rule: HeightRule.ATLEAST };
+  // Compact rows to mirror the PDF (≈6mm rows). EXACT keeps rows tight; multi-line/signature use ATLEAST.
+  let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
+    { value: 340, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 900, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 700, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
       new TableCell({
         borders: cellBorders,
         width: { size: LABEL_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
-          new Paragraph({ children: [new TextRun({ text: field.label, bold: true, size: 20 })] }),
+          new Paragraph({
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: field.label, bold: true, size: 16 })],
+          }),
         ],
       }),
       new TableCell({
         borders: cellBorders,
         width: { size: VALUE_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: buildValueCellChildren(field),
       }),
