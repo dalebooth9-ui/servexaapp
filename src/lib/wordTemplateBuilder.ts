@@ -43,7 +43,7 @@ export type WordTemplateInput = {
   standard?: string;
   fields: TemplateField[];
   footer_text?: string | null;
-  branding?: { logo_url?: string; footer_text?: string } | null;
+  branding?: { logo_url?: string; footer_text?: string; company_subtitle?: string } | null;
 };
 
 // ---------------------------------------------------------------------------
@@ -489,7 +489,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // every template name. See `src/lib/templateDisplayTitle.ts`.
   const { title: displayTitle, subtitle: displaySubtitle } = resolveTemplateDisplayTitle(
     template.name,
-    { brandingSubtitle: template.branding?.["company_subtitle" as keyof typeof template.branding] as string | undefined ?? null },
+    { brandingSubtitle: template.branding?.company_subtitle ?? null },
   );
   const subtitleText = template.standard || displaySubtitle;
 
