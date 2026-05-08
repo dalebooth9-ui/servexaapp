@@ -137,8 +137,11 @@ Deno.serve(async (req) => {
       // If no reference matched, try fuzzy match against job name OR linked site name
       // using the caption text. Combined search (not fallback): any job where
       //   jobs.name ILIKE %caption%  OR  jobs.site → sites.name ILIKE %caption%.
-      if (!jobId && messageBody && messageBody.trim().length >= 3) {
-        const term = messageBody.trim().slice(0, 120);
+      // Strip out any reference-number patterns we already tried, then use the
+      // remaining caption text as the fuzzy search term.
+      const strippedBody = (messageBody || "").replace(jobRefPattern, " ").replace(/\s+/g, " ").trim();
+      if (!jobId && strippedBody.length >= 3) {
+        const term = strippedBody.slice(0, 120);
         const escaped = term.replace(/[%_,()]/g, " ");
 
         // 1. Jobs whose own name matches
