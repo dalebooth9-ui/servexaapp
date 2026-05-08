@@ -606,9 +606,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: sigColLabel, type: WidthType.DXA },
-      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      margins: { top: 30, bottom: 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 16 })] })],
+      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text, bold: true, size: 16 })] })],
     });
   const sigValueCell = (tall = false) =>
     new TableCell({
