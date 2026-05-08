@@ -113,6 +113,53 @@ export async function fetchImageBytes(url: string): Promise<FetchedImage | null>
 }
 
 /**
+ * Re-rasterise an image at a reduced alpha so it can be embedded as a faded
+ * watermark. docx-js's `ImageRun` has no opacity option, so we bake the alpha
+ * directly into the PNG bytes via a canvas.
+ */
+export async function fadeImageBytes(
+  img: FetchedImage,
+  opacity: number,
+): Promise<FetchedImage> {
+  try {
+    if (typeof document === "undefined" || typeof Image === "undefined") return img;
+    const blob = new Blob([img.data as BlobPart], {
+      type: img.type === "png" ? "image/png" : "image/jpeg",
+    });
+    const url = URL.createObjectURL(blob);
+    const el = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = () => reject(new Error("decode failed"));
+      i.src = url;
+    });
+    const w = el.naturalWidth || img.width || 1;
+    const h = el.naturalHeight || img.height || 1;
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(url);
+      return img;
+    }
+    ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
+    ctx.drawImage(el, 0, 0, w, h);
+    URL.revokeObjectURL(url);
+    const blobOut: Blob = await new Promise((resolve, reject) =>
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error("toBlob failed"))),
+        "image/png",
+      ),
+    );
+    const data = new Uint8Array(await blobOut.arrayBuffer());
+    return { data, type: "png", width: w, height: h };
+  } catch {
+    return img;
+  }
+}
+
+/**
  * Compute proportional pixel dimensions for a logo so it fits within the
  * MAX_LOGO box without distortion or upscaling.
  *
@@ -338,9 +385,9 @@ export function renderFieldRow(field: TemplateField): TableRow {
   // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
   // service templates fit on a single A4 page.
   let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
-    { value: 280, rule: HeightRule.ATLEAST };
-  if (isMultiLine) height = { value: 700, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 560, rule: HeightRule.ATLEAST };
+    { value: 220, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 520, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 420, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
@@ -372,7 +419,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
-    height: { value: 260, rule: HeightRule.ATLEAST },
+    height: { value: 200, rule: HeightRule.ATLEAST },
     children: [
       new TableCell({
         borders: cellBorders,
@@ -472,7 +519,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Navy separator line below the title (mirrors PDF rule).
   children.push(
     new Paragraph({
-      spacing: { after: 160 },
+      spacing: { after: 60 },
       border: {
         bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
       },
@@ -485,16 +532,17 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const detailValueColLeft = Math.round(TABLE_W * 0.52) - detailLabelColLeft;
   const detailLabelColRight = Math.round(TABLE_W * 0.12);
   const detailValueColRight = TABLE_W - Math.round(TABLE_W * 0.52) - detailLabelColRight;
-  const detailRowH = { value: 380, rule: HeightRule.ATLEAST } as const;
+  const detailRowH = { value: 300, rule: HeightRule.ATLEAST } as const;
   const detailLabelCell = (text: string, w: number) =>
     new TableCell({
       borders: cellBorders,
       width: { size: w, type: WidthType.DXA },
-      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      margins: { top: 30, bottom: 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
       children: [
         new Paragraph({
-          children: [new TextRun({ text, bold: true, size: 18, font: "Helvetica" })],
+          spacing: { before: 0, after: 0 },
+          children: [new TextRun({ text, bold: true, size: 16, font: "Helvetica" })],
         }),
       ],
     });
@@ -502,7 +550,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: w, type: WidthType.DXA },
-      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      margins: { top: 30, bottom: 30, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
     });
@@ -550,14 +598,14 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
   children.push(
-    new Paragraph({ children: [new TextRun({ text: " ", size: 10 })], spacing: { after: 80 } }),
+    new Paragraph({ children: [new TextRun({ text: " ", size: 8 })], spacing: { after: 20 } }),
   );
 
   if (template.description) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: template.description, size: 16 })],
-        spacing: { after: 80 },
+        children: [new TextRun({ text: template.description, size: 14 })],
+        spacing: { after: 40 },
       }),
     );
   }
@@ -573,8 +621,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     );
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: "", size: 4 })],
-        spacing: { after: 20 },
+        children: [new TextRun({ text: "", size: 2 })],
+        spacing: { after: 0 },
       }),
     );
   }
@@ -606,10 +654,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // ─────────────────────────────────────────────────────────────────────
   children.push(
     new Paragraph({
-      spacing: { before: 80, after: 20 },
+      spacing: { before: 20, after: 10 },
       keepNext: true, // glue "Comments:" label to its box
       keepLines: true,
-      children: [new TextRun({ text: "Comments:", bold: true, size: 16 })],
+      children: [new TextRun({ text: "Comments:", bold: true, size: 14 })],
     }),
     new Table({
       width: { size: TABLE_W, type: WidthType.DXA },
@@ -617,12 +665,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 420, rule: HeightRule.ATLEAST },
+          height: { value: 260, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
               width: { size: TABLE_W, type: WidthType.DXA },
-              margins: { top: 50, bottom: 50, left: 120, right: 120 },
+              margins: { top: 30, bottom: 30, left: 100, right: 100 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
@@ -639,22 +687,22 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: sigColLabel, type: WidthType.DXA },
-      margins: { top: 30, bottom: 30, left: 100, right: 60 },
+      margins: { top: 20, bottom: 20, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text, bold: true, size: 16 })] })],
+      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text, bold: true, size: 14 })] })],
     });
   const sigValueCell = (tall = false) =>
     new TableCell({
       borders: cellBorders,
       width: { size: sigColValue, type: WidthType.DXA },
-      margins: { top: tall ? 70 : 30, bottom: tall ? 70 : 30, left: 100, right: 60 },
+      margins: { top: tall ? 50 : 20, bottom: tall ? 50 : 20, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
-      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+      children: [new Paragraph({ spacing:{before:0,after:0}, children: [new TextRun({ text: " " })] })],
     });
   children.push(
     new Paragraph({
-      children: [new TextRun({ text: "", size: 4 })],
-      spacing: { after: 20 },
+      children: [new TextRun({ text: "", size: 2 })],
+      spacing: { after: 0 },
       keepNext: true, // glue spacer to the sign-off table that follows
     }),
     new Table({
@@ -663,12 +711,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 280, rule: HeightRule.ATLEAST },
+          height: { value: 240, rule: HeightRule.ATLEAST },
           children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 280, rule: HeightRule.ATLEAST },
+          height: { value: 240, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Technician:"),
             sigValueCell(),
@@ -678,7 +726,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 380, rule: HeightRule.ATLEAST },
+          height: { value: 320, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
@@ -702,12 +750,16 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     const aspect =
       watermark.width && watermark.height ? watermark.width / watermark.height : 1;
     const WM_H_PX = Math.round(WM_W_PX / aspect);
+    // Apply 8% opacity by re-rasterising the watermark through a canvas.
+    // docx-js's ImageRun has no native opacity option, so we bake the alpha
+    // into the PNG bytes before embedding.
+    const fadedWatermark = await fadeImageBytes(watermark, 0.08);
     headerChildren.push(
       new Paragraph({
         children: [
           new ImageRun({
-            type: watermark.type,
-            data: watermark.data,
+            type: fadedWatermark.type,
+            data: fadedWatermark.data,
             transformation: { width: WM_W_PX, height: WM_H_PX },
             floating: {
               horizontalPosition: {
