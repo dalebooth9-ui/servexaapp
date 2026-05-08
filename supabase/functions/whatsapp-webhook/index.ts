@@ -141,6 +141,7 @@ Deno.serve(async (req) => {
       // remaining caption text as the fuzzy search term.
       const strippedBody = (messageBody || "").replace(jobRefPattern, " ").replace(/\s+/g, " ").trim();
       console.log(`[fuzzy-match] jobId=${jobId} strippedBody="${strippedBody}" candidatesFromRef=${candidates.length}`);
+      let fuzzyAttemptedNoMatch = false;
       if (!jobId && strippedBody.length >= 3) {
         const term = strippedBody.slice(0, 120);
         const escaped = term.replace(/[%_,()]/g, " ").trim();
@@ -197,12 +198,28 @@ Deno.serve(async (req) => {
             `Found ${matches.length} jobs matching "${term}": ${refs} — please resend with the reference number.`
           );
           return twimlResponse();
+        } else {
+          // Caption was provided but no jobs matched — do NOT silently fall back
+          // to a stale active-job context. Tell the engineer.
+          fuzzyAttemptedNoMatch = true;
+          console.log(`[fuzzy-match] zero matches for caption — skipping getActiveJob fallback`);
         }
       }
 
-      // Otherwise, try the normal active job resolution
-      if (!jobId) {
+      // Otherwise, try the normal active job resolution — but only if the
+      // engineer didn't give us a caption that we already failed to match.
+      if (!jobId && !fuzzyAttemptedNoMatch) {
         jobId = await getActiveJob(supabase, engineerId);
+        console.log(`[active-job] resolved jobId=${jobId}`);
+      }
+
+      // If a caption was provided but matched nothing, prompt the engineer
+      // instead of silently dropping or guessing.
+      if (!jobId && fuzzyAttemptedNoMatch) {
+        await sendWhatsApp(twilioSender, from,
+          `⚠️ Couldn't find a job matching "${strippedBody.slice(0, 80)}". Please resend with the job reference number (e.g. VFP-00123 or TM-2026-0608).`
+        );
+        return twimlResponse();
       }
 
       // If still no job AND we have an image with no meaningful text body → auto-scan
