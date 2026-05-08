@@ -619,7 +619,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
     });
   children.push(
-    new Paragraph({ children: [new TextRun({ text: " ", size: 10 })], spacing: { after: 60 } }),
+    new Paragraph({ children: [new TextRun({ text: "", size: 4 })], spacing: { after: 20 } }),
     new Table({
       width: { size: TABLE_W, type: WidthType.DXA },
       columnWidths: [sigColLabel, sigColValue, sigColLabel, sigColValue],
