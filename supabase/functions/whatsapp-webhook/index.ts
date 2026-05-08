@@ -323,6 +323,17 @@ Deno.serve(async (req) => {
       const sanitize = (s: string) =>
         s.replace(/[\\/:*?"<>|]+/g, " ").replace(/\s+/g, " ").trim();
 
+      const sanitizeStorageSegment = (s: string) => {
+        const cleaned = s
+          .normalize("NFKD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^A-Za-z0-9._-]+/g, "_")
+          .replace(/_+/g, "_")
+          .replace(/^[_\-.]+|[_\-.]+$/g, "")
+          .slice(0, 120);
+        return cleaned || `file_${Date.now()}`;
+      };
+
       const buildFriendlyName = (isImage: boolean, ext: string, idx: number) => {
         const tokens: Record<string, string> = {
           "{type}": isImage ? "Photo" : "Document",
@@ -401,8 +412,9 @@ Deno.serve(async (req) => {
         const ext = mediaType.split("/")[1] || "bin";
         const rawFriendly = buildFriendlyName(isImage, ext, i);
         const friendlyName = disambiguate(rawFriendly, `${mediaUrl}|${i}|${Date.now()}`);
-        // Storage path stays unique to avoid collisions; file_name is the friendly label
-        const storagePath = `${jobId}/${engineerId}/${Date.now()}_${i}_${friendlyName}`;
+        // Storage keys must be URL-safe; keep the human-friendly label in file_name only.
+        const safeStorageName = sanitizeStorageSegment(friendlyName);
+        const storagePath = `${jobId}/${engineerId}/${Date.now()}_${i}_${safeStorageName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("submissions")
