@@ -361,16 +361,18 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
+    height: { value: 320, rule: HeightRule.ATLEAST },
     children: [
       new TableCell({
         borders: cellBorders,
         shading: headerShading,
         width: { size: LABEL_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
           new Paragraph({
-            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 20 })],
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 16 })],
           }),
         ],
       }),
@@ -378,10 +380,13 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
         borders: cellBorders,
         shading: headerShading,
         width: { size: VALUE_COL, type: WidthType.DXA },
-        margins: { top: 80, bottom: 80, left: 120, right: 120 },
+        margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
-          new Paragraph({ children: [new TextRun({ text: "RESULT", bold: true, size: 20 })] }),
+          new Paragraph({
+            spacing: { before: 0, after: 0 },
+            children: [new TextRun({ text: "RESULT", bold: true, size: 16 })],
+          }),
         ],
       }),
     ],
