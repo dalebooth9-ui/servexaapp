@@ -702,12 +702,16 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     const aspect =
       watermark.width && watermark.height ? watermark.width / watermark.height : 1;
     const WM_H_PX = Math.round(WM_W_PX / aspect);
+    // Apply 8% opacity by re-rasterising the watermark through a canvas.
+    // docx-js's ImageRun has no native opacity option, so we bake the alpha
+    // into the PNG bytes before embedding.
+    const fadedWatermark = await fadeImageBytes(watermark, 0.08);
     headerChildren.push(
       new Paragraph({
         children: [
           new ImageRun({
-            type: watermark.type,
-            data: watermark.data,
+            type: fadedWatermark.type,
+            data: fadedWatermark.data,
             transformation: { width: WM_W_PX, height: WM_H_PX },
             floating: {
               horizontalPosition: {
