@@ -418,22 +418,15 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     template.footer_text || undefined,
   );
 
-  const renderable = template.fields.filter((f) => {
-    if (f.type === "section") return false;
-    const norm = (s: string) =>
-      s
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, " ")
-        .trim();
-    if (f.section && norm(f.label) === norm(f.section)) return false;
-    return true;
-  });
-
+  // Use the SAME section/skip logic the PDF uses, so the two outputs always
+  // contain the same rows in the same order. See `wordPdfParity.test.ts`.
+  const pdfFields = template.fields as unknown as PdfTemplateField[];
+  const skipIds = buildSkipIds(pdfFields);
+  const sectionOrder = getSections(pdfFields);
   const sectionMap = new Map<string, TemplateField[]>();
-  for (const f of renderable) {
-    const key = f.section || "Details";
-    if (!sectionMap.has(key)) sectionMap.set(key, []);
-    sectionMap.get(key)!.push(f);
+  for (const section of sectionOrder) {
+    const fields = getSectionFields(pdfFields, section, skipIds) as unknown as TemplateField[];
+    if (fields.length > 0) sectionMap.set(section, fields);
   }
 
   // Title — navy, centred, bold, sized to mirror the PDF (~15pt = size 30).
