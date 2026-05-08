@@ -113,6 +113,9 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
           <DropdownMenuItem onClick={() => run(() => wordRef.current?.download())}>
             <FileText className="h-3.5 w-3.5 mr-2" /> Word (.docx)
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => run(downloadBoth)}>
+            <FileStack className="h-3.5 w-3.5 mr-2" /> PDF + Word (same version)
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => run(() => pdfRef.current?.download({ handfill: true }))}>
             <PenLine className="h-3.5 w-3.5 mr-2" /> Handfill PDF
