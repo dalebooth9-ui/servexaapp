@@ -550,8 +550,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (template.description) {
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: template.description, size: 20 })],
-        spacing: { after: 200 },
+        children: [new TextRun({ text: template.description, size: 16 })],
+        spacing: { after: 80 },
       }),
     );
   }
