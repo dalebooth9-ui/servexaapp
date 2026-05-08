@@ -144,7 +144,7 @@ Deno.serve(async (req) => {
         // 1. Jobs whose own name matches
         const { data: byJobName } = await supabase
           .from("jobs")
-          .select("id, name, sites(name)")
+          .select("id, name, reference_number, sites(name)")
           .neq("status", "archived")
           .ilike("name", `%${escaped}%`)
           .limit(10);
@@ -161,7 +161,7 @@ Deno.serve(async (req) => {
           const siteIds = matchingSites.map((s: any) => s.id);
           const { data } = await supabase
             .from("jobs")
-            .select("id, name, sites(name)")
+            .select("id, name, reference_number, sites(name)")
             .in("site_id", siteIds)
             .neq("status", "archived")
             .order("updated_at", { ascending: false })
@@ -177,15 +177,12 @@ Deno.serve(async (req) => {
         if (candidates.length === 1) {
           jobId = candidates[0].id;
         } else if (candidates.length > 1) {
-          const list = candidates
-            .slice(0, 5)
-            .map((j: any, idx: number) => {
-              const site = j.sites?.name ? ` (${j.sites.name})` : "";
-              return `${idx + 1}. ${j.name || j.id}${site}`;
-            })
-            .join("\n");
+          const refs = candidates
+            .slice(0, 10)
+            .map((j: any) => j.reference_number || j.name || j.id)
+            .join(", ");
           await sendWhatsApp(twilioSender, from,
-            `⚠️ Multiple jobs match "${term}". Please resend with the job reference number:\n${list}`
+            `Found ${candidates.length} jobs matching "${term}": ${refs} — please resend with the reference number.`
           );
           return twimlResponse();
         }
