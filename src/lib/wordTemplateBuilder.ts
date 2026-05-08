@@ -532,7 +532,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const detailValueColLeft = Math.round(TABLE_W * 0.52) - detailLabelColLeft;
   const detailLabelColRight = Math.round(TABLE_W * 0.12);
   const detailValueColRight = TABLE_W - Math.round(TABLE_W * 0.52) - detailLabelColRight;
-  const detailRowH = { value: 380, rule: HeightRule.ATLEAST } as const;
+  const detailRowH = { value: 300, rule: HeightRule.ATLEAST } as const;
   const detailLabelCell = (text: string, w: number) =>
     new TableCell({
       borders: cellBorders,
