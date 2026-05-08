@@ -240,10 +240,10 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
-      // Fetch job info once for friendly file naming
+      // Fetch job info once for friendly file naming + confirmation message
       const { data: jobInfo } = await supabase
         .from("jobs")
-        .select("reference_number, name, customer, customers(name)")
+        .select("reference_number, name, customer, customers(name), sites(name, address)")
         .eq("id", jobId)
         .maybeSingle();
 
@@ -325,6 +325,7 @@ Deno.serve(async (req) => {
         return candidate;
       };
 
+      let savedCount = 0;
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
@@ -364,6 +365,19 @@ Deno.serve(async (req) => {
           whatsapp_message_id: messageSid,
           content: messageBody || null,
         });
+        savedCount++;
+      }
+
+      // Send confirmation back to engineer
+      if (savedCount > 0) {
+        const ji: any = jobInfo || {};
+        const ref = ji.reference_number || "job";
+        const jobName = ji.name ? ` — ${ji.name}` : "";
+        const siteName = ji.sites?.name ? ` — ${ji.sites.name}` : (ji.sites?.address ? ` — ${ji.sites.address}` : "");
+        const noun = savedCount === 1 ? "Photo" : `${savedCount} files`;
+        await sendWhatsApp(twilioSender, from,
+          `✅ ${noun} saved to job ${ref}${jobName}${siteName}`
+        );
       }
 
       return twimlResponse();
