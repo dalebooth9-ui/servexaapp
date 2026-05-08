@@ -573,77 +573,75 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     );
   }
 
-  // Sign-off block
+  // Comments box (mirrors PDF "Comments:" label + bordered empty box)
   children.push(
     new Paragraph({
-      heading: HeadingLevel.HEADING_2,
-      children: [new TextRun({ text: "Sign-off", bold: true })],
-      spacing: { before: 300, after: 100 },
+      spacing: { before: 160, after: 40 },
+      children: [new TextRun({ text: "Comments:", bold: true, size: 18 })],
     }),
     new Table({
       width: { size: TABLE_W, type: WidthType.DXA },
-      columnWidths: [LABEL_COL, VALUE_COL],
+      columnWidths: [TABLE_W],
       rows: [
         new TableRow({
+          height: { value: 1400, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: "Engineer name", bold: true, size: 20 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
+              width: { size: TABLE_W, type: WidthType.DXA },
               margins: { top: 80, bottom: 80, left: 120, right: 120 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
           ],
         }),
+      ],
+    }),
+  );
+
+  // Two-column sign-off block: Date / Technician / Signature  |  Date / Customer / Signature
+  // Mirrors PDF renderPdfSignatures layout.
+  const sigColLabel = Math.round(TABLE_W * 0.10);
+  const sigColValue = Math.round(TABLE_W * 0.40) - sigColLabel;
+  const sigLabelCell = (text: string) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: sigColLabel, type: WidthType.DXA },
+      margins: { top: 60, bottom: 60, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ children: [new TextRun({ text, bold: true, size: 16 })] })],
+    });
+  const sigValueCell = (tall = false) =>
+    new TableCell({
+      borders: cellBorders,
+      width: { size: sigColValue, type: WidthType.DXA },
+      margins: { top: tall ? 200 : 60, bottom: tall ? 200 : 60, left: 100, right: 60 },
+      verticalAlign: VerticalAlign.CENTER,
+      children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
+    });
+  children.push(
+    new Paragraph({ children: [new TextRun({ text: " ", size: 10 })], spacing: { after: 60 } }),
+    new Table({
+      width: { size: TABLE_W, type: WidthType.DXA },
+      columnWidths: [sigColLabel, sigColValue, sigColLabel, sigColValue],
+      rows: [
         new TableRow({
-          // ATLEAST so Word can expand if a real signature image is taller.
-          height: { value: 900, rule: HeightRule.ATLEAST },
-          children: [
-            new TableCell({
-              borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: "Signature", bold: true, size: 20 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
-              margins: { top: 200, bottom: 200, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-            }),
-          ],
+          children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           children: [
-            new TableCell({
-              borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [
-                new Paragraph({
-                  children: [new TextRun({ text: "Date", bold: true, size: 20 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
-              margins: { top: 80, bottom: 80, left: 120, right: 120 },
-              children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
-            }),
+            sigLabelCell("Technician:"),
+            sigValueCell(),
+            sigLabelCell("Customer:"),
+            sigValueCell(),
+          ],
+        }),
+        new TableRow({
+          height: { value: 700, rule: HeightRule.ATLEAST },
+          children: [
+            sigLabelCell("Signature:"),
+            sigValueCell(true),
+            sigLabelCell("Signature:"),
+            sigValueCell(true),
           ],
         }),
       ],
