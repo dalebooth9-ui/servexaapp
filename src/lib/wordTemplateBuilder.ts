@@ -664,7 +664,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 420, rule: HeightRule.ATLEAST },
+          height: { value: 320, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
