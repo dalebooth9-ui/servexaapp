@@ -636,7 +636,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           ],
         }),
         new TableRow({
-          height: { value: 700, rule: HeightRule.ATLEAST },
+          height: { value: 500, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
