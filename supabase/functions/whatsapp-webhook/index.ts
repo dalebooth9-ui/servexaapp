@@ -424,6 +424,7 @@ Deno.serve(async (req) => {
       };
 
       let savedCount = 0;
+      const savedPaths: string[] = [];
       for (let i = 0; i < numMedia; i++) {
         const mediaUrl = params.get(`MediaUrl${i}`);
         const mediaType = params.get(`MediaContentType${i}`) || "";
