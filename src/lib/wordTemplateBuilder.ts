@@ -614,7 +614,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     new TableCell({
       borders: cellBorders,
       width: { size: sigColValue, type: WidthType.DXA },
-      margins: { top: tall ? 200 : 60, bottom: tall ? 200 : 60, left: 100, right: 60 },
+      margins: { top: tall ? 100 : 40, bottom: tall ? 100 : 40, left: 100, right: 60 },
       verticalAlign: VerticalAlign.CENTER,
       children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
     });
