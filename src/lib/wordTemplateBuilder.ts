@@ -598,7 +598,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
   children.push(
-    new Paragraph({ children: [new TextRun({ text: "", size: 2 })], spacing: { before: 0, after: 0 } }),
+    new Paragraph({
+      children: [new TextRun({ text: "", size: 1 })],
+      spacing: { before: 0, after: 0, line: 20, lineRule: "exact" as const },
+    }),
   );
 
   if (template.description) {
@@ -621,8 +624,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     );
     children.push(
       new Paragraph({
-        children: [new TextRun({ text: "", size: 2 })],
-        spacing: { before: 0, after: 0 },
+        children: [new TextRun({ text: "", size: 1 })],
+        spacing: { before: 0, after: 0, line: 20, lineRule: "exact" as const },
       }),
     );
   }
@@ -701,8 +704,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     });
   children.push(
     new Paragraph({
-      children: [new TextRun({ text: "", size: 2 })],
-      spacing: { after: 0 },
+      children: [new TextRun({ text: "", size: 1 })],
+      spacing: { before: 0, after: 0, line: 20, lineRule: "exact" as const },
       keepNext: true, // glue spacer to the sign-off table that follows
     }),
     new Table({
