@@ -57,9 +57,11 @@ describe("Word section-header banner styling", () => {
     expect(blueShadingMatches.length).toBeGreaterThanOrEqual(4);
 
     // The "RESULT" header label is rendered bold white on the blue band.
-    expect(xml).toMatch(
-      /<w:r>\s*<w:rPr>(?=[^<]*<w:b\s*\/>)(?=[^<]*<w:color[^/]*w:val="FFFFFF")[^<]*<\/w:rPr>\s*<w:t[^>]*>RESULT<\/w:t>/,
-    );
+    // Match the run that contains both <w:b/> and white color, ending with the RESULT text.
+    const resultRun = xml.match(/<w:r>\s*<w:rPr>[^<]*(?:<w:[^/]*\/>[^<]*)*?<\/w:rPr>\s*<w:t[^>]*>RESULT<\/w:t>\s*<\/w:r>/);
+    expect(resultRun, "RESULT run must exist").not.toBeNull();
+    expect(resultRun![0]).toContain("<w:b/>");
+    expect(resultRun![0]).toMatch(/<w:color[^/]*w:val="FFFFFF"/);
 
     // No section header should still be using the old grey (#E6E6E6) fill.
     expect(xml).not.toMatch(/<w:shd[^/]*w:fill="E6E6E6"/);
