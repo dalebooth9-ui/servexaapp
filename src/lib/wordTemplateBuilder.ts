@@ -516,7 +516,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 30,
+          size: 24,
           color: BRAND_NAVY_HEX,
           font: "Helvetica",
         }),
@@ -963,9 +963,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
             // 1mm = ~56.7 DXA → 10mm = 567 DXA.
             margin: {
-              top: 567,
+              top: 283,
               right: 567,
-              bottom: 567,
+              bottom: 283,
               left: 567,
               header: 113, // 2mm — pull header logo up close to page edge
               footer: 283, // 5mm
