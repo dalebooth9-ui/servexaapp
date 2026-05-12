@@ -1117,17 +1117,29 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       {
         properties: {
           page: {
-            size: { width: layout.pageWidth, height: 16838 }, // A4 height
-            // Auto-scaled side margins keep the right border aligned with the
-            // left margin (table width = pageWidth − 2 × pageMargin).
-            margin: {
-              top: 720,
-              right: layout.pageMargin,
-              bottom: 720,
-              left: layout.pageMargin,
-              header: 360,
-              footer: 360,
+            size: {
+              width: isDryRiser ? DRY_RISER_LAYOUT.page.widthDxa : layout.pageWidth,
+              height: isDryRiser ? DRY_RISER_LAYOUT.page.heightDxa : 16838,
             },
+            // Dry Riser: use SHARED config (12mm L/R, 10mm T/B) so Word and
+            // PDF page geometry match. Other templates: legacy auto-scaled.
+            margin: isDryRiser
+              ? {
+                  top: DRY_RISER_LAYOUT.page.marginTopDxa,
+                  right: DRY_RISER_LAYOUT.page.marginRightDxa,
+                  bottom: DRY_RISER_LAYOUT.page.marginBottomDxa,
+                  left: DRY_RISER_LAYOUT.page.marginLeftDxa,
+                  header: 360,
+                  footer: 360,
+                }
+              : {
+                  top: 720,
+                  right: layout.pageMargin,
+                  bottom: 720,
+                  left: layout.pageMargin,
+                  header: 360,
+                  footer: 360,
+                },
           },
         },
         headers: { default: new Header({ children: headerChildren }) },
