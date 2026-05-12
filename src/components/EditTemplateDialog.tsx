@@ -276,9 +276,17 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         logo_url: logoUrl || undefined,
         footer_text: footerText || undefined,
         declaration_text: declarationText || undefined,
+        header_logo_max_height_px:
+          headerLogoMaxH.trim() && Number.isFinite(Number(headerLogoMaxH))
+            ? Number(headerLogoMaxH)
+            : undefined,
+        header_logo_spacing_after_pt:
+          headerLogoSpacingAfter.trim() && Number.isFinite(Number(headerLogoSpacingAfter))
+            ? Number(headerLogoSpacingAfter)
+            : undefined,
       },
     }),
-    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText]
+    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText, headerLogoMaxH, headerLogoSpacingAfter]
   );
 
   useEffect(() => {
