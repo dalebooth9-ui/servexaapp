@@ -22,6 +22,12 @@ import {
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import {
+  DRY_RISER_LAYOUT,
+  isDryRiserName,
+  dryRiserContentWidthMm,
+  commentsElasticMm,
+} from "@/lib/dryRiserLayout";
 
 type Template = {
   id: string;
