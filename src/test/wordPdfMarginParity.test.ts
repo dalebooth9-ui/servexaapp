@@ -142,14 +142,18 @@ describe("Word ↔ PDF margin parity (right border = left margin)", () => {
   });
 
   describe.each(FIXTURES)("$name", (template) => {
-    it("declares page geometry whose content width equals TABLE_W", async () => {
+    const expectedWidth = isDryRiserName(template.name)
+      ? dryRiserContentWidthDxa()
+      : TABLE_W;
+
+    it("declares page geometry whose content width equals expected width", async () => {
       const xml = await readDocumentXml(template);
       const geom = readPageGeometry(xml);
       expect(
         geom.contentWidth,
-        `Page content width (${geom.contentWidth}) must equal TABLE_W (${TABLE_W}) ` +
+        `Page content width (${geom.contentWidth}) must equal expected (${expectedWidth}) ` +
           `so the right border lines up with the left margin`,
-      ).toBe(TABLE_W);
+      ).toBe(expectedWidth);
       // Symmetry: left and right margins must match.
       expect(geom.marginLeft).toBe(geom.marginRight);
     });
