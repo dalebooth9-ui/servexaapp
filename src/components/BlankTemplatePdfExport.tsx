@@ -192,6 +192,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           { brandingSubtitle: template.branding?.company_subtitle ?? null },
         );
 
+        // Dry Riser: drive every header dimension from the SHARED config so
+        // Word and PDF use byte-identical sizes (logo, title, subtitle, rule).
+        const dryRiserAccent = isDryRiser
+          ? DRY_RISER_LAYOUT.header.brandBlueRgb
+          : accentColor;
+        const ptToMm = (pt: number) => pt * 0.3527777778;
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName: isDryRiser ? "" : customerName,
           siteName: isDryRiser ? "" : siteName,
@@ -199,9 +205,22 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           refNumber: isDryRiser ? "" : refNumber,
           dateVal,
           riserLocation: isDryRiser ? "" : riserLocValue,
-        }, template.standard || sheetSubtitle, accentColor, {
+        }, template.standard || sheetSubtitle, dryRiserAccent, {
           compact: isDryRiser,
-          style: isDryRiser ? { logo: { maxW: 110, maxH: 48, topY: 6 } } : undefined,
+          marginX,
+          style: isDryRiser
+            ? {
+                logo: {
+                  maxW: 100,
+                  maxH: DRY_RISER_LAYOUT.header.logoHeightMm,
+                  topY: marginY,
+                },
+                title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
+                standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
+                standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
+                separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
+              }
+            : undefined,
         });
 
         const skipIds = buildSkipIds(template.fields);
