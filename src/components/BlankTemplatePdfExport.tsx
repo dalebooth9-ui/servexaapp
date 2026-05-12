@@ -176,8 +176,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxWidth = pageWidth - margin * 2;
+      // Dry Riser: pull margins from the SHARED config so Word and PDF
+      // page geometry match. All other templates: legacy 10mm symmetric.
+      const marginX = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
+      const marginY = isDryRiser ? DRY_RISER_LAYOUT.page.marginTopMm : 10;
+      const margin = marginX; // keep existing local API
+      const maxWidth = pageWidth - marginX * 2;
 
       for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
         // Add a new page for every sheet after the first
