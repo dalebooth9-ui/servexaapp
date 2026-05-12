@@ -491,7 +491,10 @@ export function renderFieldRow(
 }
 
 /** Section header row — grey banner with "RESULT" in value column, mirrors PDF. */
-export function renderSectionHeaderRow(sectionName: string): TableRow {
+export function renderSectionHeaderRow(
+  sectionName: string,
+  layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
