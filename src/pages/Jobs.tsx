@@ -1631,6 +1631,9 @@ export default function Jobs() {
                     )}
                     <Link to={`/jobs/${j.id}`} className="flex-1 min-w-0 flex items-center gap-2 hover:underline">
                       <span className="font-mono text-xs font-semibold text-primary shrink-0">{j.reference_number}</span>
+                      {(j as any).sites?.name && (
+                        <span className="text-xs font-medium text-muted-foreground truncate shrink-0">· {(j as any).sites.name}</span>
+                      )}
                       <span className="text-sm font-medium truncate">{j.name}</span>
                       <span className="text-xs text-muted-foreground truncate hidden sm:inline">
                         {getCustomerName(j) || "Unassigned"}
