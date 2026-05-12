@@ -631,7 +631,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 40,
+          size: 32,
           color: SECTION_HEADER_BLUE,
           font: "Helvetica",
         }),
@@ -807,7 +807,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 900, rule: HeightRule.ATLEAST },
+          height: { value: 2268, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
@@ -1016,7 +1016,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: spacingAfterDxa, line: 240, lineRule: "auto" as const },
+        spacing: { before: 0, after: Math.round(spacingAfterDxa / 2), line: 120, lineRule: "exact" as const },
         children: [
           new ImageRun({
             type: headerLogo.type,
