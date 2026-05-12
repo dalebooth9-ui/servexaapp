@@ -626,7 +626,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 0 },
+      spacing: { before: 0, after: 0, line: 280, lineRule: "exact" as const },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
@@ -794,6 +794,27 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // every row is unsplittable and the rows are kept together by their
   // shared table). That's the expected, design-correct fallback.
   // ─────────────────────────────────────────────────────────────────────
+  // Estimate remaining vertical space so the Comments cell stretches to fill
+  // whatever's left between the sign-off block and the page footer
+  // (accreditation strip + declaration banner). Word doesn't auto-grow rows,
+  // so we compute a min-height that lands the sign-off just above the footer.
+  const validAccredCount = (accredLogos as (FetchedImage | null)[]).filter(Boolean).length;
+  const PX_TO_TWIPS_C = 15;
+  const estLogoTwips = 180 * PX_TO_TWIPS_C;
+  const headerOverhead = Math.max(0, estLogoTwips - 113);
+  const footerEst =
+    (validAccredCount > 0 ? 40 * PX_TO_TWIPS_C + 120 : 0) +
+    (footerText && footerText.trim() ? 280 : 0) +
+    227; // footer margin
+  let bodyExclComments =
+    280 /* title */ + (subtitleText ? 220 : 0) + 80 /* sep */ +
+    3 * 240 + 40 /* detail grid */ +
+    180 /* "Comments:" label */ +
+    200 + 200 + 320 + 80; /* sign-off three rows + spacer */
+  for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
+  const pageUsable = 16838 - 227 - 227;
+  const commentsMin = Math.max(900, pageUsable - bodyExclComments - headerOverhead - footerEst);
+
   children.push(
     new Paragraph({
       spacing: { before: 0, after: 0 },
@@ -807,7 +828,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 900, rule: HeightRule.ATLEAST },
+          height: { value: commentsMin, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
@@ -1013,10 +1034,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       height: Math.max(1, Math.round(natH * scale)),
     };
     const spacingAfterDxa = Math.round(spacingAfterPt * 20);
+    const logoLineTwips = Math.max(240, logoSize.height * 15);
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: spacingAfterDxa, line: 240, lineRule: "auto" as const },
+        spacing: { before: 0, after: spacingAfterDxa, line: logoLineTwips, lineRule: "exact" as const },
         children: [
           new ImageRun({
             type: headerLogo.type,
