@@ -243,6 +243,10 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [logoUrl, setLogoUrl] = useState("");
   const [footerText, setFooterText] = useState("");
   const [declarationText, setDeclarationText] = useState("");
+  // Per-template Word/PDF header logo tuning. Stored as strings so the user
+  // can clear the field to fall back to the built-in defaults (100px / 0pt).
+  const [headerLogoMaxH, setHeaderLogoMaxH] = useState("");
+  const [headerLogoSpacingAfter, setHeaderLogoSpacingAfter] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
