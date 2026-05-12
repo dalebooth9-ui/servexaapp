@@ -1013,7 +1013,7 @@ async function validateTwilioSignature(
   return computed === signature;
 }
 
-async function getActiveJob(supabase: any, engineerId: string): Promise<string | null> {
+async function getActiveJob(supabase: any, engineerId: string, strict = false): Promise<string | null> {
   // 1. Check for an explicit context set by the engineer (most recent "Job context set" note)
   const { data: contextSubs } = await supabase
     .from("submissions")
