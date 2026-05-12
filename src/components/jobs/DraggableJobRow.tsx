@@ -89,6 +89,9 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           <Link to={`/jobs/${job.id}`} className="text-sm font-medium text-foreground hover:underline truncate">
             {job.name}
           </Link>
+          {job.sites?.name && (
+            <span className="text-xs text-muted-foreground truncate">· {job.sites.name}</span>
+          )}
           {(job.submissions || []).some((s: any) => s.type === "document") && (
             <span title="Has compliance / RAMS documents">
               <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
