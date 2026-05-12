@@ -799,21 +799,15 @@ async function handlePhotosCommand(supabase: any, sender: TwilioSender, to: stri
     return;
   }
 
-  await sendWhatsApp(sender, to, `📷 Sending ${photos.length} photo(s) for this job...`);
-
+  // Safety: never send signed download URLs back over WhatsApp.
+  // List photo metadata only — engineers/admins can view files in the app.
+  let msg = `📷 *Photos (${photos.length}):*\n\n`;
   for (const photo of photos) {
-    if (!photo.file_url) continue;
-
-    // Create a signed URL (1 hour expiry)
-    const { data: signedData } = await supabase.storage
-      .from("submissions")
-      .createSignedUrl(photo.file_url, 3600);
-
-    if (signedData?.signedUrl) {
-      const caption = photo.file_name || "Photo";
-      await sendWhatsApp(sender, to, caption, signedData.signedUrl);
-    }
+    const date = new Date(photo.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    msg += `• ${date} — ${photo.file_name || "Photo"}\n`;
   }
+  msg += `\nView them in the job folder in Servexa.`;
+  await sendWhatsApp(sender, to, msg);
 }
 
 async function handleReportCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
