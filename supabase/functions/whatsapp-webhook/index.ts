@@ -211,8 +211,11 @@ Deno.serve(async (req) => {
       // Otherwise, try the normal active job resolution — but only if the
       // engineer didn't give us a caption that we already failed to match.
       if (!jobId && !fuzzyAttemptedNoMatch) {
-        jobId = await getActiveJob(supabase, engineerId);
-        console.log(`[active-job] resolved jobId=${jobId}`);
+        // For media, use strict mode: only resolve to an explicitly-set context
+        // or today's scheduled visit. Never silently route to the most-recent
+        // assigned job — that's how photos end up in the wrong folder.
+        jobId = await getActiveJob(supabase, engineerId, true);
+        console.log(`[active-job] strict resolved jobId=${jobId}`);
       }
 
       // If a caption was provided but matched nothing, prompt the engineer
