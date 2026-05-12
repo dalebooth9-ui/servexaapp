@@ -576,7 +576,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 0, line: 280, lineRule: "exact" as const },
+      spacing: { before: 120, after: 0, line: 280, lineRule: "exact" as const },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
