@@ -512,12 +512,15 @@ export function renderFieldRow(
   });
 }
 
-/** Section header row — grey banner with "RESULT" in value column, mirrors PDF. */
+/** Solid blue used for section header bands and the document title (matches PDF). */
+export const SECTION_HEADER_BLUE = "1F4E79";
+
+/** Section header row — solid blue banner with white "RESULT" label, mirrors PDF. */
 export function renderSectionHeaderRow(
   sectionName: string,
   layout: ResolvedTableLayout = DEFAULT_LAYOUT,
 ): TableRow {
-  const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
+  const headerShading = { fill: SECTION_HEADER_BLUE, type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
     height: { value: 160, rule: HeightRule.ATLEAST },
@@ -531,7 +534,14 @@ export function renderSectionHeaderRow(
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 18 })],
+            children: [
+              new TextRun({
+                text: sectionName.toUpperCase(),
+                bold: true,
+                size: 18,
+                color: "FFFFFF",
+              }),
+            ],
           }),
         ],
       }),
@@ -544,7 +554,9 @@ export function renderSectionHeaderRow(
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: "RESULT", bold: true, size: 18 })],
+            children: [
+              new TextRun({ text: "RESULT", bold: true, size: 18, color: "FFFFFF" }),
+            ],
           }),
         ],
       }),
@@ -619,8 +631,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 22,
-          color: BRAND_NAVY_HEX,
+          size: 40,
+          color: SECTION_HEADER_BLUE,
           font: "Helvetica",
         }),
       ],
@@ -635,20 +647,20 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           new TextRun({
             text: subtitleText,
             bold: true,
-            size: 18,
-            color: BRAND_NAVY_HEX,
+            size: 22,
+            color: SECTION_HEADER_BLUE,
             font: "Helvetica",
           }),
         ],
       }),
     );
   }
-  // Navy separator line below the title (mirrors PDF rule).
+  // Blue separator line below the title (mirrors PDF rule, ~2pt).
   children.push(
     new Paragraph({
       spacing: { before: 0, after: 0 },
       border: {
-        bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
+        bottom: { style: BorderStyle.SINGLE, size: 16, color: SECTION_HEADER_BLUE, space: 1 },
       },
       children: [new TextRun({ text: "" })],
     }),
@@ -735,60 +747,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // avoids duplicating boilerplate that already appears in the title and
   // footer declaration.
 
-  // Detect template variant so the "Scope of Work" select can be pre-ticked
-  // to match the document title (Pressure Test vs Visual) instead of
-  // showing all options blank.
-  const titleLower = (template.name || "").toLowerCase();
-  const scopeMode: "pressure" | "visual" | null = /pressure\s*test/.test(titleLower)
-    ? "pressure"
-    : /visual/.test(titleLower)
-    ? "visual"
-    : null;
-
-  const renderRowForField = (field: TemplateField): TableRow => {
-    if (field.id === "scope_of_work" && field.type === "select" && field.options && scopeMode) {
-      const matchIdx = field.options.findIndex((o) =>
-        scopeMode === "pressure" ? /pressure/i.test(o) : /visual/i.test(o),
-      );
-      if (matchIdx >= 0) {
-        return new TableRow({
-          height: { value: 220, rule: HeightRule.ATLEAST },
-          children: [
-            new TableCell({
-              borders: cellBorders,
-              width: { size: LBL, type: WidthType.DXA },
-              margins: { top: 30, bottom: 30, left: 90, right: 90 },
-              verticalAlign: VerticalAlign.CENTER,
-              children: [
-                new Paragraph({
-                  spacing: { before: 0, after: 0 },
-                  children: [new TextRun({ text: field.label, bold: true, size: 18 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VAL, type: WidthType.DXA },
-              margins: { top: 30, bottom: 30, left: 90, right: 90 },
-              verticalAlign: VerticalAlign.CENTER,
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: `${CHECKBOX_TICK} ${field.options![matchIdx]}`,
-                      size: 18,
-                      bold: true,
-                    }),
-                  ],
-                }),
-              ],
-            }),
-          ],
-        });
-      }
-    }
-    return renderFieldRow(field, layout);
-  };
+  // Blank documents must NOT pre-tick the "Scope of Work" option — the engineer
+  // selects it on site. The PDF renders this row as plain unticked checkboxes
+  // and the Word output does the same via renderFieldRow().
+  const renderRowForField = (field: TemplateField): TableRow => renderFieldRow(field, layout);
 
   for (const [sectionName, fields] of sectionMap) {
     if (fields.length === 0) continue;
@@ -975,7 +937,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     const customH = Number(template.branding?.header_logo_max_height_px);
     let HEADER_LOGO_MAX_H = Number.isFinite(customH) && customH > 0
       ? Math.min(400, Math.max(20, customH))
-      : 100;
+      : 180;
     // Spacing AFTER the logo paragraph. docx uses twentieths of a point.
     // 0pt = flush against title (legacy default).
     const customSpacingPt = Number(template.branding?.header_logo_spacing_after_pt);
@@ -1030,7 +992,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       // never shrink below what they configured (default 100px). If the
       // page still won't fit, let it spill to a second page rather than
       // produce an unreadable tiny logo.
-      const MIN_LOGO_PX = Math.min(HEADER_LOGO_MAX_H, 130);
+      const MIN_LOGO_PX = Math.min(HEADER_LOGO_MAX_H, 180);
       while (
         HEADER_LOGO_MAX_H > MIN_LOGO_PX &&
         HEADER_LOGO_MAX_H * PX_TO_TWIPS + Math.round(spacingAfterPt * 20) > headerBudget
