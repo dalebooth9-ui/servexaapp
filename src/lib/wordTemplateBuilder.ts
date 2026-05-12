@@ -511,7 +511,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 60 },
+      spacing: { before: 0, after: 20 },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
@@ -527,7 +527,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 80 },
+        spacing: { before: 0, after: 20 },
         children: [
           new TextRun({
             text: subtitleText,
@@ -543,7 +543,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Navy separator line below the title (mirrors PDF rule).
   children.push(
     new Paragraph({
-      spacing: { before: 0, after: 20 },
+      spacing: { before: 0, after: 0 },
       border: {
         bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
       },
@@ -628,14 +628,67 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     }),
   );
 
-  if (template.description) {
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: template.description, size: 14 })],
-        spacing: { after: 40 },
-      }),
-    );
-  }
+  // Description intentionally omitted — keeps cert chrome compact and
+  // avoids duplicating boilerplate that already appears in the title and
+  // footer declaration.
+
+  // Detect template variant so the "Scope of Work" select can be pre-ticked
+  // to match the document title (Pressure Test vs Visual) instead of
+  // showing all options blank.
+  const titleLower = (template.name || "").toLowerCase();
+  const scopeMode: "pressure" | "visual" | null = /pressure\s*test/.test(titleLower)
+    ? "pressure"
+    : /visual/.test(titleLower)
+    ? "visual"
+    : null;
+
+  const renderRowForField = (field: TemplateField): TableRow => {
+    if (field.id === "scope_of_work" && field.type === "select" && field.options && scopeMode) {
+      const matchIdx = field.options.findIndex((o) =>
+        scopeMode === "pressure" ? /pressure/i.test(o) : /visual/i.test(o),
+      );
+      if (matchIdx >= 0) {
+        return new TableRow({
+          height: { value: 220, rule: HeightRule.ATLEAST },
+          children: [
+            new TableCell({
+              borders: cellBorders,
+              width: { size: LABEL_COL, type: WidthType.DXA },
+              margins: { top: 30, bottom: 30, left: 90, right: 90 },
+              verticalAlign: VerticalAlign.CENTER,
+              children: [
+                new Paragraph({
+                  spacing: { before: 0, after: 0 },
+                  children: [new TextRun({ text: field.label, bold: true, size: 20 })],
+                }),
+              ],
+            }),
+            new TableCell({
+              borders: cellBorders,
+              width: { size: VALUE_COL, type: WidthType.DXA },
+              margins: { top: 30, bottom: 30, left: 90, right: 90 },
+              verticalAlign: VerticalAlign.CENTER,
+              children: [
+                new Paragraph({
+                  children: field.options!.flatMap((opt, i) => [
+                    new TextRun({
+                      text: `${i === matchIdx ? CHECKBOX_TICK : CHECKBOX_EMPTY} ${opt}`,
+                      size: 22,
+                      bold: i === matchIdx,
+                    }),
+                    ...(i < field.options!.length - 1
+                      ? [new TextRun({ text: "    ", size: 22 })]
+                      : []),
+                  ]),
+                }),
+              ],
+            }),
+          ],
+        });
+      }
+    }
+    return renderFieldRow(field);
+  };
 
   for (const [sectionName, fields] of sectionMap) {
     if (fields.length === 0) continue;
@@ -643,7 +696,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       new Table({
         width: { size: TABLE_W, type: WidthType.DXA },
         columnWidths: [LABEL_COL, VALUE_COL],
-        rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderFieldRow)],
+        rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderRowForField)],
       }),
     );
     children.push(
