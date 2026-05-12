@@ -246,9 +246,9 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} P    `, size: 22 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} F    `, size: 22 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} N/A`, size: 22 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} P    `, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} F    `, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} N/A`, size: 18 }),
         ],
       }),
     ];
@@ -258,8 +258,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 22 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 22 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 18 }),
         ],
       }),
     ];
@@ -270,8 +270,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
       return [
         new Paragraph({
           children: field.options.flatMap((opt, i) => [
-            new TextRun({ text: `${CHECKBOX_EMPTY} ${opt.toUpperCase()}`, size: 22 }),
-            ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 22 })] : []),
+            new TextRun({ text: `${CHECKBOX_EMPTY} ${opt.toUpperCase()}`, size: 18 }),
+            ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 18 })] : []),
           ]),
         }),
       ];
@@ -279,8 +279,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: field.options.flatMap((opt, i) => [
-          new TextRun({ text: `${CHECKBOX_EMPTY} ${opt}`, size: 22 }),
-          ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 22 })] : []),
+          new TextRun({ text: `${CHECKBOX_EMPTY} ${opt}`, size: 18 }),
+          ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 18 })] : []),
         ]),
       }),
     ];
@@ -292,7 +292,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: "_______ / _______ / _______",
-            size: 22,
+            size: 18,
             color: "777777",
           }),
         ],
@@ -306,7 +306,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(20),
-            size: 22,
+            size: 18,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -318,7 +318,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 22, color: "555555" }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "555555" }),
         ],
       }),
     ];
@@ -326,12 +326,12 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 
   if (field.type === "signature") {
     return [
-      new Paragraph({ children: [new TextRun({ text: " ", size: 22 })] }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
       new Paragraph({
         children: [
           new TextRun({
             text: "Signature: " + " ".repeat(40),
-            size: 20,
+            size: 18,
             color: "777777",
             underline: { type: "single", color: "999999" },
           }),
@@ -346,7 +346,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(60),
-            size: 22,
+            size: 18,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -355,7 +355,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(60),
-            size: 22,
+            size: 18,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -364,7 +364,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(60),
-            size: 22,
+            size: 18,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -377,7 +377,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
       children: [
         new TextRun({
           text: " ".repeat(60),
-          size: 22,
+          size: 18,
           underline: { type: "single", color: "999999" },
         }),
       ],
@@ -391,9 +391,9 @@ export function renderFieldRow(field: TemplateField): TableRow {
   // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
   // service templates fit on a single A4 page.
   let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
-    { value: 220, rule: HeightRule.ATLEAST };
-  if (isMultiLine) height = { value: 520, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 420, rule: HeightRule.ATLEAST };
+    { value: 180, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 380, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 320, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
@@ -405,7 +405,7 @@ export function renderFieldRow(field: TemplateField): TableRow {
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: field.label, bold: true, size: 20 })],
+            children: [new TextRun({ text: field.label, bold: true, size: 18 })],
           }),
         ],
       }),
@@ -425,7 +425,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
-    height: { value: 200, rule: HeightRule.ATLEAST },
+    height: { value: 160, rule: HeightRule.ATLEAST },
     children: [
       new TableCell({
         borders: cellBorders,
@@ -436,7 +436,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 20 })],
+            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 18 })],
           }),
         ],
       }),
@@ -449,7 +449,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: "RESULT", bold: true, size: 20 })],
+            children: [new TextRun({ text: "RESULT", bold: true, size: 18 })],
           }),
         ],
       }),
@@ -516,7 +516,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 24,
+          size: 22,
           color: BRAND_NAVY_HEX,
           font: "Helvetica",
         }),
@@ -532,7 +532,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           new TextRun({
             text: subtitleText,
             bold: true,
-            size: 22,
+            size: 18,
             color: BRAND_NAVY_HEX,
             font: "Helvetica",
           }),
@@ -556,7 +556,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const detailValueColLeft = Math.round(TABLE_W * 0.52) - detailLabelColLeft;
   const detailLabelColRight = Math.round(TABLE_W * 0.12);
   const detailValueColRight = TABLE_W - Math.round(TABLE_W * 0.52) - detailLabelColRight;
-  const detailRowH = { value: 300, rule: HeightRule.ATLEAST } as const;
+  const detailRowH = { value: 240, rule: HeightRule.ATLEAST } as const;
   const detailLabelCell = (text: string, w: number) =>
     new TableCell({
       borders: cellBorders,
@@ -566,7 +566,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       children: [
         new Paragraph({
           spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text, bold: true, size: 20, font: "Helvetica" })],
+          children: [new TextRun({ text, bold: true, size: 18, font: "Helvetica" })],
         }),
       ],
     });
@@ -659,7 +659,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
               children: [
                 new Paragraph({
                   spacing: { before: 0, after: 0 },
-                  children: [new TextRun({ text: field.label, bold: true, size: 20 })],
+                  children: [new TextRun({ text: field.label, bold: true, size: 18 })],
                 }),
               ],
             }),
@@ -673,11 +673,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
                   children: field.options!.flatMap((opt, i) => [
                     new TextRun({
                       text: `${i === matchIdx ? CHECKBOX_TICK : CHECKBOX_EMPTY} ${opt}`,
-                      size: 22,
+                      size: 18,
                       bold: i === matchIdx,
                     }),
                     ...(i < field.options!.length - 1
-                      ? [new TextRun({ text: "    ", size: 22 })]
+                      ? [new TextRun({ text: "    ", size: 18 })]
                       : []),
                   ]),
                 }),
@@ -745,7 +745,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 260, rule: HeightRule.ATLEAST },
+          height: { value: 200, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
@@ -794,12 +794,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 240, rule: HeightRule.ATLEAST },
+          height: { value: 200, rule: HeightRule.ATLEAST },
           children: [sigLabelCell("Date:"), sigValueCell(), sigLabelCell("Date:"), sigValueCell()],
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 240, rule: HeightRule.ATLEAST },
+          height: { value: 200, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Technician:"),
             sigValueCell(),
@@ -809,7 +809,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 320, rule: HeightRule.ATLEAST },
+          height: { value: 260, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
@@ -939,7 +939,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
         },
         children: [
-          new TextRun({ text: footerText, bold: true, size: 22, font: "Helvetica", color: "000000" }),
+          new TextRun({ text: footerText, bold: true, size: 18, font: "Helvetica", color: "000000" }),
         ],
       }),
     );
@@ -952,7 +952,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       // Helvetica to mirror the PDF (jspdf uses 'helvetica'). Word falls back
       // to Arial when Helvetica is unavailable, which is visually identical.
       default: {
-        document: { run: { font: { name: "Helvetica", hint: "default" }, size: 22 } },
+        document: { run: { font: { name: "Helvetica", hint: "default" }, size: 18 } },
       },
     },
     sections: [
@@ -963,12 +963,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
             // 1mm = ~56.7 DXA → 10mm = 567 DXA.
             margin: {
-              top: 283,
+              top: 227,
               right: 567,
-              bottom: 283,
+              bottom: 227,
               left: 567,
-              header: 113, // 2mm — pull header logo up close to page edge
-              footer: 283, // 5mm
+              header: 113,
+              footer: 227,
             },
           },
         },
