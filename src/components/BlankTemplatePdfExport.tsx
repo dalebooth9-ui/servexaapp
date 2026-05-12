@@ -189,7 +189,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           refNumber: isDryRiser ? "" : refNumber,
           dateVal,
           riserLocation: isDryRiser ? "" : riserLocValue,
-        }, template.standard || sheetSubtitle, accentColor, { compact: isDryRiser });
+        }, template.standard || sheetSubtitle, accentColor, {
+          compact: isDryRiser,
+          style: isDryRiser ? { logo: { maxW: 110, maxH: 48, topY: 6 } } : undefined,
+        });
 
         const skipIds = buildSkipIds(template.fields);
         const sections = getSections(template.fields);
