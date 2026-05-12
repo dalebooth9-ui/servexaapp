@@ -1030,7 +1030,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       // never shrink below what they configured (default 100px). If the
       // page still won't fit, let it spill to a second page rather than
       // produce an unreadable tiny logo.
-      const MIN_LOGO_PX = Math.min(HEADER_LOGO_MAX_H, 85);
+      const MIN_LOGO_PX = Math.min(HEADER_LOGO_MAX_H, 130);
       while (
         HEADER_LOGO_MAX_H > MIN_LOGO_PX &&
         HEADER_LOGO_MAX_H * PX_TO_TWIPS + Math.round(spacingAfterPt * 20) > headerBudget
