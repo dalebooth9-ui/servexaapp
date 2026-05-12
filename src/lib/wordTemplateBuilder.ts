@@ -211,11 +211,11 @@ export const cellBorders = {
   right: cellBorder,
 };
 
-// Column widths in DXA — mirrors the PDF's ~68% / 32% split
-// A4 (11906) − 1134 left − 1134 right = 9638 content width.
-export const TABLE_W = 9638;
-export const LABEL_COL = Math.round(TABLE_W * 0.68); // 6554
-export const VALUE_COL = TABLE_W - LABEL_COL; // 3084
+// Column widths in DXA — mirrors the PDF's ~68% / 32% split.
+// A4 (11906) − 567 left − 567 right = 10772 content width (matches page margins).
+export const TABLE_W = 10772;
+export const LABEL_COL = Math.round(TABLE_W * 0.68); // 7325
+export const VALUE_COL = TABLE_W - LABEL_COL; // 3447
 
 /** Brand navy used for title text + separator, mirrors PDF accent. */
 export const BRAND_NAVY_HEX = "213D63";
