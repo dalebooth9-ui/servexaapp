@@ -512,7 +512,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 20 },
+      spacing: { before: 0, after: 0 },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
@@ -528,7 +528,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 20 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text: subtitleText,
