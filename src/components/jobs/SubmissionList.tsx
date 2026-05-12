@@ -260,6 +260,26 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
             {bulkDownloading ? "Downloading..." : `Download ${selectedIds.size} selected`}
           </Button>
         )}
+        {selectedIds.size > 0 && isAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={bulkDeleting}>
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size} selected`}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {selectedIds.size} item(s)?</AlertDialogTitle>
+                <AlertDialogDescription>This will permanently remove the selected submissions. This action cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         <div className="ml-auto flex items-center gap-1">
           <Button variant={viewMode === "gallery" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("gallery")} className="text-xs" title="Gallery view">
             <LayoutGrid className="h-3.5 w-3.5" />
