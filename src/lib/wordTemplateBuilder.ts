@@ -960,8 +960,15 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (headerLogo) {
     // Match PDF header logo (~85mm wide, ~40mm tall — see pdfHeader.ts
     // logoMaxW/logoMaxH defaults). 1mm ≈ 3.78 px.
-    const HEADER_LOGO_MAX_W = 240;
-    const HEADER_LOGO_MAX_H = 100;
+    // Per-template overrides flow through `template.branding` so each report
+    // type can fine-tune the header logo from the template settings UI.
+    const customH = Number(template.branding?.header_logo_max_height_px);
+    const HEADER_LOGO_MAX_H = Number.isFinite(customH) && customH > 0
+      ? Math.min(400, Math.max(20, customH))
+      : 100;
+    // Width follows height with the same 2.4:1 cap as the default so wide
+    // banners still fit horizontally inside the header band.
+    const HEADER_LOGO_MAX_W = Math.round(HEADER_LOGO_MAX_H * 2.4);
     const natW = Math.max(1, headerLogo.width);
     const natH = Math.max(1, headerLogo.height);
     const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
@@ -969,10 +976,17 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       width: Math.max(1, Math.round(natW * scale)),
       height: Math.max(1, Math.round(natH * scale)),
     };
+    // Spacing AFTER the logo paragraph. docx uses twentieths of a point.
+    // 0pt = flush against title (legacy default).
+    const customSpacingPt = Number(template.branding?.header_logo_spacing_after_pt);
+    const spacingAfterPt = Number.isFinite(customSpacingPt) && customSpacingPt >= 0
+      ? Math.min(72, customSpacingPt)
+      : 0;
+    const spacingAfterDxa = Math.round(spacingAfterPt * 20);
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0, line: 240, lineRule: "auto" as const },
+        spacing: { before: 0, after: spacingAfterDxa, line: 240, lineRule: "auto" as const },
         children: [
           new ImageRun({
             type: headerLogo.type,
