@@ -35,6 +35,7 @@ export type TemplateField = {
   type: string; // "text" | "number" | "pass_fail" | "select" | "section" etc.
   options?: string[];
   section?: string;
+  allow_na?: boolean;
 };
 
 export type WordTemplateInput = {
@@ -255,14 +256,14 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   }
 
   if (field.type === "checkbox" || field.type === "yes_no") {
-    return [
-      new Paragraph({
-        children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 18 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 18 }),
-        ],
-      }),
+    const runs = [
+      new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 18 }),
+      new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 18 }),
     ];
+    if (field.allow_na) {
+      runs.push(new TextRun({ text: `    ${CHECKBOX_EMPTY} N/A`, size: 18 }));
+    }
+    return [new Paragraph({ children: runs })];
   }
 
   if (field.type === "select" && field.options && field.options.length > 0) {
