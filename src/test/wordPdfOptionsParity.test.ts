@@ -26,6 +26,7 @@ import {
   getSectionFields,
   type PdfTemplateField,
 } from "@/lib/pdfBody";
+import realFixtures from "./fixtures/realTemplateFixtures.json";
 
 // ---------------------------------------------------------------------------
 // JSDOM/node stubs (mirror the other parity tests).
