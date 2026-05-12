@@ -28,6 +28,7 @@ import {
   type PdfTemplateField,
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { getWordExportConfig } from "@/lib/wordExportConfig";
 
 export type TemplateField = {
   id: string;
