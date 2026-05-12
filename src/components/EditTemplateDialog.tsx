@@ -728,6 +728,42 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                     Shown in the bordered band above the accreditation logos on the printable Dry Riser sheet. Leave blank for the default ("Tested and inspected in accordance with BS 9990:2015").
                   </p>
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Header logo height (px)</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={20}
+                      max={400}
+                      step={5}
+                      value={headerLogoMaxH}
+                      onChange={(e) => setHeaderLogoMaxH(e.target.value)}
+                      placeholder="100 (default)"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Caps the printed logo height. Width scales proportionally. Range 20–400.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Spacing after logo (pt)</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={72}
+                      step={1}
+                      value={headerLogoSpacingAfter}
+                      onChange={(e) => setHeaderLogoSpacingAfter(e.target.value)}
+                      placeholder="0 (default)"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Vertical gap between the logo and the title. Range 0–72 pt.
+                    </p>
+                  </div>
+                </div>
                 <div className="flex items-center gap-3">
                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
                   <Button variant="outline" size="sm" className="gap-1.5" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
