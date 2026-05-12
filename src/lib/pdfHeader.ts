@@ -108,6 +108,12 @@ export interface HeaderStyle {
   /** Y at which to begin drawing title chrome. Defaults to logoBottomY.
    *  Useful for fixed-position banners (CoC anchors at y=38). */
   titleStartY?: number;
+  /** Override the BS standard subtitle font size (pt). Default 9. */
+  standardFontSize?: number;
+  /** Override gap below the BS standard subtitle (mm). Default 4. */
+  standardGapBelow?: number;
+  /** Override the separator-line stroke width (mm). Default 0.5. */
+  separatorThickness?: number;
 }
 
 export interface RenderPdfHeaderOpts {
