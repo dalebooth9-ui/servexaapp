@@ -444,6 +444,12 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     setDeclarationText(b.declaration_text ?? "");
+    setHeaderLogoMaxH(
+      typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "",
+    );
+    setHeaderLogoSpacingAfter(
+      typeof b.header_logo_spacing_after_pt === "number" ? String(b.header_logo_spacing_after_pt) : "",
+    );
     toast({ title: "Reverted to saved version" });
   };
 
