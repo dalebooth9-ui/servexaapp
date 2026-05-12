@@ -33,7 +33,7 @@ type FieldDef = {
 // `Dry Riser Pressure test` job_sheet_template so the Industry Templates page
 // renders identically to the version generated from the Jobs page.
 const DRY_RISER_PRESSURE_TEST_FIELDS: FieldDef[] = [
-  { id: "scope_of_work", type: "select", label: "Scope of Work:", options: ["Pressure Test", "Visual"], required: true },
+  { id: "scope_of_work", type: "select", label: "Scope of Work:", options: ["Pressure Test"], required: true },
   { id: "customer_details", type: "text", label: "Customer Details:", required: true },
   { id: "site_details", type: "text", label: "Site Details:", required: true },
   { id: "date", type: "date", label: "Date:", required: true },
