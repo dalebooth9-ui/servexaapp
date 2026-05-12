@@ -115,6 +115,13 @@ const FIXTURES: WordTemplateInput[] = [
       },
     ],
   },
+  // Real production templates — snapshot of `job_sheet_templates` rows we
+  // ship by default. Loaded from JSON so the snapshot can be refreshed with
+  // a single psql dump. Guarantees the parity check covers every field
+  // type + section combination that actually reaches users (text, number,
+  // date, textarea, checkbox, pass_fail, select with arbitrary and
+  // Pass/Fail/N/A option sets, signature, multi-section layouts).
+  ...(realFixtures as unknown as WordTemplateInput[]),
 ];
 
 // ---------------------------------------------------------------------------
