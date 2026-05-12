@@ -390,17 +390,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   }
 
   if (field.type === "number") {
-    return [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(20),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
-    ];
+    // Blank cell — no underline, ready for handwriting/input.
+    return [new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] })];
   }
 
   if (field.type === "photo") {
