@@ -159,7 +159,7 @@ export async function renderPdfHeader(
   const showDetailGrid = style.detailGrid !== false;
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 10;
+  const margin = opts?.marginX ?? 10;
   const maxWidth = pageWidth - margin * 2;
 
   // ── Logo ───────────────────────────────────────────────────────────
