@@ -914,7 +914,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
               right: 567,
               bottom: 567,
               left: 567,
-              header: 283, // 5mm
+              header: 113, // 2mm — pull header logo up close to page edge
               footer: 283, // 5mm
             },
           },
