@@ -1013,10 +1013,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       height: Math.max(1, Math.round(natH * scale)),
     };
     const spacingAfterDxa = Math.round(spacingAfterPt * 20);
+    const logoLineTwips = Math.max(240, logoSize.height * 15);
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: spacingAfterDxa, line: 240, lineRule: "auto" as const },
+        spacing: { before: 0, after: spacingAfterDxa, line: logoLineTwips, lineRule: "exact" as const },
         children: [
           new ImageRun({
             type: headerLogo.type,
