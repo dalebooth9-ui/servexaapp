@@ -113,6 +113,8 @@ export interface HeaderStyle {
 export interface RenderPdfHeaderOpts {
   compact?: boolean;
   style?: HeaderStyle;
+  /** Override the internal page side-margin (mm). Defaults to 10mm. */
+  marginX?: number;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
