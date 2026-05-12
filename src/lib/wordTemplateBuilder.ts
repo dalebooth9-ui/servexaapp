@@ -1072,12 +1072,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             // Auto-scaled side margins keep the right border aligned with the
             // left margin (table width = pageWidth − 2 × pageMargin).
             margin: {
-              top: 227,
+              top: 720,
               right: layout.pageMargin,
-              bottom: 227,
+              bottom: 720,
               left: layout.pageMargin,
-              header: 113,
-              footer: 227,
+              header: 360,
+              footer: 360,
             },
           },
         },
