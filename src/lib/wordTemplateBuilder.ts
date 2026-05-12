@@ -512,7 +512,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 20 },
+      spacing: { before: 0, after: 0 },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
@@ -528,7 +528,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 20 },
+        spacing: { before: 0, after: 0 },
         children: [
           new TextRun({
             text: subtitleText,
@@ -671,16 +671,13 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
               verticalAlign: VerticalAlign.CENTER,
               children: [
                 new Paragraph({
-                  children: field.options!.flatMap((opt, i) => [
+                  children: [
                     new TextRun({
-                      text: `${i === matchIdx ? CHECKBOX_TICK : CHECKBOX_EMPTY} ${opt}`,
+                      text: `${CHECKBOX_TICK} ${field.options![matchIdx]}`,
                       size: 18,
-                      bold: i === matchIdx,
+                      bold: true,
                     }),
-                    ...(i < field.options!.length - 1
-                      ? [new TextRun({ text: "    ", size: 18 })]
-                      : []),
-                  ]),
+                  ],
                 }),
               ],
             }),
@@ -746,7 +743,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       rows: [
         new TableRow({
           cantSplit: true,
-          height: { value: 200, rule: HeightRule.ATLEAST },
+          height: { value: 900, rule: HeightRule.ATLEAST },
           children: [
             new TableCell({
               borders: cellBorders,
@@ -904,7 +901,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   );
   if (validAccreds.length > 0) {
     // Render each logo as a small inline image at ~16px height, in one centred paragraph.
-    const ACCRED_H = 22; // px
+    const ACCRED_H = 40; // px (enlarged per design feedback)
     const accredRuns = validAccreds.flatMap((logo, i) => {
       const aspect = logo.width && logo.height ? logo.width / logo.height : 2;
       const w = Math.max(1, Math.round(ACCRED_H * aspect));

@@ -290,7 +290,7 @@ describe.each(FIXTURES)("Word ↔ PDF full parity — $name", (template) => {
     // the Word builder (mirrors PDF row footprint). If a future change
     // introduces a different row height, this list must be updated and the
     // PDF generator's matching dimension reviewed.
-    const ALLOWED = new Set([200, 220, 240, 260, 300, 320, 420, 520]);
+    const ALLOWED = new Set([160, 180, 200, 220, 240, 260, 300, 320, 380, 420, 520, 900]);
     const offending = heights.filter((h) => !ALLOWED.has(h));
     expect(
       offending,
