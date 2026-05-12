@@ -536,6 +536,13 @@ export function renderSectionHeaderRow(
 
 /** Build a docx Document for a blank template. */
 export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+  // Resolve once and thread through every table/cell/page-margin call so the
+  // body grid auto-scales to whatever page geometry the caller supplies while
+  // preserving the label/value column ratio.
+  const layout = computeTableLayout(template.layout);
+  const TBL = layout.tableW;
+  const LBL = layout.labelCol;
+  const VAL = layout.valueCol;
   const customLogoUrl = template.branding?.logo_url?.trim();
   const headerLogoUrl =
     customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
