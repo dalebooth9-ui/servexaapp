@@ -799,7 +799,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 240, rule: HeightRule.ATLEAST },
+          height: { value: 200, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Technician:"),
             sigValueCell(),
