@@ -625,6 +625,40 @@ Deno.serve(async (req) => {
         if (byName) job = byName;
       }
 
+      // 3. Match by site name → most recent active job at that site
+      if (!job) {
+        const { data: matchingSites } = await supabase
+          .from("sites")
+          .select("id")
+          .ilike("name", `%${trimmed}%`)
+          .limit(5);
+        const siteIds = (matchingSites || []).map((s: any) => s.id);
+        if (siteIds.length > 0) {
+          const { data: bySite } = await supabase
+            .from("jobs")
+            .select("id, name, reference_number")
+            .in("site_id", siteIds)
+            .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (bySite) job = bySite;
+        }
+      }
+
+      // 4. Match by job address (partial)
+      if (!job) {
+        const { data: byAddr } = await supabase
+          .from("jobs")
+          .select("id, name, reference_number")
+          .ilike("address", `%${trimmed}%`)
+          .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (byAddr) job = byAddr;
+      }
+
       if (job) {
         console.log(`Engineer ${engineerId} selected job ${job.id} via: ${trimmed}`);
         await supabase.from("submissions").insert({
@@ -640,7 +674,22 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
-      // Text note for active job
+      // Heuristic: short messages (≤5 words, ≤50 chars) look like a job/site lookup
+      // attempt rather than a note. If we can't match them, ask the engineer to
+      // clarify instead of silently attaching to whatever active job is cached —
+      // that's how photos end up in the wrong folder.
+      const wordCount = trimmed.split(/\s+/).length;
+      const looksLikeJobLookup = trimmed.length <= 50 && wordCount <= 5;
+
+      if (looksLikeJobLookup) {
+        console.log(`No job/site match for short text "${trimmed}" — asking for clarification`);
+        await sendWhatsApp(twilioSender, from,
+          `⚠️ Couldn't find a job, site or address matching "${trimmed.slice(0, 80)}". Please send the job reference number (e.g. VFP-00123) to set the job.`
+        );
+        return twimlResponse();
+      }
+
+      // Longer text → treat as a note for the current active job
       const jobId = await getActiveJob(supabase, engineerId);
       if (jobId) {
         await supabase.from("submissions").insert({
