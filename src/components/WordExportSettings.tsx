@@ -125,6 +125,24 @@ export function WordExportSettings() {
               Logos fit within both bounds, preserving aspect ratio — keeps wide and tall logos visually consistent.
             </p>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="accred-spacing-after">Accreditation row bottom spacing (twips)</Label>
+            <Input
+              id="accred-spacing-after"
+              type="number"
+              min={0}
+              value={config.accreditationSpacingAfter}
+              onChange={(e) =>
+                setConfig({
+                  ...config,
+                  accreditationSpacingAfter: Math.max(0, Number(e.target.value) || 0),
+                })
+              }
+            />
+            <p className="text-xs text-muted-foreground">
+              Space below the footer accreditation logo row. 20 twips = 1pt.
+            </p>
+          </div>
         </div>
 
         <div className="flex gap-2">

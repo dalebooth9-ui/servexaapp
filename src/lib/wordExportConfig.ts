@@ -12,6 +12,8 @@ export interface WordExportConfig {
   logoMaxWidth: number;
   /** Max logo height in pixels in the Word doc (bounding box height). */
   logoMaxHeight: number;
+  /** Space (in twips) below the accreditation logo row in the footer. */
+  accreditationSpacingAfter: number;
 }
 
 export const DEFAULT_WORD_EXPORT_CONFIG: WordExportConfig = {
@@ -20,6 +22,7 @@ export const DEFAULT_WORD_EXPORT_CONFIG: WordExportConfig = {
   logoSpacingBefore: 0,
   logoMaxWidth: 200,
   logoMaxHeight: 80,
+  accreditationSpacingAfter: 10,
 };
 
 const SETTINGS_KEY = "word_export_config";

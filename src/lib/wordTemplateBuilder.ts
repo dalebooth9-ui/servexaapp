@@ -28,6 +28,7 @@ import {
   type PdfTemplateField,
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { getWordExportConfig } from "@/lib/wordExportConfig";
 
 export type TemplateField = {
   id: string;
@@ -561,6 +562,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // body grid auto-scales to whatever page geometry the caller supplies while
   // preserving the label/value column ratio.
   const layout = computeTableLayout(template.layout);
+  const wordCfg = await getWordExportConfig();
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
   const VAL = layout.valueCol;
@@ -1092,7 +1094,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     footerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 10 },
+        spacing: { after: wordCfg.accreditationSpacingAfter },
         children: accredRuns,
       }),
     );
