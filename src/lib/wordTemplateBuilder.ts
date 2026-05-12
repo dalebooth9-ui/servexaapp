@@ -452,7 +452,10 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   ];
 }
 
-export function renderFieldRow(field: TemplateField): TableRow {
+export function renderFieldRow(
+  field: TemplateField,
+  layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+): TableRow {
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
   // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
