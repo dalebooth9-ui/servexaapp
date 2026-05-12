@@ -391,9 +391,9 @@ export function renderFieldRow(field: TemplateField): TableRow {
   // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
   // service templates fit on a single A4 page.
   let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
-    { value: 220, rule: HeightRule.ATLEAST };
-  if (isMultiLine) height = { value: 520, rule: HeightRule.ATLEAST };
-  else if (isSignature) height = { value: 420, rule: HeightRule.ATLEAST };
+    { value: 180, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 380, rule: HeightRule.ATLEAST };
+  else if (isSignature) height = { value: 320, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
     children: [
