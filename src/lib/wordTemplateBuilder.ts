@@ -937,7 +937,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     const customH = Number(template.branding?.header_logo_max_height_px);
     let HEADER_LOGO_MAX_H = Number.isFinite(customH) && customH > 0
       ? Math.min(400, Math.max(20, customH))
-      : 100;
+      : 180;
     // Spacing AFTER the logo paragraph. docx uses twentieths of a point.
     // 0pt = flush against title (legacy default).
     const customSpacingPt = Number(template.branding?.header_logo_spacing_after_pt);
