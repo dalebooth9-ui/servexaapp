@@ -38,6 +38,27 @@ export type TemplateField = {
   allow_na?: boolean;
 };
 
+/**
+ * Optional table layout overrides.
+ *
+ * `autoScale: true` recomputes the table width from the page geometry so the
+ * body grid always spans `pageWidth − 2 × pageMargin`, keeping the right
+ * border aligned with the left margin no matter what page margin you pick.
+ *
+ * `labelRatio` preserves the relative split between the label and value
+ * columns (default 0.68 / 0.32 — matches the PDF) when scaling.
+ */
+export type WordTemplateLayoutInput = {
+  /** Page side margin in DXA. Defaults to 567 (10mm). */
+  pageMargin?: number;
+  /** Page width in DXA. Defaults to 11906 (A4). */
+  pageWidth?: number;
+  /** Label column ratio (0–1). Defaults to 0.68. */
+  labelRatio?: number;
+  /** When true, derive table width from page geometry. Defaults to true. */
+  autoScale?: boolean;
+};
+
 export type WordTemplateInput = {
   name: string;
   description?: string;
@@ -50,6 +71,7 @@ export type WordTemplateInput = {
     company_subtitle?: string;
     declaration_text?: string;
   } | null;
+  layout?: WordTemplateLayoutInput;
 };
 
 // ---------------------------------------------------------------------------
