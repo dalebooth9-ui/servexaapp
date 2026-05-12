@@ -1037,14 +1037,14 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       {
         properties: {
           page: {
-            size: { width: 11906, height: 16838 }, // A4
-            // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
-            // 1mm = ~56.7 DXA → 10mm = 567 DXA.
+            size: { width: layout.pageWidth, height: 16838 }, // A4 height
+            // Auto-scaled side margins keep the right border aligned with the
+            // left margin (table width = pageWidth − 2 × pageMargin).
             margin: {
               top: 227,
-              right: 567,
+              right: layout.pageMargin,
               bottom: 227,
-              left: 567,
+              left: layout.pageMargin,
               header: 113,
               footer: 227,
             },
