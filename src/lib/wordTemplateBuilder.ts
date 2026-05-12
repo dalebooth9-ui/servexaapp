@@ -901,7 +901,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   );
   if (validAccreds.length > 0) {
     // Render each logo as a small inline image at ~16px height, in one centred paragraph.
-    const ACCRED_H = 22; // px
+    const ACCRED_H = 40; // px (enlarged per design feedback)
     const accredRuns = validAccreds.flatMap((logo, i) => {
       const aspect = logo.width && logo.height ? logo.width / logo.height : 2;
       const w = Math.max(1, Math.round(ACCRED_H * aspect));
