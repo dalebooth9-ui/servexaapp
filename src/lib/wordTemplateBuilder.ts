@@ -390,17 +390,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   }
 
   if (field.type === "number") {
-    return [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(20),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
-    ];
+    // Blank cell — no underline, ready for handwriting/input.
+    return [new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] })];
   }
 
   if (field.type === "photo") {
@@ -416,62 +407,21 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   if (field.type === "signature") {
     return [
       new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: "Signature: " + " ".repeat(40),
-            size: 18,
-            color: "777777",
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
+      new Paragraph({ children: [new TextRun({ text: "Signature:", size: 18, color: "777777" })] }),
     ];
   }
 
   if (field.type === "textarea" || field.type === "long_text") {
+    // Blank multi-line cell — no underlines, ready for handwriting.
     return [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(60),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(60),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(60),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
     ];
   }
 
-  return [
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: " ".repeat(60),
-          size: 18,
-          underline: { type: "single", color: "999999" },
-        }),
-      ],
-    }),
-  ];
+  // Default text fallback — blank, no underline.
+  return [new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] })];
 }
 
 export function renderFieldRow(
@@ -626,7 +576,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 0, line: 280, lineRule: "exact" as const },
+      spacing: { before: 120, after: 0, line: 280, lineRule: "exact" as const },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
@@ -812,8 +762,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     180 /* "Comments:" label */ +
     200 + 200 + 320 + 80; /* sign-off three rows + spacer */
   for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
-  const pageUsable = 16838 - 227 - 227;
-  const commentsMin = Math.max(900, pageUsable - bodyExclComments - headerOverhead - footerEst);
+  const pageUsable = 16838 - 720 - 720;
+  // Min ~1cm (567 DXA); the estimator stretches the cell to fill remaining
+  // page space so the sign-off block lands just above the footer.
+  const commentsMin = Math.max(567, pageUsable - bodyExclComments - headerOverhead - footerEst);
 
   children.push(
     new Paragraph({
@@ -1001,7 +953,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         (footerText && footerText.trim() ? 240 : 0) +
         60;
 
-      const pageUsable = 16838 - 227 - 227; // pgSz height − top/bottom margin
+      const pageUsable = 16838 - 720 - 720; // pgSz height − top/bottom margin
       // The header logo sits in the header band; the body only shifts down
       // by the amount the header content exceeds the top header margin
       // (113 twips). Anything below that height costs no body space.
@@ -1120,12 +1072,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             // Auto-scaled side margins keep the right border aligned with the
             // left margin (table width = pageWidth − 2 × pageMargin).
             margin: {
-              top: 227,
+              top: 720,
               right: layout.pageMargin,
-              bottom: 227,
+              bottom: 720,
               left: layout.pageMargin,
-              header: 113,
-              footer: 227,
+              header: 360,
+              footer: 360,
             },
           },
         },
