@@ -484,7 +484,7 @@ export function renderFieldRow(
   // service templates fit on a single A4 page.
   let height: { value: number; rule: (typeof HeightRule)[keyof typeof HeightRule] } | undefined =
     { value: 180, rule: HeightRule.ATLEAST };
-  if (isMultiLine) height = { value: 380, rule: HeightRule.ATLEAST };
+  if (isMultiLine) height = { value: 900, rule: HeightRule.ATLEAST };
   else if (isSignature) height = { value: 320, rule: HeightRule.ATLEAST };
   return new TableRow({
     height,
