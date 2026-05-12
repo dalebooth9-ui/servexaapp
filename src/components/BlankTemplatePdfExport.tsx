@@ -340,14 +340,17 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         const accredStripTop = _footerYForLogos - _logoH - _logoGap;
 
         const sigBlockHeight = 28; // 3-row signature block (Date / Name / Signature)
-        const sigY = accredStripTop - sigBlockHeight - 4;
+        const sigY = accredStripTop - sigBlockHeight - 1;
 
-        const commentsBoxBottom = sigY - 4;
+        const commentsBoxBottom = sigY - 3;
         const minCommentsH = 6;
         const commentsBoxTop = Math.min(y + 4, commentsBoxBottom - minCommentsH);
-        const maxCommentsH = isDryRiser ? 30 : 45;
+        // Let the Comments box grow to fill all available space between the
+        // body content and the sign-off block. No fixed cap on Dry Riser.
         const commentsAvailH = commentsBoxBottom - commentsBoxTop;
-        const commentsRectH = Math.max(Math.min(commentsAvailH, maxCommentsH), minCommentsH);
+        const commentsRectH = isDryRiser
+          ? Math.max(commentsAvailH, minCommentsH)
+          : Math.max(Math.min(commentsAvailH, 45), minCommentsH);
         doc.setFontSize(9.5);
         doc.setFont("helvetica", "bold");
         doc.text("Comments:", margin, commentsBoxTop - 1);
