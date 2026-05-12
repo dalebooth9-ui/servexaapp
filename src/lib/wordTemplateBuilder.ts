@@ -782,23 +782,38 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // (accreditation strip + declaration banner). Word doesn't auto-grow rows,
   // so we compute a min-height that lands the sign-off just above the footer.
   const validAccredCount = (accredLogos as (FetchedImage | null)[]).filter(Boolean).length;
-  const PX_TO_TWIPS_C = 15;
-  const estLogoTwips = 180 * PX_TO_TWIPS_C;
-  const headerOverhead = Math.max(0, estLogoTwips - 113);
-  const footerEst =
-    (validAccredCount > 0 ? 40 * PX_TO_TWIPS_C + 120 : 0) +
-    (footerText && footerText.trim() ? 280 : 0) +
-    227; // footer margin
-  let bodyExclComments =
-    280 /* title */ + (subtitleText ? 220 : 0) + 80 /* sep */ +
-    3 * 240 + 40 /* detail grid */ +
-    180 /* "Comments:" label */ +
-    200 + 200 + 320 + 80; /* sign-off three rows + spacer */
-  for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
-  const pageUsable = 16838 - 720 - 720;
-  // Min ~1cm (567 DXA); the estimator stretches the cell to fill remaining
-  // page space so the sign-off block lands just above the footer.
-  const commentsMin = Math.max(567, pageUsable - bodyExclComments - headerOverhead - footerEst);
+  let commentsMin: number;
+  if (isDryRiser) {
+    // Dry Riser: comments height comes from the SHARED config so Word and PDF
+    // produce byte-identical layout math. Estimate "used above" = title chrome
+    // + detail grid (3 rows × 6mm) + section tables. The shared helper clamps
+    // to the configured min height.
+    let usedAboveDxa = 0;
+    usedAboveDxa += 3 * mmToDxaLocal(DRY_RISER_LAYOUT.body.infoRowMm); // detail grid
+    for (const [, fields] of sectionMap) {
+      usedAboveDxa +=
+        mmToDxaLocal(DRY_RISER_LAYOUT.body.sectionHeaderRowMm) +
+        fields.length * mmToDxaLocal(DRY_RISER_LAYOUT.body.fieldRowMm);
+    }
+    usedAboveDxa += 180; // "Comments:" label paragraph
+    commentsMin = commentsElasticDxa(usedAboveDxa);
+  } else {
+    const PX_TO_TWIPS_C = 15;
+    const estLogoTwips = 180 * PX_TO_TWIPS_C;
+    const headerOverhead = Math.max(0, estLogoTwips - 113);
+    const footerEst =
+      (validAccredCount > 0 ? 40 * PX_TO_TWIPS_C + 120 : 0) +
+      (footerText && footerText.trim() ? 280 : 0) +
+      227; // footer margin
+    let bodyExclComments =
+      280 /* title */ + (subtitleText ? 220 : 0) + 80 /* sep */ +
+      3 * 240 + 40 /* detail grid */ +
+      180 /* "Comments:" label */ +
+      200 + 200 + 320 + 80; /* sign-off three rows + spacer */
+    for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
+    const pageUsable = 16838 - 720 - 720;
+    commentsMin = Math.max(567, pageUsable - bodyExclComments - headerOverhead - footerEst);
+  }
 
   children.push(
     new Paragraph({
