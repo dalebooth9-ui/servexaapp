@@ -516,7 +516,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 24,
+          size: 22,
           color: BRAND_NAVY_HEX,
           font: "Helvetica",
         }),
