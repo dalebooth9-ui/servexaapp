@@ -6,13 +6,9 @@
  * table border lines up with the left page margin (mirroring the PDF where
  * the body grid is bounded by `PDF_DIMENSIONS.margin` on both sides).
  *
- * Failure modes this guards against:
- * - Someone shrinks `TABLE_W` without widening page margins (right gutter
- *   becomes larger than the left margin → asymmetric layout).
- * - Someone widens page margins without updating `TABLE_W` (right border
- *   stops short of the left margin).
- * - A future builder emits a body table whose declared `<w:tblW>` or grid
- *   columns don't sum to the page content width.
+ * Dry Riser templates are pinned to the SHARED `dryRiserLayout` config
+ * (12mm L/R margins, 10mm T/B). All other templates use the legacy
+ * 10mm symmetric `TABLE_W` width.
  */
 import { describe, it, expect } from "vitest";
 import { Packer } from "docx";
@@ -23,6 +19,10 @@ import {
   TABLE_W,
   type WordTemplateInput,
 } from "@/lib/wordTemplateBuilder";
+import {
+  isDryRiserName,
+  dryRiserContentWidthDxa,
+} from "@/lib/dryRiserLayout";
 import realFixtures from "./fixtures/realTemplateFixtures.json";
 
 // ---------------------------------------------------------------------------
@@ -142,14 +142,18 @@ describe("Word ↔ PDF margin parity (right border = left margin)", () => {
   });
 
   describe.each(FIXTURES)("$name", (template) => {
-    it("declares page geometry whose content width equals TABLE_W", async () => {
+    const expectedWidth = isDryRiserName(template.name)
+      ? dryRiserContentWidthDxa()
+      : TABLE_W;
+
+    it("declares page geometry whose content width equals expected width", async () => {
       const xml = await readDocumentXml(template);
       const geom = readPageGeometry(xml);
       expect(
         geom.contentWidth,
-        `Page content width (${geom.contentWidth}) must equal TABLE_W (${TABLE_W}) ` +
+        `Page content width (${geom.contentWidth}) must equal expected (${expectedWidth}) ` +
           `so the right border lines up with the left margin`,
-      ).toBe(TABLE_W);
+      ).toBe(expectedWidth);
       // Symmetry: left and right margins must match.
       expect(geom.marginLeft).toBe(geom.marginRight);
     });

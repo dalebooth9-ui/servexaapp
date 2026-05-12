@@ -22,6 +22,12 @@ import {
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { useJobCategories } from "@/hooks/useJobCategories";
+import {
+  DRY_RISER_LAYOUT,
+  isDryRiserName,
+  dryRiserContentWidthMm,
+  commentsElasticMm,
+} from "@/lib/dryRiserLayout";
 
 type Template = {
   id: string;
@@ -170,8 +176,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 10;
-      const maxWidth = pageWidth - margin * 2;
+      // Dry Riser: pull margins from the SHARED config so Word and PDF
+      // page geometry match. All other templates: legacy 10mm symmetric.
+      const marginX = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
+      const marginY = isDryRiser ? DRY_RISER_LAYOUT.page.marginTopMm : 10;
+      const margin = marginX; // keep existing local API
+      const maxWidth = pageWidth - marginX * 2;
 
       for (let sysIdx = 0; sysIdx < systemQty; sysIdx++) {
         // Add a new page for every sheet after the first
@@ -182,6 +192,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           { brandingSubtitle: template.branding?.company_subtitle ?? null },
         );
 
+        // Dry Riser: drive every header dimension from the SHARED config so
+        // Word and PDF use byte-identical sizes (logo, title, subtitle, rule).
+        const dryRiserAccent = isDryRiser
+          ? DRY_RISER_LAYOUT.header.brandBlueRgb
+          : accentColor;
+        const ptToMm = (pt: number) => pt * 0.3527777778;
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
           customerName: isDryRiser ? "" : customerName,
           siteName: isDryRiser ? "" : siteName,
@@ -189,9 +205,22 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           refNumber: isDryRiser ? "" : refNumber,
           dateVal,
           riserLocation: isDryRiser ? "" : riserLocValue,
-        }, template.standard || sheetSubtitle, accentColor, {
+        }, template.standard || sheetSubtitle, dryRiserAccent, {
           compact: isDryRiser,
-          style: isDryRiser ? { logo: { maxW: 110, maxH: 48, topY: 6 } } : undefined,
+          marginX,
+          style: isDryRiser
+            ? {
+                logo: {
+                  maxW: 100,
+                  maxH: DRY_RISER_LAYOUT.header.logoHeightMm,
+                  topY: marginY,
+                },
+                title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
+                standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
+                standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
+                separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
+              }
+            : undefined,
         });
 
         const skipIds = buildSkipIds(template.fields);

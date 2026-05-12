@@ -29,6 +29,14 @@ import {
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { getWordExportConfig } from "@/lib/wordExportConfig";
+import {
+  DRY_RISER_LAYOUT,
+  isDryRiserName,
+  dryRiserContentWidthDxa,
+  commentsElasticDxa,
+  ptToDxa,
+  mmToDxa as mmToDxaLocal,
+} from "@/lib/dryRiserLayout";
 
 export type TemplateField = {
   id: string;
@@ -520,10 +528,21 @@ export function renderSectionHeaderRow(
 
 /** Build a docx Document for a blank template. */
 export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+  // Detect the Dry Riser blank template — when matched, every layout
+  // dimension is driven by the shared `dryRiserLayout` config so the Word
+  // and PDF outputs read from the same numbers. See dryRiserLayoutParity test.
+  const isDryRiser = isDryRiserName(template.name);
   // Resolve once and thread through every table/cell/page-margin call so the
   // body grid auto-scales to whatever page geometry the caller supplies while
   // preserving the label/value column ratio.
-  const layout = computeTableLayout(template.layout);
+  const layoutInput: WordTemplateLayoutInput = isDryRiser
+    ? {
+        pageWidth: DRY_RISER_LAYOUT.page.widthDxa,
+        pageMargin: DRY_RISER_LAYOUT.page.marginLeftDxa,
+        autoScale: true,
+      }
+    : (template.layout ?? {});
+  const layout = computeTableLayout(layoutInput);
   const wordCfg = await getWordExportConfig();
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
@@ -573,15 +592,30 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   );
   const subtitleText = template.standard || displaySubtitle;
 
+  // Header text sizing — Dry Riser drives all values from the shared config
+  // so the Word and PDF outputs render at identical point sizes.
+  const titleSizeHalfPt = isDryRiser
+    ? DRY_RISER_LAYOUT.header.titleSizePt * 2
+    : 32;
+  const subtitleSizeHalfPt = isDryRiser
+    ? DRY_RISER_LAYOUT.header.subtitleSizePt * 2
+    : 22;
+  const titleSpaceBeforeDxa = isDryRiser
+    ? ptToDxa(DRY_RISER_LAYOUT.header.gapAfterLogoPt)
+    : 120;
+  const subtitleSpaceBeforeDxa = isDryRiser
+    ? ptToDxa(DRY_RISER_LAYOUT.header.subtitleGapPt)
+    : 0;
+
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 120, after: 0, line: 280, lineRule: "exact" as const },
+      spacing: { before: titleSpaceBeforeDxa, after: 0, line: 280, lineRule: "exact" as const },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 32,
+          size: titleSizeHalfPt,
           color: SECTION_HEADER_BLUE,
           font: "Helvetica",
         }),
@@ -592,12 +626,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0 },
+        spacing: { before: subtitleSpaceBeforeDxa, after: 0 },
         children: [
           new TextRun({
             text: subtitleText,
             bold: true,
-            size: 22,
+            size: subtitleSizeHalfPt,
             color: SECTION_HEADER_BLUE,
             font: "Helvetica",
           }),
@@ -749,23 +783,38 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // (accreditation strip + declaration banner). Word doesn't auto-grow rows,
   // so we compute a min-height that lands the sign-off just above the footer.
   const validAccredCount = (accredLogos as (FetchedImage | null)[]).filter(Boolean).length;
-  const PX_TO_TWIPS_C = 15;
-  const estLogoTwips = 180 * PX_TO_TWIPS_C;
-  const headerOverhead = Math.max(0, estLogoTwips - 113);
-  const footerEst =
-    (validAccredCount > 0 ? 40 * PX_TO_TWIPS_C + 120 : 0) +
-    (footerText && footerText.trim() ? 280 : 0) +
-    227; // footer margin
-  let bodyExclComments =
-    280 /* title */ + (subtitleText ? 220 : 0) + 80 /* sep */ +
-    3 * 240 + 40 /* detail grid */ +
-    180 /* "Comments:" label */ +
-    200 + 200 + 320 + 80; /* sign-off three rows + spacer */
-  for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
-  const pageUsable = 16838 - 720 - 720;
-  // Min ~1cm (567 DXA); the estimator stretches the cell to fill remaining
-  // page space so the sign-off block lands just above the footer.
-  const commentsMin = Math.max(567, pageUsable - bodyExclComments - headerOverhead - footerEst);
+  let commentsMin: number;
+  if (isDryRiser) {
+    // Dry Riser: comments height comes from the SHARED config so Word and PDF
+    // produce byte-identical layout math. Estimate "used above" = title chrome
+    // + detail grid (3 rows × 6mm) + section tables. The shared helper clamps
+    // to the configured min height.
+    let usedAboveDxa = 0;
+    usedAboveDxa += 3 * mmToDxaLocal(DRY_RISER_LAYOUT.body.infoRowMm); // detail grid
+    for (const [, fields] of sectionMap) {
+      usedAboveDxa +=
+        mmToDxaLocal(DRY_RISER_LAYOUT.body.sectionHeaderRowMm) +
+        fields.length * mmToDxaLocal(DRY_RISER_LAYOUT.body.fieldRowMm);
+    }
+    usedAboveDxa += 180; // "Comments:" label paragraph
+    commentsMin = commentsElasticDxa(usedAboveDxa);
+  } else {
+    const PX_TO_TWIPS_C = 15;
+    const estLogoTwips = 180 * PX_TO_TWIPS_C;
+    const headerOverhead = Math.max(0, estLogoTwips - 113);
+    const footerEst =
+      (validAccredCount > 0 ? 40 * PX_TO_TWIPS_C + 120 : 0) +
+      (footerText && footerText.trim() ? 280 : 0) +
+      227; // footer margin
+    let bodyExclComments =
+      280 /* title */ + (subtitleText ? 220 : 0) + 80 /* sep */ +
+      3 * 240 + 40 /* detail grid */ +
+      180 /* "Comments:" label */ +
+      200 + 200 + 320 + 80; /* sign-off three rows + spacer */
+    for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
+    const pageUsable = 16838 - 720 - 720;
+    commentsMin = Math.max(567, pageUsable - bodyExclComments - headerOverhead - footerEst);
+  }
 
   children.push(
     new Paragraph({
@@ -1068,17 +1117,29 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       {
         properties: {
           page: {
-            size: { width: layout.pageWidth, height: 16838 }, // A4 height
-            // Auto-scaled side margins keep the right border aligned with the
-            // left margin (table width = pageWidth − 2 × pageMargin).
-            margin: {
-              top: 720,
-              right: layout.pageMargin,
-              bottom: 720,
-              left: layout.pageMargin,
-              header: 360,
-              footer: 360,
+            size: {
+              width: isDryRiser ? DRY_RISER_LAYOUT.page.widthDxa : layout.pageWidth,
+              height: isDryRiser ? DRY_RISER_LAYOUT.page.heightDxa : 16838,
             },
+            // Dry Riser: use SHARED config (12mm L/R, 10mm T/B) so Word and
+            // PDF page geometry match. Other templates: legacy auto-scaled.
+            margin: isDryRiser
+              ? {
+                  top: DRY_RISER_LAYOUT.page.marginTopDxa,
+                  right: DRY_RISER_LAYOUT.page.marginRightDxa,
+                  bottom: DRY_RISER_LAYOUT.page.marginBottomDxa,
+                  left: DRY_RISER_LAYOUT.page.marginLeftDxa,
+                  header: 360,
+                  footer: 360,
+                }
+              : {
+                  top: 720,
+                  right: layout.pageMargin,
+                  bottom: 720,
+                  left: layout.pageMargin,
+                  header: 360,
+                  footer: 360,
+                },
           },
         },
         headers: { default: new Header({ children: headerChildren }) },

@@ -108,11 +108,19 @@ export interface HeaderStyle {
   /** Y at which to begin drawing title chrome. Defaults to logoBottomY.
    *  Useful for fixed-position banners (CoC anchors at y=38). */
   titleStartY?: number;
+  /** Override the BS standard subtitle font size (pt). Default 9. */
+  standardFontSize?: number;
+  /** Override gap below the BS standard subtitle (mm). Default 4. */
+  standardGapBelow?: number;
+  /** Override the separator-line stroke width (mm). Default 0.5. */
+  separatorThickness?: number;
 }
 
 export interface RenderPdfHeaderOpts {
   compact?: boolean;
   style?: HeaderStyle;
+  /** Override the internal page side-margin (mm). Defaults to 10mm. */
+  marginX?: number;
 }
 
 /* ─────────────────────────────────────────────────────────────────────
@@ -157,7 +165,7 @@ export async function renderPdfHeader(
   const showDetailGrid = style.detailGrid !== false;
 
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 10;
+  const margin = opts?.marginX ?? 10;
   const maxWidth = pageWidth - margin * 2;
 
   // ── Logo ───────────────────────────────────────────────────────────
@@ -271,10 +279,10 @@ export async function renderPdfHeader(
   // Optional BS standard subtitle (existing behaviour).
   if (standard) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(style.standardFontSize ?? 9);
     doc.setTextColor(...accent);
     doc.text(standard, pageWidth / 2, y, { align: "center" });
-    y += 4;
+    y += style.standardGapBelow ?? 4;
   }
 
   // Optional second subtitle line (e.g. "REF | Generated DATE").
@@ -290,7 +298,7 @@ export async function renderPdfHeader(
   // ── Separator line ─────────────────────────────────────────────────
   if (showSeparator) {
     doc.setDrawColor(...accent);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(style.separatorThickness ?? 0.5);
     doc.line(margin, y, pageWidth - margin, y);
     y += 4;
   }
