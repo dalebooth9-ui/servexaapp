@@ -764,7 +764,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         });
       }
     }
-    return renderFieldRow(field);
+    return renderFieldRow(field, layout);
   };
 
   for (const [sectionName, fields] of sectionMap) {
