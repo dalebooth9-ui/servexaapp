@@ -481,7 +481,7 @@ export function renderFieldRow(
       }),
       new TableCell({
         borders: cellBorders,
-        width: { size: VALUE_COL, type: WidthType.DXA },
+        width: { size: layout.valueCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: buildValueCellChildren(field),
