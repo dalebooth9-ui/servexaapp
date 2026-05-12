@@ -527,10 +527,21 @@ export function renderSectionHeaderRow(
 
 /** Build a docx Document for a blank template. */
 export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+  // Detect the Dry Riser blank template — when matched, every layout
+  // dimension is driven by the shared `dryRiserLayout` config so the Word
+  // and PDF outputs read from the same numbers. See dryRiserLayoutParity test.
+  const isDryRiser = isDryRiserName(template.name);
   // Resolve once and thread through every table/cell/page-margin call so the
   // body grid auto-scales to whatever page geometry the caller supplies while
   // preserving the label/value column ratio.
-  const layout = computeTableLayout(template.layout);
+  const layoutInput: WordTemplateLayoutInput = isDryRiser
+    ? {
+        pageWidth: DRY_RISER_LAYOUT.page.widthDxa,
+        pageMargin: DRY_RISER_LAYOUT.page.marginLeftDxa,
+        autoScale: true,
+      }
+    : (template.layout ?? {});
+  const layout = computeTableLayout(layoutInput);
   const wordCfg = await getWordExportConfig();
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
