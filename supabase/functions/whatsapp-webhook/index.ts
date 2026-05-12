@@ -908,18 +908,14 @@ async function handleFilesCommand(supabase: any, sender: TwilioSender, to: strin
     return;
   }
 
-  await sendWhatsApp(sender, to, `📄 Sending ${docs.length} document(s)...`);
-
+  // Safety: never send signed download URLs back over WhatsApp.
+  let msg = `📄 *Documents (${docs.length}):*\n\n`;
   for (const doc of docs) {
-    if (!doc.file_url) continue;
-    const { data: signedData } = await supabase.storage
-      .from("submissions")
-      .createSignedUrl(doc.file_url, 3600);
-
-    if (signedData?.signedUrl) {
-      await sendWhatsApp(sender, to, doc.file_name || "Document", signedData.signedUrl);
-    }
+    const date = new Date(doc.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    msg += `• ${date} — ${doc.file_name || "Document"}\n`;
   }
+  msg += `\nOpen them in the job folder in Servexa.`;
+  await sendWhatsApp(sender, to, msg);
 }
 
 async function handleCompleteCommand(supabase: any, sender: TwilioSender, to: string, jobId: string, engineerId: string) {
