@@ -809,7 +809,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         }),
         new TableRow({
           cantSplit: true,
-          height: { value: 320, rule: HeightRule.ATLEAST },
+          height: { value: 260, rule: HeightRule.ATLEAST },
           children: [
             sigLabelCell("Signature:"),
             sigValueCell(true),
