@@ -1026,10 +1026,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       const headerBudget = pageUsable - bodyTwips - footerTwips + HEADER_BAND_FREE;
 
       // Shrink loop — drop logo height in 4px steps until it (plus spacing)
-      // fits the header budget. Floor raised so the logo stays legible —
-      // a 60px logo (~16mm) is the smallest we'll accept before giving up
-      // on single-page fit.
-      const MIN_LOGO_PX = 60;
+      // fits the header budget. Floor is the user's preferred height: we
+      // never shrink below what they configured (default 100px). If the
+      // page still won't fit, let it spill to a second page rather than
+      // produce an unreadable tiny logo.
+      const MIN_LOGO_PX = Math.min(HEADER_LOGO_MAX_H, 85);
       while (
         HEADER_LOGO_MAX_H > MIN_LOGO_PX &&
         HEADER_LOGO_MAX_H * PX_TO_TWIPS + Math.round(spacingAfterPt * 20) > headerBudget
