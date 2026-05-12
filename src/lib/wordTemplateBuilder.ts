@@ -38,6 +38,27 @@ export type TemplateField = {
   allow_na?: boolean;
 };
 
+/**
+ * Optional table layout overrides.
+ *
+ * `autoScale: true` recomputes the table width from the page geometry so the
+ * body grid always spans `pageWidth − 2 × pageMargin`, keeping the right
+ * border aligned with the left margin no matter what page margin you pick.
+ *
+ * `labelRatio` preserves the relative split between the label and value
+ * columns (default 0.68 / 0.32 — matches the PDF) when scaling.
+ */
+export type WordTemplateLayoutInput = {
+  /** Page side margin in DXA. Defaults to 567 (10mm). */
+  pageMargin?: number;
+  /** Page width in DXA. Defaults to 11906 (A4). */
+  pageWidth?: number;
+  /** Label column ratio (0–1). Defaults to 0.68. */
+  labelRatio?: number;
+  /** When true, derive table width from page geometry. Defaults to true. */
+  autoScale?: boolean;
+};
+
 export type WordTemplateInput = {
   name: string;
   description?: string;
@@ -50,6 +71,7 @@ export type WordTemplateInput = {
     company_subtitle?: string;
     declaration_text?: string;
   } | null;
+  layout?: WordTemplateLayoutInput;
 };
 
 // ---------------------------------------------------------------------------
@@ -213,9 +235,53 @@ export const cellBorders = {
 
 // Column widths in DXA — mirrors the PDF's ~68% / 32% split.
 // A4 (11906) − 567 left − 567 right = 10772 content width (matches page margins).
-export const TABLE_W = 10772;
-export const LABEL_COL = Math.round(TABLE_W * 0.68); // 7325
+export const DEFAULT_PAGE_WIDTH_DXA = 11906;
+export const DEFAULT_PAGE_MARGIN_DXA = 567;
+export const DEFAULT_LABEL_RATIO = 0.68;
+export const TABLE_W = DEFAULT_PAGE_WIDTH_DXA - DEFAULT_PAGE_MARGIN_DXA * 2; // 10772
+export const LABEL_COL = Math.round(TABLE_W * DEFAULT_LABEL_RATIO); // 7325
 export const VALUE_COL = TABLE_W - LABEL_COL; // 3447
+
+/**
+ * Resolved layout used everywhere a width is needed. Always derived through
+ * `computeTableLayout` so the right border lines up with the left margin
+ * (tableW = pageWidth − 2 × pageMargin) and the label/value column ratio
+ * is preserved across page sizes.
+ */
+export type ResolvedTableLayout = {
+  pageWidth: number;
+  pageMargin: number;
+  labelRatio: number;
+  tableW: number;
+  labelCol: number;
+  valueCol: number;
+};
+
+/**
+ * Auto-scale the body table to the available page content width while
+ * preserving the label/value column ratio. With no overrides this returns
+ * exactly the legacy TABLE_W/LABEL_COL/VALUE_COL values, so existing call
+ * sites keep their current dimensions.
+ */
+export function computeTableLayout(
+  input?: WordTemplateLayoutInput,
+): ResolvedTableLayout {
+  const pageWidth = Math.max(1, input?.pageWidth ?? DEFAULT_PAGE_WIDTH_DXA);
+  const pageMargin = Math.max(0, input?.pageMargin ?? DEFAULT_PAGE_MARGIN_DXA);
+  const labelRatio = Math.min(0.95, Math.max(0.05, input?.labelRatio ?? DEFAULT_LABEL_RATIO));
+  // `autoScale` defaults to true — the only way to keep the right border
+  // aligned with the left margin when the page margin changes. Setting it
+  // to false pins the table to the legacy A4/567 geometry regardless of
+  // the supplied page settings.
+  const autoScale = input?.autoScale ?? true;
+  const tableW = autoScale ? Math.max(1, pageWidth - pageMargin * 2) : TABLE_W;
+  const labelCol = Math.round(tableW * labelRatio);
+  const valueCol = tableW - labelCol;
+  return { pageWidth, pageMargin, labelRatio, tableW, labelCol, valueCol };
+}
+
+/** Module-level fallback used by the legacy exported row helpers below. */
+const DEFAULT_LAYOUT: ResolvedTableLayout = computeTableLayout();
 
 /** Brand navy used for title text + separator, mirrors PDF accent. */
 export const BRAND_NAVY_HEX = "213D63";
@@ -386,7 +452,10 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   ];
 }
 
-export function renderFieldRow(field: TemplateField): TableRow {
+export function renderFieldRow(
+  field: TemplateField,
+  layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+): TableRow {
   const isMultiLine = field.type === "textarea" || field.type === "long_text";
   const isSignature = field.type === "signature";
   // Compact rows to mirror the PDF (≈5mm rows). Tightened so most full
@@ -400,7 +469,7 @@ export function renderFieldRow(field: TemplateField): TableRow {
     children: [
       new TableCell({
         borders: cellBorders,
-        width: { size: LABEL_COL, type: WidthType.DXA },
+        width: { size: layout.labelCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
@@ -412,7 +481,7 @@ export function renderFieldRow(field: TemplateField): TableRow {
       }),
       new TableCell({
         borders: cellBorders,
-        width: { size: VALUE_COL, type: WidthType.DXA },
+        width: { size: layout.valueCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: buildValueCellChildren(field),
@@ -422,7 +491,10 @@ export function renderFieldRow(field: TemplateField): TableRow {
 }
 
 /** Section header row — grey banner with "RESULT" in value column, mirrors PDF. */
-export function renderSectionHeaderRow(sectionName: string): TableRow {
+export function renderSectionHeaderRow(
+  sectionName: string,
+  layout: ResolvedTableLayout = DEFAULT_LAYOUT,
+): TableRow {
   const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
@@ -431,7 +503,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
       new TableCell({
         borders: cellBorders,
         shading: headerShading,
-        width: { size: LABEL_COL, type: WidthType.DXA },
+        width: { size: layout.labelCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
@@ -444,7 +516,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
       new TableCell({
         borders: cellBorders,
         shading: headerShading,
-        width: { size: VALUE_COL, type: WidthType.DXA },
+        width: { size: layout.valueCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
@@ -464,6 +536,13 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
 
 /** Build a docx Document for a blank template. */
 export async function buildBlankTemplateDoc(template: WordTemplateInput): Promise<Document> {
+  // Resolve once and thread through every table/cell/page-margin call so the
+  // body grid auto-scales to whatever page geometry the caller supplies while
+  // preserving the label/value column ratio.
+  const layout = computeTableLayout(template.layout);
+  const TBL = layout.tableW;
+  const LBL = layout.labelCol;
+  const VAL = layout.valueCol;
   const customLogoUrl = template.branding?.logo_url?.trim();
   const headerLogoUrl =
     customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
@@ -553,10 +632,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   );
 
   // Customer / Date / Site / PO-REF / Riser Location detail grid (mirrors PDF).
-  const detailLabelColLeft = Math.round(TABLE_W * 0.18);
-  const detailValueColLeft = Math.round(TABLE_W * 0.52) - detailLabelColLeft;
-  const detailLabelColRight = Math.round(TABLE_W * 0.12);
-  const detailValueColRight = TABLE_W - Math.round(TABLE_W * 0.52) - detailLabelColRight;
+  const detailLabelColLeft = Math.round(TBL * 0.18);
+  const detailValueColLeft = Math.round(TBL * 0.52) - detailLabelColLeft;
+  const detailLabelColRight = Math.round(TBL * 0.12);
+  const detailValueColRight = TBL - Math.round(TBL * 0.52) - detailLabelColRight;
   const detailRowH = { value: 240, rule: HeightRule.ATLEAST } as const;
   const detailLabelCell = (text: string, w: number) =>
     new TableCell({
@@ -591,7 +670,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   children.push(
     new Table({
-      width: { size: TABLE_W, type: WidthType.DXA },
+      width: { size: TBL, type: WidthType.DXA },
       columnWidths: [detailLabelColLeft, detailValueColLeft, detailLabelColRight, detailValueColRight],
       rows: [
         new TableRow({
@@ -616,7 +695,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           height: detailRowH,
           children: [
             detailLabelCell("Riser Location:", detailLabelColLeft),
-            wideValueCell(TABLE_W - detailLabelColLeft, 3),
+            wideValueCell(TBL - detailLabelColLeft, 3),
           ],
         }),
       ],
@@ -654,7 +733,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
+              width: { size: LBL, type: WidthType.DXA },
               margins: { top: 30, bottom: 30, left: 90, right: 90 },
               verticalAlign: VerticalAlign.CENTER,
               children: [
@@ -666,7 +745,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             }),
             new TableCell({
               borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
+              width: { size: VAL, type: WidthType.DXA },
               margins: { top: 30, bottom: 30, left: 90, right: 90 },
               verticalAlign: VerticalAlign.CENTER,
               children: [
@@ -685,16 +764,16 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         });
       }
     }
-    return renderFieldRow(field);
+    return renderFieldRow(field, layout);
   };
 
   for (const [sectionName, fields] of sectionMap) {
     if (fields.length === 0) continue;
     children.push(
       new Table({
-        width: { size: TABLE_W, type: WidthType.DXA },
-        columnWidths: [LABEL_COL, VALUE_COL],
-        rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderRowForField)],
+        width: { size: TBL, type: WidthType.DXA },
+        columnWidths: [LBL, VAL],
+        rows: [renderSectionHeaderRow(sectionName, layout), ...fields.map((f) => renderRowForField(f))],
       }),
     );
     children.push(
@@ -738,8 +817,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       children: [new TextRun({ text: "Comments:", bold: true, size: 14 })],
     }),
     new Table({
-      width: { size: TABLE_W, type: WidthType.DXA },
-      columnWidths: [TABLE_W],
+      width: { size: TBL, type: WidthType.DXA },
+      columnWidths: [TBL],
       rows: [
         new TableRow({
           cantSplit: true,
@@ -747,7 +826,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: TABLE_W, type: WidthType.DXA },
+              width: { size: TBL, type: WidthType.DXA },
               margins: { top: 30, bottom: 30, left: 100, right: 100 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
@@ -759,11 +838,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   // Two-column sign-off block: Date / Technician / Signature  |  Date / Customer / Signature
   // Mirrors PDF renderPdfSignatures layout.
-  // Sign-off table spans the full TABLE_W to match the PDF's
+  // Sign-off table spans the full TBL to match the PDF's
   // renderPdfSignatures, which uses the full content width split into two
   // equal halves. Each half is split label/value at ~20%/80%.
-  const sigColLabel = Math.round(TABLE_W * 0.10);
-  const sigColValue = Math.round(TABLE_W * 0.50) - sigColLabel;
+  const sigColLabel = Math.round(TBL * 0.10);
+  const sigColValue = Math.round(TBL * 0.50) - sigColLabel;
   const sigLabelCell = (text: string) =>
     new TableCell({
       borders: cellBorders,
@@ -787,7 +866,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       keepNext: true, // glue spacer to the sign-off table that follows
     }),
     new Table({
-      width: { size: TABLE_W, type: WidthType.DXA },
+      width: { size: TBL, type: WidthType.DXA },
       columnWidths: [sigColLabel, sigColValue, sigColLabel, sigColValue],
       rows: [
         new TableRow({
@@ -958,14 +1037,14 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       {
         properties: {
           page: {
-            size: { width: 11906, height: 16838 }, // A4
-            // 10mm margins everywhere to mirror the PDF (PDF_DIMENSIONS.margin = 10mm).
-            // 1mm = ~56.7 DXA → 10mm = 567 DXA.
+            size: { width: layout.pageWidth, height: 16838 }, // A4 height
+            // Auto-scaled side margins keep the right border aligned with the
+            // left margin (table width = pageWidth − 2 × pageMargin).
             margin: {
               top: 227,
-              right: 567,
+              right: layout.pageMargin,
               bottom: 227,
-              left: 567,
+              left: layout.pageMargin,
               header: 113,
               footer: 227,
             },
