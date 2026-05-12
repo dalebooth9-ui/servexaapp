@@ -1094,7 +1094,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     footerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 10 },
+        spacing: { after: wordCfg.accreditationSpacingAfter },
         children: accredRuns,
       }),
     );
