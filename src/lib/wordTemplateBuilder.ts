@@ -773,7 +773,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       new Table({
         width: { size: TBL, type: WidthType.DXA },
         columnWidths: [LBL, VAL],
-        rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderRowForField)],
+        rows: [renderSectionHeaderRow(sectionName, layout), ...fields.map((f) => renderRowForField(f))],
       }),
     );
     children.push(
