@@ -29,6 +29,13 @@ import {
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { getWordExportConfig } from "@/lib/wordExportConfig";
+import {
+  DRY_RISER_LAYOUT,
+  isDryRiserName,
+  dryRiserContentWidthDxa,
+  commentsElasticDxa,
+  ptToDxa,
+} from "@/lib/dryRiserLayout";
 
 export type TemplateField = {
   id: string;
