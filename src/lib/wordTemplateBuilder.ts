@@ -512,12 +512,15 @@ export function renderFieldRow(
   });
 }
 
-/** Section header row — grey banner with "RESULT" in value column, mirrors PDF. */
+/** Solid blue used for section header bands and the document title (matches PDF). */
+export const SECTION_HEADER_BLUE = "1F4E79";
+
+/** Section header row — solid blue banner with white "RESULT" label, mirrors PDF. */
 export function renderSectionHeaderRow(
   sectionName: string,
   layout: ResolvedTableLayout = DEFAULT_LAYOUT,
 ): TableRow {
-  const headerShading = { fill: "E6E6E6", type: ShadingType.CLEAR, color: "auto" };
+  const headerShading = { fill: SECTION_HEADER_BLUE, type: ShadingType.CLEAR, color: "auto" };
   return new TableRow({
     tableHeader: true,
     height: { value: 160, rule: HeightRule.ATLEAST },
@@ -531,7 +534,14 @@ export function renderSectionHeaderRow(
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 18 })],
+            children: [
+              new TextRun({
+                text: sectionName.toUpperCase(),
+                bold: true,
+                size: 18,
+                color: "FFFFFF",
+              }),
+            ],
           }),
         ],
       }),
@@ -544,7 +554,9 @@ export function renderSectionHeaderRow(
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: "RESULT", bold: true, size: 18 })],
+            children: [
+              new TextRun({ text: "RESULT", bold: true, size: 18, color: "FFFFFF" }),
+            ],
           }),
         ],
       }),
