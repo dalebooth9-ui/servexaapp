@@ -70,6 +70,19 @@ export type WordTemplateInput = {
     footer_text?: string;
     company_subtitle?: string;
     declaration_text?: string;
+    /**
+     * Per-template header logo height (px). When set, overrides the default
+     * 100px cap so the logo can be tuned per report type from the template
+     * settings UI. The width is scaled proportionally to preserve aspect.
+     */
+    header_logo_max_height_px?: number;
+    /**
+     * Per-template vertical spacing (in points) inserted AFTER the header
+     * logo paragraph. Increase to push the title further down the page,
+     * decrease to tighten the gap. Stored in points; converted to docx
+     * twentieths-of-a-point internally.
+     */
+    header_logo_spacing_after_pt?: number;
   } | null;
   layout?: WordTemplateLayoutInput;
 };
