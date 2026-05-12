@@ -199,7 +199,7 @@ export async function renderPdfHeader(
       }
       const fmt = detectFormat(logoUrl, logoStyle.format);
       doc.addImage(logoImg, fmt, lx, logoTopY, lw, lh);
-      logoBottomY = logoTopY + lh + (compact ? 4 : 3);
+      logoBottomY = logoTopY + lh + (compact ? 1.5 : 3);
     } catch {
       if (!logoStyle.noFallbackText && companyName) {
         doc.setFontSize(13);
