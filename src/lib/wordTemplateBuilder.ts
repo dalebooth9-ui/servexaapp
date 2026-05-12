@@ -880,6 +880,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
+        spacing: { before: 0, after: 0, line: 240, lineRule: "auto" as const },
         children: [
           new ImageRun({
             type: headerLogo.type,
