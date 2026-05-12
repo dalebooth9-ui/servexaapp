@@ -799,21 +799,15 @@ async function handlePhotosCommand(supabase: any, sender: TwilioSender, to: stri
     return;
   }
 
-  await sendWhatsApp(sender, to, `📷 Sending ${photos.length} photo(s) for this job...`);
-
+  // Safety: never send signed download URLs back over WhatsApp.
+  // List photo metadata only — engineers/admins can view files in the app.
+  let msg = `📷 *Photos (${photos.length}):*\n\n`;
   for (const photo of photos) {
-    if (!photo.file_url) continue;
-
-    // Create a signed URL (1 hour expiry)
-    const { data: signedData } = await supabase.storage
-      .from("submissions")
-      .createSignedUrl(photo.file_url, 3600);
-
-    if (signedData?.signedUrl) {
-      const caption = photo.file_name || "Photo";
-      await sendWhatsApp(sender, to, caption, signedData.signedUrl);
-    }
+    const date = new Date(photo.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    msg += `• ${date} — ${photo.file_name || "Photo"}\n`;
   }
+  msg += `\nView them in the job folder in Servexa.`;
+  await sendWhatsApp(sender, to, msg);
 }
 
 async function handleReportCommand(supabase: any, sender: TwilioSender, to: string, jobId: string) {
@@ -914,18 +908,14 @@ async function handleFilesCommand(supabase: any, sender: TwilioSender, to: strin
     return;
   }
 
-  await sendWhatsApp(sender, to, `📄 Sending ${docs.length} document(s)...`);
-
+  // Safety: never send signed download URLs back over WhatsApp.
+  let msg = `📄 *Documents (${docs.length}):*\n\n`;
   for (const doc of docs) {
-    if (!doc.file_url) continue;
-    const { data: signedData } = await supabase.storage
-      .from("submissions")
-      .createSignedUrl(doc.file_url, 3600);
-
-    if (signedData?.signedUrl) {
-      await sendWhatsApp(sender, to, doc.file_name || "Document", signedData.signedUrl);
-    }
+    const date = new Date(doc.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+    msg += `• ${date} — ${doc.file_name || "Document"}\n`;
   }
+  msg += `\nOpen them in the job folder in Servexa.`;
+  await sendWhatsApp(sender, to, msg);
 }
 
 async function handleCompleteCommand(supabase: any, sender: TwilioSender, to: string, jobId: string, engineerId: string) {
