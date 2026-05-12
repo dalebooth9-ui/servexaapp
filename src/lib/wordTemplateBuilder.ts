@@ -246,9 +246,9 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} P    `, size: 18 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} F    `, size: 18 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} N/A`, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} P    `, size: 22 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} F    `, size: 22 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} N/A`, size: 22 }),
         ],
       }),
     ];
@@ -258,8 +258,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 18 }),
-          new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 18 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} YES    `, size: 22 }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} NO`, size: 22 }),
         ],
       }),
     ];
@@ -270,8 +270,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
       return [
         new Paragraph({
           children: field.options.flatMap((opt, i) => [
-            new TextRun({ text: `${CHECKBOX_EMPTY} ${opt.toUpperCase()}`, size: 18 }),
-            ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 18 })] : []),
+            new TextRun({ text: `${CHECKBOX_EMPTY} ${opt.toUpperCase()}`, size: 22 }),
+            ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 22 })] : []),
           ]),
         }),
       ];
@@ -279,8 +279,8 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: field.options.flatMap((opt, i) => [
-          new TextRun({ text: `${CHECKBOX_EMPTY} ${opt}`, size: 18 }),
-          ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 18 })] : []),
+          new TextRun({ text: `${CHECKBOX_EMPTY} ${opt}`, size: 22 }),
+          ...(i < field.options!.length - 1 ? [new TextRun({ text: "    ", size: 22 })] : []),
         ]),
       }),
     ];
@@ -292,7 +292,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: "_______ / _______ / _______",
-            size: 18,
+            size: 22,
             color: "777777",
           }),
         ],
@@ -306,7 +306,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(20),
-            size: 18,
+            size: 22,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -318,7 +318,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
     return [
       new Paragraph({
         children: [
-          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 18, color: "555555" }),
+          new TextRun({ text: `${CHECKBOX_EMPTY} Photo attached`, size: 22, color: "555555" }),
         ],
       }),
     ];
@@ -326,12 +326,12 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
 
   if (field.type === "signature") {
     return [
-      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 22 })] }),
       new Paragraph({
         children: [
           new TextRun({
             text: "Signature: " + " ".repeat(40),
-            size: 16,
+            size: 20,
             color: "777777",
             underline: { type: "single", color: "999999" },
           }),
@@ -346,7 +346,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(60),
-            size: 18,
+            size: 22,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -355,7 +355,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(60),
-            size: 18,
+            size: 22,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -364,7 +364,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
         children: [
           new TextRun({
             text: " ".repeat(60),
-            size: 18,
+            size: 22,
             underline: { type: "single", color: "999999" },
           }),
         ],
@@ -377,7 +377,7 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
       children: [
         new TextRun({
           text: " ".repeat(60),
-          size: 18,
+          size: 22,
           underline: { type: "single", color: "999999" },
         }),
       ],
@@ -405,7 +405,7 @@ export function renderFieldRow(field: TemplateField): TableRow {
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: field.label, bold: true, size: 16 })],
+            children: [new TextRun({ text: field.label, bold: true, size: 20 })],
           }),
         ],
       }),
@@ -436,7 +436,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 16 })],
+            children: [new TextRun({ text: sectionName.toUpperCase(), bold: true, size: 20 })],
           }),
         ],
       }),
@@ -449,7 +449,7 @@ export function renderSectionHeaderRow(sectionName: string): TableRow {
         children: [
           new Paragraph({
             spacing: { before: 0, after: 0 },
-            children: [new TextRun({ text: "RESULT", bold: true, size: 16 })],
+            children: [new TextRun({ text: "RESULT", bold: true, size: 20 })],
           }),
         ],
       }),
@@ -532,7 +532,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           new TextRun({
             text: subtitleText,
             bold: true,
-            size: 18,
+            size: 22,
             color: BRAND_NAVY_HEX,
             font: "Helvetica",
           }),
@@ -566,7 +566,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       children: [
         new Paragraph({
           spacing: { before: 0, after: 0 },
-          children: [new TextRun({ text, bold: true, size: 16, font: "Helvetica" })],
+          children: [new TextRun({ text, bold: true, size: 20, font: "Helvetica" })],
         }),
       ],
     });
@@ -886,7 +886,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           right: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
         },
         children: [
-          new TextRun({ text: footerText, bold: true, size: 18, font: "Helvetica", color: "000000" }),
+          new TextRun({ text: footerText, bold: true, size: 22, font: "Helvetica", color: "000000" }),
         ],
       }),
     );
@@ -914,7 +914,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
               right: 567,
               bottom: 567,
               left: 567,
-              header: 283, // 5mm
+              header: 113, // 2mm — pull header logo up close to page edge
               footer: 283, // 5mm
             },
           },
