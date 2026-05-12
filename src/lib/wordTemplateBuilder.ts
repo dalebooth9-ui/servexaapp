@@ -235,9 +235,53 @@ export const cellBorders = {
 
 // Column widths in DXA — mirrors the PDF's ~68% / 32% split.
 // A4 (11906) − 567 left − 567 right = 10772 content width (matches page margins).
-export const TABLE_W = 10772;
-export const LABEL_COL = Math.round(TABLE_W * 0.68); // 7325
+export const DEFAULT_PAGE_WIDTH_DXA = 11906;
+export const DEFAULT_PAGE_MARGIN_DXA = 567;
+export const DEFAULT_LABEL_RATIO = 0.68;
+export const TABLE_W = DEFAULT_PAGE_WIDTH_DXA - DEFAULT_PAGE_MARGIN_DXA * 2; // 10772
+export const LABEL_COL = Math.round(TABLE_W * DEFAULT_LABEL_RATIO); // 7325
 export const VALUE_COL = TABLE_W - LABEL_COL; // 3447
+
+/**
+ * Resolved layout used everywhere a width is needed. Always derived through
+ * `computeTableLayout` so the right border lines up with the left margin
+ * (tableW = pageWidth − 2 × pageMargin) and the label/value column ratio
+ * is preserved across page sizes.
+ */
+export type ResolvedTableLayout = {
+  pageWidth: number;
+  pageMargin: number;
+  labelRatio: number;
+  tableW: number;
+  labelCol: number;
+  valueCol: number;
+};
+
+/**
+ * Auto-scale the body table to the available page content width while
+ * preserving the label/value column ratio. With no overrides this returns
+ * exactly the legacy TABLE_W/LABEL_COL/VALUE_COL values, so existing call
+ * sites keep their current dimensions.
+ */
+export function computeTableLayout(
+  input?: WordTemplateLayoutInput,
+): ResolvedTableLayout {
+  const pageWidth = Math.max(1, input?.pageWidth ?? DEFAULT_PAGE_WIDTH_DXA);
+  const pageMargin = Math.max(0, input?.pageMargin ?? DEFAULT_PAGE_MARGIN_DXA);
+  const labelRatio = Math.min(0.95, Math.max(0.05, input?.labelRatio ?? DEFAULT_LABEL_RATIO));
+  // `autoScale` defaults to true — the only way to keep the right border
+  // aligned with the left margin when the page margin changes. Setting it
+  // to false pins the table to the legacy A4/567 geometry regardless of
+  // the supplied page settings.
+  const autoScale = input?.autoScale ?? true;
+  const tableW = autoScale ? Math.max(1, pageWidth - pageMargin * 2) : TABLE_W;
+  const labelCol = Math.round(tableW * labelRatio);
+  const valueCol = tableW - labelCol;
+  return { pageWidth, pageMargin, labelRatio, tableW, labelCol, valueCol };
+}
+
+/** Module-level fallback used by the legacy exported row helpers below. */
+const DEFAULT_LAYOUT: ResolvedTableLayout = computeTableLayout();
 
 /** Brand navy used for title text + separator, mirrors PDF accent. */
 export const BRAND_NAVY_HEX = "213D63";
