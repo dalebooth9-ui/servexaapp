@@ -562,6 +562,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // body grid auto-scales to whatever page geometry the caller supplies while
   // preserving the label/value column ratio.
   const layout = computeTableLayout(template.layout);
+  const wordCfg = await getWordExportConfig();
   const TBL = layout.tableW;
   const LBL = layout.labelCol;
   const VAL = layout.valueCol;
