@@ -6,13 +6,9 @@
  * table border lines up with the left page margin (mirroring the PDF where
  * the body grid is bounded by `PDF_DIMENSIONS.margin` on both sides).
  *
- * Failure modes this guards against:
- * - Someone shrinks `TABLE_W` without widening page margins (right gutter
- *   becomes larger than the left margin → asymmetric layout).
- * - Someone widens page margins without updating `TABLE_W` (right border
- *   stops short of the left margin).
- * - A future builder emits a body table whose declared `<w:tblW>` or grid
- *   columns don't sum to the page content width.
+ * Dry Riser templates are pinned to the SHARED `dryRiserLayout` config
+ * (12mm L/R margins, 10mm T/B). All other templates use the legacy
+ * 10mm symmetric `TABLE_W` width.
  */
 import { describe, it, expect } from "vitest";
 import { Packer } from "docx";
@@ -23,6 +19,10 @@ import {
   TABLE_W,
   type WordTemplateInput,
 } from "@/lib/wordTemplateBuilder";
+import {
+  isDryRiserName,
+  dryRiserContentWidthDxa,
+} from "@/lib/dryRiserLayout";
 import realFixtures from "./fixtures/realTemplateFixtures.json";
 
 // ---------------------------------------------------------------------------
