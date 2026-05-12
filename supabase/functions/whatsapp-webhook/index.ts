@@ -211,8 +211,11 @@ Deno.serve(async (req) => {
       // Otherwise, try the normal active job resolution — but only if the
       // engineer didn't give us a caption that we already failed to match.
       if (!jobId && !fuzzyAttemptedNoMatch) {
-        jobId = await getActiveJob(supabase, engineerId);
-        console.log(`[active-job] resolved jobId=${jobId}`);
+        // For media, use strict mode: only resolve to an explicitly-set context
+        // or today's scheduled visit. Never silently route to the most-recent
+        // assigned job — that's how photos end up in the wrong folder.
+        jobId = await getActiveJob(supabase, engineerId, true);
+        console.log(`[active-job] strict resolved jobId=${jobId}`);
       }
 
       // If a caption was provided but matched nothing, prompt the engineer
@@ -625,6 +628,40 @@ Deno.serve(async (req) => {
         if (byName) job = byName;
       }
 
+      // 3. Match by site name → most recent active job at that site
+      if (!job) {
+        const { data: matchingSites } = await supabase
+          .from("sites")
+          .select("id")
+          .ilike("name", `%${trimmed}%`)
+          .limit(5);
+        const siteIds = (matchingSites || []).map((s: any) => s.id);
+        if (siteIds.length > 0) {
+          const { data: bySite } = await supabase
+            .from("jobs")
+            .select("id, name, reference_number")
+            .in("site_id", siteIds)
+            .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          if (bySite) job = bySite;
+        }
+      }
+
+      // 4. Match by job address (partial)
+      if (!job) {
+        const { data: byAddr } = await supabase
+          .from("jobs")
+          .select("id, name, reference_number")
+          .ilike("address", `%${trimmed}%`)
+          .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (byAddr) job = byAddr;
+      }
+
       if (job) {
         console.log(`Engineer ${engineerId} selected job ${job.id} via: ${trimmed}`);
         await supabase.from("submissions").insert({
@@ -640,7 +677,22 @@ Deno.serve(async (req) => {
         return twimlResponse();
       }
 
-      // Text note for active job
+      // Heuristic: short messages (≤5 words, ≤50 chars) look like a job/site lookup
+      // attempt rather than a note. If we can't match them, ask the engineer to
+      // clarify instead of silently attaching to whatever active job is cached —
+      // that's how photos end up in the wrong folder.
+      const wordCount = trimmed.split(/\s+/).length;
+      const looksLikeJobLookup = trimmed.length <= 50 && wordCount <= 5;
+
+      if (looksLikeJobLookup) {
+        console.log(`No job/site match for short text "${trimmed}" — asking for clarification`);
+        await sendWhatsApp(twilioSender, from,
+          `⚠️ Couldn't find a job, site or address matching "${trimmed.slice(0, 80)}". Please send the job reference number (e.g. VFP-00123) to set the job.`
+        );
+        return twimlResponse();
+      }
+
+      // Longer text → treat as a note for the current active job
       const jobId = await getActiveJob(supabase, engineerId);
       if (jobId) {
         await supabase.from("submissions").insert({
@@ -961,7 +1013,7 @@ async function validateTwilioSignature(
   return computed === signature;
 }
 
-async function getActiveJob(supabase: any, engineerId: string): Promise<string | null> {
+async function getActiveJob(supabase: any, engineerId: string, strict = false): Promise<string | null> {
   // 1. Check for an explicit context set by the engineer (most recent "Job context set" note)
   const { data: contextSubs } = await supabase
     .from("submissions")
@@ -1002,6 +1054,13 @@ async function getActiveJob(supabase: any, engineerId: string): Promise<string |
     }
     console.log(`Today's scheduled visit found: ${todayVisits[0].job_id}`);
     return todayVisits[0].job_id;
+  }
+
+  // In strict mode (e.g. media routing), don't guess based on stale assignments —
+  // ask the engineer to set context explicitly instead.
+  if (strict) {
+    console.log("Strict mode: no explicit context or today's visit — returning null");
+    return null;
   }
 
   // 3. Fall back to most recently assigned active job
