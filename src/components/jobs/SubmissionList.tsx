@@ -113,6 +113,24 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
     else setSelectedIds(new Set(selectableItems.map((s) => s.id)));
   };
 
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const handleBulkDelete = async () => {
+    const selected = items.filter((s) => selectedIds.has(s.id));
+    if (selected.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      for (const sub of selected) {
+        await onDelete(sub);
+      }
+      toast({ title: "Deleted", description: `${selected.length} item(s) removed.` });
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e?.message || "Could not delete some items.", variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleBulkSelectedDownload = async () => {
     const selected = items.filter((s) => selectedIds.has(s.id) && s.file_url);
     if (selected.length === 0) return;
@@ -241,6 +259,26 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {bulkDownloading ? "Downloading..." : `Download ${selectedIds.size} selected`}
           </Button>
+        )}
+        {selectedIds.size > 0 && isAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" size="sm" disabled={bulkDeleting}>
+                <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                {bulkDeleting ? "Deleting..." : `Delete ${selectedIds.size} selected`}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete {selectedIds.size} item(s)?</AlertDialogTitle>
+                <AlertDialogDescription>This will permanently remove the selected submissions. This action cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={handleBulkDelete}>Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
         <div className="ml-auto flex items-center gap-1">
           <Button variant={viewMode === "gallery" ? "secondary" : "ghost"} size="sm" onClick={() => setViewMode("gallery")} className="text-xs" title="Gallery view">
