@@ -868,8 +868,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   if (headerLogo) {
     // Match PDF header logo (~85mm wide, ~40mm tall — see pdfHeader.ts
     // logoMaxW/logoMaxH defaults). 1mm ≈ 3.78 px.
-    const HEADER_LOGO_MAX_W = 321;
-    const HEADER_LOGO_MAX_H = 151;
+    const HEADER_LOGO_MAX_W = 240;
+    const HEADER_LOGO_MAX_H = 100;
     const natW = Math.max(1, headerLogo.width);
     const natH = Math.max(1, headerLogo.height);
     const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
@@ -880,6 +880,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
+        spacing: { before: 0, after: 0, line: 240, lineRule: "auto" as const },
         children: [
           new ImageRun({
             type: headerLogo.type,
