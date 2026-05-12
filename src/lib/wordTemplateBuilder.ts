@@ -407,62 +407,21 @@ export function buildValueCellChildren(field: TemplateField): Paragraph[] {
   if (field.type === "signature") {
     return [
       new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: "Signature: " + " ".repeat(40),
-            size: 18,
-            color: "777777",
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
+      new Paragraph({ children: [new TextRun({ text: "Signature:", size: 18, color: "777777" })] }),
     ];
   }
 
   if (field.type === "textarea" || field.type === "long_text") {
+    // Blank multi-line cell — no underlines, ready for handwriting.
     return [
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(60),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(60),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
-      new Paragraph({
-        children: [
-          new TextRun({
-            text: " ".repeat(60),
-            size: 18,
-            underline: { type: "single", color: "999999" },
-          }),
-        ],
-      }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
+      new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] }),
     ];
   }
 
-  return [
-    new Paragraph({
-      children: [
-        new TextRun({
-          text: " ".repeat(60),
-          size: 18,
-          underline: { type: "single", color: "999999" },
-        }),
-      ],
-    }),
-  ];
+  // Default text fallback — blank, no underline.
+  return [new Paragraph({ children: [new TextRun({ text: " ", size: 18 })] })];
 }
 
 export function renderFieldRow(
