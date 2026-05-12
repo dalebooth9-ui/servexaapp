@@ -511,7 +511,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 0, after: 60 },
+      spacing: { before: 0, after: 20 },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
@@ -527,7 +527,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { after: 80 },
+        spacing: { before: 0, after: 20 },
         children: [
           new TextRun({
             text: subtitleText,
@@ -543,7 +543,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // Navy separator line below the title (mirrors PDF rule).
   children.push(
     new Paragraph({
-      spacing: { before: 0, after: 20 },
+      spacing: { before: 0, after: 0 },
       border: {
         bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
       },
