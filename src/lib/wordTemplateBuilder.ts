@@ -747,60 +747,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   // avoids duplicating boilerplate that already appears in the title and
   // footer declaration.
 
-  // Detect template variant so the "Scope of Work" select can be pre-ticked
-  // to match the document title (Pressure Test vs Visual) instead of
-  // showing all options blank.
-  const titleLower = (template.name || "").toLowerCase();
-  const scopeMode: "pressure" | "visual" | null = /pressure\s*test/.test(titleLower)
-    ? "pressure"
-    : /visual/.test(titleLower)
-    ? "visual"
-    : null;
-
-  const renderRowForField = (field: TemplateField): TableRow => {
-    if (field.id === "scope_of_work" && field.type === "select" && field.options && scopeMode) {
-      const matchIdx = field.options.findIndex((o) =>
-        scopeMode === "pressure" ? /pressure/i.test(o) : /visual/i.test(o),
-      );
-      if (matchIdx >= 0) {
-        return new TableRow({
-          height: { value: 220, rule: HeightRule.ATLEAST },
-          children: [
-            new TableCell({
-              borders: cellBorders,
-              width: { size: LBL, type: WidthType.DXA },
-              margins: { top: 30, bottom: 30, left: 90, right: 90 },
-              verticalAlign: VerticalAlign.CENTER,
-              children: [
-                new Paragraph({
-                  spacing: { before: 0, after: 0 },
-                  children: [new TextRun({ text: field.label, bold: true, size: 18 })],
-                }),
-              ],
-            }),
-            new TableCell({
-              borders: cellBorders,
-              width: { size: VAL, type: WidthType.DXA },
-              margins: { top: 30, bottom: 30, left: 90, right: 90 },
-              verticalAlign: VerticalAlign.CENTER,
-              children: [
-                new Paragraph({
-                  children: [
-                    new TextRun({
-                      text: `${CHECKBOX_TICK} ${field.options![matchIdx]}`,
-                      size: 18,
-                      bold: true,
-                    }),
-                  ],
-                }),
-              ],
-            }),
-          ],
-        });
-      }
-    }
-    return renderFieldRow(field, layout);
-  };
+  // Blank documents must NOT pre-tick the "Scope of Work" option — the engineer
+  // selects it on site. The PDF renders this row as plain unticked checkboxes
+  // and the Word output does the same via renderFieldRow().
+  const renderRowForField = (field: TemplateField): TableRow => renderFieldRow(field, layout);
 
   for (const [sectionName, fields] of sectionMap) {
     if (fields.length === 0) continue;
