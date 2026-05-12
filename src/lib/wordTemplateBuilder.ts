@@ -1006,7 +1006,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
       // Footer: accreditation row (~40px) + declaration + padding
       const footerTwips =
-        (validAccreds.length > 0 ? 40 * PX_TO_TWIPS + 160 : 0) +
+        ((accredLogos as (FetchedImage | null)[]).filter(Boolean).length > 0
+          ? 40 * PX_TO_TWIPS + 160
+          : 0) +
         (footerText && footerText.trim() ? 320 : 0) +
         80;
 
