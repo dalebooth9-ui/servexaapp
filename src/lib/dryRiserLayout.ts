@@ -50,7 +50,7 @@ export const DRY_RISER_LAYOUT = {
      * Both Word and PDF derive logo box from this value. Do NOT introduce
      * any independent logo-height constants in renderer code for Dry Riser.
      */
-    logoHeightMm: 22,
+    logoHeightMm: 35,
     gapAfterLogoPt: 4,
     titleSizePt: 16,
     subtitleGapPt: 2,
@@ -61,7 +61,7 @@ export const DRY_RISER_LAYOUT = {
     brandBlueHex: "1F4E79",
     brandBlueRgb: [31, 78, 121] as [number, number, number],
     /** Total header chrome height estimate in mm — used for elastic math. */
-    totalChromeMm: 22 + 1.4 + 5.6 + 0.7 + 3.5 + 0.7 + 0.4, // ≈ 34mm (logo + gaps + title + sub + rule)
+    totalChromeMm: 35 + 1.4 + 5.6 + 0.7 + 3.5 + 0.7 + 0.4, // logo + gaps + title + sub + rule
   },
 
   // ── Body row heights ──────────────────────────────────────────────
