@@ -83,6 +83,14 @@ export type WordTemplateInput = {
      * twentieths-of-a-point internally.
      */
     header_logo_spacing_after_pt?: number;
+    /**
+     * When true (default), the builder estimates the body+footer height and
+     * automatically shrinks the header logo (and zeroes the spacing-after)
+     * until the document fits on a single page. The user-chosen
+     * `header_logo_max_height_px` is treated as the *preferred* size; the
+     * fitter will only reduce, never enlarge, and never below 40px.
+     */
+    auto_fit_single_page?: boolean;
   } | null;
   layout?: WordTemplateLayoutInput;
 };
@@ -963,9 +971,62 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     // Per-template overrides flow through `template.branding` so each report
     // type can fine-tune the header logo from the template settings UI.
     const customH = Number(template.branding?.header_logo_max_height_px);
-    const HEADER_LOGO_MAX_H = Number.isFinite(customH) && customH > 0
+    let HEADER_LOGO_MAX_H = Number.isFinite(customH) && customH > 0
       ? Math.min(400, Math.max(20, customH))
       : 100;
+    // Spacing AFTER the logo paragraph. docx uses twentieths of a point.
+    // 0pt = flush against title (legacy default).
+    const customSpacingPt = Number(template.branding?.header_logo_spacing_after_pt);
+    let spacingAfterPt = Number.isFinite(customSpacingPt) && customSpacingPt >= 0
+      ? Math.min(72, customSpacingPt)
+      : 0;
+
+    // ── Auto-fit: shrink the logo (and zero the after-spacing) so the page
+    // does not spill onto a second page. Heuristic — we estimate the body
+    // and footer height in twips and compare against the A4 usable height.
+    // The estimator is intentionally conservative; the user-set logo height
+    // is treated as the *preferred* size and is only ever reduced, never
+    // enlarged, and never below 40px.
+    const autoFit = template.branding?.auto_fit_single_page !== false;
+    if (autoFit) {
+      const PX_TO_TWIPS = 15; // 1px @ 96dpi = 1440/96 twips
+      // Body content (rows already pushed into `children`).
+      // - Title + optional subtitle + separator paragraph
+      let bodyTwips = 280 + (subtitleText ? 240 : 0) + 120;
+      // - Detail grid: 3 rows @ 240
+      bodyTwips += 3 * 240 + 20;
+      // - Each data section: header row + N field rows + spacer
+      for (const [, fields] of sectionMap) {
+        bodyTwips += 240 + fields.length * 220 + 20;
+      }
+      // - Comments label + box
+      bodyTwips += 220 + 900;
+      // - Sign-off block (3 rows) + spacer + small overhead
+      bodyTwips += 200 + 200 + 260 + 20 + 120;
+
+      // Footer: accreditation row (~40px) + declaration + padding
+      const footerTwips =
+        ((accredLogos as (FetchedImage | null)[]).filter(Boolean).length > 0
+          ? 40 * PX_TO_TWIPS + 160
+          : 0) +
+        (footerText && footerText.trim() ? 320 : 0) +
+        80;
+
+      const pageUsable = 16838 - 227 - 227; // pgSz height − top/bottom margin
+      const headerBudget = pageUsable - bodyTwips - footerTwips;
+
+      // Shrink loop — drop logo height in 4px steps until it (plus spacing)
+      // fits the header budget. Always ends at ≥40px.
+      const MIN_LOGO_PX = 40;
+      while (
+        HEADER_LOGO_MAX_H > MIN_LOGO_PX &&
+        HEADER_LOGO_MAX_H * PX_TO_TWIPS + Math.round(spacingAfterPt * 20) > headerBudget
+      ) {
+        HEADER_LOGO_MAX_H -= 4;
+        if (spacingAfterPt > 0) spacingAfterPt = 0; // drop spacing first chance
+      }
+    }
+
     // Width follows height with the same 2.4:1 cap as the default so wide
     // banners still fit horizontally inside the header band.
     const HEADER_LOGO_MAX_W = Math.round(HEADER_LOGO_MAX_H * 2.4);
@@ -976,12 +1037,6 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       width: Math.max(1, Math.round(natW * scale)),
       height: Math.max(1, Math.round(natH * scale)),
     };
-    // Spacing AFTER the logo paragraph. docx uses twentieths of a point.
-    // 0pt = flush against title (legacy default).
-    const customSpacingPt = Number(template.branding?.header_logo_spacing_after_pt);
-    const spacingAfterPt = Number.isFinite(customSpacingPt) && customSpacingPt >= 0
-      ? Math.min(72, customSpacingPt)
-      : 0;
     const spacingAfterDxa = Math.round(spacingAfterPt * 20);
     headerChildren.push(
       new Paragraph({
