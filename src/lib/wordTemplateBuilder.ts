@@ -83,6 +83,14 @@ export type WordTemplateInput = {
      * twentieths-of-a-point internally.
      */
     header_logo_spacing_after_pt?: number;
+    /**
+     * When true (default), the builder estimates the body+footer height and
+     * automatically shrinks the header logo (and zeroes the spacing-after)
+     * until the document fits on a single page. The user-chosen
+     * `header_logo_max_height_px` is treated as the *preferred* size; the
+     * fitter will only reduce, never enlarge, and never below 40px.
+     */
+    auto_fit_single_page?: boolean;
   } | null;
   layout?: WordTemplateLayoutInput;
 };
