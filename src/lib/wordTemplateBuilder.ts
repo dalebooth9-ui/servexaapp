@@ -671,16 +671,13 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
               verticalAlign: VerticalAlign.CENTER,
               children: [
                 new Paragraph({
-                  children: field.options!.flatMap((opt, i) => [
+                  children: [
                     new TextRun({
-                      text: `${i === matchIdx ? CHECKBOX_TICK : CHECKBOX_EMPTY} ${opt}`,
+                      text: `${CHECKBOX_TICK} ${field.options![matchIdx]}`,
                       size: 18,
-                      bold: i === matchIdx,
+                      bold: true,
                     }),
-                    ...(i < field.options!.length - 1
-                      ? [new TextRun({ text: "    ", size: 18 })]
-                      : []),
-                  ]),
+                  ],
                 }),
               ],
             }),
