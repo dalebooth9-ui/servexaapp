@@ -631,8 +631,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 22,
-          color: BRAND_NAVY_HEX,
+          size: 40,
+          color: SECTION_HEADER_BLUE,
           font: "Helvetica",
         }),
       ],
@@ -647,20 +647,20 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           new TextRun({
             text: subtitleText,
             bold: true,
-            size: 18,
-            color: BRAND_NAVY_HEX,
+            size: 22,
+            color: SECTION_HEADER_BLUE,
             font: "Helvetica",
           }),
         ],
       }),
     );
   }
-  // Navy separator line below the title (mirrors PDF rule).
+  // Blue separator line below the title (mirrors PDF rule, ~2pt).
   children.push(
     new Paragraph({
       spacing: { before: 0, after: 0 },
       border: {
-        bottom: { style: BorderStyle.SINGLE, size: 8, color: BRAND_NAVY_HEX, space: 1 },
+        bottom: { style: BorderStyle.SINGLE, size: 16, color: SECTION_HEADER_BLUE, space: 1 },
       },
       children: [new TextRun({ text: "" })],
     }),
