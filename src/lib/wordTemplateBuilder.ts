@@ -990,34 +990,44 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     const autoFit = template.branding?.auto_fit_single_page !== false;
     if (autoFit) {
       const PX_TO_TWIPS = 15; // 1px @ 96dpi = 1440/96 twips
+      // Calibrated against real exports — Word collapses table-row padding
+      // tighter than the CSS-inspired estimates we used previously, so the
+      // earlier numbers consistently over-counted the body and forced the
+      // logo down to the floor even when ~half the page was empty.
       // Body content (rows already pushed into `children`).
       // - Title + optional subtitle + separator paragraph
-      let bodyTwips = 280 + (subtitleText ? 240 : 0) + 120;
-      // - Detail grid: 3 rows @ 240
-      bodyTwips += 3 * 240 + 20;
+      let bodyTwips = 200 + (subtitleText ? 180 : 0) + 80;
+      // - Detail grid: 3 rows of single-line data
+      bodyTwips += 3 * 180 + 20;
       // - Each data section: header row + N field rows + spacer
       for (const [, fields] of sectionMap) {
-        bodyTwips += 240 + fields.length * 220 + 20;
+        bodyTwips += 200 + fields.length * 170 + 20;
       }
-      // - Comments label + box
-      bodyTwips += 220 + 900;
-      // - Sign-off block (3 rows) + spacer + small overhead
-      bodyTwips += 200 + 200 + 260 + 20 + 120;
+      // - Comments label + box (box is ~3 lines, not a half-page)
+      bodyTwips += 180 + 480;
+      // - Sign-off block (name/sig/date) + small overhead
+      bodyTwips += 160 + 200 + 160 + 80;
 
       // Footer: accreditation row (~40px) + declaration + padding
       const footerTwips =
         ((accredLogos as (FetchedImage | null)[]).filter(Boolean).length > 0
-          ? 40 * PX_TO_TWIPS + 160
+          ? 40 * PX_TO_TWIPS + 120
           : 0) +
-        (footerText && footerText.trim() ? 320 : 0) +
-        80;
+        (footerText && footerText.trim() ? 240 : 0) +
+        60;
 
       const pageUsable = 16838 - 227 - 227; // pgSz height − top/bottom margin
-      const headerBudget = pageUsable - bodyTwips - footerTwips;
+      // The header logo sits in the header band; the body only shifts down
+      // by the amount the header content exceeds the top header margin
+      // (113 twips). Anything below that height costs no body space.
+      const HEADER_BAND_FREE = 113;
+      const headerBudget = pageUsable - bodyTwips - footerTwips + HEADER_BAND_FREE;
 
       // Shrink loop — drop logo height in 4px steps until it (plus spacing)
-      // fits the header budget. Always ends at ≥40px.
-      const MIN_LOGO_PX = 40;
+      // fits the header budget. Floor raised so the logo stays legible —
+      // a 60px logo (~16mm) is the smallest we'll accept before giving up
+      // on single-page fit.
+      const MIN_LOGO_PX = 60;
       while (
         HEADER_LOGO_MAX_H > MIN_LOGO_PX &&
         HEADER_LOGO_MAX_H * PX_TO_TWIPS + Math.round(spacingAfterPt * 20) > headerBudget
