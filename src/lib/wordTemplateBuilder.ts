@@ -763,7 +763,9 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     200 + 200 + 320 + 80; /* sign-off three rows + spacer */
   for (const [, fields] of sectionMap) bodyExclComments += 240 + fields.length * 200 + 40;
   const pageUsable = 16838 - 227 - 227;
-  const commentsMin = Math.max(900, pageUsable - bodyExclComments - headerOverhead - footerEst);
+  // Min ~1cm (567 DXA); the estimator stretches the cell to fill remaining
+  // page space so the sign-off block lands just above the footer.
+  const commentsMin = Math.max(567, pageUsable - bodyExclComments - headerOverhead - footerEst);
 
   children.push(
     new Paragraph({
