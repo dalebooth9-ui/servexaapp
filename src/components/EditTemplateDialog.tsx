@@ -43,6 +43,8 @@ type Template = {
     logo_url?: string;
     footer_text?: string;
     declaration_text?: string;
+    header_logo_max_height_px?: number;
+    header_logo_spacing_after_pt?: number;
   };
 };
 
