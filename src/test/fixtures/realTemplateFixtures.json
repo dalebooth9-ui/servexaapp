@@ -1,0 +1,656 @@
+[
+  {
+    "name": "Fire Hydrant \u2014 Annual Inspection",
+    "fields": [
+      {
+        "id": "hydrant_type",
+        "type": "select",
+        "label": "Hydrant Type",
+        "options": [
+          "Surface Box",
+          "Pillar Hydrant",
+          "Underground",
+          "Wet Riser Outlet",
+          "Dry Riser Outlet"
+        ]
+      },
+      {
+        "id": "hydrant_reference",
+        "type": "text",
+        "label": "Hydrant Reference / ID"
+      },
+      {
+        "id": "location",
+        "type": "text",
+        "label": "Location / Address"
+      },
+      {
+        "id": "valve_condition",
+        "type": "select",
+        "label": "Valve Condition",
+        "options": [
+          "Good",
+          "Stiff",
+          "Seized",
+          "Damaged"
+        ]
+      },
+      {
+        "id": "outlet_cap_condition",
+        "type": "select",
+        "label": "Outlet Cap / Blank Condition",
+        "options": [
+          "Good",
+          "Missing",
+          "Damaged"
+        ]
+      },
+      {
+        "id": "flow_test",
+        "type": "checkbox",
+        "label": "Flow Test Carried Out",
+        "allow_notes": true
+      },
+      {
+        "id": "static_pressure",
+        "type": "text",
+        "label": "Static Pressure at Outlet (bar)"
+      },
+      {
+        "id": "flow_rate",
+        "type": "text",
+        "label": "Flow Rate (l/min)"
+      },
+      {
+        "id": "marker_post_condition",
+        "type": "select",
+        "label": "Marker Post / Plate Condition",
+        "options": [
+          "Good",
+          "Missing",
+          "Damaged",
+          "Not Required"
+        ]
+      },
+      {
+        "id": "access_clear",
+        "type": "select",
+        "label": "Access / Approach Clear",
+        "options": [
+          "Yes",
+          "No \u2014 Obstruction Present"
+        ]
+      },
+      {
+        "id": "remedial_action",
+        "type": "textarea",
+        "label": "Remedial Action Required"
+      },
+      {
+        "id": "result",
+        "type": "select",
+        "label": "Overall Result",
+        "options": [
+          "Pass",
+          "Fail",
+          "Requires Remedial Work"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Wet Riser \u2014 Annual Service & Test",
+    "fields": [
+      {
+        "id": "site_name",
+        "type": "text",
+        "label": "Site Name",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "reference",
+        "type": "text",
+        "label": "Reference / Job Number",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "date",
+        "type": "date",
+        "label": "Inspection Date",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "engineer",
+        "type": "text",
+        "label": "Engineer Name",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "system_ref",
+        "type": "text",
+        "label": "System Reference",
+        "section": "System Details",
+        "required": true
+      },
+      {
+        "id": "no_of_landing_valves",
+        "type": "number",
+        "label": "Number of Landing Valves",
+        "section": "System Details",
+        "required": true
+      },
+      {
+        "id": "pump_set",
+        "type": "text",
+        "label": "Pump Set Manufacturer / Model",
+        "section": "System Details",
+        "required": false
+      },
+      {
+        "id": "pump_start_test",
+        "type": "pass_fail",
+        "label": "Pump Auto-Start Test",
+        "section": "Pump Checks",
+        "required": true
+      },
+      {
+        "id": "pump_duty_pressure",
+        "type": "number",
+        "label": "Pump Duty Pressure (bar)",
+        "section": "Pump Checks",
+        "required": true
+      },
+      {
+        "id": "pump_standby_ok",
+        "type": "checkbox",
+        "label": "Standby Pump Operational",
+        "section": "Pump Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "jockey_pump_ok",
+        "type": "checkbox",
+        "label": "Jockey Pump Operational",
+        "section": "Pump Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "tank_level",
+        "type": "checkbox",
+        "label": "Break Tank Level Adequate",
+        "section": "Pump Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "landing_valves_ok",
+        "type": "checkbox",
+        "label": "All Landing Valves Operational",
+        "section": "Landing Valve Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "hose_reels_ok",
+        "type": "checkbox",
+        "label": "Hose Reels Present & Serviceable",
+        "section": "Landing Valve Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "signage_ok",
+        "type": "checkbox",
+        "label": "Signage Correct & Visible",
+        "section": "Landing Valve Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "test_pressure",
+        "type": "number",
+        "label": "System Test Pressure (bar)",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "test_duration",
+        "type": "number",
+        "label": "Duration (minutes)",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "pressure_drop",
+        "type": "number",
+        "label": "Pressure Drop (bar)",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "overall_result",
+        "type": "pass_fail",
+        "label": "Overall Result",
+        "section": "Result",
+        "required": true
+      },
+      {
+        "id": "remedial_required",
+        "type": "checkbox",
+        "label": "Remedial Action Required",
+        "section": "Result",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "comments",
+        "type": "textarea",
+        "label": "Comments / Defects",
+        "section": "Result",
+        "required": false
+      },
+      {
+        "id": "bs_declaration",
+        "type": "checkbox",
+        "label": "This service has been carried out in accordance with BS 9990:2015 \u2014 Code of Practice for the Use of Fire-Fighting Water Systems (Wet Riser)",
+        "section": "Declaration",
+        "required": true,
+        "allow_notes": true
+      }
+    ]
+  },
+  {
+    "name": "Dry Riser \u2014 Commissioning Certificate",
+    "fields": [
+      {
+        "id": "site_name",
+        "type": "text",
+        "label": "Site Name",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "site_address",
+        "type": "textarea",
+        "label": "Site Address",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "reference",
+        "type": "text",
+        "label": "Reference / Job Number",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "date",
+        "type": "date",
+        "label": "Inspection Date",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "engineer",
+        "type": "text",
+        "label": "Engineer Name",
+        "section": "Site Details",
+        "required": true
+      },
+      {
+        "id": "installer_company",
+        "type": "text",
+        "label": "Installing Company",
+        "section": "Installation Details",
+        "required": true
+      },
+      {
+        "id": "riser_type",
+        "type": "select",
+        "label": "Riser Type",
+        "options": [
+          "Wet",
+          "Dry"
+        ],
+        "section": "Installation Details",
+        "required": true
+      },
+      {
+        "id": "number_of_floors",
+        "type": "number",
+        "label": "Number of Floors",
+        "section": "Installation Details",
+        "required": true
+      },
+      {
+        "id": "no_of_outlets",
+        "type": "number",
+        "label": "Number of Outlets",
+        "section": "Installation Details",
+        "required": true
+      },
+      {
+        "id": "pipe_material",
+        "type": "select",
+        "label": "Pipe Material",
+        "options": [
+          "Galvanised Steel",
+          "Stainless Steel",
+          "Other"
+        ],
+        "section": "Installation Details",
+        "required": true
+      },
+      {
+        "id": "inlet_breeching_check",
+        "type": "checkbox",
+        "label": "Inlet Breeching Installed Correctly",
+        "section": "Commissioning Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "outlet_valves_check",
+        "type": "checkbox",
+        "label": "All Outlet Valves Operational",
+        "section": "Commissioning Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "signage_check",
+        "type": "checkbox",
+        "label": "Signage Installed & Correct",
+        "section": "Commissioning Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "flush_test",
+        "type": "checkbox",
+        "label": "System Flushed Prior to Test",
+        "section": "Commissioning Checks",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "test_pressure",
+        "type": "number",
+        "label": "Test Pressure (bar)",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "test_duration",
+        "type": "number",
+        "label": "Duration (minutes)",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "pressure_drop",
+        "type": "number",
+        "label": "Pressure Drop (bar)",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "test_result",
+        "type": "pass_fail",
+        "label": "Pressure Test Result",
+        "section": "Pressure Test",
+        "required": true
+      },
+      {
+        "id": "overall_result",
+        "type": "pass_fail",
+        "label": "Overall Result",
+        "section": "Result",
+        "required": true
+      },
+      {
+        "id": "remedial_required",
+        "type": "checkbox",
+        "label": "Remedial Action Required",
+        "section": "Result",
+        "required": true,
+        "allow_notes": true
+      },
+      {
+        "id": "comments",
+        "type": "textarea",
+        "label": "Comments / Defects",
+        "section": "Result",
+        "required": false
+      },
+      {
+        "id": "bs_declaration",
+        "type": "checkbox",
+        "label": "This commissioning has been carried out in accordance with BS 9990:2015",
+        "section": "Declaration",
+        "required": true,
+        "allow_notes": true
+      }
+    ]
+  },
+  {
+    "name": "Fire Extinguisher \u2014 Annual Service",
+    "fields": [
+      {
+        "id": "location",
+        "type": "text",
+        "label": "Location / Area"
+      },
+      {
+        "id": "extinguisher_type",
+        "type": "select",
+        "label": "Extinguisher Type",
+        "options": [
+          "Water",
+          "Foam",
+          "CO2",
+          "Dry Powder",
+          "Wet Chemical",
+          "Halon"
+        ]
+      },
+      {
+        "id": "serial_number",
+        "type": "text",
+        "label": "Serial Number"
+      },
+      {
+        "id": "manufacture_date",
+        "type": "text",
+        "label": "Manufacture Date",
+        "placeholder": "MM/YYYY"
+      },
+      {
+        "id": "weight_check",
+        "type": "select",
+        "label": "Weight Check",
+        "options": [
+          "Within Tolerance",
+          "Under Weight",
+          "Over Weight"
+        ]
+      },
+      {
+        "id": "pressure_indicator",
+        "type": "select",
+        "label": "Pressure Indicator",
+        "options": [
+          "In Green Zone",
+          "Out of Range",
+          "N/A"
+        ]
+      },
+      {
+        "id": "safety_pin",
+        "type": "checkbox",
+        "label": "Safety Pin / Tamper Seal Intact",
+        "allow_notes": true
+      },
+      {
+        "id": "hose_horn",
+        "type": "select",
+        "label": "Hose / Horn Condition",
+        "options": [
+          "Good",
+          "Damaged",
+          "Missing",
+          "N/A"
+        ]
+      },
+      {
+        "id": "body_condition",
+        "type": "select",
+        "label": "Body / Shell Condition",
+        "options": [
+          "Good",
+          "Corroded",
+          "Dented",
+          "Condemned"
+        ]
+      },
+      {
+        "id": "service_label_fitted",
+        "type": "checkbox",
+        "label": "New Service Label Fitted",
+        "allow_notes": true
+      },
+      {
+        "id": "discharge_test_required",
+        "type": "checkbox",
+        "label": "Discharge Test Required",
+        "allow_notes": true
+      },
+      {
+        "id": "notes",
+        "type": "textarea",
+        "label": "Notes"
+      },
+      {
+        "id": "result",
+        "type": "select",
+        "label": "Overall Result",
+        "options": [
+          "Pass",
+          "Fail",
+          "Condemned \u2014 Replaced"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Sprinkler System \u2014 Annual Service",
+    "fields": [
+      {
+        "id": "system_type",
+        "type": "text",
+        "label": "System Type",
+        "placeholder": "e.g. Wet, Dry, Pre-action"
+      },
+      {
+        "id": "system_reference",
+        "type": "text",
+        "label": "System Reference / Zone"
+      },
+      {
+        "id": "number_of_heads",
+        "type": "text",
+        "label": "Number of Sprinkler Heads"
+      },
+      {
+        "id": "water_supply_check",
+        "type": "select",
+        "label": "Water Supply Check",
+        "options": [
+          "Satisfactory",
+          "Unsatisfactory",
+          "N/A"
+        ]
+      },
+      {
+        "id": "pump_test",
+        "type": "select",
+        "label": "Pump Test Result",
+        "options": [
+          "Pass",
+          "Fail",
+          "N/A"
+        ]
+      },
+      {
+        "id": "alarm_valve_test",
+        "type": "select",
+        "label": "Alarm Valve Test",
+        "options": [
+          "Pass",
+          "Fail",
+          "N/A"
+        ]
+      },
+      {
+        "id": "static_pressure",
+        "type": "text",
+        "label": "Static Pressure (bar)"
+      },
+      {
+        "id": "residual_pressure",
+        "type": "text",
+        "label": "Residual Pressure (bar)"
+      },
+      {
+        "id": "flow_test",
+        "type": "checkbox",
+        "label": "Flow Test Carried Out",
+        "allow_notes": true
+      },
+      {
+        "id": "flow_rate",
+        "type": "text",
+        "label": "Flow Rate (l/min)"
+      },
+      {
+        "id": "system_restored",
+        "type": "checkbox",
+        "label": "System Fully Restored",
+        "allow_notes": true
+      },
+      {
+        "id": "defects_found",
+        "type": "textarea",
+        "label": "Defects / Remedial Actions Required"
+      },
+      {
+        "id": "engineer_comments",
+        "type": "textarea",
+        "label": "Engineer Comments"
+      },
+      {
+        "id": "result",
+        "type": "select",
+        "label": "Overall Result",
+        "options": [
+          "Pass",
+          "Fail",
+          "Conditional Pass"
+        ]
+      }
+    ]
+  }
+]
