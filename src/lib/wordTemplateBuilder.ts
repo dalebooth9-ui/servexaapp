@@ -503,7 +503,7 @@ export function renderSectionHeaderRow(
       new TableCell({
         borders: cellBorders,
         shading: headerShading,
-        width: { size: LABEL_COL, type: WidthType.DXA },
+        width: { size: layout.labelCol, type: WidthType.DXA },
         margins: { top: 30, bottom: 30, left: 90, right: 90 },
         verticalAlign: VerticalAlign.CENTER,
         children: [
