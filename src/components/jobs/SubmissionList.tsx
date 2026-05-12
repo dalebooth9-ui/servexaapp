@@ -113,6 +113,24 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
     else setSelectedIds(new Set(selectableItems.map((s) => s.id)));
   };
 
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const handleBulkDelete = async () => {
+    const selected = items.filter((s) => selectedIds.has(s.id));
+    if (selected.length === 0) return;
+    setBulkDeleting(true);
+    try {
+      for (const sub of selected) {
+        await onDelete(sub);
+      }
+      toast({ title: "Deleted", description: `${selected.length} item(s) removed.` });
+      setSelectedIds(new Set());
+    } catch (e: any) {
+      toast({ title: "Delete failed", description: e?.message || "Could not delete some items.", variant: "destructive" });
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleBulkSelectedDownload = async () => {
     const selected = items.filter((s) => selectedIds.has(s.id) && s.file_url);
     if (selected.length === 0) return;
