@@ -273,10 +273,10 @@ export async function renderPdfHeader(
   // Optional BS standard subtitle (existing behaviour).
   if (standard) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.setFontSize(style.standardFontSize ?? 9);
     doc.setTextColor(...accent);
     doc.text(standard, pageWidth / 2, y, { align: "center" });
-    y += 4;
+    y += style.standardGapBelow ?? 4;
   }
 
   // Optional second subtitle line (e.g. "REF | Generated DATE").
@@ -292,7 +292,7 @@ export async function renderPdfHeader(
   // ── Separator line ─────────────────────────────────────────────────
   if (showSeparator) {
     doc.setDrawColor(...accent);
-    doc.setLineWidth(0.5);
+    doc.setLineWidth(style.separatorThickness ?? 0.5);
     doc.line(margin, y, pageWidth - margin, y);
     y += 4;
   }
