@@ -101,11 +101,17 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           <Badge variant="secondary" className={`${statusColor(job.status)} text-[10px] uppercase h-4 px-1.5`}>
             {job.status.replace(/_/g, " ")}
           </Badge>
-          {job.sites?.name && (
-            <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-muted-foreground border-muted-foreground/30 max-w-[180px] truncate">
-              {job.sites.name}
-            </Badge>
-          )}
+          {(() => {
+            const siteLabel = job.sites?.name
+              || (typeof job.name === "string" && /\s[—–-]\s/.test(job.name)
+                ? job.name.split(/\s[—–-]\s/).slice(1).join(" - ").trim()
+                : null);
+            return siteLabel ? (
+              <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-muted-foreground border-muted-foreground/30 max-w-[180px] truncate">
+                {siteLabel}
+              </Badge>
+            ) : null;
+          })()}
           {job.priority === "high" && (
             <Badge variant="destructive" className="text-[10px] uppercase h-4 px-1.5">High</Badge>
           )}
