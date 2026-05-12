@@ -35,6 +35,7 @@ export type TemplateField = {
   type: string; // "text" | "number" | "pass_fail" | "select" | "section" etc.
   options?: string[];
   section?: string;
+  allow_na?: boolean;
 };
 
 export type WordTemplateInput = {
