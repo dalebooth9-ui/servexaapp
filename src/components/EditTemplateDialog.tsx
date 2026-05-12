@@ -43,6 +43,8 @@ type Template = {
     logo_url?: string;
     footer_text?: string;
     declaration_text?: string;
+    header_logo_max_height_px?: number;
+    header_logo_spacing_after_pt?: number;
   };
 };
 
@@ -241,6 +243,10 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [logoUrl, setLogoUrl] = useState("");
   const [footerText, setFooterText] = useState("");
   const [declarationText, setDeclarationText] = useState("");
+  // Per-template Word/PDF header logo tuning. Stored as strings so the user
+  // can clear the field to fall back to the built-in defaults (100px / 0pt).
+  const [headerLogoMaxH, setHeaderLogoMaxH] = useState("");
+  const [headerLogoSpacingAfter, setHeaderLogoSpacingAfter] = useState("");
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [initialised, setInitialised] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -270,9 +276,17 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         logo_url: logoUrl || undefined,
         footer_text: footerText || undefined,
         declaration_text: declarationText || undefined,
+        header_logo_max_height_px:
+          headerLogoMaxH.trim() && Number.isFinite(Number(headerLogoMaxH))
+            ? Number(headerLogoMaxH)
+            : undefined,
+        header_logo_spacing_after_pt:
+          headerLogoSpacingAfter.trim() && Number.isFinite(Number(headerLogoSpacingAfter))
+            ? Number(headerLogoSpacingAfter)
+            : undefined,
       },
     }),
-    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText]
+    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText, headerLogoMaxH, headerLogoSpacingAfter]
   );
 
   useEffect(() => {
@@ -352,6 +366,12 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     setDeclarationText(b.declaration_text ?? "");
+    setHeaderLogoMaxH(
+      typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "",
+    );
+    setHeaderLogoSpacingAfter(
+      typeof b.header_logo_spacing_after_pt === "number" ? String(b.header_logo_spacing_after_pt) : "",
+    );
     setInitialised(true);
   }
   if (!open && initialised) {
@@ -424,6 +444,12 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     setDeclarationText(b.declaration_text ?? "");
+    setHeaderLogoMaxH(
+      typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "",
+    );
+    setHeaderLogoSpacingAfter(
+      typeof b.header_logo_spacing_after_pt === "number" ? String(b.header_logo_spacing_after_pt) : "",
+    );
     toast({ title: "Reverted to saved version" });
   };
 
@@ -459,6 +485,14 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       logo_url: logoUrl || undefined,
       footer_text: footerText.trim() || undefined,
       declaration_text: declarationText.trim() || undefined,
+      header_logo_max_height_px:
+        headerLogoMaxH.trim() && Number.isFinite(Number(headerLogoMaxH))
+          ? Math.min(400, Math.max(20, Number(headerLogoMaxH)))
+          : undefined,
+      header_logo_spacing_after_pt:
+        headerLogoSpacingAfter.trim() && Number.isFinite(Number(headerLogoSpacingAfter))
+          ? Math.min(72, Math.max(0, Number(headerLogoSpacingAfter)))
+          : undefined,
     };
     const { error } = await supabase.from("job_sheet_templates").update({
       name: templateName.trim(),
@@ -693,6 +727,42 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                   <p className="text-[11px] text-muted-foreground">
                     Shown in the bordered band above the accreditation logos on the printable Dry Riser sheet. Leave blank for the default ("Tested and inspected in accordance with BS 9990:2015").
                   </p>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Header logo height (px)</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={20}
+                      max={400}
+                      step={5}
+                      value={headerLogoMaxH}
+                      onChange={(e) => setHeaderLogoMaxH(e.target.value)}
+                      placeholder="100 (default)"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Caps the printed logo height. Width scales proportionally. Range 20–400.
+                    </p>
+                  </div>
+                  <div>
+                    <Label className="text-xs">Spacing after logo (pt)</Label>
+                    <Input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      max={72}
+                      step={1}
+                      value={headerLogoSpacingAfter}
+                      onChange={(e) => setHeaderLogoSpacingAfter(e.target.value)}
+                      placeholder="0 (default)"
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      Vertical gap between the logo and the title. Range 0–72 pt.
+                    </p>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
