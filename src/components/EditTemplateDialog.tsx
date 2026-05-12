@@ -485,6 +485,14 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       logo_url: logoUrl || undefined,
       footer_text: footerText.trim() || undefined,
       declaration_text: declarationText.trim() || undefined,
+      header_logo_max_height_px:
+        headerLogoMaxH.trim() && Number.isFinite(Number(headerLogoMaxH))
+          ? Math.min(400, Math.max(20, Number(headerLogoMaxH)))
+          : undefined,
+      header_logo_spacing_after_pt:
+        headerLogoSpacingAfter.trim() && Number.isFinite(Number(headerLogoSpacingAfter))
+          ? Math.min(72, Math.max(0, Number(headerLogoSpacingAfter)))
+          : undefined,
     };
     const { error } = await supabase.from("job_sheet_templates").update({
       name: templateName.trim(),
