@@ -953,7 +953,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
         (footerText && footerText.trim() ? 240 : 0) +
         60;
 
-      const pageUsable = 16838 - 227 - 227; // pgSz height − top/bottom margin
+      const pageUsable = 16838 - 720 - 720; // pgSz height − top/bottom margin
       // The header logo sits in the header band; the body only shifts down
       // by the amount the header content exceeds the top header margin
       // (113 twips). Anything below that height costs no body space.
