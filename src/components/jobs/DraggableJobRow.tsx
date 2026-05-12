@@ -86,9 +86,6 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           <Link to={`/jobs/${job.id}`} className="font-mono text-xs font-semibold text-primary hover:underline shrink-0">
             {job.reference_number}
           </Link>
-          {job.sites?.name && (
-            <span className="text-xs font-medium text-muted-foreground truncate">· {job.sites.name}</span>
-          )}
           <Link to={`/jobs/${job.id}`} className="text-sm font-medium text-foreground hover:underline truncate">
             {job.name}
           </Link>
