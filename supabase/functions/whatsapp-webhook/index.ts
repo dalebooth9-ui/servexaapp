@@ -1056,6 +1056,13 @@ async function getActiveJob(supabase: any, engineerId: string, strict = false): 
     return todayVisits[0].job_id;
   }
 
+  // In strict mode (e.g. media routing), don't guess based on stale assignments —
+  // ask the engineer to set context explicitly instead.
+  if (strict) {
+    console.log("Strict mode: no explicit context or today's visit — returning null");
+    return null;
+  }
+
   // 3. Fall back to most recently assigned active job
   const { data: assignments } = await supabase
     .from("job_assignments")
