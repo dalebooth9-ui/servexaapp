@@ -957,9 +957,13 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     // Per-template overrides flow through `template.branding` so each report
     // type can fine-tune the header logo from the template settings UI.
     const customH = Number(template.branding?.header_logo_max_height_px);
-    let HEADER_LOGO_MAX_H = Number.isFinite(customH) && customH > 0
-      ? Math.min(400, Math.max(20, customH))
-      : 180;
+    // Dry Riser: ALWAYS derive from the shared layout config (single source
+    // of truth). Other templates: legacy per-template override / 180px default.
+    let HEADER_LOGO_MAX_H = isDryRiser
+      ? Math.round(DRY_RISER_LAYOUT.header.logoHeightMm * 3.78)
+      : Number.isFinite(customH) && customH > 0
+        ? Math.min(400, Math.max(20, customH))
+        : 180;
     // Spacing AFTER the logo paragraph. docx uses twentieths of a point.
     // 0pt = flush against title (legacy default).
     const customSpacingPt = Number(template.branding?.header_logo_spacing_after_pt);
@@ -973,7 +977,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     // The estimator is intentionally conservative; the user-set logo height
     // is treated as the *preferred* size and is only ever reduced, never
     // enlarged, and never below 40px.
-    const autoFit = template.branding?.auto_fit_single_page !== false;
+    // Dry Riser uses the shared layout config (single source of truth) and
+    // must NEVER be auto-shrunk — that path desyncs the elastic comments
+    // math which trusts header.logoHeightMm. Skip the heuristic entirely.
+    const autoFit = !isDryRiser && template.branding?.auto_fit_single_page !== false;
     if (autoFit) {
       const PX_TO_TWIPS = 15; // 1px @ 96dpi = 1440/96 twips
       // Calibrated against real exports — Word collapses table-row padding
@@ -1024,18 +1031,30 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       }
     }
 
-    // Width follows height with the same 2.4:1 cap as the default so wide
-    // banners still fit horizontally inside the header band.
-    const HEADER_LOGO_MAX_W = Math.round(HEADER_LOGO_MAX_H * 2.4);
+    // Width follows the logo's natural aspect ratio (no squashing).
+    // Dry Riser: height is FIXED from config; width derives from aspect.
+    // Other templates: legacy 2.4:1 cap.
     const natW = Math.max(1, headerLogo.width);
     const natH = Math.max(1, headerLogo.height);
-    const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
-    const logoSize = {
-      width: Math.max(1, Math.round(natW * scale)),
-      height: Math.max(1, Math.round(natH * scale)),
-    };
+    const aspect = natW / natH;
+    let logoSize: { width: number; height: number };
+    if (isDryRiser) {
+      const h = HEADER_LOGO_MAX_H; // fixed from DRY_RISER_LAYOUT.header.logoHeightMm
+      logoSize = { width: Math.max(1, Math.round(h * aspect)), height: h };
+    } else {
+      const HEADER_LOGO_MAX_W = Math.round(HEADER_LOGO_MAX_H * 2.4);
+      const scale = Math.min(HEADER_LOGO_MAX_W / natW, HEADER_LOGO_MAX_H / natH, 1);
+      logoSize = {
+        width: Math.max(1, Math.round(natW * scale)),
+        height: Math.max(1, Math.round(natH * scale)),
+      };
+    }
     const spacingAfterDxa = Math.round(spacingAfterPt * 20);
-    const logoLineTwips = Math.max(240, logoSize.height * 15);
+    // Dry Riser: line height (twips) derived from the SAME config value
+    // (mm → twips at 56.7). Keeps the page maths byte-consistent.
+    const logoLineTwips = isDryRiser
+      ? Math.round(DRY_RISER_LAYOUT.header.logoHeightMm * 56.7)
+      : Math.max(240, logoSize.height * 15);
     headerChildren.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
