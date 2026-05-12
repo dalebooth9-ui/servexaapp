@@ -632,10 +632,10 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   );
 
   // Customer / Date / Site / PO-REF / Riser Location detail grid (mirrors PDF).
-  const detailLabelColLeft = Math.round(TABLE_W * 0.18);
-  const detailValueColLeft = Math.round(TABLE_W * 0.52) - detailLabelColLeft;
-  const detailLabelColRight = Math.round(TABLE_W * 0.12);
-  const detailValueColRight = TABLE_W - Math.round(TABLE_W * 0.52) - detailLabelColRight;
+  const detailLabelColLeft = Math.round(TBL * 0.18);
+  const detailValueColLeft = Math.round(TBL * 0.52) - detailLabelColLeft;
+  const detailLabelColRight = Math.round(TBL * 0.12);
+  const detailValueColRight = TBL - Math.round(TBL * 0.52) - detailLabelColRight;
   const detailRowH = { value: 240, rule: HeightRule.ATLEAST } as const;
   const detailLabelCell = (text: string, w: number) =>
     new TableCell({
@@ -670,7 +670,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   children.push(
     new Table({
-      width: { size: TABLE_W, type: WidthType.DXA },
+      width: { size: TBL, type: WidthType.DXA },
       columnWidths: [detailLabelColLeft, detailValueColLeft, detailLabelColRight, detailValueColRight],
       rows: [
         new TableRow({
@@ -695,7 +695,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           height: detailRowH,
           children: [
             detailLabelCell("Riser Location:", detailLabelColLeft),
-            wideValueCell(TABLE_W - detailLabelColLeft, 3),
+            wideValueCell(TBL - detailLabelColLeft, 3),
           ],
         }),
       ],
@@ -733,7 +733,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: LABEL_COL, type: WidthType.DXA },
+              width: { size: LBL, type: WidthType.DXA },
               margins: { top: 30, bottom: 30, left: 90, right: 90 },
               verticalAlign: VerticalAlign.CENTER,
               children: [
@@ -745,7 +745,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
             }),
             new TableCell({
               borders: cellBorders,
-              width: { size: VALUE_COL, type: WidthType.DXA },
+              width: { size: VAL, type: WidthType.DXA },
               margins: { top: 30, bottom: 30, left: 90, right: 90 },
               verticalAlign: VerticalAlign.CENTER,
               children: [
@@ -771,8 +771,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     if (fields.length === 0) continue;
     children.push(
       new Table({
-        width: { size: TABLE_W, type: WidthType.DXA },
-        columnWidths: [LABEL_COL, VALUE_COL],
+        width: { size: TBL, type: WidthType.DXA },
+        columnWidths: [LBL, VAL],
         rows: [renderSectionHeaderRow(sectionName), ...fields.map(renderRowForField)],
       }),
     );
@@ -817,8 +817,8 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       children: [new TextRun({ text: "Comments:", bold: true, size: 14 })],
     }),
     new Table({
-      width: { size: TABLE_W, type: WidthType.DXA },
-      columnWidths: [TABLE_W],
+      width: { size: TBL, type: WidthType.DXA },
+      columnWidths: [TBL],
       rows: [
         new TableRow({
           cantSplit: true,
@@ -826,7 +826,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
           children: [
             new TableCell({
               borders: cellBorders,
-              width: { size: TABLE_W, type: WidthType.DXA },
+              width: { size: TBL, type: WidthType.DXA },
               margins: { top: 30, bottom: 30, left: 100, right: 100 },
               children: [new Paragraph({ children: [new TextRun({ text: " " })] })],
             }),
@@ -838,11 +838,11 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
 
   // Two-column sign-off block: Date / Technician / Signature  |  Date / Customer / Signature
   // Mirrors PDF renderPdfSignatures layout.
-  // Sign-off table spans the full TABLE_W to match the PDF's
+  // Sign-off table spans the full TBL to match the PDF's
   // renderPdfSignatures, which uses the full content width split into two
   // equal halves. Each half is split label/value at ~20%/80%.
-  const sigColLabel = Math.round(TABLE_W * 0.10);
-  const sigColValue = Math.round(TABLE_W * 0.50) - sigColLabel;
+  const sigColLabel = Math.round(TBL * 0.10);
+  const sigColValue = Math.round(TBL * 0.50) - sigColLabel;
   const sigLabelCell = (text: string) =>
     new TableCell({
       borders: cellBorders,
@@ -866,7 +866,7 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
       keepNext: true, // glue spacer to the sign-off table that follows
     }),
     new Table({
-      width: { size: TABLE_W, type: WidthType.DXA },
+      width: { size: TBL, type: WidthType.DXA },
       columnWidths: [sigColLabel, sigColValue, sigColLabel, sigColValue],
       rows: [
         new TableRow({
