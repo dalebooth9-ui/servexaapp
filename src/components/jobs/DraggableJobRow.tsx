@@ -102,10 +102,7 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
             {job.status.replace(/_/g, " ")}
           </Badge>
           {(() => {
-            const siteLabel = job.sites?.name
-              || (typeof job.name === "string" && /\s[—–-]\s/.test(job.name)
-                ? job.name.split(/\s[—–-]\s/).slice(1).join(" - ").trim()
-                : null);
+            const siteLabel = job.sites?.name || job.address;
             return siteLabel ? (
               <Badge variant="outline" className="text-[10px] h-4 px-1.5 font-normal text-muted-foreground border-muted-foreground/30 max-w-[180px] truncate">
                 {siteLabel}
