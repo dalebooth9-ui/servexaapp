@@ -591,15 +591,30 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   );
   const subtitleText = template.standard || displaySubtitle;
 
+  // Header text sizing — Dry Riser drives all values from the shared config
+  // so the Word and PDF outputs render at identical point sizes.
+  const titleSizeHalfPt = isDryRiser
+    ? DRY_RISER_LAYOUT.header.titleSizePt * 2
+    : 32;
+  const subtitleSizeHalfPt = isDryRiser
+    ? DRY_RISER_LAYOUT.header.subtitleSizePt * 2
+    : 22;
+  const titleSpaceBeforeDxa = isDryRiser
+    ? ptToDxa(DRY_RISER_LAYOUT.header.gapAfterLogoPt)
+    : 120;
+  const subtitleSpaceBeforeDxa = isDryRiser
+    ? ptToDxa(DRY_RISER_LAYOUT.header.subtitleGapPt)
+    : 0;
+
   const children: (Paragraph | Table)[] = [
     new Paragraph({
       alignment: AlignmentType.CENTER,
-      spacing: { before: 120, after: 0, line: 280, lineRule: "exact" as const },
+      spacing: { before: titleSpaceBeforeDxa, after: 0, line: 280, lineRule: "exact" as const },
       children: [
         new TextRun({
           text: displayTitle.toUpperCase(),
           bold: true,
-          size: 32,
+          size: titleSizeHalfPt,
           color: SECTION_HEADER_BLUE,
           font: "Helvetica",
         }),
@@ -610,12 +625,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
     children.push(
       new Paragraph({
         alignment: AlignmentType.CENTER,
-        spacing: { before: 0, after: 0 },
+        spacing: { before: subtitleSpaceBeforeDxa, after: 0 },
         children: [
           new TextRun({
             text: subtitleText,
             bold: true,
-            size: 22,
+            size: subtitleSizeHalfPt,
             color: SECTION_HEADER_BLUE,
             font: "Helvetica",
           }),
