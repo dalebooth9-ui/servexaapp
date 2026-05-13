@@ -161,6 +161,20 @@ export default function PlannerMapView({
     }
   }, [clearRouteOverlay]);
 
+  // Toggle Google's live traffic layer on/off
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || typeof google === "undefined" || !google.maps?.TrafficLayer) return;
+    if (showTraffic) {
+      if (!trafficLayerRef.current) {
+        trafficLayerRef.current = new google.maps.TrafficLayer();
+      }
+      trafficLayerRef.current.setMap(map);
+    } else if (trafficLayerRef.current) {
+      trafficLayerRef.current.setMap(null);
+    }
+  }, [showTraffic, mapLoading]);
+
   // Optimise route for all scheduled jobs
   const handleOptimise = async () => {
     if (scheduledJobs.length < 2) return;
