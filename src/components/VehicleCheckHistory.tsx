@@ -36,6 +36,8 @@ type Row = {
   id: string;
   check_date: string;
   created_at: string;
+  submitted_at: string | null;
+  auto_accepted_at: string | null;
   status: string;
   has_defects: boolean;
   vehicle_reg: string | null;
