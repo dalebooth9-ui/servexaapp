@@ -892,6 +892,68 @@ export default function PlannerMapView({
         )}
         <div ref={mapRef} className={`h-[calc(100vh-320px)] min-h-[400px] rounded-lg border ${mapError ? "invisible" : ""}`} />
       </div>
+      {routeResult?.legs && routeResult.legs.length > 0 && (
+        <div className="rounded-lg border bg-card">
+          <div className="px-3 py-2 border-b flex items-center justify-between text-xs font-medium text-muted-foreground">
+            <span>Route legs · baseline vs live traffic</span>
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-muted-foreground/60" /> Baseline</span>
+              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-amber-500" /> Live</span>
+            </span>
+          </div>
+          <ol className="divide-y max-h-56 overflow-auto text-sm">
+            {routeResult.legs.map((leg, i) => {
+              const baselineSec = (() => {
+                // duration is text like "12 mins"; we have no seconds — derive from total when possible
+                return null;
+              })();
+              const liveText = leg.duration_in_traffic ?? leg.duration;
+              const baseText = leg.duration;
+              const liveSec = leg.duration_in_traffic_seconds;
+              // Parse baseline mins from "X mins" / "X hours Y mins"
+              const parseMins = (s: string) => {
+                const h = /(\d+)\s*hour/.exec(s);
+                const m = /(\d+)\s*min/.exec(s);
+                return (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
+              };
+              const baseMins = parseMins(baseText);
+              const liveMins = liveSec != null ? Math.round(liveSec / 60) : parseMins(liveText);
+              const delta = liveMins - baseMins;
+              const fromJob = routeResult.optimised?.[i];
+              const toJob = routeResult.optimised?.[i + 1];
+              const label = (addr: string, job?: { job_id: string }) => {
+                const j = job ? jobs.find((x) => x.id === job.job_id) : undefined;
+                return j?.reference_number || j?.name || addr.split(",").slice(0, 2).join(",");
+              };
+              return (
+                <li key={i} className="px-3 py-2 grid grid-cols-[24px_minmax(0,1fr)_auto] gap-2 items-center">
+                  <span className="inline-flex items-center justify-center h-6 w-6 rounded-full bg-primary text-primary-foreground text-xs font-semibold">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-xs">
+                      <span className="font-medium">{label(leg.start_address, fromJob)}</span>
+                      <span className="mx-1 text-muted-foreground">→</span>
+                      <span className="font-medium">{label(leg.end_address, toJob)}</span>
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">{leg.distance}</div>
+                  </div>
+                  <div className="text-right text-xs whitespace-nowrap">
+                    <span className="text-muted-foreground">{baseText}</span>
+                    <span className="mx-1 text-muted-foreground">·</span>
+                    <span className="font-semibold text-amber-600">{liveText}</span>
+                    {!!delta && (
+                      <span className={`ml-1 text-[11px] font-medium ${delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                        ({delta > 0 ? `+${delta}` : delta}m)
+                      </span>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ol>
+        </div>
+      )}
     </div>
   );
 }
