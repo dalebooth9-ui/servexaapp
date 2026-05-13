@@ -238,7 +238,45 @@ export default function PlannerMapView({
       toast({ title: "Route optimisation failed", variant: "destructive" });
     }
     setOptimising(false);
+    setLastRefreshAt(new Date());
   };
+
+  // Keep latest handleOptimise in a ref so the interval effect doesn't re-subscribe on every render
+  useEffect(() => {
+    handleOptimiseRef.current = handleOptimise;
+  });
+
+  // Refresh the traffic layer (force Google to re-render current congestion tiles)
+  const refreshTrafficLayer = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map || !trafficLayerRef.current) return;
+    trafficLayerRef.current.setMap(null);
+    trafficLayerRef.current.setMap(map);
+  }, []);
+
+  // Manual refresh: re-pull live traffic and re-optimise the route
+  const handleRefreshNow = useCallback(async () => {
+    refreshTrafficLayer();
+    if (scheduledJobs.length >= 2 && !optimising) {
+      await handleOptimiseRef.current?.();
+    } else {
+      setLastRefreshAt(new Date());
+    }
+  }, [refreshTrafficLayer, scheduledJobs.length, optimising]);
+
+  // Auto-refresh on the user's chosen interval
+  useEffect(() => {
+    if (refreshIntervalSec <= 0) return;
+    const id = window.setInterval(() => {
+      refreshTrafficLayer();
+      if (scheduledJobs.length >= 2) {
+        handleOptimiseRef.current?.();
+      } else {
+        setLastRefreshAt(new Date());
+      }
+    }, refreshIntervalSec * 1000);
+    return () => window.clearInterval(id);
+  }, [refreshIntervalSec, refreshTrafficLayer, scheduledJobs.length]);
 
   // Save a static map pin image to a job's folder
   const saveMapPinToJob = useCallback(async (jobId: string, address: string, lat: number, lng: number, refNumber: string, customerName: string) => {
