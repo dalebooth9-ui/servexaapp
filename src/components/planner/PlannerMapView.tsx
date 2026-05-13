@@ -210,6 +210,7 @@ export default function PlannerMapView({
         },
       });
       directionsRendererRef.current = renderer;
+      lastOptimisedWaypointsRef.current = optimisedWaypoints;
 
       // Auto-enable the live traffic layer so the optimised path is visualised against current congestion
       if (!trafficLayerRef.current) {
