@@ -57,6 +57,8 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [photos, setPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const regKey = user ? `vfc_reg_${user.id}` : null;
+
   const loadLatest = async () => {
     if (!user) return;
     const { data } = await supabase
@@ -69,6 +71,11 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       .maybeSingle();
     setLatest((data as any) ?? null);
     if (data?.status === "accepted") onAccepted();
+    // Prefill reg from localStorage if no check submitted yet today
+    if (!data && regKey) {
+      const saved = localStorage.getItem(regKey);
+      if (saved) setVehicleReg(saved);
+    }
   };
 
   useEffect(() => {
@@ -170,6 +177,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       } as any);
 
       if (error) throw error;
+      if (regKey) localStorage.setItem(regKey, vehicleReg.trim());
       toast.success("Check submitted — you're all set");
       setShowForm(false);
       setPhotos([]);
@@ -273,8 +281,10 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
               id="reg"
               value={vehicleReg}
               onChange={(e) => {
-                setVehicleReg(e.target.value.toUpperCase());
+                const val = e.target.value.toUpperCase();
+                setVehicleReg(val);
                 setRegTouched(true);
+                if (regKey) localStorage.setItem(regKey, val);
               }}
               onBlur={() => setRegTouched(true)}
               placeholder="AB12 CDE"
