@@ -61,13 +61,17 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
     setVisits((data as Visit[]) || []);
   };
 
-  const fetchEngineers = async () => {
+  const fetchEngineers = async (extraIds: string[] = []) => {
     const { data: assignments } = await supabase
       .from("job_assignments")
       .select("engineer_id")
       .eq("job_id", jobId);
-    if (!assignments || assignments.length === 0) return;
-    const ids = assignments.map((a) => a.engineer_id);
+    const assignedIds = (assignments || []).map((a) => a.engineer_id).filter(Boolean) as string[];
+    const ids = Array.from(new Set([...assignedIds, ...extraIds].filter(Boolean)));
+    if (ids.length === 0) {
+      setEngineers([]);
+      return;
+    }
     const { data: profiles } = await supabase
       .from("profiles")
       .select("user_id, full_name")
@@ -76,8 +80,17 @@ export default function JobVisits({ jobId, jobData }: { jobId: string; jobData?:
   };
 
   useEffect(() => {
-    fetchVisits();
-    fetchEngineers();
+    (async () => {
+      const { data } = await supabase
+        .from("job_visits")
+        .select("*")
+        .eq("job_id", jobId)
+        .order("scheduled_date", { ascending: true });
+      const list = (data as Visit[]) || [];
+      setVisits(list);
+      const visitEngineerIds = list.map((v) => v.engineer_id).filter(Boolean) as string[];
+      fetchEngineers(visitEngineerIds);
+    })();
   }, [jobId]);
 
   const getScopeNotes = () => {
