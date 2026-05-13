@@ -246,6 +246,18 @@ export default function VehicleCheckHistory() {
                     </div>
                   )}
 
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-3 flex-wrap">
+                    {r.submitted_at && (
+                      <span>Submitted {format(new Date(r.submitted_at), "HH:mm:ss")}</span>
+                    )}
+                    {r.auto_accepted_at && (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Auto-accepted {format(new Date(r.auto_accepted_at), "HH:mm:ss")}
+                      </span>
+                    )}
+                  </div>
+
                   <div>
                     <div className="flex items-center justify-between mb-1.5">
                       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
