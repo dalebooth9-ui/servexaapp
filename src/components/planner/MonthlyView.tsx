@@ -296,11 +296,37 @@ export default function MonthlyView({
       if (!groups[area]) groups[area] = [];
       groups[area].push(job);
     }
-    const areaGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
+  const areaGroups = Object.entries(groups).sort(([a], [b]) => a.localeCompare(b));
     return overdue.length > 0
       ? [["⚠ Overdue", overdue] as [string, Job[]], ...areaGroups]
       : areaGroups;
   }, [unallocatedJobs]);
+
+  // For "All Jobs" sidebar mode — group allocated jobs by engineer
+  const allocatedByEngineer = useMemo(() => {
+    const scheduledJobIds = new Set(schedule.map((s) => s.job_id));
+    const allocatedJobs = jobs.filter((j) => scheduledJobIds.has(j.id));
+    const map: Record<string, { job: Job; entries: ScheduleEntry[] }[]> = {};
+    for (const job of allocatedJobs) {
+      const entries = schedule.filter((s) => s.job_id === job.id);
+      const byEng: Record<string, ScheduleEntry[]> = {};
+      for (const e of entries) {
+        if (!byEng[e.engineer_id]) byEng[e.engineer_id] = [];
+        byEng[e.engineer_id].push(e);
+      }
+      for (const [engId, engEntries] of Object.entries(byEng)) {
+        if (!map[engId]) map[engId] = [];
+        map[engId].push({ job, entries: engEntries });
+      }
+    }
+    return Object.entries(map)
+      .map(([engId, items]) => ({
+        engId,
+        engName: engineers.find((e) => e.user_id === engId)?.full_name || "Unknown",
+        items,
+      }))
+      .sort((a, b) => a.engName.localeCompare(b.engName));
+  }, [jobs, schedule, engineers]);
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveItem(event.active.data.current);
