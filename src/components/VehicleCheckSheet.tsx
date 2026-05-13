@@ -48,6 +48,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [latest, setLatest] = useState<LatestCheck | undefined>(undefined); // undefined = loading
   const [showForm, setShowForm] = useState(false);
   const [vehicleReg, setVehicleReg] = useState("");
+  const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
   const [items, setItems] = useState<Record<string, "ok" | "defect" | null>>(
     Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null]))
@@ -267,14 +268,22 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       <Card className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="reg" className="text-xs">Vehicle reg</Label>
+            <Label htmlFor="reg" className="text-xs">Vehicle reg <span className="text-destructive">*</span></Label>
             <Input
               id="reg"
               value={vehicleReg}
-              onChange={(e) => setVehicleReg(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setVehicleReg(e.target.value.toUpperCase());
+                setRegTouched(true);
+              }}
+              onBlur={() => setRegTouched(true)}
               placeholder="AB12 CDE"
-              className="uppercase"
+              className={`uppercase ${regTouched && !vehicleReg.trim() ? "border-destructive ring-1 ring-destructive/30 focus-visible:ring-destructive" : ""}`}
+              aria-invalid={regTouched && !vehicleReg.trim()}
             />
+            {regTouched && !vehicleReg.trim() && (
+              <p className="text-[11px] text-destructive mt-1">Vehicle registration is required</p>
+            )}
           </div>
           <div>
             <Label htmlFor="mileage" className="text-xs">Mileage</Label>
@@ -385,9 +394,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
           </>
         )}
       </Button>
-      {!vehicleReg.trim() && (
-        <p className="text-xs text-center text-amber-600">Vehicle registration is required</p>
-      )}
       {!allAnswered && vehicleReg.trim() && (
         <p className="text-xs text-center text-muted-foreground">
           {Object.values(items).filter((v) => v === null).length} items remaining
