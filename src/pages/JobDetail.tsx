@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
+import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -256,6 +257,7 @@ export default function JobDetail() {
     || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null);
 
   return (
+    <ChunkErrorBoundary>
     <Suspense fallback={<LazyFallback />}>
     <div>
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
@@ -951,5 +953,6 @@ export default function JobDetail() {
       />
     )}
     </Suspense>
+    </ChunkErrorBoundary>
   );
 }
