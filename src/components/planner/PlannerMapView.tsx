@@ -173,7 +173,12 @@ export default function PlannerMapView({
       });
       if (error) throw error;
       setRouteResult(data);
-      toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${data.total_duration_mins} mins` });
+      const trafficMins = data.total_duration_in_traffic_mins ?? data.total_duration_mins;
+      const baseMins = data.total_duration_mins;
+      const trafficSuffix = trafficMins != null && baseMins != null && trafficMins !== baseMins
+        ? ` (${trafficMins} mins with live traffic)`
+        : "";
+      toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${baseMins} mins${trafficSuffix}` });
 
       // Notify parent of optimised job order
       if (data.optimised?.length >= 2) {
