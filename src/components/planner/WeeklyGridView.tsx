@@ -598,6 +598,7 @@ export default function WeeklyGridView({
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [sidebarMode, setSidebarMode] = useState<"unallocated" | "all">("unallocated");
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map());
   const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
 
