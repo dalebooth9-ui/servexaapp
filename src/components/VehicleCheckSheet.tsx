@@ -126,6 +126,10 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
 
   const handleSubmit = async () => {
     if (!user) return;
+    if (!vehicleReg.trim()) {
+      toast.error("Vehicle registration is required");
+      return;
+    }
     if (!allAnswered) {
       toast.error("Please complete all checks");
       return;
@@ -134,6 +138,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       toast.error("Please describe the defect");
       return;
     }
+
 
     setSubmitting(true);
     try {
