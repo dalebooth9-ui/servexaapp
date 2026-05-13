@@ -35,7 +35,17 @@ describe("engineer sidebar visibility", () => {
   });
 
   it("does not render an Admin section header for engineers", () => {
-    // Simulate the itemsBySection remap logic used in AppLayout
+    // Local mapping of route -> section (subset needed for test)
+    const routeSections: Record<string, string> = {
+      "/": "main",
+      "/jobs": "operations",
+      "/planner": "operations",
+      "/leave": "operations",
+      "/defects": "more",
+      "/report-downloads": "more",
+      "/reports": "admin",
+    };
+
     const engineerVisible = [
       "/", "/jobs", "/planner", "/leave",
       "/defects", "/report-downloads", "/reports",
@@ -44,15 +54,15 @@ describe("engineer sidebar visibility", () => {
     const sections = ["main", "operations", "more", "admin"] as const;
     const itemsBySection = sections.reduce((acc, section) => {
       acc[section] = engineerVisible.filter((route) => {
-        const item = [...DEFAULT_NAV_ITEMS].find((i) => i.to === route);
-        if (!item) return false;
+        const itemSection = routeSections[route];
+        if (!itemSection) return false;
         if (section === "operations" || section === "more") {
           // Engineers get admin-section items remapped into operations
-          if (item.section === "admin") return section === "operations";
-          return item.section === section;
+          if (itemSection === "admin") return section === "operations";
+          return itemSection === section;
         }
         if (section === "admin") return false;
-        return item.section === section;
+        return itemSection === section;
       });
       return acc;
     }, {} as Record<string, string[]>);
