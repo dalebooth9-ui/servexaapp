@@ -813,6 +813,16 @@ export default function PlannerMapView({
             {showTraffic ? "Hide Traffic" : "Live Traffic"}
           </Button>
           <Button
+            variant={showCompare ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowCompare((v) => !v)}
+            disabled={!routeResult}
+            title={!routeResult ? "Optimise a route first to compare" : "Overlay the fastest route ignoring live traffic (dashed amber) for comparison"}
+          >
+            <Route className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
+            {showCompare ? "Hide No-Traffic" : "Compare No-Traffic"}
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             onClick={handleRefreshNow}
