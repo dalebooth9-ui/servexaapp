@@ -57,6 +57,8 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [photos, setPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
+  const regKey = user ? `vfc_reg_${user.id}` : null;
+
   const loadLatest = async () => {
     if (!user) return;
     const { data } = await supabase
@@ -69,6 +71,11 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       .maybeSingle();
     setLatest((data as any) ?? null);
     if (data?.status === "accepted") onAccepted();
+    // Prefill reg from localStorage if no check submitted yet today
+    if (!data && regKey) {
+      const saved = localStorage.getItem(regKey);
+      if (saved) setVehicleReg(saved);
+    }
   };
 
   useEffect(() => {
