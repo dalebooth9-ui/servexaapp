@@ -751,6 +751,7 @@ export default function PlannerMapView({
               <SelectItem value="600">Every 10 min</SelectItem>
             </SelectContent>
           </Select>
+          {scheduledJobs.length >= 2 && (
             <>
               <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
                 {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
