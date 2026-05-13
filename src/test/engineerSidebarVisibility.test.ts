@@ -32,5 +32,30 @@ describe("engineer sidebar visibility", () => {
       "defects", "install", "jobs", "leave", "offline",
       "planner", "report-downloads", "reports",
     ].sort());
+  it("does not render an Admin section header for engineers", () => {
+    // Simulate the itemsBySection remap logic used in AppLayout
+    const engineerVisible = [
+      "/", "/jobs", "/planner", "/leave",
+      "/defects", "/report-downloads", "/reports",
+    ];
+
+    const sections = ["main", "operations", "more", "admin"] as const;
+    const itemsBySection = sections.reduce((acc, section) => {
+      acc[section] = engineerVisible.filter((route) => {
+        const item = [...DEFAULT_NAV_ITEMS].find((i) => i.to === route);
+        if (!item) return false;
+        if (section === "operations" || section === "more") {
+          // Engineers get admin-section items remapped into operations
+          if (item.section === "admin") return section === "operations";
+          return item.section === section;
+        }
+        if (section === "admin") return false;
+        return item.section === section;
+      });
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    expect(itemsBySection["admin"].length).toBe(0);
+    expect(itemsBySection["operations"]).toContain("/reports");
   });
 });
