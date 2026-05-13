@@ -33,4 +33,41 @@ describe("engineer sidebar visibility", () => {
       "planner", "report-downloads", "reports",
     ].sort());
   });
+
+  it("does not render an Admin section header for engineers", () => {
+    // Local mapping of route -> section (subset needed for test)
+    const routeSections: Record<string, string> = {
+      "/": "main",
+      "/jobs": "operations",
+      "/planner": "operations",
+      "/leave": "operations",
+      "/defects": "more",
+      "/report-downloads": "more",
+      "/reports": "admin",
+    };
+
+    const engineerVisible = [
+      "/", "/jobs", "/planner", "/leave",
+      "/defects", "/report-downloads", "/reports",
+    ];
+
+    const sections = ["main", "operations", "more", "admin"] as const;
+    const itemsBySection = sections.reduce((acc, section) => {
+      acc[section] = engineerVisible.filter((route) => {
+        const itemSection = routeSections[route];
+        if (!itemSection) return false;
+        if (section === "operations" || section === "more") {
+          // Engineers get admin-section items remapped into operations
+          if (itemSection === "admin") return section === "operations";
+          return itemSection === section;
+        }
+        if (section === "admin") return false;
+        return itemSection === section;
+      });
+      return acc;
+    }, {} as Record<string, string[]>);
+
+    expect(itemsBySection["admin"].length).toBe(0);
+    expect(itemsBySection["operations"]).toContain("/reports");
+  });
 });

@@ -238,7 +238,16 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     acc[section] = visibleNavItems.filter((i) => {
       if (section === "operations" || section === "more") {
         const effective = sectionOverrides[i.to] ?? i.section;
+        // Engineers: remap admin-section items into operations so they never
+        // appear under an "Admin" header.
+        if (userRole === "engineer" && effective === "admin") {
+          return section === "operations";
+        }
         return effective === section;
+      }
+      // Engineers should never see an "admin" section group.
+      if (userRole === "engineer" && section === "admin") {
+        return false;
       }
       return i.section === section;
     });
@@ -311,12 +320,12 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
                 return (
                   <div key={section} className="mb-1">
-                    {label && !isMoreSection && !sidebarCollapsed &&
+                    {label && !isMoreSection && !sidebarCollapsed && (section !== "admin" || userRole === "admin") &&
                     <p className={cn("mb-1 mt-3 px-4 text-[10px] font-bold uppercase tracking-widest select-none", sectionAccent)}>
                         {label}
                       </p>
                     }
-                    {sidebarCollapsed && label && !isMoreSection && (
+                    {sidebarCollapsed && label && !isMoreSection && (section !== "admin" || userRole === "admin") && (
                       <div className="my-2 h-px bg-sidebar-border/30 mx-1" />
                     )}
                     {isMoreSection ? (
