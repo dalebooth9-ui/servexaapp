@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from "react";
+import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
