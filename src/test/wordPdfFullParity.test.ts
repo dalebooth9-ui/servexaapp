@@ -17,9 +17,6 @@ import JSZip from "jszip";
 
 import {
   buildBlankTemplateDoc,
-  TABLE_W,
-  LABEL_COL,
-  VALUE_COL,
   type WordTemplateInput,
 } from "@/lib/wordTemplateBuilder";
 import {
