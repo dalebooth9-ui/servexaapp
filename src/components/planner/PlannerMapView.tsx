@@ -55,6 +55,7 @@ export default function PlannerMapView({
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const mapsApiKeyRef = useRef<string | null>(null);
   const engineerLocations = useLiveEngineerLocations();
