@@ -369,7 +369,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
 
       <Button
         onClick={handleSubmit}
-        disabled={submitting || !allAnswered}
+        disabled={submitting || !vehicleReg.trim() || !allAnswered}
         size="lg"
         className="w-full h-14 text-base"
       >
@@ -382,7 +382,10 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
           </>
         )}
       </Button>
-      {!allAnswered && (
+      {!vehicleReg.trim() && (
+        <p className="text-xs text-center text-amber-600">Vehicle registration is required</p>
+      )}
+      {!allAnswered && vehicleReg.trim() && (
         <p className="text-xs text-center text-muted-foreground">
           {Object.values(items).filter((v) => v === null).length} items remaining
         </p>
