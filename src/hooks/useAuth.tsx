@@ -41,11 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               supabase.from("profiles").select("full_name, whatsapp_number").eq("user_id", session.user.id).maybeSingle(),
             ]);
             const roles = (roleRes.data ?? []).map((r) => r.role);
-            const resolvedRole = roles.includes("admin") ? "admin" : roles.includes("engineer") ? "engineer" : null;
-            // Debug override via URL ?debugRole=engineer|admin
-            const params = new URLSearchParams(window.location.search);
-            const debugRole = params.get("debugRole");
-            setUserRole(debugRole === "engineer" || debugRole === "admin" ? debugRole : resolvedRole);
+            setUserRole(roles.includes("admin") ? "admin" : roles.includes("engineer") ? "engineer" : null);
             setProfile(profileRes.data ?? null);
             setLoading(false);
           }, 0);
