@@ -320,7 +320,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
                 return (
                   <div key={section} className="mb-1">
-                    {label && !isMoreSection && !sidebarCollapsed &&
+                    {label && !isMoreSection && !sidebarCollapsed && (section !== "admin" || userRole === "admin") &&
                     <p className={cn("mb-1 mt-3 px-4 text-[10px] font-bold uppercase tracking-widest select-none", sectionAccent)}>
                         {label}
                       </p>
