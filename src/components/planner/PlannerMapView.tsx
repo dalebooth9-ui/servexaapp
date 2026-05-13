@@ -131,6 +131,11 @@ export default function PlannerMapView({
         destination,
         waypoints: intermediates,
         travelMode: google.maps.TravelMode.DRIVING,
+        // Live-traffic aware ETAs (Google uses current conditions when departureTime = now)
+        drivingOptions: {
+          departureTime: new Date(),
+          trafficModel: google.maps.TrafficModel.BEST_GUESS,
+        },
       });
 
       const renderer = new google.maps.DirectionsRenderer({
@@ -139,11 +144,18 @@ export default function PlannerMapView({
         suppressMarkers: true, // Keep our custom markers
         polylineOptions: {
           strokeColor: "#2563eb",
-          strokeWeight: 4,
-          strokeOpacity: 0.75,
+          strokeWeight: 5,
+          strokeOpacity: 0.85,
         },
       });
       directionsRendererRef.current = renderer;
+
+      // Auto-enable the live traffic layer so the optimised path is visualised against current congestion
+      if (!trafficLayerRef.current) {
+        trafficLayerRef.current = new google.maps.TrafficLayer();
+      }
+      trafficLayerRef.current.setMap(map);
+      setShowTraffic(true);
     } catch (err) {
       console.error("Failed to render route on map:", err);
     }
