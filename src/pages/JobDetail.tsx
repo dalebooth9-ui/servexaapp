@@ -950,6 +950,6 @@ export default function JobDetail() {
         }}
       />
     )}
-    </>
+    </Suspense>
   );
 }
