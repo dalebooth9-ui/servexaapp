@@ -268,14 +268,22 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       <Card className="p-4 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <Label htmlFor="reg" className="text-xs">Vehicle reg</Label>
+            <Label htmlFor="reg" className="text-xs">Vehicle reg <span className="text-destructive">*</span></Label>
             <Input
               id="reg"
               value={vehicleReg}
-              onChange={(e) => setVehicleReg(e.target.value.toUpperCase())}
+              onChange={(e) => {
+                setVehicleReg(e.target.value.toUpperCase());
+                setRegTouched(true);
+              }}
+              onBlur={() => setRegTouched(true)}
               placeholder="AB12 CDE"
-              className="uppercase"
+              className={`uppercase ${regTouched && !vehicleReg.trim() ? "border-destructive ring-1 ring-destructive/30 focus-visible:ring-destructive" : ""}`}
+              aria-invalid={regTouched && !vehicleReg.trim()}
             />
+            {regTouched && !vehicleReg.trim() && (
+              <p className="text-[11px] text-destructive mt-1">Vehicle registration is required</p>
+            )}
           </div>
           <div>
             <Label htmlFor="mileage" className="text-xs">Mileage</Label>
