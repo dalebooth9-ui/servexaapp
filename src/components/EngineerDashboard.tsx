@@ -424,7 +424,7 @@ export default function EngineerDashboard() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Nearest Job</p>
-              <p className="font-semibold truncate">{jobsWithDistance[0].name}</p>
+              <p className="font-semibold line-clamp-2 break-words">{jobsWithDistance[0].name}</p>
               <p className="text-xs text-muted-foreground truncate">{jobsWithDistance[0].address}</p>
             </div>
             <div className="text-right shrink-0">
