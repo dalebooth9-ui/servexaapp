@@ -247,6 +247,7 @@ export default function MonthlyView({
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [sidebarMode, setSidebarMode] = useState<"unallocated" | "all">("unallocated");
 
   // Assign dialog state (needed when multiple engineers — pick one)
   const [pendingDrop, setPendingDrop] = useState<{ jobId: string; date: string } | null>(null);
