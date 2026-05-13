@@ -48,6 +48,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [latest, setLatest] = useState<LatestCheck | undefined>(undefined); // undefined = loading
   const [showForm, setShowForm] = useState(false);
   const [vehicleReg, setVehicleReg] = useState("");
+  const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
   const [items, setItems] = useState<Record<string, "ok" | "defect" | null>>(
     Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null]))
