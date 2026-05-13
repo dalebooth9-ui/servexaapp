@@ -416,7 +416,7 @@ export default function EngineerDashboard() {
       </div>
 
       {/* Nearest job */}
-      {currentPos && jobsWithDistance[0]?.distance_km !== null && (
+      {currentPos && jobsWithDistance[0] && jobsWithDistance[0].distance_km != null && (
         <Link to={`/jobs/${jobsWithDistance[0].id}`}>
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-3 active:scale-[0.98] transition-transform">
             <div className="rounded-xl bg-primary/15 p-2.5">
