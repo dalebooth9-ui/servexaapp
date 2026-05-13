@@ -325,7 +325,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                         {label}
                       </p>
                     }
-                    {sidebarCollapsed && label && !isMoreSection && (
+                    {sidebarCollapsed && label && !isMoreSection && (section !== "admin" || userRole === "admin") && (
                       <div className="my-2 h-px bg-sidebar-border/30 mx-1" />
                     )}
                     {isMoreSection ? (
