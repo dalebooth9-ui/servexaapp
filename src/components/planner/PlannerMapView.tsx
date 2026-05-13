@@ -112,9 +112,63 @@ export default function PlannerMapView({
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
+    if (comparisonRendererRef.current) {
+      comparisonRendererRef.current.setMap(null);
+      comparisonRendererRef.current = null;
+    }
     // Remove numbered step labels
     routeNumberOverlaysRef.current.forEach((m) => { m.map = null; });
     routeNumberOverlaysRef.current = [];
+    lastOptimisedWaypointsRef.current = null;
+    setComparisonResult(null);
+  }, []);
+
+  // Render the no-traffic ("fastest without traffic") route for visual comparison.
+  // The optimised (live-traffic) route stays in blue; this overlay is dashed amber.
+  const renderComparisonRoute = useCallback(async (waypoints: { address: string; job_id: string }[]) => {
+    const map = mapInstanceRef.current;
+    if (!map || waypoints.length < 2) return;
+    if (comparisonRendererRef.current) {
+      comparisonRendererRef.current.setMap(null);
+      comparisonRendererRef.current = null;
+    }
+    const directionsService = new google.maps.DirectionsService();
+    try {
+      const result = await directionsService.route({
+        origin: waypoints[0].address,
+        destination: waypoints[waypoints.length - 1].address,
+        waypoints: waypoints.slice(1, -1).map((wp) => ({ location: wp.address, stopover: true })),
+        travelMode: google.maps.TravelMode.DRIVING,
+        // No drivingOptions => fastest path ignoring live traffic
+      });
+      const renderer = new google.maps.DirectionsRenderer({
+        map,
+        directions: result,
+        suppressMarkers: true,
+        preserveViewport: true,
+        polylineOptions: {
+          strokeColor: "#f59e0b",
+          strokeWeight: 4,
+          strokeOpacity: 0,
+          icons: [{
+            icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: "#f59e0b", scale: 3 },
+            offset: "0",
+            repeat: "12px",
+          }],
+          zIndex: 1,
+        },
+      });
+      comparisonRendererRef.current = renderer;
+      const route = result.routes[0];
+      const totalDist = route.legs.reduce((s, l) => s + (l.distance?.value ?? 0), 0);
+      const totalDur = route.legs.reduce((s, l) => s + (l.duration?.value ?? 0), 0);
+      setComparisonResult({
+        distance_km: Math.round(totalDist / 100) / 10,
+        duration_mins: Math.round(totalDur / 60),
+      });
+    } catch (err) {
+      console.error("Failed to render comparison route:", err);
+    }
   }, []);
 
   // Render the optimised route as a polyline on the map
