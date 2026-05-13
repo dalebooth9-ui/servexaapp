@@ -725,7 +725,32 @@ export default function PlannerMapView({
             <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
             {showTraffic ? "Hide Traffic" : "Live Traffic"}
           </Button>
-          {scheduledJobs.length >= 2 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshNow}
+            disabled={optimising}
+            title={lastRefreshAt ? `Last refreshed ${lastRefreshAt.toLocaleTimeString()}` : "Re-pull live traffic and re-optimise the route"}
+          >
+            <RefreshCw className={`mr-1.5 h-3.5 w-3.5 ${optimising ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <Select
+            value={String(refreshIntervalSec)}
+            onValueChange={(v) => setRefreshIntervalSec(Number(v))}
+          >
+            <SelectTrigger className="h-9 w-[130px] text-xs" title="Auto-refresh interval">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">Auto-refresh: Off</SelectItem>
+              <SelectItem value="30">Every 30s</SelectItem>
+              <SelectItem value="60">Every 1 min</SelectItem>
+              <SelectItem value="120">Every 2 min</SelectItem>
+              <SelectItem value="300">Every 5 min</SelectItem>
+              <SelectItem value="600">Every 10 min</SelectItem>
+            </SelectContent>
+          </Select>
             <>
               <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
                 {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
