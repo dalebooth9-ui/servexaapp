@@ -17,9 +17,6 @@ import JSZip from "jszip";
 
 import {
   buildBlankTemplateDoc,
-  TABLE_W,
-  LABEL_COL,
-  VALUE_COL,
   type WordTemplateInput,
 } from "@/lib/wordTemplateBuilder";
 import {
@@ -132,12 +129,21 @@ function tableGrids(xml: string): number[][] {
   });
 }
 
-/** Extract <w:trHeight w:val="N"/> values for every row in document order. */
+/**
+ * Extract <w:trHeight w:val="N"/> values for every NON-elastic row. Elastic
+ * rows (`w:hRule="atLeast"`, e.g. the Comments box) legitimately use larger,
+ * variable heights and are excluded from the standard-height assertion.
+ */
 function rowHeights(xml: string): number[] {
   const out: number[] = [];
-  const re = /<w:trHeight\s+w:val="(\d+)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) out.push(Number(m[1]));
+  const trMatches = xml.match(/<w:tr\b[\s\S]*?<\/w:tr>/g) || [];
+  for (const tr of trMatches) {
+    const m = /<w:trHeight\b[^/]*w:val="(\d+)"([^/]*)\/>/.exec(tr);
+    if (!m) continue;
+    const attrs = `${m[0]}`;
+    if (/w:hRule="atLeast"/.test(attrs)) continue; // elastic, skip
+    out.push(Number(m[1]));
+  }
   return out;
 }
 
@@ -258,29 +264,41 @@ describe.each(FIXTURES)("Word ↔ PDF full parity — $name", (template) => {
   });
 
   it("uses the same table column splits as the PDF (header grid, body, sign-off)", async () => {
+    const { computeTableLayout } = await import("@/lib/wordTemplateBuilder");
+    const { DRY_RISER_LAYOUT, isDryRiserName } = await import("@/lib/dryRiserLayout");
+    const isDryRiser = isDryRiserName(template.name);
+    const layout = isDryRiser
+      ? computeTableLayout({
+          pageWidth: DRY_RISER_LAYOUT.page.widthDxa,
+          pageMargin: DRY_RISER_LAYOUT.page.marginLeftDxa,
+        })
+      : computeTableLayout();
+    const tblW = layout.tableW;
+    const lblCol = layout.labelCol;
+    const valCol = layout.valueCol;
+
     const { "word/document.xml": docXml } = await unpackDocx(template);
     const grids = tableGrids(docXml);
-    // 1) Header detail grid — 4 cols summing to TABLE_W (Customer/DATE,
-    //    Site/PO-REF, Riser Location).
+    // 1) Header detail grid — 4 cols summing to tableW.
     const headerGrid = grids[0];
     expect(headerGrid).toHaveLength(4);
-    expect(headerGrid.reduce((a, b) => a + b, 0)).toBeCloseTo(TABLE_W, -1);
+    expect(headerGrid.reduce((a, b) => a + b, 0)).toBeCloseTo(tblW, -1);
 
-    // 2) Each body section table — 2 cols [LABEL_COL, VALUE_COL].
+    // 2) Each body section table — 2 cols [labelCol, valueCol].
     const bodyGrids = grids.slice(1, 1 + expected.sections.length);
     expect(bodyGrids.length).toBe(expected.sections.length);
     for (const g of bodyGrids) {
-      expect(g).toEqual([LABEL_COL, VALUE_COL]);
+      expect(g).toEqual([lblCol, valCol]);
     }
 
-    // 3) Comments table — single column spanning TABLE_W.
+    // 3) Comments table — single column spanning tableW.
     const commentsGrid = grids[1 + expected.sections.length];
-    expect(commentsGrid).toEqual([TABLE_W]);
+    expect(commentsGrid).toEqual([tblW]);
 
-    // 4) Sign-off grid — 4 cols summing to TABLE_W (Label/Value × 2).
+    // 4) Sign-off grid — 4 cols summing to tableW (Label/Value × 2).
     const signOffGrid = grids[2 + expected.sections.length];
     expect(signOffGrid).toHaveLength(4);
-    expect(signOffGrid.reduce((a, b) => a + b, 0)).toBeCloseTo(TABLE_W, -1);
+    expect(signOffGrid.reduce((a, b) => a + b, 0)).toBeCloseTo(tblW, -1);
   });
 
   it("uses standard PDF row heights (no spurious tall rows)", async () => {
