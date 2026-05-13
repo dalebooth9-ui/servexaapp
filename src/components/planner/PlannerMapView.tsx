@@ -57,17 +57,19 @@ export default function PlannerMapView({
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const engineerLocations = useLiveEngineerLocations();
   const { user } = useAuth();
   const { toast } = useToast();
   const [optimising, setOptimising] = useState(false);
-  const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number } | null>(null);
+  const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number; total_duration_in_traffic_mins?: number } | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
   const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
   const [showLiveRoutes, setShowLiveRoutes] = useState(false);
+  const [showTraffic, setShowTraffic] = useState(false);
   const [savingPin, setSavingPin] = useState<string | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
