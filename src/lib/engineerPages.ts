@@ -24,4 +24,6 @@ export const ROUTE_TO_SLUG: Record<string, string> = {
   "/assets": "assets",
   "/compliance": "compliance",
   "/audits": "audits",
+  "/defects": "audits",
+  "/report-downloads": "jobs",
 };
