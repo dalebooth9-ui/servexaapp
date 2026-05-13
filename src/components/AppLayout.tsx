@@ -198,20 +198,17 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
   const allOrderedItems = [...orderedItems, ...extraItems];
   const visibleNavItems = allOrderedItems.filter((item) => {
-    if (item.adminOnly && userRole !== "admin") {
-      // For engineers, check per-user page access
-      if (userRole === "engineer") {
-        const slug = ROUTE_TO_SLUG[item.to];
-        return slug ? hasAccess(slug) : false;
-      }
-      return false;
-    }
-    // Non-adminOnly items: for engineers, still check page access
+    // Dashboard ("/") is always visible to authenticated users.
+    if (item.to === "/") return true;
+    if (userRole === "admin") return true;
     if (userRole === "engineer") {
+      // Engineers must have an explicit access row for the slug — admin-only
+      // routes (no slug mapping) are hidden entirely.
       const slug = ROUTE_TO_SLUG[item.to];
-      if (slug) return hasAccess(slug);
+      return slug ? hasAccess(slug) : false;
     }
-    return true;
+    // Unknown role: hide admin-flagged items by default.
+    return !item.adminOnly;
   });
 
   const handleDragEnd = (event: DragEndEvent) => {

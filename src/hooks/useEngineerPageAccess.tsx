@@ -4,21 +4,29 @@ import { useAuth } from "@/hooks/useAuth";
 
 const norm = (s: string) => (s ?? "").trim().toLowerCase();
 
+/**
+ * Engineer-page-access hook.
+ *
+ * Strict role-based behaviour:
+ * - Admins: always allowed everywhere (default-allow).
+ * - Engineers: ONLY pages with an explicit row in `engineer_page_access`
+ *   are allowed. No row → deny (AccessRoute will redirect to "/").
+ *   Slugs are normalised (trim + lowercase) on both sides of the compare.
+ */
 export function useEngineerPageAccess() {
   const { user, userRole } = useAuth();
   const [allowedPages, setAllowedPages] = useState<string[]>([]);
-  const [hasAnyRows, setHasAnyRows] = useState<boolean>(true);
+  const [hasAnyRows, setHasAnyRows] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) {
       setAllowedPages([]);
-      setHasAnyRows(true);
+      setHasAnyRows(false);
       setLoading(false);
       return;
     }
 
-    // Admins get all pages
     if (userRole === "admin") {
       setAllowedPages(["all"]);
       setHasAnyRows(true);
@@ -45,9 +53,7 @@ export function useEngineerPageAccess() {
 
   const hasAccess = (slug: string) => {
     if (userRole === "admin") return true;
-    // Setup-incomplete fallback: if engineer has no access rows configured,
-    // default to allow rather than silently bouncing back to /.
-    if (userRole === "engineer" && !hasAnyRows) return true;
+    if (userRole !== "engineer") return false;
     return allowedPages.includes(norm(slug));
   };
 
