@@ -132,12 +132,21 @@ function tableGrids(xml: string): number[][] {
   });
 }
 
-/** Extract <w:trHeight w:val="N"/> values for every row in document order. */
+/**
+ * Extract <w:trHeight w:val="N"/> values for every NON-elastic row. Elastic
+ * rows (`w:hRule="atLeast"`, e.g. the Comments box) legitimately use larger,
+ * variable heights and are excluded from the standard-height assertion.
+ */
 function rowHeights(xml: string): number[] {
   const out: number[] = [];
-  const re = /<w:trHeight\s+w:val="(\d+)"/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(xml)) !== null) out.push(Number(m[1]));
+  const trMatches = xml.match(/<w:tr\b[\s\S]*?<\/w:tr>/g) || [];
+  for (const tr of trMatches) {
+    const m = /<w:trHeight\b[^/]*w:val="(\d+)"([^/]*)\/>/.exec(tr);
+    if (!m) continue;
+    const attrs = `${m[0]}`;
+    if (/w:hRule="atLeast"/.test(attrs)) continue; // elastic, skip
+    out.push(Number(m[1]));
+  }
   return out;
 }
 
