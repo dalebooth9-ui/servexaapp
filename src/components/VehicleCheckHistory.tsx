@@ -36,6 +36,8 @@ type Row = {
   id: string;
   check_date: string;
   created_at: string;
+  submitted_at: string | null;
+  auto_accepted_at: string | null;
   status: string;
   has_defects: boolean;
   vehicle_reg: string | null;
@@ -77,7 +79,7 @@ export default function VehicleCheckHistory() {
     const load = async () => {
       const { data } = await supabase
         .from("vehicle_checks")
-        .select("id, check_date, created_at, status, has_defects, vehicle_reg, mileage, items, defect_notes, rejection_reason, defect_photo_urls")
+        .select("id, check_date, created_at, submitted_at, auto_accepted_at, status, has_defects, vehicle_reg, mileage, items, defect_notes, rejection_reason, defect_photo_urls")
         .eq("engineer_id", user.id)
         .order("created_at", { ascending: false })
         .limit(30);
@@ -243,6 +245,18 @@ export default function VehicleCheckHistory() {
                       <p>{r.rejection_reason}</p>
                     </div>
                   )}
+
+                  <div className="text-[11px] text-muted-foreground flex items-center gap-3 flex-wrap">
+                    {r.submitted_at && (
+                      <span>Submitted {format(new Date(r.submitted_at), "HH:mm:ss")}</span>
+                    )}
+                    {r.auto_accepted_at && (
+                      <span className="flex items-center gap-1 text-green-600">
+                        <CheckCircle2 className="h-3 w-3" />
+                        Auto-accepted {format(new Date(r.auto_accepted_at), "HH:mm:ss")}
+                      </span>
+                    )}
+                  </div>
 
                   <div>
                     <div className="flex items-center justify-between mb-1.5">

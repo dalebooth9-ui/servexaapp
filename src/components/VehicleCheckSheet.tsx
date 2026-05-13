@@ -153,6 +153,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         photoUrls.push(path);
       }
 
+      const now = new Date().toISOString();
       const { error } = await supabase.from("vehicle_checks").insert({
         engineer_id: user.id,
         check_date: today,
@@ -163,6 +164,8 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         defect_notes: hasDefects ? defectNotes.trim() : null,
         defect_photo_urls: photoUrls,
         status: "accepted",
+        submitted_at: now,
+        auto_accepted_at: now,
       } as any);
 
       if (error) throw error;

@@ -1,0 +1,4 @@
+
+ALTER TABLE public.vehicle_checks
+ADD COLUMN submitted_at TIMESTAMP WITH TIME ZONE,
+ADD COLUMN auto_accepted_at TIMESTAMP WITH TIME ZONE;
