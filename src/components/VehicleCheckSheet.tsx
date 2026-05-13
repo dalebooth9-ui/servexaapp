@@ -280,8 +280,10 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
               id="reg"
               value={vehicleReg}
               onChange={(e) => {
-                setVehicleReg(e.target.value.toUpperCase());
+                const val = e.target.value.toUpperCase();
+                setVehicleReg(val);
                 setRegTouched(true);
+                if (regKey) localStorage.setItem(regKey, val);
               }}
               onBlur={() => setRegTouched(true)}
               placeholder="AB12 CDE"
