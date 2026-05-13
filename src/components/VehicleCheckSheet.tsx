@@ -394,9 +394,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
           </>
         )}
       </Button>
-      {!vehicleReg.trim() && (
-        <p className="text-xs text-center text-amber-600">Vehicle registration is required</p>
-      )}
       {!allAnswered && vehicleReg.trim() && (
         <p className="text-xs text-center text-muted-foreground">
           {Object.values(items).filter((v) => v === null).length} items remaining
