@@ -953,5 +953,6 @@ export default function JobDetail() {
       />
     )}
     </Suspense>
+    </ChunkErrorBoundary>
   );
 }
