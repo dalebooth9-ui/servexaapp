@@ -598,6 +598,7 @@ export default function WeeklyGridView({
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  const [sidebarMode, setSidebarMode] = useState<"unallocated" | "all">("unallocated");
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map());
   const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
 
@@ -693,6 +694,32 @@ export default function WeeklyGridView({
     [adhocEntries]
   );
 
+  // For "All Jobs" sidebar mode — group allocated jobs by engineer
+  const allocatedByEngineer = useMemo(() => {
+    const scheduledJobIds = new Set(schedule.map((s) => s.job_id));
+    const allocatedJobs = jobs.filter((j) => scheduledJobIds.has(j.id));
+    const map: Record<string, { job: Job; entries: ScheduleEntry[] }[]> = {};
+    for (const job of allocatedJobs) {
+      const entries = schedule.filter((s) => s.job_id === job.id);
+      const byEng: Record<string, ScheduleEntry[]> = {};
+      for (const e of entries) {
+        if (!byEng[e.engineer_id]) byEng[e.engineer_id] = [];
+        byEng[e.engineer_id].push(e);
+      }
+      for (const [engId, engEntries] of Object.entries(byEng)) {
+        if (!map[engId]) map[engId] = [];
+        map[engId].push({ job, entries: engEntries });
+      }
+    }
+    return Object.entries(map)
+      .map(([engId, items]) => ({
+        engId,
+        engName: engineers.find((e) => e.user_id === engId)?.full_name || "Unknown",
+        items,
+      }))
+      .sort((a, b) => a.engName.localeCompare(b.engName));
+  }, [jobs, schedule, engineers]);
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveItem(event.active.data.current);
   };
@@ -774,38 +801,112 @@ export default function WeeklyGridView({
         {isAdmin && (
           <div className="w-[220px] shrink-0">
             <DroppableUnallocatedZone>
-              <h3 className="mb-2 text-sm font-semibold">Unallocated Jobs</h3>
-              <ScrollArea className="h-[calc(100vh-300px)]">
-                {groupedUnallocated.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-4 text-center">All jobs allocated</p>
+              <h3 className="mb-2 text-sm font-semibold">Job Pool</h3>
+              <div className="flex gap-1 mb-2">
+                <button
+                  className={cn(
+                    "flex-1 text-[10px] rounded py-1 font-medium transition-colors",
+                    sidebarMode === "unallocated"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80"
+                  )}
+                  onClick={() => setSidebarMode("unallocated")}
+                >
+                  Unallocated
+                </button>
+                <button
+                  className={cn(
+                    "flex-1 text-[10px] rounded py-1 font-medium transition-colors",
+                    sidebarMode === "all"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted hover:bg-muted/80"
+                  )}
+                  onClick={() => setSidebarMode("all")}
+                >
+                  All Jobs
+                </button>
+              </div>
+              <ScrollArea className="h-[calc(100vh-340px)]">
+                {sidebarMode === "unallocated" ? (
+                  groupedUnallocated.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-4 text-center">All jobs allocated</p>
+                  ) : (
+                    <div className="space-y-3 pr-2">
+                      {groupedUnallocated.map(([area, areaJobs]) => {
+                        const isOverdueGroup = area === "⚠ Overdue";
+                        return (
+                          <div key={area}>
+                            <div className="mb-1 flex items-center gap-1.5">
+                              {isOverdueGroup ? (
+                                <Badge variant="destructive" className="text-[10px] font-semibold flex items-center gap-1">
+                                  <AlertTriangle className="h-2.5 w-2.5" /> Overdue
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-[10px] font-mono">{area}</Badge>
+                              )}
+                              <span className="text-[10px] text-muted-foreground">{areaJobs.length}</span>
+                            </div>
+                            <div className="space-y-1">
+                              {areaJobs.map((job) => (
+                                <DraggableUnallocatedJob
+                                  key={job.id}
+                                  job={job}
+                                  onMultiDay={onMultiDaySchedule}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-3 pr-2">
-                    {groupedUnallocated.map(([area, areaJobs]) => {
-                      const isOverdueGroup = area === "⚠ Overdue";
-                      return (
-                        <div key={area}>
-                          <div className="mb-1 flex items-center gap-1.5">
-                            {isOverdueGroup ? (
-                              <Badge variant="destructive" className="text-[10px] font-semibold flex items-center gap-1">
-                                <AlertTriangle className="h-2.5 w-2.5" /> Overdue
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-[10px] font-mono">{area}</Badge>
-                            )}
-                            <span className="text-[10px] text-muted-foreground">{areaJobs.length}</span>
-                          </div>
-                          <div className="space-y-1">
-                            {areaJobs.map((job) => (
+                    {/* Unallocated section in All Jobs mode */}
+                    {groupedUnallocated.length > 0 && (
+                      <div>
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <Badge variant="outline" className="text-[10px] font-semibold">Unallocated</Badge>
+                          <span className="text-[10px] text-muted-foreground">
+                            {groupedUnallocated.reduce((sum, [, arr]) => sum + arr.length, 0)}
+                          </span>
+                        </div>
+                        <div className="space-y-1">
+                          {groupedUnallocated.flatMap(([, areaJobs]) => areaJobs).map((job) => (
+                            <DraggableUnallocatedJob
+                              key={`unalloc-${job.id}`}
+                              job={job}
+                              onMultiDay={onMultiDaySchedule}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {/* Allocated by engineer */}
+                    {allocatedByEngineer.map(({ engName, items }) => (
+                      <div key={engName}>
+                        <div className="mb-1 flex items-center gap-1.5">
+                          <Badge variant="secondary" className="text-[10px] font-semibold">{engName}</Badge>
+                          <span className="text-[10px] text-muted-foreground">{items.length}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {items.map(({ job, entries }) => (
+                            <div key={`alloc-${job.id}-${entries[0].engineer_id}`} className="relative">
                               <DraggableUnallocatedJob
-                                key={job.id}
                                 job={job}
                                 onMultiDay={onMultiDaySchedule}
                               />
-                            ))}
-                          </div>
+                              <span className="absolute top-1 right-1 inline-flex items-center rounded bg-primary/10 border border-primary/20 px-1 py-0.5 text-[8px] font-semibold text-primary">
+                                {entries.length > 1 ? `${entries.length} days` : format(parseISO(entries[0].schedule_date), "dd/MM")}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ))}
+                    {allocatedByEngineer.length === 0 && groupedUnallocated.length === 0 && (
+                      <p className="text-xs text-muted-foreground py-4 text-center">No jobs found</p>
+                    )}
                   </div>
                 )}
                 {unallocatedAdhoc.length > 0 && (
