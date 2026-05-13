@@ -57,17 +57,19 @@ export default function PlannerMapView({
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const engineerLocations = useLiveEngineerLocations();
   const { user } = useAuth();
   const { toast } = useToast();
   const [optimising, setOptimising] = useState(false);
-  const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number } | null>(null);
+  const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number; total_duration_in_traffic_mins?: number } | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
   const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
   const [showLiveRoutes, setShowLiveRoutes] = useState(false);
+  const [showTraffic, setShowTraffic] = useState(false);
   const [savingPin, setSavingPin] = useState<string | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
@@ -129,6 +131,11 @@ export default function PlannerMapView({
         destination,
         waypoints: intermediates,
         travelMode: google.maps.TravelMode.DRIVING,
+        // Live-traffic aware ETAs (Google uses current conditions when departureTime = now)
+        drivingOptions: {
+          departureTime: new Date(),
+          trafficModel: google.maps.TrafficModel.BEST_GUESS,
+        },
       });
 
       const renderer = new google.maps.DirectionsRenderer({
@@ -137,15 +144,36 @@ export default function PlannerMapView({
         suppressMarkers: true, // Keep our custom markers
         polylineOptions: {
           strokeColor: "#2563eb",
-          strokeWeight: 4,
-          strokeOpacity: 0.75,
+          strokeWeight: 5,
+          strokeOpacity: 0.85,
         },
       });
       directionsRendererRef.current = renderer;
+
+      // Auto-enable the live traffic layer so the optimised path is visualised against current congestion
+      if (!trafficLayerRef.current) {
+        trafficLayerRef.current = new google.maps.TrafficLayer();
+      }
+      trafficLayerRef.current.setMap(map);
+      setShowTraffic(true);
     } catch (err) {
       console.error("Failed to render route on map:", err);
     }
   }, [clearRouteOverlay]);
+
+  // Toggle Google's live traffic layer on/off
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || typeof google === "undefined" || !google.maps?.TrafficLayer) return;
+    if (showTraffic) {
+      if (!trafficLayerRef.current) {
+        trafficLayerRef.current = new google.maps.TrafficLayer();
+      }
+      trafficLayerRef.current.setMap(map);
+    } else if (trafficLayerRef.current) {
+      trafficLayerRef.current.setMap(null);
+    }
+  }, [showTraffic, mapLoading]);
 
   // Optimise route for all scheduled jobs
   const handleOptimise = async () => {
@@ -159,7 +187,12 @@ export default function PlannerMapView({
       });
       if (error) throw error;
       setRouteResult(data);
-      toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${data.total_duration_mins} mins` });
+      const trafficMins = data.total_duration_in_traffic_mins ?? data.total_duration_mins;
+      const baseMins = data.total_duration_mins;
+      const trafficSuffix = trafficMins != null && baseMins != null && trafficMins !== baseMins
+        ? ` (${trafficMins} mins with live traffic)`
+        : "";
+      toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${baseMins} mins${trafficSuffix}` });
 
       // Notify parent of optimised job order
       if (data.optimised?.length >= 2) {
@@ -588,6 +621,12 @@ export default function PlannerMapView({
           {routeResult && (
             <Badge variant="outline" className="text-xs">
               {routeResult.total_distance_km} km · {routeResult.total_duration_mins} mins
+              {routeResult.total_duration_in_traffic_mins != null
+                && routeResult.total_duration_in_traffic_mins !== routeResult.total_duration_mins && (
+                  <span className="ml-1 text-amber-600 font-medium">
+                    · {routeResult.total_duration_in_traffic_mins} mins live
+                  </span>
+                )}
             </Badge>
           )}
           {/* Legend */}
@@ -635,6 +674,15 @@ export default function PlannerMapView({
           >
             <Route className="mr-1.5 h-3.5 w-3.5" />
             {showLiveRoutes ? "Hide Live Routes" : "Show Live Routes"}
+          </Button>
+          <Button
+            variant={showTraffic ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowTraffic((v) => !v)}
+            title="Overlay Google's live traffic conditions on the map"
+          >
+            <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+            {showTraffic ? "Hide Traffic" : "Live Traffic"}
           </Button>
           {scheduledJobs.length >= 2 && (
             <>

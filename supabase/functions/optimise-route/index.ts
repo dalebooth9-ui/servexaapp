@@ -60,6 +60,9 @@ serve(async (req) => {
     if (intermediates) {
       url.searchParams.set("waypoints", `optimize:true|${intermediates}`);
     }
+    // Live traffic: ask Google for traffic-aware durations and pick the best route now
+    url.searchParams.set("departure_time", "now");
+    url.searchParams.set("traffic_model", "best_guess");
     url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
 
     const resp = await fetch(url.toString());
@@ -84,18 +87,25 @@ serve(async (req) => {
     const legs = route.legs.map((leg: any) => ({
       distance: leg.distance.text,
       duration: leg.duration.text,
+      duration_in_traffic: leg.duration_in_traffic?.text ?? null,
+      duration_in_traffic_seconds: leg.duration_in_traffic?.value ?? null,
       start_address: leg.start_address,
       end_address: leg.end_address,
     }));
 
     const totalDistance = route.legs.reduce((sum: number, leg: any) => sum + leg.distance.value, 0);
     const totalDuration = route.legs.reduce((sum: number, leg: any) => sum + leg.duration.value, 0);
+    const totalDurationTraffic = route.legs.reduce(
+      (sum: number, leg: any) => sum + (leg.duration_in_traffic?.value ?? leg.duration.value),
+      0,
+    );
 
     return new Response(JSON.stringify({
       optimised,
       legs,
       total_distance_km: Math.round(totalDistance / 100) / 10,
       total_duration_mins: Math.round(totalDuration / 60),
+      total_duration_in_traffic_mins: Math.round(totalDurationTraffic / 60),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
