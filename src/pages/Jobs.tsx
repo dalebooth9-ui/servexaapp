@@ -195,7 +195,19 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const { data } = await supabase.from("jobs").select("*, submissions(id, type), customers(id, name, email), sites(id, name)").order("created_at", { ascending: false });
+    let query = supabase.from("jobs").select("*, submissions(id, type), customers(id, name, email), sites(id, name)").order("created_at", { ascending: false });
+    // Belt-and-braces for engineers: even though RLS restricts to assigned jobs,
+    // explicitly scope the client-side query by the user's job_assignments.
+    if (userRole === "engineer" && user) {
+      const { data: assignments } = await supabase
+        .from("job_assignments")
+        .select("job_id")
+        .eq("engineer_id", user.id);
+      const ids = (assignments ?? []).map((a: any) => a.job_id);
+      if (ids.length === 0) { setJobs([]); return; }
+      query = query.in("id", ids);
+    }
+    const { data } = await query;
     setJobs(data || []);
   };
 
