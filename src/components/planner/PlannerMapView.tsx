@@ -71,6 +71,9 @@ export default function PlannerMapView({
   const [showLiveRoutes, setShowLiveRoutes] = useState(false);
   const [showTraffic, setShowTraffic] = useState(false);
   const [savingPin, setSavingPin] = useState<string | null>(null);
+  const [refreshIntervalSec, setRefreshIntervalSec] = useState<number>(0); // 0 = off
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
+  const handleOptimiseRef = useRef<() => Promise<void>>();
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
