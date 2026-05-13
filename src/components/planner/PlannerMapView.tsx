@@ -626,6 +626,16 @@ export default function PlannerMapView({
             <MapPin className="mr-1.5 h-3.5 w-3.5" />
             {showUnallocated ? "Hide Unallocated" : "Show Unallocated"}
           </Button>
+          <Button
+            variant={showLiveRoutes ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowLiveRoutes((v) => !v)}
+            disabled={engineerLocations.length === 0}
+            title={engineerLocations.length === 0 ? "No live engineer locations available" : "Draw routes from each engineer's live location through their scheduled jobs"}
+          >
+            <Route className="mr-1.5 h-3.5 w-3.5" />
+            {showLiveRoutes ? "Hide Live Routes" : "Show Live Routes"}
+          </Button>
           {scheduledJobs.length >= 2 && (
             <>
               <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
