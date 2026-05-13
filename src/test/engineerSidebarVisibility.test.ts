@@ -32,6 +32,8 @@ describe("engineer sidebar visibility", () => {
       "defects", "install", "jobs", "leave", "offline",
       "planner", "report-downloads", "reports",
     ].sort());
+  });
+
   it("does not render an Admin section header for engineers", () => {
     // Simulate the itemsBySection remap logic used in AppLayout
     const engineerVisible = [
