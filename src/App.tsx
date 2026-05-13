@@ -9,7 +9,8 @@ import OfflineIndicator from "@/components/OfflineIndicator";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
-import { ReactNode, lazy, Suspense } from "react";
+import { ReactNode, lazy, Suspense, useEffect } from "react";
+import { toast } from "sonner";
 
 // Eagerly loaded — used immediately on auth/landing
 import Auth from "@/pages/Auth";
@@ -89,6 +90,13 @@ function AccessRoute({ children, pageSlug }: { children: ReactNode; pageSlug: st
   const { user, userRole, loading } = useAuth();
   const { hasAccess, loading: accessLoading } = useEngineerPageAccess();
   useOfflineSync();
+  const denied =
+    !loading && !accessLoading && !!user && userRole !== "admin" && !hasAccess(pageSlug);
+  useEffect(() => {
+    if (denied) {
+      toast.error("You don't have access to this page");
+    }
+  }, [denied]);
   if (loading || accessLoading) return <div className="flex h-screen items-center justify-center text-muted-foreground">Loading...</div>;
   if (!user) return <Navigate to="/auth" replace />;
   if (userRole === "admin" || hasAccess(pageSlug)) {
