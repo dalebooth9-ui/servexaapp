@@ -60,6 +60,9 @@ serve(async (req) => {
     if (intermediates) {
       url.searchParams.set("waypoints", `optimize:true|${intermediates}`);
     }
+    // Live traffic: ask Google for traffic-aware durations and pick the best route now
+    url.searchParams.set("departure_time", "now");
+    url.searchParams.set("traffic_model", "best_guess");
     url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
 
     const resp = await fetch(url.toString());
