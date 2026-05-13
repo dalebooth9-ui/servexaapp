@@ -257,6 +257,7 @@ export default function JobDetail() {
     || (job.category ? job.category.replace(/_/g, " ").replace(/\b\w/g, (c: string) => c.toUpperCase()) : null);
 
   return (
+    <ChunkErrorBoundary>
     <Suspense fallback={<LazyFallback />}>
     <div>
       <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
