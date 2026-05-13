@@ -661,6 +661,15 @@ export default function PlannerMapView({
             <Route className="mr-1.5 h-3.5 w-3.5" />
             {showLiveRoutes ? "Hide Live Routes" : "Show Live Routes"}
           </Button>
+          <Button
+            variant={showTraffic ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowTraffic((v) => !v)}
+            title="Overlay Google's live traffic conditions on the map"
+          >
+            <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
+            {showTraffic ? "Hide Traffic" : "Live Traffic"}
+          </Button>
           {scheduledJobs.length >= 2 && (
             <>
               <Button variant="outline" size="sm" onClick={handleOptimise} disabled={optimising}>
