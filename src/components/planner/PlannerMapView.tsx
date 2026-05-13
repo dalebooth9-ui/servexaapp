@@ -607,6 +607,12 @@ export default function PlannerMapView({
           {routeResult && (
             <Badge variant="outline" className="text-xs">
               {routeResult.total_distance_km} km · {routeResult.total_duration_mins} mins
+              {routeResult.total_duration_in_traffic_mins != null
+                && routeResult.total_duration_in_traffic_mins !== routeResult.total_duration_mins && (
+                  <span className="ml-1 text-amber-600 font-medium">
+                    · {routeResult.total_duration_in_traffic_mins} mins live
+                  </span>
+                )}
             </Badge>
           )}
           {/* Legend */}
