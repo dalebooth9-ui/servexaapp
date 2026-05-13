@@ -238,7 +238,16 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     acc[section] = visibleNavItems.filter((i) => {
       if (section === "operations" || section === "more") {
         const effective = sectionOverrides[i.to] ?? i.section;
+        // Engineers: remap admin-section items into operations so they never
+        // appear under an "Admin" header.
+        if (userRole === "engineer" && effective === "admin") {
+          return section === "operations";
+        }
         return effective === section;
+      }
+      // Engineers should never see an "admin" section group.
+      if (userRole === "engineer" && section === "admin") {
+        return false;
       }
       return i.section === section;
     });
