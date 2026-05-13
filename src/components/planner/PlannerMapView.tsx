@@ -740,6 +740,23 @@ export default function PlannerMapView({
                 )}
             </Badge>
           )}
+          {showCompare && comparisonResult && routeResult && (
+            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700">
+              <span className="inline-block h-2 w-6 mr-1.5" style={{ background: "repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)" }} />
+              No-traffic: {comparisonResult.distance_km} km · {comparisonResult.duration_mins} mins
+              {(() => {
+                const live = routeResult.total_duration_in_traffic_mins ?? routeResult.total_duration_mins ?? 0;
+                const base = comparisonResult.duration_mins;
+                const delta = live - base;
+                if (!delta) return null;
+                return (
+                  <span className={`ml-1 font-semibold ${delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    {delta > 0 ? `+${delta}` : delta} mins vs live
+                  </span>
+                );
+              })()}
+            </Badge>
+          )}
           {/* Legend */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground border rounded px-2 py-1">
             <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
