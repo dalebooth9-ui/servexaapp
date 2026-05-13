@@ -67,6 +67,7 @@ export default function PlannerMapView({
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
   const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
+  const [showLiveRoutes, setShowLiveRoutes] = useState(false);
   const [savingPin, setSavingPin] = useState<string | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
