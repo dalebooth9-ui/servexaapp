@@ -373,7 +373,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         ) : (
           <>
             <CheckCircle2 className="h-5 w-5 mr-2" />
-            Submit for review
+            Submit check
           </>
         )}
       </Button>
