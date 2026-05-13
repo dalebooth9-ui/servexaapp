@@ -231,22 +231,41 @@ describe.each(FIXTURES)("Word ↔ PDF parity — $name", (template) => {
     }
   });
 
-  it("uses A4 page size with 10mm margins (mirrors PDF_DIMENSIONS)", async () => {
+  it("uses A4 page size with the correct margins per template", async () => {
+    // Post-refactor: Dry Riser uses the SHARED dryRiserLayout (12mm L/R,
+    // 10mm T/B) so Word + PDF page geometry match exactly. Other templates
+    // keep the legacy auto-scaled geometry (top/bottom 720, L/R 567).
+    const { DRY_RISER_LAYOUT, isDryRiserName } = await import("@/lib/dryRiserLayout");
     const { "word/document.xml": docXml } = await unpackDocx(template);
     expect(docXml).toMatch(/w:pgSz[^/]*w:w="11906"/);
     expect(docXml).toMatch(/w:pgSz[^/]*w:h="16838"/);
-    // 10mm ≈ 567 DXA on every side.
-    expect(docXml).toMatch(/w:pgMar[^/]*w:top="567"/);
-    expect(docXml).toMatch(/w:pgMar[^/]*w:bottom="567"/);
-    expect(docXml).toMatch(/w:pgMar[^/]*w:left="567"/);
-    expect(docXml).toMatch(/w:pgMar[^/]*w:right="567"/);
+    const isDryRiser = isDryRiserName(template.name);
+    const expTop = isDryRiser ? DRY_RISER_LAYOUT.page.marginTopDxa : 720;
+    const expBottom = isDryRiser ? DRY_RISER_LAYOUT.page.marginBottomDxa : 720;
+    const expLeft = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftDxa : 567;
+    const expRight = isDryRiser ? DRY_RISER_LAYOUT.page.marginRightDxa : 567;
+    expect(docXml).toMatch(new RegExp(`w:pgMar[^/]*w:top="${expTop}"`));
+    expect(docXml).toMatch(new RegExp(`w:pgMar[^/]*w:bottom="${expBottom}"`));
+    expect(docXml).toMatch(new RegExp(`w:pgMar[^/]*w:left="${expLeft}"`));
+    expect(docXml).toMatch(new RegExp(`w:pgMar[^/]*w:right="${expRight}"`));
   });
 
   it("uses the same ~68 / 32 label/value column split as the PDF", async () => {
+    // Body tables declare [labelCol, valueCol] computed from the template's
+    // resolved page width. Dry Riser ⇒ tableW=10546 (12mm margins) ⇒
+    // 7171/3375. Default ⇒ tableW=10772 ⇒ 7325/3447.
+    const { computeTableLayout } = await import("@/lib/wordTemplateBuilder");
+    const { DRY_RISER_LAYOUT, isDryRiserName } = await import("@/lib/dryRiserLayout");
+    const isDryRiser = isDryRiserName(template.name);
+    const layout = isDryRiser
+      ? computeTableLayout({
+          pageWidth: DRY_RISER_LAYOUT.page.widthDxa,
+          pageMargin: DRY_RISER_LAYOUT.page.marginLeftDxa,
+        })
+      : computeTableLayout();
     const { "word/document.xml": docXml } = await unpackDocx(template);
-    // The body section tables declare columnWidths [LABEL_COL, VALUE_COL] →
-    // 6554 / 3084 DXA. Look for at least one <w:gridCol w:w="6554"/> followed
-    // by <w:gridCol w:w="3084"/> to confirm the body grid is intact.
-    expect(docXml).toMatch(/<w:gridCol[^/]*w:w="6554"\s*\/>\s*<w:gridCol[^/]*w:w="3084"\s*\/>/);
+    expect(docXml).toMatch(
+      new RegExp(`<w:gridCol[^/]*w:w="${layout.labelCol}"\\s*/>\\s*<w:gridCol[^/]*w:w="${layout.valueCol}"\\s*/>`),
+    );
   });
 });
