@@ -65,7 +65,20 @@ export default function PlannerMapView({
   const { user } = useAuth();
   const { toast } = useToast();
   const [optimising, setOptimising] = useState(false);
-  const [routeResult, setRouteResult] = useState<{ total_distance_km?: number; total_duration_mins?: number; total_duration_in_traffic_mins?: number } | null>(null);
+  const [routeResult, setRouteResult] = useState<{
+    total_distance_km?: number;
+    total_duration_mins?: number;
+    total_duration_in_traffic_mins?: number;
+    legs?: Array<{
+      distance: string;
+      duration: string;
+      duration_in_traffic: string | null;
+      duration_in_traffic_seconds: number | null;
+      start_address: string;
+      end_address: string;
+    }>;
+    optimised?: Array<{ address: string; job_id: string }>;
+  } | null>(null);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
