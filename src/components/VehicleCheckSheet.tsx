@@ -157,11 +157,11 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         has_defects: hasDefects,
         defect_notes: hasDefects ? defectNotes.trim() : null,
         defect_photo_urls: photoUrls,
-        status: "pending",
+        status: "accepted",
       } as any);
 
       if (error) throw error;
-      toast.success("Submitted — awaiting admin review");
+      toast.success("Check submitted — you're all set");
       setShowForm(false);
       setPhotos([]);
       await loadLatest();
