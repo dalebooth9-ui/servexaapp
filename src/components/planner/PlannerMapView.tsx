@@ -511,6 +511,68 @@ export default function PlannerMapView({
     }
   }, [engineerLocations, engineers]);
 
+  // Draw live routes per engineer: from each engineer's live GPS through their remaining
+  // scheduled jobs (in date order). Honours the engineer filter.
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+
+    // Always clear previous live routes first
+    liveRouteRenderersRef.current.forEach((r) => r.setMap(null));
+    liveRouteRenderersRef.current = [];
+
+    if (!map || !showLiveRoutes || !engineerLocations.length) return;
+
+    const palette = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2", "#65a30d"];
+    const directionsService = new google.maps.DirectionsService();
+
+    // Group scheduled entries by engineer, sorted by date
+    const byEngineer = new Map<string, typeof scheduledJobs>();
+    const sortedSchedule = [...schedule].sort((a, b) => a.schedule_date.localeCompare(b.schedule_date));
+    for (const entry of sortedSchedule) {
+      const job = getJob(entry.job_id);
+      if (!job?.address) continue;
+      const list = byEngineer.get(entry.engineer_id) || [];
+      if (!list.find((s) => s.job.id === job.id)) {
+        list.push({
+          job,
+          engineerName: getEngineer(entry.engineer_id)?.full_name || "",
+          engineerId: entry.engineer_id,
+          date: entry.schedule_date,
+        });
+      }
+      byEngineer.set(entry.engineer_id, list);
+    }
+
+    let colourIndex = 0;
+    for (const loc of engineerLocations) {
+      if (selectedEngineerId !== "all" && loc.user_id !== selectedEngineerId) continue;
+      const stops = byEngineer.get(loc.user_id);
+      if (!stops || stops.length === 0) continue;
+
+      const colour = palette[colourIndex % palette.length];
+      colourIndex++;
+
+      const origin = { lat: loc.latitude, lng: loc.longitude };
+      const destination = stops[stops.length - 1].job.address!;
+      const waypoints = stops.slice(0, -1).map((s) => ({ location: s.job.address!, stopover: true }));
+
+      directionsService.route(
+        { origin, destination, waypoints, travelMode: google.maps.TravelMode.DRIVING },
+        (result, status) => {
+          if (status !== google.maps.DirectionsStatus.OK || !result) return;
+          const renderer = new google.maps.DirectionsRenderer({
+            map,
+            directions: result,
+            suppressMarkers: true,
+            preserveViewport: true,
+            polylineOptions: { strokeColor: colour, strokeWeight: 4, strokeOpacity: 0.8 },
+          });
+          liveRouteRenderersRef.current.push(renderer);
+        }
+      );
+    }
+  }, [showLiveRoutes, engineerLocations, schedule, jobs, engineers, selectedEngineerId]);
+
   const allJobsWithAddress = scheduledJobs.length + unallocatedJobs.filter((j) => j.address).length;
 
   return (
