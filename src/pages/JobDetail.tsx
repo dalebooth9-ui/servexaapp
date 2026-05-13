@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
@@ -17,43 +17,49 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog as QrDialog, DialogContent as QrDialogContent, DialogHeader as QrDialogHeader, DialogTitle as QrDialogTitle } from "@/components/ui/dialog";
-import PhotoChecklistCapture from "@/components/PhotoChecklistCapture";
-import AiJobBriefDialog from "@/components/AiJobBriefDialog";
-import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
-import TechnicianAssistant from "@/components/TechnicianAssistant";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import EngineerAssignments from "@/components/EngineerAssignments";
-import WhatsAppReply from "@/components/WhatsAppReply";
-import AllocatedDaysTracker from "@/components/AllocatedDaysTracker";
-import JobMessages from "@/components/JobMessages";
+import { generateAndSaveAiBrief } from "@/lib/aiJobBrief";
 import SubmissionFilters, { Filters } from "@/components/SubmissionFilters";
 import LocationMap from "@/components/LocationMap";
-import FieldReports from "@/components/FieldReports";
-import FileDropZone from "@/components/FileDropZone";
-import CreateInvoiceDialog from "@/components/CreateInvoiceDialog";
-import JobVisits from "@/components/JobVisits";
 import FaultCodeSelect from "@/components/FaultCodeSelect";
 import CloneJobDialog from "@/components/CloneJobDialog";
 import ScheduleFollowUpJobs from "@/components/ScheduleFollowUpJobs";
-import JobSheet from "@/components/JobSheet";
-import JobParts from "@/components/JobParts";
-import JobPdfReport from "@/components/JobPdfReport";
 import JobStatusPipeline, { ALL_JOB_STATUSES, getStatusLabel } from "@/components/JobStatusPipeline";
 import SignatureCapture from "@/components/SignatureCapture";
 import CustomerSignOffLink from "@/components/CustomerSignOffLink";
 import JobHandoverLink from "@/components/JobHandoverLink";
 import SendToCustomerMenu from "@/components/SendToCustomerMenu";
-import SubmissionList from "@/components/jobs/SubmissionList";
-import EngineerCertificates from "@/components/jobs/EngineerCertificates";
 import AddNoteInput from "@/components/jobs/AddNoteInput";
-import JobDocuments from "@/components/JobDocuments";
-import InstallationProjects from "@/components/InstallationProjects";
 import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
+
+// Heavy children — code-split out of the JobDetail bundle. Each one pulls in
+// hefty deps (jspdf/html2canvas/tiptap/exceljs/docx) transitively, so we
+// React.lazy() them and gate rendering with <Suspense>.
+const PhotoChecklistCapture = lazy(() => import("@/components/PhotoChecklistCapture"));
+const AiJobBriefDialog = lazy(() => import("@/components/AiJobBriefDialog"));
+const TechnicianAssistant = lazy(() => import("@/components/TechnicianAssistant"));
+const EngineerAssignments = lazy(() => import("@/components/EngineerAssignments"));
+const WhatsAppReply = lazy(() => import("@/components/WhatsAppReply"));
+const AllocatedDaysTracker = lazy(() => import("@/components/AllocatedDaysTracker"));
+const JobMessages = lazy(() => import("@/components/JobMessages"));
+const FieldReports = lazy(() => import("@/components/FieldReports"));
+const FileDropZone = lazy(() => import("@/components/FileDropZone"));
+const CreateInvoiceDialog = lazy(() => import("@/components/CreateInvoiceDialog"));
+const JobVisits = lazy(() => import("@/components/JobVisits"));
+const JobSheet = lazy(() => import("@/components/JobSheet"));
+const JobParts = lazy(() => import("@/components/JobParts"));
+const JobPdfReport = lazy(() => import("@/components/JobPdfReport"));
+const SubmissionList = lazy(() => import("@/components/jobs/SubmissionList"));
+const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertificates"));
+const JobDocuments = lazy(() => import("@/components/JobDocuments"));
+const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
+
+const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
