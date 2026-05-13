@@ -177,6 +177,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       } as any);
 
       if (error) throw error;
+      if (regKey) localStorage.setItem(regKey, vehicleReg.trim());
       toast.success("Check submitted — you're all set");
       setShowForm(false);
       setPhotos([]);
