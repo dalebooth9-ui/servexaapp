@@ -401,10 +401,9 @@ export default function EngineerDashboard() {
           <iframe
             key={jobsWithDistance.filter(j => j.address).map(j => j.id).join(",")}
             title="Job locations"
-            width="100%"
-            height="220"
             loading="lazy"
-            style={{ border: 0 }}
+            className="block w-full"
+            style={{ border: 0, height: 220 }}
             src={`https://maps.google.com/maps?q=${encodeURIComponent(jobsWithDistance.filter(j => j.address)[0].address!)}&output=embed&z=12`}
           />
         ) : (
