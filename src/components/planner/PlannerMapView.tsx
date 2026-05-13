@@ -55,6 +55,8 @@ export default function PlannerMapView({
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const comparisonRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
@@ -74,6 +76,8 @@ export default function PlannerMapView({
   const [refreshIntervalSec, setRefreshIntervalSec] = useState<number>(0); // 0 = off
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const handleOptimiseRef = useRef<() => Promise<void>>();
+  const [showCompare, setShowCompare] = useState(false);
+  const [comparisonResult, setComparisonResult] = useState<{ distance_km: number; duration_mins: number } | null>(null);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
@@ -108,9 +112,63 @@ export default function PlannerMapView({
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
+    if (comparisonRendererRef.current) {
+      comparisonRendererRef.current.setMap(null);
+      comparisonRendererRef.current = null;
+    }
     // Remove numbered step labels
     routeNumberOverlaysRef.current.forEach((m) => { m.map = null; });
     routeNumberOverlaysRef.current = [];
+    lastOptimisedWaypointsRef.current = null;
+    setComparisonResult(null);
+  }, []);
+
+  // Render the no-traffic ("fastest without traffic") route for visual comparison.
+  // The optimised (live-traffic) route stays in blue; this overlay is dashed amber.
+  const renderComparisonRoute = useCallback(async (waypoints: { address: string; job_id: string }[]) => {
+    const map = mapInstanceRef.current;
+    if (!map || waypoints.length < 2) return;
+    if (comparisonRendererRef.current) {
+      comparisonRendererRef.current.setMap(null);
+      comparisonRendererRef.current = null;
+    }
+    const directionsService = new google.maps.DirectionsService();
+    try {
+      const result = await directionsService.route({
+        origin: waypoints[0].address,
+        destination: waypoints[waypoints.length - 1].address,
+        waypoints: waypoints.slice(1, -1).map((wp) => ({ location: wp.address, stopover: true })),
+        travelMode: google.maps.TravelMode.DRIVING,
+        // No drivingOptions => fastest path ignoring live traffic
+      });
+      const renderer = new google.maps.DirectionsRenderer({
+        map,
+        directions: result,
+        suppressMarkers: true,
+        preserveViewport: true,
+        polylineOptions: {
+          strokeColor: "#f59e0b",
+          strokeWeight: 4,
+          strokeOpacity: 0,
+          icons: [{
+            icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: "#f59e0b", scale: 3 },
+            offset: "0",
+            repeat: "12px",
+          }],
+          zIndex: 1,
+        },
+      });
+      comparisonRendererRef.current = renderer;
+      const route = result.routes[0];
+      const totalDist = route.legs.reduce((s, l) => s + (l.distance?.value ?? 0), 0);
+      const totalDur = route.legs.reduce((s, l) => s + (l.duration?.value ?? 0), 0);
+      setComparisonResult({
+        distance_km: Math.round(totalDist / 100) / 10,
+        duration_mins: Math.round(totalDur / 60),
+      });
+    } catch (err) {
+      console.error("Failed to render comparison route:", err);
+    }
   }, []);
 
   // Render the optimised route as a polyline on the map
@@ -152,6 +210,7 @@ export default function PlannerMapView({
         },
       });
       directionsRendererRef.current = renderer;
+      lastOptimisedWaypointsRef.current = optimisedWaypoints;
 
       // Auto-enable the live traffic layer so the optimised path is visualised against current congestion
       if (!trafficLayerRef.current) {
@@ -163,6 +222,17 @@ export default function PlannerMapView({
       console.error("Failed to render route on map:", err);
     }
   }, [clearRouteOverlay]);
+
+  // Show/hide the no-traffic comparison overlay
+  useEffect(() => {
+    if (showCompare && lastOptimisedWaypointsRef.current) {
+      renderComparisonRoute(lastOptimisedWaypointsRef.current);
+    } else if (!showCompare && comparisonRendererRef.current) {
+      comparisonRendererRef.current.setMap(null);
+      comparisonRendererRef.current = null;
+      setComparisonResult(null);
+    }
+  }, [showCompare, routeResult, renderComparisonRoute]);
 
   // Toggle Google's live traffic layer on/off
   useEffect(() => {
@@ -670,6 +740,23 @@ export default function PlannerMapView({
                 )}
             </Badge>
           )}
+          {showCompare && comparisonResult && routeResult && (
+            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700">
+              <span className="inline-block h-2 w-6 mr-1.5" style={{ background: "repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)" }} />
+              No-traffic: {comparisonResult.distance_km} km · {comparisonResult.duration_mins} mins
+              {(() => {
+                const live = routeResult.total_duration_in_traffic_mins ?? routeResult.total_duration_mins ?? 0;
+                const base = comparisonResult.duration_mins;
+                const delta = live - base;
+                if (!delta) return null;
+                return (
+                  <span className={`ml-1 font-semibold ${delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                    {delta > 0 ? `+${delta}` : delta} mins vs live
+                  </span>
+                );
+              })()}
+            </Badge>
+          )}
           {/* Legend */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground border rounded px-2 py-1">
             <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
@@ -724,6 +811,16 @@ export default function PlannerMapView({
           >
             <AlertTriangle className="mr-1.5 h-3.5 w-3.5" />
             {showTraffic ? "Hide Traffic" : "Live Traffic"}
+          </Button>
+          <Button
+            variant={showCompare ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setShowCompare((v) => !v)}
+            disabled={!routeResult}
+            title={!routeResult ? "Optimise a route first to compare" : "Overlay the fastest route ignoring live traffic (dashed amber) for comparison"}
+          >
+            <Route className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
+            {showCompare ? "Hide No-Traffic" : "Compare No-Traffic"}
           </Button>
           <Button
             variant="outline"
