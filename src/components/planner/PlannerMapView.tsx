@@ -223,6 +223,17 @@ export default function PlannerMapView({
     }
   }, [clearRouteOverlay]);
 
+  // Show/hide the no-traffic comparison overlay
+  useEffect(() => {
+    if (showCompare && lastOptimisedWaypointsRef.current) {
+      renderComparisonRoute(lastOptimisedWaypointsRef.current);
+    } else if (!showCompare && comparisonRendererRef.current) {
+      comparisonRendererRef.current.setMap(null);
+      comparisonRendererRef.current = null;
+      setComparisonResult(null);
+    }
+  }, [showCompare, routeResult, renderComparisonRoute]);
+
   // Toggle Google's live traffic layer on/off
   useEffect(() => {
     const map = mapInstanceRef.current;
