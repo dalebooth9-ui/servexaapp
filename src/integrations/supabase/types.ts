@@ -4078,6 +4078,7 @@ export type Database = {
       }
       vehicle_checks: {
         Row: {
+          auto_accepted_at: string | null
           check_date: string
           created_at: string
           defect_notes: string | null
@@ -4091,9 +4092,11 @@ export type Database = {
           reviewed_at: string | null
           reviewed_by: string | null
           status: string
+          submitted_at: string | null
           vehicle_reg: string | null
         }
         Insert: {
+          auto_accepted_at?: string | null
           check_date?: string
           created_at?: string
           defect_notes?: string | null
@@ -4107,9 +4110,11 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          submitted_at?: string | null
           vehicle_reg?: string | null
         }
         Update: {
+          auto_accepted_at?: string | null
           check_date?: string
           created_at?: string
           defect_notes?: string | null
@@ -4123,6 +4128,7 @@ export type Database = {
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: string
+          submitted_at?: string | null
           vehicle_reg?: string | null
         }
         Relationships: []
