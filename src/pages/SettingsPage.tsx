@@ -296,6 +296,7 @@ export default function SettingsPage() {
         </Card>
         <UserRoleSettings />
         <EmailDeliveryTestCard />
+        <EmailAutomationSettings />
         <EmailFromSettings />
         <FollowUpReminderSettings />
         <ComplianceReminderSettings />
