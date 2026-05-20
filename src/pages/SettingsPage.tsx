@@ -13,6 +13,7 @@ import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 import EmailFromSettings from "@/components/EmailFromSettings";
+import EmailAutomationSettings from "@/components/EmailAutomationSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
@@ -295,6 +296,7 @@ export default function SettingsPage() {
         </Card>
         <UserRoleSettings />
         <EmailDeliveryTestCard />
+        <EmailAutomationSettings />
         <EmailFromSettings />
         <FollowUpReminderSettings />
         <ComplianceReminderSettings />

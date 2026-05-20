@@ -4244,6 +4244,14 @@ export type Database = {
         }[]
       }
       generate_vfp_reference: { Args: never; Returns: string }
+      get_email_automation_status: {
+        Args: never
+        Returns: {
+          active: boolean
+          jobname: string
+          schedule: string
+        }[]
+      }
       get_user_org_id: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -4271,6 +4279,10 @@ export type Database = {
           msg_id: number
           read_ct: number
         }[]
+      }
+      set_email_automation_active: {
+        Args: { _active: boolean; _jobname: string }
+        Returns: boolean
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
