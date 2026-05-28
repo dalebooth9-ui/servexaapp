@@ -45,6 +45,8 @@ const PhotoChecklistCapture = lazy(() => import("@/components/PhotoChecklistCapt
 const AiJobBriefDialog = lazy(() => import("@/components/AiJobBriefDialog"));
 const TechnicianAssistant = lazy(() => import("@/components/TechnicianAssistant"));
 const EngineerAssignments = lazy(() => import("@/components/EngineerAssignments"));
+const SiteHistoryPanel = lazy(() => import("@/components/SiteHistoryPanel"));
+
 const WhatsAppReply = lazy(() => import("@/components/WhatsAppReply"));
 const AllocatedDaysTracker = lazy(() => import("@/components/AllocatedDaysTracker"));
 const JobMessages = lazy(() => import("@/components/JobMessages"));
