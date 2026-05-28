@@ -480,7 +480,7 @@ export async function buildCoverPage(
 
   const rowGap = 7;
 
-  const scopeParts = [
+  const rawScopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
     (jobInfo?.other_qty ?? 0) > 0
@@ -489,7 +489,12 @@ export async function buildCoverPage(
           : `${jobInfo!.other_qty} x systems`)
       : null,
   ].filter(Boolean).join("  |  ");
+  // Fallback: derive scope from job category when no quantities are set so the
+  // cover never shows an empty Service Scope row.
+  const categoryScope = categoryToScopeLabel(jobInfo?.category);
+  const scopeParts = rawScopeParts || (categoryScope ? `${categoryScope} x1` : "");
   const scopeLabel = scopeParts && !jobInfo?.pressure_test_qty && !jobInfo?.visual_qty ? "Scope:" : "Service Scope:";
+
 
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";
