@@ -1135,8 +1135,13 @@ export default function RamsEditor() {
                           value=""
                           onValueChange={(val) => {
                             const ep = engineerProfiles.find((e) => e.user_id === val);
-                            setApprovalFields({ ...approvalFields, approverName: ep?.full_name || val });
+                            setApprovalFields({
+                              ...approvalFields,
+                              approverName: ep?.full_name || val,
+                              approverSignature: approvalFields.approverSignature || ep?.signature_data || "",
+                            });
                           }}
+
                         >
                           <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
                             <Users className="h-3.5 w-3.5" />
