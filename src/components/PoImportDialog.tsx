@@ -159,6 +159,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
         priority: form.priority,
         category: form.category,
         due_date: form.due_date || null,
+        other_qty: extracted?.quantity && extracted.quantity > 0 ? extracted.quantity : 0,
         created_by: user.id,
       } as any)
       .select("id, reference_number")
