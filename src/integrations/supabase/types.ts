@@ -4227,6 +4227,13 @@ export type Database = {
       }
     }
     Functions: {
+      count_seed_test_jobs: {
+        Args: never
+        Returns: {
+          seed_jobs: number
+          seed_visits: number
+        }[]
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
