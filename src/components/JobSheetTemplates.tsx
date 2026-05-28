@@ -766,13 +766,46 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       if (cat === "hydrant_service" || cat === "fire_hydrant") return "fire_hydrant";
                       return "dry_riser";
                     })()}
-                    onApply={(result) => setAiRamsData({
-                      rams_description: result.description,
-                      rams_method_statement: result.method_statement,
-                      rams_hazards: result.hazards.join("\n"),
-                      rams_controls: result.controls.join("\n"),
-                      rams_ppe: result.ppe.join(", "),
-                    })}
+                    onApply={(result) => {
+                      const methodLines = (result.method_statement || "")
+                        .split("\n")
+                        .map((l) => l.trim())
+                        .filter(Boolean);
+                      const hazards = result.hazards || [];
+                      const controls = result.controls || [];
+                      const rowCount = Math.max(hazards.length, controls.length);
+                      const operationTask = (() => {
+                        const cat = jobInfo?.category || "";
+                        if (cat === "sprinkler" || cat === "sprinkler_service") return "Sprinkler System Servicing";
+                        if (cat === "extinguisher_service") return "Fire Extinguisher Servicing";
+                        if (cat === "hydrant_service" || cat === "fire_hydrant") return "Fire Hydrant Inspection";
+                        return "Dry Riser Inspection";
+                      })();
+                      const riskRows = Array.from({ length: rowCount }).map((_, i) => [
+                        operationTask,
+                        hazards[i] || "",
+                        "Operatives, other site personnel, public",
+                        "3", "3", "9",
+                        controls[i] || hazards[i] ? (controls[i] || "Refer to control measures") : "",
+                        "1", "2", "2",
+                        "",
+                      ]);
+                      setAiRamsData({
+                        // Keys read by the RAMS PDF generator
+                        _descriptionOfWork: result.description,
+                        _sequenceOfOps: methodLines,
+                        _significantRisks: hazards,
+                        _ppeItems: result.ppe || [],
+                        _riskRows: riskRows,
+                        // Backwards-compatible plain keys
+                        rams_description: result.description,
+                        rams_description_of_work: result.description,
+                        rams_method_statement: result.method_statement,
+                        rams_hazards: hazards.join("\n"),
+                        rams_controls: controls.join("\n"),
+                        rams_ppe: (result.ppe || []).join(", "),
+                      });
+                    }}
                   />
                   <RamsPdfExport
                     formData={aiRamsData || (latestRams ? (latestRams.responses as any) : {})}
