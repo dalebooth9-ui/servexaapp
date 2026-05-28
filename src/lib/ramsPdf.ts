@@ -4,7 +4,7 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
-import { RAMS_FOOTER_TOP } from "@/lib/ramsPdfBase";
+import { RAMS_FOOTER_TOP, categoryToScopeLabel } from "@/lib/ramsPdfBase";
 
 export type RamsFormData = Record<string, any>;
 
@@ -15,11 +15,13 @@ interface RamsJobInfo {
   customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
+  category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
   other_qty?: number;
   other_service_type?: string | null;
 }
+
 
 /* ─────────────────────────────────────────────────────────── helpers ── */
 
