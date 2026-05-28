@@ -129,6 +129,49 @@ Deno.serve(async (req) => {
       );
     }
 
+    const messageSid: string = twilioData.sid;
+
+    // Poll Twilio briefly to catch immediate delivery failures (e.g. 63016 — outside 24h window).
+    // WhatsApp typically reports failure within 1–3 seconds.
+    const statusUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages/${messageSid}.json`;
+    const authBasic = `Basic ${btoa(`${accountSid}:${authToken}`)}`;
+    let finalStatus: string = twilioData.status || "queued";
+    let errorCode: number | null = twilioData.error_code ?? null;
+    let errorMessage: string | null = twilioData.error_message ?? null;
+
+    for (let i = 0; i < 4; i++) {
+      await new Promise((r) => setTimeout(r, 750));
+      try {
+        const r = await fetch(statusUrl, { headers: { Authorization: authBasic } });
+        if (!r.ok) break;
+        const s = await r.json();
+        finalStatus = s.status;
+        errorCode = s.error_code ?? null;
+        errorMessage = s.error_message ?? null;
+        if (["delivered", "read", "sent", "failed", "undelivered"].includes(finalStatus)) break;
+      } catch (_) {
+        break;
+      }
+    }
+
+    const failed = finalStatus === "failed" || finalStatus === "undelivered" || errorCode != null;
+
+    if (failed) {
+      let friendly = errorMessage || `WhatsApp delivery ${finalStatus}`;
+      if (errorCode === 63016) {
+        friendly =
+          "WhatsApp won't deliver this message because it's been more than 24 hours since the engineer last messaged you. Ask the engineer to send any WhatsApp message to reopen the conversation window, then try again.";
+      } else if (errorCode === 63015) {
+        friendly = "WhatsApp rejected the message (engineer hasn't opted in to receive messages).";
+      } else if (errorCode === 63003) {
+        friendly = "WhatsApp number isn't reachable — check the engineer's WhatsApp number.";
+      }
+      return new Response(
+        JSON.stringify({ error: friendly, status: finalStatus, errorCode, messageSid }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     // Log the outbound message as a submission if jobId provided
     if (jobId) {
       const summary = `[Reply from office] ${message?.trim() || ""}${validMedia.length ? `\n(${validMedia.length} attachment${validMedia.length === 1 ? "" : "s"})` : ""}`.trim();
@@ -137,14 +180,15 @@ Deno.serve(async (req) => {
         engineer_id: engineerId,
         type: "note",
         content: summary,
-        whatsapp_message_id: twilioData.sid,
+        whatsapp_message_id: messageSid,
       });
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageSid: twilioData.sid, mediaSent: validMedia.length }),
+      JSON.stringify({ success: true, messageSid, status: finalStatus, mediaSent: validMedia.length }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+
   } catch (error) {
     const cfg = missingEnvResponse(error, corsHeaders);
     if (cfg) return cfg;
