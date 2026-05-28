@@ -1202,6 +1202,8 @@ export default function RamsEditor() {
                               ...supervisorFields,
                               supervisorName: ep?.full_name || val,
                               supervisorContact: supervisorFields.supervisorContact || ep?.phone || "",
+                              supervisorSignature: supervisorFields.supervisorSignature || ep?.signature_data || "",
+
                             });
                           }}
                         >
