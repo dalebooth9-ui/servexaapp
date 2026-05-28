@@ -481,7 +481,8 @@ export async function buildCoverPage(
   const contractLines = doc.splitTextToSize(contractVal, CONTENT_W - 3 - 52);
   ry += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
   const customerVal = jobInfo?.customers?.name || jobInfo?.customer || "";
-  if (customerVal) ry += rowGap;
+  const addressVal = jobInfo?.site?.address || "";
+
   const addressVal = jobInfo?.site?.address || jobInfo?.address || "";
   if (addressVal) {
     const addrLines = doc.splitTextToSize(addressVal, CONTENT_W - 3 - 52);
