@@ -136,9 +136,12 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
     return () => {
       cancelled = true;
     };
-  }, [currentJobId, siteId, normalisedAddress, hasUsableAddress]);
+  }, [currentJobId, siteId, normalisedAddress, hasUsableAddress, shouldRender]);
+
+  if (!shouldRender) return null;
 
   return (
+
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-base">
