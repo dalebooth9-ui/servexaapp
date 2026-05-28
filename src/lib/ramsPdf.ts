@@ -438,12 +438,15 @@ export async function generateRamsPdf(
     ? operatives.map((o) => o.name).filter(Boolean).join(", ")
     : "Viva Fire Operatives";
 
-  // Scope line for cover page
-  const scopeParts = [
+  // Scope line for cover page — fall back to a category-derived label so the
+  // row never renders empty when the job has no PT/Visual/Other quantities.
+  const rawScopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
     (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
   ].filter(Boolean).join("  |  ");
+  const categoryScope = categoryToScopeLabel(jobInfo?.category);
+  const scopeParts = rawScopeParts || (categoryScope ? `${categoryScope} x1` : "");
 
   const paraH = (text: string, maxW: number, size = 8.5): number => {
     doc.setFontSize(size);
