@@ -4,7 +4,7 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
-import { RAMS_FOOTER_TOP } from "@/lib/ramsPdfBase";
+import { RAMS_FOOTER_TOP, categoryToScopeLabel } from "@/lib/ramsPdfBase";
 
 export type RamsFormData = Record<string, any>;
 
@@ -15,11 +15,13 @@ interface RamsJobInfo {
   customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
+  category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
   other_qty?: number;
   other_service_type?: string | null;
 }
+
 
 /* ─────────────────────────────────────────────────────────── helpers ── */
 
@@ -396,7 +398,7 @@ export async function generateRamsPdf(
   // ── Resolve all dynamic content from formData (editor-saved fields) ──
   const contractName = formData["rams_contract_job_name"] || jobInfo?.name || "";
   const datePrepared = formData["rams_assessment_date"] || new Date().toLocaleDateString("en-GB");
-  const clientName   = formData["rams_client"] || jobInfo?.customers?.name || jobInfo?.customer || "";
+  const clientName   = formData["rams_client"] || jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "";
   const attendanceDate = formData["rams_attendance_date"] || "";
   const siteLocation = formData["rams_site_location"] ||
     (jobInfo?.site?.name
@@ -436,12 +438,15 @@ export async function generateRamsPdf(
     ? operatives.map((o) => o.name).filter(Boolean).join(", ")
     : "Viva Fire Operatives";
 
-  // Scope line for cover page
-  const scopeParts = [
+  // Scope line for cover page — fall back to a category-derived label so the
+  // row never renders empty when the job has no PT/Visual/Other quantities.
+  const rawScopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
     (jobInfo?.other_qty ?? 0) > 0 ? `${jobInfo!.other_service_type || "Other"} x${jobInfo!.other_qty}` : null,
   ].filter(Boolean).join("  |  ");
+  const categoryScope = categoryToScopeLabel(jobInfo?.category);
+  const scopeParts = rawScopeParts || (categoryScope ? `${categoryScope} x1` : "");
 
   const paraH = (text: string, maxW: number, size = 8.5): number => {
     doc.setFontSize(size);

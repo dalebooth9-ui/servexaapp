@@ -19,11 +19,35 @@ export interface RamsJobInfo {
   customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
+  category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
   other_qty?: number;
   other_service_type?: string | null;
 }
+
+/** Convert a job category slug into a human-readable scope label used as a
+ *  fallback on RAMS covers when no PT/Visual/Other quantities exist. */
+export function categoryToScopeLabel(cat?: string | null): string {
+  if (!cat) return "";
+  const map: Record<string, string> = {
+    dry_riser: "Dry Riser Inspection",
+    dry_riser_service: "Dry Riser Inspection",
+    dry_riser_installation: "Dry Riser Installation",
+    dry_riser_remedial: "Dry Riser Remedial Works",
+    wet_riser: "Wet Riser Inspection",
+    sprinkler: "Sprinkler Servicing",
+    sprinkler_service: "Sprinkler Servicing",
+    extinguisher_service: "Fire Extinguisher Servicing",
+    fire_extinguisher: "Fire Extinguisher Servicing",
+    hydrant_service: "Fire Hydrant Inspection",
+    fire_hydrant: "Fire Hydrant Inspection",
+    fire_alarm: "Fire Alarm Servicing",
+    emergency_lighting: "Emergency Lighting Servicing",
+  };
+  return map[cat] || cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 
 /* ─────────────────────────────────────── constants ── */
 export const PAGE_W = 210;
@@ -456,7 +480,7 @@ export async function buildCoverPage(
 
   const rowGap = 7;
 
-  const scopeParts = [
+  const rawScopeParts = [
     (jobInfo?.pressure_test_qty ?? 0) > 0 ? `Pressure Test x${jobInfo!.pressure_test_qty}` : null,
     (jobInfo?.visual_qty ?? 0) > 0 ? `Visual x${jobInfo!.visual_qty}` : null,
     (jobInfo?.other_qty ?? 0) > 0
@@ -465,7 +489,12 @@ export async function buildCoverPage(
           : `${jobInfo!.other_qty} x systems`)
       : null,
   ].filter(Boolean).join("  |  ");
+  // Fallback: derive scope from job category when no quantities are set so the
+  // cover never shows an empty Service Scope row.
+  const categoryScope = categoryToScopeLabel(jobInfo?.category);
+  const scopeParts = rawScopeParts || (categoryScope ? `${categoryScope} x1` : "");
   const scopeLabel = scopeParts && !jobInfo?.pressure_test_qty && !jobInfo?.visual_qty ? "Scope:" : "Service Scope:";
+
 
   doc.setFontSize(8.5);
   const reviewText = "Review date: This method statement and its associated risk assessments will be reviewed on an on-going basis for the duration of the works.";
@@ -480,7 +509,8 @@ export async function buildCoverPage(
   const contractVal = contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : "");
   const contractLines = doc.splitTextToSize(contractVal, CONTENT_W - 3 - 52);
   ry += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
-  const customerVal = jobInfo?.customers?.name || jobInfo?.customer || "";
+  // Fallback chain: customer record → free-text customer → site name → blank.
+  const customerVal = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "";
   const addressVal = jobInfo?.site?.address || "";
 
   if (addressVal) {
