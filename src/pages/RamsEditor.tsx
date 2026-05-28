@@ -1058,7 +1058,6 @@ export default function RamsEditor() {
                           onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
                         {engineerProfiles.length > 0 && (
                            <Select
-                             value=""
                              onValueChange={(val) => {
                                const ep = engineerProfiles.find((e) => e.user_id === val);
                                const next = [...personnelList];
@@ -1068,6 +1067,17 @@ export default function RamsEditor() {
                                  role: next[i].role || "Service Engineer",
                                };
                                setPersonnelList(next);
+                               // Auto-fill approver signature block from first selected engineer if blank
+                               if (ep?.signature_data) {
+                                 setApprovalFields((prev) => ({
+                                   ...prev,
+                                   approverName: prev.approverName || ep.full_name,
+                                   approverRole: prev.approverRole || (next[i].role || "Service Engineer"),
+                                   approverSignature: prev.approverSignature || ep.signature_data || "",
+                                 }));
+                               }
+                             }}
+
                              }}
                            >
                              <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
