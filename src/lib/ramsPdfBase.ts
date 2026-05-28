@@ -509,7 +509,8 @@ export async function buildCoverPage(
   const contractVal = contractName + (jobInfo?.reference_number ? `  [${jobInfo.reference_number}]` : "");
   const contractLines = doc.splitTextToSize(contractVal, CONTENT_W - 3 - 52);
   ry += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
-  const customerVal = jobInfo?.customers?.name || jobInfo?.customer || "";
+  // Fallback chain: customer record → free-text customer → site name → blank.
+  const customerVal = jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "";
   const addressVal = jobInfo?.site?.address || "";
 
   if (addressVal) {
