@@ -45,6 +45,8 @@ const PhotoChecklistCapture = lazy(() => import("@/components/PhotoChecklistCapt
 const AiJobBriefDialog = lazy(() => import("@/components/AiJobBriefDialog"));
 const TechnicianAssistant = lazy(() => import("@/components/TechnicianAssistant"));
 const EngineerAssignments = lazy(() => import("@/components/EngineerAssignments"));
+const SiteHistoryPanel = lazy(() => import("@/components/SiteHistoryPanel"));
+
 const WhatsAppReply = lazy(() => import("@/components/WhatsAppReply"));
 const AllocatedDaysTracker = lazy(() => import("@/components/AllocatedDaysTracker"));
 const JobMessages = lazy(() => import("@/components/JobMessages"));
@@ -539,7 +541,20 @@ export default function JobDetail() {
                     />
                   </div>
                 )}
+
+                {id && (
+                  <div className="mt-3">
+                    <Suspense fallback={null}>
+                      <SiteHistoryPanel
+                        currentJobId={id}
+                        siteId={job.site_id}
+                        address={job.address}
+                      />
+                    </Suspense>
+                  </div>
+                )}
               </div>
+
             ) : (
               <div className="rounded-lg border bg-card p-4 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
