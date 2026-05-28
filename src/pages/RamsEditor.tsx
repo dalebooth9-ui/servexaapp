@@ -1058,6 +1058,7 @@ export default function RamsEditor() {
                           onChange={(e) => { const next = [...personnelList]; next[i] = { ...next[i], name: e.target.value }; setPersonnelList(next); }} />
                         {engineerProfiles.length > 0 && (
                            <Select
+                             value=""
                              onValueChange={(val) => {
                                const ep = engineerProfiles.find((e) => e.user_id === val);
                                const next = [...personnelList];
@@ -1077,9 +1078,8 @@ export default function RamsEditor() {
                                  }));
                                }
                              }}
-
-                             }}
                            >
+
                              <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
                                <Users className="h-3.5 w-3.5" />
                              </SelectTrigger>
