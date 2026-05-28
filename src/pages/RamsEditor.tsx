@@ -479,7 +479,10 @@ export default function RamsEditor() {
           assessmentDate: d.assessment_date || new Date().toLocaleDateString("en-GB"),
           client: d.client || jobData?.customers?.name || jobData?.customer || "",
           attendanceDate: d.attendance_date || "",
-          siteLocation: d.site_location || (jobData?.sites?.address || jobData?.address || ""),
+          siteLocation: d.site_location || (jobData?.sites?.name
+            ? `${jobData.sites.name}${jobData.sites.address ? ", " + jobData.sites.address : ""}`
+            : (jobData?.sites?.address || "")),
+
         });
         setDescriptionOfWork(d.description_of_work || "");
         setSequenceOfOps(d.sequence_of_ops || []);
