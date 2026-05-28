@@ -411,7 +411,8 @@ export async function buildCoverPage(
   const attendanceDate = formData["rams_attendance_date"] || "";
   const siteLocation = jobInfo?.site?.name
     ? `${jobInfo.site.name}${jobInfo.site.address ? ", " + jobInfo.site.address : ""}`
-    : jobInfo?.address || "All areas / locations";
+    : (jobInfo?.site?.address || "All areas / locations");
+
 
   let operatives: { name: string; sig: string; date: string }[] = [];
   if (assignedEngineers && assignedEngineers.length > 0) {
