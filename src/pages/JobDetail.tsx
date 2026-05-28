@@ -538,6 +538,8 @@ export default function JobDetail() {
                           View full brief →
                         </button>
                       }
+                    />
+                  </div>
                 )}
 
                 {id && (
@@ -553,8 +555,6 @@ export default function JobDetail() {
                 )}
               </div>
 
-                )}
-              </div>
             ) : (
               <div className="rounded-lg border bg-card p-4 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
