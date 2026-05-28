@@ -374,7 +374,7 @@ export default function RamsEditor() {
 
   // Current user's profile for auto-fill
   const [myProfile, setMyProfile] = useState<{ full_name: string; signature_data: string | null } | null>(null);
-  const [engineerProfiles, setEngineerProfiles] = useState<{ user_id: string; full_name: string; phone: string | null }[]>([]);
+  const [engineerProfiles, setEngineerProfiles] = useState<{ user_id: string; full_name: string; phone: string | null; signature_data: string | null }[]>([]);
 
   useUnsavedChanges(isDirty, "You have unsaved changes to this RAMS document. Leave anyway?");
 
@@ -383,9 +383,10 @@ export default function RamsEditor() {
     if (!user) return;
     supabase.from("profiles").select("full_name, signature_data").eq("user_id", user.id).maybeSingle()
       .then(({ data }) => { if (data) setMyProfile(data); });
-    supabase.from("profiles").select("user_id, full_name, phone").not("full_name", "is", null).neq("full_name", "")
+    supabase.from("profiles").select("user_id, full_name, phone, signature_data").not("full_name", "is", null).neq("full_name", "")
       .then(({ data }) => { if (data) setEngineerProfiles(data as any); });
   }, [user]);
+
 
   // Form state — honour ?type= query param for pre-selection from Industry Templates
   const queryType = searchParams.get("type") as RamsType | null;
@@ -1067,8 +1068,18 @@ export default function RamsEditor() {
                                  role: next[i].role || "Service Engineer",
                                };
                                setPersonnelList(next);
+                               // Auto-fill approver signature block from first selected engineer if blank
+                               if (ep?.signature_data) {
+                                 setApprovalFields((prev) => ({
+                                   ...prev,
+                                   approverName: prev.approverName || ep.full_name,
+                                   approverRole: prev.approverRole || (next[i].role || "Service Engineer"),
+                                   approverSignature: prev.approverSignature || ep.signature_data || "",
+                                 }));
+                               }
                              }}
                            >
+
                              <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
                                <Users className="h-3.5 w-3.5" />
                              </SelectTrigger>
@@ -1124,8 +1135,13 @@ export default function RamsEditor() {
                           value=""
                           onValueChange={(val) => {
                             const ep = engineerProfiles.find((e) => e.user_id === val);
-                            setApprovalFields({ ...approvalFields, approverName: ep?.full_name || val });
+                            setApprovalFields({
+                              ...approvalFields,
+                              approverName: ep?.full_name || val,
+                              approverSignature: approvalFields.approverSignature || ep?.signature_data || "",
+                            });
                           }}
+
                         >
                           <SelectTrigger className="text-sm h-9 w-9 px-2 shrink-0" title="Pick from engineers">
                             <Users className="h-3.5 w-3.5" />
@@ -1186,6 +1202,8 @@ export default function RamsEditor() {
                               ...supervisorFields,
                               supervisorName: ep?.full_name || val,
                               supervisorContact: supervisorFields.supervisorContact || ep?.phone || "",
+                              supervisorSignature: supervisorFields.supervisorSignature || ep?.signature_data || "",
+
                             });
                           }}
                         >
