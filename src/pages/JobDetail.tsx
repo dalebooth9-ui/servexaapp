@@ -538,8 +538,21 @@ export default function JobDetail() {
                           View full brief →
                         </button>
                       }
-                    />
+                )}
+
+                {id && (
+                  <div className="mt-3">
+                    <Suspense fallback={null}>
+                      <SiteHistoryPanel
+                        currentJobId={id}
+                        siteId={job.site_id}
+                        address={job.address}
+                      />
+                    </Suspense>
                   </div>
+                )}
+              </div>
+
                 )}
               </div>
             ) : (
