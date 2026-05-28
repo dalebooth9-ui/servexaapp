@@ -65,11 +65,12 @@ export default function SiteHistoryPanel({ currentJobId, siteId, address }: Site
   const normalisedAddress = normAddr(address);
   const hasUsableAddress = normalisedAddress.length >= 5;
 
-  // Render nothing when there's nothing to match on
-  if (!siteId && !hasUsableAddress) return null;
+  const shouldRender = Boolean(siteId) || hasUsableAddress;
 
   useEffect(() => {
+    if (!shouldRender) return;
     let cancelled = false;
+
 
     (async () => {
       setLoading(true);
