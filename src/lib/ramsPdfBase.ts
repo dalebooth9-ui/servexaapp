@@ -19,11 +19,35 @@ export interface RamsJobInfo {
   customers?: { name: string; logo_url?: string | null } | null;
   address?: string | null;
   site?: { name: string; address: string | null } | null;
+  category?: string | null;
   pressure_test_qty?: number;
   visual_qty?: number;
   other_qty?: number;
   other_service_type?: string | null;
 }
+
+/** Convert a job category slug into a human-readable scope label used as a
+ *  fallback on RAMS covers when no PT/Visual/Other quantities exist. */
+export function categoryToScopeLabel(cat?: string | null): string {
+  if (!cat) return "";
+  const map: Record<string, string> = {
+    dry_riser: "Dry Riser Inspection",
+    dry_riser_service: "Dry Riser Inspection",
+    dry_riser_installation: "Dry Riser Installation",
+    dry_riser_remedial: "Dry Riser Remedial Works",
+    wet_riser: "Wet Riser Inspection",
+    sprinkler: "Sprinkler Servicing",
+    sprinkler_service: "Sprinkler Servicing",
+    extinguisher_service: "Fire Extinguisher Servicing",
+    fire_extinguisher: "Fire Extinguisher Servicing",
+    hydrant_service: "Fire Hydrant Inspection",
+    fire_hydrant: "Fire Hydrant Inspection",
+    fire_alarm: "Fire Alarm Servicing",
+    emergency_lighting: "Emergency Lighting Servicing",
+  };
+  return map[cat] || cat.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 
 /* ─────────────────────────────────────── constants ── */
 export const PAGE_W = 210;
