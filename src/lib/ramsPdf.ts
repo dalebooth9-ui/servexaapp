@@ -398,7 +398,7 @@ export async function generateRamsPdf(
   // ── Resolve all dynamic content from formData (editor-saved fields) ──
   const contractName = formData["rams_contract_job_name"] || jobInfo?.name || "";
   const datePrepared = formData["rams_assessment_date"] || new Date().toLocaleDateString("en-GB");
-  const clientName   = formData["rams_client"] || jobInfo?.customers?.name || jobInfo?.customer || "";
+  const clientName   = formData["rams_client"] || jobInfo?.customers?.name || jobInfo?.customer || jobInfo?.site?.name || "";
   const attendanceDate = formData["rams_attendance_date"] || "";
   const siteLocation = formData["rams_site_location"] ||
     (jobInfo?.site?.name
