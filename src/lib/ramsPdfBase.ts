@@ -411,7 +411,8 @@ export async function buildCoverPage(
   const attendanceDate = formData["rams_attendance_date"] || "";
   const siteLocation = jobInfo?.site?.name
     ? `${jobInfo.site.name}${jobInfo.site.address ? ", " + jobInfo.site.address : ""}`
-    : jobInfo?.address || "All areas / locations";
+    : (jobInfo?.site?.address || "All areas / locations");
+
 
   let operatives: { name: string; sig: string; date: string }[] = [];
   if (assignedEngineers && assignedEngineers.length > 0) {
@@ -480,8 +481,8 @@ export async function buildCoverPage(
   const contractLines = doc.splitTextToSize(contractVal, CONTENT_W - 3 - 52);
   ry += Math.max(rowGap, contractLines.length * (9 * 0.352778 + 1.2));
   const customerVal = jobInfo?.customers?.name || jobInfo?.customer || "";
-  if (customerVal) ry += rowGap;
-  const addressVal = jobInfo?.site?.address || jobInfo?.address || "";
+  const addressVal = jobInfo?.site?.address || "";
+
   if (addressVal) {
     const addrLines = doc.splitTextToSize(addressVal, CONTENT_W - 3 - 52);
     ry += Math.max(rowGap, addrLines.length * (9 * 0.352778 + 1.2));
