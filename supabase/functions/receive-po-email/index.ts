@@ -249,6 +249,27 @@ serve(async (req) => {
       noteParts.push(`Value: ${extracted.currency || ""}${extracted.total_value}`);
     }
 
+    // Quantity breakdown — mirror PoImportDialog.handleCreate so manual and
+    // email-intake paths produce identically-populated jobs.
+    const ptQty = Number(extracted.pressure_test_qty) > 0 ? Number(extracted.pressure_test_qty) : 0;
+    const vQty = Number(extracted.visual_qty) > 0 ? Number(extracted.visual_qty) : 0;
+    let oQty = Number(extracted.other_qty) > 0 ? Number(extracted.other_qty) : 0;
+    // Fallback: if AI didn't break the quantity down, treat the overall quantity
+    // as "other" (same convention PoImportDialog uses).
+    if (ptQty === 0 && vQty === 0 && oQty === 0 && Number(extracted.quantity) > 0) {
+      oQty = Number(extracted.quantity);
+    }
+
+    // Build an AI brief from the description + notes so the job has the same
+    // contextual field the manual flow eventually populates.
+    const briefParts: string[] = [];
+    if (extracted.job_description) briefParts.push(extracted.job_description);
+    if (extracted.notes) briefParts.push(`Notes: ${extracted.notes}`);
+    if (extracted.total_value != null) {
+      briefParts.push(`Value: ${extracted.currency || ""}${extracted.total_value}`);
+    }
+    const brief = briefParts.join("\n\n").trim() || null;
+
     const jobInsert: Record<string, unknown> = {
       name: safeName,
       customer_id: customerId,
@@ -259,6 +280,12 @@ serve(async (req) => {
       due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
       status: "pending_review",
       source: "email-intake",
+      pressure_test_qty: ptQty,
+      visual_qty: vQty,
+      other_qty: oQty,
+      other_service_type: (extracted.other_service_type || "").trim() || null,
+      brief,
+    };
     };
     if (extracted.po_number) {
       jobInsert.reference_number = extracted.po_number.trim();
