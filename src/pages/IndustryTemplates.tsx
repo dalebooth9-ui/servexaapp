@@ -1117,7 +1117,7 @@ export default function IndustryTemplates() {
     installation: "installation",
   };
 
-  const filtered = INDUSTRY_TEMPLATES.filter((t) => {
+  const filtered = industryTemplates.filter((t) => {
     const matchesSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.standard.toLowerCase().includes(search.toLowerCase());
     const matchesCat = activeCategory === "all" || t.category === activeCategory;
     return matchesSearch && matchesCat;
