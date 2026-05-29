@@ -304,7 +304,43 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         attendanceDate = new Date(schedules[0].schedule_date).toLocaleDateString("en-GB");
       }
 
-      const formData = { rams_attendance_date: attendanceDate };
+      // Resolve dynamic assessor (current user) and engineers list for personnel
+      let assessorName = "";
+      let engineersList = "";
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          assessorName = (prof as any)?.full_name || "";
+        }
+        const { data: engRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "engineer");
+        const engIds = (engRoles || []).map((r: any) => r.user_id);
+        if (engIds.length > 0) {
+          const { data: engProfs } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .in("user_id", engIds);
+          engineersList = (engProfs || [])
+            .map((p: any) => (p.full_name || "").trim())
+            .filter(Boolean)
+            .sort((a: string, b: string) => a.localeCompare(b))
+            .join(", ");
+        }
+      } catch {}
+
+      const formData = {
+        rams_attendance_date: attendanceDate,
+        _assessor: assessorName,
+        _keyResponsiblePersonnel: assessorName,
+        _engineersList: engineersList,
+      };
       const ramsType = ramsTypeForJob();
 
       let result: { base64: string; fileName: string };

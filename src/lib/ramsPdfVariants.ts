@@ -175,8 +175,8 @@ export async function generateSprinklerRamsPdf(
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
   labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Building occupants / other trades", ML, y, 36); y += 4.5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+  labelValue(doc, "Assessor:", (formData as any)._assessor || "", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", (formData as any)._keyResponsiblePersonnel || (formData as any)._assessor || "", ML, y, 46); y += 6;
   y = riskTableHeader(doc, rC, y);
   y = riskRow(doc, [
     "Human Factors",
@@ -271,7 +271,7 @@ export async function generateExtinguisherRamsPdf(
     ],
     location: "Throughout the building — corridors, stairwells, plant rooms, car parks and all designated extinguisher mounting points.",
     resources: "Minimum of: 1 Operative (BAFE SP101 qualified). 2 operatives for large sites.",
-    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    personnel: (formData as any)._personnel || (formData as any)._engineersList || "",
     plantAndEquipment: [
       "Hand tools and extinguisher service kit",
       "Calibrated pressure gauge",
@@ -286,7 +286,7 @@ export async function generateExtinguisherRamsPdf(
       "Handling chemicals (foam/wet chemical)", "Manual handling", "Slips/trips/falls",
       "Working in confined spaces", "Burns from CO2 (cold discharge)",
     ],
-    specialTraining: "BAFE SP101 Fire Extinguisher Technician – all servicing operatives. SSSTS – Martin Whatmough. All operatives hold current CSCS cards.",
+    specialTraining: (formData as any)._specialTraining || "BAFE SP101 Fire Extinguisher Technician – all servicing operatives. All operatives hold current CSCS cards.",
   }, pageRef, TOTAL_PAGES);
 
   const riskTitle = "Risk Assessment for Fire Extinguisher Servicing & Inspection";
@@ -378,8 +378,8 @@ export async function generateExtinguisherRamsPdf(
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
   labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Building occupants / public", ML, y, 36); y += 4.5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+  labelValue(doc, "Assessor:", (formData as any)._assessor || "", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", (formData as any)._keyResponsiblePersonnel || (formData as any)._assessor || "", ML, y, 46); y += 6;
   y = riskTableHeader(doc, rC, y);
   y = riskRow(doc, [
     "Human Factors", "Complacency with familiar tasks",
@@ -472,7 +472,7 @@ export async function generateHydrantRamsPdf(
     ],
     location: "Public highway, private road, car parks, estates and other locations as per the hydrant schedule.",
     resources: "Minimum of: 2 Operatives. 1 traffic management operative where road works are required.",
-    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    personnel: (formData as any)._personnel || (formData as any)._engineersList || "",
     plantAndEquipment: [
       "Hydrant standpipe and hydrant key",
       "Pitot gauge (calibrated)",
@@ -488,7 +488,7 @@ export async function generateHydrantRamsPdf(
       "Manual handling (heavy covers)", "Slips/trips/falls on wet road",
       "Flooding / surface water egress", "Lone working",
     ],
-    specialTraining: "SSSTS – Martin Whatmough. Street Works (NRSWA) Unit 2 – relevant operatives. Confined space awareness. All operatives hold current CSCS cards.",
+    specialTraining: (formData as any)._specialTraining || "Street Works (NRSWA) Unit 2 – relevant operatives. Confined space awareness. All operatives hold current CSCS cards.",
   }, pageRef, TOTAL_PAGES);
 
   const riskTitle = "Risk Assessment for Fire Hydrant Inspection & Flow Testing";
@@ -580,8 +580,8 @@ export async function generateHydrantRamsPdf(
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
   labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Public / highway users", ML, y, 36); y += 4.5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+  labelValue(doc, "Assessor:", (formData as any)._assessor || "", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", (formData as any)._keyResponsiblePersonnel || (formData as any)._assessor || "", ML, y, 46); y += 6;
   y = riskTableHeader(doc, rC, y);
   y = riskRow(doc, [
     "Human Factors", "Complacency on familiar highway works",
@@ -809,8 +809,8 @@ export async function generateInstallationRamsPdf(
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
   labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Other nearby contractors, public", ML, y, 36); y += 4.5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+  labelValue(doc, "Assessor:", (formData as any)._assessor || "", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", (formData as any)._keyResponsiblePersonnel || (formData as any)._assessor || "", ML, y, 46); y += 6;
   y = riskTableHeader(doc, rC, y);
   y = riskRow(doc, [
     "Moving plant / traffic / pedestrians",
