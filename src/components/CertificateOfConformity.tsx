@@ -350,16 +350,18 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
   // Use the commissioning ref as the stored reference_number so it's traceable
   const ref = jobInfo.commissioning_ref || jobInfo.reference_number || "";
 
-  // Load Dale Booth's profile signature automatically
-  let daleSig: string | null = null;
+  // Load the currently signed-in user's profile name & signature as the default signer
+  let signerName = "";
+  let signerSig: string | null = null;
   try {
-    const { data: daleProfiles } = await supabase
+    const { data: prof } = await supabase
       .from("profiles")
-      .select("signature_data")
-      .ilike("full_name", "%dale booth%")
-      .limit(1);
-    if (daleProfiles && daleProfiles.length > 0) {
-      daleSig = (daleProfiles[0] as any).signature_data || null;
+      .select("full_name, signature_data")
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (prof) {
+      signerName = (prof as any).full_name || "";
+      signerSig = (prof as any).signature_data || null;
     }
   } catch {}
 
