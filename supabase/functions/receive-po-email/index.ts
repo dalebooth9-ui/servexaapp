@@ -47,6 +47,10 @@ const EXTRACTION_SYSTEM_PROMPT = `You extract purchase order details from docume
 - po_number: purchase order number or reference number (look for "PO#", "PO Number", "Order No", "Reference", "Ref No")
 - job_description: full description of the work or goods ordered — include as much detail as possible
 - quantity: total quantity ordered as a number (look for "Qty", "Quantity", "Units", "No. of", default 1 if only one item and no quantity stated)
+- pressure_test_qty: number of items requiring pressure testing (look for "pressure test", "hydraulic test", "wet test"). Default 0 if none mentioned.
+- visual_qty: number of items requiring visual inspection only (look for "visual", "visual inspection", "visual check"). Default 0 if none mentioned.
+- other_qty: number of items for any other service type (anything not pressure test or visual). If the document only states a single overall quantity with no breakdown, put it here.
+- other_service_type: short label describing the "other" service when other_qty > 0 (e.g. "Installation", "Repair", "Survey"), else ""
 - due_date: required completion or delivery date in YYYY-MM-DD format, or "" if not found
 - priority: "high", "medium", or "low" based on urgency language such as "urgent", "ASAP", "priority" (default "medium")
 - total_value: numeric value of the PO if present (strip currency symbols), else null
@@ -57,7 +61,7 @@ Rules:
 - Extract ALL available information — do not leave fields empty if the information exists anywhere in the document
 - Company/customer names can be abbreviations, acronyms, or short codes — always copy them verbatim
 - Return ONLY the JSON object, no markdown, no explanation
-- If a field is truly not found, use empty string "" or null for numeric fields`;
+- If a field is truly not found, use empty string "" or null for numeric fields, or 0 for quantity fields`;
 
 interface ExtractedPO {
   customer_name?: string;
@@ -66,6 +70,10 @@ interface ExtractedPO {
   po_number?: string;
   job_description?: string;
   quantity?: number | null;
+  pressure_test_qty?: number | null;
+  visual_qty?: number | null;
+  other_qty?: number | null;
+  other_service_type?: string;
   due_date?: string;
   priority?: string;
   total_value?: number | null;
