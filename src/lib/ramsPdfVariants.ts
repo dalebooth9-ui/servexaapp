@@ -378,8 +378,8 @@ export async function generateExtinguisherRamsPdf(
   labelValue(doc, "Employees at Risk:", engineerNames, ML, y, 32); y += 4.5;
   labelValue(doc, "Location/Area:", siteLocTrunc, ML, y, 26); y += 4.5;
   labelValue(doc, "Other Persons at Risk:", "Building occupants / public", ML, y, 36); y += 4.5;
-  labelValue(doc, "Assessor:", "Dale Booth", ML, y, 18); y += 4.5;
-  labelValue(doc, "Key Responsible Personnel:", "Dale Booth", ML, y, 46); y += 6;
+  labelValue(doc, "Assessor:", (formData as any)._assessor || "", ML, y, 18); y += 4.5;
+  labelValue(doc, "Key Responsible Personnel:", (formData as any)._keyResponsiblePersonnel || (formData as any)._assessor || "", ML, y, 46); y += 6;
   y = riskTableHeader(doc, rC, y);
   y = riskRow(doc, [
     "Human Factors", "Complacency with familiar tasks",
