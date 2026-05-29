@@ -2570,6 +2570,8 @@ export type Database = {
       }
       job_schedule: {
         Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
           created_at: string
           created_by: string | null
           engineer_id: string
@@ -2581,6 +2583,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
           created_at?: string
           created_by?: string | null
           engineer_id: string
@@ -2592,6 +2596,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
           created_at?: string
           created_by?: string | null
           engineer_id?: string
