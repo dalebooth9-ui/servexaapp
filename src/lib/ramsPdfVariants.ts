@@ -472,7 +472,7 @@ export async function generateHydrantRamsPdf(
     ],
     location: "Public highway, private road, car parks, estates and other locations as per the hydrant schedule.",
     resources: "Minimum of: 2 Operatives. 1 traffic management operative where road works are required.",
-    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    personnel: (formData as any)._personnel || (formData as any)._engineersList || "",
     plantAndEquipment: [
       "Hydrant standpipe and hydrant key",
       "Pitot gauge (calibrated)",
