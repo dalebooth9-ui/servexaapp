@@ -381,8 +381,8 @@ export async function autoCreateConformityCert(jobId: string, userId: string, jo
     riser_locations: jobInfo.site?.riser_location || "",
     issue_date: today,
     sign_date: today,
-    engineer_name: "Dale Booth",
-    engineer_signature: daleSig,
+    engineer_name: signerName,
+    engineer_signature: signerSig,
     status: "draft",
     // Store org company name and system type so PDF can use them
     test_outcome: systemType,
