@@ -488,7 +488,7 @@ export async function generateHydrantRamsPdf(
       "Manual handling (heavy covers)", "Slips/trips/falls on wet road",
       "Flooding / surface water egress", "Lone working",
     ],
-    specialTraining: "SSSTS – Martin Whatmough. Street Works (NRSWA) Unit 2 – relevant operatives. Confined space awareness. All operatives hold current CSCS cards.",
+    specialTraining: (formData as any)._specialTraining || "Street Works (NRSWA) Unit 2 – relevant operatives. Confined space awareness. All operatives hold current CSCS cards.",
   }, pageRef, TOTAL_PAGES);
 
   const riskTitle = "Risk Assessment for Fire Hydrant Inspection & Flow Testing";
