@@ -970,6 +970,49 @@ export default function IndustryTemplates() {
   const [bulkExporting, setBulkExporting] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [bulkTotal, setBulkTotal] = useState(0);
+  const [engineerNames, setEngineerNames] = useState<string[] | null>(null);
+
+  // Load engineer full names once on mount, used to populate the
+  // Dry Riser Pressure Test "Engineers Name" select dynamically.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", "engineer");
+      const userIds = (roles || []).map((r: any) => r.user_id);
+      if (userIds.length === 0) {
+        if (!cancelled) setEngineerNames([]);
+        return;
+      }
+      const { data: profiles } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .in("user_id", userIds);
+      const names = (profiles || [])
+        .map((p: any) => (p.full_name || "").trim())
+        .filter(Boolean)
+        .sort((a: string, b: string) => a.localeCompare(b));
+      if (!cancelled) setEngineerNames(names);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Apply the dynamic engineer list to the Dry Riser Pressure Test template's
+  // technician_name field. Other templates are untouched.
+  const industryTemplates = (() => {
+    const engineerOptions = engineerNames ?? ["Loading engineers…"];
+    return INDUSTRY_TEMPLATES.map((tpl) => {
+      if (tpl.id !== "dr-pressure-test") return tpl;
+      return {
+        ...tpl,
+        fields: tpl.fields.map((f) =>
+          f.id === "technician_name" ? { ...f, options: engineerOptions } : f
+        ),
+      };
+    });
+  })();
 
   useEffect(() => {
     let cancelled = false;
@@ -1074,7 +1117,7 @@ export default function IndustryTemplates() {
     installation: "installation",
   };
 
-  const filtered = INDUSTRY_TEMPLATES.filter((t) => {
+  const filtered = industryTemplates.filter((t) => {
     const matchesSearch = !search || t.name.toLowerCase().includes(search.toLowerCase()) || t.standard.toLowerCase().includes(search.toLowerCase());
     const matchesCat = activeCategory === "all" || t.category === activeCategory;
     return matchesSearch && matchesCat;
