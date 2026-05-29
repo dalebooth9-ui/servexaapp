@@ -9,7 +9,10 @@ export interface TemplateEntry {
 }
 
 import { template as newJobFromApi } from './new-job-from-api.tsx'
+import { template as certificateReady } from './certificate-ready.tsx'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'new-job-from-api': newJobFromApi,
+  'certificate-ready': certificateReady,
 }
+
