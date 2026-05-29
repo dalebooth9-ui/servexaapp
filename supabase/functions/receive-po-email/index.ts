@@ -286,7 +286,6 @@ serve(async (req) => {
       other_service_type: (extracted.other_service_type || "").trim() || null,
       brief,
     };
-    };
     if (extracted.po_number) {
       jobInsert.reference_number = extracted.po_number.trim();
     }
