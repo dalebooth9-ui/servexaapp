@@ -271,7 +271,7 @@ export async function generateExtinguisherRamsPdf(
     ],
     location: "Throughout the building — corridors, stairwells, plant rooms, car parks and all designated extinguisher mounting points.",
     resources: "Minimum of: 1 Operative (BAFE SP101 qualified). 2 operatives for large sites.",
-    personnel: "Dale Booth, Martin Whatmough, Daniel Hall, Thomas Vernon, Devon Dunkerley, Calvin Whittaker, Mark Roberts, Wayne Smith",
+    personnel: (formData as any)._personnel || (formData as any)._engineersList || "",
     plantAndEquipment: [
       "Hand tools and extinguisher service kit",
       "Calibrated pressure gauge",
