@@ -286,7 +286,7 @@ export async function generateExtinguisherRamsPdf(
       "Handling chemicals (foam/wet chemical)", "Manual handling", "Slips/trips/falls",
       "Working in confined spaces", "Burns from CO2 (cold discharge)",
     ],
-    specialTraining: "BAFE SP101 Fire Extinguisher Technician – all servicing operatives. SSSTS – Martin Whatmough. All operatives hold current CSCS cards.",
+    specialTraining: (formData as any)._specialTraining || "BAFE SP101 Fire Extinguisher Technician – all servicing operatives. All operatives hold current CSCS cards.",
   }, pageRef, TOTAL_PAGES);
 
   const riskTitle = "Risk Assessment for Fire Extinguisher Servicing & Inspection";
