@@ -76,7 +76,45 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       }
 
       const effectiveMode = forceMode ?? mode;
-      const mergedFormData = { ...formData, rams_attendance_date: attendanceDate };
+
+      // Resolve dynamic assessor (current user) and engineers list for personnel
+      let assessorName = "";
+      let engineersList = "";
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("user_id", user.id)
+            .maybeSingle();
+          assessorName = (prof as any)?.full_name || "";
+        }
+        const { data: engRoles } = await supabase
+          .from("user_roles")
+          .select("user_id")
+          .eq("role", "engineer");
+        const engIds = (engRoles || []).map((r: any) => r.user_id);
+        if (engIds.length > 0) {
+          const { data: engProfs } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .in("user_id", engIds);
+          engineersList = (engProfs || [])
+            .map((p: any) => (p.full_name || "").trim())
+            .filter(Boolean)
+            .sort((a: string, b: string) => a.localeCompare(b))
+            .join(", ");
+        }
+      } catch {}
+
+      const mergedFormData = {
+        ...formData,
+        rams_attendance_date: attendanceDate,
+        _assessor: (formData as any)._assessor || assessorName,
+        _keyResponsiblePersonnel: (formData as any)._keyResponsiblePersonnel || assessorName,
+        _engineersList: engineersList,
+      };
 
       // Dispatch to the correct generator
       let result: { base64: string; fileName: string };
