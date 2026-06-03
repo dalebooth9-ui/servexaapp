@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { PenLine, Trash2, RotateCcw, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -15,7 +17,25 @@ interface Signature {
   signer_id: string;
 }
 
-export default function SignatureCapture({ jobId }: { jobId: string }) {
+interface Props {
+  jobId: string;
+  /** Which role this pad captures. Defaults to engineer (uses current user's name). */
+  signerRole?: "engineer" | "customer";
+  /** Prefilled name for the signer (used as default for customer mode). */
+  defaultSignerName?: string;
+  /** Only show signatures matching this role in the list. */
+  filterByRole?: boolean;
+  /** Heading shown above the pad. */
+  heading?: string;
+}
+
+export default function SignatureCapture({
+  jobId,
+  signerRole = "engineer",
+  defaultSignerName = "",
+  filterByRole = false,
+  heading,
+}: Props) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -26,14 +46,17 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [customerName, setCustomerName] = useState(defaultSignerName);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
 
   const fetchSignatures = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("job_signatures" as any)
       .select("*")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
+    if (filterByRole) query = query.eq("signer_role", signerRole);
+    const { data } = await query;
     const sigs = (data as any[]) || [];
     setSignatures(sigs);
 
@@ -107,22 +130,29 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !user || !hasStrokes) return;
+    if (signerRole === "customer" && !customerName.trim()) {
+      toast({ title: "Customer name required", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
     try {
-      // Get user profile name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .single();
+      let resolvedName = customerName.trim();
+      if (signerRole !== "customer") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single();
+        resolvedName = profile?.full_name || "Unknown";
+      }
 
       // Convert canvas to blob
       const blob = await new Promise<Blob>((resolve) => {
         canvas.toBlob((b) => resolve(b!), "image/png");
       });
 
-      const filePath = `${user.id}/${jobId}-${Date.now()}.png`;
+      const filePath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
       const { error: uploadErr } = await supabase.storage
         .from("signatures")
         .upload(filePath, blob, { contentType: "image/png" });
@@ -131,8 +161,8 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
         job_id: jobId,
         signer_id: user.id,
-        signer_name: profile?.full_name || "Unknown",
-        signer_role: userRole || "engineer",
+        signer_name: resolvedName,
+        signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
         file_path: filePath,
       } as any);
       if (insertErr) throw insertErr;
@@ -140,6 +170,7 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
       toast({ title: "Signature saved" });
       clearCanvas();
       setDrawing(false);
+      if (signerRole === "customer") setCustomerName(defaultSignerName);
       fetchSignatures();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -163,6 +194,7 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
 
   return (
     <div className="space-y-4">
+      {heading && <p className="text-sm font-medium">{heading}</p>}
       {/* Existing signatures */}
       {signatures.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -200,6 +232,17 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
       {/* Capture pad */}
       {drawing ? (
         <div className="space-y-3">
+          {signerRole === "customer" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="customer-sig-name" className="text-xs">Customer name</Label>
+              <Input
+                id="customer-sig-name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Full name of person signing"
+              />
+            </div>
+          )}
           <div className="rounded-lg border-2 border-dashed border-muted-foreground/30 bg-background overflow-hidden">
             <canvas
               ref={canvasRef}
@@ -230,7 +273,7 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
-          <PenLine className="mr-1.5 h-4 w-4" /> Add Signature
+          <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Add Signature"}
         </Button>
       )}
     </div>
