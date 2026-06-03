@@ -509,6 +509,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const DOC_TYPE_ORDER: Record<string, number> = { rams_pdf: 0, pre_start_checklist: 1 };
   const allJobDocs = docs
     .filter((d) => d.source !== "customer_paperwork")
+    .filter((d) => userRole === "admin" || (d.document_type !== "quote" && !(d.document_type === "uploaded_file" && d.label === "Costing Sheet")))
     .sort((a, b) => {
       const ao = DOC_TYPE_ORDER[a.document_type] ?? 99;
       const bo = DOC_TYPE_ORDER[b.document_type] ?? 99;
