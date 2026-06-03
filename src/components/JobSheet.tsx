@@ -389,8 +389,8 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         </Card>
           )}
 
-          {/* Job Sheet Templates — admin-only editor */}
-          {userRole === "admin" && <JobSheetTemplates jobId={jobId} />}
+          {/* Job Sheet Templates — engineers fill in, admins also manage */}
+          <JobSheetTemplates jobId={jobId} />
           {/* Certificate of Conformity (installation jobs) */}
           <CertificateOfConformity jobId={jobId} />
         </div>
