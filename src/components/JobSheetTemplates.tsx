@@ -558,13 +558,16 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         return;
       }
 
-      const existingDraft = responses.find((resp) => resp.template_id === detail.templateId && resp.status === "draft");
+      const existingDraft = responses.find((resp) => {
+        if (resp.template_id !== detail.templateId || resp.status !== "draft") return false;
+        return userRole === "admin" || resp.submitted_by === user?.id;
+      });
       handleStartForm(template, existingDraft);
     };
 
     window.addEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
     return () => window.removeEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
-  }, [jobId, allTemplates, responses]);
+  }, [jobId, allTemplates, responses, user?.id, userRole]);
 
   // Reset form data back to master template defaults, preserving job auto-populated fields
   const handleResetToTemplate = () => {
@@ -890,8 +893,8 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           <Badge variant="secondary" className="text-[10px] shrink-0">Draft</Badge>
                         </div>
                         <div className="flex items-center gap-1 shrink-0 ml-2">
-                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => tpl && handleStartForm(tpl, resp)}>
-                            Continue
+                          <Button variant="ghost" size="sm" className="h-7 text-xs px-2" onClick={() => tpl && handleStartForm(tpl, canEdit ? resp : undefined)}>
+                            {canEdit ? "Continue" : "Fill In"}
                           </Button>
                           {tpl && <BlankTemplatePdfExport template={tpl} jobInfo={jobInfo} />}
                           {canEdit && (
