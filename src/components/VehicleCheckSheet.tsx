@@ -9,30 +9,16 @@ import { Card } from "@/components/ui/card";
 import { Loader2, Car, AlertTriangle, Camera, X, CheckCircle2, Clock, RotateCcw } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { DEFAULT_VEHICLE_CHECK_ITEMS, loadVehicleCheckItems, type VehicleCheckItem } from "@/lib/vehicleCheckItems";
 
-const CHECK_ITEMS = [
-  { key: "tyres", label: "Tyres (tread, pressure, condition)" },
-  { key: "lights", label: "Lights (head, tail, indicators, brake)" },
-  { key: "oil", label: "Oil level" },
-  { key: "washer_fluid", label: "Washer fluid" },
-  { key: "mirrors", label: "Mirrors clean & adjusted" },
-  { key: "wipers", label: "Wipers working" },
-  { key: "horn", label: "Horn" },
-  { key: "brakes", label: "Brakes (feel, handbrake)" },
-  { key: "fuel_charge", label: "Fuel / charge level" },
-  { key: "cleanliness", label: "Vehicle clean (interior & exterior)" },
-  { key: "ladder_secured", label: "Ladder secured" },
-  { key: "tools_secured", label: "Tools secured" },
-  { key: "fire_extinguisher", label: "Fire extinguisher in van" },
-  { key: "first_aid_kit", label: "First aid kit present" },
-];
+type ItemValue = "ok" | "defect" | "na";
 
 type LatestCheck = {
   id: string;
   status: string;
   rejection_reason: string | null;
   vehicle_reg: string | null;
-  items: Record<string, "ok" | "defect"> | null;
+  items: Record<string, ItemValue> | null;
   has_defects: boolean;
   defect_notes: string | null;
 } | null;
@@ -50,12 +36,24 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [vehicleReg, setVehicleReg] = useState("");
   const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
-  const [items, setItems] = useState<Record<string, "ok" | "defect" | null>>(
-    Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null]))
+  const [checkItems, setCheckItems] = useState<VehicleCheckItem[]>(DEFAULT_VEHICLE_CHECK_ITEMS);
+  const [items, setItems] = useState<Record<string, ItemValue | null>>(
+    Object.fromEntries(DEFAULT_VEHICLE_CHECK_ITEMS.map((i) => [i.key, null]))
   );
   const [defectNotes, setDefectNotes] = useState("");
   const [photos, setPhotos] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    loadVehicleCheckItems().then((rows) => {
+      setCheckItems(rows);
+      setItems((prev) => {
+        const next: Record<string, ItemValue | null> = {};
+        rows.forEach((r) => { next[r.key] = prev[r.key] ?? null; });
+        return next;
+      });
+    });
+  }, []);
 
   const regKey = user ? `vfc_reg_${user.id}` : null;
 
@@ -106,7 +104,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       setVehicleReg(latest.vehicle_reg || "");
       if (latest.items) {
         setItems({
-          ...Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null])),
+          ...Object.fromEntries(checkItems.map((i) => [i.key, null])),
           ...latest.items,
         });
       }
@@ -116,9 +114,9 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   };
 
   const hasDefects = Object.values(items).some((v) => v === "defect");
-  const allAnswered = Object.values(items).every((v) => v !== null);
+  const allAnswered = checkItems.every((it) => items[it.key] != null);
 
-  const setItem = (key: string, value: "ok" | "defect") => {
+  const setItem = (key: string, value: ItemValue) => {
     setItems((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -313,7 +311,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
           Walk-around checks
         </p>
-        {CHECK_ITEMS.map((item) => (
+        {checkItems.map((item) => (
           <div key={item.key} className="flex items-center justify-between py-2 border-b last:border-0">
             <span className="text-sm flex-1 pr-2">{item.label}</span>
             <div className="flex gap-1.5 shrink-0">
@@ -339,6 +337,19 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
               >
                 Defect
               </button>
+              {item.allow_na && (
+                <button
+                  type="button"
+                  onClick={() => setItem(item.key, "na")}
+                  className={`h-9 px-3 rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                    items[item.key] === "na"
+                      ? "bg-slate-500 text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  N/A
+                </button>
+              )}
             </div>
           </div>
         ))}
