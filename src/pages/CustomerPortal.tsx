@@ -139,8 +139,8 @@ export default function CustomerPortal() {
       if (siteIds.length) {
         const { data: siteData } = await supabase.from("sites")
           .select("id, name, address, postcode").in("id", siteIds);
-        const { data: fireTokens } = await supabase.from("fire_log_tokens" as any)
-          .select("site_id, token, is_active").in("site_id", siteIds);
+        const { data: fireTokens } = await supabase
+          .rpc("get_portal_fire_log_tokens" as any, { _portal_token: token });
         const { data: assets } = await supabase.from("assets").select("id, site_id").in("site_id", siteIds);
 
         const siteList: Site[] = (siteData || []).map((s: any) => {
@@ -162,9 +162,8 @@ export default function CustomerPortal() {
 
       // Sign-offs
       if (jobIds.length) {
-        const { data: hd } = await supabase.from("handover_tokens" as any)
-          .select("id, job_id, status, signed_at, customer_name, created_at, token")
-          .in("job_id", jobIds).order("created_at", { ascending: false });
+        const { data: hd } = await supabase
+          .rpc("get_portal_handover_tokens" as any, { _portal_token: token });
         setSignOffs((hd || []) as any);
       }
 
