@@ -312,6 +312,9 @@ export async function generateJobSheetPdf(
     { brandingSubtitle: branding.company_subtitle ?? null },
   );
 
+  const headerAccent = isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor;
+  const ptToMm = (pt: number) => pt * 0.3527777778;
+
   let y = await renderPdfHeader(doc, sheetTitle, branding, {
     customerName,
     siteName: siteDisplay,
@@ -321,7 +324,23 @@ export async function generateJobSheetPdf(
     riserLocation: riserLocValue,
     numberOfOutlets: numberOfOutletsValue,
     w3wAddress,
-  }, sheetSubtitle, accentColor);
+  }, isDryRiser ? "BS 9990:2015" : sheetSubtitle, headerAccent, {
+    compact: isDryRiser,
+    marginX: margin,
+    style: isDryRiser
+      ? {
+          logo: {
+            maxW: 100,
+            maxH: DRY_RISER_LAYOUT.header.logoHeightMm,
+            topY: DRY_RISER_LAYOUT.page.marginTopMm,
+          },
+          title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
+          standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
+          standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
+          separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
+        }
+      : undefined,
+  });
 
   // Service scope line removed per request — kept off the job sheet PDF.
 
