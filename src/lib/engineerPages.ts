@@ -9,6 +9,7 @@ export const ENGINEER_ALLOWED_SLUGS = [
   "report-downloads",
   "install",
   "offline",
+  "site-surveys",
 ] as const;
 
 // Pages that can be toggled on/off for individual engineers in the admin UI.
@@ -20,6 +21,7 @@ export const ENGINEER_TOGGLABLE_PAGES = [
   { slug: "reports", label: "Reports" },
   { slug: "report-downloads", label: "Report Downloads" },
   { slug: "install", label: "Install" },
+  { slug: "site-surveys", label: "Site Surveys" },
 ] as const;
 
 // Default pages granted to new engineers.
@@ -32,6 +34,7 @@ export const DEFAULT_ENGINEER_PAGES = [
   "report-downloads",
   "install",
   "offline",
+  "site-surveys",
 ];
 
 // Map route paths to page slugs for access checking.
@@ -47,4 +50,5 @@ export const ROUTE_TO_SLUG: Record<string, string> = {
   "/report-downloads": "report-downloads",
   "/install": "install",
   "/offline": "offline",
+  "/site-surveys": "site-surveys",
 };

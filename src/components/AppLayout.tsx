@@ -38,6 +38,7 @@ import { CSS } from "@dnd-kit/utilities";
 const DEFAULT_NAV_ITEMS = [
 { to: "/", label: "Dashboard", icon: LayoutDashboard, section: "main" },
 { to: "/jobs", label: "Jobs", icon: Briefcase, section: "operations" },
+{ to: "/site-surveys", label: "Site Surveys", icon: ClipboardList, section: "operations" },
 { to: "/planner", label: "Planner", icon: CalendarDays, section: "operations" },
 { to: "/leave", label: "Leave", icon: Palmtree, section: "operations" },
 { to: "/customers", label: "Customers", icon: Building2, section: "operations", adminOnly: true },
