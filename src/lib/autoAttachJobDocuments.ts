@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type CategoryKey = "pressure_test" | "visual" | "other";
+export type CategoryKey = "pressure_test" | "visual" | "other" | "category_default";
 
 export interface TemplateOption {
   id: string;
@@ -34,6 +34,13 @@ interface BuildPlanInput {
   jobCategory: string | null;
   qtys: { pressure_test: number; visual: number; other: number };
   otherServiceType?: string | null;
+  /**
+   * When > 0, add a fallback bucket that attaches a single canonical job sheet
+   * matched purely by `job_category` (used for categories like sprinkler /
+   * wet riser / fire hydrant that don't drive attachments through qty fields).
+   * Existing attachments are still respected — no duplicates.
+   */
+  categoryDefaultQty?: number;
 }
 
 /**
@@ -42,7 +49,7 @@ interface BuildPlanInput {
  * candidates apply.
  */
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
-  const { jobId, jobCategory, qtys, otherServiceType } = input;
+  const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0 } = input;
 
   // Pull all templates + existing responses + per-job template locks in parallel
   const [tplsRes, respsRes, locksRes] = await Promise.all([
@@ -62,6 +69,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     { key: "pressure_test", target: qtys.pressure_test, matchCategory: "pressure_test", preferJobCategory: jobCategory },
     { key: "visual", target: qtys.visual, matchCategory: "visual", preferJobCategory: jobCategory },
     { key: "other", target: qtys.other, matchCategory: null, preferJobCategory: otherServiceType || jobCategory },
+    { key: "category_default", target: categoryDefaultQty, matchCategory: null, preferJobCategory: jobCategory },
   ];
 
   for (const b of buckets) {
