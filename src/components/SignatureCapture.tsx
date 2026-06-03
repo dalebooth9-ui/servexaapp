@@ -130,22 +130,29 @@ export default function SignatureCapture({
   const handleSave = async () => {
     const canvas = canvasRef.current;
     if (!canvas || !user || !hasStrokes) return;
+    if (signerRole === "customer" && !customerName.trim()) {
+      toast({ title: "Customer name required", variant: "destructive" });
+      return;
+    }
     setSaving(true);
 
     try {
-      // Get user profile name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", user.id)
-        .single();
+      let resolvedName = customerName.trim();
+      if (signerRole !== "customer") {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("user_id", user.id)
+          .single();
+        resolvedName = profile?.full_name || "Unknown";
+      }
 
       // Convert canvas to blob
       const blob = await new Promise<Blob>((resolve) => {
         canvas.toBlob((b) => resolve(b!), "image/png");
       });
 
-      const filePath = `${user.id}/${jobId}-${Date.now()}.png`;
+      const filePath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
       const { error: uploadErr } = await supabase.storage
         .from("signatures")
         .upload(filePath, blob, { contentType: "image/png" });
@@ -154,8 +161,8 @@ export default function SignatureCapture({
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({
         job_id: jobId,
         signer_id: user.id,
-        signer_name: profile?.full_name || "Unknown",
-        signer_role: userRole || "engineer",
+        signer_name: resolvedName,
+        signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
         file_path: filePath,
       } as any);
       if (insertErr) throw insertErr;
@@ -163,6 +170,7 @@ export default function SignatureCapture({
       toast({ title: "Signature saved" });
       clearCanvas();
       setDrawing(false);
+      if (signerRole === "customer") setCustomerName(defaultSignerName);
       fetchSignatures();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
