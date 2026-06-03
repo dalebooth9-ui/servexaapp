@@ -82,6 +82,10 @@ function tintWatermark(watermark: HTMLImageElement, color: RgbTriple): string {
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
     if (a < 10) continue; // skip fully transparent pixels
+    // The source PNG already has partial alpha; if we also apply jsPDF opacity
+    // the watermark becomes effectively invisible. Normalise visible pixels and
+    // let the saved PDF opacity setting be the single source of transparency.
+    data[i + 3] = 255;
 
     // Perceived luminance of original pixel (0 = black, 1 = white)
     const lum = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
