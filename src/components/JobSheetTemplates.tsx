@@ -1673,7 +1673,7 @@ function renderFormField(
       );
     }
     case "photo":
-      return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
+      return <PhotoField value={value} onChange={onChange} fieldId={field.id} jobId={jobId} userId={userId} />;
     case "signature":
       return <SignatureField value={value} onChange={onChange} />;
     case "repeating_table": {
