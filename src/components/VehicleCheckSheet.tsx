@@ -32,7 +32,7 @@ type LatestCheck = {
   status: string;
   rejection_reason: string | null;
   vehicle_reg: string | null;
-  items: Record<string, "ok" | "defect" | "na"> | null;
+  items: Record<string, "ok" | "defect"> | null;
   has_defects: boolean;
   defect_notes: string | null;
 } | null;
@@ -50,7 +50,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [vehicleReg, setVehicleReg] = useState("");
   const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
-  const [items, setItems] = useState<Record<string, "ok" | "defect" | "na" | null>>(
+  const [items, setItems] = useState<Record<string, "ok" | "defect" | null>>(
     Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null]))
   );
   const [defectNotes, setDefectNotes] = useState("");
@@ -118,7 +118,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const hasDefects = Object.values(items).some((v) => v === "defect");
   const allAnswered = Object.values(items).every((v) => v !== null);
 
-  const setItem = (key: string, value: "ok" | "defect" | "na") => {
+  const setItem = (key: string, value: "ok" | "defect") => {
     setItems((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -338,17 +338,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
                 }`}
               >
                 Defect
-              </button>
-              <button
-                type="button"
-                onClick={() => setItem(item.key, "na")}
-                className={`h-9 px-3 rounded-lg text-xs font-medium transition-all active:scale-95 ${
-                  items[item.key] === "na"
-                    ? "bg-muted-foreground text-background"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                N/A
               </button>
             </div>
           </div>
