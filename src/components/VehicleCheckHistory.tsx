@@ -8,7 +8,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera, ImageOff, Download } from "lucide-react";
+import { ChevronDown, CheckCircle2, Clock, XCircle, AlertTriangle, Loader2, Camera, ImageOff, Download, MinusCircle } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import JSZip from "jszip";
