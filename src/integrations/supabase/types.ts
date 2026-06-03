@@ -2773,6 +2773,59 @@ export type Database = {
           },
         ]
       }
+      job_site_surveys: {
+        Row: {
+          access_notes: string | null
+          asset_locations: string | null
+          created_at: string
+          created_by: string | null
+          hazards: string | null
+          id: string
+          job_id: string
+          notes: string | null
+          parking_welfare: string | null
+          recommendations: string | null
+          sketch_url: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_notes?: string | null
+          asset_locations?: string | null
+          created_at?: string
+          created_by?: string | null
+          hazards?: string | null
+          id?: string
+          job_id: string
+          notes?: string | null
+          parking_welfare?: string | null
+          recommendations?: string | null
+          sketch_url?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_notes?: string | null
+          asset_locations?: string | null
+          created_at?: string
+          created_by?: string | null
+          hazards?: string | null
+          id?: string
+          job_id?: string
+          notes?: string | null
+          parking_welfare?: string | null
+          recommendations?: string | null
+          sketch_url?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "job_site_surveys_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: true
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       job_template_locks: {
         Row: {
           bucket: string

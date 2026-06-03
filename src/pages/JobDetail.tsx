@@ -61,6 +61,7 @@ const SubmissionList = lazy(() => import("@/components/jobs/SubmissionList"));
 const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertificates"));
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
+const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -806,6 +807,16 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <JobSheet jobId={id!} job={job} />
+        </CollapsibleContent>
+      </Collapsible>
+
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Site Survey
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <SiteSurveyCard jobId={id!} />
         </CollapsibleContent>
       </Collapsible>
 

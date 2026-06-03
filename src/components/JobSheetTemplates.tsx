@@ -963,17 +963,29 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             };
             const jobCategory = normalizeSlug(jobInfo?.category || "");
     const isInstallationJob = jobCategory?.includes("installation");
+            // Engineers shouldn't be blocked by category mismatches on legacy/general jobs —
+            // fall back to all published service templates so they can still fill something in.
+            const publishedNonRams = allTemplates.filter((tpl: any) => {
+              const status = tpl.status ?? "published";
+              return status === "published" && tpl.category !== "rams";
+            });
             const visibleByStatus = templates.filter((tpl) => {
               const status = (tpl as any).status ?? "published";
               return userRole === "admin" || status === "published";
             });
             const nonRamsTemplates = visibleByStatus.filter((tpl) => (tpl as any).category !== "rams");
-            const visibleTemplates = isInstallationJob
+            let visibleTemplates = isInstallationJob
               ? nonRamsTemplates.filter((tpl) => tpl.name.toLowerCase().includes("commissioning"))
               : nonRamsTemplates.filter((tpl) => {
                   const tplJobCategory = normalizeSlug((tpl as any).job_category);
                   return !tplJobCategory || tplJobCategory === jobCategory;
                 });
+            // Fallback: if the engineer has zero matched templates (legacy "general"/uncategorised
+            // jobs, or no template exists for this job_category), show all published service
+            // templates so they always have something to pick.
+            if (visibleTemplates.length === 0 && userRole !== "admin" && publishedNonRams.length > 0) {
+              visibleTemplates = publishedNonRams as any;
+            }
             // Admins see all templates; show a badge indicating job category restriction
             if (visibleTemplates.length > 0) {
               return (
