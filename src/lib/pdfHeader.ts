@@ -101,6 +101,8 @@ export interface HeaderStyle {
   /** Show the standard 3–4 row Customer/Site/PO-REF/Riser/W3W detail grid.
    *  Default true. */
   detailGrid?: boolean;
+  /** Optional detail-grid layout variant. "fourColumn" matches the dry-riser Word reference. */
+  detailGridVariant?: "standard" | "fourColumn";
   /** Optional rows rendered after the title chrome and before the cursor
    *  is returned. Used by checklists that have their own contract / site
    *  rows in place of the standard detail grid. */
@@ -306,7 +308,56 @@ export async function renderPdfHeader(
   doc.setTextColor(30, 30, 30);
 
   // ── Standard 3–4 row detail grid ───────────────────────────────────
-  if (showDetailGrid) {
+  if (showDetailGrid && style.detailGridVariant === "fourColumn") {
+    doc.setDrawColor(180, 180, 180);
+    doc.setLineWidth(0.2);
+
+    const headerRowH = 6;
+    const hasW3W = !!data.w3wAddress;
+    const rowCount = hasW3W ? 4 : 3;
+    const detailH = headerRowH * rowCount;
+    const c1 = maxWidth * 0.18;
+    const c2 = maxWidth * 0.34;
+    const c3 = maxWidth * 0.12;
+    const x0 = margin;
+    const x1 = x0 + c1;
+    const x2 = x1 + c2;
+    const x3 = x2 + c3;
+    const x4 = margin + maxWidth;
+
+    doc.rect(x0, y, maxWidth, detailH);
+    for (let r = 1; r < rowCount; r++) doc.line(x0, y + headerRowH * r, x4, y + headerRowH * r);
+    doc.line(x1, y, x1, y + headerRowH * 2);
+    doc.line(x2, y, x2, y + headerRowH * 2);
+    doc.line(x3, y, x3, y + headerRowH * 2);
+    doc.line(x1, y + headerRowH * 2, x1, y + headerRowH * 3);
+
+    const drawCell = (label: string, value: string, lx: number, vx: number, maxValueW: number, yy: number) => {
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text(label, lx + 2, yy + 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(doc.splitTextToSize(value || "", maxValueW).slice(0, 1).join(""), vx + 2, yy + 4);
+    };
+
+    drawCell("Customer:", data.customerName, x0, x1, c2 - 4, y);
+    drawCell("DATE:", String(data.dateVal || ""), x2, x3, x4 - x3 - 4, y);
+    const siteStr = [data.siteName, data.siteAddress].filter(Boolean).join(", ");
+    drawCell("Site:", siteStr, x0, x1, c2 - 4, y + headerRowH);
+    drawCell("PO/REF:", data.refNumber, x2, x3, x4 - x3 - 4, y + headerRowH);
+    drawCell("Riser Location:", data.riserLocation, x0, x1, x4 - x1 - 4, y + headerRowH * 2);
+
+    if (hasW3W) {
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(225, 31, 38);
+      doc.text("///what3words:", x0 + 2, y + headerRowH * 3 + 4);
+      doc.setFont("helvetica", "normal");
+      doc.text(data.w3wAddress!.replace(/^\/\/\//, ""), x1 + 2, y + headerRowH * 3 + 4);
+      doc.setTextColor(30, 30, 30);
+    }
+
+    y = y + detailH + 8;
+  } else if (showDetailGrid) {
     doc.setDrawColor(0);
     doc.setLineWidth(0.2);
 
