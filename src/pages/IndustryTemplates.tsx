@@ -87,7 +87,7 @@ const SITE_DETAIL_FIELDS: FieldDef[] = [
 
 const RESULT_FIELDS: FieldDef[] = [
   { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
-  { id: "remedial_required", label: "Remedial Action Required", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+  { id: "remedial_required", label: "Remedial Action Required?", type: "checkbox", section: "Result", required: true, allow_notes: true, allow_na: true } as any,
   { id: "comments", label: "Comments / Defects", type: "textarea", section: "Result", required: false },
 ];
 
@@ -464,6 +464,8 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "wsr_leaks", label: "Are there visible signs of leaks or water ingress?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
       { id: "wsr_labelled", label: "Are components clearly labelled?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
       { id: "wsr_location_plate", label: "Is a location plate fitted externally?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
+      { id: "main_stop_valve_accessible", label: "Main Stop Valve Accessible & Labelled?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
+      { id: "main_stop_valve_open", label: "Main Stop Valve Open & Secured?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
       { id: "wsr_notes", label: "Water Supplies Room Notes", type: "textarea", section: "Water Supplies Room", required: false },
 
       // Storage Tank
@@ -536,6 +538,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "panel_fire_relayed", label: "Are all fire signals relayed to remote monitoring?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
       { id: "panel_fault_indicated", label: "Are all fault signals clearly indicated on the panel?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
       { id: "panel_fault_relayed", label: "Are all fault signals relayed to remote monitoring?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
+      { id: "remote_monitoring_signal", label: "Remote Monitoring Signal Received (if fitted)?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
       { id: "panel_notes", label: "Monitoring Panel Notes", type: "textarea", section: "Monitoring Panel", required: false },
 
       // General Condition
@@ -569,7 +572,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "no_access_followup", label: "Is no-access follow-up required?", type: "checkbox", section: "Dwelling Access Log", required: false, allow_notes: true } as any,
 
       ...RESULT_FIELDS,
-      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 9251:2021 — Fire Sprinkler Systems for Domestic and Residential Occupancies", type: "checkbox", section: "Declaration", required: true },
+      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 9251:2021 — Fire Sprinkler Systems for Domestic and Residential Occupancies", type: "checkbox", section: "Declaration", required: true, allow_notes: true } as any,
     ],
   },
   {
