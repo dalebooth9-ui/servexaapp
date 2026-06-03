@@ -85,6 +85,12 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [previewName, setPreviewName] = useState<string>("");
   const [previewMime, setPreviewMime] = useState<string>("application/pdf");
 
+  const handleFillOnline = (templateId: string) => {
+    document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const openSheet = () => window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail: { jobId, templateId } }));
+    [0, 300, 700, 1200, 2000].forEach((delay) => window.setTimeout(openSheet, delay));
+  };
+
   const fetchDocs = async () => {
     const { data } = await supabase
       .from("job_documents" as any)
@@ -671,6 +677,7 @@ ${sections}
               blankTemplates={blankTemplates}
               onUploadSlot={handleUploadSlot}
               uploadingSlotId={uploadingSlotId}
+                onFillOnline={handleFillOnline}
             />
           ))}
         </div>
@@ -737,6 +744,7 @@ function DocRow({
   isCustomerPaperwork,
   onUploadSlot,
   uploadingSlotId,
+  onFillOnline,
 }: {
   doc: JobDoc;
   isAdmin: boolean;
@@ -752,6 +760,7 @@ function DocRow({
   isCustomerPaperwork?: boolean;
   onUploadSlot?: (doc: JobDoc) => void;
   uploadingSlotId?: string | null;
+  onFillOnline?: (templateId: string) => void;
 }) {
   const isRams = doc.document_type === "rams_pdf";
   const isBlankSheet = doc.document_type === "blank_job_sheet";
@@ -827,8 +836,18 @@ function DocRow({
       {isPreStart && (
         <PreStartChecklistPdf jobInfo={jobInfo} />
       )}
-      {isBlankSheet && matchedTemplate && jobInfo && (
-        <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
+      {isBlankSheet && matchedTemplate && jobInfo && (isAdmin || ((matchedTemplate as any).status ?? "published") === "published") && (
+        <>
+          <Button
+            variant="default"
+            size="sm"
+            className="h-7 text-xs px-2 gap-1 shrink-0"
+            onClick={() => onFillOnline?.((matchedTemplate as any).id)}
+          >
+            Fill In Online
+          </Button>
+          <BlankTemplatePdfExport template={matchedTemplate} jobInfo={jobInfo} />
+        </>
       )}
       {isBlankSheet && (!matchedTemplate || !jobInfo) && (
         <span className="text-[10px] text-muted-foreground">Loading…</span>
