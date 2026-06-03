@@ -394,64 +394,66 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         </div>
 
         {/* Activity timeline */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Activity className="h-4 w-4" /> Activity Timeline
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {/* Add note */}
-            <div className="px-4 pb-3">
-              <div className="flex gap-2">
-                <Textarea
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="Add a note to the job sheet..."
-                  rows={2}
-                  className="text-sm"
-                />
-                <Button size="sm" onClick={handleAddNote} disabled={adding || !newNote.trim()} className="self-end">
-                  <Send className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-            <Separator />
-            <ScrollArea className="h-[340px]">
-              {activities.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-8 text-center">No activity yet.</p>
-              ) : (
-                <div className="relative px-4 py-3">
-                  {/* Timeline line */}
-                  <div className="absolute left-[26px] top-0 bottom-0 w-px bg-border" />
-                  {activities.map((a) => (
-                    <div key={a.id} className="relative flex gap-3 pb-4 last:pb-0">
-                      <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-card">
-                        {ACTION_ICON[a.action] || <Activity className="h-3.5 w-3.5 text-muted-foreground" />}
-                      </div>
-                      <div className="flex-1 min-w-0 pt-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-medium capitalize">
-                            {a.action.replace("_", " ")}
-                          </span>
-                          {a.user_id && profiles[a.user_id] && (
-                            <span className="text-[10px] text-muted-foreground">by {profiles[a.user_id]}</span>
-                          )}
-                        </div>
-                        {a.details && (
-                          <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{a.details}</p>
-                        )}
-                        <span className="text-[10px] text-muted-foreground/70">
-                          {format(new Date(a.created_at), "dd MMM yyyy, HH:mm")}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+        {userRole === "admin" && (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Activity className="h-4 w-4" /> Activity Timeline
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {/* Add note */}
+              <div className="px-4 pb-3">
+                <div className="flex gap-2">
+                  <Textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add a note to the job sheet..."
+                    rows={2}
+                    className="text-sm"
+                  />
+                  <Button size="sm" onClick={handleAddNote} disabled={adding || !newNote.trim()} className="self-end">
+                    <Send className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-              )}
-            </ScrollArea>
-          </CardContent>
-        </Card>
+              </div>
+              <Separator />
+              <ScrollArea className="h-[340px]">
+                {activities.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-8 text-center">No activity yet.</p>
+                ) : (
+                  <div className="relative px-4 py-3">
+                    {/* Timeline line */}
+                    <div className="absolute left-[26px] top-0 bottom-0 w-px bg-border" />
+                    {activities.map((a) => (
+                      <div key={a.id} className="relative flex gap-3 pb-4 last:pb-0">
+                        <div className="relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border bg-card">
+                          {ACTION_ICON[a.action] || <Activity className="h-3.5 w-3.5 text-muted-foreground" />}
+                        </div>
+                        <div className="flex-1 min-w-0 pt-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-medium capitalize">
+                              {a.action.replace("_", " ")}
+                            </span>
+                            {a.user_id && profiles[a.user_id] && (
+                              <span className="text-[10px] text-muted-foreground">by {profiles[a.user_id]}</span>
+                            )}
+                          </div>
+                          {a.details && (
+                            <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{a.details}</p>
+                          )}
+                          <span className="text-[10px] text-muted-foreground/70">
+                            {format(new Date(a.created_at), "dd MMM yyyy, HH:mm")}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </ScrollArea>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
