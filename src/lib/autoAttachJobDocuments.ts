@@ -49,7 +49,7 @@ interface BuildPlanInput {
  * candidates apply.
  */
 export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan> {
-  const { jobId, jobCategory, qtys, otherServiceType } = input;
+  const { jobId, jobCategory, qtys, otherServiceType, categoryDefaultQty = 0 } = input;
 
   // Pull all templates + existing responses + per-job template locks in parallel
   const [tplsRes, respsRes, locksRes] = await Promise.all([
@@ -69,6 +69,7 @@ export async function buildAttachPlan(input: BuildPlanInput): Promise<AttachPlan
     { key: "pressure_test", target: qtys.pressure_test, matchCategory: "pressure_test", preferJobCategory: jobCategory },
     { key: "visual", target: qtys.visual, matchCategory: "visual", preferJobCategory: jobCategory },
     { key: "other", target: qtys.other, matchCategory: null, preferJobCategory: otherServiceType || jobCategory },
+    { key: "category_default", target: categoryDefaultQty, matchCategory: null, preferJobCategory: jobCategory },
   ];
 
   for (const b of buckets) {
