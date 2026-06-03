@@ -34,6 +34,13 @@ interface BuildPlanInput {
   jobCategory: string | null;
   qtys: { pressure_test: number; visual: number; other: number };
   otherServiceType?: string | null;
+  /**
+   * When > 0, add a fallback bucket that attaches a single canonical job sheet
+   * matched purely by `job_category` (used for categories like sprinkler /
+   * wet riser / fire hydrant that don't drive attachments through qty fields).
+   * Existing attachments are still respected — no duplicates.
+   */
+  categoryDefaultQty?: number;
 }
 
 /**
