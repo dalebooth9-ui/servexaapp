@@ -194,6 +194,7 @@ export default function SignatureCapture({
 
   return (
     <div className="space-y-4">
+      {heading && <p className="text-sm font-medium">{heading}</p>}
       {/* Existing signatures */}
       {signatures.length > 0 && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
