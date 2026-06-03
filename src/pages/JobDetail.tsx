@@ -445,8 +445,7 @@ export default function JobDetail() {
       )}
 
       {/* Editable Job Details */}
-      {userRole === "admin" && (
-        <Collapsible defaultOpen className="mb-6">
+      <Collapsible defaultOpen className="mb-6">
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Job Details
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
@@ -517,9 +516,11 @@ export default function JobDetail() {
                       <AllocatedDaysTracker jobId={id!} allocatedDays={(job as any).allocated_days} />
                     )}
                   </div>
-                  <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "", allocated_days: (job as any).allocated_days != null ? String((job as any).allocated_days) : "" }); setEditing(true); }}>
-                    <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
-                  </Button>
+                  {userRole === "admin" && (
+                    <Button size="sm" variant="outline" onClick={() => { setEditForm({ name: job.name || "", address: job.address || "", site_id: job.site_id || "", pressure_test_qty: job.pressure_test_qty || 0, visual_qty: job.visual_qty || 0, other_qty: (job as any).other_qty || 0, other_service_type: (job as any).other_service_type || "", due_date: job.due_date || "", allocated_days: (job as any).allocated_days != null ? String((job as any).allocated_days) : "" }); setEditing(true); }}>
+                      <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+                    </Button>
+                  )}
                 </div>
 
                 {/* AI Job Brief — stored brief */}
@@ -543,7 +544,7 @@ export default function JobDetail() {
                   </div>
                 )}
 
-                {id && (
+                {userRole === "admin" && id && (
                   <div className="mt-3">
                     <Suspense fallback={null}>
                       <SiteHistoryPanel
@@ -556,7 +557,7 @@ export default function JobDetail() {
                 )}
               </div>
 
-            ) : (
+            ) : (userRole === "admin" && (
               <div className="rounded-lg border bg-card p-4 space-y-3">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
@@ -692,10 +693,9 @@ export default function JobDetail() {
                   </Button>
                 </div>
               </div>
-            )}
+            ))}
           </CollapsibleContent>
         </Collapsible>
-      )}
 
       <AutoAttachTemplateChooser
         open={chooserOpen}
@@ -765,22 +765,24 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-            <EngineerAssignments jobId={id!} />
+            {userRole === "admin" && <EngineerAssignments jobId={id!} />}
             <WhatsAppReply jobId={id!} engineers={engineers} />
           </div>
           <JobMessages jobId={id!} />
         </CollapsibleContent>
       </Collapsible>
 
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Scheduled Visits
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <JobVisits jobId={id!} jobData={job} />
-        </CollapsibleContent>
-      </Collapsible>
+      {userRole === "admin" && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Scheduled Visits
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <JobVisits jobId={id!} jobData={job} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
@@ -788,14 +790,16 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
-          <div className="mb-3 flex justify-end">
-            <Button
-              variant="outline" size="sm" className="gap-1.5 text-xs"
-              onClick={() => navigate(`/jobs/${id}/rams`)}
-            >
-              <ClipboardList className="h-3.5 w-3.5" /> Edit / Create RAMS
-            </Button>
-          </div>
+          {userRole === "admin" && (
+            <div className="mb-3 flex justify-end">
+              <Button
+                variant="outline" size="sm" className="gap-1.5 text-xs"
+                onClick={() => navigate(`/jobs/${id}/rams`)}
+              >
+                <ClipboardList className="h-3.5 w-3.5" /> Edit / Create RAMS
+              </Button>
+            </div>
+          )}
           <JobDocuments jobId={id!} job={job} engineers={engineers} />
         </CollapsibleContent>
       </Collapsible>
@@ -863,15 +867,17 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Servexa Reports
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <FieldReports jobId={id!} />
-        </CollapsibleContent>
-      </Collapsible>
+      {userRole === "admin" && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Servexa Reports
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <FieldReports jobId={id!} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
@@ -892,15 +898,17 @@ export default function JobDetail() {
           </div>
         </CollapsibleContent>
       </Collapsible>
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Engineer Certificates
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <EngineerCertificates jobId={id!} engineers={engineers} />
-        </CollapsibleContent>
-      </Collapsible>
+      {userRole === "admin" && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Engineer Certificates
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <EngineerCertificates jobId={id!} engineers={engineers} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
