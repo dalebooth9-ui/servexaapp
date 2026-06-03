@@ -464,6 +464,8 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "wsr_leaks", label: "Are there visible signs of leaks or water ingress?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
       { id: "wsr_labelled", label: "Are components clearly labelled?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
       { id: "wsr_location_plate", label: "Is a location plate fitted externally?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
+      { id: "main_stop_valve_accessible", label: "Main Stop Valve Accessible & Labelled?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
+      { id: "main_stop_valve_open", label: "Main Stop Valve Open & Secured?", type: "checkbox", section: "Water Supplies Room", required: false, allow_notes: true, allow_na: true } as any,
       { id: "wsr_notes", label: "Water Supplies Room Notes", type: "textarea", section: "Water Supplies Room", required: false },
 
       // Storage Tank
