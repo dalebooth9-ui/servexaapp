@@ -53,11 +53,9 @@ export default function JobHandover() {
   useEffect(() => {
     if (!token) { setError("Missing link token."); setLoading(false); return; }
     (async () => {
-      const { data: tk, error: tkErr } = await supabase
-        .from("handover_tokens")
-        .select("*")
-        .eq("token", token)
-        .maybeSingle();
+      const { data: tkRows, error: tkErr } = await supabase
+        .rpc("get_handover_token_by_value" as any, { _token: token });
+      const tk = Array.isArray(tkRows) ? tkRows[0] : tkRows;
 
       if (tkErr || !tk) { setError("This link is invalid."); setLoading(false); return; }
       const row = tk as Token;

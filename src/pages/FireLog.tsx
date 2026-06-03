@@ -65,11 +65,9 @@ export default function FireLog() {
       if (!token) return;
       setLoading(true);
 
-      const { data: tokenRow, error: tokenErr } = await supabase
-        .from("fire_log_tokens" as any)
-        .select("id, site_id, is_active")
-        .eq("token", token)
-        .maybeSingle();
+      const { data: tokenRows, error: tokenErr } = await supabase
+        .rpc("get_fire_log_token_by_value" as any, { _token: token });
+      const tokenRow = Array.isArray(tokenRows) ? tokenRows[0] : tokenRows;
 
       if (tokenErr || !tokenRow || !(tokenRow as any).is_active) {
         setError("Unable to access fire log — Invalid or expired token");
