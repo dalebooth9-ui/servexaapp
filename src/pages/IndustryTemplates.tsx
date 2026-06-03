@@ -515,8 +515,18 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "pump_notes", label: "Fire Pump Notes", type: "textarea", section: "Fire Pump", required: false },
 
       // Zone Valves
-      { id: "zone_valves_intro", label: "Repeating zone-valve rows are coming soon. For now, capture each zone in the free-text summary below.", type: "textarea", section: "Zone Valves", required: false, placeholder: "Note only — leave blank" } as any,
-      { id: "zone_valve_summary", label: "Zone Valve Summary", type: "textarea", section: "Zone Valves", required: false, placeholder: "For each zone enter: Zone name | Damage/Leaks | Isolation valve exercised | Fault signal | Flow switch tested | Drain plug fitted | Test drain exercised | Pressure reading (bar) | Stop valve sign" } as any,
+      { id: "zone_valve_checks", label: "Zone Valve Checks", type: "repeating_table", section: "Zone Valves", required: false, columns: [
+        { id: "zone_name", label: "Zone / Level", type: "text" },
+        { id: "no_damage_leaks", label: "Free of damage / leaks?", type: "yn_na" },
+        { id: "isolation_valve_exercised", label: "Isolation valve exercised & secured open?", type: "yn_na" },
+        { id: "fault_signal_received", label: "Fault signal when valve closed?", type: "yn_na" },
+        { id: "flow_switch_tested", label: "Flow switch tested, fire signal received?", type: "yn_na" },
+        { id: "drain_plug_fitted", label: "Drain plug fitted?", type: "yn_na" },
+        { id: "test_drain_exercised", label: "Test drain exercised & closed?", type: "yn_na" },
+        { id: "pressure_bar", label: "Pressure (bar)", type: "number" },
+        { id: "stop_valve_sign", label: "Stop valve sign fitted?", type: "yn_na" },
+        { id: "comments", label: "Comments", type: "text" },
+      ] } as any,
       { id: "zone_valve_notes", label: "Zone Valve Additional Notes", type: "textarea", section: "Zone Valves", required: false },
 
       // Monitoring Panel
@@ -549,7 +559,12 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
 
       // Dwelling Access Log
       { id: "head_size", label: "Sprinkler Head Size", type: "select", section: "Dwelling Access Log", required: false, options: ["10mm", "15mm", "20mm", "Other"] },
-      { id: "dwelling_access_log", label: "Dwelling Access Log", type: "textarea", section: "Dwelling Access Log", required: false, placeholder: "For each dwelling enter: Unit number | Access result (Access Gained / No Answer / No Access / Refused) | Total heads | Room breakdown e.g. Hallway x1, Kitchen x1, Living Room x1, Bedroom x1" } as any,
+      { id: "dwelling_access_log", label: "Dwelling Access Log", type: "repeating_table", section: "Dwelling Access Log", required: false, columns: [
+        { id: "unit_number", label: "Unit / Flat No.", type: "text" },
+        { id: "access_result", label: "Access Result", type: "dropdown", options: ["Access Gained", "No Answer", "No Access", "Refused Access"] },
+        { id: "total_heads", label: "Total Heads", type: "number" },
+        { id: "room_breakdown", label: "Room Breakdown (e.g. Hallway x1, Kitchen x1)", type: "text" },
+      ] } as any,
       { id: "no_access_count", label: "Number of Dwellings with No Access", type: "number", section: "Dwelling Access Log", required: false },
       { id: "no_access_followup", label: "Is no-access follow-up required?", type: "checkbox", section: "Dwelling Access Log", required: false, allow_notes: true } as any,
 
