@@ -4408,6 +4408,52 @@ export type Database = {
           schedule: string
         }[]
       }
+      get_fire_log_token_by_value: {
+        Args: { _token: string }
+        Returns: {
+          id: string
+          is_active: boolean
+          site_id: string
+        }[]
+      }
+      get_handover_token_by_value: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string
+          customer_id: string
+          expires_at: string
+          id: string
+          job_id: string
+          notes: string
+          org_id: string
+          signature_data: string
+          signed_at: string
+          signer_email: string
+          signer_name: string
+          status: string
+          token: string
+        }[]
+      }
+      get_portal_fire_log_tokens: {
+        Args: { _portal_token: string }
+        Returns: {
+          is_active: boolean
+          site_id: string
+          token: string
+        }[]
+      }
+      get_portal_handover_tokens: {
+        Args: { _portal_token: string }
+        Returns: {
+          created_at: string
+          id: string
+          job_id: string
+          signed_at: string
+          signer_name: string
+          status: string
+          token: string
+        }[]
+      }
       get_user_org_id: { Args: never; Returns: string }
       has_role: {
         Args: {
