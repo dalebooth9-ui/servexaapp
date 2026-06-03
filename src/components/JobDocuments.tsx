@@ -778,14 +778,41 @@ function DocRow({
     pre_start_checklist: "Pre-start Checklist",
   };
 
-  // Find matching template for blank job sheet by label
-  const matchedTemplate = isBlankSheet
-    ? Object.values(blankTemplates).find((t: any) =>
-        t.name?.toLowerCase() === doc.label?.toLowerCase() ||
-        doc.label?.toLowerCase().includes(t.name?.toLowerCase()) ||
-        t.name?.toLowerCase().includes(doc.label?.toLowerCase())
-      ) ?? null
-    : null;
+  // Find matching template for blank job sheet — prefer same job_category and published,
+  // then frequency keyword overlap (annual / 6 month / quarterly / etc.), then fuzzy name match.
+  const matchedTemplate = (() => {
+    if (!isBlankSheet) return null;
+    const all = Object.values(blankTemplates) as any[];
+    if (all.length === 0) return null;
+    const norm = (c?: string | null) => {
+      if (!c) return "";
+      const x = c.toLowerCase();
+      if (x === "sprinkler_service") return "sprinkler";
+      if (x === "hydrant_service" || x === "fire_hydrant_service") return "fire_hydrant";
+      if (x === "fire_extinguishers" || x === "extinguisher_service") return "fire_extinguisher";
+      if (x === "dry_riser_service") return "dry_riser";
+      return x;
+    };
+    const jobCat = norm(job?.category);
+    const label = (doc.label || "").toLowerCase();
+    const KEYS = ["annual", "6 month", "six month", "quarterly", "monthly", "weekly",
+                  "extended", "visual", "pressure test", "commissioning", "inspection",
+                  "survey", "remedial", "overhaul", "service", "check"];
+    const labelKeys = KEYS.filter((k) => label.includes(k));
+    const scored = all.map((t: any) => {
+      const tName = (t.name || "").toLowerCase();
+      const tCat = norm(t.job_category);
+      const status = (t.status ?? "published");
+      let score = 0;
+      if (tName === label) score += 100;
+      if (tCat && jobCat && tCat === jobCat) score += 40;
+      if (tName.includes(label) || label.includes(tName)) score += 20;
+      labelKeys.forEach((k) => { if (tName.includes(k)) score += 6; });
+      if (status === "published") score += 5;
+      return { t, score };
+    }).filter((x) => x.score > 0).sort((a, b) => b.score - a.score);
+    return scored[0]?.t ?? null;
+  })();
 
   // Compute the exact friendly filename that will be used on download / preview
   const friendlyName = buildFriendlyFileName(doc, jobInfo);
