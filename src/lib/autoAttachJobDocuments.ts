@@ -166,7 +166,7 @@ interface InsertResponsesInput {
   slots: { template: TemplateOption }[];
 }
 
-/** Inserts draft job_sheet_responses for the given templates, with light prefill.
+/** Inserts draft job_sheet_responses for the given templates, with full job-detail prefill.
  *  Also ensures a matching `job_documents` row (document_type = 'blank_job_sheet')
  *  exists for each template so the sheet shows up in the Documents tab.
  */
@@ -174,28 +174,26 @@ export async function insertDraftResponses(input: InsertResponsesInput) {
   const { jobId, userId, prefill, slots } = input;
   if (slots.length === 0) return;
 
+  // Fetch the full job context once so every attached draft is fully prefilled
+  // with customer / site / engineer / schedule / category details.
+  const { fetchJobPrefillContext, buildJobSheetPrefill } = await import("./jobSheetPrefill");
+  const ctx = await fetchJobPrefillContext(supabase, jobId);
+  const jobInfo = ctx
+    ? { ...ctx, categoryLabel: prefill.categoryLabel ?? ctx.categoryLabel ?? null }
+    : {
+        name: null,
+        customer: prefill.customerName ?? null,
+        customers: prefill.customerName ? { name: prefill.customerName, logo_url: null } : null,
+        reference_number: prefill.referenceNumber ?? null,
+        categoryLabel: prefill.categoryLabel ?? null,
+        site: prefill.siteName || prefill.siteAddress
+          ? { name: prefill.siteName ?? "", address: prefill.siteAddress ?? null, postcode: null, contact_name: null, contact_phone: null, contact_email: null, riser_location: null }
+          : null,
+      };
+
   const rows = slots.map(({ template }) => {
     const fields = (typeof template.fields === "string" ? JSON.parse(template.fields) : template.fields) as any[] | null;
-    const responses: Record<string, any> = {};
-    (fields || []).forEach((f: any) => {
-      const label = (f.label || "").toLowerCase();
-      if (label.includes("customer") && (label.includes("name") || label.includes("detail"))) {
-        responses[f.id] = prefill.customerName || "";
-      } else if (label === "customer") {
-        responses[f.id] = prefill.customerName || "";
-      } else if (label === "site" || (label.includes("site") && (label.includes("name") || label.includes("detail")))) {
-        responses[f.id] = prefill.siteName || "";
-      } else if (label === "site address" || label === "address") {
-        responses[f.id] = prefill.siteAddress || "";
-      } else if (label.includes("po") || label.includes("reference") || label === "ref" || label === "po/ref") {
-        responses[f.id] = prefill.referenceNumber || "";
-      } else if (label === "date" || label === "inspection date") {
-        responses[f.id] = new Date().toISOString().split("T")[0];
-      } else if (label.includes("scope") || label.includes("type of work") || label.includes("category")) {
-        responses[f.id] = prefill.categoryLabel || "";
-      }
-    });
-
+    const responses = buildJobSheetPrefill(fields || [], jobInfo as any);
     return {
       job_id: jobId,
       template_id: template.id,
