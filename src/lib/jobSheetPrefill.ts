@@ -41,9 +41,31 @@ export type PrefillJobInfo = {
   scheduledDate?: string | null;
 };
 
+/**
+ * Derive the "scope of work" wording from a template's title so it always
+ * matches the document, e.g. "Dry Riser Annual Pressure Test" → "Pressure Test".
+ * Returns null when nothing recognisable is found.
+ */
+export function deriveScopeFromTemplateName(templateName?: string | null): string | null {
+  const n = (templateName || "").toLowerCase();
+  if (!n) return null;
+  if (n.includes("pressure test")) return "Pressure Test";
+  if (n.includes("flow test") || n.includes("flow & pressure")) return "Flow Test";
+  if (n.includes("visual")) return "Visual Inspection";
+  if (n.includes("commission")) return "Commissioning";
+  if (n.includes("install")) return "Installation";
+  if (n.includes("service") || n.includes("maintenance") || n.includes("ppm")) return "Service & Maintenance";
+  if (n.includes("inspection")) return "Inspection";
+  if (n.includes("survey")) return "Survey";
+  if (n.includes("repair")) return "Repair";
+  if (n.includes("certificate") || n.includes("conformity")) return "Certification";
+  return null;
+}
+
 export function buildJobSheetPrefill(
   fields: PrefillField[],
   jobInfo: PrefillJobInfo | null | undefined,
+  templateName?: string | null,
 ): Record<string, any> {
   const prefilled: Record<string, any> = {};
   if (!jobInfo) return prefilled;
@@ -129,13 +151,18 @@ export function buildJobSheetPrefill(
     } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
       prefilled[f.id] = scheduledDate || new Date().toLocaleDateString("en-GB");
     } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
-      const scopeParts: string[] = [];
-      if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
-      if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
-      if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
-      const categoryName = jobInfo.categoryLabel
-        || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "");
-      prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
+      const fromTitle = deriveScopeFromTemplateName(templateName);
+      if (fromTitle) {
+        prefilled[f.id] = fromTitle;
+      } else {
+        const scopeParts: string[] = [];
+        if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
+        if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
+        if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
+        const categoryName = jobInfo.categoryLabel
+          || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "");
+        prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
+      }
     } else if (label === "priority" || label === "job priority") {
       prefilled[f.id] = jobInfo.priority || "";
     } else if (label.includes("engineer") || label.includes("technician") || label.includes("operative") || label.includes("carried out by") || label.includes("completed by") || label.includes("attended by")) {

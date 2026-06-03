@@ -193,7 +193,7 @@ export async function insertDraftResponses(input: InsertResponsesInput) {
 
   const rows = slots.map(({ template }) => {
     const fields = (typeof template.fields === "string" ? JSON.parse(template.fields) : template.fields) as any[] | null;
-    const responses = buildJobSheetPrefill(fields || [], jobInfo as any);
+    const responses = buildJobSheetPrefill(fields || [], jobInfo as any, template.name);
     return {
       job_id: jobId,
       template_id: template.id,
