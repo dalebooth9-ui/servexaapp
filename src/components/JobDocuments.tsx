@@ -88,8 +88,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const handleFillOnline = (templateId: string) => {
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
     const openSheet = () => window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail: { jobId, templateId } }));
-    openSheet();
-    window.setTimeout(openSheet, 400);
+    [0, 300, 700, 1200, 2000].forEach((delay) => window.setTimeout(openSheet, delay));
   };
 
   const fetchDocs = async () => {
