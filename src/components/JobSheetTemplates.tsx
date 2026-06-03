@@ -553,10 +553,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (detail?.jobId !== jobId || !detail?.templateId) return;
 
       const template = allTemplates.find((tpl) => tpl.id === detail.templateId);
-      if (!template) {
-        toast({ title: "Job sheet still loading", description: "Open Job Sheets and try Fill In Online again." });
-        return;
-      }
+      if (!template) return;
 
       const existingDraft = responses.find((resp) => {
         if (resp.template_id !== detail.templateId || resp.status !== "draft") return false;
