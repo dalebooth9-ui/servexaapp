@@ -388,9 +388,19 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   }, []);
 
   // Debounce: bump previewVersion shortly after edits settle, so we don't
-  // rebuild the PDF on every keystroke.
+  // rebuild the PDF on every keystroke. Fires an initial build immediately
+  // when the preview is first opened (no 500ms wait).
+  const firstOpenRef = useRef(true);
   useEffect(() => {
-    if (!previewOpen) return;
+    if (!previewOpen) {
+      firstOpenRef.current = true;
+      return;
+    }
+    if (firstOpenRef.current) {
+      firstOpenRef.current = false;
+      setPreviewVersion((v) => v + 1);
+      return;
+    }
     const t = setTimeout(() => setPreviewVersion((v) => v + 1), 500);
     return () => clearTimeout(t);
   }, [previewOpen, livePreviewTemplate, previewHandfill]);
@@ -398,14 +408,26 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   // Rebuild the PDF whenever previewVersion changes.
   useEffect(() => {
     if (!previewOpen) return;
-    if (!pdfExportRef.current) return;
+    if (previewVersion === 0) return;
     let cancelled = false;
     let prevUrl: string | null = null;
-    setPreviewBuilding(true);
-    setPreviewError(null);
-    (async () => {
+
+    const run = async (attempt = 0) => {
+      // The headless BlankTemplatePdfExport mounts in the same render as the
+      // dialog; on the first tick its ref may not have been attached yet.
+      // Wait a couple of frames before giving up.
+      if (!pdfExportRef.current) {
+        if (attempt > 10 || cancelled) {
+          if (!cancelled) setPreviewError("Preview builder not ready");
+          return;
+        }
+        setTimeout(() => run(attempt + 1), 50);
+        return;
+      }
+      setPreviewBuilding(true);
+      setPreviewError(null);
       try {
-        const blob = await pdfExportRef.current!.getBlob({ handfill: previewHandfill });
+        const blob = await pdfExportRef.current.getBlob({ handfill: previewHandfill });
         if (cancelled || !blob) return;
         const url = URL.createObjectURL(blob);
         setPreviewUrl((old) => {
@@ -413,11 +435,15 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
           return url;
         });
       } catch (err: any) {
+        console.error("[EditTemplateDialog] PDF preview build failed", err);
         if (!cancelled) setPreviewError(err?.message || "Failed to build preview");
       } finally {
         if (!cancelled) setPreviewBuilding(false);
       }
-    })();
+    };
+
+    run();
+
     return () => {
       cancelled = true;
       // Revoke the previous blob URL once the new one has replaced it.
@@ -425,6 +451,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [previewVersion, previewOpen]);
+
 
   // Clean up blob URL on close/unmount.
   useEffect(() => {
