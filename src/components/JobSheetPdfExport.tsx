@@ -338,6 +338,7 @@ export async function generateJobSheetPdf(
           standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
           standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
           separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
+          detailGridVariant: "fourColumn",
         }
       : undefined,
   });
@@ -347,11 +348,11 @@ export async function generateJobSheetPdf(
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
   // Bottom stack: margin(10) + footer box(9) + gap(3) + accred logos(12) + gap(3) + sigs(18) + buffer(3) = 58mm
-  const footerSpace = 58;
+  const footerSpace = isDryRiser ? 50 : 58;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
   const sections = getSections(template.fields);
-  const colSplit = maxWidth * 0.68;
+  const colSplit = maxWidth * (isDryRiser ? 0.7 : 0.68);
 
   const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
   const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
@@ -361,6 +362,9 @@ export async function generateJobSheetPdf(
 
   const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
     extraSpaceUsed: commentsH,
+    sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
+    minRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
+    maxRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
   });
 
   for (const section of sections) {
