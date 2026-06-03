@@ -572,7 +572,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "no_access_followup", label: "Is no-access follow-up required?", type: "checkbox", section: "Dwelling Access Log", required: false, allow_notes: true } as any,
 
       ...RESULT_FIELDS,
-      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 9251:2021 — Fire Sprinkler Systems for Domestic and Residential Occupancies", type: "checkbox", section: "Declaration", required: true },
+      { id: "bs_declaration", label: "This service has been carried out in accordance with BS 9251:2021 — Fire Sprinkler Systems for Domestic and Residential Occupancies", type: "checkbox", section: "Declaration", required: true, allow_notes: true } as any,
     ],
   },
   {
