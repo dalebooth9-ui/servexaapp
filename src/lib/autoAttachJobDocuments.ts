@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type CategoryKey = "pressure_test" | "visual" | "other";
+export type CategoryKey = "pressure_test" | "visual" | "other" | "category_default";
 
 export interface TemplateOption {
   id: string;
