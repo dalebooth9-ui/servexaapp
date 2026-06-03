@@ -30,7 +30,7 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         // Bump this version to force all clients to clear old caches
-        cacheId: "servexa-v2",
+        cacheId: "servexa-v3",
         cleanupOutdatedCaches: true,
       },
       manifest: {
