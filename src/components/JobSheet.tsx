@@ -347,6 +347,7 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
       <div className="grid gap-4 lg:grid-cols-[1fr_360px]">
         {/* Visit summary + Templates */}
         <div className="space-y-4">
+          {userRole === "admin" && (
           <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -386,6 +387,7 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
             )}
           </CardContent>
         </Card>
+          )}
 
           {/* Job Sheet Templates — admin-only editor */}
           {userRole === "admin" && <JobSheetTemplates jobId={jobId} />}
