@@ -42,7 +42,7 @@ type Row = {
   has_defects: boolean;
   vehicle_reg: string | null;
   mileage: number | null;
-  items: Record<string, "ok" | "defect"> | null;
+  items: Record<string, "ok" | "defect" | "na"> | null;
   defect_notes: string | null;
   rejection_reason: string | null;
   defect_photo_urls: string[] | null;
