@@ -1490,7 +1490,9 @@ function renderFormField(
   value: any,
   onChange: (value: any) => void,
   locked?: boolean,
-  engineerOptions?: string[]
+  engineerOptions?: string[],
+  jobId?: string,
+  userId?: string,
 ) {
   switch (field.type) {
     case "text":
