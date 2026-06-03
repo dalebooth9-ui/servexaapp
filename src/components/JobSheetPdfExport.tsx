@@ -312,14 +312,14 @@ export async function generateJobSheetPdf(
   );
 
   let y = await renderPdfHeader(doc, sheetTitle, branding, {
-    customerName: isDryRiser ? "" : customerName,
-    siteName: isDryRiser ? "" : siteDisplay,
+    customerName,
+    siteName: siteDisplay,
     siteAddress: "",
-    refNumber: isDryRiser ? "" : refNumber,
+    refNumber,
     dateVal,
-    riserLocation: isDryRiser ? "" : riserLocValue,
-    numberOfOutlets: isDryRiser ? null : numberOfOutletsValue,
-    w3wAddress: isDryRiser ? undefined : w3wAddress,
+    riserLocation: riserLocValue,
+    numberOfOutlets: numberOfOutletsValue,
+    w3wAddress,
   }, sheetSubtitle, accentColor);
 
   // Service scope line removed per request — kept off the job sheet PDF.
