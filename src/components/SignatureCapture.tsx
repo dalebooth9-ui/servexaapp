@@ -273,7 +273,7 @@ export default function SignatureCapture({
         </div>
       ) : (
         <Button variant="outline" size="sm" onClick={() => setDrawing(true)}>
-          <PenLine className="mr-1.5 h-4 w-4" /> Add Signature
+          <PenLine className="mr-1.5 h-4 w-4" /> {signerRole === "customer" ? "Add Customer Signature" : "Add Signature"}
         </Button>
       )}
     </div>
