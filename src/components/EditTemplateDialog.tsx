@@ -34,7 +34,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortinggStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { resolveFooterText } from "@/lib/pdfFooter";
 import { runTemplateQa, summariseQa } from "@/lib/templateQa";
