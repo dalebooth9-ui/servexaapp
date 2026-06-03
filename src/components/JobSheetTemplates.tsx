@@ -1254,7 +1254,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           </Label>
                         </div>
                         <div className="px-2 py-1.5 flex items-center">
-                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions)}
+                          {renderFormField(field, formData[field.id], (v) => handleFieldValue(field.id, v), lockedFieldIds.has(field.id), engineerOptions, jobId, user?.id)}
                         </div>
                       </div>
                       {(field.allow_notes || formData[`${field.id}_notes`]) && (
@@ -1490,7 +1490,9 @@ function renderFormField(
   value: any,
   onChange: (value: any) => void,
   locked?: boolean,
-  engineerOptions?: string[]
+  engineerOptions?: string[],
+  jobId?: string,
+  userId?: string,
 ) {
   switch (field.type) {
     case "text":
@@ -1671,7 +1673,7 @@ function renderFormField(
       );
     }
     case "photo":
-      return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
+      return <PhotoField value={value} onChange={onChange} fieldId={field.id} jobId={jobId} userId={userId} />;
     case "signature":
       return <SignatureField value={value} onChange={onChange} />;
     case "repeating_table": {
@@ -1804,7 +1806,7 @@ function SignatureField({ value, onChange }: { value: any; onChange: (v: any) =>
   );
 }
 
-function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: any) => void; fieldId: string }) {
+function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; jobId?: string; userId?: string }) {
   const [uploading, setUploading] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -1823,12 +1825,29 @@ function PhotoField({ value, onChange, fieldId }: { value: any; onChange: (v: an
     if (!file || !file.type.startsWith("image/")) return;
     setUploading(true);
     const ext = file.name.split(".").pop() || "jpg";
-    const path = `template-photos/${fieldId}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    const fileName = `${fieldId}-${Date.now()}.${ext}`;
+    const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
+    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true, contentType: file.type });
     if (error) {
       console.error("Upload error:", error);
     } else {
       onChange(path);
+      // Register as a job submission so it appears in the job folder/Documents
+      if (jobId && userId) {
+        const { data: signedData } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        if (signedData?.signedUrl) {
+          const { error: subErr } = await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: userId,
+            type: "photo",
+            file_url: signedData.signedUrl,
+            file_name: fileName,
+          } as any);
+          if (subErr) console.error("Submission insert failed", subErr);
+        }
+      }
     }
     setUploading(false);
   };
