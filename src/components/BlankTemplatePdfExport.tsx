@@ -219,6 +219,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
                 standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
                 standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
                 separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
+                detailGridVariant: "fourColumn",
               }
             : undefined,
         });
