@@ -14,6 +14,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -230,7 +231,8 @@ export async function generateJobSheetPdf(
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
+  const isDryRiser = /dry\s*riser/i.test(template.name || "");
+  const margin = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
   const maxWidth = pageWidth - margin * 2;
 
   // Always do a fresh DB fetch for the customer logo in case jobInfo is stale or missing the join
@@ -247,7 +249,6 @@ export async function generateJobSheetPdf(
   }
   // Dry Riser sheets: force Viva Fire branding regardless of customer logo, to match
   // the Industry Templates page version (single source of truth for template look).
-  const isDryRiser = /dry\s*riser/i.test(template.name || "");
   const branding = isDryRiser
     ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
     : { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
@@ -311,6 +312,9 @@ export async function generateJobSheetPdf(
     { brandingSubtitle: branding.company_subtitle ?? null },
   );
 
+  const headerAccent = isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor;
+  const ptToMm = (pt: number) => pt * 0.3527777778;
+
   let y = await renderPdfHeader(doc, sheetTitle, branding, {
     customerName,
     siteName: siteDisplay,
@@ -320,18 +324,35 @@ export async function generateJobSheetPdf(
     riserLocation: riserLocValue,
     numberOfOutlets: numberOfOutletsValue,
     w3wAddress,
-  }, sheetSubtitle, accentColor);
+  }, isDryRiser ? "BS 9990:2015" : sheetSubtitle, headerAccent, {
+    compact: isDryRiser,
+    marginX: margin,
+    style: isDryRiser
+      ? {
+          logo: {
+            maxW: 100,
+            maxH: DRY_RISER_LAYOUT.header.logoHeightMm,
+            topY: DRY_RISER_LAYOUT.page.marginTopMm,
+          },
+          title: { fontSize: DRY_RISER_LAYOUT.header.titleSizePt },
+          standardFontSize: DRY_RISER_LAYOUT.header.subtitleSizePt,
+          standardGapBelow: ptToMm(DRY_RISER_LAYOUT.header.ruleGapPt) + 1,
+          separatorThickness: ptToMm(DRY_RISER_LAYOUT.header.ruleThicknessPt),
+          detailGridVariant: "fourColumn",
+        }
+      : undefined,
+  });
 
   // Service scope line removed per request — kept off the job sheet PDF.
 
   // --- Shared layout utilities ---
   // footerSpace must accommodate: sigs (18mm) + logos (12mm) + logo gap (3mm) + footer box (9mm) + buffer (8mm)
   // Bottom stack: margin(10) + footer box(9) + gap(3) + accred logos(12) + gap(3) + sigs(18) + buffer(3) = 58mm
-  const footerSpace = 58;
+  const footerSpace = isDryRiser ? 50 : 58;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
   const sections = getSections(template.fields);
-  const colSplit = maxWidth * 0.68;
+  const colSplit = maxWidth * (isDryRiser ? 0.7 : 0.68);
 
   const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
   const materialsField = template.fields.find(f => f.label.toLowerCase().includes("material"));
@@ -341,6 +362,9 @@ export async function generateJobSheetPdf(
 
   const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
     extraSpaceUsed: commentsH,
+    sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
+    minRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
+    maxRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
   });
 
   for (const section of sections) {

@@ -485,9 +485,6 @@ export function renderFilledFieldRow(
     rawTextForCheck.length > 0 &&
     !SIMPLE_TOKENS.has(rawTextForCheck.toLowerCase());
 
-  // DEBUG: log every field value so we can trace what reaches the PDF renderer
-  console.log(`[PDF-RENDER] field="${field.label}" type="${field.type}" value=`, JSON.stringify(value), `typeof=${typeof value} isDescriptive=${isDescriptiveText}`);
-
   if (isDescriptiveText) {
     const truncated = rawTextForCheck.substring(0, 60);
     doc.text(truncated, margin + colSplit + 1, y + 3);

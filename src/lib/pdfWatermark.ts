@@ -82,6 +82,10 @@ function tintWatermark(watermark: HTMLImageElement, color: RgbTriple): string {
   for (let i = 0; i < data.length; i += 4) {
     const a = data[i + 3];
     if (a < 10) continue; // skip fully transparent pixels
+    // The source PNG already has partial alpha; if we also apply jsPDF opacity
+    // the watermark becomes effectively invisible. Normalise visible pixels and
+    // let the saved PDF opacity setting be the single source of transparency.
+    data[i + 3] = 255;
 
     // Perceived luminance of original pixel (0 = black, 1 = white)
     const lum = (0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]) / 255;
@@ -95,6 +99,23 @@ function tintWatermark(watermark: HTMLImageElement, color: RgbTriple): string {
     data[i + 2] = nb;
   }
 
+  ctx.putImageData(imageData, 0, 0);
+  return canvas.toDataURL("image/png");
+}
+
+function normalizeWatermarkAlpha(watermark: HTMLImageElement): string {
+  const canvas = document.createElement("canvas");
+  canvas.width = watermark.naturalWidth;
+  canvas.height = watermark.naturalHeight;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  ctx.drawImage(watermark, 0, 0);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] >= 10) data[i + 3] = 255;
+  }
   ctx.putImageData(imageData, 0, 0);
   return canvas.toDataURL("image/png");
 }
@@ -130,6 +151,7 @@ export function addWatermarkToAllPages(
 
   const useTint = mode === "tinted" && !!brandColor;
   const tintedDataUrl = useTint ? tintWatermark(watermark, brandColor!) : null;
+  const normalizedDataUrl = !tintedDataUrl ? normalizeWatermarkAlpha(watermark) : null;
   const opacity =
     typeof options.opacity === "number"
       ? Math.max(0, Math.min(1, options.opacity))
@@ -142,6 +164,8 @@ export function addWatermarkToAllPages(
     (doc as any).setGState(gState);
     if (tintedDataUrl) {
       doc.addImage(tintedDataUrl, "PNG", x, yPos, wmW, wmH);
+    } else if (normalizedDataUrl) {
+      doc.addImage(normalizedDataUrl, "PNG", x, yPos, wmW, wmH);
     } else {
       doc.addImage(watermark, "PNG", x, yPos, wmW, wmH);
     }
