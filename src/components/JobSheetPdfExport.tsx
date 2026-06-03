@@ -14,6 +14,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
+import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 import {
   PdfTemplateField,
   buildSkipIds,
@@ -230,7 +231,8 @@ export async function generateJobSheetPdf(
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 10;
+  const isDryRiser = /dry\s*riser/i.test(template.name || "");
+  const margin = isDryRiser ? DRY_RISER_LAYOUT.page.marginLeftMm : 10;
   const maxWidth = pageWidth - margin * 2;
 
   // Always do a fresh DB fetch for the customer logo in case jobInfo is stale or missing the join
@@ -247,7 +249,6 @@ export async function generateJobSheetPdf(
   }
   // Dry Riser sheets: force Viva Fire branding regardless of customer logo, to match
   // the Industry Templates page version (single source of truth for template look).
-  const isDryRiser = /dry\s*riser/i.test(template.name || "");
   const branding = isDryRiser
     ? { ...(template.branding || {}), logo_url: "/vivafire-logo.png" }
     : { ...(template.branding || {}), logo_url: customerLogoUrl || template.branding?.logo_url || undefined };
