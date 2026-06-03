@@ -10,7 +10,7 @@ import {
   MapPin, Navigation, Clock, Briefcase, Loader2, LogIn, LogOut,
   Camera, CheckCircle2, MessageSquare, Send, ChevronDown, ChevronUp,
   Home, List, Bell, User, AlertTriangle, Phone, ExternalLink,
-  ChevronRight, Zap, ArrowRight
+  ChevronRight, Zap, ArrowRight, ClipboardList
 } from "lucide-react";
 import { format } from "date-fns";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
@@ -637,6 +637,7 @@ export default function EngineerDashboard() {
       <div className="space-y-2">
         {[
           { icon: <Briefcase className="h-5 w-5" />, label: "All Jobs", action: () => navigate("/jobs") },
+          { icon: <ClipboardList className="h-5 w-5" />, label: "Site Surveys", action: () => navigate("/site-surveys") },
           { icon: <Clock className="h-5 w-5" />, label: "Timesheet", action: () => navigate("/engineers") },
           { icon: <User className="h-5 w-5" />, label: "My Profile", action: () => navigate("/engineers") },
         ].map(({ icon, label, action }) => (
