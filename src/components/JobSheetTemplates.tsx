@@ -611,6 +611,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     try {
       // Upload site photos if any
       const photoUrls: string[] = [];
+      const photoPaths: string[] = [];
       if (sitePhotos.length > 0 && user) {
         for (const photo of sitePhotos) {
           const ext = photo.file.name.split(".").pop() || "jpg";
@@ -619,16 +620,33 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           const { error: upErr } = await supabase.storage
             .from("submissions")
             .upload(filePath, photo.file, { contentType: photo.file.type });
-          if (!upErr) {
-            const { data: signedData } = await supabase.storage
-              .from("submissions")
-              .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
-            if (signedData?.signedUrl) photoUrls.push(signedData.signedUrl);
+          if (upErr) {
+            console.error("Site photo upload failed", upErr);
+            toast({ title: "Photo upload failed", description: upErr.message, variant: "destructive" });
+            continue;
+          }
+          // Always record the path — signed URLs can be regenerated at render time
+          photoPaths.push(filePath);
+          const { data: signedData, error: signErr } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
+          if (signErr) console.error("Signed URL failed", signErr);
+          if (signedData?.signedUrl) {
+            photoUrls.push(signedData.signedUrl);
+            // Register as a job submission so it appears in the job folder/Documents
+            const { error: subErr } = await supabase.from("submissions").insert({
+              job_id: jobId,
+              engineer_id: user.id,
+              type: "photo",
+              file_url: signedData.signedUrl,
+              file_name: fileName,
+            } as any);
+            if (subErr) console.error("Submission insert failed", subErr);
           }
         }
       }
-      const finalFormData = photoUrls.length > 0
-        ? { ...formData, _site_photo_urls: photoUrls }
+      const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0)
+        ? { ...formData, _site_photo_urls: photoUrls, _site_photo_paths: photoPaths }
         : formData;
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
