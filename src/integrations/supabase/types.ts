@@ -3887,6 +3887,96 @@ export type Database = {
           },
         ]
       }
+      site_surveys: {
+        Row: {
+          access_notes: string | null
+          asset_locations: string | null
+          contact_name: string | null
+          contact_phone: string | null
+          created_at: string
+          created_by: string | null
+          customer_id: string | null
+          engineer_id: string | null
+          hazards: string | null
+          id: string
+          notes: string | null
+          org_id: string | null
+          parking_welfare: string | null
+          recommendations: string | null
+          reference_number: string | null
+          signature_url: string | null
+          site_address: string | null
+          site_id: string | null
+          status: string
+          survey_date: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_notes?: string | null
+          asset_locations?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          engineer_id?: string | null
+          hazards?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string | null
+          parking_welfare?: string | null
+          recommendations?: string | null
+          reference_number?: string | null
+          signature_url?: string | null
+          site_address?: string | null
+          site_id?: string | null
+          status?: string
+          survey_date?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_notes?: string | null
+          asset_locations?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string | null
+          engineer_id?: string | null
+          hazards?: string | null
+          id?: string
+          notes?: string | null
+          org_id?: string | null
+          parking_welfare?: string | null
+          recommendations?: string | null
+          reference_number?: string | null
+          signature_url?: string | null
+          site_address?: string | null
+          site_id?: string | null
+          status?: string
+          survey_date?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_surveys_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_surveys_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sites: {
         Row: {
           address: string | null
