@@ -86,8 +86,10 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
   const [previewMime, setPreviewMime] = useState<string>("application/pdf");
 
   const handleFillOnline = (templateId: string) => {
-    window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail: { jobId, templateId } }));
     document.getElementById("job-sheets-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const openSheet = () => window.dispatchEvent(new CustomEvent("job-sheet:fill-online", { detail: { jobId, templateId } }));
+    openSheet();
+    window.setTimeout(openSheet, 400);
   };
 
   const fetchDocs = async () => {
@@ -835,7 +837,7 @@ function DocRow({
       {isPreStart && (
         <PreStartChecklistPdf jobInfo={jobInfo} />
       )}
-      {isBlankSheet && matchedTemplate && jobInfo && (
+      {isBlankSheet && matchedTemplate && jobInfo && (isAdmin || ((matchedTemplate as any).status ?? "published") === "published") && (
         <>
           <Button
             variant="default"
