@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode, PenLine } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog as QrDialog, DialogContent as QrDialogContent, DialogHeader as QrDialogHeader, DialogTitle as QrDialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -363,6 +363,16 @@ export default function JobDetail() {
               <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
             </div>
           )}
+          <div className="mt-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            >
+              <PenLine className="h-3.5 w-3.5" /> Customer Sign-Off
+            </Button>
+          </div>
           {job.category === "installation" ? (
             job.other_qty > 0 && (
               <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -853,7 +863,7 @@ export default function JobDetail() {
         </CollapsibleContent>
       </Collapsible>
 
-      <Collapsible defaultOpen className="mb-6">
+      <Collapsible defaultOpen className="mb-6" id="job-sheets-section">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Job Sheets
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
@@ -930,9 +940,9 @@ export default function JobDetail() {
         </Collapsible>
       )}
 
-      <Collapsible defaultOpen className="mb-6">
+      <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Sign-Off Signatures
+          Engineer & Customer Sign-Off Signatures
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3 space-y-4">
