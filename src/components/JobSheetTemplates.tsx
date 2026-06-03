@@ -547,6 +547,25 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  useEffect(() => {
+    const handleFillOnline = (event: Event) => {
+      const detail = (event as CustomEvent<{ jobId?: string; templateId?: string }>).detail;
+      if (detail?.jobId !== jobId || !detail?.templateId) return;
+
+      const template = allTemplates.find((tpl) => tpl.id === detail.templateId);
+      if (!template) {
+        toast({ title: "Job sheet still loading", description: "Open Job Sheets and try Fill In Online again." });
+        return;
+      }
+
+      const existingDraft = responses.find((resp) => resp.template_id === detail.templateId && resp.status === "draft");
+      handleStartForm(template, existingDraft);
+    };
+
+    window.addEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
+    return () => window.removeEventListener("job-sheet:fill-online", handleFillOnline as EventListener);
+  }, [jobId, allTemplates, responses]);
+
   // Reset form data back to master template defaults, preserving job auto-populated fields
   const handleResetToTemplate = () => {
     if (!activeTemplate) return;
