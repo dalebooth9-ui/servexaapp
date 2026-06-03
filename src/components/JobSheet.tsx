@@ -57,7 +57,7 @@ const VISIT_STATUS_ICON: Record<string, React.ReactNode> = {
 };
 
 export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [activities, setActivities] = useState<ActivityEntry[]>([]);
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -387,8 +387,8 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
           </CardContent>
         </Card>
 
-          {/* Job Sheet Templates */}
-          <JobSheetTemplates jobId={jobId} />
+          {/* Job Sheet Templates — admin-only editor */}
+          {userRole === "admin" && <JobSheetTemplates jobId={jobId} />}
           {/* Certificate of Conformity (installation jobs) */}
           <CertificateOfConformity jobId={jobId} />
         </div>
