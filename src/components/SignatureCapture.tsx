@@ -17,7 +17,25 @@ interface Signature {
   signer_id: string;
 }
 
-export default function SignatureCapture({ jobId }: { jobId: string }) {
+interface Props {
+  jobId: string;
+  /** Which role this pad captures. Defaults to engineer (uses current user's name). */
+  signerRole?: "engineer" | "customer";
+  /** Prefilled name for the signer (used as default for customer mode). */
+  defaultSignerName?: string;
+  /** Only show signatures matching this role in the list. */
+  filterByRole?: boolean;
+  /** Heading shown above the pad. */
+  heading?: string;
+}
+
+export default function SignatureCapture({
+  jobId,
+  signerRole = "engineer",
+  defaultSignerName = "",
+  filterByRole = false,
+  heading,
+}: Props) {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -28,14 +46,17 @@ export default function SignatureCapture({ jobId }: { jobId: string }) {
   const [signatures, setSignatures] = useState<Signature[]>([]);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [customerName, setCustomerName] = useState(defaultSignerName);
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
 
   const fetchSignatures = async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("job_signatures" as any)
       .select("*")
       .eq("job_id", jobId)
       .order("created_at", { ascending: false });
+    if (filterByRole) query = query.eq("signer_role", signerRole);
+    const { data } = await query;
     const sigs = (data as any[]) || [];
     setSignatures(sigs);
 
