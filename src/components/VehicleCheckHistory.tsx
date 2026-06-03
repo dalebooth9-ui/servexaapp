@@ -265,7 +265,7 @@ export default function VehicleCheckHistory() {
                         Item-by-item
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {ALL_KEYS.length - defects.length - missing.length} OK · {defects.length} defect · {missing.length} unanswered
+                        {ALL_KEYS.length - defects.length - naCount - missing.length} OK · {defects.length} defect · {naCount} N/A · {missing.length} unanswered
                       </p>
                     </div>
                     <ul className="divide-y rounded-md border">
@@ -273,17 +273,22 @@ export default function VehicleCheckHistory() {
                         const v = items[k];
                         const isDefect = v === "defect";
                         const isOk = v === "ok";
-                        const StatusIcon = isOk ? CheckCircle2 : isDefect ? XCircle : AlertTriangle;
-                        const statusLabel = isOk ? "OK" : isDefect ? "Defect" : "Not answered";
+                        const isNa = v === "na";
+                        const StatusIcon = isOk ? CheckCircle2 : isDefect ? XCircle : isNa ? MinusCircle : AlertTriangle;
+                        const statusLabel = isOk ? "OK" : isDefect ? "Defect" : isNa ? "N/A" : "Not answered";
                         const statusCls = isOk
                           ? "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30"
                           : isDefect
                           ? "bg-destructive/15 text-destructive border-destructive/30"
+                          : isNa
+                          ? "bg-muted text-muted-foreground border-border"
                           : "bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
                         const iconCls = isOk
                           ? "text-green-500"
                           : isDefect
                           ? "text-destructive"
+                          : isNa
+                          ? "text-muted-foreground"
                           : "text-amber-500";
                         return (
                           <li key={k} className="flex items-center justify-between px-2.5 py-1.5 text-xs">
