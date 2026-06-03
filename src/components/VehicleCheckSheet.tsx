@@ -339,6 +339,17 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
               >
                 Defect
               </button>
+              <button
+                type="button"
+                onClick={() => setItem(item.key, "na")}
+                className={`h-9 px-3 rounded-lg text-xs font-medium transition-all active:scale-95 ${
+                  items[item.key] === "na"
+                    ? "bg-muted-foreground text-background"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                N/A
+              </button>
             </div>
           </div>
         ))}
