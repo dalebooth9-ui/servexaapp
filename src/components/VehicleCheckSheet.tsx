@@ -118,7 +118,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const hasDefects = Object.values(items).some((v) => v === "defect");
   const allAnswered = Object.values(items).every((v) => v !== null);
 
-  const setItem = (key: string, value: "ok" | "defect") => {
+  const setItem = (key: string, value: "ok" | "defect" | "na") => {
     setItems((prev) => ({ ...prev, [key]: value }));
   };
 
