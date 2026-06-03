@@ -34,6 +34,7 @@ import EditTemplateDialog from "./EditTemplateDialog";
 import { downloadTemplateJson } from "@/lib/templateJson";
 import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
+import RepeatingTableField from "./job-sheets/RepeatingTableField";
 
 type TemplateField = {
   id: string;
@@ -1673,6 +1674,10 @@ function renderFormField(
       return <PhotoField value={value} onChange={onChange} fieldId={field.id} />;
     case "signature":
       return <SignatureField value={value} onChange={onChange} />;
+    case "repeating_table": {
+      const cols = ((field as any).columns || []) as any[];
+      return <RepeatingTableField columns={cols} value={value} onChange={onChange} />;
+    }
     default:
       return (
         <Input

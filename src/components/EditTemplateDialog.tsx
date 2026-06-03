@@ -88,6 +88,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   textarea: "Long Text",
   photo: "Photo",
   signature: "Signature",
+  repeating_table: "Repeating Table",
 };
 
 function SortableFieldRow({

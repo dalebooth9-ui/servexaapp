@@ -40,6 +40,7 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   select: "Dropdown",
   textarea: "Long Text",
   photo: "Photo",
+  repeating_table: "Repeating Table",
 };
 
 function SortableFieldRow({ field, idx, onFieldChange, onRemove }: {
