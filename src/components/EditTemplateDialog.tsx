@@ -9,9 +9,32 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, X, Plus, GripVertical, Upload, Image as ImageIcon, Undo2, Settings2, List, Send, FileEdit, Eye, RefreshCw, PenLine } from "lucide-react";
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
+import {
+  Loader2,
+  X,
+  Plus,
+  GripVertical,
+  Upload,
+  Image as ImageIcon,
+  Undo2,
+  Settings2,
+  List,
+  Send,
+  FileEdit,
+  Eye,
+  RefreshCw,
+  PenLine,
+} from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, verticalListSortinggStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { resolveFooterText } from "@/lib/pdfFooter";
 import { runTemplateQa, summariseQa } from "@/lib/templateQa";
@@ -67,7 +90,14 @@ const FIELD_TYPE_LABELS: Record<string, string> = {
   signature: "Signature",
 };
 
-function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange, allSections }: {
+function SortableFieldRow({
+  field,
+  idx,
+  onFieldChange,
+  onRemove,
+  onSectionChange,
+  allSections,
+}: {
   field: TemplateField;
   idx: number;
   onFieldChange: (idx: number, key: keyof TemplateField, value: any) => void;
@@ -92,7 +122,11 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
   };
 
   const removeOption = (optIdx: number) => {
-    onFieldChange(idx, "options", options.filter((_, i) => i !== optIdx));
+    onFieldChange(
+      idx,
+      "options",
+      options.filter((_, i) => i !== optIdx),
+    );
   };
 
   const commitSection = () => {
@@ -124,7 +158,9 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
               className="h-7 text-xs border rounded px-1.5 bg-background shrink-0 max-w-[110px]"
             >
               {Object.entries(FIELD_TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
+                <option key={k} value={k}>
+                  {v}
+                </option>
               ))}
             </select>
           </div>
@@ -139,20 +175,31 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
                     value={sectionInput}
                     onChange={(e) => setSectionInput(e.target.value)}
                     onBlur={commitSection}
-                    onKeyDown={(e) => { if (e.key === "Enter") commitSection(); if (e.key === "Escape") setEditingSection(false); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") commitSection();
+                      if (e.key === "Escape") setEditingSection(false);
+                    }}
                     className="h-5 text-[10px] w-24 px-1.5"
                     autoFocus
                   />
                   <button
                     type="button"
                     className="text-[10px] text-muted-foreground border rounded px-1 hover:bg-muted"
-                    onMouseDown={(e) => { e.preventDefault(); commitSection(); }}
-                  >✓</button>
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      commitSection();
+                    }}
+                  >
+                    ✓
+                  </button>
                 </div>
               ) : (
                 <button
                   type="button"
-                  onClick={() => { setSectionInput(field.section || "General"); setEditingSection(true); }}
+                  onClick={() => {
+                    setSectionInput(field.section || "General");
+                    setEditingSection(true);
+                  }}
                   className="text-[10px] text-muted-foreground border rounded px-1.5 py-0.5 hover:bg-muted flex items-center gap-1 leading-none"
                   title="Click to change section"
                 >
@@ -162,15 +209,36 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
             </div>
 
             <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none">
-              <input type="checkbox" checked={field.required} onChange={(e) => onFieldChange(idx, "required", e.target.checked)} className="h-3 w-3" />
+              <input
+                type="checkbox"
+                checked={field.required}
+                onChange={(e) => onFieldChange(idx, "required", e.target.checked)}
+                className="h-3 w-3"
+              />
               Required
             </label>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Allow notes field alongside this">
-              <input type="checkbox" checked={!!field.allow_notes} onChange={(e) => onFieldChange(idx, "allow_notes", e.target.checked)} className="h-3 w-3" />
+            <label
+              className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none"
+              title="Allow notes field alongside this"
+            >
+              <input
+                type="checkbox"
+                checked={!!field.allow_notes}
+                onChange={(e) => onFieldChange(idx, "allow_notes", e.target.checked)}
+                className="h-3 w-3"
+              />
               Notes
             </label>
-            <label className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none" title="Show an N/A option alongside YES/NO on this field">
-              <input type="checkbox" checked={!!field.allow_na} onChange={(e) => onFieldChange(idx, "allow_na", e.target.checked)} className="h-3 w-3" />
+            <label
+              className="flex items-center gap-1 text-xs text-muted-foreground cursor-pointer select-none"
+              title="Show an N/A option alongside YES/NO on this field"
+            >
+              <input
+                type="checkbox"
+                checked={!!field.allow_na}
+                onChange={(e) => onFieldChange(idx, "allow_na", e.target.checked)}
+                className="h-3 w-3"
+              />
               N/A
             </label>
             {isDropdown && (
@@ -198,9 +266,7 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
 
       {isDropdown && showOptions && (
         <div className="mx-3 mb-2 p-2 border rounded bg-muted/30 space-y-1.5">
-          {options.length === 0 && (
-            <p className="text-[10px] text-muted-foreground">No options yet. Add some below.</p>
-          )}
+          {options.length === 0 && <p className="text-[10px] text-muted-foreground">No options yet. Add some below.</p>}
           <div className="flex flex-wrap gap-1.5">
             {options.map((opt, optIdx) => (
               <Badge key={optIdx} variant="secondary" className="text-[10px] gap-1">
@@ -215,11 +281,22 @@ function SortableFieldRow({ field, idx, onFieldChange, onRemove, onSectionChange
             <Input
               value={newOption}
               onChange={(e) => setNewOption(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addOption(); } }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addOption();
+                }
+              }}
               placeholder="Add option..."
               className="h-6 text-xs flex-1"
             />
-            <Button variant="outline" size="sm" className="h-6 text-xs px-2" onClick={addOption} disabled={!newOption.trim()}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-6 text-xs px-2"
+              onClick={addOption}
+              disabled={!newOption.trim()}
+            >
               <Plus className="h-3 w-3" />
             </Button>
           </div>
@@ -277,22 +354,37 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         footer_text: footerText || undefined,
         declaration_text: declarationText || undefined,
         header_logo_max_height_px:
-          headerLogoMaxH.trim() && Number.isFinite(Number(headerLogoMaxH))
-            ? Number(headerLogoMaxH)
-            : undefined,
+          headerLogoMaxH.trim() && Number.isFinite(Number(headerLogoMaxH)) ? Number(headerLogoMaxH) : undefined,
         header_logo_spacing_after_pt:
           headerLogoSpacingAfter.trim() && Number.isFinite(Number(headerLogoSpacingAfter))
             ? Number(headerLogoSpacingAfter)
             : undefined,
       },
     }),
-    [template?.id, template?.name, templateName, templateDesc, fields, footerText, companyName, companySubtitle, logoUrl, declarationText, headerLogoMaxH, headerLogoSpacingAfter]
+    [
+      template?.id,
+      template?.name,
+      templateName,
+      templateDesc,
+      fields,
+      footerText,
+      companyName,
+      companySubtitle,
+      logoUrl,
+      declarationText,
+      headerLogoMaxH,
+      headerLogoSpacingAfter,
+    ],
   );
 
   useEffect(() => {
-    supabase.from("job_categories").select("slug, name").order("sort_order").then(({ data }) => {
-      if (data) setJobCategories(data);
-    });
+    supabase
+      .from("job_categories")
+      .select("slug, name")
+      .order("sort_order")
+      .then(({ data }) => {
+        if (data) setJobCategories(data);
+      });
   }, []);
 
   // Debounce: bump previewVersion shortly after edits settle, so we don't
@@ -359,16 +451,14 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setTemplateDesc(template.description || "");
     setTemplateCategory(template.category || "");
     setJobCategory((template as any).job_category || "");
-    setFields(template.fields.map(f => ({ ...f })));
+    setFields(template.fields.map((f) => ({ ...f })));
     const b = template.branding || {};
     setCompanyName(b.company_name || "");
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     setDeclarationText(b.declaration_text ?? "");
-    setHeaderLogoMaxH(
-      typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "",
-    );
+    setHeaderLogoMaxH(typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "");
     setHeaderLogoSpacingAfter(
       typeof b.header_logo_spacing_after_pt === "number" ? String(b.header_logo_spacing_after_pt) : "",
     );
@@ -380,7 +470,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor)
+    useSensor(KeyboardSensor),
   );
 
   const handleDragEnd = useCallback((event: DragEndEvent) => {
@@ -414,7 +504,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     ]);
   };
 
-  const allSections = [...new Set(fields.map(f => f.section || "General"))];
+  const allSections = [...new Set(fields.map((f) => f.section || "General"))];
 
   const handleLogoUpload = async (file: File) => {
     if (!file || !file.type.startsWith("image/")) return;
@@ -437,16 +527,14 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setTemplateDesc(template.description || "");
     setTemplateCategory(template.category || "");
     setJobCategory((template as any).job_category || "");
-    setFields(template.fields.map(f => ({ ...f })));
+    setFields(template.fields.map((f) => ({ ...f })));
     const b = template.branding || {};
     setCompanyName(b.company_name || "");
     setCompanySubtitle(b.company_subtitle || "");
     setLogoUrl(b.logo_url || "");
     setFooterText((template as any).footer_text ?? b.footer_text ?? "");
     setDeclarationText(b.declaration_text ?? "");
-    setHeaderLogoMaxH(
-      typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "",
-    );
+    setHeaderLogoMaxH(typeof b.header_logo_max_height_px === "number" ? String(b.header_logo_max_height_px) : "");
     setHeaderLogoSpacingAfter(
       typeof b.header_logo_spacing_after_pt === "number" ? String(b.header_logo_spacing_after_pt) : "",
     );
@@ -494,16 +582,19 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
           ? Math.min(72, Math.max(0, Number(headerLogoSpacingAfter)))
           : undefined,
     };
-    const { error } = await supabase.from("job_sheet_templates").update({
-      name: templateName.trim(),
-      description: templateDesc.trim() || null,
-      category: templateCategory || null,
-      job_category: jobCategory || null,
-      fields: fields as any,
-      branding: branding as any,
-      footer_text: footerText.trim() || null,
-      status: targetStatus,
-    } as any).eq("id", template.id);
+    const { error } = await supabase
+      .from("job_sheet_templates")
+      .update({
+        name: templateName.trim(),
+        description: templateDesc.trim() || null,
+        category: templateCategory || null,
+        job_category: jobCategory || null,
+        fields: fields as any,
+        branding: branding as any,
+        footer_text: footerText.trim() || null,
+        status: targetStatus,
+      } as any)
+      .eq("id", template.id);
 
     if (error) {
       toast({ title: "Error", description: "Failed to update template.", variant: "destructive" });
@@ -519,9 +610,10 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
       };
       toast({
         title: targetStatus === "published" ? "Template published" : "Draft saved",
-        description: targetStatus === "published"
-          ? "New jobs will use this version."
-          : "Not visible to new jobs until you publish.",
+        description:
+          targetStatus === "published"
+            ? "New jobs will use this version."
+            : "Not visible to new jobs until you publish.",
       });
       onSaved(updatedTemplate);
       onOpenChange(false);
@@ -538,7 +630,9 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             Edit Template
-            {templateName && <span className="text-sm font-normal text-muted-foreground truncate">— {templateName}</span>}
+            {templateName && (
+              <span className="text-sm font-normal text-muted-foreground truncate">— {templateName}</span>
+            )}
             <Button
               type="button"
               variant={previewOpen ? "default" : "outline"}
@@ -555,349 +649,422 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
 
         {/* Editor + (optional) live preview, side-by-side */}
         <div className="flex flex-1 min-h-0 gap-3">
-        {/* ─── LEFT: editor ─── */}
-        <div className={`flex flex-col min-h-0 ${previewOpen ? "w-1/2 min-w-[420px]" : "flex-1"}`}>
-        <Tabs defaultValue="fields" className="flex flex-col flex-1 min-h-0">
-          <TabsList className="shrink-0 w-full grid grid-cols-2">
-            <TabsTrigger value="fields" className="gap-1.5">
-              <List className="h-3.5 w-3.5" /> Fields <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">{fields.length}</Badge>
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-1.5">
-              <Settings2 className="h-3.5 w-3.5" /> Settings & Branding
-            </TabsTrigger>
-          </TabsList>
+          {/* ─── LEFT: editor ─── */}
+          <div className={`flex flex-col min-h-0 ${previewOpen ? "w-1/2 min-w-[420px]" : "flex-1"}`}>
+            <Tabs defaultValue="fields" className="flex flex-col flex-1 min-h-0">
+              <TabsList className="shrink-0 w-full grid grid-cols-2">
+                <TabsTrigger value="fields" className="gap-1.5">
+                  <List className="h-3.5 w-3.5" /> Fields{" "}
+                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0">
+                    {fields.length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger value="settings" className="gap-1.5">
+                  <Settings2 className="h-3.5 w-3.5" /> Settings & Branding
+                </TabsTrigger>
+              </TabsList>
 
-          {/* ── FIELDS TAB ── */}
-          <TabsContent value="fields" className="flex flex-col flex-1 min-h-0 mt-3 gap-2 data-[state=inactive]:hidden">
-            <div className="flex items-center justify-between shrink-0">
-              <p className="text-xs text-muted-foreground">
-                Drag to reorder · Click section badge to rename · Req = required
-              </p>
-              <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleAddField}>
-                <Plus className="h-3 w-3" /> Add Field
-              </Button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto border rounded-md p-2 min-h-0">
-              {fields.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-8">
-                  <List className="h-8 w-8 opacity-30" />
-                  <p className="text-sm">No fields yet</p>
-                  <Button variant="outline" size="sm" onClick={handleAddField}>
-                    <Plus className="h-3 w-3 mr-1" /> Add your first field
-                  </Button>
-                </div>
-              ) : (
-                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                  <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                    {fields.map((field, idx) => {
-                      const section = field.section || "General";
-                      const prevSection = idx > 0 ? (fields[idx - 1].section || "General") : null;
-                      const showHeader = section !== prevSection;
-                      return (
-                        <div key={field.id}>
-                          {showHeader && (
-                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1 px-1 first:mt-0">
-                              {section}
-                            </p>
-                          )}
-                          <SortableFieldRow
-                            field={field}
-                            idx={idx}
-                            onFieldChange={handleFieldChange}
-                            onRemove={handleRemoveField}
-                            onSectionChange={handleSectionChange}
-                            allSections={allSections}
-                          />
-                        </div>
-                      );
-                    })}
-                  </SortableContext>
-                </DndContext>
-              )}
-            </div>
-          </TabsContent>
-
-          {/* ── SETTINGS TAB ── */}
-          <TabsContent value="settings" className="flex-1 overflow-y-auto mt-3 min-h-0 data-[state=inactive]:hidden">
-            <div className="space-y-4 pb-2">
-              {/* Basic Info */}
-              <div className="space-y-3">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Template Info</p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-xs">Template Name</Label>
-                    <Input value={templateName} onChange={(e) => setTemplateName(e.target.value)} placeholder="e.g. Gas Safety Inspection" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Description (optional)</Label>
-                    <Input value={templateDesc} onChange={(e) => setTemplateDesc(e.target.value)} placeholder="Brief description" />
-                  </div>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-xs">Template Type <span className="text-muted-foreground font-normal">(category)</span></Label>
-                    <Select value={templateCategory || "none"} onValueChange={(v) => setTemplateCategory(v === "none" ? "" : v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="None" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {jobCategories.map((c) => (
-                          <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Applies to Job Category <span className="text-muted-foreground font-normal">(blank = all)</span></Label>
-                    <Select value={jobCategory || "all"} onValueChange={(v) => setJobCategory(v === "all" ? "" : v)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All job types" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All job types</SelectItem>
-                        {jobCategories.map((c) => (
-                          <SelectItem key={c.slug} value={c.slug}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-
-              {/* Branding */}
-              <div className="space-y-3 border-t pt-4">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                  <ImageIcon className="h-3 w-3" /> Company Branding (PDF)
-                </p>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label className="text-xs">Company Name</Label>
-                    <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. VIVAFIRE" />
-                  </div>
-                  <div>
-                    <Label className="text-xs">Subtitle</Label>
-                    <Input value={companySubtitle} onChange={(e) => setCompanySubtitle(e.target.value)} placeholder="e.g. Wet & Dry Riser Specialists" />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">Footer Declaration</Label>
-                  <Textarea value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="e.g. We have, today, carried out this inspection to the requirements of BS 9990:2015" rows={3} className="text-sm" />
-                  <p className="text-[11px] text-muted-foreground">Overrides any automatic footer for this template. Leave blank to use the system default (or none).</p>
-                  {(() => {
-                    const resolved = resolveFooterText(
-                      templateName,
-                      { footer_text: undefined },
-                      footerText,
-                    );
-                    const variant: "default" | "secondary" | "outline" =
-                      resolved.source === "template" ? "default"
-                      : resolved.source === "rule" ? "secondary"
-                      : "outline";
-                    return (
-                      <div className="mt-2 rounded-md border bg-muted/40 p-2 space-y-1.5">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[11px] font-medium text-muted-foreground">Footer rule:</span>
-                          <Badge variant={variant} className="text-[10px] py-0 h-4">
-                            {resolved.source === "template" ? "Custom (this template)"
-                              : resolved.source === "rule" ? "Auto-matched"
-                              : "None"}
-                          </Badge>
-                          <span className="text-[11px] text-muted-foreground">{resolved.ruleLabel}</span>
-                        </div>
-                        {resolved.text ? (
-                          <pre className="text-[11px] whitespace-pre-wrap text-foreground/80 font-sans leading-snug">{resolved.text}</pre>
-                        ) : (
-                          <p className="text-[11px] italic text-muted-foreground">No footer declaration will be rendered on PDFs for this template.</p>
-                        )}
-                      </div>
-                    );
-                  })()}
-                </div>
-                <div>
-                  <Label className="text-xs">Declaration Box (Dry Riser printable)</Label>
-                  <Textarea
-                    value={declarationText}
-                    onChange={(e) => setDeclarationText(e.target.value)}
-                    placeholder="e.g. Tested and inspected in accordance with BS 9990:2015"
-                    rows={2}
-                    className="text-sm"
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Shown in the bordered band above the accreditation logos on the printable Dry Riser sheet. Leave blank for the default ("Tested and inspected in accordance with BS 9990:2015").
+              {/* ── FIELDS TAB ── */}
+              <TabsContent
+                value="fields"
+                className="flex flex-col flex-1 min-h-0 mt-3 gap-2 data-[state=inactive]:hidden"
+              >
+                <div className="flex items-center justify-between shrink-0">
+                  <p className="text-xs text-muted-foreground">
+                    Drag to reorder · Click section badge to rename · Req = required
                   </p>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-xs">Header logo height (px)</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min={20}
-                      max={400}
-                      step={5}
-                      value={headerLogoMaxH}
-                      onChange={(e) => setHeaderLogoMaxH(e.target.value)}
-                      placeholder="100 (default)"
-                      className="text-sm"
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      Caps the printed logo height. Width scales proportionally. Range 20–400.
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-xs">Spacing after logo (pt)</Label>
-                    <Input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      max={72}
-                      step={1}
-                      value={headerLogoSpacingAfter}
-                      onChange={(e) => setHeaderLogoSpacingAfter(e.target.value)}
-                      placeholder="0 (default)"
-                      className="text-sm"
-                    />
-                    <p className="text-[11px] text-muted-foreground">
-                      Vertical gap between the logo and the title. Range 0–72 pt.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <input ref={logoInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])} />
-                  <Button variant="outline" size="sm" className="gap-1.5" onClick={() => logoInputRef.current?.click()} disabled={uploadingLogo}>
-                    {uploadingLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                    {logoUrl ? "Change Logo" : "Upload Logo"}
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1" onClick={handleAddField}>
+                    <Plus className="h-3 w-3" /> Add Field
                   </Button>
-                  {logoUrl ? (
-                    <div className="flex items-center gap-2">
-                      <img src={logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setLogoUrl("")}>
-                        <X className="h-3 w-3" />
+                </div>
+
+                <div className="flex-1 overflow-y-auto border rounded-md p-2 min-h-0">
+                  {fields.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-2 py-8">
+                      <List className="h-8 w-8 opacity-30" />
+                      <p className="text-sm">No fields yet</p>
+                      <Button variant="outline" size="sm" onClick={handleAddField}>
+                        <Plus className="h-3 w-3 mr-1" /> Add your first field
                       </Button>
                     </div>
                   ) : (
-                    <span className="text-xs text-muted-foreground">No logo — will use default</span>
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                      <SortableContext items={fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                        {fields.map((field, idx) => {
+                          const section = field.section || "General";
+                          const prevSection = idx > 0 ? fields[idx - 1].section || "General" : null;
+                          const showHeader = section !== prevSection;
+                          return (
+                            <div key={field.id}>
+                              {showHeader && (
+                                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mt-3 mb-1 px-1 first:mt-0">
+                                  {section}
+                                </p>
+                              )}
+                              <SortableFieldRow
+                                field={field}
+                                idx={idx}
+                                onFieldChange={handleFieldChange}
+                                onRemove={handleRemoveField}
+                                onSectionChange={handleSectionChange}
+                                allSections={allSections}
+                              />
+                            </div>
+                          );
+                        })}
+                      </SortableContext>
+                    </DndContext>
                   )}
                 </div>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
 
-        {/* QA panel — flags layout drift from the Dry Riser Visual reference */}
-        <div className="shrink-0 border-t pt-2">
-          <div
-            className={`rounded-md border px-3 py-2 text-xs ${
-              !qaReport.ok
-                ? "border-destructive/40 bg-destructive/5 text-destructive"
-                : qaReport.warnings.length > 0
-                  ? "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-400"
-                  : "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
-            }`}
-          >
-            <div className="flex items-center gap-2 font-medium">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              <span>Layout QA — {summariseQa(qaReport)}</span>
-            </div>
-            {(qaReport.errors.length > 0 || qaReport.warnings.length > 0) && (
-              <ul className="mt-1.5 ml-5 list-disc space-y-0.5 max-h-24 overflow-y-auto">
-                {qaReport.errors.map((i, k) => (
-                  <li key={`e${k}`}><span className="font-semibold">Blocker:</span> {i.message}</li>
-                ))}
-                {qaReport.warnings.map((i, k) => (
-                  <li key={`w${k}`} className="opacity-80">{i.message}</li>
-                ))}
-              </ul>
-            )}
-            {!qaReport.ok && (
-              <label className="mt-2 flex items-center gap-1.5 text-[11px] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={qaOverride}
-                  onChange={(e) => setQaOverride(e.target.checked)}
-                  className="h-3 w-3"
-                />
-                Save anyway (override QA)
-              </label>
-            )}
-          </div>
-        </div>
-        </div>
-        {/* ─── RIGHT: live PDF preview ─── */}
-        {previewOpen && (
-          <div className="flex flex-col w-1/2 min-w-[420px] min-h-0 border rounded-md overflow-hidden bg-muted/30">
-            <div className="flex items-center gap-2 border-b px-2 py-1.5 bg-background">
-              <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <span className="text-xs font-medium truncate">Live PDF preview</span>
-              <span className="text-[10px] text-muted-foreground shrink-0">
-                {previewBuilding ? "Rebuilding…" : "Up to date"}
-              </span>
-              <div className="ml-auto flex items-center gap-1">
-                <Button
-                  type="button"
-                  variant={previewHandfill ? "default" : "outline"}
-                  size="sm"
-                  className="h-6 text-[11px] px-2 gap-1"
-                  onClick={() => setPreviewHandfill((v) => !v)}
-                  title="Toggle printable handfill mode (no borders/underlines)"
-                >
-                  <PenLine className="h-3 w-3" />
-                  Handfill
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6"
-                  onClick={() => setPreviewVersion((v) => v + 1)}
-                  title="Refresh preview now"
-                  disabled={previewBuilding}
-                >
-                  {previewBuilding
-                    ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    : <RefreshCw className="h-3.5 w-3.5" />}
-                </Button>
+              {/* ── SETTINGS TAB ── */}
+              <TabsContent
+                value="settings"
+                className="flex-1 overflow-y-auto mt-3 min-h-0 data-[state=inactive]:hidden"
+              >
+                <div className="space-y-4 pb-2">
+                  {/* Basic Info */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Template Info
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label className="text-xs">Template Name</Label>
+                        <Input
+                          value={templateName}
+                          onChange={(e) => setTemplateName(e.target.value)}
+                          placeholder="e.g. Gas Safety Inspection"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Description (optional)</Label>
+                        <Input
+                          value={templateDesc}
+                          onChange={(e) => setTemplateDesc(e.target.value)}
+                          placeholder="Brief description"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label className="text-xs">
+                          Template Type <span className="text-muted-foreground font-normal">(category)</span>
+                        </Label>
+                        <Select
+                          value={templateCategory || "none"}
+                          onValueChange={(v) => setTemplateCategory(v === "none" ? "" : v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="None" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {jobCategories.map((c) => (
+                              <SelectItem key={c.slug} value={c.slug}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label className="text-xs">
+                          Applies to Job Category{" "}
+                          <span className="text-muted-foreground font-normal">(blank = all)</span>
+                        </Label>
+                        <Select
+                          value={jobCategory || "all"}
+                          onValueChange={(v) => setJobCategory(v === "all" ? "" : v)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="All job types" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All job types</SelectItem>
+                            {jobCategories.map((c) => (
+                              <SelectItem key={c.slug} value={c.slug}>
+                                {c.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Branding */}
+                  <div className="space-y-3 border-t pt-4">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                      <ImageIcon className="h-3 w-3" /> Company Branding (PDF)
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <Label className="text-xs">Company Name</Label>
+                        <Input
+                          value={companyName}
+                          onChange={(e) => setCompanyName(e.target.value)}
+                          placeholder="e.g. VIVAFIRE"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Subtitle</Label>
+                        <Input
+                          value={companySubtitle}
+                          onChange={(e) => setCompanySubtitle(e.target.value)}
+                          placeholder="e.g. Wet & Dry Riser Specialists"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs">Footer Declaration</Label>
+                      <Textarea
+                        value={footerText}
+                        onChange={(e) => setFooterText(e.target.value)}
+                        placeholder="e.g. We have, today, carried out this inspection to the requirements of BS 9990:2015"
+                        rows={3}
+                        className="text-sm"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Overrides any automatic footer for this template. Leave blank to use the system default (or
+                        none).
+                      </p>
+                      {(() => {
+                        const resolved = resolveFooterText(templateName, { footer_text: undefined }, footerText);
+                        const variant: "default" | "secondary" | "outline" =
+                          resolved.source === "template"
+                            ? "default"
+                            : resolved.source === "rule"
+                              ? "secondary"
+                              : "outline";
+                        return (
+                          <div className="mt-2 rounded-md border bg-muted/40 p-2 space-y-1.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="text-[11px] font-medium text-muted-foreground">Footer rule:</span>
+                              <Badge variant={variant} className="text-[10px] py-0 h-4">
+                                {resolved.source === "template"
+                                  ? "Custom (this template)"
+                                  : resolved.source === "rule"
+                                    ? "Auto-matched"
+                                    : "None"}
+                              </Badge>
+                              <span className="text-[11px] text-muted-foreground">{resolved.ruleLabel}</span>
+                            </div>
+                            {resolved.text ? (
+                              <pre className="text-[11px] whitespace-pre-wrap text-foreground/80 font-sans leading-snug">
+                                {resolved.text}
+                              </pre>
+                            ) : (
+                              <p className="text-[11px] italic text-muted-foreground">
+                                No footer declaration will be rendered on PDFs for this template.
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                    <div>
+                      <Label className="text-xs">Declaration Box (Dry Riser printable)</Label>
+                      <Textarea
+                        value={declarationText}
+                        onChange={(e) => setDeclarationText(e.target.value)}
+                        placeholder="e.g. Tested and inspected in accordance with BS 9990:2015"
+                        rows={2}
+                        className="text-sm"
+                      />
+                      <p className="text-[11px] text-muted-foreground">
+                        Shown in the bordered band above the accreditation logos on the printable Dry Riser sheet. Leave
+                        blank for the default ("Tested and inspected in accordance with BS 9990:2015").
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs">Header logo height (px)</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={20}
+                          max={400}
+                          step={5}
+                          value={headerLogoMaxH}
+                          onChange={(e) => setHeaderLogoMaxH(e.target.value)}
+                          placeholder="100 (default)"
+                          className="text-sm"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Caps the printed logo height. Width scales proportionally. Range 20–400.
+                        </p>
+                      </div>
+                      <div>
+                        <Label className="text-xs">Spacing after logo (pt)</Label>
+                        <Input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={72}
+                          step={1}
+                          value={headerLogoSpacingAfter}
+                          onChange={(e) => setHeaderLogoSpacingAfter(e.target.value)}
+                          placeholder="0 (default)"
+                          className="text-sm"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Vertical gap between the logo and the title. Range 0–72 pt.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        ref={logoInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => e.target.files?.[0] && handleLogoUpload(e.target.files[0])}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => logoInputRef.current?.click()}
+                        disabled={uploadingLogo}
+                      >
+                        {uploadingLogo ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="h-3.5 w-3.5" />
+                        )}
+                        {logoUrl ? "Change Logo" : "Upload Logo"}
+                      </Button>
+                      {logoUrl ? (
+                        <div className="flex items-center gap-2">
+                          <img src={logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
+                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setLogoUrl("")}>
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">No logo — will use default</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+
+            {/* QA panel — flags layout drift from the Dry Riser Visual reference */}
+            <div className="shrink-0 border-t pt-2">
+              <div
+                className={`rounded-md border px-3 py-2 text-xs ${
+                  !qaReport.ok
+                    ? "border-destructive/40 bg-destructive/5 text-destructive"
+                    : qaReport.warnings.length > 0
+                      ? "border-amber-500/40 bg-amber-500/5 text-amber-700 dark:text-amber-400"
+                      : "border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-medium">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  <span>Layout QA — {summariseQa(qaReport)}</span>
+                </div>
+                {(qaReport.errors.length > 0 || qaReport.warnings.length > 0) && (
+                  <ul className="mt-1.5 ml-5 list-disc space-y-0.5 max-h-24 overflow-y-auto">
+                    {qaReport.errors.map((i, k) => (
+                      <li key={`e${k}`}>
+                        <span className="font-semibold">Blocker:</span> {i.message}
+                      </li>
+                    ))}
+                    {qaReport.warnings.map((i, k) => (
+                      <li key={`w${k}`} className="opacity-80">
+                        {i.message}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {!qaReport.ok && (
+                  <label className="mt-2 flex items-center gap-1.5 text-[11px] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={qaOverride}
+                      onChange={(e) => setQaOverride(e.target.checked)}
+                      className="h-3 w-3"
+                    />
+                    Save anyway (override QA)
+                  </label>
+                )}
               </div>
             </div>
-            <div className="flex-1 min-h-0 relative bg-neutral-200 dark:bg-neutral-900">
-              {previewError ? (
-                <div className="absolute inset-0 flex items-center justify-center p-4 text-xs text-destructive text-center">
-                  Preview failed: {previewError}
-                </div>
-              ) : previewUrl ? (
-                <iframe
-                  key={previewUrl}
-                  src={previewUrl}
-                  title="Template PDF preview"
-                  className="w-full h-full bg-white"
-                />
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Building preview…
-                </div>
-              )}
-              {previewBuilding && previewUrl && (
-                <div className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1 shadow">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Updating
-                </div>
-              )}
-            </div>
           </div>
-        )}
+          {/* ─── RIGHT: live PDF preview ─── */}
+          {previewOpen && (
+            <div className="flex flex-col w-1/2 min-w-[420px] min-h-0 border rounded-md overflow-hidden bg-muted/30">
+              <div className="flex items-center gap-2 border-b px-2 py-1.5 bg-background">
+                <Eye className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs font-medium truncate">Live PDF preview</span>
+                <span className="text-[10px] text-muted-foreground shrink-0">
+                  {previewBuilding ? "Rebuilding…" : "Up to date"}
+                </span>
+                <div className="ml-auto flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant={previewHandfill ? "default" : "outline"}
+                    size="sm"
+                    className="h-6 text-[11px] px-2 gap-1"
+                    onClick={() => setPreviewHandfill((v) => !v)}
+                    title="Toggle printable handfill mode (no borders/underlines)"
+                  >
+                    <PenLine className="h-3 w-3" />
+                    Handfill
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => setPreviewVersion((v) => v + 1)}
+                    title="Refresh preview now"
+                    disabled={previewBuilding}
+                  >
+                    {previewBuilding ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <RefreshCw className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 relative bg-neutral-200 dark:bg-neutral-900">
+                {previewError ? (
+                  <div className="absolute inset-0 flex items-center justify-center p-4 text-xs text-destructive text-center">
+                    Preview failed: {previewError}
+                  </div>
+                ) : previewUrl ? (
+                  <iframe
+                    key={previewUrl}
+                    src={previewUrl}
+                    title="Template PDF preview"
+                    className="w-full h-full bg-white"
+                  />
+                ) : (
+                  <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground gap-2">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Building preview…
+                  </div>
+                )}
+                {previewBuilding && previewUrl && (
+                  <div className="absolute top-2 right-2 bg-background/80 backdrop-blur rounded-full px-2 py-0.5 text-[10px] flex items-center gap-1 shadow">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Updating
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Headless PDF builder — exposes getBlob() via ref. Always mounted
             (when dialog is open) so the live preview can pull a fresh blob. */}
-        <BlankTemplatePdfExport
-          ref={pdfExportRef}
-          template={livePreviewTemplate as any}
-          jobInfo={null}
-          headless
-        />
+        <BlankTemplatePdfExport ref={pdfExportRef} template={livePreviewTemplate as any} jobInfo={null} headless />
 
         <DialogFooter className="shrink-0 border-t pt-3">
           <Button variant="ghost" size="sm" onClick={handleRevert} disabled={!template}>
@@ -920,7 +1087,9 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                 {(template.status ?? "published") === "draft" ? "Draft" : "Published"}
               </span>
             )}
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
             <Button
               variant="secondary"
               onClick={() => handleSave("draft")}
