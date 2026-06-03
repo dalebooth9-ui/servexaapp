@@ -32,7 +32,7 @@ type LatestCheck = {
   status: string;
   rejection_reason: string | null;
   vehicle_reg: string | null;
-  items: Record<string, "ok" | "defect"> | null;
+  items: Record<string, "ok" | "defect" | "na"> | null;
   has_defects: boolean;
   defect_notes: string | null;
 } | null;
@@ -50,7 +50,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const [vehicleReg, setVehicleReg] = useState("");
   const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
-  const [items, setItems] = useState<Record<string, "ok" | "defect" | null>>(
+  const [items, setItems] = useState<Record<string, "ok" | "defect" | "na" | null>>(
     Object.fromEntries(CHECK_ITEMS.map((i) => [i.key, null]))
   );
   const [defectNotes, setDefectNotes] = useState("");
