@@ -232,6 +232,17 @@ export default function SignatureCapture({
       {/* Capture pad */}
       {drawing ? (
         <div className="space-y-3">
+          {signerRole === "customer" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="customer-sig-name" className="text-xs">Customer name</Label>
+              <Input
+                id="customer-sig-name"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Full name of person signing"
+              />
+            </div>
+          )}
           <div className="rounded-lg border-2 border-dashed border-muted-foreground/30 bg-background overflow-hidden">
             <canvas
               ref={canvasRef}
