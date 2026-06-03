@@ -936,10 +936,19 @@ export default function JobDetail() {
           <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3 space-y-4">
-          <SignatureCapture jobId={id!} />
+          <SignatureCapture jobId={id!} signerRole="engineer" heading="Engineer sign-off" filterByRole />
+          <div className="border-t pt-3">
+            <SignatureCapture
+              jobId={id!}
+              signerRole="customer"
+              heading="Customer sign-off (in person)"
+              defaultSignerName={custName || ""}
+              filterByRole
+            />
+          </div>
           <div className="border-t pt-3 space-y-4">
             <div>
-              <p className="text-sm font-medium mb-2">Customer handover sign-off</p>
+              <p className="text-sm font-medium mb-2">Customer handover sign-off (remote link)</p>
               <JobHandoverLink jobId={id!} customerId={(job as any).customer_id} customerName={custName || ""} />
             </div>
             <div className="border-t pt-3">
