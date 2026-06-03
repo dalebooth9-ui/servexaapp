@@ -410,15 +410,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Attendance date — always use the planner-booked date
       } else if (label.includes("attendance date") || label === "rams_attendance_date" || label === "attendance") {
         prefilled[f.id] = scheduledDate || new Date().toLocaleDateString("en-GB");
-      // Category / scope / type of work — auto-set from PT/Visual quantities, fallback to category
+      // Category / scope / type of work — match template title first, fall back to PT/Visual qty, then category
       } else if (label.includes("scope") || label.includes("type of work") || label.includes("work type") || label.includes("job type") || label.includes("category") || label.includes("service type")) {
-        const scopeParts: string[] = [];
-        if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
-        if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
-        if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
-        const categoryName = jobCategories.find(c => c.slug === jobInfo.category)?.name
-          || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
-        prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
+        const fromTitle = deriveScopeFromTemplateName(template.name);
+        if (fromTitle) {
+          prefilled[f.id] = fromTitle;
+        } else {
+          const scopeParts: string[] = [];
+          if ((jobInfo.pressure_test_qty ?? 0) > 0) scopeParts.push(`Pressure Test ×${jobInfo.pressure_test_qty}`);
+          if ((jobInfo.visual_qty ?? 0) > 0) scopeParts.push(`Visual Inspection ×${jobInfo.visual_qty}`);
+          if ((jobInfo.other_qty ?? 0) > 0 && jobInfo.other_service_type) scopeParts.push(`${jobInfo.other_service_type} ×${jobInfo.other_qty}`);
+          const categoryName = jobCategories.find(c => c.slug === jobInfo.category)?.name
+            || (jobInfo.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+          prefilled[f.id] = scopeParts.length > 0 ? scopeParts.join(", ") : categoryName;
+        }
       // Priority
       } else if (label === "priority" || label === "job priority") {
         prefilled[f.id] = jobInfo.priority || "";
