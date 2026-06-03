@@ -41,9 +41,31 @@ export type PrefillJobInfo = {
   scheduledDate?: string | null;
 };
 
+/**
+ * Derive the "scope of work" wording from a template's title so it always
+ * matches the document, e.g. "Dry Riser Annual Pressure Test" → "Pressure Test".
+ * Returns null when nothing recognisable is found.
+ */
+export function deriveScopeFromTemplateName(templateName?: string | null): string | null {
+  const n = (templateName || "").toLowerCase();
+  if (!n) return null;
+  if (n.includes("pressure test")) return "Pressure Test";
+  if (n.includes("flow test") || n.includes("flow & pressure")) return "Flow Test";
+  if (n.includes("visual")) return "Visual Inspection";
+  if (n.includes("commission")) return "Commissioning";
+  if (n.includes("install")) return "Installation";
+  if (n.includes("service") || n.includes("maintenance") || n.includes("ppm")) return "Service & Maintenance";
+  if (n.includes("inspection")) return "Inspection";
+  if (n.includes("survey")) return "Survey";
+  if (n.includes("repair")) return "Repair";
+  if (n.includes("certificate") || n.includes("conformity")) return "Certification";
+  return null;
+}
+
 export function buildJobSheetPrefill(
   fields: PrefillField[],
   jobInfo: PrefillJobInfo | null | undefined,
+  templateName?: string | null,
 ): Record<string, any> {
   const prefilled: Record<string, any> = {};
   if (!jobInfo) return prefilled;
