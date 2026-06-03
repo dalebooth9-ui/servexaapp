@@ -538,6 +538,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
       { id: "panel_fire_relayed", label: "Are all fire signals relayed to remote monitoring?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
       { id: "panel_fault_indicated", label: "Are all fault signals clearly indicated on the panel?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
       { id: "panel_fault_relayed", label: "Are all fault signals relayed to remote monitoring?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
+      { id: "remote_monitoring_signal", label: "Remote Monitoring Signal Received (if fitted)?", type: "checkbox", section: "Monitoring Panel", required: false, allow_notes: true, allow_na: true } as any,
       { id: "panel_notes", label: "Monitoring Panel Notes", type: "textarea", section: "Monitoring Panel", required: false },
 
       // General Condition
