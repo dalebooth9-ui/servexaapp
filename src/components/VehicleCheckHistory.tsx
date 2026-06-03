@@ -195,6 +195,7 @@ export default function VehicleCheckHistory() {
         const meta = STATUS_META[r.status] || STATUS_META.pending;
         const items = r.items || {};
         const defects = ALL_KEYS.filter((k) => items[k] === "defect");
+        const naCount = ALL_KEYS.filter((k) => items[k] === "na").length;
         const missing = ALL_KEYS.filter((k) => items[k] === undefined || items[k] === null);
         const photoPaths = r.defect_photo_urls || [];
         const photoStates = signed[r.id];
