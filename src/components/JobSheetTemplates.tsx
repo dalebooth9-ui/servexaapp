@@ -156,55 +156,88 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   }, []);
 
   const fetchData = async () => {
-    const [tplRes, respRes, jobRes, schedRes] = await Promise.all([
-      supabase.from("job_sheet_templates").select("*").order("created_at", { ascending: false }),
-      supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
-      supabase.from("jobs").select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)").eq("id", jobId).single(),
-      supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
-    ]);
-    // Store earliest scheduled date for RAMS attendance date auto-fill
-    if (schedRes.data && schedRes.data.length > 0) {
-      setScheduledDate(new Date(schedRes.data[0].schedule_date).toLocaleDateString("en-GB"));
-    }
+    // Job first (small) so we can server-side filter templates by category
+    const jobRes = await supabase
+      .from("jobs")
+      .select("name, address, customer, reference_number, category, status, priority, visual_qty, pressure_test_qty, other_qty, other_service_type, customer_id, site_id, customers(name, email, phone, logo_url), sites(name, address, postcode, contact_name, contact_phone, contact_email, riser_location)")
+      .eq("id", jobId)
+      .single();
+
     const rawJobCategory = (jobRes.data as any)?.category || null;
-    // Normalize legacy slug aliases to canonical slugs
     const normalizeCategory = (cat: string | null) => {
       if (!cat) return null;
       if (cat === "sprinkler_service") return "sprinkler";
       if (cat === "hydrant_service" || cat === "fire_hydrant") return "fire_hydrant";
       if (cat === "extinguisher_service") return "fire_extinguisher";
-      // "installation" jobs map to "dry_riser_installation" so commissioning templates are included
       if (cat === "installation") return "dry_riser_installation";
-      // Preserve specific dry riser sub-categories that have their own templates
       if (cat === "dry_riser_pressure_test" || cat === "dry_riser_visual" || cat === "dry_riser_installation" || cat === "dry_riser_remedial") return cat;
-      // Only generic dry riser service variants → canonical "dry_riser"
       if (cat === "dry_riser_service" || cat === "dry_riser") return "dry_riser";
       return cat;
     };
     const jobCategory = normalizeCategory(rawJobCategory);
+
+    // Reverse-map: which raw job_category values normalise to this job's category
+    const categoryAliases = (() => {
+      if (!jobCategory) return [] as string[];
+      const aliasMap: Record<string, string[]> = {
+        sprinkler: ["sprinkler", "sprinkler_service"],
+        fire_hydrant: ["fire_hydrant", "hydrant_service"],
+        fire_extinguisher: ["fire_extinguisher", "extinguisher_service"],
+        dry_riser_installation: ["dry_riser_installation", "installation"],
+        dry_riser: ["dry_riser", "dry_riser_service"],
+      };
+      return aliasMap[jobCategory] || [jobCategory];
+    })();
+
+    // Build OR filter: matching job_category aliases OR global rams templates
+    const orParts: string[] = ["category.eq.rams"];
+    if (categoryAliases.length > 0) {
+      orParts.push(`job_category.in.(${categoryAliases.join(",")})`);
+    }
+
+    const [tplRes, respRes, schedRes] = await Promise.all([
+      supabase
+        .from("job_sheet_templates")
+        .select("*")
+        .or(orParts.join(","))
+        .order("created_at", { ascending: false }),
+      supabase.from("job_sheet_responses").select("*").eq("job_id", jobId).order("created_at", { ascending: false }),
+      supabase.from("job_schedule").select("schedule_date").eq("job_id", jobId).order("schedule_date", { ascending: true }).limit(1),
+    ]);
+
+    if (schedRes.data && schedRes.data.length > 0) {
+      setScheduledDate(new Date(schedRes.data[0].schedule_date).toLocaleDateString("en-GB"));
+    }
     const allTpls = (tplRes.data || []).map((t: any) => ({
       ...t,
       fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
       branding: t.branding || {},
     }));
-    // Only show templates that match the job's canonical category (or global "rams" category which spans all jobs)
+    // Defensive re-filter (server filter already narrowed, this handles edge cases)
     const filteredTpls = allTpls.filter((t: any) => {
-      if (!t.job_category) return t.category === "rams"; // RAMS templates are global; uncategorised non-RAMS templates are hidden
+      if (!t.job_category) return t.category === "rams";
       return normalizeCategory(t.job_category) === jobCategory;
     });
     setTemplates(filteredTpls);
     setAllTemplates(allTpls);
     setResponses((respRes.data || []) as Response[]);
 
+    // Profile + assignment lookups in parallel
+    const respUserIds = Array.from(
+      new Set((respRes.data || []).map((r: any) => r.submitted_by).filter(Boolean))
+    );
+    const [assignsRes, respProfsRes] = await Promise.all([
+      supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
+      respUserIds.length > 0
+        ? supabase.from("profiles").select("user_id, full_name").in("user_id", respUserIds)
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+
     let engineerNames: string[] = [];
     if (jobRes.data) {
       const jd = jobRes.data as any;
-      // Fetch assigned engineers
-      const { data: assigns } = await supabase
-        .from("job_assignments")
-        .select("engineer_id")
-        .eq("job_id", jobId);
-      if (assigns && assigns.length > 0) {
+      const assigns = assignsRes.data || [];
+      if (assigns.length > 0) {
         const { data: profs } = await supabase
           .from("profiles")
           .select("user_id, full_name")
@@ -232,18 +265,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       });
     }
 
-    // Fetch profile names
-    const userIds = new Set<string>();
-    (respRes.data || []).forEach((r: any) => r.submitted_by && userIds.add(r.submitted_by));
-    if (userIds.size > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", Array.from(userIds));
-      const map: Record<string, string> = {};
-      (profs || []).forEach((p) => { map[p.user_id] = p.full_name; });
-      setProfiles(map);
-    }
+    const map: Record<string, string> = {};
+    (respProfsRes.data || []).forEach((p: any) => { map[p.user_id] = p.full_name; });
+    setProfiles(map);
   };
 
   useEffect(() => { fetchData(); }, [jobId]);
