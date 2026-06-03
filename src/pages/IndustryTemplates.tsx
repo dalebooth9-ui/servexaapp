@@ -87,7 +87,7 @@ const SITE_DETAIL_FIELDS: FieldDef[] = [
 
 const RESULT_FIELDS: FieldDef[] = [
   { id: "overall_result", label: "Overall Result", type: "pass_fail", section: "Result", required: true },
-  { id: "remedial_required", label: "Remedial Action Required", type: "select", section: "Result", required: true, options: ["Yes", "No"] },
+  { id: "remedial_required", label: "Remedial Action Required?", type: "checkbox", section: "Result", required: true, allow_notes: true, allow_na: true } as any,
   { id: "comments", label: "Comments / Defects", type: "textarea", section: "Result", required: false },
 ];
 
