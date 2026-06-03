@@ -10,6 +10,7 @@ const BUCKET_LABELS: Record<string, string> = {
   pressure_test: "Pressure Test",
   visual: "Visual",
   other: "Other",
+  category_default: "Job Sheet",
 };
 
 export interface ChooserChoice {
