@@ -70,7 +70,7 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   const fetchAll = async () => {
-    const [actRes, visitRes, assignRes, respRes, tplRes] = await Promise.all([
+    const [actRes, visitRes, assignRes, respRes] = await Promise.all([
       supabase
         .from("job_activity_log")
         .select("*")
@@ -92,31 +92,34 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         .eq("job_id", jobId)
         .eq("status", "submitted")
         .order("submitted_at", { ascending: true }),
-      supabase
-        .from("job_sheet_templates")
-        .select("*"),
     ]);
     setActivities((actRes.data as ActivityEntry[]) || []);
     setVisits((visitRes.data as Visit[]) || []);
     setAssignments((assignRes.data as Assignment[]) || []);
     setTemplateResponses(respRes.data || []);
-    setTemplates(tplRes.data || []);
 
-    // Fetch profile names for all user_ids
+    // Only fetch templates actually referenced by this job's responses
+    const tplIds = Array.from(
+      new Set((respRes.data || []).map((r: any) => r.template_id).filter(Boolean))
+    );
     const userIds = new Set<string>();
     (actRes.data || []).forEach((a: any) => a.user_id && userIds.add(a.user_id));
     (assignRes.data || []).forEach((a: any) => a.engineer_id && userIds.add(a.engineer_id));
     (visitRes.data || []).forEach((v: any) => v.engineer_id && userIds.add(v.engineer_id));
     (respRes.data || []).forEach((r: any) => r.submitted_by && userIds.add(r.submitted_by));
-    if (userIds.size > 0) {
-      const { data: profs } = await supabase
-        .from("profiles")
-        .select("user_id, full_name")
-        .in("user_id", Array.from(userIds));
-      const map: Record<string, string> = {};
-      (profs || []).forEach((p) => { map[p.user_id] = p.full_name; });
-      setProfiles(map);
-    }
+
+    const [tplRes, profsRes] = await Promise.all([
+      tplIds.length > 0
+        ? supabase.from("job_sheet_templates").select("*").in("id", tplIds as string[])
+        : Promise.resolve({ data: [] as any[] }),
+      userIds.size > 0
+        ? supabase.from("profiles").select("user_id, full_name").in("user_id", Array.from(userIds))
+        : Promise.resolve({ data: [] as any[] }),
+    ]);
+    setTemplates(tplRes.data || []);
+    const map: Record<string, string> = {};
+    (profsRes.data || []).forEach((p: any) => { map[p.user_id] = p.full_name; });
+    setProfiles(map);
   };
 
   useEffect(() => { fetchAll(); }, [jobId]);
