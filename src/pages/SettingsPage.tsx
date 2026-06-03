@@ -18,6 +18,7 @@ import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
 import UserRoleSettings from "@/components/UserRoleSettings";
 import JobTemplateSettings from "@/components/JobTemplateSettings";
+import VehicleCheckSettings from "@/components/VehicleCheckSettings";
 import CategoryDocumentTemplateSettings from "@/components/CategoryDocumentTemplateSettings";
 import CustomerReassignWizard from "@/components/CustomerReassignWizard";
 import CustomerMergeSuggestionsPanel from "@/components/CustomerMergeSuggestionsPanel";
@@ -303,6 +304,7 @@ export default function SettingsPage() {
         <JobCategorySettings />
         <AssetCategorySettings />
         <JobTemplateSettings />
+        <VehicleCheckSettings />
         <CategoryDocumentTemplateSettings />
         <RamsTemplateSettings />
         <FilenameFormatSettings />
