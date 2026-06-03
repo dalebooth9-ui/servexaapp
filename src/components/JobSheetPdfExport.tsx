@@ -377,7 +377,17 @@ export async function generateJobSheetPdf(
   }
 
   // --- Site Photos (embedded in comments section) ---
-  const sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
+  let sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
+  const sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
+  // If we have storage paths but no usable URLs (or fewer URLs than paths), regenerate signed URLs
+  if (sitePhotoPaths.length > sitePhotoUrls.length) {
+    const fresh: string[] = [];
+    for (const p of sitePhotoPaths) {
+      const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 60 * 60);
+      if (data?.signedUrl) fresh.push(data.signedUrl);
+    }
+    if (fresh.length > 0) sitePhotoUrls = fresh;
+  }
   if (sitePhotoUrls.length > 0) {
     doc.setFont("helvetica", "bold");
     doc.setFontSize(7.5);
