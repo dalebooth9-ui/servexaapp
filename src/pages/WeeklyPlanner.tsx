@@ -566,6 +566,7 @@ export default function WeeklyPlanner() {
       engineer_id: s.engineer_id,
       schedule_date: s.date,
       created_by: user?.id,
+      ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
       onConflict: "job_id,engineer_id,schedule_date",
