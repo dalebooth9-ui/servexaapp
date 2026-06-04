@@ -392,7 +392,7 @@ export default function WeeklyPlanner() {
   // CRUD operations
   const handleAssign = async (jobId: string, engineerId: string, date: string) => {
     const { error } = await supabase.from("job_schedule").insert({
-      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
     } as any);
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
