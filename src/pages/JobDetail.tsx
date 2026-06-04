@@ -62,6 +62,7 @@ const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertif
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
+const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
