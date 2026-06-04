@@ -312,9 +312,10 @@ export default function PlannerMapView({
         : "";
       toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${baseMins} mins${trafficSuffix}` });
 
-      // Notify parent of optimised job order
+      // Notify parent of optimised job order (append any overflow stops at the end)
       if (data.optimised?.length >= 2) {
-        onRouteOptimised?.(data.optimised.map((wp: any) => wp.job_id));
+        const optimisedIds = data.optimised.map((wp: any) => wp.job_id);
+        onRouteOptimised?.([...optimisedIds, ...overflowJobIds]);
       }
 
       // Draw optimised route on map
