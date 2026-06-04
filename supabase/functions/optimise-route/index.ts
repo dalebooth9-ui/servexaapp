@@ -38,7 +38,7 @@ serve(async (req) => {
 
     const { waypoints, origin } = await req.json();
     // waypoints: Array of { address: string, job_id: string }
-    // origin: { lat: number, lng: number } (engineer's current location)
+    // origin: { lat: number, lng: number } | { address: string } | null
 
     if (!waypoints || waypoints.length < 2) {
       return new Response(JSON.stringify({ optimised: waypoints || [], legs: [] }), {
@@ -46,13 +46,21 @@ serve(async (req) => {
       });
     }
 
-    // Build Google Directions request with waypoint optimization
-    const waypointAddresses = waypoints.map((w: any) => w.address).join("|");
-    const originStr = origin ? `${origin.lat},${origin.lng}` : waypoints[0].address;
+    let originStr: string;
+    if (origin && typeof (origin as any).lat === "number" && typeof (origin as any).lng === "number") {
+      originStr = `${(origin as any).lat},${(origin as any).lng}`;
+    } else if (origin && typeof (origin as any).address === "string") {
+      originStr = (origin as any).address;
+    } else {
+      originStr = waypoints[0].address;
+    }
     const destinationStr = waypoints[waypoints.length - 1].address;
-    const intermediates = waypoints.length > 2
-      ? waypoints.slice(1, -1).map((w: any) => w.address).join("|")
-      : "";
+    // When an explicit origin is provided, all waypoints are intermediate stops
+    const hasExplicitOrigin = origin != null;
+    const intermediatesArr = hasExplicitOrigin
+      ? waypoints.slice(0, -1).map((w: any) => w.address)
+      : (waypoints.length > 2 ? waypoints.slice(1, -1).map((w: any) => w.address) : []);
+    const intermediates = intermediatesArr.join("|");
 
     const url = new URL("https://maps.googleapis.com/maps/api/directions/json");
     url.searchParams.set("origin", originStr);
@@ -65,11 +73,20 @@ serve(async (req) => {
     url.searchParams.set("traffic_model", "best_guess");
     url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
 
-    const resp = await fetch(url.toString());
-    const data = await resp.json();
+    let data: any;
+    try {
+      const resp = await fetch(url.toString());
+      data = await resp.json();
+    } catch (fetchErr) {
+      return new Response(JSON.stringify({ error: "Route optimisation failed", reason: "NETWORK_ERROR" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (data.status !== "OK") {
-      return new Response(JSON.stringify({ optimised: waypoints, legs: [], error: data.status }), {
+      return new Response(JSON.stringify({ error: "Route optimisation failed", reason: data.status || "UNKNOWN" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -80,8 +97,14 @@ serve(async (req) => {
     // Reorder waypoints based on Google's optimisation
     let optimised = waypoints;
     if (waypointOrder.length > 0) {
-      const middle = waypointOrder.map((i: number) => waypoints[i + 1]); // +1 because origin is waypoints[0]
-      optimised = [waypoints[0], ...middle, waypoints[waypoints.length - 1]];
+      if (hasExplicitOrigin) {
+        // All waypoints (except last) are intermediates when origin is explicit
+        const middle = waypointOrder.map((i: number) => waypoints[i]);
+        optimised = [...middle, waypoints[waypoints.length - 1]];
+      } else {
+        const middle = waypointOrder.map((i: number) => waypoints[i + 1]); // +1 because origin is waypoints[0]
+        optimised = [waypoints[0], ...middle, waypoints[waypoints.length - 1]];
+      }
     }
 
     const legs = route.legs.map((leg: any) => ({
