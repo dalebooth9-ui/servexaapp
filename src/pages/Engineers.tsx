@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Phone, Pencil, Plus, UserMinus, ArrowLeft, KeyRound, FileText, Upload, Trash2, Download, X, Loader2, Mail, ShieldCheck, LayoutGrid, List as ListIcon } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import SkillsCertsTab from "@/components/engineers/SkillsCertsTab";
+import VanStockGrid from "@/components/VanStockGrid";
 import SkillMatrixView from "@/components/engineers/SkillMatrixView";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
