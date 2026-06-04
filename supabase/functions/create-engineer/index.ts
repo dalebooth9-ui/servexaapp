@@ -94,6 +94,8 @@ serve(async (req) => {
 
     // Create user via admin API with a random password
     const tempPassword = crypto.randomUUID();
+    let userId: string | null = null;
+
     const { data: newUser, error: createError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
@@ -103,13 +105,49 @@ serve(async (req) => {
       });
 
     if (createError) {
-      return new Response(JSON.stringify({ error: createError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+      const msg = (createError.message || "").toLowerCase();
+      const isDuplicate =
+        msg.includes("already been registered") ||
+        msg.includes("already registered") ||
+        msg.includes("already exists") ||
+        msg.includes("duplicate");
 
-    const userId = newUser.user.id;
+      if (!isDuplicate) {
+        return new Response(JSON.stringify({ error: createError.message }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      // Reuse existing auth user — look up by email
+      let page = 1;
+      const perPage = 200;
+      while (!userId) {
+        const { data: list, error: listErr } =
+          await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+        if (listErr) {
+          return new Response(JSON.stringify({ error: listErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+        const match = list.users.find(
+          (u) => (u.email || "").toLowerCase() === email.toLowerCase()
+        );
+        if (match) { userId = match.id; break; }
+        if (list.users.length < perPage) break;
+        page++;
+      }
+
+      if (!userId) {
+        return new Response(
+          JSON.stringify({ error: "Email already registered but user not found" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    } else {
+      userId = newUser.user.id;
+    }
 
     // Update profile with phone/whatsapp
     if (phone || whatsapp_number) {
