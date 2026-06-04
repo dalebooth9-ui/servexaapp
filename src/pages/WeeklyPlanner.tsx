@@ -532,7 +532,8 @@ export default function WeeklyPlanner() {
     // Update each entry sequentially (reverse order to avoid conflicts)
     for (const entry of entries) {
       const newDate = format(addDays(new Date(entry.schedule_date), offset), "yyyy-MM-dd");
-      await supabase.from("job_schedule").update({ schedule_date: newDate } as any).eq("id", entry.id);
+      markLocalEdit([entry.id]);
+      await supabase.from("job_schedule").update({ schedule_date: newDate, ...editStamp() } as any).eq("id", entry.id);
     }
 
     toast({ title: "Shunt complete", description: `${entries.length} entries shifted ${days} day(s) ${shuntDirection}.` });
