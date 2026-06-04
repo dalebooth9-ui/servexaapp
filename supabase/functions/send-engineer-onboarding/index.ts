@@ -155,11 +155,17 @@ serve(async (req) => {
 </body>
 </html>`;
 
-    const emailRes = await fetch("https://api.resend.com/emails", {
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    if (!LOVABLE_API_KEY) {
+      throw new Error("LOVABLE_API_KEY is not configured");
+    }
+
+    const emailRes = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${resendApiKey}`,
         "Content-Type": "application/json",
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "X-Connection-Api-Key": resendApiKey,
       },
       body: JSON.stringify({
         from: await getFromAddress("onboarding"),
@@ -169,27 +175,10 @@ serve(async (req) => {
       }),
     });
 
-    const emailJson = await emailRes.json();
-
     if (!emailRes.ok) {
-      // Fallback to onboarding sender if domain not yet verified
-      const fallbackRes = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${resendApiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          from: await getFromAddress("onboarding"),
-          to: [to_email],
-          subject: "Install the Servexa app on your phone",
-          html,
-        }),
-      });
-      const fallback = await fallbackRes.json();
-      if (!fallbackRes.ok) {
-        throw new Error(fallback?.message || "Failed to send email");
-      }
+      const errText = await emailRes.text();
+      console.error("Resend gateway error:", emailRes.status, errText);
+      throw new Error(`Failed to send onboarding email (${emailRes.status}): ${errText}`);
     }
 
     // Log the onboarding send
