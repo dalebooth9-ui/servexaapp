@@ -30,6 +30,15 @@ function generateToken(): string {
     .join('')
 }
 
+// SHA-256 hex digest — used to store unsubscribe tokens at rest.
+// Only the hash is persisted; the raw token only travels in the email URL.
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
+
 // Auth note: this function uses verify_jwt = true in config.toml, so Supabase's
 // gateway validates the caller's JWT (anon or service_role) before the request
 // reaches this code. No in-function auth check is needed.
