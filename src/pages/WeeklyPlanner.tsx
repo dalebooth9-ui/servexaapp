@@ -408,7 +408,7 @@ export default function WeeklyPlanner() {
 
   const handleMultiDayAssign = async (jobId: string, engineerId: string, dates: string[]) => {
     const rows = dates.map((date) => ({
-      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
       onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
