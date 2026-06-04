@@ -47,6 +47,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/assets", label: "Assets", icon: Package, section: "more", adminOnly: true },
 { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
 { to: "/parts-library", label: "Parts Library", icon: Library, section: "more", adminOnly: true },
+{ to: "/stock", label: "Van Stock", icon: Truck, section: "more", adminOnly: false },
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
   { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
   { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
