@@ -472,7 +472,7 @@ export default function WeeklyPlanner() {
     }
     const { error } = await supabase.from("job_schedule").insert({
       job_id: addJobId, engineer_id: addEngineerId, schedule_date: addDay,
-      notes: addNotes.trim() || null, notes_color: addNotesColor, created_by: user?.id,
+      notes: addNotes.trim() || null, notes_color: addNotesColor, created_by: user?.id, ...editStamp(),
     } as any);
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
