@@ -281,7 +281,25 @@ export default function WeeklyPlanner() {
   useEffect(() => {
     const channel = supabase
       .channel(channelName.current)
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, (payload) => {
+        const row: any = (payload as any).new ?? (payload as any).old ?? {};
+        const modifier: string | undefined = row.last_modified_by;
+        const myId = user?.id;
+        if (modifier && myId && modifier !== myId) {
+          const localTs = row.id ? localEditsRef.current.get(row.id) : undefined;
+          if (localTs && Date.now() - localTs < 3000) {
+            toast({
+              title: "⚠️ Another user just updated this booking",
+              description: "The schedule has been refreshed.",
+              variant: "destructive",
+            });
+          } else if (Date.now() - lastRemoteToastRef.current > 4000) {
+            lastRemoteToastRef.current = Date.now();
+            toast({ title: "🔄 Schedule updated by another user" });
+          }
+        }
+        fetchData();
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, (payload) => {
         // Live-update job status without full refetch
         setJobs((prev) => prev.map((j) => j.id === payload.new.id ? { ...j, status: (payload.new as any).status } : j));
