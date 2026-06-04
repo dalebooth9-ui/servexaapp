@@ -113,7 +113,7 @@ export async function exportSiteSurveyPdf(survey: Survey, surveyId: string): Pro
     .eq("survey_id", surveyId)
     .order("captured_at");
 
-  const rows = (photos as PhotoRow[] | null) || [];
+  const rows = ((photos as unknown) as PhotoRow[] | null) || [];
   if (rows.length) {
     const { data: signed } = await supabase.storage
       .from(BUCKET)
