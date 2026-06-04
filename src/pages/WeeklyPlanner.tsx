@@ -124,6 +124,7 @@ export default function WeeklyPlanner() {
   const [adhocEntries, setAdhocEntries] = useState<AdhocEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
 
   // Add entry dialog
@@ -181,6 +182,13 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      setLoadError("Could not load planner — check your connection and refresh.");
+      setLoading(false);
+    }, 10000);
     try {
       const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
         supabase.from("user_roles").select("user_id").eq("role", "engineer"),
@@ -190,6 +198,7 @@ export default function WeeklyPlanner() {
         supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
         supabase.from("planner_adhoc_entries").select("*").is("schedule_date", null),
       ]);
+      if (timedOut) return;
       const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
       if (engineerIds.length > 0) {
         const { data: profilesData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
@@ -202,6 +211,10 @@ export default function WeeklyPlanner() {
       setSites(sitesRes.data || []);
       setSchedule((schedRes.data as ScheduleEntry[]) || []);
       setAdhocEntries([...((adhocRangeRes.data as AdhocEntry[]) || []), ...((adhocUnallocRes.data as AdhocEntry[]) || [])]);
+
+      // Clear loading once core planner data has resolved — secondary fetches below shouldn't block render
+      clearTimeout(timeoutId);
+      setLoading(false);
 
       // Fetch parts and latest comments for scheduled jobs
       const jobIds = fetchedJobs.map((j: any) => j.id);
@@ -234,7 +247,11 @@ export default function WeeklyPlanner() {
       }
     } catch (err) {
       console.error("Planner fetchData error:", err);
+      if (!timedOut) {
+        setLoadError("Could not load planner — check your connection and refresh.");
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }, [rangeStart, rangeEnd]);
@@ -572,6 +589,19 @@ export default function WeeklyPlanner() {
   const hasNoData = jobs.length === 0 && schedule.length === 0 && adhocEntries.length === 0;
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
+  if (loadError) return (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+      <p className="text-destructive font-medium">{loadError}</p>
+      <Button variant="outline" size="sm" onClick={() => fetchData()}>Retry</Button>
+    </div>
+  );
+  if (engineers.length === 0) return (
+    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+      <p>No engineers added yet.</p>
+      <p className="text-sm">Add engineers in the Engineers section first.</p>
+      <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate("/engineers")}>Go to Engineers</Button>
+    </div>
+  );
 
   return (
     <div>
@@ -673,6 +703,11 @@ export default function WeeklyPlanner() {
         </TabsList>
 
         <TabsContent value="grid" className="mt-4">
+          {filteredSchedule.length === 0 && filteredAdhoc.length === 0 && (
+            <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground">
+              No jobs scheduled this week — drag a job here to get started.
+            </div>
+          )}
           <WeeklyGridView
             weekDays={weekDays}
             engineers={sortedEngineers}
