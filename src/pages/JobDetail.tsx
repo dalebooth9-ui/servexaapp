@@ -62,6 +62,7 @@ const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertif
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
 const InstallationProjects = lazy(() => import("@/components/InstallationProjects"));
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
+const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
@@ -979,6 +980,8 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+
+      {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
