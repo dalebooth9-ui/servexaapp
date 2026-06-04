@@ -152,7 +152,15 @@ export default function SiteSurveyDetail() {
             <Button asChild variant="ghost" size="sm"><Link to="/site-surveys"><ArrowLeft className="h-4 w-4 mr-1" /> Back</Link></Button>
             <span className="font-mono text-xs text-muted-foreground">{survey.reference_number}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={exportPdf} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileDown className="h-4 w-4 mr-1.5" />}
+              Export PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={convertToJob} disabled={converting}>
+              {converting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Briefcase className="h-4 w-4 mr-1.5" />}
+              Convert to Job
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-destructive"><Trash2 className="h-4 w-4 mr-1.5" /> Delete</Button>
