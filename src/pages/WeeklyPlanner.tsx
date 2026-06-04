@@ -342,7 +342,12 @@ export default function WeeklyPlanner() {
   const handleEngineerReorder = useCallback((newOrder: string[]) => {
     setEngineerOrder(newOrder);
     localStorage.setItem("planner_engineer_order", JSON.stringify(newOrder));
-  }, []);
+    if (user) {
+      supabase.from("profiles").update({ planner_engineer_order: newOrder }).eq("user_id", user.id).then(({ error }) => {
+        if (error) console.error("Failed to save engineer order:", error);
+      });
+    }
+  }, [user]);
 
   // Unallocated: active jobs with no schedule entry this period
   const unallocatedJobs = useMemo(() => {
