@@ -33,6 +33,7 @@ const Invoices = lazy(() => import("@/pages/Invoices"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
+const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
 const Install = lazy(() => import("@/pages/Install"));
 const CustomerSignOff = lazy(() => import("@/pages/CustomerSignOff"));
