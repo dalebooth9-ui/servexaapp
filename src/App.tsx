@@ -62,6 +62,8 @@ const SiteSurveys = lazy(() => import("@/pages/SiteSurveys"));
 const SiteSurveyDetail = lazy(() => import("@/pages/SiteSurveyDetail"));
 const ReportDownloads = lazy(() => import("@/pages/ReportDownloads"));
 const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
+const MyProfile = lazy(() => import("@/pages/MyProfile"));
+const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
 
 const queryClient = new QueryClient();
 
@@ -126,6 +128,8 @@ const App = () => (
               <Route path="/auth" element={<AuthRoute />} />
               <Route path="/offline" element={<Suspense fallback={<PageFallback />}><Offline /></Suspense>} />
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+              <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
+              <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
