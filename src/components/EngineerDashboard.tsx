@@ -638,8 +638,8 @@ export default function EngineerDashboard() {
         {[
           { icon: <Briefcase className="h-5 w-5" />, label: "All Jobs", action: () => navigate("/jobs") },
           { icon: <ClipboardList className="h-5 w-5" />, label: "Site Surveys", action: () => navigate("/site-surveys") },
-          { icon: <Clock className="h-5 w-5" />, label: "Timesheet", action: () => navigate("/engineers") },
-          { icon: <User className="h-5 w-5" />, label: "My Profile", action: () => navigate("/engineers") },
+          { icon: <Clock className="h-5 w-5" />, label: "Timesheet", action: () => navigate("/my-timesheet") },
+          { icon: <User className="h-5 w-5" />, label: "My Profile", action: () => navigate("/my-profile") },
         ].map(({ icon, label, action }) => (
           <button
             key={label}
