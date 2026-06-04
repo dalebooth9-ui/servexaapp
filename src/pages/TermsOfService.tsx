@@ -1,9 +1,19 @@
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 import servexaLogo from "@/assets/servexa-logo.png";
 
 export default function TermsOfService() {
+  const navigate = useNavigate();
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-3xl px-6 py-12">
+        <button
+          onClick={() => navigate(-1)}
+          className="mb-4 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back
+        </button>
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <img src={servexaLogo} alt="Servexa" className="h-10 rounded-lg" />
