@@ -162,6 +162,12 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
+    const from = await getFromAddress(
+      "engineer_onboarding",
+      "Viva Fire Service <service@vivafire.co.uk>",
+      supabaseAdmin,
+    );
+
     const emailRes = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
       method: "POST",
       headers: {
@@ -170,18 +176,27 @@ serve(async (req) => {
         "X-Connection-Api-Key": resendApiKey,
       },
       body: JSON.stringify({
-        from: await getFromAddress("onboarding"),
+        from,
         to: [to_email],
+        reply_to: ["service@vivafire.co.uk"],
         subject: "Install the Servexa app on your phone",
         html,
       }),
     });
 
+    const emailText = await emailRes.text();
     if (!emailRes.ok) {
-      const errText = await emailRes.text();
-      console.error("Resend gateway error:", emailRes.status, errText);
-      throw new Error(`Failed to send onboarding email (${emailRes.status}): ${errText}`);
+      console.error("Resend gateway error:", emailRes.status, emailText);
+      throw new Error(`Failed to send onboarding email (${emailRes.status}): ${emailText}`);
     }
+
+    let providerResponse: unknown = emailText;
+    try {
+      providerResponse = JSON.parse(emailText);
+    } catch {
+      // Keep raw provider response text for diagnostics.
+    }
+    console.log("Engineer onboarding email accepted", { to_email, from, providerResponse });
 
     // Log the onboarding send
     if (engineer_user_id) {
