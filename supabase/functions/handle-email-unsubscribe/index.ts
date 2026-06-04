@@ -12,6 +12,12 @@ function jsonResponse(data: Record<string, unknown>, status = 200): Response {
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 }
+async function sha256Hex(input: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(input))
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -69,11 +75,13 @@ Deno.serve(async (req) => {
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-  // Look up the token
+  // Hash the incoming token and look up by hash (tokens are stored hashed at rest)
+  const tokenHash = await sha256Hex(token)
+
   const { data: tokenRecord, error: lookupError } = await supabase
     .from('email_unsubscribe_tokens')
     .select('*')
-    .eq('token', token)
+    .eq('token_hash', tokenHash)
     .maybeSingle()
 
   if (lookupError || !tokenRecord) {
@@ -94,7 +102,7 @@ Deno.serve(async (req) => {
   const { data: updated, error: updateError } = await supabase
     .from('email_unsubscribe_tokens')
     .update({ used_at: new Date().toISOString() })
-    .eq('token', token)
+    .eq('token_hash', tokenHash)
     .is('used_at', null)
     .select()
     .maybeSingle()
