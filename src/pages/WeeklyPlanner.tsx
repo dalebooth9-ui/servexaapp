@@ -589,6 +589,19 @@ export default function WeeklyPlanner() {
   const hasNoData = jobs.length === 0 && schedule.length === 0 && adhocEntries.length === 0;
 
   if (loading) return <div className="flex h-64 items-center justify-center text-muted-foreground">Loading planner...</div>;
+  if (loadError) return (
+    <div className="flex h-64 flex-col items-center justify-center gap-3 text-center">
+      <p className="text-destructive font-medium">{loadError}</p>
+      <Button variant="outline" size="sm" onClick={() => fetchData()}>Retry</Button>
+    </div>
+  );
+  if (engineers.length === 0) return (
+    <div className="flex h-64 flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+      <p>No engineers added yet.</p>
+      <p className="text-sm">Add engineers in the Engineers section first.</p>
+      <Button variant="outline" size="sm" className="mt-2" onClick={() => navigate("/engineers")}>Go to Engineers</Button>
+    </div>
+  );
 
   return (
     <div>
