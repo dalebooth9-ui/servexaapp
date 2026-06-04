@@ -108,7 +108,7 @@ serve(async (req) => {
   } catch (error: any) {
     console.error("Engineer doc expiry check error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ success: false, error: "An unexpected error occurred. Please try again." }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
