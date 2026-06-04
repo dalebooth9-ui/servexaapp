@@ -444,7 +444,8 @@ export default function WeeklyPlanner() {
   };
 
   const handleBulkReassign = async (entryIds: string[], newEngineerId: string) => {
-    const { error } = await supabase.from("job_schedule").update({ engineer_id: newEngineerId } as any).in("id", entryIds);
+    markLocalEdit(entryIds);
+    const { error } = await supabase.from("job_schedule").update({ engineer_id: newEngineerId, ...editStamp() } as any).in("id", entryIds);
     if (error) {
       toast({ title: "Error", description: "Failed to reassign.", variant: "destructive" });
     } else {
@@ -454,6 +455,7 @@ export default function WeeklyPlanner() {
   };
 
   const handleBulkDelete = async (entryIds: string[]) => {
+    markLocalEdit(entryIds);
     const { error } = await supabase.from("job_schedule").delete().in("id", entryIds);
     if (!error) {
       toast({ title: "Removed", description: `${entryIds.length} entries removed.` });
