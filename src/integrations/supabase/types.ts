@@ -4137,6 +4137,74 @@ export type Database = {
           },
         ]
       }
+      stock_transactions: {
+        Row: {
+          created_at: string
+          engineer_id: string
+          id: string
+          job_id: string | null
+          notes: string | null
+          org_id: string | null
+          quantity_change: number
+          status: string
+          transaction_type: string
+          van_stock_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          engineer_id: string
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          org_id?: string | null
+          quantity_change: number
+          status?: string
+          transaction_type: string
+          van_stock_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          engineer_id?: string
+          id?: string
+          job_id?: string | null
+          notes?: string | null
+          org_id?: string | null
+          quantity_change?: number
+          status?: string
+          transaction_type?: string
+          van_stock_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_transactions_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transactions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transactions_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_transactions_van_stock_id_fkey"
+            columns: ["van_stock_id"]
+            isOneToOne: false
+            referencedRelation: "van_stock"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       submission_comments: {
         Row: {
           author_id: string
@@ -4302,6 +4370,64 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      van_stock: {
+        Row: {
+          created_at: string
+          engineer_id: string
+          id: string
+          last_restocked: string | null
+          min_quantity: number
+          org_id: string | null
+          part_id: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          engineer_id: string
+          id?: string
+          last_restocked?: string | null
+          min_quantity?: number
+          org_id?: string | null
+          part_id: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          engineer_id?: string
+          id?: string
+          last_restocked?: string | null
+          min_quantity?: number
+          org_id?: string | null
+          part_id?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "van_stock_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_stock_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "van_stock_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "parts_library"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vehicle_checks: {
         Row: {
