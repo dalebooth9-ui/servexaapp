@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -126,6 +126,9 @@ export default function WeeklyPlanner() {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
+
+  // Unique channel name per mount to avoid subscription conflicts
+  const channelName = useRef('planner_realtime_' + Math.random().toString(36).slice(2));
 
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -261,7 +264,7 @@ export default function WeeklyPlanner() {
   // Realtime — listen to both schedule and job status changes
   useEffect(() => {
     const channel = supabase
-      .channel("planner_realtime")
+      .channel(channelName.current)
       .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, () => fetchData())
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, (payload) => {
         // Live-update job status without full refetch
