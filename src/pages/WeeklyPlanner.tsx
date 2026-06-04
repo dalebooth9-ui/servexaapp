@@ -703,6 +703,11 @@ export default function WeeklyPlanner() {
         </TabsList>
 
         <TabsContent value="grid" className="mt-4">
+          {filteredSchedule.length === 0 && filteredAdhoc.length === 0 && (
+            <div className="mb-3 rounded-md border border-dashed bg-muted/30 px-4 py-3 text-center text-sm text-muted-foreground">
+              No jobs scheduled this week — drag a job here to get started.
+            </div>
+          )}
           <WeeklyGridView
             weekDays={weekDays}
             engineers={sortedEngineers}
