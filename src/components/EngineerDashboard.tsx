@@ -95,6 +95,31 @@ export default function EngineerDashboard() {
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [vehicleCheckDone, setVehicleCheckDone] = useState<boolean | null>(null);
+  const [expiringCerts, setExpiringCerts] = useState<{ id: string; title: string; certification_type: string | null; expiry_date: string; is_expired: boolean }[]>([]);
+
+  // Fetch own expiring/expired certifications (≤30 days)
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const today = new Date();
+      const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+      const { data } = await supabase
+        .from("engineer_documents")
+        .select("id, title, certification_type, expiry_date")
+        .eq("engineer_id", user.id)
+        .not("expiry_date", "is", null)
+        .lte("expiry_date", in30.toISOString().slice(0, 10))
+        .order("expiry_date", { ascending: true });
+      setExpiringCerts((data || []).map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        certification_type: d.certification_type,
+        expiry_date: d.expiry_date,
+        is_expired: new Date(d.expiry_date) < today,
+      })));
+    };
+    load();
+  }, [user]);
 
   // Check today's vehicle check
   useEffect(() => {
