@@ -243,14 +243,36 @@ export default function SiteSurveyDetail() {
               <Textarea rows={3} value={survey.parking_welfare ?? ""} onChange={(e) => update("parking_welfare", e.target.value)} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label>Recommendations / scope</Label>
+              <div className="flex items-center justify-between">
+                <Label>Recommendations / scope</Label>
+                <VoiceDictationButton
+                  size="sm"
+                  onTranscript={(t) => update("recommendations", `${survey.recommendations ? survey.recommendations + " " : ""}${t}`)}
+                />
+              </div>
               <Textarea rows={3} value={survey.recommendations ?? ""} onChange={(e) => update("recommendations", e.target.value)}
                 placeholder="Recommended works, parts, follow-up visits, sub-contractor needs…" />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label>Additional notes</Label>
+              <div className="flex items-center justify-between">
+                <Label>Additional notes</Label>
+                <VoiceDictationButton
+                  size="sm"
+                  onTranscript={(t) => update("notes", `${survey.notes ? survey.notes + " " : ""}${t}`)}
+                />
+              </div>
               <Textarea rows={2} value={survey.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-lg flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Site photos &amp; sketches</CardTitle>
+            <SiteSurveySketchPad surveyId={survey.id} />
+          </CardHeader>
+          <CardContent>
+            <SiteSurveyPhotos surveyId={survey.id} />
           </CardContent>
         </Card>
       </div>
