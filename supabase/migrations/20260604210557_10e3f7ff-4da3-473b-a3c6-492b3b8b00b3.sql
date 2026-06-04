@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS planner_engineer_order jsonb NOT NULL DEFAULT '[]'::jsonb;
