@@ -549,7 +549,7 @@ export default function WeeklyPlanner() {
     const entries = schedule.map((e) => ({
       job_id: e.job_id, engineer_id: e.engineer_id,
       schedule_date: format(addDays(new Date(e.schedule_date), 7), "yyyy-MM-dd"),
-      notes: e.notes, created_by: user?.id,
+      notes: e.notes, created_by: user?.id, ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").upsert(entries as any[], {
       onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
