@@ -3689,6 +3689,7 @@ export type Database = {
           id: string
           org_id: string | null
           phone: string | null
+          planner_engineer_order: Json
           signature_data: string | null
           updated_at: string
           user_id: string
@@ -3700,6 +3701,7 @@ export type Database = {
           id?: string
           org_id?: string | null
           phone?: string | null
+          planner_engineer_order?: Json
           signature_data?: string | null
           updated_at?: string
           user_id: string
@@ -3711,6 +3713,7 @@ export type Database = {
           id?: string
           org_id?: string | null
           phone?: string | null
+          planner_engineer_order?: Json
           signature_data?: string | null
           updated_at?: string
           user_id?: string
