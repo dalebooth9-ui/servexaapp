@@ -159,13 +159,13 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
         </div>
       )}
 
-      {lightboxIdx !== null && photos[lightboxIdx]?.signedUrl && (
-        <PhotoLightbox
-          images={photos.map((p) => ({ url: p.signedUrl || "", caption: p.what3words || p.caption || "" }))}
-          initialIndex={lightboxIdx}
-          onClose={() => setLightboxIdx(null)}
-        />
-      )}
+      <PhotoLightbox
+        photos={photos.map((p) => ({ id: p.id, url: p.signedUrl || "", fileName: p.what3words || p.caption || undefined, date: p.captured_at }))}
+        currentIndex={lightboxIdx ?? 0}
+        open={lightboxIdx !== null}
+        onOpenChange={(o) => !o && setLightboxIdx(null)}
+        onIndexChange={(i) => setLightboxIdx(i)}
+      />
     </div>
   );
 }
