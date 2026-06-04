@@ -17,8 +17,10 @@ serve(async (req) => {
   }
 
   try {
-    const { SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey, SUPABASE_ANON_KEY: anonKey, RESEND_API_KEY: resendApiKey } =
-      requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY", "RESEND_API_KEY"] as const);
+    const { SUPABASE_URL: supabaseUrl, SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey, SUPABASE_ANON_KEY: anonKey } =
+      requireEnv(["SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY", "SUPABASE_ANON_KEY"] as const);
+    const resendApiKey = Deno.env.get("RESEND_API_KEY_1") ?? Deno.env.get("RESEND_API_KEY");
+    if (!resendApiKey) throw new Error("Resend connector is not linked (missing RESEND_API_KEY_1)");
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader) {
