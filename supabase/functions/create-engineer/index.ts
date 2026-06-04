@@ -160,11 +160,10 @@ serve(async (req) => {
         .eq("user_id", userId);
     }
 
-    // Assign engineer role
-    await supabaseAdmin.from("user_roles").insert({
-      user_id: userId,
-      role: "engineer",
-    });
+    // Assign engineer role (ignore unique-violation if already assigned)
+    await supabaseAdmin
+      .from("user_roles")
+      .upsert({ user_id: userId, role: "engineer" }, { onConflict: "user_id,role", ignoreDuplicates: true });
 
     // Send password reset email if requested
     let emailSent = false;
