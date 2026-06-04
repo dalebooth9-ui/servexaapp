@@ -73,11 +73,20 @@ serve(async (req) => {
     url.searchParams.set("traffic_model", "best_guess");
     url.searchParams.set("key", GOOGLE_MAPS_API_KEY);
 
-    const resp = await fetch(url.toString());
-    const data = await resp.json();
+    let data: any;
+    try {
+      const resp = await fetch(url.toString());
+      data = await resp.json();
+    } catch (fetchErr) {
+      return new Response(JSON.stringify({ error: "Route optimisation failed", reason: "NETWORK_ERROR" }), {
+        status: 502,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     if (data.status !== "OK") {
-      return new Response(JSON.stringify({ optimised: waypoints, legs: [], error: data.status }), {
+      return new Response(JSON.stringify({ error: "Route optimisation failed", reason: data.status || "UNKNOWN" }), {
+        status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -88,8 +97,14 @@ serve(async (req) => {
     // Reorder waypoints based on Google's optimisation
     let optimised = waypoints;
     if (waypointOrder.length > 0) {
-      const middle = waypointOrder.map((i: number) => waypoints[i + 1]); // +1 because origin is waypoints[0]
-      optimised = [waypoints[0], ...middle, waypoints[waypoints.length - 1]];
+      if (hasExplicitOrigin) {
+        // All waypoints (except last) are intermediates when origin is explicit
+        const middle = waypointOrder.map((i: number) => waypoints[i]);
+        optimised = [...middle, waypoints[waypoints.length - 1]];
+      } else {
+        const middle = waypointOrder.map((i: number) => waypoints[i + 1]); // +1 because origin is waypoints[0]
+        optimised = [waypoints[0], ...middle, waypoints[waypoints.length - 1]];
+      }
     }
 
     const legs = route.legs.map((leg: any) => ({
