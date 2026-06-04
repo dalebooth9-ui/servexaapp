@@ -426,8 +426,9 @@ export default function WeeklyPlanner() {
   };
 
   const handleMove = async (entryId: string, newEngineerId: string, newDate: string) => {
+    markLocalEdit([entryId]);
     const { error } = await supabase.from("job_schedule").update({
-      engineer_id: newEngineerId, schedule_date: newDate,
+      engineer_id: newEngineerId, schedule_date: newDate, ...editStamp(),
     } as any).eq("id", entryId);
     if (error) {
       toast({ title: "Error", description: "Failed to move.", variant: "destructive" });
@@ -437,6 +438,7 @@ export default function WeeklyPlanner() {
   };
 
   const handleRemove = async (entryId: string) => {
+    markLocalEdit([entryId]);
     const { error } = await supabase.from("job_schedule").delete().eq("id", entryId);
     if (!error) fetchData();
   };
