@@ -408,7 +408,9 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               onClick={() => setMobileOpen(false)}
                               inOps={isOpsSection}
                               collapsed={sidebarCollapsed}
-                              onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")} />
+                              onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
+                              badge={item.to === "/defects" ? openDefectCount : undefined} />
+
                           );
                         })}
                       </div>
