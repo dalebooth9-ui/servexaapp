@@ -85,7 +85,7 @@ function loadSectionOverrides(): Record<string, "operations" | "more"> {
 }
 
 function SortableNavItem({
-  item, isActive, onClick, inOps, onTogglePin, collapsed,
+  item, isActive, onClick, inOps, onTogglePin, collapsed, badge,
 }: {
   item: typeof DEFAULT_NAV_ITEMS[number];
   isActive: boolean;
@@ -93,9 +93,18 @@ function SortableNavItem({
   inOps: boolean;
   onTogglePin: () => void;
   collapsed?: boolean;
+  badge?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.to });
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 };
+  const badgeEl = badge && badge > 0 ? (
+    <span className={cn(
+      "ml-auto inline-flex items-center justify-center rounded-full text-[10px] font-semibold px-1.5 min-w-[18px] h-[18px]",
+      isActive ? "bg-white/25 text-white" : "bg-orange-500/90 text-white"
+    )}>
+      {badge > 99 ? "99+" : badge}
+    </span>
+  ) : null;
 
   if (collapsed) {
     return (
@@ -103,15 +112,20 @@ function SortableNavItem({
         <Link
           to={item.to}
           onClick={onClick}
-          title={item.label}
+          title={item.label + (badge ? ` (${badge} open)` : "")}
           data-tour={`nav-${item.to.replace(/^\//, "").replace(/\//g, "-") || "dashboard"}`}
           className={cn(
-            "flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
+            "relative flex items-center justify-center w-full rounded-lg p-2.5 transition-all duration-150",
             isActive
               ? "bg-gradient-to-r from-[hsl(25,95%,53%)] to-[hsl(25,95%,46%)] text-white shadow-md"
               : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
           )}>
           <item.icon className="h-5 w-5 shrink-0" />
+          {badge && badge > 0 ? (
+            <span className="absolute -top-0.5 -right-0.5 inline-flex items-center justify-center rounded-full text-[9px] font-semibold px-1 min-w-[16px] h-[16px] bg-orange-500 text-white">
+              {badge > 9 ? "9+" : badge}
+            </span>
+          ) : null}
         </Link>
       </div>
     );
@@ -137,7 +151,8 @@ function SortableNavItem({
             : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         )}>
         <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-white" : "")} />
-        {item.label}
+        <span className="flex-1 truncate">{item.label}</span>
+        {badgeEl}
       </Link>
       <button
         onClick={(e) => { e.preventDefault(); onTogglePin(); }}
@@ -154,6 +169,7 @@ function SortableNavItem({
     </div>
   );
 }
+
 
 export default function AppLayout({ children }: {children: ReactNode;}) {
   const { user, userRole, profile, signOut } = useAuth();
