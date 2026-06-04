@@ -115,6 +115,27 @@ export default function WeeklyPlanner() {
   const [engineerOrder, setEngineerOrder] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem("planner_engineer_order") || "[]"); } catch { return []; }
   });
+
+  // Hydrate engineer order from DB (source of truth) — localStorage is just a cache for instant render
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("planner_engineer_order")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (cancelled) return;
+      const dbOrder = Array.isArray(data?.planner_engineer_order) ? (data!.planner_engineer_order as string[]) : [];
+      const cached = (() => { try { return JSON.parse(localStorage.getItem("planner_engineer_order") || "[]"); } catch { return []; } })();
+      if (JSON.stringify(dbOrder) !== JSON.stringify(cached)) {
+        setEngineerOrder(dbOrder);
+        localStorage.setItem("planner_engineer_order", JSON.stringify(dbOrder));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [sites, setSites] = useState<Site[]>([]);
   const [jobParts, setJobParts] = useState<JobPart[]>([]);
