@@ -182,6 +182,13 @@ export default function WeeklyPlanner() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setLoadError(null);
+    let timedOut = false;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      setLoadError("Could not load planner — check your connection and refresh.");
+      setLoading(false);
+    }, 10000);
     try {
       const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
         supabase.from("user_roles").select("user_id").eq("role", "engineer"),
@@ -191,6 +198,7 @@ export default function WeeklyPlanner() {
         supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
         supabase.from("planner_adhoc_entries").select("*").is("schedule_date", null),
       ]);
+      if (timedOut) return;
       const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
       if (engineerIds.length > 0) {
         const { data: profilesData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
@@ -203,6 +211,10 @@ export default function WeeklyPlanner() {
       setSites(sitesRes.data || []);
       setSchedule((schedRes.data as ScheduleEntry[]) || []);
       setAdhocEntries([...((adhocRangeRes.data as AdhocEntry[]) || []), ...((adhocUnallocRes.data as AdhocEntry[]) || [])]);
+
+      // Clear loading once core planner data has resolved — secondary fetches below shouldn't block render
+      clearTimeout(timeoutId);
+      setLoading(false);
 
       // Fetch parts and latest comments for scheduled jobs
       const jobIds = fetchedJobs.map((j: any) => j.id);
@@ -235,7 +247,11 @@ export default function WeeklyPlanner() {
       }
     } catch (err) {
       console.error("Planner fetchData error:", err);
+      if (!timedOut) {
+        setLoadError("Could not load planner — check your connection and refresh.");
+      }
     } finally {
+      clearTimeout(timeoutId);
       setLoading(false);
     }
   }, [rangeStart, rangeEnd]);
