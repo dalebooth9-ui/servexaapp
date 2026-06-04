@@ -3887,12 +3887,57 @@ export type Database = {
           },
         ]
       }
+      site_survey_photos: {
+        Row: {
+          caption: string | null
+          captured_at: string
+          created_at: string
+          created_by: string | null
+          file_path: string
+          id: string
+          kind: string
+          survey_id: string
+          what3words: string | null
+        }
+        Insert: {
+          caption?: string | null
+          captured_at?: string
+          created_at?: string
+          created_by?: string | null
+          file_path: string
+          id?: string
+          kind?: string
+          survey_id: string
+          what3words?: string | null
+        }
+        Update: {
+          caption?: string | null
+          captured_at?: string
+          created_at?: string
+          created_by?: string | null
+          file_path?: string
+          id?: string
+          kind?: string
+          survey_id?: string
+          what3words?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_survey_photos_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "site_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_surveys: {
         Row: {
           access_notes: string | null
           asset_locations: string | null
           contact_name: string | null
           contact_phone: string | null
+          converted_job_id: string | null
           created_at: string
           created_by: string | null
           customer_id: string | null
@@ -3917,6 +3962,7 @@ export type Database = {
           asset_locations?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          converted_job_id?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -3941,6 +3987,7 @@ export type Database = {
           asset_locations?: string | null
           contact_name?: string | null
           contact_phone?: string | null
+          converted_job_id?: string | null
           created_at?: string
           created_by?: string | null
           customer_id?: string | null
@@ -3961,6 +4008,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "site_surveys_converted_job_id_fkey"
+            columns: ["converted_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "site_surveys_customer_id_fkey"
             columns: ["customer_id"]
