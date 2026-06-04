@@ -2577,6 +2577,8 @@ export type Database = {
           engineer_id: string
           id: string
           job_id: string
+          last_modified_at: string | null
+          last_modified_by: string | null
           notes: string | null
           notes_color: string | null
           schedule_date: string
@@ -2590,6 +2592,8 @@ export type Database = {
           engineer_id: string
           id?: string
           job_id: string
+          last_modified_at?: string | null
+          last_modified_by?: string | null
           notes?: string | null
           notes_color?: string | null
           schedule_date: string
@@ -2603,6 +2607,8 @@ export type Database = {
           engineer_id?: string
           id?: string
           job_id?: string
+          last_modified_at?: string | null
+          last_modified_by?: string | null
           notes?: string | null
           notes_color?: string | null
           schedule_date?: string
