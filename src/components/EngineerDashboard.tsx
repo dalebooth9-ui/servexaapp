@@ -95,6 +95,31 @@ export default function EngineerDashboard() {
   const [sendingReply, setSendingReply] = useState<string | null>(null);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [vehicleCheckDone, setVehicleCheckDone] = useState<boolean | null>(null);
+  const [expiringCerts, setExpiringCerts] = useState<{ id: string; title: string; certification_type: string | null; expiry_date: string; is_expired: boolean }[]>([]);
+
+  // Fetch own expiring/expired certifications (≤30 days)
+  useEffect(() => {
+    if (!user) return;
+    const load = async () => {
+      const today = new Date();
+      const in30 = new Date(); in30.setDate(in30.getDate() + 30);
+      const { data } = await supabase
+        .from("engineer_documents")
+        .select("id, title, certification_type, expiry_date")
+        .eq("engineer_id", user.id)
+        .not("expiry_date", "is", null)
+        .lte("expiry_date", in30.toISOString().slice(0, 10))
+        .order("expiry_date", { ascending: true });
+      setExpiringCerts((data || []).map((d: any) => ({
+        id: d.id,
+        title: d.title,
+        certification_type: d.certification_type,
+        expiry_date: d.expiry_date,
+        is_expired: new Date(d.expiry_date) < today,
+      })));
+    };
+    load();
+  }, [user]);
 
   // Check today's vehicle check
   useEffect(() => {
@@ -358,6 +383,45 @@ export default function EngineerDashboard() {
         </div>
         <div className={`h-3 w-3 rounded-full ${isClockedIn ? "bg-destructive animate-pulse" : "bg-muted-foreground/30"}`} />
       </button>
+
+      {/* Expiring/expired certifications alert */}
+      {expiringCerts.length > 0 && (() => {
+        const expiredCount = expiringCerts.filter((c) => c.is_expired).length;
+        const soonCount = expiringCerts.length - expiredCount;
+        const cls = expiredCount > 0 ? "border-destructive/40 bg-destructive/5" : "border-amber-500/40 bg-amber-500/5";
+        const iconCls = expiredCount > 0 ? "text-destructive" : "text-amber-600";
+        return (
+          <Link to="/profile" className={`block rounded-2xl border-2 p-4 active:scale-[0.99] transition-transform ${cls}`}>
+            <div className="flex items-start gap-3">
+              <AlertTriangle className={`h-5 w-5 mt-0.5 shrink-0 ${iconCls}`} />
+              <div className="flex-1 min-w-0">
+                <p className="font-bold text-sm">
+                  {expiredCount > 0
+                    ? `${expiredCount} certification${expiredCount === 1 ? "" : "s"} expired`
+                    : `${soonCount} certification${soonCount === 1 ? "" : "s"} expiring soon`}
+                  {expiredCount > 0 && soonCount > 0 && ` · ${soonCount} expiring soon`}
+                </p>
+                <div className="mt-1.5 space-y-1">
+                  {expiringCerts.slice(0, 3).map((c) => (
+                    <div key={c.id} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="truncate">{c.title}</span>
+                      <span className={`shrink-0 font-medium ${c.is_expired ? "text-destructive" : "text-amber-600"}`}>
+                        {c.is_expired ? "Expired" : "Expires"} {format(new Date(c.expiry_date), "d MMM")}
+                      </span>
+                    </div>
+                  ))}
+                  {expiringCerts.length > 3 && (
+                    <p className="text-[11px] text-muted-foreground">+{expiringCerts.length - 3} more</p>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-2">Tap to view your certifications</p>
+              </div>
+            </div>
+          </Link>
+        );
+      })()}
+
+
 
       {/* Stats row */}
       <div className="grid grid-cols-3 gap-3">
