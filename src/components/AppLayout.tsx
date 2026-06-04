@@ -202,6 +202,8 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
+
   useEffect(() => {
     supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
       .then(({ data }) => {
@@ -210,6 +212,24 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         }
       });
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchCount = async () => {
+      const { count } = await supabase
+        .from("defects")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "open");
+      if (mounted) setOpenDefectCount(count || 0);
+    };
+    fetchCount();
+    const channel = supabase
+      .channel("defect-count-sidebar")
+      .on("postgres_changes", { event: "*", schema: "public", table: "defects" }, fetchCount)
+      .subscribe();
+    return () => { mounted = false; supabase.removeChannel(channel); };
+  }, []);
+
 
   const orderedItems = navOrder.map((to) => DEFAULT_NAV_ITEMS.find((i) => i.to === to)).filter(Boolean) as typeof DEFAULT_NAV_ITEMS;
   const extraItems = DEFAULT_NAV_ITEMS.filter((i) => !navOrder.includes(i.to));
