@@ -773,6 +773,7 @@ export default function WeeklyPlanner() {
               // Only remove entries whose dates are no longer in the new span
               const toRemove = existingEntries.filter((e) => !newDatesSet.has(e.schedule_date));
               for (const entry of toRemove) {
+                markLocalEdit([entry.id]);
                 await supabase.from("job_schedule").delete().eq("id", entry.id);
               }
 
@@ -780,7 +781,7 @@ export default function WeeklyPlanner() {
               const toAdd = newDates.filter((d) => !existingDates.has(d));
               if (toAdd.length > 0) {
                 await supabase.from("job_schedule").upsert(
-                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id })) as any[],
+                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp() })) as any[],
                   { onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true }
                 );
               }
