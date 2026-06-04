@@ -33,6 +33,7 @@ const Invoices = lazy(() => import("@/pages/Invoices"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
+const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
 const Install = lazy(() => import("@/pages/Install"));
 const CustomerSignOff = lazy(() => import("@/pages/CustomerSignOff"));
@@ -149,6 +150,7 @@ const App = () => (
               <Route path="/assets" element={<AccessRoute pageSlug="assets"><Assets /></AccessRoute>} />
               <Route path="/assets/:id" element={<AccessRoute pageSlug="assets"><AssetDetail /></AccessRoute>} />
               <Route path="/parts-library" element={<AdminRoute><PartsLibrary /></AdminRoute>} />
+              <Route path="/stock" element={<ProtectedRoute><VanStock /></ProtectedRoute>} />
               <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
               <Route path="/templates" element={<Navigate to="/industry-templates" replace />} />
               <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />

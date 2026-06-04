@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -47,6 +47,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/assets", label: "Assets", icon: Package, section: "more", adminOnly: true },
 { to: "/quotes", label: "Quotes", icon: ClipboardList, section: "more", adminOnly: true },
 { to: "/parts-library", label: "Parts Library", icon: Library, section: "more", adminOnly: true },
+{ to: "/stock", label: "Van Stock", icon: Truck, section: "more", adminOnly: false },
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
   { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
   { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
