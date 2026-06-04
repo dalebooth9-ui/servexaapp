@@ -130,6 +130,22 @@ export default function WeeklyPlanner() {
   // Unique channel name per mount to avoid subscription conflicts
   const channelName = useRef('planner_realtime_' + Math.random().toString(36).slice(2));
 
+  // Track ids of job_schedule rows we just edited locally so realtime echoes can be
+  // identified and conflicts with other planners can be flagged.
+  const localEditsRef = useRef<Map<string, number>>(new Map());
+  const lastRemoteToastRef = useRef<number>(0);
+  const markLocalEdit = (ids: (string | undefined | null)[]) => {
+    const now = Date.now();
+    for (const id of ids) if (id) localEditsRef.current.set(id, now);
+    for (const [k, v] of localEditsRef.current) {
+      if (now - v > 10000) localEditsRef.current.delete(k);
+    }
+  };
+  const editStamp = () => ({
+    last_modified_by: user?.id ?? null,
+    last_modified_at: new Date().toISOString(),
+  });
+
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
   const [addDay, setAddDay] = useState("");
@@ -265,14 +281,32 @@ export default function WeeklyPlanner() {
   useEffect(() => {
     const channel = supabase
       .channel(channelName.current)
-      .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, () => fetchData())
+      .on("postgres_changes", { event: "*", schema: "public", table: "job_schedule" }, (payload) => {
+        const row: any = (payload as any).new ?? (payload as any).old ?? {};
+        const modifier: string | undefined = row.last_modified_by;
+        const myId = user?.id;
+        if (modifier && myId && modifier !== myId) {
+          const localTs = row.id ? localEditsRef.current.get(row.id) : undefined;
+          if (localTs && Date.now() - localTs < 3000) {
+            toast({
+              title: "⚠️ Another user just updated this booking",
+              description: "The schedule has been refreshed.",
+              variant: "destructive",
+            });
+          } else if (Date.now() - lastRemoteToastRef.current > 4000) {
+            lastRemoteToastRef.current = Date.now();
+            toast({ title: "🔄 Schedule updated by another user" });
+          }
+        }
+        fetchData();
+      })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs" }, (payload) => {
         // Live-update job status without full refetch
         setJobs((prev) => prev.map((j) => j.id === payload.new.id ? { ...j, status: (payload.new as any).status } : j));
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchData]);
+  }, [fetchData, user?.id]);
 
   // Sorted engineers respecting saved order
   const sortedEngineers = useMemo(() => {
@@ -358,7 +392,7 @@ export default function WeeklyPlanner() {
   // CRUD operations
   const handleAssign = async (jobId: string, engineerId: string, date: string) => {
     const { error } = await supabase.from("job_schedule").insert({
-      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
     } as any);
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
@@ -374,7 +408,7 @@ export default function WeeklyPlanner() {
 
   const handleMultiDayAssign = async (jobId: string, engineerId: string, dates: string[]) => {
     const rows = dates.map((date) => ({
-      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id,
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
       onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
@@ -392,8 +426,9 @@ export default function WeeklyPlanner() {
   };
 
   const handleMove = async (entryId: string, newEngineerId: string, newDate: string) => {
+    markLocalEdit([entryId]);
     const { error } = await supabase.from("job_schedule").update({
-      engineer_id: newEngineerId, schedule_date: newDate,
+      engineer_id: newEngineerId, schedule_date: newDate, ...editStamp(),
     } as any).eq("id", entryId);
     if (error) {
       toast({ title: "Error", description: "Failed to move.", variant: "destructive" });
@@ -403,12 +438,14 @@ export default function WeeklyPlanner() {
   };
 
   const handleRemove = async (entryId: string) => {
+    markLocalEdit([entryId]);
     const { error } = await supabase.from("job_schedule").delete().eq("id", entryId);
     if (!error) fetchData();
   };
 
   const handleBulkReassign = async (entryIds: string[], newEngineerId: string) => {
-    const { error } = await supabase.from("job_schedule").update({ engineer_id: newEngineerId } as any).in("id", entryIds);
+    markLocalEdit(entryIds);
+    const { error } = await supabase.from("job_schedule").update({ engineer_id: newEngineerId, ...editStamp() } as any).in("id", entryIds);
     if (error) {
       toast({ title: "Error", description: "Failed to reassign.", variant: "destructive" });
     } else {
@@ -418,6 +455,7 @@ export default function WeeklyPlanner() {
   };
 
   const handleBulkDelete = async (entryIds: string[]) => {
+    markLocalEdit(entryIds);
     const { error } = await supabase.from("job_schedule").delete().in("id", entryIds);
     if (!error) {
       toast({ title: "Removed", description: `${entryIds.length} entries removed.` });
@@ -434,7 +472,7 @@ export default function WeeklyPlanner() {
     }
     const { error } = await supabase.from("job_schedule").insert({
       job_id: addJobId, engineer_id: addEngineerId, schedule_date: addDay,
-      notes: addNotes.trim() || null, notes_color: addNotesColor, created_by: user?.id,
+      notes: addNotes.trim() || null, notes_color: addNotesColor, created_by: user?.id, ...editStamp(),
     } as any);
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
@@ -456,7 +494,7 @@ export default function WeeklyPlanner() {
     if (!batchEngineerId || batchJobIds.size === 0 || !batchDate) return;
     setSaving(true);
     const rows = Array.from(batchJobIds).map((jobId) => ({
-      job_id: jobId, engineer_id: batchEngineerId, schedule_date: batchDate, created_by: user?.id,
+      job_id: jobId, engineer_id: batchEngineerId, schedule_date: batchDate, created_by: user?.id, ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").insert(rows as any);
     if (error) {
@@ -494,7 +532,8 @@ export default function WeeklyPlanner() {
     // Update each entry sequentially (reverse order to avoid conflicts)
     for (const entry of entries) {
       const newDate = format(addDays(new Date(entry.schedule_date), offset), "yyyy-MM-dd");
-      await supabase.from("job_schedule").update({ schedule_date: newDate } as any).eq("id", entry.id);
+      markLocalEdit([entry.id]);
+      await supabase.from("job_schedule").update({ schedule_date: newDate, ...editStamp() } as any).eq("id", entry.id);
     }
 
     toast({ title: "Shunt complete", description: `${entries.length} entries shifted ${days} day(s) ${shuntDirection}.` });
@@ -510,7 +549,7 @@ export default function WeeklyPlanner() {
     const entries = schedule.map((e) => ({
       job_id: e.job_id, engineer_id: e.engineer_id,
       schedule_date: format(addDays(new Date(e.schedule_date), 7), "yyyy-MM-dd"),
-      notes: e.notes, created_by: user?.id,
+      notes: e.notes, created_by: user?.id, ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").upsert(entries as any[], {
       onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true,
@@ -527,6 +566,7 @@ export default function WeeklyPlanner() {
       engineer_id: s.engineer_id,
       schedule_date: s.date,
       created_by: user?.id,
+      ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").upsert(rows as any[], {
       onConflict: "job_id,engineer_id,schedule_date",
@@ -733,6 +773,7 @@ export default function WeeklyPlanner() {
               // Only remove entries whose dates are no longer in the new span
               const toRemove = existingEntries.filter((e) => !newDatesSet.has(e.schedule_date));
               for (const entry of toRemove) {
+                markLocalEdit([entry.id]);
                 await supabase.from("job_schedule").delete().eq("id", entry.id);
               }
 
@@ -740,7 +781,7 @@ export default function WeeklyPlanner() {
               const toAdd = newDates.filter((d) => !existingDates.has(d));
               if (toAdd.length > 0) {
                 await supabase.from("job_schedule").upsert(
-                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id })) as any[],
+                  toAdd.map((date) => ({ job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp() })) as any[],
                   { onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true }
                 );
               }
