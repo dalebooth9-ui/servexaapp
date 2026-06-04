@@ -47,6 +47,7 @@ export default function SiteSurveyDetail() {
   const [saving, setSaving] = useState(false);
   const [converting, setConverting] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [photosKey, setPhotosKey] = useState(0);
 
   const convertToJob = async () => {
     if (!survey || !user) return;
