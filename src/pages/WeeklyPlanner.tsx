@@ -306,7 +306,7 @@ export default function WeeklyPlanner() {
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [fetchData]);
+  }, [fetchData, user?.id]);
 
   // Sorted engineers respecting saved order
   const sortedEngineers = useMemo(() => {
