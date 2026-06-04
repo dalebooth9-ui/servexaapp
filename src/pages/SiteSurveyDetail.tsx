@@ -40,10 +40,53 @@ type Survey = {
 export default function SiteSurveyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const convertToJob = async () => {
+    if (!survey || !user) return;
+    setConverting(true);
+    const briefBits = [
+      survey.recommendations && `Recommendations:\n${survey.recommendations}`,
+      survey.access_notes && `Access:\n${survey.access_notes}`,
+      survey.hazards && `Hazards:\n${survey.hazards}`,
+      survey.asset_locations && `Assets:\n${survey.asset_locations}`,
+    ].filter(Boolean).join("\n\n");
+    const { data: newJob, error } = await supabase
+      .from("jobs")
+      .insert({
+        name: `From survey: ${survey.title}`,
+        priority: "medium",
+        category: "Survey follow-up",
+        address: survey.site_address || null,
+        description: briefBits || null,
+        created_by: user.id,
+      } as any)
+      .select("id")
+      .single();
+    setConverting(false);
+    if (error || !newJob) {
+      toast({ title: "Failed to create job", description: error?.message, variant: "destructive" });
+      return;
+    }
+    await supabase.from("site_surveys" as any).update({ converted_job_id: newJob.id }).eq("id", survey.id);
+    toast({ title: "Job created", description: "Opening new job…" });
+    navigate(`/jobs/${newJob.id}`);
+  };
+
+  const exportPdf = async () => {
+    if (!survey) return;
+    setExporting(true);
+    try { await exportSiteSurveyPdf(survey, survey.id); }
+    catch (e: any) { toast({ title: "PDF failed", description: e?.message ?? "Unknown error", variant: "destructive" }); }
+    setExporting(false);
+  };
+
 
   useEffect(() => {
     if (!id) return;
