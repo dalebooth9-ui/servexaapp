@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,12 +9,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, Loader2, Save, Trash2, FileDown, Briefcase, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import SiteSurveyPhotos from "@/components/SiteSurveyPhotos";
+import SiteSurveySketchPad from "@/components/SiteSurveySketchPad";
+import VoiceDictationButton from "@/components/VoiceDictationButton";
+import { exportSiteSurveyPdf } from "@/lib/siteSurveyPdf";
 
 type Survey = {
   id: string;
@@ -35,10 +40,54 @@ type Survey = {
 export default function SiteSurveyDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { toast } = useToast();
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [converting, setConverting] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [photosKey, setPhotosKey] = useState(0);
+
+  const convertToJob = async () => {
+    if (!survey || !user) return;
+    setConverting(true);
+    const briefBits = [
+      survey.recommendations && `Recommendations:\n${survey.recommendations}`,
+      survey.access_notes && `Access:\n${survey.access_notes}`,
+      survey.hazards && `Hazards:\n${survey.hazards}`,
+      survey.asset_locations && `Assets:\n${survey.asset_locations}`,
+    ].filter(Boolean).join("\n\n");
+    const { data: newJob, error } = await supabase
+      .from("jobs")
+      .insert({
+        name: `From survey: ${survey.title}`,
+        priority: "medium",
+        category: "Survey follow-up",
+        address: survey.site_address || null,
+        description: briefBits || null,
+        created_by: user.id,
+      } as any)
+      .select("id")
+      .single();
+    setConverting(false);
+    if (error || !newJob) {
+      toast({ title: "Failed to create job", description: error?.message, variant: "destructive" });
+      return;
+    }
+    await supabase.from("site_surveys" as any).update({ converted_job_id: newJob.id }).eq("id", survey.id);
+    toast({ title: "Job created", description: "Opening new job…" });
+    navigate(`/jobs/${newJob.id}`);
+  };
+
+  const exportPdf = async () => {
+    if (!survey) return;
+    setExporting(true);
+    try { await exportSiteSurveyPdf(survey, survey.id); }
+    catch (e: any) { toast({ title: "PDF failed", description: e?.message ?? "Unknown error", variant: "destructive" }); }
+    setExporting(false);
+  };
+
 
   useEffect(() => {
     if (!id) return;
@@ -104,7 +153,15 @@ export default function SiteSurveyDetail() {
             <Button asChild variant="ghost" size="sm"><Link to="/site-surveys"><ArrowLeft className="h-4 w-4 mr-1" /> Back</Link></Button>
             <span className="font-mono text-xs text-muted-foreground">{survey.reference_number}</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button variant="outline" size="sm" onClick={exportPdf} disabled={exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileDown className="h-4 w-4 mr-1.5" />}
+              Export PDF
+            </Button>
+            <Button variant="outline" size="sm" onClick={convertToJob} disabled={converting}>
+              {converting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Briefcase className="h-4 w-4 mr-1.5" />}
+              Convert to Job
+            </Button>
             <AlertDialog>
               <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" className="text-destructive"><Trash2 className="h-4 w-4 mr-1.5" /> Delete</Button>
@@ -187,14 +244,36 @@ export default function SiteSurveyDetail() {
               <Textarea rows={3} value={survey.parking_welfare ?? ""} onChange={(e) => update("parking_welfare", e.target.value)} />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label>Recommendations / scope</Label>
+              <div className="flex items-center justify-between">
+                <Label>Recommendations / scope</Label>
+                <VoiceDictationButton
+                  size="sm"
+                  onTranscript={(t) => update("recommendations", `${survey.recommendations ? survey.recommendations + " " : ""}${t}`)}
+                />
+              </div>
               <Textarea rows={3} value={survey.recommendations ?? ""} onChange={(e) => update("recommendations", e.target.value)}
                 placeholder="Recommended works, parts, follow-up visits, sub-contractor needs…" />
             </div>
             <div className="space-y-1.5 md:col-span-2">
-              <Label>Additional notes</Label>
+              <div className="flex items-center justify-between">
+                <Label>Additional notes</Label>
+                <VoiceDictationButton
+                  size="sm"
+                  onTranscript={(t) => update("notes", `${survey.notes ? survey.notes + " " : ""}${t}`)}
+                />
+              </div>
               <Textarea rows={2} value={survey.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-lg flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Site photos &amp; sketches</CardTitle>
+            <SiteSurveySketchPad surveyId={survey.id} onSaved={() => setPhotosKey((k) => k + 1)} />
+          </CardHeader>
+          <CardContent>
+            <SiteSurveyPhotos key={photosKey} surveyId={survey.id} />
           </CardContent>
         </Card>
       </div>
