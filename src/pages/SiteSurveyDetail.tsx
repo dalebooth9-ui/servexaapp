@@ -269,10 +269,10 @@ export default function SiteSurveyDetail() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
             <CardTitle className="text-lg flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Site photos &amp; sketches</CardTitle>
-            <SiteSurveySketchPad surveyId={survey.id} />
+            <SiteSurveySketchPad surveyId={survey.id} onSaved={() => setPhotosKey((k) => k + 1)} />
           </CardHeader>
           <CardContent>
-            <SiteSurveyPhotos surveyId={survey.id} />
+            <SiteSurveyPhotos key={photosKey} surveyId={survey.id} />
           </CardContent>
         </Card>
       </div>
