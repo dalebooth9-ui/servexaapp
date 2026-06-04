@@ -124,6 +124,7 @@ export default function WeeklyPlanner() {
   const [adhocEntries, setAdhocEntries] = useState<AdhocEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
 
   // Add entry dialog
