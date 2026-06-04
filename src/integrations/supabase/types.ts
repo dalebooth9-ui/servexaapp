@@ -1533,6 +1533,7 @@ export type Database = {
         Row: {
           engineer_user_id: string
           id: string
+          org_id: string | null
           sent_at: string
           sent_by: string
           sent_to_email: string
@@ -1540,6 +1541,7 @@ export type Database = {
         Insert: {
           engineer_user_id: string
           id?: string
+          org_id?: string | null
           sent_at?: string
           sent_by: string
           sent_to_email: string
@@ -1547,11 +1549,27 @@ export type Database = {
         Update: {
           engineer_user_id?: string
           id?: string
+          org_id?: string | null
           sent_at?: string
           sent_by?: string
           sent_to_email?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "engineer_onboarding_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engineer_onboarding_logs_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       engineer_page_access: {
         Row: {
