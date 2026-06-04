@@ -451,11 +451,16 @@ export default function Engineers() {
           <Tabs defaultValue="skills" className="w-full">
             <TabsList>
               <TabsTrigger value="skills">Skills & Certs</TabsTrigger>
+              <TabsTrigger value="van">Van Stock</TabsTrigger>
               <TabsTrigger value="docs">All Documents</TabsTrigger>
             </TabsList>
 
             <TabsContent value="skills" className="mt-4">
               {docsEng && <SkillsCertsTab engineerId={docsEng.user_id} engineerName={docsEng.full_name || "Engineer"} />}
+            </TabsContent>
+
+            <TabsContent value="van" className="mt-4">
+              {docsEng && <VanStockGrid engineerId={docsEng.user_id} isAdmin orgId={docsEng.org_id || null} />}
             </TabsContent>
 
             <TabsContent value="docs" className="mt-4">
