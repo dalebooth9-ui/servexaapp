@@ -494,7 +494,7 @@ export default function WeeklyPlanner() {
     if (!batchEngineerId || batchJobIds.size === 0 || !batchDate) return;
     setSaving(true);
     const rows = Array.from(batchJobIds).map((jobId) => ({
-      job_id: jobId, engineer_id: batchEngineerId, schedule_date: batchDate, created_by: user?.id,
+      job_id: jobId, engineer_id: batchEngineerId, schedule_date: batchDate, created_by: user?.id, ...editStamp(),
     }));
     const { error } = await supabase.from("job_schedule").insert(rows as any);
     if (error) {
