@@ -150,6 +150,7 @@ const App = () => (
               <Route path="/assets" element={<AccessRoute pageSlug="assets"><Assets /></AccessRoute>} />
               <Route path="/assets/:id" element={<AccessRoute pageSlug="assets"><AssetDetail /></AccessRoute>} />
               <Route path="/parts-library" element={<AdminRoute><PartsLibrary /></AdminRoute>} />
+              <Route path="/stock" element={<ProtectedRoute><VanStock /></ProtectedRoute>} />
               <Route path="/industry-templates" element={<AdminRoute><IndustryTemplates /></AdminRoute>} />
               <Route path="/templates" element={<Navigate to="/industry-templates" replace />} />
               <Route path="/compliance" element={<AccessRoute pageSlug="compliance"><Compliance /></AccessRoute>} />
