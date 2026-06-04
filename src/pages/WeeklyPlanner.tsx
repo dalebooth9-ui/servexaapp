@@ -130,6 +130,22 @@ export default function WeeklyPlanner() {
   // Unique channel name per mount to avoid subscription conflicts
   const channelName = useRef('planner_realtime_' + Math.random().toString(36).slice(2));
 
+  // Track ids of job_schedule rows we just edited locally so realtime echoes can be
+  // identified and conflicts with other planners can be flagged.
+  const localEditsRef = useRef<Map<string, number>>(new Map());
+  const lastRemoteToastRef = useRef<number>(0);
+  const markLocalEdit = (ids: (string | undefined | null)[]) => {
+    const now = Date.now();
+    for (const id of ids) if (id) localEditsRef.current.set(id, now);
+    for (const [k, v] of localEditsRef.current) {
+      if (now - v > 10000) localEditsRef.current.delete(k);
+    }
+  };
+  const editStamp = () => ({
+    last_modified_by: user?.id ?? null,
+    last_modified_at: new Date().toISOString(),
+  });
+
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
   const [addDay, setAddDay] = useState("");
