@@ -267,11 +267,43 @@ export default function PlannerMapView({
     setOptimising(true);
     clearRouteOverlay();
     try {
-      const waypoints = scheduledJobs.map((s) => ({ address: s.job.address!, job_id: s.job.id }));
+      const allWaypoints = scheduledJobs.map((s) => ({ address: s.job.address!, job_id: s.job.id }));
+
+      // Guard: Google Directions allows at most 10 intermediate waypoints (~12 total stops)
+      const MAX_STOPS = 12;
+      let waypoints = allWaypoints;
+      let overflowJobIds: string[] = [];
+      if (allWaypoints.length > MAX_STOPS) {
+        waypoints = allWaypoints.slice(0, MAX_STOPS);
+        overflowJobIds = allWaypoints.slice(MAX_STOPS).map((w) => w.job_id);
+        toast({
+          title: "Too many stops",
+          description: "Route optimisation works best with up to 12 stops. Showing optimised order for the first 12 — drag to reorder the rest.",
+        });
+      }
+
+      // Determine origin: live GPS > engineer home/depot address > null
+      let origin: { lat: number; lng: number } | { address: string } | null = null;
+      if (selectedEngineerId && selectedEngineerId !== "all") {
+        const liveLoc = engineerLocations.find((l) => l.user_id === selectedEngineerId);
+        if (liveLoc) {
+          origin = { lat: liveLoc.latitude, lng: liveLoc.longitude };
+        } else {
+          const eng = engineers.find((e) => e.user_id === selectedEngineerId) as any;
+          const homeAddr = eng?.home_address || eng?.depot_address || eng?.address;
+          if (homeAddr) origin = { address: homeAddr };
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke("optimise-route", {
-        body: { waypoints, origin: null },
+        body: { waypoints, origin },
       });
       if (error) throw error;
+      if (data?.error) {
+        toast({ title: "Route optimisation unavailable — check addresses are valid", variant: "destructive" });
+        setOptimising(false);
+        return;
+      }
       setRouteResult(data);
       const trafficMins = data.total_duration_in_traffic_mins ?? data.total_duration_mins;
       const baseMins = data.total_duration_mins;
