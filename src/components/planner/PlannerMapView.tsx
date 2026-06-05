@@ -640,33 +640,60 @@ export default function PlannerMapView({
     });
   }, [showUnallocated]);
 
-  // Apply engineer filter — highlight selected, dim others
+  // Apply marker mode (priority colours vs neutral route-order pins) + engineer filter overlay
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
+    if (typeof google === "undefined" || !google.maps?.marker?.PinElement) return;
 
-    for (const { marker, engineerId } of markersRef.current) {
+    const optimisedOrder = routeResult?.optimised?.map((w) => w.job_id) ?? [];
+
+    for (const entry of markersRef.current) {
+      const { marker, engineerId, priority, jobId } = entry;
+
+      // Rebuild pin content based on current marker mode
+      let pin: google.maps.marker.PinElement;
+      if (markerMode === "route") {
+        const idx = optimisedOrder.indexOf(jobId);
+        pin = new google.maps.marker.PinElement({
+          background: "#64748b",
+          borderColor: "#475569",
+          glyphColor: "white",
+          glyph: idx >= 0 ? String(idx + 1) : "•",
+        });
+      } else {
+        const pinColor = PRIORITY_PIN[priority] || "#6b7280";
+        pin = new google.maps.marker.PinElement({
+          background: pinColor,
+          borderColor: pinColor,
+          glyphColor: "white",
+        });
+      }
+      marker.content = pin.element;
+
       const el = marker.content as HTMLElement | null;
       if (!el) continue;
 
       if (selectedEngineerId === "all") {
-        // Reset: restore original priority colours by removing any override
         el.style.filter = "";
         el.style.opacity = "1";
         el.style.transform = "scale(1)";
       } else if (engineerId === selectedEngineerId) {
-        // Highlighted: purple tint + larger scale
         el.style.filter = `drop-shadow(0 0 6px ${ENGINEER_HIGHLIGHT})`;
         el.style.opacity = "1";
         el.style.transform = "scale(1.25)";
       } else {
-        // Dimmed
         el.style.filter = "";
         el.style.opacity = "0.3";
         el.style.transform = "scale(0.9)";
       }
     }
-  }, [selectedEngineerId]);
+
+    // In route mode the pins already carry numbers — hide the duplicate overlay badges
+    routeNumberOverlaysRef.current.forEach((m) => {
+      m.map = markerMode === "route" ? null : mapInstanceRef.current;
+    });
+  }, [markerMode, selectedEngineerId, routeResult, scheduledJobs]);
 
   // Update engineer live pins
   useEffect(() => {
