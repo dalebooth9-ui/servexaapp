@@ -170,6 +170,47 @@ export default function WeeklyPlanner() {
     last_modified_at: new Date().toISOString(),
   });
 
+  // ----- Drag-drop undo (last action only) -----
+  const undoRef = useRef<{ toastId: string | number; timeoutId: ReturnType<typeof setTimeout> } | null>(null);
+  const cancelPendingUndo = () => {
+    if (undoRef.current) {
+      clearTimeout(undoRef.current.timeoutId);
+      sonnerToast.dismiss(undoRef.current.toastId);
+      undoRef.current = null;
+    }
+  };
+  const showUndoToast = (message: string, onUndo: () => Promise<void> | void) => {
+    cancelPendingUndo();
+    const toastId = sonnerToast(message, {
+      duration: 6000,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          if (undoRef.current?.toastId === toastId) {
+            clearTimeout(undoRef.current.timeoutId);
+            undoRef.current = null;
+          }
+          try {
+            await onUndo();
+            sonnerToast.success("Move undone", { duration: 2500 });
+          } catch (e) {
+            sonnerToast.error("Could not undo move");
+          }
+        },
+      },
+    });
+    const timeoutId = setTimeout(() => {
+      if (undoRef.current?.toastId === toastId) undoRef.current = null;
+    }, 6500);
+    undoRef.current = { toastId, timeoutId };
+  };
+  const fmtMoveLabel = (engineerId: string, date: string) => {
+    const eng = engineers.find((e) => e.user_id === engineerId)?.full_name || "Engineer";
+    let dateLabel = date;
+    try { dateLabel = format(new Date(date), "EEE d MMM"); } catch {}
+    return `Job moved to ${eng} — ${dateLabel}`;
+  };
+
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
   const [addDay, setAddDay] = useState("");
