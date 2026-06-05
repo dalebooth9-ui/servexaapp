@@ -238,8 +238,31 @@ export default function PlannerMapView({
     if (scheduledJobs.length < 2) return;
     setOptimising(true);
     clearRouteOverlay();
+    setAdhocNotices([]);
     try {
       const allWaypoints = scheduledJobs.map((s) => ({ address: s.job.address!, job_id: s.job.id }));
+
+      // Adhoc time-block awareness (table has no start_time/end_time — fallback warning only)
+      const datesInRoute = new Set(scheduledJobs.map((s) => s.date));
+      const engineerIdsInRoute = new Set(
+        selectedEngineerId && selectedEngineerId !== "all"
+          ? [selectedEngineerId]
+          : scheduledJobs.map((s) => s.engineerId),
+      );
+      const relevantAdhoc = adhocEntries.filter(
+        (a) => a.schedule_date && datesInRoute.has(a.schedule_date) && engineerIdsInRoute.has(a.engineer_id),
+      );
+      const notices = relevantAdhoc.map((a) => {
+        const engName = engineers.find((e) => e.user_id === a.engineer_id)?.full_name || "Engineer";
+        const title = a.company_name || a.description || "non-job entry";
+        return `Note: ${engName} has a non-job entry on ${a.schedule_date} (${title}). Check the schedule before confirming this route.`;
+      });
+      if (notices.length) {
+        setAdhocNotices(notices);
+        if (!opts?.silent) {
+          toast({ title: "Schedule conflict possible", description: notices[0] });
+        }
+      }
 
       // Guard: Google Directions allows at most 10 intermediate waypoints (~12 total stops)
       const MAX_STOPS = 12;
