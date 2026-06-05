@@ -293,6 +293,16 @@ export default function UserRoleSettings() {
                         <Button
                           variant="ghost"
                           size="icon"
+                          className="h-8 w-8"
+                          disabled={resettingId === u.user_id}
+                          title="Send password reset email"
+                          onClick={() => handleSendPasswordReset(u.user_id, u.full_name || "this user")}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           disabled={isSelf}
                           title={isSelf ? "You cannot delete your own account" : "Delete user"}
