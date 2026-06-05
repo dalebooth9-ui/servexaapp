@@ -183,3 +183,85 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
     </div>
   );
 }
+
+function RowPhotoCell({ value, onChange, fieldId, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; jobId?: string; userId?: string }) {
+  const [uploading, setUploading] = useState(false);
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (value) {
+      supabase.storage.from("submissions").createSignedUrl(value, 3600).then(({ data }) => {
+        if (data?.signedUrl) setSignedUrl(data.signedUrl);
+      });
+    } else {
+      setSignedUrl(null);
+    }
+  }, [value]);
+
+  const handleUpload = async (file: File) => {
+    if (!file || !file.type.startsWith("image/")) return;
+    setUploading(true);
+    const ext = file.name.split(".").pop() || "jpg";
+    const fileName = `${fieldId}-${Date.now()}.${ext}`;
+    const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
+    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      console.error("Upload error:", error);
+    } else {
+      onChange(path);
+      if (jobId && userId) {
+        const { data: signedData } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        if (signedData?.signedUrl) {
+          await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: userId,
+            type: "photo",
+            file_url: signedData.signedUrl,
+            file_name: fileName,
+          } as any);
+        }
+      }
+    }
+    setUploading(false);
+  };
+
+  return (
+    <div>
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
+      />
+      {signedUrl ? (
+        <div className="relative inline-block">
+          <img src={signedUrl} alt="Captured" className="max-w-[140px] max-h-[100px] rounded border object-cover" />
+          <Button
+            variant="destructive"
+            size="icon"
+            className="absolute -top-2 -right-2 h-5 w-5 rounded-full"
+            onClick={() => { onChange(null); setSignedUrl(null); }}
+          >
+            <X className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : (
+        <Button
+          variant="outline"
+          size="sm"
+          className="gap-1.5 h-9 text-xs"
+          onClick={() => fileRef.current?.click()}
+          disabled={uploading}
+        >
+          {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Camera className="h-3 w-3" />}
+          {uploading ? "Uploading..." : "Take Photo"}
+        </Button>
+      )}
+    </div>
+  );
+}
