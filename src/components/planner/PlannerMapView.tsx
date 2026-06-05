@@ -42,12 +42,14 @@ export default function PlannerMapView({
   engineers,
   unallocatedJobs = [],
   onRouteOptimised,
+  onScheduleJob,
 }: {
   schedule: ScheduleEntry[];
   jobs: Job[];
   engineers: Engineer[];
   unallocatedJobs?: Job[];
   onRouteOptimised?: (orderedJobIds: string[]) => void;
+  onScheduleJob?: (jobId: string) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
