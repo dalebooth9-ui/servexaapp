@@ -761,6 +761,13 @@ export default function WeeklyPlanner() {
         </div>
       </div>
 
+      {view === "month" && scheduleCapped && (
+        <div className="mb-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-200 flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />
+          Showing the first 500 bookings this month. Use week view for full detail.
+        </div>
+      )}
+
       {hasNoData && (
         <div className="mb-4 rounded-md border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
           No jobs scheduled yet. Create a job and assign it to an engineer to see it here.
