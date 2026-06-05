@@ -872,10 +872,10 @@ export default function PlannerMapView({
             size="sm"
             onClick={() => setShowCompare((v) => !v)}
             disabled={!routeResult}
-            title={!routeResult ? "Optimise a route first to compare" : "Overlay the fastest route ignoring live traffic (dashed amber) for comparison"}
+            title={!routeResult ? "Optimise a route first to compare" : "Show a side-by-side stats panel comparing live traffic vs no-traffic ETAs"}
           >
             <Route className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
-            {showCompare ? "Hide No-Traffic" : "Compare No-Traffic"}
+            {showCompare ? "Hide Comparison" : "Compare Traffic"}
           </Button>
           <Button
             variant="outline"
