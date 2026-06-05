@@ -861,16 +861,29 @@ export default function WeeklyPlanner() {
         </TabsContent>
 
         <TabsContent value="map" className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} />
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+            const j = jobs.find((x) => x.id === jobId);
+            if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
+          }} />
         </TabsContent>
       </Tabs>
 
       {/* Always-visible map for admins (hidden when map tab is active to avoid duplication) */}
       {isAdmin && view !== "map" && (
         <div className="mt-4">
-          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} />
+          <PlannerMapView schedule={filteredSchedule} jobs={jobs} engineers={engineers} unallocatedJobs={unallocatedJobs} onRouteOptimised={setOptimisedJobOrder} onScheduleJob={(jobId) => {
+            const j = jobs.find((x) => x.id === jobId);
+            if (j) setMapScheduleJob({ id: j.id, name: j.name, reference_number: j.reference_number });
+          }} />
         </div>
       )}
+
+      <QuickScheduleDialog
+        job={mapScheduleJob}
+        open={!!mapScheduleJob}
+        onOpenChange={(o) => { if (!o) setMapScheduleJob(null); }}
+        onScheduled={() => { setMapScheduleJob(null); fetchData(); }}
+      />
 
       {/* Labour (Adhoc) Entry Dialog */}
       <Dialog open={adhocOpen} onOpenChange={setAdhocOpen}>
