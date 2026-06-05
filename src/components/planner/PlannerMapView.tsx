@@ -939,11 +939,20 @@ export default function PlannerMapView({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All engineers</SelectItem>
-                {activeEngineers.map((eng) => (
-                  <SelectItem key={eng.user_id} value={eng.user_id}>
-                    {eng.full_name}
-                  </SelectItem>
-                ))}
+                {activeEngineers.map((eng) => {
+                  const loc = engineerLocations.find((l) => l.user_id === eng.user_id);
+                  const { status, label } = getLocationStatus(loc ?? null);
+                  const dotColor = status === "live" ? "bg-blue-500" : status === "stale" ? "bg-amber-500" : "bg-gray-500";
+                  return (
+                    <SelectItem key={eng.user_id} value={eng.user_id}>
+                      <span className="flex items-center gap-1.5">
+                        <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
+                        {eng.full_name}
+                        <span className={`text-[10px] font-semibold ml-auto ${status === "live" ? "text-blue-500" : status === "stale" ? "text-amber-500" : "text-gray-500"}`}>{label}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}
