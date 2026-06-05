@@ -36,11 +36,20 @@ const PRIORITY_PIN: Record<string, string> = {
 // Distinct highlight colour when filtering by engineer
 const ENGINEER_HIGHLIGHT = "#8b5cf6";
 
+interface AdhocEntryLike {
+  id: string;
+  engineer_id: string;
+  schedule_date: string | null;
+  company_name: string;
+  description?: string | null;
+}
+
 export default function PlannerMapView({
   schedule,
   jobs,
   engineers,
   unallocatedJobs = [],
+  adhocEntries = [],
   onRouteOptimised,
   onScheduleJob,
 }: {
@@ -48,6 +57,7 @@ export default function PlannerMapView({
   jobs: Job[];
   engineers: Engineer[];
   unallocatedJobs?: Job[];
+  adhocEntries?: AdhocEntryLike[];
   onRouteOptimised?: (orderedJobIds: string[]) => void;
   onScheduleJob?: (jobId: string) => void;
 }) {
