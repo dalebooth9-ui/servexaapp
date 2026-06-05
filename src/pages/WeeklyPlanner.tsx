@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
