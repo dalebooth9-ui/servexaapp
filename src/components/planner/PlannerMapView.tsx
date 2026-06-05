@@ -90,7 +90,7 @@ export default function PlannerMapView({
   const [savingPin, setSavingPin] = useState<string | null>(null);
   const [refreshIntervalSec, setRefreshIntervalSec] = useState<number>(0); // 0 = off
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
-  const handleOptimiseRef = useRef<() => Promise<void>>();
+  const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<{ distance_km: number; duration_mins: number } | null>(null);
 
