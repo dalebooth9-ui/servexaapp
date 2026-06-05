@@ -318,6 +318,7 @@ export default function PlannerMapView({
       // Draw optimised route on map
       if (data.optimised?.length >= 2) {
         await renderRouteOnMap(data.optimised);
+        setMarkerMode("route");
 
         // Show one-time traffic suggestion (skip on auto-refresh)
         if (!opts?.silent) {
