@@ -1,7 +1,7 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
-import { useLiveEngineerLocations } from "@/hooks/useLiveEngineerLocations";
+import { useLiveEngineerLocations, EngineerLocation } from "@/hooks/useLiveEngineerLocations";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -97,6 +97,30 @@ export default function PlannerMapView({
   const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
+
+  // ---- Staleness helper ----
+  type LocationStatus = { status: "live" | "stale" | "offline"; label: string; tooltip: string };
+  const getLocationStatus = useCallback((loc: EngineerLocation | null): LocationStatus => {
+    if (!loc || !loc.updated_at) {
+      return { status: "offline", label: "OFFLINE", tooltip: "Offline — no location data" };
+    }
+    const ageMs = Date.now() - new Date(loc.updated_at).getTime();
+    const ageMin = Math.floor(ageMs / 60000);
+    if (ageMin < 5) {
+      return {
+        status: "live",
+        label: "LIVE",
+        tooltip: `Last seen: ${ageMin < 1 ? "just now" : `${ageMin} min${ageMin !== 1 ? "s" : ""} ago`}`,
+      };
+    }
+    if (ageMin <= 30) {
+      return { status: "stale", label: "STALE", tooltip: `Last seen: ${ageMin} min${ageMin !== 1 ? "s" : ""} ago — location may be outdated` };
+    }
+    const ageHr = Math.floor(ageMin / 60);
+    const remMin = ageMin % 60;
+    const timeAgo = ageHr > 0 ? `${ageHr}h ${remMin > 0 ? `${remMin}m` : ""}` : `${ageMin}m`;
+    return { status: "offline", label: "OFFLINE", tooltip: `Offline — last seen: ${timeAgo} ago` };
+  }, []);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
@@ -691,29 +715,58 @@ export default function PlannerMapView({
       const eng = getEngineer(loc.user_id);
       if (!eng) continue;
 
-      // Create a blue pin for engineers
-      const el = document.createElement("div");
-      el.style.cssText = "width:32px;height:32px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;";
-      el.textContent = eng.full_name.charAt(0).toUpperCase();
+      const { status, tooltip } = getLocationStatus(loc);
+
+      // Build styled pin based on staleness
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;";
+
+      const dot = document.createElement("div");
+      if (status === "live") {
+        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;";
+      } else if (status === "stale") {
+        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#8b9dc3;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;opacity:0.85;";
+      } else {
+        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#9ca3af;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;opacity:0.7;";
+      }
+      dot.textContent = eng.full_name.charAt(0).toUpperCase();
+
+      wrapper.appendChild(dot);
+
+      // Stale / offline overlay icon
+      if (status === "stale") {
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:absolute;bottom:-2px;right:-2px;background:#f59e0b;border:2px solid white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
+        overlay.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+        wrapper.appendChild(overlay);
+      } else if (status === "offline") {
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:absolute;bottom:-2px;right:-2px;background:#6b7280;border:2px solid white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
+        overlay.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+        wrapper.appendChild(overlay);
+      }
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: { lat: loc.latitude, lng: loc.longitude },
-        title: `${eng.full_name} (Live)`,
-        content: el,
+        title: tooltip,
+        content: wrapper,
       });
 
       const infoWindow = new google.maps.InfoWindow({
-        content: `<div style="font-family:system-ui;font-size:13px">
-          <strong>🔵 ${eng.full_name}</strong><br/>
-          <span style="color:#666">Live location — ${new Date(loc.updated_at).toLocaleTimeString()}</span>
-          ${loc.speed ? `<br/><span style="color:#666">Speed: ${Math.round(loc.speed * 3.6)} km/h</span>` : ""}
+        content: `<div style="font-family:system-ui;font-size:13px;max-width:220px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:white;background:${status === "live" ? "#3b82f6" : status === "stale" ? "#f59e0b" : "#6b7280"}">${status}</span>
+            <strong>${eng.full_name}</strong>
+          </div>
+          <div style="color:#666;font-size:12px">${tooltip}</div>
+          ${loc.speed ? `<div style="color:#666;font-size:12px">Speed: ${Math.round(loc.speed * 3.6)} km/h</div>` : ""}
         </div>`,
       });
       marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
       engineerMarkersRef.current.push(marker);
     }
-  }, [engineerLocations, engineers]);
+  }, [engineerLocations, engineers, getLocationStatus]);
 
   // Draw live routes per engineer: from each engineer's live GPS through their remaining
   // scheduled jobs (in date order). Honours the engineer filter.
@@ -784,10 +837,22 @@ export default function PlannerMapView({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           {engineerLocations.length > 0 && (
-            <Badge variant="secondary" className="text-xs gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-              {engineerLocations.length} engineer{engineerLocations.length !== 1 ? "s" : ""} live
-            </Badge>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {engineerLocations.map((loc) => {
+                const eng = getEngineer(loc.user_id);
+                if (!eng) return null;
+                const { status, label } = getLocationStatus(loc);
+                const dotColor = status === "live" ? "bg-blue-500" : status === "stale" ? "bg-amber-500" : "bg-gray-500";
+                const pulse = status === "live" ? "animate-pulse" : "";
+                return (
+                  <Badge key={loc.user_id} variant="secondary" className="text-[11px] gap-1 px-1.5 py-0.5">
+                    <span className={`inline-block h-2 w-2 rounded-full ${dotColor} ${pulse}`} />
+                    <span className="truncate max-w-[120px]">{eng.full_name}</span>
+                    <span className={`text-[10px] font-semibold ${status === "live" ? "text-blue-500" : status === "stale" ? "text-amber-500" : "text-gray-500"}`}>{label}</span>
+                  </Badge>
+                );
+              })}
+            </div>
           )}
           {routeResult && (
             <Badge variant="outline" className="text-xs">
@@ -874,11 +939,20 @@ export default function PlannerMapView({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All engineers</SelectItem>
-                {activeEngineers.map((eng) => (
-                  <SelectItem key={eng.user_id} value={eng.user_id}>
-                    {eng.full_name}
-                  </SelectItem>
-                ))}
+                {activeEngineers.map((eng) => {
+                  const loc = engineerLocations.find((l) => l.user_id === eng.user_id);
+                  const { status, label } = getLocationStatus(loc ?? null);
+                  const dotColor = status === "live" ? "bg-blue-500" : status === "stale" ? "bg-amber-500" : "bg-gray-500";
+                  return (
+                    <SelectItem key={eng.user_id} value={eng.user_id}>
+                      <span className="flex items-center gap-1.5">
+                        <span className={`inline-block h-2 w-2 rounded-full ${dotColor}`} />
+                        {eng.full_name}
+                        <span className={`text-[10px] font-semibold ml-auto ${status === "live" ? "text-blue-500" : status === "stale" ? "text-amber-500" : "text-gray-500"}`}>{label}</span>
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           )}
