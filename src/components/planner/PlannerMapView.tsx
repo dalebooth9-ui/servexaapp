@@ -840,12 +840,40 @@ export default function PlannerMapView({
               })()}
             </Badge>
           )}
+          {/* Marker mode toggle */}
+          <div className="inline-flex items-center rounded border text-xs overflow-hidden">
+            <span className="px-2 py-1 text-muted-foreground bg-muted/30">Markers:</span>
+            <button
+              type="button"
+              onClick={() => setMarkerMode("priority")}
+              className={`px-2 py-1 transition-colors ${markerMode === "priority" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+            >
+              Priority colours
+            </button>
+            <button
+              type="button"
+              onClick={() => setMarkerMode("route")}
+              disabled={!routeResult}
+              className={`px-2 py-1 transition-colors ${markerMode === "route" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"}`}
+              title={!routeResult ? "Optimise a route first" : "Show numbered route order"}
+            >
+              Route order
+            </button>
+          </div>
           {/* Legend */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground border rounded px-2 py-1">
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#f59e0b"}} /> Medium</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#10b981"}} /> Low</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
+            {markerMode === "priority" ? (
+              <>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#f59e0b"}} /> Medium</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#10b981"}} /> Low</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1"><span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{background:"#64748b"}}>1</span> Numbers = optimised stop order</span>
+              </>
+            )}
             {selectedEngineerId !== "all" && (
               <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background: ENGINEER_HIGHLIGHT}} /> Filtered</span>
             )}
