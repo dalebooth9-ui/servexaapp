@@ -55,7 +55,6 @@ export default function PlannerMapView({
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
-  const comparisonRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
@@ -92,7 +91,6 @@ export default function PlannerMapView({
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
-  const [comparisonResult, setComparisonResult] = useState<{ distance_km: number; duration_mins: number } | null>(null);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
@@ -128,64 +126,11 @@ export default function PlannerMapView({
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
-    if (comparisonRendererRef.current) {
-      comparisonRendererRef.current.setMap(null);
-      comparisonRendererRef.current = null;
-    }
     // Remove numbered step labels
     routeNumberOverlaysRef.current.forEach((m) => { m.map = null; });
     routeNumberOverlaysRef.current = [];
     lastOptimisedWaypointsRef.current = null;
-    setComparisonResult(null);
     setMarkerMode("priority");
-  }, []);
-
-  // Render the no-traffic ("fastest without traffic") route for visual comparison.
-  // The optimised (live-traffic) route stays in blue; this overlay is dashed amber.
-  const renderComparisonRoute = useCallback(async (waypoints: { address: string; job_id: string }[]) => {
-    const map = mapInstanceRef.current;
-    if (!map || waypoints.length < 2) return;
-    if (comparisonRendererRef.current) {
-      comparisonRendererRef.current.setMap(null);
-      comparisonRendererRef.current = null;
-    }
-    const directionsService = new google.maps.DirectionsService();
-    try {
-      const result = await directionsService.route({
-        origin: waypoints[0].address,
-        destination: waypoints[waypoints.length - 1].address,
-        waypoints: waypoints.slice(1, -1).map((wp) => ({ location: wp.address, stopover: true })),
-        travelMode: google.maps.TravelMode.DRIVING,
-        // No drivingOptions => fastest path ignoring live traffic
-      });
-      const renderer = new google.maps.DirectionsRenderer({
-        map,
-        directions: result,
-        suppressMarkers: true,
-        preserveViewport: true,
-        polylineOptions: {
-          strokeColor: "#f59e0b",
-          strokeWeight: 4,
-          strokeOpacity: 0,
-          icons: [{
-            icon: { path: "M 0,-1 0,1", strokeOpacity: 1, strokeColor: "#f59e0b", scale: 3 },
-            offset: "0",
-            repeat: "12px",
-          }],
-          zIndex: 1,
-        },
-      });
-      comparisonRendererRef.current = renderer;
-      const route = result.routes[0];
-      const totalDist = route.legs.reduce((s, l) => s + (l.distance?.value ?? 0), 0);
-      const totalDur = route.legs.reduce((s, l) => s + (l.duration?.value ?? 0), 0);
-      setComparisonResult({
-        distance_km: Math.round(totalDist / 100) / 10,
-        duration_mins: Math.round(totalDur / 60),
-      });
-    } catch (err) {
-      console.error("Failed to render comparison route:", err);
-    }
   }, []);
 
   // Render the optimised route as a polyline on the map
@@ -233,16 +178,6 @@ export default function PlannerMapView({
     }
   }, [clearRouteOverlay]);
 
-  // Show/hide the no-traffic comparison overlay
-  useEffect(() => {
-    if (showCompare && lastOptimisedWaypointsRef.current) {
-      renderComparisonRoute(lastOptimisedWaypointsRef.current);
-    } else if (!showCompare && comparisonRendererRef.current) {
-      comparisonRendererRef.current.setMap(null);
-      comparisonRendererRef.current = null;
-      setComparisonResult(null);
-    }
-  }, [showCompare, routeResult, renderComparisonRoute]);
 
   // Toggle Google's live traffic layer on/off
   useEffect(() => {
@@ -823,23 +758,6 @@ export default function PlannerMapView({
                 )}
             </Badge>
           )}
-          {showCompare && comparisonResult && routeResult && (
-            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700">
-              <span className="inline-block h-2 w-6 mr-1.5" style={{ background: "repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)" }} />
-              No-traffic: {comparisonResult.distance_km} km · {comparisonResult.duration_mins} mins
-              {(() => {
-                const live = routeResult.total_duration_in_traffic_mins ?? routeResult.total_duration_mins ?? 0;
-                const base = comparisonResult.duration_mins;
-                const delta = live - base;
-                if (!delta) return null;
-                return (
-                  <span className={`ml-1 font-semibold ${delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                    {delta > 0 ? `+${delta}` : delta} mins vs live
-                  </span>
-                );
-              })()}
-            </Badge>
-          )}
           {/* Marker mode toggle */}
           <div className="inline-flex items-center rounded border text-xs overflow-hidden">
             <span className="px-2 py-1 text-muted-foreground bg-muted/30">Markers:</span>
@@ -954,10 +872,10 @@ export default function PlannerMapView({
             size="sm"
             onClick={() => setShowCompare((v) => !v)}
             disabled={!routeResult}
-            title={!routeResult ? "Optimise a route first to compare" : "Overlay the fastest route ignoring live traffic (dashed amber) for comparison"}
+            title={!routeResult ? "Optimise a route first to compare" : "Show a side-by-side stats panel comparing live traffic vs no-traffic ETAs"}
           >
             <Route className="mr-1.5 h-3.5 w-3.5 text-amber-500" />
-            {showCompare ? "Hide No-Traffic" : "Compare No-Traffic"}
+            {showCompare ? "Hide Comparison" : "Compare Traffic"}
           </Button>
           <Button
             variant="outline"
@@ -1015,6 +933,97 @@ export default function PlannerMapView({
           </div>
         )}
         <div ref={mapRef} className={`h-[calc(100vh-320px)] min-h-[400px] rounded-lg border ${mapError ? "invisible" : ""}`} />
+        {showCompare && routeResult && (() => {
+          const parseMins = (s: string) => {
+            const h = /(\d+)\s*hour/.exec(s);
+            const m = /(\d+)\s*min/.exec(s);
+            return (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
+          };
+          const fmt = (mins: number) => {
+            if (mins < 60) return `${mins}m`;
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return m ? `${h}h ${m}m` : `${h}h`;
+          };
+          const legs = routeResult.legs ?? [];
+          const hasTraffic = legs.some((l) => l.duration_in_traffic_seconds != null);
+          const totalLive = routeResult.total_duration_in_traffic_mins ?? routeResult.total_duration_mins ?? 0;
+          const totalBase = routeResult.total_duration_mins ?? 0;
+          const extra = totalLive - totalBase;
+          // Find worst leg by delta
+          const legDeltas = legs.map((l) => {
+            const base = parseMins(l.duration);
+            const live = l.duration_in_traffic_seconds != null ? Math.round(l.duration_in_traffic_seconds / 60) : parseMins(l.duration_in_traffic ?? l.duration);
+            return { base, live, delta: live - base };
+          });
+          const worstIdx = legDeltas.length
+            ? legDeltas.reduce((maxI, cur, i, arr) => (cur.delta > arr[maxI].delta ? i : maxI), 0)
+            : -1;
+          const worstDelta = worstIdx >= 0 ? legDeltas[worstIdx].delta : 0;
+          return (
+            <div className="absolute bottom-3 left-3 z-20 w-[min(420px,calc(100%-1.5rem))] rounded-lg border bg-card/95 backdrop-blur shadow-lg animate-in fade-in slide-in-from-left-2">
+              <div className="flex items-center justify-between px-3 py-2 border-b">
+                <span className="text-xs font-semibold">Traffic comparison</span>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowCompare(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              {!hasTraffic ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Traffic comparison not available — run optimisation again during peak hours.
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 divide-x text-xs">
+                    <div className="px-3 py-2">
+                      <div className="font-medium text-muted-foreground mb-1">With Traffic</div>
+                      <div className="font-semibold">Total: {fmt(totalLive)}</div>
+                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                      {extra > 0 && (
+                        <div className="text-amber-600 font-medium mt-1">Extra in traffic: +{fmt(extra)}</div>
+                      )}
+                    </div>
+                    <div className="px-3 py-2">
+                      <div className="font-medium text-muted-foreground mb-1">Without Traffic</div>
+                      <div className="font-semibold">Total: {fmt(totalBase)}</div>
+                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                    </div>
+                  </div>
+                  <ol className="divide-y max-h-48 overflow-auto text-xs border-t">
+                    {legDeltas.map((d, i) => {
+                      const isWorst = i === worstIdx && worstDelta > 0;
+                      return (
+                        <li
+                          key={i}
+                          className={`px-3 py-1.5 flex items-center justify-between ${isWorst ? "bg-amber-500/15" : ""}`}
+                        >
+                          <span className="text-muted-foreground">
+                            Leg {i + 1}→{i + 2}
+                            {isWorst && (
+                              <span className="ml-1.5 text-amber-600 font-semibold">⚠ worst delay</span>
+                            )}
+                          </span>
+                          <span className="whitespace-nowrap">
+                            {fmt(d.live)}
+                            {d.delta !== 0 && (
+                              <span className={`ml-1 ${d.delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                                ({d.delta > 0 ? `+${d.delta}` : d.delta}m in traffic)
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
       {routeResult?.legs && routeResult.legs.length > 0 && (
         <div className="rounded-lg border bg-card">
