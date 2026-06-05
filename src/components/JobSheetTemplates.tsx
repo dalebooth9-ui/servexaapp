@@ -770,6 +770,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     ? [...new Set(activeTemplate.fields.map((f) => f.section || "General"))]
     : [];
 
+  const omittedSections: string[] = Array.isArray((formData as any).__omitted_sections__)
+    ? (formData as any).__omitted_sections__
+    : [];
+  const isSectionOmitted = (s: string) => omittedSections.includes(s);
+  const toggleSectionOmitted = (s: string) => {
+    const next = isSectionOmitted(s)
+      ? omittedSections.filter((x) => x !== s)
+      : [...omittedSections, s];
+    handleFieldValue("__omitted_sections__", next);
+  };
+  const filterTemplateBySections = <T extends { fields: any[] }>(tpl: T, data: Record<string, any>): T => {
+    const omitted: string[] = Array.isArray(data?.__omitted_sections__) ? data.__omitted_sections__ : [];
+    if (!omitted.length) return tpl;
+    return { ...tpl, fields: tpl.fields.filter((f: any) => !omitted.includes(f.section || "General")) };
+  };
+
   const closeForm = () => { setActiveTemplate(null); setActiveResponse(null); setFormData({}); setViewingResponse(null); sitePhotos.forEach(p => URL.revokeObjectURL(p.preview)); setSitePhotos([]); };
 
   // Find the most recent RAMS response (any status) for prominent export
