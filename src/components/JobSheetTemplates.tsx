@@ -1490,7 +1490,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
-            {sections.map((section) => (
+            {sections.filter((s) => !isSectionOmitted(s)).map((section) => (
               <div key={section}>
                 <div className="bg-muted px-3 py-1.5 border-b border-border">
                   <span className="text-xs font-bold uppercase tracking-wider text-foreground">{section}</span>
