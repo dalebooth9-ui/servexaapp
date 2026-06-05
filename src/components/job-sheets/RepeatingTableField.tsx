@@ -39,7 +39,7 @@ function parseRows(value: any): Row[] {
   return [];
 }
 
-export default function RepeatingTableField({ columns, value, onChange }: Props) {
+export default function RepeatingTableField({ columns, value, onChange, jobId, userId, fieldId }: Props) {
   const rows = parseRows(value);
   const containerRef = useRef<HTMLDivElement>(null);
 
