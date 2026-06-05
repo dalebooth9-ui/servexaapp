@@ -137,6 +137,7 @@ export default function PlannerMapView({
     routeNumberOverlaysRef.current = [];
     lastOptimisedWaypointsRef.current = null;
     setComparisonResult(null);
+    setMarkerMode("priority");
   }, []);
 
   // Render the no-traffic ("fastest without traffic") route for visual comparison.
