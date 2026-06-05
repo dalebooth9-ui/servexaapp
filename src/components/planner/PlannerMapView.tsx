@@ -36,11 +36,20 @@ const PRIORITY_PIN: Record<string, string> = {
 // Distinct highlight colour when filtering by engineer
 const ENGINEER_HIGHLIGHT = "#8b5cf6";
 
+interface AdhocEntryLike {
+  id: string;
+  engineer_id: string;
+  schedule_date: string | null;
+  company_name: string;
+  description?: string | null;
+}
+
 export default function PlannerMapView({
   schedule,
   jobs,
   engineers,
   unallocatedJobs = [],
+  adhocEntries = [],
   onRouteOptimised,
   onScheduleJob,
 }: {
@@ -48,6 +57,7 @@ export default function PlannerMapView({
   jobs: Job[];
   engineers: Engineer[];
   unallocatedJobs?: Job[];
+  adhocEntries?: AdhocEntryLike[];
   onRouteOptimised?: (orderedJobIds: string[]) => void;
   onScheduleJob?: (jobId: string) => void;
 }) {
@@ -97,6 +107,7 @@ export default function PlannerMapView({
   const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
+  const [adhocNotices, setAdhocNotices] = useState<string[]>([]);
 
   // ---- Staleness helper ----
   type LocationStatus = { status: "live" | "stale" | "offline"; label: string; tooltip: string };
@@ -227,8 +238,31 @@ export default function PlannerMapView({
     if (scheduledJobs.length < 2) return;
     setOptimising(true);
     clearRouteOverlay();
+    setAdhocNotices([]);
     try {
       const allWaypoints = scheduledJobs.map((s) => ({ address: s.job.address!, job_id: s.job.id }));
+
+      // Adhoc time-block awareness (table has no start_time/end_time — fallback warning only)
+      const datesInRoute = new Set(scheduledJobs.map((s) => s.date));
+      const engineerIdsInRoute = new Set(
+        selectedEngineerId && selectedEngineerId !== "all"
+          ? [selectedEngineerId]
+          : scheduledJobs.map((s) => s.engineerId),
+      );
+      const relevantAdhoc = adhocEntries.filter(
+        (a) => a.schedule_date && datesInRoute.has(a.schedule_date) && engineerIdsInRoute.has(a.engineer_id),
+      );
+      const notices = relevantAdhoc.map((a) => {
+        const engName = engineers.find((e) => e.user_id === a.engineer_id)?.full_name || "Engineer";
+        const title = a.company_name || a.description || "non-job entry";
+        return `Note: ${engName} has a non-job entry on ${a.schedule_date} (${title}). Check the schedule before confirming this route.`;
+      });
+      if (notices.length) {
+        setAdhocNotices(notices);
+        if (!opts?.silent) {
+          toast({ title: "Schedule conflict possible", description: notices[0] });
+        }
+      }
 
       // Guard: Google Directions allows at most 10 intermediate waypoints (~12 total stops)
       const MAX_STOPS = 12;
@@ -1141,6 +1175,16 @@ export default function PlannerMapView({
           );
         })()}
       </div>
+      {adhocNotices.length > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-900 dark:text-amber-200 space-y-1">
+          {adhocNotices.map((n, i) => (
+            <div key={i} className="flex items-start gap-2">
+              <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span>⚠️ {n}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {routeResult?.legs && routeResult.legs.length > 0 && (
         <div className="rounded-lg border bg-card">
           <div className="px-3 py-2 border-b flex items-center justify-between text-xs font-medium text-muted-foreground">
