@@ -510,6 +510,9 @@ export default function WeeklyPlanner() {
   };
 
   const handleMove = async (entryId: string, newEngineerId: string, newDate: string) => {
+    const prev = schedule.find((s) => s.id === entryId);
+    const prevEngineerId = prev?.engineer_id;
+    const prevDate = prev?.schedule_date;
     markLocalEdit([entryId]);
     const { error } = await supabase.from("job_schedule").update({
       engineer_id: newEngineerId, schedule_date: newDate, ...editStamp(),
@@ -517,6 +520,15 @@ export default function WeeklyPlanner() {
     if (error) {
       toast({ title: "Error", description: "Failed to move.", variant: "destructive" });
     } else {
+      if (prevEngineerId && prevDate && (prevEngineerId !== newEngineerId || prevDate !== newDate)) {
+        showUndoToast(fmtMoveLabel(newEngineerId, newDate), async () => {
+          markLocalEdit([entryId]);
+          await supabase.from("job_schedule").update({
+            engineer_id: prevEngineerId, schedule_date: prevDate, ...editStamp(),
+          } as any).eq("id", entryId);
+          fetchData();
+        });
+      }
       fetchData();
     }
   };
