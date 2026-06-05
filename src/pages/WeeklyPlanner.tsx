@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { toast as sonnerToast } from "sonner";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Plus, Printer, Copy, ArrowLeft, LayoutGrid, Calendar as CalendarIcon, List, Map as MapIcon, Zap, Users, Download, FileText, FileSpreadsheet, Sparkles, Briefcase, Bot } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -168,6 +169,47 @@ export default function WeeklyPlanner() {
     last_modified_by: user?.id ?? null,
     last_modified_at: new Date().toISOString(),
   });
+
+  // ----- Drag-drop undo (last action only) -----
+  const undoRef = useRef<{ toastId: string | number; timeoutId: ReturnType<typeof setTimeout> } | null>(null);
+  const cancelPendingUndo = () => {
+    if (undoRef.current) {
+      clearTimeout(undoRef.current.timeoutId);
+      sonnerToast.dismiss(undoRef.current.toastId);
+      undoRef.current = null;
+    }
+  };
+  const showUndoToast = (message: string, onUndo: () => Promise<void> | void) => {
+    cancelPendingUndo();
+    const toastId = sonnerToast(message, {
+      duration: 6000,
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          if (undoRef.current?.toastId === toastId) {
+            clearTimeout(undoRef.current.timeoutId);
+            undoRef.current = null;
+          }
+          try {
+            await onUndo();
+            sonnerToast.success("Move undone", { duration: 2500 });
+          } catch (e) {
+            sonnerToast.error("Could not undo move");
+          }
+        },
+      },
+    });
+    const timeoutId = setTimeout(() => {
+      if (undoRef.current?.toastId === toastId) undoRef.current = null;
+    }, 6500);
+    undoRef.current = { toastId, timeoutId };
+  };
+  const fmtMoveLabel = (engineerId: string, date: string) => {
+    const eng = engineers.find((e) => e.user_id === engineerId)?.full_name || "Engineer";
+    let dateLabel = date;
+    try { dateLabel = format(new Date(date), "EEE d MMM"); } catch {}
+    return `Job moved to ${eng} — ${dateLabel}`;
+  };
 
   // Add entry dialog
   const [addOpen, setAddOpen] = useState(false);
@@ -424,9 +466,9 @@ export default function WeeklyPlanner() {
 
   // CRUD operations
   const handleAssign = async (jobId: string, engineerId: string, date: string) => {
-    const { error } = await supabase.from("job_schedule").insert({
+    const { data: inserted, error } = await supabase.from("job_schedule").insert({
       job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
-    } as any);
+    } as any).select("id").single();
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
     } else {
@@ -434,7 +476,16 @@ export default function WeeklyPlanner() {
       if (job?.status === "scheduled") {
         await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
       }
-      toast({ title: "Assigned" });
+      const newId = (inserted as any)?.id as string | undefined;
+      if (newId) {
+        showUndoToast(fmtMoveLabel(engineerId, date), async () => {
+          markLocalEdit([newId]);
+          await supabase.from("job_schedule").delete().eq("id", newId);
+          fetchData();
+        });
+      } else {
+        toast({ title: "Assigned" });
+      }
       fetchData();
     }
   };
@@ -459,6 +510,9 @@ export default function WeeklyPlanner() {
   };
 
   const handleMove = async (entryId: string, newEngineerId: string, newDate: string) => {
+    const prev = schedule.find((s) => s.id === entryId);
+    const prevEngineerId = prev?.engineer_id;
+    const prevDate = prev?.schedule_date;
     markLocalEdit([entryId]);
     const { error } = await supabase.from("job_schedule").update({
       engineer_id: newEngineerId, schedule_date: newDate, ...editStamp(),
@@ -466,6 +520,15 @@ export default function WeeklyPlanner() {
     if (error) {
       toast({ title: "Error", description: "Failed to move.", variant: "destructive" });
     } else {
+      if (prevEngineerId && prevDate && (prevEngineerId !== newEngineerId || prevDate !== newDate)) {
+        showUndoToast(fmtMoveLabel(newEngineerId, newDate), async () => {
+          markLocalEdit([entryId]);
+          await supabase.from("job_schedule").update({
+            engineer_id: prevEngineerId, schedule_date: prevDate, ...editStamp(),
+          } as any).eq("id", entryId);
+          fetchData();
+        });
+      }
       fetchData();
     }
   };
