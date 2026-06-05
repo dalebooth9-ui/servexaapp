@@ -994,7 +994,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                           )}
                           {tpl && (tpl as any).category !== "rams" && (
                             <JobSheetPdfExport
-                              template={{ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }}
+                              template={filterTemplateBySections({ ...tpl, fields: tpl.fields as any[], branding: tpl.branding as any }, resp.responses as Record<string, any>)}
                               formData={resp.responses as Record<string, any>}
                               jobInfo={jobInfo}
                               jobId={jobId}
