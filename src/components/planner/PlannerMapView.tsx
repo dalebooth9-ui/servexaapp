@@ -695,6 +695,12 @@ export default function PlannerMapView({
     });
   }, [markerMode, selectedEngineerId, routeResult, scheduledJobs]);
 
+  // Reset to priority mode whenever the visible schedule changes (e.g. date navigation)
+  useEffect(() => {
+    setMarkerMode("priority");
+    setRouteResult(null);
+  }, [scheduledJobs]);
+
   // Update engineer live pins
   useEffect(() => {
     const map = mapInstanceRef.current;
