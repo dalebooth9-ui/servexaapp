@@ -121,6 +121,19 @@ export default function UserRoleSettings() {
     }
   };
 
+  const handleSendPasswordReset = async (userId: string, name: string) => {
+    setResettingId(userId);
+    const { data, error } = await supabase.functions.invoke("send-password-reset", {
+      body: { user_id: userId, full_name: name },
+    });
+    setResettingId(null);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to send password reset");
+    } else {
+      toast.success(`Password reset email sent to ${name}`);
+    }
+  };
+
   const handleAddUser = async () => {
     if (!addForm.email || !addForm.full_name) {
       toast.error("Name and email are required");
