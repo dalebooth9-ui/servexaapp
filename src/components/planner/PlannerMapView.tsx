@@ -837,10 +837,22 @@ export default function PlannerMapView({
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2 flex-wrap">
           {engineerLocations.length > 0 && (
-            <Badge variant="secondary" className="text-xs gap-1">
-              <span className="inline-block h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
-              {engineerLocations.length} engineer{engineerLocations.length !== 1 ? "s" : ""} live
-            </Badge>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {engineerLocations.map((loc) => {
+                const eng = getEngineer(loc.user_id);
+                if (!eng) return null;
+                const { status, label } = getLocationStatus(loc);
+                const dotColor = status === "live" ? "bg-blue-500" : status === "stale" ? "bg-amber-500" : "bg-gray-500";
+                const pulse = status === "live" ? "animate-pulse" : "";
+                return (
+                  <Badge key={loc.user_id} variant="secondary" className="text-[11px] gap-1 px-1.5 py-0.5">
+                    <span className={`inline-block h-2 w-2 rounded-full ${dotColor} ${pulse}`} />
+                    <span className="truncate max-w-[120px]">{eng.full_name}</span>
+                    <span className={`text-[10px] font-semibold ${status === "live" ? "text-blue-500" : status === "stale" ? "text-amber-500" : "text-gray-500"}`}>{label}</span>
+                  </Badge>
+                );
+              })}
+            </div>
           )}
           {routeResult && (
             <Badge variant="outline" className="text-xs">
