@@ -715,29 +715,58 @@ export default function PlannerMapView({
       const eng = getEngineer(loc.user_id);
       if (!eng) continue;
 
-      // Create a blue pin for engineers
-      const el = document.createElement("div");
-      el.style.cssText = "width:32px;height:32px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;";
-      el.textContent = eng.full_name.charAt(0).toUpperCase();
+      const { status, tooltip } = getLocationStatus(loc);
+
+      // Build styled pin based on staleness
+      const wrapper = document.createElement("div");
+      wrapper.style.cssText = "position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;";
+
+      const dot = document.createElement("div");
+      if (status === "live") {
+        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;";
+      } else if (status === "stale") {
+        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#8b9dc3;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;opacity:0.85;";
+      } else {
+        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#9ca3af;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;opacity:0.7;";
+      }
+      dot.textContent = eng.full_name.charAt(0).toUpperCase();
+
+      wrapper.appendChild(dot);
+
+      // Stale / offline overlay icon
+      if (status === "stale") {
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:absolute;bottom:-2px;right:-2px;background:#f59e0b;border:2px solid white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
+        overlay.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+        wrapper.appendChild(overlay);
+      } else if (status === "offline") {
+        const overlay = document.createElement("div");
+        overlay.style.cssText = "position:absolute;bottom:-2px;right:-2px;background:#6b7280;border:2px solid white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
+        overlay.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+        wrapper.appendChild(overlay);
+      }
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         map,
         position: { lat: loc.latitude, lng: loc.longitude },
-        title: `${eng.full_name} (Live)`,
-        content: el,
+        title: tooltip,
+        content: wrapper,
       });
 
       const infoWindow = new google.maps.InfoWindow({
-        content: `<div style="font-family:system-ui;font-size:13px">
-          <strong>🔵 ${eng.full_name}</strong><br/>
-          <span style="color:#666">Live location — ${new Date(loc.updated_at).toLocaleTimeString()}</span>
-          ${loc.speed ? `<br/><span style="color:#666">Speed: ${Math.round(loc.speed * 3.6)} km/h</span>` : ""}
+        content: `<div style="font-family:system-ui;font-size:13px;max-width:220px">
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <span style="display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:white;background:${status === "live" ? "#3b82f6" : status === "stale" ? "#f59e0b" : "#6b7280"}">${status}</span>
+            <strong>${eng.full_name}</strong>
+          </div>
+          <div style="color:#666;font-size:12px">${tooltip}</div>
+          ${loc.speed ? `<div style="color:#666;font-size:12px">Speed: ${Math.round(loc.speed * 3.6)} km/h</div>` : ""}
         </div>`,
       });
       marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
       engineerMarkersRef.current.push(marker);
     }
-  }, [engineerLocations, engineers]);
+  }, [engineerLocations, engineers, getLocationStatus]);
 
   // Draw live routes per engineer: from each engineer's live GPS through their remaining
   // scheduled jobs (in date order). Honours the engineer filter.
