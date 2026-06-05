@@ -299,7 +299,7 @@ export default function WeeklyPlanner() {
       clearTimeout(timeoutId);
       setLoading(false);
     }
-  }, [rangeStart, rangeEnd]);
+  }, [rangeStart, rangeEnd, view]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
