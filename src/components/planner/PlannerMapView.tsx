@@ -85,6 +85,8 @@ export default function PlannerMapView({
   const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
   const [showLiveRoutes, setShowLiveRoutes] = useState(false);
   const [showTraffic, setShowTraffic] = useState(false);
+  const [showTrafficSuggestion, setShowTrafficSuggestion] = useState(false);
+  const optimisationRunRef = useRef(0);
   const [savingPin, setSavingPin] = useState<string | null>(null);
   const [refreshIntervalSec, setRefreshIntervalSec] = useState<number>(0); // 0 = off
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
@@ -224,13 +226,6 @@ export default function PlannerMapView({
       });
       directionsRendererRef.current = renderer;
       lastOptimisedWaypointsRef.current = optimisedWaypoints;
-
-      // Auto-enable the live traffic layer so the optimised path is visualised against current congestion
-      if (!trafficLayerRef.current) {
-        trafficLayerRef.current = new google.maps.TrafficLayer();
-      }
-      trafficLayerRef.current.setMap(map);
-      setShowTraffic(true);
     } catch (err) {
       console.error("Failed to render route on map:", err);
     }
@@ -321,6 +316,11 @@ export default function PlannerMapView({
       // Draw optimised route on map
       if (data.optimised?.length >= 2) {
         await renderRouteOnMap(data.optimised);
+
+        // Show one-time traffic suggestion
+        optimisationRunRef.current += 1;
+        const thisRun = optimisationRunRef.current;
+        setShowTrafficSuggestion(true);
 
         // Add numbered step labels to markers
         const map = mapInstanceRef.current;
@@ -815,6 +815,32 @@ export default function PlannerMapView({
           </div>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Traffic suggestion banner */}
+          {showTrafficSuggestion && (
+            <div className="flex items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-200 animate-in fade-in slide-in-from-top-1">
+              <span className="font-medium">Route optimised ✓</span>
+              <span className="text-yellow-300/80">— Turn on traffic layer to check conditions?</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs text-yellow-200 hover:text-yellow-100 hover:bg-yellow-500/20 px-2"
+                onClick={() => {
+                  setShowTraffic(true);
+                  setShowTrafficSuggestion(false);
+                }}
+              >
+                Show Traffic
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground hover:bg-muted px-2"
+                onClick={() => setShowTrafficSuggestion(false)}
+              >
+                No thanks
+              </Button>
+            </div>
+          )}
           {/* Engineer filter */}
           {activeEngineers.length > 0 && (
             <Select value={selectedEngineerId} onValueChange={setSelectedEngineerId}>
