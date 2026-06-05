@@ -466,9 +466,9 @@ export default function WeeklyPlanner() {
 
   // CRUD operations
   const handleAssign = async (jobId: string, engineerId: string, date: string) => {
-    const { error } = await supabase.from("job_schedule").insert({
+    const { data: inserted, error } = await supabase.from("job_schedule").insert({
       job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
-    } as any);
+    } as any).select("id").single();
     if (error) {
       toast({ title: "Error", description: error.code === "23505" ? "Already scheduled." : "Failed to assign.", variant: "destructive" });
     } else {
@@ -476,7 +476,16 @@ export default function WeeklyPlanner() {
       if (job?.status === "scheduled") {
         await supabase.from("jobs").update({ status: "active" } as any).eq("id", jobId);
       }
-      toast({ title: "Assigned" });
+      const newId = (inserted as any)?.id as string | undefined;
+      if (newId) {
+        showUndoToast(fmtMoveLabel(engineerId, date), async () => {
+          markLocalEdit([newId]);
+          await supabase.from("job_schedule").delete().eq("id", newId);
+          fetchData();
+        });
+      } else {
+        toast({ title: "Assigned" });
+      }
       fetchData();
     }
   };
