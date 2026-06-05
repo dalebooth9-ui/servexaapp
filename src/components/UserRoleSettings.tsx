@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye } from "lucide-react";
+import { Shield, ShieldCheck, Plus, Minus, Trash2, UserPlus, Eye, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { ENGINEER_TOGGLABLE_PAGES, DEFAULT_ENGINEER_PAGES } from "@/lib/engineerPages";
 
@@ -29,6 +29,7 @@ export default function UserRoleSettings() {
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ userId: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
     full_name: "",
@@ -117,6 +118,19 @@ export default function UserRoleSettings() {
       toast.success(`${confirmDelete.name} has been deleted`);
       setConfirmDelete(null);
       fetchUsers();
+    }
+  };
+
+  const handleSendPasswordReset = async (userId: string, name: string) => {
+    setResettingId(userId);
+    const { data, error } = await supabase.functions.invoke("send-password-reset", {
+      body: { user_id: userId, full_name: name },
+    });
+    setResettingId(null);
+    if (error || data?.error) {
+      toast.error(data?.error || "Failed to send password reset");
+    } else {
+      toast.success(`Password reset email sent to ${name}`);
     }
   };
 
@@ -275,6 +289,16 @@ export default function UserRoleSettings() {
                         >
                           {isEngineer ? <Minus className="mr-1 h-3 w-3" /> : <Plus className="mr-1 h-3 w-3" />}
                           Engineer
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          disabled={resettingId === u.user_id}
+                          title="Send password reset email"
+                          onClick={() => handleSendPasswordReset(u.user_id, u.full_name || "this user")}
+                        >
+                          <KeyRound className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
