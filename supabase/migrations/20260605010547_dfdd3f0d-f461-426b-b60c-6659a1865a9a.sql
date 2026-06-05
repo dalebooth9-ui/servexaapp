@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_job_schedule_date ON job_schedule(schedule_date);

@@ -142,6 +142,7 @@ export default function WeeklyPlanner() {
   const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
   const [jobVisitNotes, setJobVisitNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [scheduleCapped, setScheduleCapped] = useState(false);
   const [adhocEntries, setAdhocEntries] = useState<AdhocEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,6 +224,7 @@ export default function WeeklyPlanner() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setScheduleCapped(false);
     let timedOut = false;
     const timeoutId = setTimeout(() => {
       timedOut = true;
@@ -230,10 +232,11 @@ export default function WeeklyPlanner() {
       setLoading(false);
     }, 10000);
     try {
+      const rowLimit = view === "month" ? 500 : 200;
       const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
         supabase.from("user_roles").select("user_id").eq("role", "engineer"),
         supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit", "in_progress", "awaiting_parts", "on_hold", "requires_revisit", "pending_review"]),
-        supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
+        supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd).limit(rowLimit),
         supabase.from("sites").select("id, name, address, postcode").order("name"),
         supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
         supabase.from("planner_adhoc_entries").select("*").is("schedule_date", null),
@@ -249,7 +252,9 @@ export default function WeeklyPlanner() {
       const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
       setJobs(fetchedJobs);
       setSites(sitesRes.data || []);
-      setSchedule((schedRes.data as ScheduleEntry[]) || []);
+      const fetchedSchedule = (schedRes.data as ScheduleEntry[]) || [];
+      setSchedule(fetchedSchedule);
+      setScheduleCapped(view === "month" && fetchedSchedule.length === 500);
       setAdhocEntries([...((adhocRangeRes.data as AdhocEntry[]) || []), ...((adhocUnallocRes.data as AdhocEntry[]) || [])]);
 
       // Clear loading once core planner data has resolved — secondary fetches below shouldn't block render
@@ -294,7 +299,7 @@ export default function WeeklyPlanner() {
       clearTimeout(timeoutId);
       setLoading(false);
     }
-  }, [rangeStart, rangeEnd]);
+  }, [rangeStart, rangeEnd, view]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -755,6 +760,13 @@ export default function WeeklyPlanner() {
           </DropdownMenu>
         </div>
       </div>
+
+      {view === "month" && scheduleCapped && (
+        <div className="mb-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-200 flex items-center gap-2">
+          <span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />
+          Showing the first 500 bookings this month. Use week view for full detail.
+        </div>
+      )}
 
       {hasNoData && (
         <div className="mb-4 rounded-md border border-dashed border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
