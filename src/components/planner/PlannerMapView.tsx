@@ -51,7 +51,7 @@ export default function PlannerMapView({
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string }[]>([]);
+  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string; priority: string; jobId: string }[]>([]);
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
