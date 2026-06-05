@@ -317,10 +317,11 @@ export default function PlannerMapView({
       if (data.optimised?.length >= 2) {
         await renderRouteOnMap(data.optimised);
 
-        // Show one-time traffic suggestion
-        optimisationRunRef.current += 1;
-        const thisRun = optimisationRunRef.current;
-        setShowTrafficSuggestion(true);
+        // Show one-time traffic suggestion (skip on auto-refresh)
+        if (!opts?.silent) {
+          optimisationRunRef.current += 1;
+          setShowTrafficSuggestion(true);
+        }
 
         // Add numbered step labels to markers
         const map = mapInstanceRef.current;
@@ -374,7 +375,7 @@ export default function PlannerMapView({
   const handleRefreshNow = useCallback(async () => {
     refreshTrafficLayer();
     if (scheduledJobs.length >= 2 && !optimising) {
-      await handleOptimiseRef.current?.();
+      await handleOptimiseRef.current?.({ silent: true });
     } else {
       setLastRefreshAt(new Date());
     }
@@ -386,7 +387,7 @@ export default function PlannerMapView({
     const id = window.setInterval(() => {
       refreshTrafficLayer();
       if (scheduledJobs.length >= 2) {
-        handleOptimiseRef.current?.();
+        handleOptimiseRef.current?.({ silent: true });
       } else {
         setLastRefreshAt(new Date());
       }
