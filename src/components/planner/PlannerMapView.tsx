@@ -55,7 +55,6 @@ export default function PlannerMapView({
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
-  const comparisonRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
@@ -92,7 +91,6 @@ export default function PlannerMapView({
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
-  const [comparisonResult, setComparisonResult] = useState<{ distance_km: number; duration_mins: number } | null>(null);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
