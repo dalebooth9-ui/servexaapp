@@ -224,6 +224,7 @@ export default function WeeklyPlanner() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
+    setScheduleCapped(false);
     let timedOut = false;
     const timeoutId = setTimeout(() => {
       timedOut = true;
@@ -231,10 +232,11 @@ export default function WeeklyPlanner() {
       setLoading(false);
     }, 10000);
     try {
+      const rowLimit = view === "month" ? 500 : 200;
       const [engRolesRes, jobsRes, schedRes, sitesRes, adhocRangeRes, adhocUnallocRes] = await Promise.all([
         supabase.from("user_roles").select("user_id").eq("role", "engineer"),
         supabase.from("jobs").select("id, name, reference_number, status, priority, category, customer, customer_id, address, site_id, pressure_test_qty, visual_qty, other_qty, other_service_type, due_date, created_at, sites(name, address, postcode), customers(id, name)").in("status", ["active", "scheduled", "revisit", "in_progress", "awaiting_parts", "on_hold", "requires_revisit", "pending_review"]),
-        supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
+        supabase.from("job_schedule").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd).limit(rowLimit),
         supabase.from("sites").select("id, name, address, postcode").order("name"),
         supabase.from("planner_adhoc_entries").select("*").gte("schedule_date", rangeStart).lte("schedule_date", rangeEnd),
         supabase.from("planner_adhoc_entries").select("*").is("schedule_date", null),
@@ -250,7 +252,9 @@ export default function WeeklyPlanner() {
       const fetchedJobs = ((jobsRes.data as any[]) || []).map((j: any) => ({ ...j, site: j.sites || null }));
       setJobs(fetchedJobs);
       setSites(sitesRes.data || []);
-      setSchedule((schedRes.data as ScheduleEntry[]) || []);
+      const fetchedSchedule = (schedRes.data as ScheduleEntry[]) || [];
+      setSchedule(fetchedSchedule);
+      setScheduleCapped(view === "month" && fetchedSchedule.length === 500);
       setAdhocEntries([...((adhocRangeRes.data as AdhocEntry[]) || []), ...((adhocUnallocRes.data as AdhocEntry[]) || [])]);
 
       // Clear loading once core planner data has resolved — secondary fetches below shouldn't block render
