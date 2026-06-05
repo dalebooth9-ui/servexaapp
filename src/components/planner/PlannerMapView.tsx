@@ -42,12 +42,14 @@ export default function PlannerMapView({
   engineers,
   unallocatedJobs = [],
   onRouteOptimised,
+  onScheduleJob,
 }: {
   schedule: ScheduleEntry[];
   jobs: Job[];
   engineers: Engineer[];
   unallocatedJobs?: Job[];
   onRouteOptimised?: (orderedJobIds: string[]) => void;
+  onScheduleJob?: (jobId: string) => void;
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -60,6 +62,9 @@ export default function PlannerMapView({
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
+  const openInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const onScheduleJobRef = useRef(onScheduleJob);
+  useEffect(() => { onScheduleJobRef.current = onScheduleJob; }, [onScheduleJob]);
   const engineerLocations = useLiveEngineerLocations();
   const { user } = useAuth();
   const { toast } = useToast();
@@ -514,31 +519,68 @@ export default function PlannerMapView({
               bounds.extend(pos);
               hasMarkers = true;
 
-              const pin = new google.maps.marker.PinElement({
-                background: "#9ca3af",
-                borderColor: "#6b7280",
-                glyphColor: "white",
-                glyph: "?",
-              });
+              const pinEl = document.createElement("div");
+              pinEl.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translateY(-8px);cursor:pointer";
+              const refLabel = (job.reference_number || "").replace(/</g, "&lt;");
+              pinEl.innerHTML = `
+                <div style="background:#9ca3af;border:2px solid #6b7280;color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.35)">?</div>
+                <div style="margin-top:3px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.18)">${refLabel}</div>
+              `;
 
               const marker = new google.maps.marker.AdvancedMarkerElement({
                 map,
                 position: pos,
                 title: `[Unallocated] ${job.reference_number} - ${job.name}`,
-                content: pin.element,
+                content: pinEl,
               });
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address)}`;
+              const siteName = (job as any).sites?.name || (job as any).site?.name || "";
+              const customerName = (job as any).customers?.name || job.customer || "";
+              const priority = (job.priority || "").toLowerCase();
+              const priorityColors: Record<string, { bg: string; fg: string }> = {
+                critical: { bg: "#7f1d1d", fg: "#fff" },
+                high:     { bg: "#fee2e2", fg: "#991b1b" },
+                medium:   { bg: "#fef3c7", fg: "#92400e" },
+                low:      { bg: "#dcfce7", fg: "#166534" },
+              };
+              const pc = priorityColors[priority] || { bg: "#f3f4f6", fg: "#374151" };
+              const priorityBadge = job.priority
+                ? `<span style="display:inline-block;padding:1px 6px;background:${pc.bg};color:${pc.fg};border-radius:4px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.03em">${job.priority}</span>`
+                : "";
+              const safeAddr = (job.address || "").replace(/</g, "&lt;");
               const infoWindow = new google.maps.InfoWindow({
-                content: `<div style="font-family:system-ui;font-size:13px;max-width:250px">
-                  <span style="display:inline-block;padding:1px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:11px;color:#6b7280;margin-bottom:4px">Unallocated</span><br/>
-                  <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${job.reference_number}</a> — ${job.name}<br/>
-                  <span style="color:#666">${(job as any).customers?.name || job.customer || ""}</span><br/>
-                  <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;padding:4px 8px;background:#6b7280;color:white;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500" onmouseover="this.style.background='#4b5563'" onmouseout="this.style.background='#6b7280'">📍 Get Directions</a>
+                content: `<div style="font-family:system-ui;font-size:13px;max-width:280px">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+                    <span style="display:inline-block;padding:1px 6px;background:#f3f4f6;border:1px solid #d1d5db;border-radius:4px;font-size:10px;color:#6b7280;font-weight:600">UNALLOCATED</span>
+                    ${priorityBadge}
+                  </div>
+                  <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none">${job.reference_number}</a> — ${job.name}<br/>
+                  ${siteName ? `<div style="color:#374151;margin-top:2px"><strong>${siteName}</strong></div>` : ""}
+                  <div style="color:#6b7280;font-size:12px">${safeAddr}</div>
+                  ${customerName ? `<div style="color:#6b7280;font-size:12px;margin-top:2px">${customerName}</div>` : ""}
+                  <div style="display:flex;gap:4px;margin-top:8px;flex-wrap:wrap">
+                    <button data-schedule-job-id="${job.id}" style="display:inline-flex;align-items:center;gap:4px;padding:5px 10px;background:#2563eb;color:white;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:600">📅 Schedule this job</button>
+                    <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-flex;align-items:center;gap:4px;padding:5px 8px;background:#6b7280;color:white;border-radius:4px;text-decoration:none;font-size:12px;font-weight:500">📍 Directions</a>
+                  </div>
                 </div>`,
               });
 
-              marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
+              marker.addListener("click", () => {
+                openInfoWindowRef.current?.close();
+                infoWindow.open({ anchor: marker, map });
+                openInfoWindowRef.current = infoWindow;
+                google.maps.event.addListenerOnce(infoWindow, "domready", () => {
+                  const btn = document.querySelector(`[data-schedule-job-id="${job.id}"]`) as HTMLButtonElement | null;
+                  if (btn) {
+                    btn.addEventListener("click", () => {
+                      infoWindow.close();
+                      openInfoWindowRef.current = null;
+                      onScheduleJobRef.current?.(job.id);
+                    }, { once: true });
+                  }
+                });
+              });
               unallocatedMarkersRef.current.push(marker);
             }
           } catch {
