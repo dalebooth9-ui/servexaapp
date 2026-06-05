@@ -142,6 +142,7 @@ export default function WeeklyPlanner() {
   const [submissionComments, setSubmissionComments] = useState<SubmissionComment[]>([]);
   const [jobVisitNotes, setJobVisitNotes] = useState<Record<string, string>>({});
   const [schedule, setSchedule] = useState<ScheduleEntry[]>([]);
+  const [scheduleCapped, setScheduleCapped] = useState(false);
   const [adhocEntries, setAdhocEntries] = useState<AdhocEntry[]>([]);
   const [optimisedJobOrder, setOptimisedJobOrder] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
