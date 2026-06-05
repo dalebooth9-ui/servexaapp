@@ -156,6 +156,16 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
                     })}
                   </div>
                 )}
+
+                {col.type === "photo" && (
+                  <RowPhotoCell
+                    value={val}
+                    onChange={(v) => updateCell(rowIdx, col.id, v)}
+                    fieldId={`${fieldId || "row"}-${rowIdx}-${col.id}`}
+                    jobId={jobId}
+                    userId={userId}
+                  />
+                )}
               </div>
             );
           })}
