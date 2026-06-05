@@ -1,16 +1,17 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, X } from "lucide-react";
+import { Plus, X, Camera, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type RepeatingColumn = {
   id: string;
   label: string;
-  type: "text" | "number" | "yn_na" | "dropdown";
+  type: "text" | "number" | "yn_na" | "dropdown" | "photo";
   options?: string[];
 };
 
@@ -20,6 +21,9 @@ type Props = {
   columns: RepeatingColumn[];
   value: any;
   onChange: (value: string) => void;
+  jobId?: string;
+  userId?: string;
+  fieldId?: string;
 };
 
 function parseRows(value: any): Row[] {
