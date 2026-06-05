@@ -51,7 +51,7 @@ export default function PlannerMapView({
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string }[]>([]);
+  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string; priority: string; jobId: string }[]>([]);
   const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
@@ -93,6 +93,7 @@ export default function PlannerMapView({
   const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
   const [comparisonResult, setComparisonResult] = useState<{ distance_km: number; duration_mins: number } | null>(null);
+  const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
@@ -136,6 +137,7 @@ export default function PlannerMapView({
     routeNumberOverlaysRef.current = [];
     lastOptimisedWaypointsRef.current = null;
     setComparisonResult(null);
+    setMarkerMode("priority");
   }, []);
 
   // Render the no-traffic ("fastest without traffic") route for visual comparison.
@@ -316,6 +318,7 @@ export default function PlannerMapView({
       // Draw optimised route on map
       if (data.optimised?.length >= 2) {
         await renderRouteOnMap(data.optimised);
+        setMarkerMode("route");
 
         // Show one-time traffic suggestion (skip on auto-refresh)
         if (!opts?.silent) {
@@ -558,7 +561,7 @@ export default function PlannerMapView({
               });
 
               marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
-              markersRef.current.push({ marker, engineerId });
+              markersRef.current.push({ marker, engineerId, priority: job.priority, jobId: job.id });
             }
           } catch {
             // Skip failed geocodes
@@ -637,33 +640,66 @@ export default function PlannerMapView({
     });
   }, [showUnallocated]);
 
-  // Apply engineer filter — highlight selected, dim others
+  // Apply marker mode (priority colours vs neutral route-order pins) + engineer filter overlay
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
+    if (typeof google === "undefined" || !google.maps?.marker?.PinElement) return;
 
-    for (const { marker, engineerId } of markersRef.current) {
+    const optimisedOrder = routeResult?.optimised?.map((w) => w.job_id) ?? [];
+
+    for (const entry of markersRef.current) {
+      const { marker, engineerId, priority, jobId } = entry;
+
+      // Rebuild pin content based on current marker mode
+      let pin: google.maps.marker.PinElement;
+      if (markerMode === "route") {
+        const idx = optimisedOrder.indexOf(jobId);
+        pin = new google.maps.marker.PinElement({
+          background: "#64748b",
+          borderColor: "#475569",
+          glyphColor: "white",
+          glyph: idx >= 0 ? String(idx + 1) : "•",
+        });
+      } else {
+        const pinColor = PRIORITY_PIN[priority] || "#6b7280";
+        pin = new google.maps.marker.PinElement({
+          background: pinColor,
+          borderColor: pinColor,
+          glyphColor: "white",
+        });
+      }
+      marker.content = pin.element;
+
       const el = marker.content as HTMLElement | null;
       if (!el) continue;
 
       if (selectedEngineerId === "all") {
-        // Reset: restore original priority colours by removing any override
         el.style.filter = "";
         el.style.opacity = "1";
         el.style.transform = "scale(1)";
       } else if (engineerId === selectedEngineerId) {
-        // Highlighted: purple tint + larger scale
         el.style.filter = `drop-shadow(0 0 6px ${ENGINEER_HIGHLIGHT})`;
         el.style.opacity = "1";
         el.style.transform = "scale(1.25)";
       } else {
-        // Dimmed
         el.style.filter = "";
         el.style.opacity = "0.3";
         el.style.transform = "scale(0.9)";
       }
     }
-  }, [selectedEngineerId]);
+
+    // In route mode the pins already carry numbers — hide the duplicate overlay badges
+    routeNumberOverlaysRef.current.forEach((m) => {
+      m.map = markerMode === "route" ? null : mapInstanceRef.current;
+    });
+  }, [markerMode, selectedEngineerId, routeResult, scheduledJobs]);
+
+  // Reset to priority mode whenever the visible schedule changes (e.g. date navigation)
+  useEffect(() => {
+    setMarkerMode("priority");
+    setRouteResult(null);
+  }, [scheduledJobs]);
 
   // Update engineer live pins
   useEffect(() => {
@@ -804,12 +840,40 @@ export default function PlannerMapView({
               })()}
             </Badge>
           )}
+          {/* Marker mode toggle */}
+          <div className="inline-flex items-center rounded border text-xs overflow-hidden">
+            <span className="px-2 py-1 text-muted-foreground bg-muted/30">Markers:</span>
+            <button
+              type="button"
+              onClick={() => setMarkerMode("priority")}
+              className={`px-2 py-1 transition-colors ${markerMode === "priority" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50"}`}
+            >
+              Priority colours
+            </button>
+            <button
+              type="button"
+              onClick={() => setMarkerMode("route")}
+              disabled={!routeResult}
+              className={`px-2 py-1 transition-colors ${markerMode === "route" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted/50 disabled:opacity-40 disabled:hover:bg-transparent disabled:cursor-not-allowed"}`}
+              title={!routeResult ? "Optimise a route first" : "Show numbered route order"}
+            >
+              Route order
+            </button>
+          </div>
           {/* Legend */}
           <div className="flex items-center gap-2 text-xs text-muted-foreground border rounded px-2 py-1">
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#f59e0b"}} /> Medium</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#10b981"}} /> Low</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
+            {markerMode === "priority" ? (
+              <>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#ef4444"}} /> High</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#f59e0b"}} /> Medium</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#10b981"}} /> Low</span>
+                <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background:"#9ca3af"}} /> Unallocated</span>
+              </>
+            ) : (
+              <>
+                <span className="flex items-center gap-1"><span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{background:"#64748b"}}>1</span> Numbers = optimised stop order</span>
+              </>
+            )}
             {selectedEngineerId !== "all" && (
               <span className="flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{background: ENGINEER_HIGHLIGHT}} /> Filtered</span>
             )}
