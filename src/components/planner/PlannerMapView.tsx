@@ -758,23 +758,6 @@ export default function PlannerMapView({
                 )}
             </Badge>
           )}
-          {showCompare && comparisonResult && routeResult && (
-            <Badge variant="outline" className="text-xs border-amber-500 text-amber-700">
-              <span className="inline-block h-2 w-6 mr-1.5" style={{ background: "repeating-linear-gradient(90deg,#f59e0b 0 4px,transparent 4px 8px)" }} />
-              No-traffic: {comparisonResult.distance_km} km · {comparisonResult.duration_mins} mins
-              {(() => {
-                const live = routeResult.total_duration_in_traffic_mins ?? routeResult.total_duration_mins ?? 0;
-                const base = comparisonResult.duration_mins;
-                const delta = live - base;
-                if (!delta) return null;
-                return (
-                  <span className={`ml-1 font-semibold ${delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
-                    {delta > 0 ? `+${delta}` : delta} mins vs live
-                  </span>
-                );
-              })()}
-            </Badge>
-          )}
           {/* Marker mode toggle */}
           <div className="inline-flex items-center rounded border text-xs overflow-hidden">
             <span className="px-2 py-1 text-muted-foreground bg-muted/30">Markers:</span>
