@@ -107,6 +107,7 @@ export default function PlannerMapView({
   const handleOptimiseRef = useRef<(opts?: { silent?: boolean }) => Promise<void>>();
   const [showCompare, setShowCompare] = useState(false);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
+  const [adhocNotices, setAdhocNotices] = useState<string[]>([]);
 
   // ---- Staleness helper ----
   type LocationStatus = { status: "live" | "stale" | "offline"; label: string; tooltip: string };
