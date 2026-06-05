@@ -29,6 +29,7 @@ export default function UserRoleSettings() {
   const [confirmRemove, setConfirmRemove] = useState<{ userId: string; name: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ userId: string; name: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [resettingId, setResettingId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({
     full_name: "",
