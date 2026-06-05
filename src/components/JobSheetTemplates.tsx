@@ -1474,7 +1474,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <div className="flex items-center gap-2">
                 {activeTemplate && viewingResponse && (
                   <JobSheetPdfExport
-                    template={activeTemplate}
+                    template={filterTemplateBySections(activeTemplate, formData)}
                     formData={formData}
                     jobInfo={jobInfo}
                     jobId={jobId}
