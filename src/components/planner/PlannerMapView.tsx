@@ -933,6 +933,97 @@ export default function PlannerMapView({
           </div>
         )}
         <div ref={mapRef} className={`h-[calc(100vh-320px)] min-h-[400px] rounded-lg border ${mapError ? "invisible" : ""}`} />
+        {showCompare && routeResult && (() => {
+          const parseMins = (s: string) => {
+            const h = /(\d+)\s*hour/.exec(s);
+            const m = /(\d+)\s*min/.exec(s);
+            return (h ? parseInt(h[1]) * 60 : 0) + (m ? parseInt(m[1]) : 0);
+          };
+          const fmt = (mins: number) => {
+            if (mins < 60) return `${mins}m`;
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return m ? `${h}h ${m}m` : `${h}h`;
+          };
+          const legs = routeResult.legs ?? [];
+          const hasTraffic = legs.some((l) => l.duration_in_traffic_seconds != null);
+          const totalLive = routeResult.total_duration_in_traffic_mins ?? routeResult.total_duration_mins ?? 0;
+          const totalBase = routeResult.total_duration_mins ?? 0;
+          const extra = totalLive - totalBase;
+          // Find worst leg by delta
+          const legDeltas = legs.map((l) => {
+            const base = parseMins(l.duration);
+            const live = l.duration_in_traffic_seconds != null ? Math.round(l.duration_in_traffic_seconds / 60) : parseMins(l.duration_in_traffic ?? l.duration);
+            return { base, live, delta: live - base };
+          });
+          const worstIdx = legDeltas.length
+            ? legDeltas.reduce((maxI, cur, i, arr) => (cur.delta > arr[maxI].delta ? i : maxI), 0)
+            : -1;
+          const worstDelta = worstIdx >= 0 ? legDeltas[worstIdx].delta : 0;
+          return (
+            <div className="absolute bottom-3 left-3 z-20 w-[min(420px,calc(100%-1.5rem))] rounded-lg border bg-card/95 backdrop-blur shadow-lg animate-in fade-in slide-in-from-left-2">
+              <div className="flex items-center justify-between px-3 py-2 border-b">
+                <span className="text-xs font-semibold">Traffic comparison</span>
+                <button
+                  type="button"
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowCompare(false)}
+                >
+                  ✕
+                </button>
+              </div>
+              {!hasTraffic ? (
+                <div className="px-3 py-4 text-xs text-muted-foreground">
+                  Traffic comparison not available — run optimisation again during peak hours.
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 divide-x text-xs">
+                    <div className="px-3 py-2">
+                      <div className="font-medium text-muted-foreground mb-1">With Traffic</div>
+                      <div className="font-semibold">Total: {fmt(totalLive)}</div>
+                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                      {extra > 0 && (
+                        <div className="text-amber-600 font-medium mt-1">Extra in traffic: +{fmt(extra)}</div>
+                      )}
+                    </div>
+                    <div className="px-3 py-2">
+                      <div className="font-medium text-muted-foreground mb-1">Without Traffic</div>
+                      <div className="font-semibold">Total: {fmt(totalBase)}</div>
+                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                    </div>
+                  </div>
+                  <ol className="divide-y max-h-48 overflow-auto text-xs border-t">
+                    {legDeltas.map((d, i) => {
+                      const isWorst = i === worstIdx && worstDelta > 0;
+                      return (
+                        <li
+                          key={i}
+                          className={`px-3 py-1.5 flex items-center justify-between ${isWorst ? "bg-amber-500/15" : ""}`}
+                        >
+                          <span className="text-muted-foreground">
+                            Leg {i + 1}→{i + 2}
+                            {isWorst && (
+                              <span className="ml-1.5 text-amber-600 font-semibold">⚠ worst delay</span>
+                            )}
+                          </span>
+                          <span className="whitespace-nowrap">
+                            {fmt(d.live)}
+                            {d.delta !== 0 && (
+                              <span className={`ml-1 ${d.delta > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                                ({d.delta > 0 ? `+${d.delta}` : d.delta}m in traffic)
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
       {routeResult?.legs && routeResult.legs.length > 0 && (
         <div className="rounded-lg border bg-card">
