@@ -98,6 +98,30 @@ export default function PlannerMapView({
   const [showCompare, setShowCompare] = useState(false);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
 
+  // ---- Staleness helper ----
+  type LocationStatus = { status: "live" | "stale" | "offline"; label: string; tooltip: string };
+  const getLocationStatus = useCallback((loc: EngineerLocation | null): LocationStatus => {
+    if (!loc || !loc.updated_at) {
+      return { status: "offline", label: "OFFLINE", tooltip: "Offline — no location data" };
+    }
+    const ageMs = Date.now() - new Date(loc.updated_at).getTime();
+    const ageMin = Math.floor(ageMs / 60000);
+    if (ageMin < 5) {
+      return {
+        status: "live",
+        label: "LIVE",
+        tooltip: `Last seen: ${ageMin < 1 ? "just now" : `${ageMin} min${ageMin !== 1 ? "s" : ""} ago`}`,
+      };
+    }
+    if (ageMin <= 30) {
+      return { status: "stale", label: "STALE", tooltip: `Last seen: ${ageMin} min${ageMin !== 1 ? "s" : ""} ago — location may be outdated` };
+    }
+    const ageHr = Math.floor(ageMin / 60);
+    const remMin = ageMin % 60;
+    const timeAgo = ageHr > 0 ? `${ageHr}h ${remMin > 0 ? `${remMin}m` : ""}` : `${ageMin}m`;
+    return { status: "offline", label: "OFFLINE", tooltip: `Offline — last seen: ${timeAgo} ago` };
+  }, []);
+
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
 
