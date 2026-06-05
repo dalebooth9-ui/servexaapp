@@ -181,6 +181,7 @@ export default function WeeklyPlanner() {
 
   // Labour-only (adhoc) entry dialog
   const [adhocOpen, setAdhocOpen] = useState(false);
+  const [mapScheduleJob, setMapScheduleJob] = useState<{ id: string; name: string; reference_number: string } | null>(null);
   const [adhocDay, setAdhocDay] = useState("");
   const [adhocEngineerId, setAdhocEngineerId] = useState("");
   const [adhocCompany, setAdhocCompany] = useState("");
