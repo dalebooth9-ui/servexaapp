@@ -23,6 +23,7 @@ import PlannerMapView from "@/components/planner/PlannerMapView";
 import AiSchedulerDialog from "@/components/planner/AiSchedulerDialog";
 import AutonomousAgentDialog from "@/components/planner/AutonomousAgentDialog";
 import MultiDayScheduleDialog from "@/components/planner/MultiDayScheduleDialog";
+import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
 
 const NOTE_COLORS = [
   { value: null,      label: "Default",  swatch: "bg-foreground/10 border border-border" },
