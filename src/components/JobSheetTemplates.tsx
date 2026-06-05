@@ -1296,12 +1296,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
-            {sections.map((section) => (
+            {sections.map((section) => {
+              const omitted = isSectionOmitted(section);
+              return (
               <div key={section}>
-                <div className="bg-muted px-3 py-1.5 border-b border-border">
-                  <span className="text-xs font-bold uppercase tracking-wider text-foreground">{section}</span>
+                <div className="bg-muted px-3 py-1.5 border-b border-border flex items-center justify-between gap-2">
+                  <span className={`text-xs font-bold uppercase tracking-wider ${omitted ? "text-muted-foreground line-through" : "text-foreground"}`}>{section}</span>
+                  <button
+                    type="button"
+                    onClick={() => toggleSectionOmitted(section)}
+                    className="text-[10px] font-medium px-1.5 py-0.5 rounded border border-border bg-background hover:bg-muted-foreground/10"
+                    title={omitted ? "Include this section in the report" : "Omit this section from the report (e.g. system has no storage tank)"}
+                  >
+                    {omitted ? "Include in report" : "Omit from report"}
+                  </button>
                 </div>
-                {activeTemplate?.fields
+                {!omitted && activeTemplate?.fields
                   .filter((f) => (f.section || "General") === section)
                   .map((field) => (
                     <div key={field.id} className="border-b border-border last:border-b-0">
@@ -1328,8 +1338,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                       )}
                     </div>
                   ))}
+                {omitted && (
+                  <div className="px-3 py-2 text-[11px] italic text-muted-foreground border-b border-border">
+                    This section will be omitted from the report.
+                  </div>
+                )}
               </div>
-            ))}
+              );
+            })}
 
             {/* Site Photos Drop Zone */}
             <div className="px-3 py-3 border-t border-border">
