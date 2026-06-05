@@ -558,7 +558,7 @@ export default function PlannerMapView({
               });
 
               marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
-              markersRef.current.push({ marker, engineerId });
+              markersRef.current.push({ marker, engineerId, priority: job.priority, jobId: job.id });
             }
           } catch {
             // Skip failed geocodes
