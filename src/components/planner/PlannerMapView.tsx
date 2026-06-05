@@ -257,7 +257,7 @@ export default function PlannerMapView({
   }, [showTraffic, mapLoading]);
 
   // Optimise route for all scheduled jobs
-  const handleOptimise = async () => {
+  const handleOptimise = async (opts?: { silent?: boolean }) => {
     if (scheduledJobs.length < 2) return;
     setOptimising(true);
     clearRouteOverlay();
