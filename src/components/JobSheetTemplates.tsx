@@ -1721,7 +1721,7 @@ function renderFormField(
       return <SignatureField value={value} onChange={onChange} />;
     case "repeating_table": {
       const cols = ((field as any).columns || []) as any[];
-      return <RepeatingTableField columns={cols} value={value} onChange={onChange} />;
+      return <RepeatingTableField columns={cols} value={value} onChange={onChange} jobId={jobId} userId={userId} fieldId={field.id} />;
     }
     default:
       return (
