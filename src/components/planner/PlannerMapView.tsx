@@ -62,6 +62,9 @@ export default function PlannerMapView({
   const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
+  const openInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const onScheduleJobRef = useRef(onScheduleJob);
+  useEffect(() => { onScheduleJobRef.current = onScheduleJob; }, [onScheduleJob]);
   const engineerLocations = useLiveEngineerLocations();
   const { user } = useAuth();
   const { toast } = useToast();
