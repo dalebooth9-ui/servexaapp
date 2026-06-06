@@ -656,6 +656,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       // Upload site photos if any
       const photoUrls: string[] = [];
       const photoPaths: string[] = [];
+      const photoCaptions: string[] = [];
       if (sitePhotos.length > 0 && user) {
         for (const photo of sitePhotos) {
           const ext = photo.file.name.split(".").pop() || "jpg";
@@ -671,6 +672,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           }
           // Always record the path — signed URLs can be regenerated at render time
           photoPaths.push(filePath);
+          photoCaptions.push((photo.caption || "").trim());
           const { data: signedData, error: signErr } = await supabase.storage
             .from("submissions")
             .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
@@ -684,13 +686,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               type: "photo",
               file_url: signedData.signedUrl,
               file_name: fileName,
+              content: (photo.caption || "").trim() || null,
             } as any);
             if (subErr) console.error("Submission insert failed", subErr);
           }
         }
       }
       const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0)
-        ? { ...formData, _site_photo_urls: photoUrls, _site_photo_paths: photoPaths }
+        ? { ...formData, _site_photo_urls: photoUrls, _site_photo_paths: photoPaths, _site_photo_captions: photoCaptions }
         : formData;
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
