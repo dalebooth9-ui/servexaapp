@@ -400,9 +400,10 @@ export async function generateJobSheetPdf(
     y += Math.max(4, wrappedMaterials.length * 3) + 1;
   }
 
-  // --- Site Photos (embedded in comments section) ---
+  // --- Site Photos (2-column grid with captions, embedded as base64) ---
   let sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
   const sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
+  const sitePhotoCaptions: string[] = (resolvedFormData._site_photo_captions as string[]) || [];
   // If we have storage paths but no usable URLs (or fewer URLs than paths), regenerate signed URLs
   if (sitePhotoPaths.length > sitePhotoUrls.length) {
     const fresh: string[] = [];
@@ -414,41 +415,56 @@ export async function generateJobSheetPdf(
   }
   if (sitePhotoUrls.length > 0) {
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(7.5);
+    doc.setFontSize(10);
     doc.setTextColor(...accentColor);
-    doc.text("Site Photos", margin, y + 3.5);
+    doc.text("Site Photos", margin, y + 4);
     doc.setTextColor(0, 0, 0);
-    y += 5;
+    y += 7;
 
-    const photoW = (maxWidth - 4) / 3; // 3 photos per row
+    const gap = 4;
+    const photoW = (maxWidth - gap) / 2; // 2 photos per row, ~93mm wide on A4 (~250px)
     const photoH = photoW * 0.75;
+    const captionH = 5;
+    const rowH = photoH + captionH + 4;
 
     for (let i = 0; i < sitePhotoUrls.length; i++) {
-      const col = i % 3;
-      if (col === 0 && i > 0) y += photoH + 3;
+      const col = i % 2;
+      if (col === 0 && i > 0) y += rowH;
 
       // Check if we need a new page
-      if (y + photoH + 10 > pageHeight - footerSpace) {
+      if (y + rowH > pageHeight - footerSpace) {
         doc.addPage();
         y = margin;
       }
 
+      const x = margin + col * (photoW + gap);
+
       try {
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        await new Promise<void>((resolve) => {
-          img.onload = () => resolve();
-          img.onerror = () => resolve();
-          img.src = sitePhotoUrls[i];
+        // Fetch as base64 so PDF works offline / when emailed
+        const res = await fetch(sitePhotoUrls[i]);
+        const blob = await res.blob();
+        const dataUrl: string = await new Promise((resolve, reject) => {
+          const fr = new FileReader();
+          fr.onload = () => resolve(fr.result as string);
+          fr.onerror = () => reject(new Error("read fail"));
+          fr.readAsDataURL(blob);
         });
-        if (img.naturalWidth > 0) {
-          const x = margin + col * (photoW + 2);
-          doc.addImage(img, "JPEG", x, y, photoW, photoH);
-        }
+        const isPng = (blob.type || "").includes("png");
+        doc.addImage(dataUrl, isPng ? "PNG" : "JPEG", x, y, photoW, photoH);
       } catch { /* skip failed photo */ }
+
+      // Caption beneath
+      const caption = (sitePhotoCaptions[i] || "").trim() || `Photo ${i + 1}`;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(60, 60, 60);
+      const captionLines = doc.splitTextToSize(caption, photoW);
+      doc.text(captionLines[0], x, y + photoH + 4);
+      doc.setTextColor(0, 0, 0);
     }
-    y += photoH + 3;
+    y += rowH;
   }
+
 
   // --- Bottom stack layout (calculated from bottom up) ---
   // addAccreditationLogosToAllPages internally does: rowY = footerY - logoH - 3
