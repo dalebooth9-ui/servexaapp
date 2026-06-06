@@ -110,7 +110,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
   const [activeResponse, setActiveResponse] = useState<Response | null>(null);
   const [formData, setFormData] = useState<Record<string, any>>({});
-  const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [sitePhotos, setSitePhotos] = useState<{ file: File; preview: string; caption: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [viewingResponse, setViewingResponse] = useState<Response | null>(null);
   const [aiRamsData, setAiRamsData] = useState<Record<string, any> | null>(null);
