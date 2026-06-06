@@ -1364,6 +1364,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                   const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
                     file,
                     preview: URL.createObjectURL(file),
+                    caption: "",
                   }));
                   setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
                 }}
