@@ -1391,22 +1391,36 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     <p className="text-xs text-muted-foreground">Drag & drop site photos here or click to browse</p>
                   </>
                 ) : (
-                  <div className="grid grid-cols-5 gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="grid grid-cols-2 gap-3" onClick={(e) => e.stopPropagation()}>
                     {sitePhotos.map((photo, i) => (
-                      <div key={i} className="relative">
-                        <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-square" />
-                        <button
-                          className="absolute top-0.5 right-0.5 bg-destructive text-destructive-foreground rounded-full h-4 w-4 flex items-center justify-center text-[10px]"
-                          onClick={() => {
-                            URL.revokeObjectURL(photo.preview);
-                            setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
+                      <div key={i} className="relative space-y-1">
+                        <div className="relative">
+                          <img src={photo.preview} alt={`Site ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
+                          <button
+                            type="button"
+                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
+                            onClick={() => {
+                              URL.revokeObjectURL(photo.preview);
+                              setSitePhotos(prev => prev.filter((_, idx) => idx !== i));
+                            }}
+                          >×</button>
+                        </div>
+                        <input
+                          type="text"
+                          maxLength={100}
+                          value={photo.caption}
+                          placeholder={`Caption (optional) — defaults to "Photo ${i + 1}"`}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setSitePhotos(prev => prev.map((p, idx) => idx === i ? { ...p, caption: v } : p));
                           }}
-                        >×</button>
+                          className="w-full text-xs px-2 py-1 border rounded bg-background"
+                        />
                       </div>
                     ))}
                     {sitePhotos.length < 10 && (
                       <div
-                        className="border border-dashed rounded flex items-center justify-center aspect-square text-muted-foreground hover:bg-muted/50 cursor-pointer"
+                        className="border border-dashed rounded flex items-center justify-center aspect-[4/3] text-muted-foreground hover:bg-muted/50 cursor-pointer"
                         onClick={() => {
                           const input = document.createElement("input");
                           input.type = "file";
@@ -1417,16 +1431,18 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             const newPhotos = files.slice(0, 10 - sitePhotos.length).map(file => ({
                               file,
                               preview: URL.createObjectURL(file),
+                              caption: "",
                             }));
                             setSitePhotos(prev => [...prev, ...newPhotos].slice(0, 10));
                           };
                           input.click();
                         }}
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-5 w-5" />
                       </div>
                     )}
                   </div>
+
                 )}
               </div>
               {sitePhotos.length > 0 && (
