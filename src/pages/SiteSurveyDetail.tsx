@@ -20,6 +20,7 @@ import SiteSurveySketchPad from "@/components/SiteSurveySketchPad";
 import VoiceDictationButton from "@/components/VoiceDictationButton";
 import { exportSiteSurveyPdf } from "@/lib/siteSurveyPdf";
 import { saveFormDraft, loadFormDraft, clearFormDraft } from "@/lib/offlineFormStorage";
+import { useOfflineMutation } from "@/hooks/useOfflineMutation";
 
 type Survey = {
   id: string;
@@ -122,32 +123,40 @@ export default function SiteSurveyDetail() {
     });
   };
 
+  const { run: runOffline } = useOfflineMutation();
+
   const save = async () => {
     if (!survey) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("site_surveys" as any)
-      .update({
-        title: survey.title,
-        status: survey.status,
-        survey_date: survey.survey_date,
-        site_address: survey.site_address,
-        contact_name: survey.contact_name,
-        contact_phone: survey.contact_phone,
-        access_notes: survey.access_notes,
-        hazards: survey.hazards,
-        asset_locations: survey.asset_locations,
-        parking_welfare: survey.parking_welfare,
-        recommendations: survey.recommendations,
-        notes: survey.notes,
-      })
-      .eq("id", survey.id);
+    const result = await runOffline(
+      {
+        kind: "update",
+        table: "site_surveys",
+        match: { id: survey.id },
+        values: {
+          title: survey.title,
+          status: survey.status,
+          survey_date: survey.survey_date,
+          site_address: survey.site_address,
+          contact_name: survey.contact_name,
+          contact_phone: survey.contact_phone,
+          access_notes: survey.access_notes,
+          hazards: survey.hazards,
+          asset_locations: survey.asset_locations,
+          parking_welfare: survey.parking_welfare,
+          recommendations: survey.recommendations,
+          notes: survey.notes,
+        },
+      },
+      `Site survey ${survey.reference_number ?? survey.title}`,
+    );
     setSaving(false);
-    if (error) toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    else {
-      if (draftKey) await clearFormDraft(draftKey);
-      toast({ title: "Site survey saved" });
+    if (result.ok === false) {
+      toast({ title: "Save failed", description: (result.error as any)?.message, variant: "destructive" });
+      return;
     }
+    if (draftKey) await clearFormDraft(draftKey);
+    if (!result.queued) toast({ title: "Site survey saved" });
   };
 
   const remove = async () => {

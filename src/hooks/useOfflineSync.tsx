@@ -6,6 +6,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
+import { useSyncQueueDrainer } from "@/hooks/useSyncQueueDrainer";
 
 const CACHE_KEYS = {
   JOBS: "offline_jobs",
@@ -30,6 +31,7 @@ export function getOfflineCache<T>(key: string): T | null {
 export function useOfflineSync() {
   const { user, userRole } = useAuth();
   const syncedRef = useRef(false);
+  useSyncQueueDrainer();
 
   useEffect(() => {
     if (!user || syncedRef.current) return;
