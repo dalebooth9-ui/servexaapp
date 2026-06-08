@@ -284,11 +284,18 @@ export default function CategoryDocumentTemplateSettings() {
               <Select
                 value={newDocType}
                 onValueChange={(v) => {
-                  if (v.startsWith("jst:")) {
-                    const id = v.slice(4);
-                    const tpl = jobSheetTemplates.find((t) => t.id === id);
-                    setNewDocType("blank_job_sheet");
-                    if (tpl) setNewLabel(tpl.name);
+                  // Industry template selection: "ind:<id>:job" or "ind:<id>:rams"
+                  if (v.startsWith("ind:")) {
+                    const [, id, kind] = v.split(":");
+                    const tpl = INDUSTRY_TEMPLATES.find((t) => t.id === id);
+                    if (!tpl) return;
+                    if (kind === "rams") {
+                      setNewDocType("rams_pdf");
+                      setNewLabel(`${tpl.name} — RAMS`);
+                    } else {
+                      setNewDocType("blank_job_sheet");
+                      setNewLabel(tpl.name);
+                    }
                   } else {
                     setNewDocType(v);
                     setNewLabel("");
@@ -296,30 +303,38 @@ export default function CategoryDocumentTemplateSettings() {
                 }}
               >
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[420px]">
                   <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
                     Uploadable Documents
                   </div>
                   {Object.entries(DOC_TYPE_LABELS)
-                    .filter(([k]) => k !== "blank_job_sheet")
+                    .filter(([k]) => k !== "blank_job_sheet" && k !== "rams_pdf")
                     .map(([k, v]) => (
                       <SelectItem key={k} value={k}>{v}</SelectItem>
                     ))}
-                  {jobSheetTemplates.length > 0 && (
-                    <>
-                      <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1 pt-2">
-                        Job Sheet Templates
-                      </div>
-                      {jobSheetTemplates
-                        .slice()
-                        .sort((a, b) => a.name.localeCompare(b.name))
-                        .map((t) => (
-                          <SelectItem key={t.id} value={`jst:${t.id}`}>
-                            {t.name}
-                          </SelectItem>
+
+                  {CATEGORY_ORDER.map((cat) => {
+                    const items = INDUSTRY_TEMPLATES.filter((t) => t.category === cat);
+                    if (items.length === 0) return null;
+                    const meta = CATEGORY_META[cat];
+                    return (
+                      <div key={cat}>
+                        <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1 pt-2">
+                          {meta?.label || cat}
+                        </div>
+                        {items.map((tpl) => (
+                          <div key={tpl.id}>
+                            <SelectItem value={`ind:${tpl.id}:job`}>
+                              {tpl.name} — Job Sheet
+                            </SelectItem>
+                            <SelectItem value={`ind:${tpl.id}:rams`}>
+                              {tpl.name} — RAMS
+                            </SelectItem>
+                          </div>
                         ))}
-                    </>
-                  )}
+                      </div>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
