@@ -91,7 +91,7 @@ const RESULT_FIELDS: FieldDef[] = [
   { id: "comments", label: "Comments / Defects", type: "textarea", section: "Result", required: false },
 ];
 
-const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
+export const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
 
   // ══════════════════════════════════════════════════════════
   // DRY RISER
@@ -1020,7 +1020,7 @@ const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
   },
 ];
 
-const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+export const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   dry_riser:           { label: "Dry Riser",                    icon: Droplets,     color: "bg-blue-500/10 text-blue-700 border-blue-200" },
   dry_riser_remedial:  { label: "Dry Riser Remedial",           icon: Wrench,       color: "bg-blue-600/10 text-blue-800 border-blue-300" },
   wet_riser:           { label: "Wet Riser",                    icon: Droplets,     color: "bg-cyan-500/10 text-cyan-700 border-cyan-200" },
@@ -1039,7 +1039,7 @@ const CATEGORY_META: Record<string, { label: string; icon: React.ElementType; co
   installation:        { label: "Installation",                 icon: FileText,     color: "bg-indigo-500/10 text-indigo-700 border-indigo-200" },
 };
 
-const CATEGORY_ORDER = [
+export const CATEGORY_ORDER = [
   "dry_riser", "dry_riser_remedial", "wet_riser", "fire_extinguisher", "fire_hydrant",
   "sprinkler", "fire_alarm", "emergency_lighting", "aov_smoke_control",
   "passive_fire", "gas_suppression", "kitchen_suppression", "water_mist",
