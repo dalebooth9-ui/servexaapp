@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import PWAPrompts from "@/components/PWAPrompts";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
@@ -182,6 +183,7 @@ const App = () => (
               <Route path="*" element={<Suspense fallback={<PageFallback />}><NotFound /></Suspense>} />
             </Routes>
             <OfflineIndicator />
+            <PWAPrompts />
           </AuthProvider>
         </ErrorBoundary>
       </BrowserRouter>
