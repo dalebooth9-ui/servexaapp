@@ -57,7 +57,12 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
   const [sortAsc, setSortAsc] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "gallery">("list");
   const [replacingSub, setReplacingSub] = useState<any>(null);
+  const [officePreviewError, setOfficePreviewError] = useState(false);
   const replaceInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setOfficePreviewError(false);
+  }, [previewSub]);
 
   useEffect(() => {
     const generateSignedUrls = async () => {
