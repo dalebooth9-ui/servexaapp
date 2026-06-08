@@ -25,13 +25,16 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       injectRegister: null, // we register via a guarded wrapper in src/pwa/registerSW.ts
       devOptions: { enabled: false }, // never emit a SW in dev / Lovable preview
-      includeAssets: ["favicon.png", "favicon.ico"],
+      includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js"],
       workbox: {
         // Bump cacheId to force all clients to evict old precaches
         cacheId: "servexa-v4",
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Pull in the Background Sync listener so queued offline writes
+        // can drain even when the page is closed (supported browsers only)
+        importScripts: ["/bg-sync.js"],
         // OAuth and Supabase auth callbacks must always hit the network
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [

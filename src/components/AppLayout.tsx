@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -53,6 +53,7 @@ const DEFAULT_NAV_ITEMS = [
   { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
   { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, section: "admin", adminOnly: true },
   { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
+  { to: "/sync-status", label: "Sync Status", icon: CloudUpload, section: "more", adminOnly: false },
 { to: "/industry-templates", label: "Templates", icon: BookOpen, section: "admin", adminOnly: true },
 { to: "/reports", label: "Reports", icon: BarChart2, section: "admin", adminOnly: true },
 { to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },

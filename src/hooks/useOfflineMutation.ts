@@ -6,6 +6,9 @@
  * intent into the sync queue and return { queued: true } so the caller can
  * show "Saved locally — will sync when back online".
  *
+ * Optimistic-locking: callers may pass `baseUpdatedAt` so the drainer can
+ * detect conflicts when it later replays the update.
+ *
  * Scope intentionally narrow: UPDATE and DELETE only. Inserts must run online.
  */
 import { useCallback } from "react";
@@ -24,7 +27,6 @@ async function runOp(op: QueuedOp) {
     for (const [k, v] of Object.entries(op.match)) query = query.eq(k, v);
     return await query;
   }
-  // delete
   let query: any = (supabase as any).from(op.table).delete();
   for (const [k, v] of Object.entries(op.match)) query = query.eq(k, v);
   return await query;
@@ -35,9 +37,21 @@ export function useOfflineMutation() {
     op: QueuedOp,
     label?: string,
   ): Promise<OfflineMutationResult<T>> => {
-    // If clearly offline, skip the network attempt entirely and queue
+    // Try to snapshot updated_at for conflict detection on UPDATEs
+    let opToQueue = op;
+    if (op.kind === "update" && !op.baseUpdatedAt && !op.force) {
+      try {
+        const conflictKey = op.conflictKey || "updated_at";
+        let probe: any = (supabase as any).from(op.table).select(conflictKey).limit(1);
+        for (const [k, v] of Object.entries(op.match)) probe = probe.eq(k, v);
+        const { data } = await probe.maybeSingle();
+        const ts = data?.[conflictKey];
+        if (typeof ts === "string") opToQueue = { ...op, baseUpdatedAt: ts };
+      } catch { /* skip — table may have no updated_at */ }
+    }
+
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      await enqueue(op, label);
+      await enqueue(opToQueue, label);
       toast.info("Saved locally — will sync when back online");
       return { ok: true, queued: true, data: null };
     }
@@ -45,7 +59,7 @@ export function useOfflineMutation() {
       const res: any = await runOp(op);
       if (res?.error) {
         if (isNetworkError(res.error)) {
-          await enqueue(op, label);
+          await enqueue(opToQueue, label);
           toast.info("Saved locally — will sync when back online");
           return { ok: true, queued: true, data: null };
         }
@@ -54,7 +68,7 @@ export function useOfflineMutation() {
       return { ok: true, queued: false, data: (res?.data ?? null) as T | null };
     } catch (e) {
       if (isNetworkError(e)) {
-        await enqueue(op, label);
+        await enqueue(opToQueue, label);
         toast.info("Saved locally — will sync when back online");
         return { ok: true, queued: true, data: null };
       }
