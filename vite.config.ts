@@ -52,9 +52,8 @@ export default defineConfig(({ mode }) => ({
           },
           // Same-origin hashed JS/CSS — safe to cache long-term
           {
-            urlPattern: ({ url, request }) =>
-              url.origin === self.location.origin &&
-              (request.destination === "script" || request.destination === "style"),
+            urlPattern: ({ url, request, sameOrigin }: any) =>
+              sameOrigin && (request.destination === "script" || request.destination === "style"),
             handler: "CacheFirst",
             options: {
               cacheName: "servexa-assets",
