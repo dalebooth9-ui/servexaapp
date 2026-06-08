@@ -151,7 +151,7 @@ export default function SiteSurveyDetail() {
       `Site survey ${survey.reference_number ?? survey.title}`,
     );
     setSaving(false);
-    if (!result.ok) {
+    if (result.ok === false) {
       toast({ title: "Save failed", description: (result.error as any)?.message, variant: "destructive" });
       return;
     }
