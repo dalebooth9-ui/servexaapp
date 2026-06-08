@@ -7,6 +7,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import AppLayout from "@/components/AppLayout";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import PWAPrompts from "@/components/PWAPrompts";
+import ConflictResolutionDialog from "@/components/ConflictResolutionDialog";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
@@ -66,6 +67,7 @@ const ReportDownloads = lazy(() => import("@/pages/ReportDownloads"));
 const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
 const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
+const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 
 const queryClient = new QueryClient();
 
@@ -132,6 +134,7 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
+              <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
@@ -184,6 +187,7 @@ const App = () => (
             </Routes>
             <OfflineIndicator />
             <PWAPrompts />
+            <ConflictResolutionDialog />
           </AuthProvider>
         </ErrorBoundary>
       </BrowserRouter>
