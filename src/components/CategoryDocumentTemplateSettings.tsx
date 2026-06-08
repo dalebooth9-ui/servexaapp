@@ -280,12 +280,39 @@ export default function CategoryDocumentTemplateSettings() {
             </div>
             <div>
               <Label className="text-xs">Document Type</Label>
-              <Select value={newDocType} onValueChange={setNewDocType}>
+              <Select
+                value={newDocType}
+                onValueChange={(v) => {
+                  if (v.startsWith("jst:")) {
+                    const id = v.slice(4);
+                    const tpl = jobSheetTemplates.find((t) => t.id === id);
+                    setNewDocType("blank_job_sheet");
+                    if (tpl) setNewLabel(tpl.name);
+                  } else {
+                    setNewDocType(v);
+                  }
+                }}
+              >
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => (
                     <SelectItem key={k} value={k}>{v}</SelectItem>
                   ))}
+                  {jobSheetTemplates.length > 0 && (
+                    <>
+                      <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1 pt-2">
+                        Job Sheet Templates
+                      </div>
+                      {jobSheetTemplates
+                        .slice()
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((t) => (
+                          <SelectItem key={t.id} value={`jst:${t.id}`}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
