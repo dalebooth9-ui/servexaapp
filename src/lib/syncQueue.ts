@@ -20,7 +20,7 @@ const store = createStore("servexa-sync-queue", "items");
 const dlqStore = createStore("servexa-sync-queue-dlq", "items");
 
 export type QueuedOp =
-  | { kind: "update"; table: string; match: Record<string, unknown>; values: Record<string, unknown> }
+  | { kind: "update"; table: string; match: Record<string, unknown>; values: Record<string, unknown>; baseUpdatedAt?: string; conflictKey?: string; force?: boolean }
   | { kind: "delete"; table: string; match: Record<string, unknown> };
 
 export type QueueItem = {
