@@ -290,14 +290,20 @@ export default function CategoryDocumentTemplateSettings() {
                     if (tpl) setNewLabel(tpl.name);
                   } else {
                     setNewDocType(v);
+                    setNewLabel("");
                   }
                 }}
               >
                 <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
+                  <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Uploadable Documents
+                  </div>
+                  {Object.entries(DOC_TYPE_LABELS)
+                    .filter(([k]) => k !== "blank_job_sheet")
+                    .map(([k, v]) => (
+                      <SelectItem key={k} value={k}>{v}</SelectItem>
+                    ))}
                   {jobSheetTemplates.length > 0 && (
                     <>
                       <div className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border-t mt-1 pt-2">
