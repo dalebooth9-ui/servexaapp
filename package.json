@@ -64,6 +64,7 @@
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
     "html2canvas": "^1.4.1",
+    "idb-keyval": "^6.2.5",
     "input-otp": "^1.4.2",
     "jspdf": "^4.1.0",
     "jspdf-autotable": "^5.0.7",
