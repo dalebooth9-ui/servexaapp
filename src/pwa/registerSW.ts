@@ -71,6 +71,19 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
         cb.onOfflineReady?.();
       },
     });
+    // Best-effort Background Sync registration (Chromium browsers only).
+    // On Safari/Firefox `sync` is absent and we fall back to the page-level
+    // `online` listener in useSyncQueueDrainer.
+    try {
+      if ("serviceWorker" in navigator) {
+        const reg: any = await navigator.serviceWorker.ready;
+        if (reg && "sync" in reg) {
+          await reg.sync.register("servexa-sync-queue");
+        }
+      }
+    } catch {
+      // ignore — Background Sync is optional
+    }
   } catch {
     // virtual:pwa-register only exists after vite-plugin-pwa builds; ignore in tests
   }
