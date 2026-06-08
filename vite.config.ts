@@ -32,6 +32,9 @@ export default defineConfig(({ mode }) => ({
         cleanupOutdatedCaches: true,
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
+        // Pull in the Background Sync listener so queued offline writes
+        // can drain even when the page is closed (supported browsers only)
+        importScripts: ["/bg-sync.js"],
         // OAuth and Supabase auth callbacks must always hit the network
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [
