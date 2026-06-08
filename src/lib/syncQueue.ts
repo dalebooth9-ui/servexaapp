@@ -189,3 +189,8 @@ export async function processQueue(opts?: {
 export async function discardItem(id: string) {
   await remove(id);
 }
+
+/** Discard a dead-lettered item. */
+export async function discardDeadLetter(id: string) {
+  try { await del(id, dlqStore); } catch { /* ignore */ }
+}
