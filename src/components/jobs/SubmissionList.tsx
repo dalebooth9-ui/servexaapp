@@ -507,10 +507,15 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
             {previewUrl && canPreviewInBrowser(previewFileName) && (
               <iframe src={previewUrl} className="h-full w-full rounded-md border" title="Document preview" />
             )}
-            {previewUrl && !canPreviewInBrowser(previewFileName) && getOfficeViewerUrl(previewUrl, previewFileName) && (
-              <iframe src={getOfficeViewerUrl(previewUrl, previewFileName)!} className="h-full w-full rounded-md border" title="Document preview" />
+            {previewUrl && !canPreviewInBrowser(previewFileName) && getOfficeViewerUrl(previewUrl, previewFileName) && !officePreviewError && (
+              <iframe
+                src={getOfficeViewerUrl(previewUrl, previewFileName)!}
+                className="h-full w-full rounded-md border"
+                title="Document preview"
+                onError={() => setOfficePreviewError(true)}
+              />
             )}
-            {previewUrl && !canPreviewInBrowser(previewFileName) && !getOfficeViewerUrl(previewUrl, previewFileName) && (
+            {previewUrl && !canPreviewInBrowser(previewFileName) && (!getOfficeViewerUrl(previewUrl, previewFileName) || officePreviewError) && (
               <div className="flex h-full flex-col items-center justify-center gap-4 text-muted-foreground">
                 <FileText className="h-16 w-16" />
                 <p>Preview not available for this file type.</p>
