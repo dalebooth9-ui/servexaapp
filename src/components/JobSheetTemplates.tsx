@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useAutoSave } from "@/hooks/useAutoSave";
+import { saveFormDraft, clearFormDraft, loadFormDraftSync } from "@/lib/offlineFormStorage";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useJobCategories } from "@/hooks/useJobCategories";
@@ -117,20 +118,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   const [jobInfo, setJobInfo] = useState<JobInfo | null>(null);
   const [scheduledDate, setScheduledDate] = useState<string>("");
 
-  // Auto-save template form data to localStorage
+  // Auto-save template form data — IndexedDB-backed for offline resilience
   const templateFormKey = activeTemplate ? `template-form-${jobId}-${activeTemplate.id}${activeResponse ? `-${activeResponse.id}` : ""}` : null;
 
   useEffect(() => {
     if (!templateFormKey || Object.keys(formData).length === 0) return;
-    try {
-      localStorage.setItem(`autosave_${templateFormKey}`, JSON.stringify(formData));
-    } catch { /* storage full */ }
+    const t = setTimeout(() => {
+      void saveFormDraft(templateFormKey, formData);
+    }, 500);
+    return () => clearTimeout(t);
   }, [formData, templateFormKey]);
 
   const clearTemplateFormDraft = useCallback(() => {
-    if (templateFormKey) {
-      try { localStorage.removeItem(`autosave_${templateFormKey}`); } catch {}
-    }
+    if (templateFormKey) void clearFormDraft(templateFormKey);
   }, [templateFormKey]);
 
   // Fetch all engineer + admin names once for dynamic dropdown population
@@ -531,13 +531,9 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     const prefilled = getAutoPopulatedData(template);
     const autoPopulatedIds = new Set(Object.keys(prefilled));
 
-    // Check for auto-saved draft in localStorage
-    const draftKey = `autosave_template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
-    let localDraft: Record<string, any> | null = null;
-    try {
-      const raw = localStorage.getItem(draftKey);
-      if (raw) localDraft = JSON.parse(raw);
-    } catch {}
+    // Check for auto-saved draft (sync read from localStorage mirror)
+    const draftKey = `template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
+    const localDraft = loadFormDraftSync<Record<string, any>>(draftKey);
 
     if (existingResponse) {
       setActiveResponse(existingResponse);

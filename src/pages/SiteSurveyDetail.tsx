@@ -19,6 +19,7 @@ import SiteSurveyPhotos from "@/components/SiteSurveyPhotos";
 import SiteSurveySketchPad from "@/components/SiteSurveySketchPad";
 import VoiceDictationButton from "@/components/VoiceDictationButton";
 import { exportSiteSurveyPdf } from "@/lib/siteSurveyPdf";
+import { saveFormDraft, loadFormDraft, clearFormDraft } from "@/lib/offlineFormStorage";
 
 type Survey = {
   id: string;
@@ -89,6 +90,8 @@ export default function SiteSurveyDetail() {
   };
 
 
+  const draftKey = id ? `site-survey-${id}` : null;
+
   useEffect(() => {
     if (!id) return;
     (async () => {
@@ -99,12 +102,25 @@ export default function SiteSurveyDetail() {
         .eq("id", id)
         .maybeSingle();
       if (error) toast({ title: "Failed to load", description: error.message, variant: "destructive" });
-      setSurvey((data as any) || null);
+      let merged: any = (data as any) || null;
+      // Overlay any locally-saved edits (e.g. from lost connection)
+      if (merged && draftKey) {
+        const draft = await loadFormDraft<Partial<Survey>>(draftKey);
+        if (draft) merged = { ...merged, ...draft };
+      }
+      setSurvey(merged);
       setLoading(false);
     })();
   }, [id]);
 
-  const update = (k: keyof Survey, v: any) => setSurvey((s) => (s ? { ...s, [k]: v } : s));
+  const update = (k: keyof Survey, v: any) => {
+    setSurvey((s) => {
+      if (!s) return s;
+      const next = { ...s, [k]: v };
+      if (draftKey) void saveFormDraft(draftKey, next);
+      return next;
+    });
+  };
 
   const save = async () => {
     if (!survey) return;
@@ -128,7 +144,10 @@ export default function SiteSurveyDetail() {
       .eq("id", survey.id);
     setSaving(false);
     if (error) toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    else toast({ title: "Site survey saved" });
+    else {
+      if (draftKey) await clearFormDraft(draftKey);
+      toast({ title: "Site survey saved" });
+    }
   };
 
   const remove = async () => {

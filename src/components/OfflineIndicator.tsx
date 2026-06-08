@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { WifiOff, Wifi } from "lucide-react";
+import { toast } from "sonner";
 import { getOfflineCache, CACHE_KEYS } from "@/hooks/useOfflineSync";
 import { format, parseISO } from "date-fns";
 
@@ -11,6 +12,7 @@ export default function OfflineIndicator() {
     const handleOnline = () => {
       setIsOnline(true);
       setShowBack(true);
+      toast.success("Back online — syncing your data");
       setTimeout(() => setShowBack(false), 4000);
     };
     const handleOffline = () => setIsOnline(false);
@@ -32,7 +34,7 @@ export default function OfflineIndicator() {
       <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2">
         <div className="flex items-center gap-2 rounded-full bg-accent px-4 py-2 text-sm font-medium text-accent-foreground shadow-lg animate-in fade-in slide-in-from-bottom-2">
           <Wifi className="h-4 w-4" />
-          Back online — syncing data…
+          Back online — syncing your data
         </div>
       </div>
     );
@@ -43,7 +45,7 @@ export default function OfflineIndicator() {
       <div className="flex items-center gap-2 rounded-full bg-warning px-4 py-2 text-sm font-medium text-warning-foreground shadow-lg">
         <WifiOff className="h-4 w-4" />
         <span>
-          Offline mode
+          Working offline — your data is saved locally
           {lastSync && (
             <span className="ml-1 opacity-80 text-xs">
               · cached {format(parseISO(lastSync), "HH:mm")}

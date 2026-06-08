@@ -1,82 +1,78 @@
 /**
- * useAutoSave — Persists form state to localStorage with debouncing.
- * Restores saved state on mount and clears it on explicit save/discard.
+ * useAutoSave — Persists form state for offline resilience.
+ *
+ * Writes synchronously to localStorage (fast first-render restore) and
+ * mirrors to IndexedDB via offlineFormStorage (durable, larger quota).
+ * Engineers can lose signal mid-form and reload without losing data.
  *
  * Usage:
- *   const [form, setForm] = useAutoSave<MyForm>("customer-edit-123", defaultValues);
- *   // When user successfully saves:
- *   clearAutoSave();
+ *   const [form, setForm, clearDraft] = useAutoSave<MyForm>("customer-edit-123", defaults);
+ *   // after successful save:
+ *   clearDraft();
  */
 import { useState, useEffect, useRef, useCallback } from "react";
-
-const PREFIX = "autosave_";
+import {
+  saveFormDraft,
+  loadFormDraftSync,
+  loadFormDraft,
+  clearFormDraft,
+  clearAllFormDrafts,
+} from "@/lib/offlineFormStorage";
 
 export function useAutoSave<T>(
   key: string,
   defaultValue: T,
-  debounceMs = 800
+  debounceMs = 500
 ): [T, React.Dispatch<React.SetStateAction<T>>, () => void] {
-  const storageKey = PREFIX + key;
-
-  // Initialise from localStorage if available
+  // Initialise synchronously from localStorage mirror (instant restore)
   const [value, setValue] = useState<T>(() => {
-    try {
-      const saved = localStorage.getItem(storageKey);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        // Merge with defaults so new fields aren't undefined
-        return { ...defaultValue, ...parsed };
-      }
-    } catch {
-      // ignore
-    }
-    return defaultValue;
+    const draft = loadFormDraftSync<Partial<T>>(key);
+    return draft ? { ...defaultValue, ...draft } : defaultValue;
   });
+
+  // Also check IndexedDB on mount in case the mirror was cleared but IDB has data
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    (async () => {
+      const sync = loadFormDraftSync<Partial<T>>(key);
+      if (sync) return; // sync mirror already used
+      const fromIdb = await loadFormDraft<Partial<T>>(key);
+      if (fromIdb) {
+        setValue((curr) => ({ ...defaultValue, ...curr, ...fromIdb }));
+      }
+    })();
+    // intentionally only on mount per key
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced persist to localStorage
+  // Debounced persist
   useEffect(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      try {
-        localStorage.setItem(storageKey, JSON.stringify(value));
-      } catch {
-        // storage full — best effort
-      }
+      void saveFormDraft(key, value);
     }, debounceMs);
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [value, storageKey, debounceMs]);
+  }, [value, key, debounceMs]);
 
-  // Clear saved draft (call after successful save or cancel)
-  const clearAutoSave = useCallback(() => {
-    try {
-      localStorage.removeItem(storageKey);
-    } catch {
-      // ignore
-    }
-  }, [storageKey]);
+  const clear = useCallback(() => {
+    void clearFormDraft(key);
+  }, [key]);
 
-  return [value, setValue, clearAutoSave];
+  return [value, setValue, clear];
 }
 
-/** Clear all auto-save entries (e.g. on logout) */
+/** Clear all drafts (e.g. on logout). */
 export function clearAllAutoSaves() {
-  try {
-    const keys = Object.keys(localStorage).filter((k) => k.startsWith(PREFIX));
-    keys.forEach((k) => localStorage.removeItem(k));
-  } catch {
-    // ignore
-  }
+  void clearAllFormDrafts();
 }
 
-/** Check if a draft exists for a given key */
+/** Sync check for an existing draft (uses the localStorage mirror). */
 export function hasAutoSaveDraft(key: string): boolean {
-  try {
-    return localStorage.getItem(PREFIX + key) !== null;
-  } catch {
-    return false;
-  }
+  return loadFormDraftSync(key) !== null;
 }
