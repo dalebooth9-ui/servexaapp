@@ -19,6 +19,7 @@ import SiteSurveyPhotos from "@/components/SiteSurveyPhotos";
 import SiteSurveySketchPad from "@/components/SiteSurveySketchPad";
 import VoiceDictationButton from "@/components/VoiceDictationButton";
 import { exportSiteSurveyPdf } from "@/lib/siteSurveyPdf";
+import { saveFormDraft, loadFormDraft, clearFormDraft } from "@/lib/offlineFormStorage";
 
 type Survey = {
   id: string;
