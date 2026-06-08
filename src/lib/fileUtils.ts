@@ -45,7 +45,7 @@ export function canPreviewInBrowser(fileName: string): boolean {
 export function getOfficeViewerUrl(signedUrl: string, fileName: string): string | null {
   const ext = getFileExtension(fileName);
   if ([".doc", ".docx", ".xls", ".xlsx"].includes(ext)) {
-    return `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(signedUrl)}`;
+    return `https://docs.google.com/gview?embedded=1&url=${encodeURIComponent(signedUrl)}`;
   }
   return null;
 }
