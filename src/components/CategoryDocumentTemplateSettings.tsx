@@ -22,6 +22,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { INDUSTRY_TEMPLATES, CATEGORY_META, CATEGORY_ORDER } from "@/pages/IndustryTemplates";
 
 const TT = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <Tooltip>
