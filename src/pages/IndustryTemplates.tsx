@@ -91,7 +91,7 @@ const RESULT_FIELDS: FieldDef[] = [
   { id: "comments", label: "Comments / Defects", type: "textarea", section: "Result", required: false },
 ];
 
-const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
+export const INDUSTRY_TEMPLATES: IndustryTemplate[] = [
 
   // ══════════════════════════════════════════════════════════
   // DRY RISER
