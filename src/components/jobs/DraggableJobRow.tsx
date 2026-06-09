@@ -8,6 +8,7 @@ import { GripVertical, Trash2, ShieldCheck, CalendarDays, AlertCircle } from "lu
 import { format, isPast, isToday, parseISO } from "date-fns";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import WhatsAppQuickSend from "./WhatsAppQuickSend";
+import JobPrintSheetButton from "./JobPrintSheetButton";
 
 interface DraggableJobRowProps {
   job: any;
@@ -158,6 +159,7 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           >
             <CalendarDays className="h-3.5 w-3.5" />
           </button>
+          <JobPrintSheetButton job={job} />
           <WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} />
           <AlertDialog>
             <AlertDialogTrigger asChild>
