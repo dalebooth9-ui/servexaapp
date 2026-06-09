@@ -275,7 +275,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           dateVal,
           riserLocation: isDryRiser ? "" : riserLocValue,
         }, template.standard || sheetSubtitle, dryRiserAccent, {
-          compact: isDryRiser,
+          compact: false,
           marginX,
           style: isDryRiser
             ? {

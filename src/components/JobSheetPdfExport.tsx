@@ -325,7 +325,7 @@ export async function generateJobSheetPdf(
     numberOfOutlets: numberOfOutletsValue,
     w3wAddress,
   }, isDryRiser ? "BS 9990:2015" : sheetSubtitle, headerAccent, {
-    compact: isDryRiser,
+    compact: false,
     marginX: margin,
     style: isDryRiser
       ? {
