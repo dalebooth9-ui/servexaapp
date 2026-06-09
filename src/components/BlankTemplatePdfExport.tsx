@@ -101,6 +101,75 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 
 type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null };
 
+const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement("iframe");
+    let settled = false;
+    const safeFileName = fileName.replace(/[<>&"]/g, "");
+
+    const cleanup = () => {
+      setTimeout(() => {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+      }, 60000);
+    };
+
+    iframe.title = `Print ${fileName}`;
+    iframe.style.position = "fixed";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "210mm";
+    iframe.style.height = "297mm";
+    iframe.style.border = "0";
+    iframe.onload = () => {
+      window.setTimeout(() => {
+        try {
+          const printWindow = iframe.contentWindow;
+          if (!printWindow) throw new Error("Print frame unavailable");
+          printWindow.focus();
+          printWindow.print();
+          settled = true;
+          cleanup();
+          resolve();
+        } catch (error) {
+          iframe.remove();
+          URL.revokeObjectURL(url);
+          reject(error);
+        }
+      }, 250);
+    };
+    iframe.onerror = () => {
+      iframe.remove();
+      URL.revokeObjectURL(url);
+      reject(new Error("PDF print frame failed to load"));
+    };
+    iframe.srcdoc = `<!doctype html>
+      <html>
+        <head>
+          <title>${safeFileName}</title>
+          <style>
+            html, body { margin: 0; width: 100%; height: 100%; }
+            object { display: block; width: 100%; height: 100vh; border: 0; }
+            @media print { object { width: 100%; height: 100vh; } }
+          </style>
+        </head>
+        <body>
+          <object data="${url}" type="application/pdf" aria-label="${safeFileName}"></object>
+        </body>
+      </html>`;
+    document.body.appendChild(iframe);
+
+    window.setTimeout(() => {
+      if (!settled) {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+        reject(new Error("PDF print frame timed out"));
+      }
+    }, 15000);
+  });
+};
+
 export type BlankTemplatePdfExportHandle = {
   download: (opts?: GenerateOpts) => Promise<void> | void;
   print: (opts?: GenerateOpts) => Promise<void> | void;
@@ -471,18 +540,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
 
       if (mode === "print") {
         const pdfBlob = doc.output("blob");
-        const url = URL.createObjectURL(pdfBlob);
-        // Anchor-click instead of window.open — avoids ad-blocker /
-        // popup-blocker ERR_BLOCKED_BY_CLIENT when running inside an iframe.
-        const a = document.createElement("a");
-        a.href = `${url}#filename=${encodeURIComponent(fileName)}`;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-        toast({ title: "Blank sheet opened", description: "Print from the new tab." });
+        await printBlobInPage(pdfBlob, fileName);
+        toast({ title: "Print dialog opened", description: fileName });
       } else if (mode === "preview") {
         const pdfBlob = doc.output("blob");
         setPreviewBlob(pdfBlob);
