@@ -8,6 +8,7 @@ import { GripVertical, Trash2, ShieldCheck, CalendarDays, AlertCircle } from "lu
 import { format, isPast, isToday, parseISO } from "date-fns";
 import { filterAllowedFiles } from "@/lib/fileUtils";
 import WhatsAppQuickSend from "./WhatsAppQuickSend";
+import JobPrintSheetButton from "./JobPrintSheetButton";
 
 interface DraggableJobRowProps {
   job: any;
