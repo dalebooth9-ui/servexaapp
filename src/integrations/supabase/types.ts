@@ -4590,6 +4590,14 @@ export type Database = {
           seed_visits: number
         }[]
       }
+      create_customer_sign_off_token: {
+        Args: {
+          _customer_email?: string
+          _customer_name: string
+          _job_id: string
+        }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
