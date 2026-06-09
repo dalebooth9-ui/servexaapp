@@ -159,6 +159,7 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
           >
             <CalendarDays className="h-3.5 w-3.5" />
           </button>
+          <JobPrintSheetButton job={job} />
           <WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} />
           <AlertDialog>
             <AlertDialogTrigger asChild>
