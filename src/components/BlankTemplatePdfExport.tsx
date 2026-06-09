@@ -526,18 +526,8 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
 
       if (mode === "print") {
         const pdfBlob = doc.output("blob");
-        const url = URL.createObjectURL(pdfBlob);
-        // Anchor-click instead of window.open — avoids ad-blocker /
-        // popup-blocker ERR_BLOCKED_BY_CLIENT when running inside an iframe.
-        const a = document.createElement("a");
-        a.href = `${url}#filename=${encodeURIComponent(fileName)}`;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-        toast({ title: "Blank sheet opened", description: "Print from the new tab." });
+        await printBlobInPage(pdfBlob, fileName);
+        toast({ title: "Print dialog opened", description: fileName });
       } else if (mode === "preview") {
         const pdfBlob = doc.output("blob");
         setPreviewBlob(pdfBlob);
