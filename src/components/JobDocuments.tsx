@@ -493,7 +493,17 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     if (!file || !doc || !user) return;
     e.target.value = "";
     setUploadingSlotId(doc.id);
-    const path = `job-documents/${jobId}/${Date.now()}-${file.name}`;
+
+    const isExcel = /\.(xls|xlsx)$/i.test(file.name);
+    const isCostingSlot =
+      doc.document_type === "costing_sheet" ||
+      /costing/i.test(doc.label || "") ||
+      /materials?/i.test(doc.label || "");
+
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = isExcel && isCostingSlot
+      ? `costing-sheets/${jobId}/${Date.now()}-${safeName}`
+      : `job-documents/${jobId}/${Date.now()}-${file.name}`;
     const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
@@ -503,6 +513,24 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         await supabase.from("job_documents" as any).update({ file_url: urlData.signedUrl, file_name: file.name } as any).eq("id", doc.id);
         setDocs((prev) => prev.map((d) => d.id === doc.id ? { ...d, file_url: urlData.signedUrl, file_name: file.name } : d));
         toast({ title: "Document uploaded" });
+
+        if (isExcel && isCostingSlot) {
+          toast({ title: "Processing costing sheet…", description: "Extracting materials, please wait." });
+          try {
+            const { data: fnData, error: fnError } = await supabase.functions.invoke("parse-costing-sheet", {
+              body: { file_url: urlData.signedUrl, job_id: jobId, user_id: user.id, bucket: "submissions" },
+            });
+            if (fnError) throw new Error(fnError.message);
+            const count = fnData?.parts?.length ?? 0;
+            const days = fnData?.allocated_days;
+            toast({
+              title: "Costing sheet processed ✓",
+              description: `${count} material(s) added to Parts tab${days ? `, ${days} allocated day(s) set` : ""}.`,
+            });
+          } catch (err: any) {
+            toast({ title: "Costing sheet processing failed", description: err.message, variant: "destructive" });
+          }
+        }
       }
     }
     setUploadingSlotId(null);
