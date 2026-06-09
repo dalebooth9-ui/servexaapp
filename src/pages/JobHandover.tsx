@@ -154,19 +154,15 @@ export default function JobHandover() {
 
     setSubmitting(true);
     const sigData = canvasRef.current.toDataURL("image/png");
-    const { error: upErr } = await supabase
-      .from("handover_tokens")
-      .update({
-        status: "signed",
-        signature_data: sigData,
-        signer_name: parsed.data.signer_name,
-        signer_email: parsed.data.signer_email || null,
-        notes: parsed.data.notes || null,
-        signed_at: new Date().toISOString(),
-      })
-      .eq("token", tokenRow.token);
+    const { data: ok, error: upErr } = await supabase.rpc("sign_handover_token" as any, {
+      _token: tokenRow.token,
+      _signer_name: parsed.data.signer_name,
+      _signer_email: parsed.data.signer_email || null,
+      _notes: parsed.data.notes || null,
+      _signature_data: sigData,
+    });
     setSubmitting(false);
-    if (upErr) { setFormError(upErr.message); return; }
+    if (upErr || !ok) { setFormError(upErr?.message || "Could not record sign-off — link may be expired."); return; }
     setDone(true);
   };
 
