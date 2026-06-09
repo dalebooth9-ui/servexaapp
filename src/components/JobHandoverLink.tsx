@@ -33,13 +33,9 @@ export default function JobHandoverLink({ jobId, customerId, customerName }: {
 
   const loadLatest = async () => {
     const { data } = await supabase
-      .from("handover_tokens")
-      .select("id, token, status, signed_at, signer_name, signature_data, expires_at, customer_id")
-      .eq("job_id", jobId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    setExisting((data as any) || null);
+      .rpc("admin_get_latest_handover_token" as any, { _job_id: jobId });
+    const row = Array.isArray(data) ? data[0] : data;
+    setExisting((row as any) || null);
     setLoading(false);
   };
 
@@ -49,22 +45,18 @@ export default function JobHandoverLink({ jobId, customerId, customerName }: {
     if (!user) return;
     setGenerating(true);
     const { data, error } = await supabase
-      .from("handover_tokens")
-      .insert({
-        job_id: jobId,
-        customer_id: customerId || null,
-        signer_name: name || null,
-        signer_email: email || null,
-        created_by: user.id,
-      })
-      .select("token")
-      .single();
+      .rpc("admin_create_handover_token" as any, {
+        _job_id: jobId,
+        _customer_id: customerId || null,
+        _signer_name: name || null,
+        _signer_email: email || null,
+      });
     setGenerating(false);
     if (error || !data) {
       toast({ title: "Error", description: error?.message || "Failed to generate link", variant: "destructive" });
       return;
     }
-    setLink(`${window.location.origin}/job-handover/${(data as any).token}`);
+    setLink(`${window.location.origin}/job-handover/${data as string}`);
     void loadLatest();
   };
 

@@ -37,10 +37,7 @@ export default function CustomerPortalLink({ customerId, customerEmail, customer
 
   const loadTokens = async () => {
     const { data } = await supabase
-      .from("customer_portal_tokens" as any)
-      .select("id, token, customer_email, is_active, last_accessed, created_at, expires_at")
-      .eq("customer_id", customerId)
-      .order("created_at", { ascending: false });
+      .rpc("admin_list_customer_portal_tokens" as any, { _customer_id: customerId });
     setTokens((data || []) as any);
   };
 
@@ -49,14 +46,10 @@ export default function CustomerPortalLink({ customerId, customerEmail, customer
   const handleGenerate = async () => {
     if (!user || !email.trim()) return;
     setGenerating(true);
-    const { data: customer } = await supabase.from("customers").select("org_id").eq("id", customerId).maybeSingle();
-
-    const { error } = await supabase.from("customer_portal_tokens" as any).insert({
-      customer_id: customerId,
-      customer_email: email.trim(),
-      created_by: user.id,
-      org_id: customer?.org_id ?? null,
-    } as any);
+    const { error } = await supabase.rpc("admin_create_customer_portal_token" as any, {
+      _customer_id: customerId,
+      _customer_email: email.trim(),
+    });
     setGenerating(false);
     if (error) {
       toast({ title: "Error", description: "Failed to generate portal link.", variant: "destructive" });

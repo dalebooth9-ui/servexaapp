@@ -4583,6 +4583,73 @@ export type Database = {
       }
     }
     Functions: {
+      admin_create_customer_portal_token: {
+        Args: { _customer_email: string; _customer_id: string }
+        Returns: string
+      }
+      admin_create_fire_log_token: {
+        Args: { _site_id: string }
+        Returns: string
+      }
+      admin_create_handover_token: {
+        Args: {
+          _customer_id: string
+          _job_id: string
+          _signer_email: string
+          _signer_name: string
+        }
+        Returns: string
+      }
+      admin_create_installation_handover_token: {
+        Args: {
+          _client_email: string
+          _client_name: string
+          _job_id: string
+          _project_id: string
+        }
+        Returns: string
+      }
+      admin_create_quote_approval_token: {
+        Args: {
+          _customer_email: string
+          _customer_name: string
+          _quote_id: string
+        }
+        Returns: string
+      }
+      admin_get_latest_handover_token: {
+        Args: { _job_id: string }
+        Returns: {
+          customer_id: string
+          expires_at: string
+          id: string
+          signature_data: string
+          signed_at: string
+          signer_name: string
+          status: string
+          token: string
+        }[]
+      }
+      admin_list_customer_portal_tokens: {
+        Args: { _customer_id: string }
+        Returns: {
+          created_at: string
+          customer_email: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          last_accessed: string
+          token: string
+        }[]
+      }
+      admin_list_fire_log_tokens: {
+        Args: { _site_id: string }
+        Returns: {
+          id: string
+          is_active: boolean
+          token: string
+        }[]
+      }
       count_seed_test_jobs: {
         Args: never
         Returns: {
@@ -4703,6 +4770,16 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      sign_handover_token: {
+        Args: {
+          _notes: string
+          _signature_data: string
+          _signer_email: string
+          _signer_name: string
+          _token: string
+        }
+        Returns: boolean
+      }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
     }
     Enums: {

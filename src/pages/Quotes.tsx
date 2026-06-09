@@ -69,15 +69,14 @@ export default function Quotes() {
     if (!user) return;
     setUpdatingId(quote.id);
     try {
-      const { data: token, error } = await supabase.from("quote_approval_tokens").insert({
-        quote_id: quote.id,
-        customer_name: quote.customer_name || "",
-        customer_email: quote.customer_email || null,
-        created_by: user.id,
-      } as any).select("token").single();
+      const { data: tokenValue, error } = await supabase.rpc("admin_create_quote_approval_token" as any, {
+        _quote_id: quote.id,
+        _customer_name: quote.customer_name || "",
+        _customer_email: quote.customer_email || null,
+      });
       if (error) throw error;
 
-      const approvalUrl = `${window.location.origin}/quote-approval?token=${(token as any).token}`;
+      const approvalUrl = `${window.location.origin}/quote-approval?token=${tokenValue as string}`;
       await navigator.clipboard.writeText(approvalUrl);
 
       // Also mark quote as sent
