@@ -114,23 +114,42 @@ const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
       }, 60000);
     };
 
-    iframe.title = fileName;
+    iframe.title = `Print ${fileName}`;
     iframe.style.position = "fixed";
-    iframe.style.right = "0";
-    iframe.style.bottom = "0";
-    iframe.style.width = "0";
-    iframe.style.height = "0";
+    iframe.style.left = "-10000px";
+    iframe.style.top = "0";
+    iframe.style.width = "210mm";
+    iframe.style.height = "297mm";
     iframe.style.border = "0";
     iframe.onload = () => {
       window.setTimeout(() => {
         try {
           const printWindow = iframe.contentWindow;
-          if (!printWindow) throw new Error("Print frame unavailable");
+          const printDocument = iframe.contentDocument;
+          if (!printWindow || !printDocument) throw new Error("Print frame unavailable");
+          printDocument.open();
+          printDocument.write(`<!doctype html>
+            <html>
+              <head>
+                <title>${fileName.replace(/[<>&"]/g, "")}</title>
+                <style>
+                  html, body { margin: 0; width: 100%; height: 100%; }
+                  object { display: block; width: 100%; height: 100vh; border: 0; }
+                  @media print { object { width: 100%; height: 100vh; } }
+                </style>
+              </head>
+              <body>
+                <object data="${url}" type="application/pdf" aria-label="${fileName.replace(/[<>&"]/g, "")}"></object>
+              </body>
+            </html>`);
+          printDocument.close();
           printWindow.focus();
-          printWindow.print();
-          settled = true;
-          cleanup();
-          resolve();
+          window.setTimeout(() => {
+            printWindow.print();
+            settled = true;
+            cleanup();
+            resolve();
+          }, 500);
         } catch (error) {
           iframe.remove();
           URL.revokeObjectURL(url);
@@ -144,7 +163,7 @@ const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
       reject(new Error("PDF print frame failed to load"));
     };
     document.body.appendChild(iframe);
-    iframe.src = url;
+    iframe.src = "about:blank";
 
     window.setTimeout(() => {
       if (!settled) {
