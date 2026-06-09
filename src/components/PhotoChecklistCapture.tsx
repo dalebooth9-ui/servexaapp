@@ -109,7 +109,6 @@ function PhotoCaptureButton({
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={e => { const f = e.target.files?.[0]; if (f) onCapture(f); e.target.value = ""; }}
       />
@@ -148,7 +147,7 @@ function PhotoCaptureButton({
               <Camera className="h-8 w-8 text-muted-foreground" />
             </div>
             <span className="text-sm font-medium text-muted-foreground px-4 text-center">{label}</span>
-            <span className="text-xs text-muted-foreground/60">Tap to capture</span>
+            <span className="text-xs text-muted-foreground/60">Tap to add photo</span>
           </div>
         )}
       </button>

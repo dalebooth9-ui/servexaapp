@@ -95,7 +95,6 @@ export default function AddNoteInput({ jobId, userId, onAdded }: AddNoteInputPro
         ref={cameraInputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={handleCameraCapture}
       />
