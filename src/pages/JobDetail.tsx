@@ -981,7 +981,7 @@ export default function JobDetail() {
       )}
 
       {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
-      {id && <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>}
+      {!(job?.category === "installation" || job?.category?.includes("install")) && id && <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>}
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
