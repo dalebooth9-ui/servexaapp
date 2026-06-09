@@ -268,12 +268,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           : accentColor;
         const ptToMm = (pt: number) => pt * 0.3527777778;
         let y = await renderPdfHeader(doc, sheetTitle, branding, {
-          customerName: isDryRiser ? "" : customerName,
-          siteName: isDryRiser ? "" : siteName,
-          siteAddress: isDryRiser ? "" : siteAddress,
-          refNumber: isDryRiser ? "" : refNumber,
+          customerName,
+          siteName,
+          siteAddress,
+          refNumber,
           dateVal,
-          riserLocation: isDryRiser ? "" : riserLocValue,
+          riserLocation: riserLocValue,
         }, template.standard || sheetSubtitle, dryRiserAccent, {
           compact: false,
           marginX,
