@@ -280,7 +280,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
           style: isDryRiser
             ? {
                 logo: {
-                  maxW: 100,
+                  maxW: 60,
                   maxH: DRY_RISER_LAYOUT.header.logoHeightMm,
                   topY: marginY,
                 },
