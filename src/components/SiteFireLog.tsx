@@ -84,10 +84,7 @@ export default function SiteFireLog({ siteId, siteName }: SiteFireLogProps) {
         .order("date_of_event", { ascending: false })
         .order("created_at", { ascending: false }),
       supabase
-        .from("fire_log_tokens" as any)
-        .select("id, token, is_active")
-        .eq("site_id", siteId)
-        .order("created_at", { ascending: false }),
+        .rpc("admin_list_fire_log_tokens" as any, { _site_id: siteId }),
     ]);
     setEntries((ents as any) || []);
     setTokens((toks as any) || []);
@@ -132,8 +129,7 @@ export default function SiteFireLog({ siteId, siteName }: SiteFireLogProps) {
   const generateToken = async () => {
     if (!user) return;
     const { error } = await supabase
-      .from("fire_log_tokens" as any)
-      .insert({ site_id: siteId, created_by: user.id });
+      .rpc("admin_create_fire_log_token" as any, { _site_id: siteId });
     if (error) {
       toast({ title: "Failed to create link", description: error.message, variant: "destructive" });
       return;
