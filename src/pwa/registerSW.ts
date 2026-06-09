@@ -71,6 +71,39 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
         cb.onOfflineReady?.();
       },
     });
+
+    // When a new SW takes control (autoUpdate swap), reload once so the
+    // running page picks up the new code without requiring a full relaunch.
+    if ("serviceWorker" in navigator) {
+      let reloaded = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      });
+    }
+
+    // Actively poll for a new service worker so installed phone apps that
+    // stay open for days still pick up published updates. We check:
+    //   - immediately on load (registerSW already does this)
+    //   - every 30 minutes while the tab is alive
+    //   - whenever the tab regains focus / visibility
+    //   - whenever the network comes back online
+    const checkForUpdate = async () => {
+      try {
+        const reg = await navigator.serviceWorker?.getRegistration();
+        if (reg) await reg.update();
+      } catch {
+        // ignore
+      }
+    };
+    setInterval(checkForUpdate, 30 * 60 * 1000);
+    window.addEventListener("focus", checkForUpdate);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void checkForUpdate();
+    });
+    window.addEventListener("online", checkForUpdate);
+
     // Best-effort Background Sync registration (Chromium browsers only).
     // On Safari/Firefox `sync` is absent and we fall back to the page-level
     // `online` listener in useSyncQueueDrainer.
