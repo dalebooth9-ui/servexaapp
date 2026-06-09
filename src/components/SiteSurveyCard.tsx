@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, ClipboardList } from "lucide-react";
+import { Loader2, Save, ClipboardList, ImageIcon } from "lucide-react";
+import JobSiteSurveyPhotos from "@/components/JobSiteSurveyPhotos";
 
 type Survey = {
   id?: string;
@@ -58,8 +59,7 @@ export default function SiteSurveyCard({ jobId }: { jobId: string }) {
   const update = (k: keyof Survey, v: string) =>
     setSurvey((s) => ({ ...s, [k]: v }));
 
-  const save = async () => {
-    setSaving(true);
+  const upsertSurvey = async () => {
     const payload: any = {
       job_id: jobId,
       access_notes: survey.access_notes || null,
@@ -70,14 +70,32 @@ export default function SiteSurveyCard({ jobId }: { jobId: string }) {
       notes: survey.notes || null,
       created_by: survey.id ? undefined : user?.id ?? null,
     };
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("job_site_surveys" as any)
-      .upsert(payload, { onConflict: "job_id" });
+      .upsert(payload, { onConflict: "job_id" })
+      .select()
+      .single();
+    if (data) setSurvey((s) => ({ ...s, ...(data as any) }));
+    return { data, error };
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await upsertSurvey();
     setSaving(false);
     if (error) {
       toast({ title: "Failed to save site survey", description: error.message, variant: "destructive" });
     } else {
       toast({ title: "Site survey saved" });
+    }
+  };
+
+  const ensureSurveyAndAddPhotos = async () => {
+    setSaving(true);
+    const { error } = await upsertSurvey();
+    setSaving(false);
+    if (error) {
+      toast({ title: "Couldn't start photo upload", description: error.message, variant: "destructive" });
     }
   };
 
@@ -147,9 +165,23 @@ export default function SiteSurveyCard({ jobId }: { jobId: string }) {
           </Button>
         </div>
 
-        <p className="text-xs text-muted-foreground">
-          Tip: attach photos via the Documents or Submissions sections above — they will be tied to this job automatically.
-        </p>
+        <div className="pt-3 border-t space-y-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <ImageIcon className="h-4 w-4 text-primary" />
+            Site survey photos
+          </div>
+          {survey.id ? (
+            <JobSiteSurveyPhotos surveyId={survey.id} jobId={jobId} />
+          ) : (
+            <div className="text-sm text-muted-foreground border border-dashed rounded-md p-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+              <span>Save the survey first to attach photos, or start one now.</span>
+              <Button size="sm" variant="outline" onClick={ensureSurveyAndAddPhotos} disabled={saving}>
+                {saving ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" /> : null}
+                Start survey &amp; add photos
+              </Button>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );
