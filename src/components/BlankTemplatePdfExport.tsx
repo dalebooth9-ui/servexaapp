@@ -101,6 +101,61 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
 
 type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null };
 
+const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const iframe = document.createElement("iframe");
+    let settled = false;
+
+    const cleanup = () => {
+      setTimeout(() => {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+      }, 60000);
+    };
+
+    iframe.title = fileName;
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.onload = () => {
+      window.setTimeout(() => {
+        try {
+          const printWindow = iframe.contentWindow;
+          if (!printWindow) throw new Error("Print frame unavailable");
+          printWindow.focus();
+          printWindow.print();
+          settled = true;
+          cleanup();
+          resolve();
+        } catch (error) {
+          iframe.remove();
+          URL.revokeObjectURL(url);
+          reject(error);
+        }
+      }, 250);
+    };
+    iframe.onerror = () => {
+      iframe.remove();
+      URL.revokeObjectURL(url);
+      reject(new Error("PDF print frame failed to load"));
+    };
+    document.body.appendChild(iframe);
+    iframe.src = url;
+
+    window.setTimeout(() => {
+      if (!settled) {
+        iframe.remove();
+        URL.revokeObjectURL(url);
+        reject(new Error("PDF print frame timed out"));
+      }
+    }, 15000);
+  });
+};
+
 export type BlankTemplatePdfExportHandle = {
   download: (opts?: GenerateOpts) => Promise<void> | void;
   print: (opts?: GenerateOpts) => Promise<void> | void;
