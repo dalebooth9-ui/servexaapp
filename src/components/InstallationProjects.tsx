@@ -1006,19 +1006,15 @@ function ProjectDetail({
     if (!signOffName.trim()) { toast({ title: "Client name required", variant: "destructive" }); return; }
     setSignOffLoading(true);
     const { data, error } = await supabase
-      .from("installation_handover_tokens" as any)
-      .insert({
-        project_id: project.id,
-        job_id: jobId,
-        created_by: user?.id,
-        client_name: signOffName.trim(),
-        client_email: signOffEmail.trim() || null,
-      })
-      .select("token")
-      .single();
+      .rpc("admin_create_installation_handover_token" as any, {
+        _project_id: project.id,
+        _job_id: jobId,
+        _client_name: signOffName.trim(),
+        _client_email: signOffEmail.trim() || null,
+      });
     setSignOffLoading(false);
     if (error || !data) { toast({ title: "Failed to create sign-off link", variant: "destructive" }); return; }
-    const link = `${window.location.origin}/handover/${(data as any).token}`;
+    const link = `${window.location.origin}/handover/${data as string}`;
     setSignOffLink(link);
     if (signOffEmail.trim()) {
       toast({ title: "Sign-off link created", description: `Share it with ${signOffEmail}` });
