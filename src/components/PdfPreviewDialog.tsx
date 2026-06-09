@@ -180,7 +180,17 @@ export default function PdfPreviewDialog({
   };
 
   const handleOpenInTab = () => {
-    if (src) window.open(src, "_blank", "noopener,noreferrer");
+    if (!src) return;
+    // Use an anchor click instead of window.open — popup blockers and ad
+    // blockers (e.g. uBlock) frequently block window.open to blob: URLs from
+    // within iframes with ERR_BLOCKED_BY_CLIENT.
+    const a = document.createElement("a");
+    a.href = src;
+    a.target = "_blank";
+    a.rel = "noopener noreferrer";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
