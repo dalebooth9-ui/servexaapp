@@ -106,6 +106,7 @@ const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
     const url = URL.createObjectURL(blob);
     const iframe = document.createElement("iframe");
     let settled = false;
+    const safeFileName = fileName.replace(/[<>&"]/g, "");
 
     const cleanup = () => {
       setTimeout(() => {
@@ -125,31 +126,12 @@ const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
       window.setTimeout(() => {
         try {
           const printWindow = iframe.contentWindow;
-          const printDocument = iframe.contentDocument;
-          if (!printWindow || !printDocument) throw new Error("Print frame unavailable");
-          printDocument.open();
-          printDocument.write(`<!doctype html>
-            <html>
-              <head>
-                <title>${fileName.replace(/[<>&"]/g, "")}</title>
-                <style>
-                  html, body { margin: 0; width: 100%; height: 100%; }
-                  object { display: block; width: 100%; height: 100vh; border: 0; }
-                  @media print { object { width: 100%; height: 100vh; } }
-                </style>
-              </head>
-              <body>
-                <object data="${url}" type="application/pdf" aria-label="${fileName.replace(/[<>&"]/g, "")}"></object>
-              </body>
-            </html>`);
-          printDocument.close();
+          if (!printWindow) throw new Error("Print frame unavailable");
           printWindow.focus();
-          window.setTimeout(() => {
-            printWindow.print();
-            settled = true;
-            cleanup();
-            resolve();
-          }, 500);
+          printWindow.print();
+          settled = true;
+          cleanup();
+          resolve();
         } catch (error) {
           iframe.remove();
           URL.revokeObjectURL(url);
@@ -162,8 +144,21 @@ const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
       URL.revokeObjectURL(url);
       reject(new Error("PDF print frame failed to load"));
     };
+    iframe.srcdoc = `<!doctype html>
+      <html>
+        <head>
+          <title>${safeFileName}</title>
+          <style>
+            html, body { margin: 0; width: 100%; height: 100%; }
+            object { display: block; width: 100%; height: 100vh; border: 0; }
+            @media print { object { width: 100%; height: 100vh; } }
+          </style>
+        </head>
+        <body>
+          <object data="${url}" type="application/pdf" aria-label="${safeFileName}"></object>
+        </body>
+      </html>`;
     document.body.appendChild(iframe);
-    iframe.src = "about:blank";
 
     window.setTimeout(() => {
       if (!settled) {
