@@ -21,21 +21,16 @@ export default function CustomerSignOffLink({ jobId, customerName }: { jobId: st
     if (!user) return;
     setGenerating(true);
     try {
-      const { data, error } = await supabase
-        .from("customer_sign_off_tokens" as any)
-        .insert({
-          job_id: jobId,
-          customer_name: name,
-          customer_email: email || null,
-          created_by: user.id,
-        } as any)
-        .select("token")
-        .single();
+      const { data, error } = await (supabase as any).rpc("create_customer_sign_off_token", {
+        _job_id: jobId,
+        _customer_name: name,
+        _customer_email: email || null,
+      });
 
       if (error) throw error;
 
       const baseUrl = window.location.origin;
-      setLink(`${baseUrl}/sign-off?token=${(data as any).token}`);
+      setLink(`${baseUrl}/sign-off?token=${data}`);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
