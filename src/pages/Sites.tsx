@@ -231,6 +231,7 @@ export default function Sites() {
   const [quickAssignCustomerId, setQuickAssignCustomerId] = useState("");
   const [quickAssignSaving, setQuickAssignSaving] = useState(false);
   const [deletingUnlinked, setDeletingUnlinked] = useState(false);
+  const [deleteUnlinkedConfirm, setDeleteUnlinkedConfirm] = useState("");
   const [deleteCustomerId, setDeleteCustomerId] = useState<string | null>(null);
   const [deleteCustomerLoading, setDeleteCustomerLoading] = useState(false);
   const customerFoldersScrollRef = useRef<HTMLDivElement | null>(null);
