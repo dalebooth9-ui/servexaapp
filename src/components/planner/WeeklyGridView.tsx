@@ -724,10 +724,22 @@ export default function WeeklyGridView({
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveItem(event.active.data.current);
+    // Prevent text selection anywhere on the page while dragging a planner card
+    document.body.style.userSelect = "none";
+    (document.body.style as any).webkitUserSelect = "none";
+    document.body.classList.add("planner-dragging");
+    // Clear any existing selection that might have started before the drag was recognised
+    try { window.getSelection()?.removeAllRanges(); } catch {}
   };
 
   const handleDragOver = (event: any) => {
     setOverId(event.over?.id || null);
+  };
+
+  const clearDragSelectionLock = () => {
+    document.body.style.userSelect = "";
+    (document.body.style as any).webkitUserSelect = "";
+    document.body.classList.remove("planner-dragging");
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
