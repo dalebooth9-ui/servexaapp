@@ -810,6 +810,7 @@ export default function WeeklyGridView({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => { setActiveItem(null); setOverId(null); clearDragSelectionLock(); }}
     >
       <div className="flex gap-4">
         {/* Unallocated sidebar */}
