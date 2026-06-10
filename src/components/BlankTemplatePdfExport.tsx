@@ -24,6 +24,11 @@ import {
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
+import {
+  blankPdfStoragePath,
+  fetchCachedBlankPdf,
+  uploadCachedBlankPdf,
+} from "@/lib/blankPdfStorageCache";
 
 type Template = {
   id: string;
