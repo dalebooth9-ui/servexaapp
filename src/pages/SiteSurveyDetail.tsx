@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -167,144 +166,142 @@ export default function SiteSurveyDetail() {
   };
 
   if (loading) {
-    return <AppLayout><div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div></AppLayout>;
+    return <div className="p-10 flex justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
   }
   if (!survey) {
-    return <AppLayout><div className="p-10 text-center text-sm text-muted-foreground">Survey not found.</div></AppLayout>;
+    return <div className="p-10 text-center text-sm text-muted-foreground">Survey not found.</div>;
   }
 
   return (
-    <AppLayout>
-      <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm"><Link to="/site-surveys"><ArrowLeft className="h-4 w-4 mr-1" /> Back</Link></Button>
-            <span className="font-mono text-xs text-muted-foreground">{survey.reference_number}</span>
-          </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button variant="outline" size="sm" onClick={exportPdf} disabled={exporting}>
-              {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileDown className="h-4 w-4 mr-1.5" />}
-              Export PDF
-            </Button>
-            <Button variant="outline" size="sm" onClick={convertToJob} disabled={converting}>
-              {converting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Briefcase className="h-4 w-4 mr-1.5" />}
-              Convert to Job
-            </Button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="outline" size="sm" className="text-destructive"><Trash2 className="h-4 w-4 mr-1.5" /> Delete</Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete this site survey?</AlertDialogTitle>
-                  <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={remove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <Button onClick={save} disabled={saving} size="sm">
-              {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
-              Save
-            </Button>
-          </div>
+    <div className="p-4 md:p-6 space-y-4 max-w-4xl mx-auto">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Button asChild variant="ghost" size="sm"><Link to="/site-surveys"><ArrowLeft className="h-4 w-4 mr-1" /> Back</Link></Button>
+          <span className="font-mono text-xs text-muted-foreground">{survey.reference_number}</span>
         </div>
-
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Survey details</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5 md:col-span-2">
-              <Label>Title</Label>
-              <Input value={survey.title} onChange={(e) => update("title", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Status</Label>
-              <Select value={survey.status} onValueChange={(v) => update("status", v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Survey date</Label>
-              <Input type="date" value={survey.survey_date ?? ""} onChange={(e) => update("survey_date", e.target.value || null)} />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label>Site address</Label>
-              <Input value={survey.site_address ?? ""} onChange={(e) => update("site_address", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Site contact name</Label>
-              <Input value={survey.contact_name ?? ""} onChange={(e) => update("contact_name", e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Site contact phone</Label>
-              <Input value={survey.contact_phone ?? ""} onChange={(e) => update("contact_phone", e.target.value)} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader><CardTitle className="text-lg">Site intelligence</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Site access</Label>
-              <Textarea rows={3} value={survey.access_notes ?? ""} onChange={(e) => update("access_notes", e.target.value)}
-                placeholder="Parking, key collection, working hours, restricted areas…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Hazards</Label>
-              <Textarea rows={3} value={survey.hazards ?? ""} onChange={(e) => update("hazards", e.target.value)}
-                placeholder="Asbestos, working at height, confined space, live systems…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Asset locations</Label>
-              <Textarea rows={3} value={survey.asset_locations ?? ""} onChange={(e) => update("asset_locations", e.target.value)}
-                placeholder="Risers, pump rooms, control valves, extinguisher points…" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Parking &amp; welfare</Label>
-              <Textarea rows={3} value={survey.parking_welfare ?? ""} onChange={(e) => update("parking_welfare", e.target.value)} />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <div className="flex items-center justify-between">
-                <Label>Recommendations / scope</Label>
-                <VoiceDictationButton
-                  size="sm"
-                  onTranscript={(t) => update("recommendations", `${survey.recommendations ? survey.recommendations + " " : ""}${t}`)}
-                />
-              </div>
-              <Textarea rows={3} value={survey.recommendations ?? ""} onChange={(e) => update("recommendations", e.target.value)}
-                placeholder="Recommended works, parts, follow-up visits, sub-contractor needs…" />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <div className="flex items-center justify-between">
-                <Label>Additional notes</Label>
-                <VoiceDictationButton
-                  size="sm"
-                  onTranscript={(t) => update("notes", `${survey.notes ? survey.notes + " " : ""}${t}`)}
-                />
-              </div>
-              <Textarea rows={2} value={survey.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-lg flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Site photos &amp; sketches</CardTitle>
-            <SiteSurveySketchPad surveyId={survey.id} onSaved={() => setPhotosKey((k) => k + 1)} />
-          </CardHeader>
-          <CardContent>
-            <SiteSurveyPhotos key={photosKey} surveyId={survey.id} />
-          </CardContent>
-        </Card>
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={exportPdf} disabled={exporting}>
+            {exporting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <FileDown className="h-4 w-4 mr-1.5" />}
+            Export PDF
+          </Button>
+          <Button variant="outline" size="sm" onClick={convertToJob} disabled={converting}>
+            {converting ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Briefcase className="h-4 w-4 mr-1.5" />}
+            Convert to Job
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="text-destructive"><Trash2 className="h-4 w-4 mr-1.5" /> Delete</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this site survey?</AlertDialogTitle>
+                <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={remove} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button onClick={save} disabled={saving} size="sm">
+            {saving ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Save className="h-4 w-4 mr-1.5" />}
+            Save
+          </Button>
+        </div>
       </div>
-    </AppLayout>
+
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Survey details</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Title</Label>
+            <Input value={survey.title} onChange={(e) => update("title", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Status</Label>
+            <Select value={survey.status} onValueChange={(v) => update("status", v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1.5">
+            <Label>Survey date</Label>
+            <Input type="date" value={survey.survey_date ?? ""} onChange={(e) => update("survey_date", e.target.value || null)} />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <Label>Site address</Label>
+            <Input value={survey.site_address ?? ""} onChange={(e) => update("site_address", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Site contact name</Label>
+            <Input value={survey.contact_name ?? ""} onChange={(e) => update("contact_name", e.target.value)} />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Site contact phone</Label>
+            <Input value={survey.contact_phone ?? ""} onChange={(e) => update("contact_phone", e.target.value)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle className="text-lg">Site intelligence</CardTitle></CardHeader>
+        <CardContent className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label>Site access</Label>
+            <Textarea rows={3} value={survey.access_notes ?? ""} onChange={(e) => update("access_notes", e.target.value)}
+              placeholder="Parking, key collection, working hours, restricted areas…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Hazards</Label>
+            <Textarea rows={3} value={survey.hazards ?? ""} onChange={(e) => update("hazards", e.target.value)}
+              placeholder="Asbestos, working at height, confined space, live systems…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Asset locations</Label>
+            <Textarea rows={3} value={survey.asset_locations ?? ""} onChange={(e) => update("asset_locations", e.target.value)}
+              placeholder="Risers, pump rooms, control valves, extinguisher points…" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Parking &amp; welfare</Label>
+            <Textarea rows={3} value={survey.parking_welfare ?? ""} onChange={(e) => update("parking_welfare", e.target.value)} />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <Label>Recommendations / scope</Label>
+              <VoiceDictationButton
+                size="sm"
+                onTranscript={(t) => update("recommendations", `${survey.recommendations ? survey.recommendations + " " : ""}${t}`)}
+              />
+            </div>
+            <Textarea rows={3} value={survey.recommendations ?? ""} onChange={(e) => update("recommendations", e.target.value)}
+              placeholder="Recommended works, parts, follow-up visits, sub-contractor needs…" />
+          </div>
+          <div className="space-y-1.5 md:col-span-2">
+            <div className="flex items-center justify-between">
+              <Label>Additional notes</Label>
+              <VoiceDictationButton
+                size="sm"
+                onTranscript={(t) => update("notes", `${survey.notes ? survey.notes + " " : ""}${t}`)}
+              />
+            </div>
+            <Textarea rows={2} value={survey.notes ?? ""} onChange={(e) => update("notes", e.target.value)} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+          <CardTitle className="text-lg flex items-center gap-2"><Camera className="h-5 w-5 text-primary" /> Site photos &amp; sketches</CardTitle>
+          <SiteSurveySketchPad surveyId={survey.id} onSaved={() => setPhotosKey((k) => k + 1)} />
+        </CardHeader>
+        <CardContent>
+          <SiteSurveyPhotos key={photosKey} surveyId={survey.id} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }
