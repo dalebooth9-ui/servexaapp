@@ -315,7 +315,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <p className="text-xs text-white truncate">{sub.file_name || "Photo"}</p>
-                  <p className="text-[10px] text-white/70">{new Date(sub.created_at).toLocaleDateString()} · {getEngineerName(sub.engineer_id)}</p>
+                  <p className="text-[10px] text-white/70">{new Date(sub.created_at).toLocaleDateString("en-GB")} · {getEngineerName(sub.engineer_id)}</p>
                 </div>
                 {(isAdmin || sub.engineer_id === currentUserId) && (
                   <div className="absolute top-1.5 right-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
@@ -422,7 +422,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
                       {getEngineerName(sub.engineer_id)}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                      {new Date(sub.created_at).toLocaleDateString()}
+                      {new Date(sub.created_at).toLocaleDateString("en-GB")}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

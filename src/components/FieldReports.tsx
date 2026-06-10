@@ -189,7 +189,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
     container.innerHTML = `
       <h1 style="font-size: 24px; margin-bottom: 4px;">${sanitizedTitle}</h1>
       <p style="font-size: 12px; color: #666; margin-bottom: 20px;">
-        Author: ${sanitizedAuthor} • ${new Date(report.updated_at).toLocaleString()}
+        Author: ${sanitizedAuthor} • ${new Date(report.updated_at).toLocaleString("en-GB")}
       </p>
       ${sanitizedSummary ? `<p style="font-size: 13px; color: #444; background: #f5f5f5; padding: 8px 12px; border-radius: 6px; margin-bottom: 16px;"><strong>Summary:</strong> ${sanitizedSummary}</p>` : ""}
       <hr style="margin-bottom: 16px;" />
@@ -254,7 +254,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-xs text-muted-foreground">
-                {authorNames[report.author_id] || "Unknown"} • {new Date(report.updated_at).toLocaleDateString()}
+                {authorNames[report.author_id] || "Unknown"} • {new Date(report.updated_at).toLocaleDateString("en-GB")}
               </p>
               {summarizingIds.has(report.id) && !report.summary ? (
                 <p className="mt-1.5 text-xs text-muted-foreground flex items-center gap-1">
@@ -321,7 +321,7 @@ export default function FieldReports({ jobId }: FieldReportsProps) {
               {viewReport?.title || "Untitled"}
             </DialogTitle>
             <p className="text-xs text-muted-foreground">
-              {viewReport && authorNames[viewReport.author_id]} • Last updated {viewReport && new Date(viewReport.updated_at).toLocaleString()}
+              {viewReport && authorNames[viewReport.author_id]} • Last updated {viewReport && new Date(viewReport.updated_at).toLocaleString("en-GB")}
             </p>
           </DialogHeader>
 

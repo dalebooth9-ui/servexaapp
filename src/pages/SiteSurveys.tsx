@@ -112,7 +112,7 @@ export default function SiteSurveys() {
                       {r.site_address && <p className="text-xs text-muted-foreground truncate">{r.site_address}</p>}
                     </div>
                     <div className="text-xs text-muted-foreground shrink-0">
-                      {r.survey_date ? new Date(r.survey_date).toLocaleDateString() : new Date(r.created_at).toLocaleDateString()}
+                      {r.survey_date ? new Date(r.survey_date).toLocaleDateString("en-GB") : new Date(r.created_at).toLocaleDateString("en-GB")}
                     </div>
                   </CardContent>
                 </Card>

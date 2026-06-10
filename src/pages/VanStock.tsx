@@ -210,7 +210,7 @@ export default function VanStock() {
               <Card key={req.id} className="p-4 flex items-center justify-between gap-3">
                 <div className="flex-1">
                   <div className="font-medium">{eng?.full_name || "Engineer"} — {stock?.parts_library?.name || "Part"}</div>
-                  <div className="text-xs text-muted-foreground">{new Date(req.created_at).toLocaleString()} · {req.notes}</div>
+                  <div className="text-xs text-muted-foreground">{new Date(req.created_at).toLocaleString("en-GB")} · {req.notes}</div>
                 </div>
                 <div className="flex gap-2">
                   <Button size="sm" variant="outline" onClick={() => rejectRequest(req)}>Reject</Button>

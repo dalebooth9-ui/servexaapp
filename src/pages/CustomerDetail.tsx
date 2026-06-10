@@ -313,7 +313,7 @@ export default function CustomerDetail() {
     container.innerHTML = `
       <h1 style="font-size:22px;margin-bottom:4px">${esc(report.title || "Untitled Report")}</h1>
       <p style="font-size:11px;color:#666;margin-bottom:4px">Job: ${esc(report.job_reference || "")} — ${esc(report.job_name || "")}</p>
-      <p style="font-size:11px;color:#666;margin-bottom:16px">Author: ${esc(report.author_name || "")} • ${new Date(report.updated_at).toLocaleString()}</p>
+      <p style="font-size:11px;color:#666;margin-bottom:16px">Author: ${esc(report.author_name || "")} • ${new Date(report.updated_at).toLocaleString("en-GB")}</p>
       ${report.summary ? `<p style="font-size:13px;color:#444;background:#f5f5f5;padding:8px 12px;border-radius:6px;margin-bottom:16px"><strong>Summary:</strong> ${esc(report.summary)}</p>` : ""}
       <hr style="margin-bottom:16px"/>
       <div style="font-size:14px;line-height:1.6">${sanitizedContent}</div>
@@ -1038,7 +1038,7 @@ export default function CustomerDetail() {
                           {doc.file_size ? `${(doc.file_size / 1024).toFixed(0)} KB` : "—"}
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">
-                          {new Date(doc.created_at).toLocaleDateString()}
+                          {new Date(doc.created_at).toLocaleDateString("en-GB")}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -1302,7 +1302,7 @@ export default function CustomerDetail() {
                     {" — "}{report.job_name}
                   </p>
                   <p className="text-xs text-muted-foreground mb-2">
-                    {report.author_name} • {new Date(report.updated_at).toLocaleDateString()}
+                    {report.author_name} • {new Date(report.updated_at).toLocaleDateString("en-GB")}
                   </p>
                   {report.summary && (
                     <p className="text-xs text-muted-foreground line-clamp-2 italic">{report.summary}</p>
@@ -1345,7 +1345,7 @@ export default function CustomerDetail() {
                 <Link to={`/jobs/${viewingReport.job_id}`} className="font-mono text-primary hover:underline">
                   {viewingReport.job_reference}
                 </Link>
-                {" — "}{viewingReport.job_name} • {viewingReport.author_name} • {new Date(viewingReport.updated_at).toLocaleString()}
+                {" — "}{viewingReport.job_name} • {viewingReport.author_name} • {new Date(viewingReport.updated_at).toLocaleString("en-GB")}
               </p>
             </DialogHeader>
 

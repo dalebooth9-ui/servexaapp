@@ -389,7 +389,7 @@ export default function SettingsPage() {
               {[
                 { label: "Stored in environment secrets", done: true, detail: "Google Maps, Twilio, Resend, Xero" },
                 { label: "Restricted to your domain", done: true, detail: "Google Cloud Console HTTP referrer restriction" },
-                { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString()}` : "Not yet logged" },
+                { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString("en-GB")}` : "Not yet logged" },
               ].map(({ label, done, detail }) => (
                 <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5"}`}>
                   <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
@@ -428,19 +428,19 @@ export default function SettingsPage() {
                   {rotationInfo.status === "ok" && (
                     <>
                       <p className="text-sm font-medium text-success">{rotationInfo.daysLeft} days until next rotation</p>
-                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()}</p>
+                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString("en-GB")}</p>
                     </>
                   )}
                   {rotationInfo.status === "due_soon" && (
                     <>
                       <p className="text-sm font-medium text-warning">Rotation due in {rotationInfo.daysLeft} days</p>
-                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString()} — rotate soon</p>
+                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString("en-GB")} — rotate soon</p>
                     </>
                   )}
                   {rotationInfo.status === "overdue" && (
                     <>
                       <p className="text-sm font-medium text-destructive">Rotation overdue!</p>
-                      <p className="text-xs text-muted-foreground">Last rotated {lastRotated ? new Date(lastRotated).toLocaleDateString() : "never"}. Rotate your keys now.</p>
+                      <p className="text-xs text-muted-foreground">Last rotated {lastRotated ? new Date(lastRotated).toLocaleDateString("en-GB") : "never"}. Rotate your keys now.</p>
                     </>
                   )}
                 </div>

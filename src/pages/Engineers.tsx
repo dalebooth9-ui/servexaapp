@@ -301,7 +301,7 @@ export default function Engineers() {
                       </div>
                       {onboardingLogs[eng.user_id] && (
                         <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {onboardingLogs[eng.user_id].sent_to_email} · {new Date(onboardingLogs[eng.user_id].sent_at).toLocaleDateString()}
+                          {onboardingLogs[eng.user_id].sent_to_email} · {new Date(onboardingLogs[eng.user_id].sent_at).toLocaleDateString("en-GB")}
                         </p>
                       )}
                     </TableCell>

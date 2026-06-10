@@ -78,7 +78,7 @@ export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange
         <div className="w-full bg-black/70 px-6 py-3 text-center text-white">
           <p className="text-sm font-medium">{photo.fileName || "Untitled"}</p>
           <p className="text-xs text-white/60">
-            {photo.date && new Date(photo.date).toLocaleString()}
+            {photo.date && new Date(photo.date).toLocaleString("en-GB")}
             {photo.engineer && ` • ${photo.engineer}`}
             {` • ${currentIndex + 1} of ${photos.length}`}
           </p>
