@@ -45,6 +45,16 @@ type Template = {
   };
 };
 
+/**
+ * Session-scoped in-memory cache for blank template PDFs (no job-specific
+ * data, no watermark overrides). Re-clicking preview/download on the same
+ * blank template returns the cached Blob instantly instead of regenerating.
+ * Cleared on page reload. Cache key: template.id + updated_at + handfill.
+ */
+const BLANK_PDF_CACHE = new Map<string, Blob>();
+const blankCacheKey = (tpl: { id?: string; updated_at?: string; name?: string }, handfill: boolean) =>
+  `${tpl.id ?? tpl.name ?? "?"}::${tpl.updated_at ?? ""}::${handfill ? "hf" : "std"}`;
+
 type JobInfo = {
   address: string | null;
   customer: string | null;
