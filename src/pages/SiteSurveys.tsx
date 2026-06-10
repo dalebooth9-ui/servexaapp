@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import AppLayout from "@/components/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -71,56 +70,54 @@ export default function SiteSurveys() {
   });
 
   return (
-    <AppLayout>
-      <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2">
-              <ClipboardList className="h-6 w-6 text-primary" /> Site Surveys
-            </h1>
-            <p className="text-sm text-muted-foreground">Standalone site visits — independent of jobs.</p>
-          </div>
-          <Button onClick={createNew} disabled={creating}>
-            {creating ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Plus className="h-4 w-4 mr-1.5" />}
-            New survey
-          </Button>
+    <div className="p-4 md:p-6 space-y-4 max-w-6xl mx-auto">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <ClipboardList className="h-6 w-6 text-primary" /> Site Surveys
+          </h1>
+          <p className="text-sm text-muted-foreground">Standalone site visits — independent of jobs.</p>
         </div>
-
-        <div className="relative">
-          <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by title, reference or address…" className="pl-9" />
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-        ) : filtered.length === 0 ? (
-          <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No site surveys yet. Click <span className="font-medium">New survey</span> to start one.
-          </CardContent></Card>
-        ) : (
-          <div className="space-y-2">
-            {filtered.map((r) => (
-              <Link key={r.id} to={`/site-surveys/${r.id}`} className="block">
-                <Card className="hover:bg-accent/30 transition-colors">
-                  <CardContent className="p-3 flex items-center gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs text-muted-foreground">{r.reference_number || "—"}</span>
-                        <Badge variant={STATUS_VARIANT[r.status] || "outline"} className="capitalize">{r.status}</Badge>
-                      </div>
-                      <p className="font-medium truncate">{r.title}</p>
-                      {r.site_address && <p className="text-xs text-muted-foreground truncate">{r.site_address}</p>}
-                    </div>
-                    <div className="text-xs text-muted-foreground shrink-0">
-                      {r.survey_date ? new Date(r.survey_date).toLocaleDateString("en-GB") : new Date(r.created_at).toLocaleDateString("en-GB")}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
+        <Button onClick={createNew} disabled={creating}>
+          {creating ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Plus className="h-4 w-4 mr-1.5" />}
+          New survey
+        </Button>
       </div>
-    </AppLayout>
+
+      <div className="relative">
+        <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by title, reference or address…" className="pl-9" />
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+      ) : filtered.length === 0 ? (
+        <Card><CardContent className="py-10 text-center text-sm text-muted-foreground">
+          No site surveys yet. Click <span className="font-medium">New survey</span> to start one.
+        </CardContent></Card>
+      ) : (
+        <div className="space-y-2">
+          {filtered.map((r) => (
+            <Link key={r.id} to={`/site-surveys/${r.id}`} className="block">
+              <Card className="hover:bg-accent/30 transition-colors">
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">{r.reference_number || "—"}</span>
+                      <Badge variant={STATUS_VARIANT[r.status] || "outline"} className="capitalize">{r.status}</Badge>
+                    </div>
+                    <p className="font-medium truncate">{r.title}</p>
+                    {r.site_address && <p className="text-xs text-muted-foreground truncate">{r.site_address}</p>}
+                  </div>
+                  <div className="text-xs text-muted-foreground shrink-0">
+                    {r.survey_date ? new Date(r.survey_date).toLocaleDateString("en-GB") : new Date(r.created_at).toLocaleDateString("en-GB")}
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
