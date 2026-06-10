@@ -89,33 +89,45 @@ export default function DirectorDashboard() {
   // ── Jobs ────────────────────────────────────────────────────────────────────
   const loadJobs = async () => {
     const now = new Date();
-    const eightWeeksAgo = addWeeks(startOfWeek(now, { weekStartsOn: 1 }), -7);
     const startWeek = startOfWeek(now, { weekStartsOn: 1 });
+    const eightWeeksAgo = addWeeks(startWeek, -7);
     const startMonth = startOfMonth(now);
+    const CLOSED = ["completed", "archived", "cancelled"];
 
-    const { data: jobsData } = await supabase
+    // All non-closed jobs (no date filter — "active" jobs may be untouched for months)
+    const { data: activeJobs, error: activeErr } = await supabase
       .from("jobs")
-      .select("id, status, scheduled_date, updated_at")
+      .select("id, status, scheduled_date")
+      .not("status", "in", `(${CLOSED.join(",")})`);
+
+    // Completed jobs in the last 8 weeks for sparkline + week/month counters
+    const { data: completedJobs, error: completedErr } = await supabase
+      .from("jobs")
+      .select("id, status, updated_at")
+      .eq("status", "completed")
       .gte("updated_at", eightWeeksAgo.toISOString());
+
+    if (activeErr) console.warn("[DirectorDashboard] active jobs query error:", activeErr);
+    if (completedErr) console.warn("[DirectorDashboard] completed jobs query error:", completedErr);
 
     const { data: assignments } = await supabase.from("job_assignments").select("job_id");
     const assignedIds = new Set((assignments || []).map((a: any) => a.job_id));
 
-    const list = (jobsData || []) as any[];
-    const active = list.filter(j => !["completed", "archived"].includes(j.status));
-    const scheduled = list.filter(j => j.status === "scheduled").length;
-    const inProgress = list.filter(j => j.status === "in_progress").length;
-    const completedThisWeek = list.filter(j => j.status === "completed" && new Date(j.updated_at) >= startWeek).length;
-    const completedThisMonth = list.filter(j => j.status === "completed" && new Date(j.updated_at) >= startMonth).length;
+    const active = (activeJobs || []) as any[];
+    const completed = (completedJobs || []) as any[];
+
+    const scheduled = active.filter(j => j.status === "scheduled").length;
+    const inProgress = active.filter(j => j.status === "in_progress" || j.status === "active").length;
+    const completedThisWeek = completed.filter(j => new Date(j.updated_at) >= startWeek).length;
+    const completedThisMonth = completed.filter(j => new Date(j.updated_at) >= startMonth).length;
     const overdue = active.filter(j => j.scheduled_date && new Date(j.scheduled_date) < now).length;
     const unassigned = active.filter(j => !assignedIds.has(j.id)).length;
 
-    // 8-week sparkline
     const weekly: { week: string; completed: number }[] = [];
     for (let i = 7; i >= 0; i--) {
       const ws = addWeeks(startWeek, -i);
       const we = addWeeks(ws, 1);
-      const count = list.filter(j => j.status === "completed" && new Date(j.updated_at) >= ws && new Date(j.updated_at) < we).length;
+      const count = completed.filter(j => new Date(j.updated_at) >= ws && new Date(j.updated_at) < we).length;
       weekly.push({ week: format(ws, "dd MMM"), completed: count });
     }
 
