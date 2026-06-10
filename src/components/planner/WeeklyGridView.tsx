@@ -106,17 +106,18 @@ function DraggableUnallocatedJob({
   return (
     <div
       className={cn(
-        "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow",
+        "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow select-none",
         isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30"
       )}
+      style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
     >
       <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
         className="cursor-grab absolute inset-0 rounded-md"
-        style={{ zIndex: 0 }}
+        style={{ zIndex: 0, WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
       />
       <button
         onPointerDown={(e) => e.stopPropagation()}
