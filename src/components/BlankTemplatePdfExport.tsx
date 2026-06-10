@@ -203,6 +203,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     watermarkOverride: WatermarkOverride | null = null,
   ): Promise<Blob | null | void> => {
     setGenerating(true);
+    // Immediate user feedback BEFORE the heavy synchronous jsPDF work begins,
+    // and yield a frame so the spinner / disabled button actually paints first.
+    if (mode !== "blob") {
+      toast({ title: "Preparing PDF…", description: "This may take a few seconds." });
+    }
+    await new Promise((r) => setTimeout(r, 50));
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
