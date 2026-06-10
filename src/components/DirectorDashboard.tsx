@@ -12,6 +12,14 @@ import {
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
+import { toast } from "sonner";
+
+function reportError(label: string, error: any) {
+  console.error(`[DirectorDashboard] ${label}:`, error);
+  toast.error(`${label} failed`, {
+    description: error?.message || error?.hint || "Unknown error — see console for details.",
+  });
+}
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Types
@@ -92,12 +100,13 @@ export default function DirectorDashboard() {
     const startWeek = startOfWeek(now, { weekStartsOn: 1 });
     const eightWeeksAgo = addWeeks(startWeek, -7);
     const startMonth = startOfMonth(now);
-    const CLOSED = ["completed", "archived", "cancelled"];
+    // Match the Jobs page filter exactly (Jobs.tsx hides only completed + archived by default)
+    const CLOSED = ["completed", "archived"];
 
     // All non-closed jobs (no date filter — "active" jobs may be untouched for months)
     const { data: activeJobs, error: activeErr } = await supabase
       .from("jobs")
-      .select("id, status, scheduled_date")
+      .select("id, status, due_date")
       .not("status", "in", `(${CLOSED.join(",")})`);
 
     // Completed jobs in the last 8 weeks for sparkline + week/month counters
@@ -107,10 +116,11 @@ export default function DirectorDashboard() {
       .eq("status", "completed")
       .gte("updated_at", eightWeeksAgo.toISOString());
 
-    if (activeErr) console.warn("[DirectorDashboard] active jobs query error:", activeErr);
-    if (completedErr) console.warn("[DirectorDashboard] completed jobs query error:", completedErr);
+    if (activeErr) { reportError("Active jobs query", activeErr); return; }
+    if (completedErr) { reportError("Completed jobs query", completedErr); return; }
 
-    const { data: assignments } = await supabase.from("job_assignments").select("job_id");
+    const { data: assignments, error: assignErr } = await supabase.from("job_assignments").select("job_id");
+    if (assignErr) reportError("Job assignments query", assignErr);
     const assignedIds = new Set((assignments || []).map((a: any) => a.job_id));
 
     const active = (activeJobs || []) as any[];
@@ -120,7 +130,7 @@ export default function DirectorDashboard() {
     const inProgress = active.filter(j => j.status === "in_progress" || j.status === "active").length;
     const completedThisWeek = completed.filter(j => new Date(j.updated_at) >= startWeek).length;
     const completedThisMonth = completed.filter(j => new Date(j.updated_at) >= startMonth).length;
-    const overdue = active.filter(j => j.scheduled_date && new Date(j.scheduled_date) < now).length;
+    const overdue = active.filter(j => j.due_date && new Date(j.due_date) < now).length;
     const unassigned = active.filter(j => !assignedIds.has(j.id)).length;
 
     const weekly: { week: string; completed: number }[] = [];
@@ -149,17 +159,20 @@ export default function DirectorDashboard() {
     const startThisMonth = startOfMonth(now);
     const startLastMonth = startOfMonth(subMonths(now, 1));
 
-    const { data: invs } = await supabase
+    const { data: invs, error: invsErr } = await supabase
       .from("invoices")
       .select("id, total, status, created_at, document_type")
       .eq("document_type", "invoice")
       .gte("created_at", startLastMonth.toISOString());
 
-    const { data: outstanding } = await supabase
+    const { data: outstanding, error: outErr } = await supabase
       .from("invoices")
       .select("total")
       .eq("document_type", "invoice")
       .in("status", ["sent", "overdue"]);
+
+    if (invsErr) { reportError("Invoices query", invsErr); return; }
+    if (outErr) { reportError("Outstanding invoices query", outErr); return; }
 
     const list = (invs || []) as any[];
     const thisMonth = list
@@ -213,7 +226,8 @@ export default function DirectorDashboard() {
 
   // ── Defects ─────────────────────────────────────────────────────────────────
   const loadDefects = async () => {
-    const { data } = await supabase.from("defects").select("severity, status, quote_id");
+    const { data, error } = await supabase.from("defects").select("severity, status, quote_id");
+    if (error) { reportError("Defects query", error); return; }
     const list = (data || []) as any[];
     const open = list.filter(d => d.status === "open" || d.status === "in_progress");
     const bySeverity = { critical: 0, high: 0, medium: 0, low: 0 };
