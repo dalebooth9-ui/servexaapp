@@ -864,6 +864,7 @@ export default function JobDetail() {
         </DialogContent>
       </Dialog>
 
+      {activeTab === "overview" && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer Assignments
@@ -874,7 +875,6 @@ export default function JobDetail() {
             {userRole === "admin" && <EngineerAssignments jobId={id!} />}
             <WhatsAppReply jobId={id!} engineers={engineers} />
           </div>
-          <JobMessages jobId={id!} />
         </CollapsibleContent>
       </Collapsible>
 
@@ -889,6 +889,8 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+      </>)}
+
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
