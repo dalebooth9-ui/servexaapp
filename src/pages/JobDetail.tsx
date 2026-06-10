@@ -1044,6 +1044,17 @@ export default function JobDetail() {
       )}
 
 
+      {activeTab === "activity" && (<>
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Messages
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobMessages jobId={id!} />
+        </CollapsibleContent>
+      </Collapsible>
+
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Submissions ({filtered.length})
@@ -1077,6 +1088,8 @@ export default function JobDetail() {
           />
         </CollapsibleContent>
       </Collapsible>
+      </>)}
+
 
       {/* QR Code Dialog for mobile upload */}
       <QrDialog open={qrOpen} onOpenChange={setQrOpen}>
