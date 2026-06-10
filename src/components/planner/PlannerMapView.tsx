@@ -201,7 +201,7 @@ export default function PlannerMapView({
       directionsRendererRef.current = null;
     }
     // Remove numbered step labels
-    routeNumberOverlaysRef.current.forEach((m) => { m.map = null; });
+    routeNumberOverlaysRef.current.forEach((m) => { m.setMap(null); });
     routeNumberOverlaysRef.current = [];
     lastOptimisedWaypointsRef.current = null;
     setMarkerMode("priority");
@@ -373,11 +373,13 @@ export default function PlannerMapView({
               labelDiv.textContent = String(i + 1);
               labelDiv.style.cssText = "background:#2563eb;color:#fff;font-weight:700;font-size:13px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);pointer-events:none;";
 
-              const overlay = new google.maps.marker.AdvancedMarkerElement({
+              const overlay = new google.maps.Marker({
                 map,
                 position: pos,
-                content: labelDiv,
+                icon: svgDot("#2563eb", String(i + 1), { size: 28, stroke: "#ffffff" }),
                 zIndex: 1000 + i,
+                clickable: false,
+                optimized: false,
               });
               routeNumberOverlaysRef.current.push(overlay);
             } catch {
@@ -546,7 +548,9 @@ export default function PlannerMapView({
           center: { lat: 54.0, lng: -5 },
           zoom: 5,
           mapTypeId: "roadmap",
-          mapId: "DEMO_MAP_ID",
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
         });
         mapInstanceRef.current = map;
 
@@ -563,18 +567,11 @@ export default function PlannerMapView({
               bounds.extend(pos);
               hasMarkers = true;
 
-              const pinColor = PRIORITY_PIN[job.priority] || "#6b7280";
-              const pin = new google.maps.marker.PinElement({
-                background: pinColor,
-                borderColor: pinColor,
-                glyphColor: "white",
-              });
-
-              const marker = new google.maps.marker.AdvancedMarkerElement({
-                map,
+              const pinColor = PRIORITY_PIN[(job.priority || "").toLowerCase()] || UNKNOWN_PRIORITY_COLOR;
+              const marker = new google.maps.Marker({
                 position: pos,
-                title: `${job.reference_number} - ${job.name}`,
-                content: pin.element,
+                title: `${job.reference_number} — ${job.name}`,
+                icon: svgPin(pinColor),
               });
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address!)}`;
@@ -592,9 +589,12 @@ export default function PlannerMapView({
                 </div>`,
               });
 
-              marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
+              marker.addListener("click", () => {
+                openInfoWindowRef.current?.close();
+                infoWindow.open({ anchor: marker, map });
+                openInfoWindowRef.current = infoWindow;
+              });
               markersRef.current.push({ marker, engineerId, priority: job.priority, jobId: job.id });
-            }
           } catch {
             // Skip failed geocodes
           }
