@@ -1707,6 +1707,7 @@ export default function Jobs() {
                 statusColor={getStatusColor}
                 isAdmin={isAdmin}
                 isOver={overId === `folder-${customerName}`}
+                isOpen={openFolders.includes(customerName)}
                 onDelete={() => deleteCustomerFolder(customerName)}
                 onRename={() => startRenameFolder(customerName)}
                 onDeleteJob={handleDeleteJob}
@@ -1719,6 +1720,13 @@ export default function Jobs() {
               />
             ))}
           </Accordion>
+          {hasMore && (
+            <div className="flex justify-center mt-4">
+              <Button variant="outline" onClick={() => setPageSize((n) => n + 300)}>
+                Load more jobs
+              </Button>
+            </div>
+          )}
           {isAdmin && (
             <NewCustomerDropZone isDragging={!!activeJob} isOver={overId === "folder-__new_customer__"} />
           )}
