@@ -1098,15 +1098,13 @@ export default function Jobs() {
       return changed ? updated : prev;
     });
     setOpenFolders((prev) => {
-      const allNames = new Set(prev);
-      let changed = false;
-      for (const name of customerNames) {
-        if (!allNames.has(name)) {
-          allNames.add(name);
-          changed = true;
-        }
+      // On first load, default-collapse all folders except the first 3.
+      // After that, preserve whatever the user has open and never auto-open new folders.
+      if (firstLoadRef.current && jobs.length > 0) {
+        firstLoadRef.current = false;
+        return customerNames.slice(0, 3);
       }
-      return changed ? Array.from(allNames) : prev;
+      return prev;
     });
   }, [jobs]);
 
