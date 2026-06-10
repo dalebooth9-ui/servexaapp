@@ -582,13 +582,16 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         handfill ? "handfill" : null,
       ].filter(Boolean).join("-") + ".pdf";
 
+      // Build the blob ONCE and reuse it for every mode + the cache.
+      const builtBlob = doc.output("blob") as Blob;
+      if (cacheable && cacheKey) BLANK_PDF_CACHE.set(cacheKey, builtBlob);
+
       if (mode === "print") {
         // Direct download — printing via a hidden iframe with a blob: PDF is
         // routinely blocked by ad/popup blockers (ERR_BLOCKED_BY_CLIENT).
         // Saving the file lets the user open & print from their PDF viewer
         // 100% reliably with zero popup-blocker interference.
-        const pdfBlob = doc.output("blob");
-        const url = URL.createObjectURL(pdfBlob);
+        const url = URL.createObjectURL(builtBlob);
         const a = document.createElement("a");
         a.href = url;
         a.download = fileName;
@@ -598,18 +601,26 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "PDF ready", description: `${fileName} downloaded — open it to print.` });
       } else if (mode === "preview") {
-        const pdfBlob = doc.output("blob");
-        setPreviewBlob(pdfBlob);
+        setPreviewBlob(builtBlob);
         setPreviewName(fileName);
         setPreviewBuildArgs({ handfill });
         setPreviewOpen(true);
       } else if (mode === "blob") {
         // Silent build — caller uses the returned Blob directly (e.g. live preview embed).
-        return doc.output("blob") as Blob;
+        return builtBlob;
       } else {
-        doc.save(fileName);
+        // download — direct <a download> click, never blocked.
+        const url = URL.createObjectURL(builtBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "PDF downloaded", description: fileName });
       }
+
     } catch (err: any) {
       // For silent blob builds, re-throw so the caller can handle it.
       if (mode === "blob") {
