@@ -176,35 +176,35 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
             </TooltipTrigger>
             <TooltipContent side="top">Send message</TooltipContent>
           </Tooltip>
-          <Tooltip>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <TooltipTrigger asChild>
+          <AlertDialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
                   <button className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
-                </TooltipTrigger>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete job?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This will permanently delete <strong>{job.reference_number} – {job.name}</strong> and all associated data. This action cannot be undone.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    onClick={() => onDelete?.(job.id)}
-                  >
-                    Delete
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-            <TooltipContent side="top">Delete job</TooltipContent>
-          </Tooltip>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">Delete job</TooltipContent>
+            </Tooltip>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete job?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete <strong>{job.reference_number} – {job.name}</strong> and all associated data. This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={() => onDelete?.(job.id)}
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>
