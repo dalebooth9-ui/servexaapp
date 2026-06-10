@@ -534,6 +534,9 @@ export default function JobSheetPdfExport({ template, formData, jobInfo, jobId, 
   const generate = async (forceMode?: "preview" | "download") => {
     setGenerating(true);
     const effectiveMode = forceMode ?? mode;
+    // Immediate feedback before heavy synchronous PDF rendering.
+    toast({ title: "Preparing PDF…", description: "This may take a few seconds." });
+    await new Promise((r) => setTimeout(r, 50));
     try {
       const resolvedCategoryName = categoryNameProp
         || jobCategories.find(c => c.slug === (jobInfo as any)?.category)?.name
