@@ -800,6 +800,8 @@ export default function JobDetail() {
             ))}
           </CollapsibleContent>
         </Collapsible>
+      </>)}
+
 
       <AutoAttachTemplateChooser
         open={chooserOpen}
