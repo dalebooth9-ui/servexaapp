@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Route, Loader2, MapPin, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
 interface ScheduleEntry {
   id: string;
@@ -28,13 +29,44 @@ interface Job {
 interface Engineer { user_id: string; full_name: string }
 
 const PRIORITY_PIN: Record<string, string> = {
+  critical: "#7f1d1d",
   high: "#ef4444",
   medium: "#f59e0b",
   low: "#10b981",
 };
 
+// Neutral fallback for jobs without a known priority (instead of grey "?" icon)
+const UNKNOWN_PRIORITY_COLOR = "#3b82f6";
+
 // Distinct highlight colour when filtering by engineer
 const ENGINEER_HIGHLIGHT = "#8b5cf6";
+
+// Build a coloured SVG pin as a data URI — works with google.maps.Marker without needing a mapId
+function svgPin(color: string, opts: { size?: number; stroke?: string } = {}): google.maps.Icon {
+  const size = opts.size ?? 36;
+  const stroke = opts.stroke ?? "#ffffff";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7 11.5 7.3 11.78a1 1 0 0 0 1.4 0C13 21.5 20 15.25 20 10c0-4.42-3.58-8-8-8z" fill="${color}" stroke="${stroke}" stroke-width="1.5"/><circle cx="12" cy="10" r="3" fill="${stroke}"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(size, size),
+    anchor: new google.maps.Point(size / 2, size),
+  };
+}
+
+function svgDot(color: string, label?: string, opts: { size?: number; stroke?: string; textColor?: string } = {}): google.maps.Icon {
+  const size = opts.size ?? 32;
+  const stroke = opts.stroke ?? "#ffffff";
+  const textColor = opts.textColor ?? "#ffffff";
+  const text = label
+    ? `<text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="${textColor}">${label}</text>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="${color}" stroke="${stroke}" stroke-width="2"/>${text}</svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(size, size),
+    anchor: new google.maps.Point(size / 2, size / 2),
+  };
+}
 
 interface AdhocEntryLike {
   id: string;
@@ -63,16 +95,18 @@ export default function PlannerMapView({
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string; priority: string; jobId: string }[]>([]);
-  const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
-  const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markersRef = useRef<{ marker: google.maps.Marker; engineerId: string; priority: string; jobId: string }[]>([]);
+  const engineerMarkersRef = useRef<google.maps.Marker[]>([]);
+  const unallocatedMarkersRef = useRef<google.maps.Marker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
-  const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const routeNumberOverlaysRef = useRef<google.maps.Marker[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const openInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  
   const onScheduleJobRef = useRef(onScheduleJob);
   useEffect(() => { onScheduleJobRef.current = onScheduleJob; }, [onScheduleJob]);
   const engineerLocations = useLiveEngineerLocations();
@@ -167,7 +201,7 @@ export default function PlannerMapView({
       directionsRendererRef.current = null;
     }
     // Remove numbered step labels
-    routeNumberOverlaysRef.current.forEach((m) => { m.map = null; });
+    routeNumberOverlaysRef.current.forEach((m) => { m.setMap(null); });
     routeNumberOverlaysRef.current = [];
     lastOptimisedWaypointsRef.current = null;
     setMarkerMode("priority");
@@ -339,11 +373,13 @@ export default function PlannerMapView({
               labelDiv.textContent = String(i + 1);
               labelDiv.style.cssText = "background:#2563eb;color:#fff;font-weight:700;font-size:13px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);pointer-events:none;";
 
-              const overlay = new google.maps.marker.AdvancedMarkerElement({
+              const overlay = new google.maps.Marker({
                 map,
                 position: pos,
-                content: labelDiv,
+                icon: svgDot("#2563eb", String(i + 1), { size: 28, stroke: "#ffffff" }),
                 zIndex: 1000 + i,
+                clickable: false,
+                optimized: false,
               });
               routeNumberOverlaysRef.current.push(overlay);
             } catch {
@@ -512,7 +548,9 @@ export default function PlannerMapView({
           center: { lat: 54.0, lng: -5 },
           zoom: 5,
           mapTypeId: "roadmap",
-          mapId: "DEMO_MAP_ID",
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
         });
         mapInstanceRef.current = map;
 
@@ -529,18 +567,11 @@ export default function PlannerMapView({
               bounds.extend(pos);
               hasMarkers = true;
 
-              const pinColor = PRIORITY_PIN[job.priority] || "#6b7280";
-              const pin = new google.maps.marker.PinElement({
-                background: pinColor,
-                borderColor: pinColor,
-                glyphColor: "white",
-              });
-
-              const marker = new google.maps.marker.AdvancedMarkerElement({
-                map,
+              const pinColor = PRIORITY_PIN[(job.priority || "").toLowerCase()] || UNKNOWN_PRIORITY_COLOR;
+              const marker = new google.maps.Marker({
                 position: pos,
-                title: `${job.reference_number} - ${job.name}`,
-                content: pin.element,
+                title: `${job.reference_number} — ${job.name}`,
+                icon: svgPin(pinColor),
               });
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address!)}`;
@@ -558,7 +589,11 @@ export default function PlannerMapView({
                 </div>`,
               });
 
-              marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
+              marker.addListener("click", () => {
+                openInfoWindowRef.current?.close();
+                infoWindow.open({ anchor: marker, map });
+                openInfoWindowRef.current = infoWindow;
+              });
               markersRef.current.push({ marker, engineerId, priority: job.priority, jobId: job.id });
             }
           } catch {
@@ -577,20 +612,16 @@ export default function PlannerMapView({
               bounds.extend(pos);
               hasMarkers = true;
 
-              const pinEl = document.createElement("div");
-              pinEl.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translateY(-8px);cursor:pointer";
-              const refLabel = (job.reference_number || "").replace(/</g, "&lt;");
-              pinEl.innerHTML = `
-                <div style="background:#9ca3af;border:2px solid #6b7280;color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.35)">?</div>
-                <div style="margin-top:3px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.18)">${refLabel}</div>
-              `;
-
-              const marker = new google.maps.marker.AdvancedMarkerElement({
-                map,
+              // Fall back to priority colour, then to neutral blue (no "?" icon)
+              const unallocPriority = (job.priority || "").toLowerCase();
+              const unallocColor = PRIORITY_PIN[unallocPriority] || UNKNOWN_PRIORITY_COLOR;
+              const marker = new google.maps.Marker({
                 position: pos,
-                title: `[Unallocated] ${job.reference_number} - ${job.name}`,
-                content: pinEl,
+                title: `[Unallocated] ${job.reference_number} — ${job.name}`,
+                icon: svgPin(unallocColor, { stroke: "#e5e7eb" }),
+                opacity: 0.85,
               });
+
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address)}`;
               const siteName = (job as any).sites?.name || (job as any).site?.name || "";
@@ -655,6 +686,16 @@ export default function PlannerMapView({
             }
           });
         }
+
+        // Cluster scheduled + unallocated markers so labels don't overlap when zoomed out
+        const allJobMarkers = [
+          ...markersRef.current.map((m) => m.marker),
+          ...unallocatedMarkersRef.current,
+        ];
+        if (allJobMarkers.length > 0) {
+          clustererRef.current = new MarkerClusterer({ map, markers: allJobMarkers });
+        }
+
         setMapLoading(false);
       } catch (err) {
         console.error("Planner map init error:", err);
@@ -664,73 +705,76 @@ export default function PlannerMapView({
     };
 
     init();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Tear down everything created by this init to avoid leaks / locked refresh loops
+      clustererRef.current?.clearMarkers();
+      clustererRef.current = null;
+      markersRef.current.forEach((m) => m.marker.setMap(null));
+      markersRef.current = [];
+      unallocatedMarkersRef.current.forEach((m) => m.setMap(null));
+      unallocatedMarkersRef.current = [];
+      routeNumberOverlaysRef.current.forEach((m) => m.setMap(null));
+      routeNumberOverlaysRef.current = [];
+      engineerMarkersRef.current.forEach((m) => m.setMap(null));
+      engineerMarkersRef.current = [];
+      liveRouteRenderersRef.current.forEach((r) => r.setMap(null));
+      liveRouteRenderersRef.current = [];
+      directionsRendererRef.current?.setMap(null);
+      directionsRendererRef.current = null;
+      trafficLayerRef.current?.setMap(null);
+      trafficLayerRef.current = null;
+      openInfoWindowRef.current?.close();
+      openInfoWindowRef.current = null;
+    };
   }, [scheduledJobs, unallocatedJobs]);
 
   // Toggle unallocated marker visibility
   useEffect(() => {
     const map = mapInstanceRef.current;
+    if (!map) return;
     unallocatedMarkersRef.current.forEach((m) => {
-      m.map = showUnallocated ? map : null;
+      m.setMap(showUnallocated ? map : null);
     });
   }, [showUnallocated]);
 
-  // Apply marker mode (priority colours vs neutral route-order pins) + engineer filter overlay
+  // Apply marker mode (priority colours vs route-order numbered pins) + engineer filter
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    if (typeof google === "undefined" || !google.maps?.marker?.PinElement) return;
 
     const optimisedOrder = routeResult?.optimised?.map((w) => w.job_id) ?? [];
 
     for (const entry of markersRef.current) {
       const { marker, engineerId, priority, jobId } = entry;
 
-      // Rebuild pin content based on current marker mode
-      let pin: google.maps.marker.PinElement;
       if (markerMode === "route") {
         const idx = optimisedOrder.indexOf(jobId);
-        pin = new google.maps.marker.PinElement({
-          background: "#64748b",
-          borderColor: "#475569",
-          glyphColor: "white",
-          glyph: idx >= 0 ? String(idx + 1) : "•",
-        });
+        marker.setIcon(svgDot("#64748b", idx >= 0 ? String(idx + 1) : "•", { size: 30 }));
       } else {
-        const pinColor = PRIORITY_PIN[priority] || "#6b7280";
-        pin = new google.maps.marker.PinElement({
-          background: pinColor,
-          borderColor: pinColor,
-          glyphColor: "white",
-        });
+        const pinColor = PRIORITY_PIN[(priority || "").toLowerCase()] || UNKNOWN_PRIORITY_COLOR;
+        marker.setIcon(svgPin(pinColor));
       }
-      marker.content = pin.element;
 
-      const el = marker.content as HTMLElement | null;
-      if (!el) continue;
-
+      // Engineer-filter dim / highlight via marker opacity + zIndex
       if (selectedEngineerId === "all") {
-        el.style.filter = "";
-        el.style.opacity = "1";
-        el.style.transform = "scale(1)";
+        marker.setOpacity(1);
+        marker.setZIndex(undefined as any);
       } else if (engineerId === selectedEngineerId) {
-        el.style.filter = `drop-shadow(0 0 6px ${ENGINEER_HIGHLIGHT})`;
-        el.style.opacity = "1";
-        el.style.transform = "scale(1.25)";
+        marker.setOpacity(1);
+        marker.setZIndex(999);
       } else {
-        el.style.filter = "";
-        el.style.opacity = "0.3";
-        el.style.transform = "scale(0.9)";
+        marker.setOpacity(0.25);
+        marker.setZIndex(undefined as any);
       }
     }
 
-    // In route mode the pins already carry numbers — hide the duplicate overlay badges
     routeNumberOverlaysRef.current.forEach((m) => {
-      m.map = markerMode === "route" ? null : mapInstanceRef.current;
+      m.setMap(markerMode === "route" ? null : mapInstanceRef.current);
     });
   }, [markerMode, selectedEngineerId, routeResult, scheduledJobs]);
 
-  // Reset to priority mode whenever the visible schedule changes (e.g. date navigation)
+  // Reset to priority mode whenever the visible schedule changes
   useEffect(() => {
     setMarkerMode("priority");
     setRouteResult(null);
@@ -741,8 +785,7 @@ export default function PlannerMapView({
     const map = mapInstanceRef.current;
     if (!map || !engineerLocations.length) return;
 
-    // Clear old engineer markers
-    engineerMarkersRef.current.forEach((m) => (m.map = null));
+    engineerMarkersRef.current.forEach((m) => m.setMap(null));
     engineerMarkersRef.current = [];
 
     for (const loc of engineerLocations) {
@@ -750,41 +793,16 @@ export default function PlannerMapView({
       if (!eng) continue;
 
       const { status, tooltip } = getLocationStatus(loc);
+      const baseColor = status === "live" ? "#3b82f6" : status === "stale" ? "#8b9dc3" : "#9ca3af";
+      const initial = eng.full_name.charAt(0).toUpperCase();
 
-      // Build styled pin based on staleness
-      const wrapper = document.createElement("div");
-      wrapper.style.cssText = "position:relative;width:36px;height:36px;display:flex;align-items:center;justify-content:center;cursor:pointer;";
-
-      const dot = document.createElement("div");
-      if (status === "live") {
-        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#3b82f6;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;";
-      } else if (status === "stale") {
-        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#8b9dc3;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;opacity:0.85;";
-      } else {
-        dot.style.cssText = "width:32px;height:32px;border-radius:50%;background:#9ca3af;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;font-weight:bold;opacity:0.7;";
-      }
-      dot.textContent = eng.full_name.charAt(0).toUpperCase();
-
-      wrapper.appendChild(dot);
-
-      // Stale / offline overlay icon
-      if (status === "stale") {
-        const overlay = document.createElement("div");
-        overlay.style.cssText = "position:absolute;bottom:-2px;right:-2px;background:#f59e0b;border:2px solid white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
-        overlay.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-        wrapper.appendChild(overlay);
-      } else if (status === "offline") {
-        const overlay = document.createElement("div");
-        overlay.style.cssText = "position:absolute;bottom:-2px;right:-2px;background:#6b7280;border:2px solid white;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
-        overlay.innerHTML = `<svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
-        wrapper.appendChild(overlay);
-      }
-
-      const marker = new google.maps.marker.AdvancedMarkerElement({
+      const marker = new google.maps.Marker({
         map,
         position: { lat: loc.latitude, lng: loc.longitude },
         title: tooltip,
-        content: wrapper,
+        icon: svgDot(baseColor, initial, { size: 36, stroke: "#ffffff" }),
+        opacity: status === "offline" ? 0.7 : status === "stale" ? 0.85 : 1,
+        zIndex: 500,
       });
 
       const infoWindow = new google.maps.InfoWindow({
@@ -797,7 +815,11 @@ export default function PlannerMapView({
           ${loc.speed ? `<div style="color:#666;font-size:12px">Speed: ${Math.round(loc.speed * 3.6)} km/h</div>` : ""}
         </div>`,
       });
-      marker.addListener("click", () => infoWindow.open({ anchor: marker, map }));
+      marker.addListener("click", () => {
+        openInfoWindowRef.current?.close();
+        infoWindow.open({ anchor: marker, map });
+        openInfoWindowRef.current = infoWindow;
+      });
       engineerMarkersRef.current.push(marker);
     }
   }, [engineerLocations, engineers, getLocationStatus]);
