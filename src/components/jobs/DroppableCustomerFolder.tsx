@@ -30,6 +30,7 @@ export default function DroppableCustomerFolder({
   statusColor,
   isAdmin,
   isOver,
+  isOpen = false,
   onDelete,
   onRename,
   onDeleteJob,
