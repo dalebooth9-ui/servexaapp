@@ -203,6 +203,12 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     watermarkOverride: WatermarkOverride | null = null,
   ): Promise<Blob | null | void> => {
     setGenerating(true);
+    // Immediate user feedback BEFORE the heavy synchronous jsPDF work begins,
+    // and yield a frame so the spinner / disabled button actually paints first.
+    if (mode !== "blob") {
+      toast({ title: "Preparing PDF…", description: "This may take a few seconds." });
+    }
+    await new Promise((r) => setTimeout(r, 50));
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
@@ -539,9 +545,20 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       ].filter(Boolean).join("-") + ".pdf";
 
       if (mode === "print") {
+        // Direct download — printing via a hidden iframe with a blob: PDF is
+        // routinely blocked by ad/popup blockers (ERR_BLOCKED_BY_CLIENT).
+        // Saving the file lets the user open & print from their PDF viewer
+        // 100% reliably with zero popup-blocker interference.
         const pdfBlob = doc.output("blob");
-        await printBlobInPage(pdfBlob, fileName);
-        toast({ title: "Print dialog opened", description: fileName });
+        const url = URL.createObjectURL(pdfBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF ready", description: `${fileName} downloaded — open it to print.` });
       } else if (mode === "preview") {
         const pdfBlob = doc.output("blob");
         setPreviewBlob(pdfBlob);
