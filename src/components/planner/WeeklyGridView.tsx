@@ -106,17 +106,18 @@ function DraggableUnallocatedJob({
   return (
     <div
       className={cn(
-        "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow",
+        "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow select-none",
         isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30"
       )}
+      style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
     >
       <div
         ref={setNodeRef}
         {...attributes}
         {...listeners}
         className="cursor-grab absolute inset-0 rounded-md"
-        style={{ zIndex: 0 }}
+        style={{ zIndex: 0, WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } as React.CSSProperties}
       />
       <button
         onPointerDown={(e) => e.stopPropagation()}
@@ -357,11 +358,12 @@ function DraggableScheduleCard({
       {...(isAdmin ? attributes : {})}
       {...(isAdmin ? listeners : {})}
       className={cn(
-        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
+        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors select-none",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab active:cursor-grabbing",
       )}
+      style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
     >
       {/* Admin action bar — always visible */}
       {isAdmin && (
@@ -479,8 +481,8 @@ function DraggableAdhocCard({
   });
 
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
-      <div className={cn(isAdmin && "cursor-grab")} {...attributes} {...listeners}>
+    <div ref={setNodeRef} className={cn("select-none", isDragging && "opacity-30")} style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}>
+      <div className={cn("select-none", isAdmin && "cursor-grab")} {...attributes} {...listeners} style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}>
         <AdhocEntryCard entry={entry} isAdmin={isAdmin} onRemove={onRemove} />
       </div>
     </div>
@@ -722,15 +724,28 @@ export default function WeeklyGridView({
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveItem(event.active.data.current);
+    // Prevent text selection anywhere on the page while dragging a planner card
+    document.body.style.userSelect = "none";
+    (document.body.style as any).webkitUserSelect = "none";
+    document.body.classList.add("planner-dragging");
+    // Clear any existing selection that might have started before the drag was recognised
+    try { window.getSelection()?.removeAllRanges(); } catch {}
   };
 
   const handleDragOver = (event: any) => {
     setOverId(event.over?.id || null);
   };
 
+  const clearDragSelectionLock = () => {
+    document.body.style.userSelect = "";
+    (document.body.style as any).webkitUserSelect = "";
+    document.body.classList.remove("planner-dragging");
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveItem(null);
     setOverId(null);
+    clearDragSelectionLock();
     const { active, over } = event;
     if (!over) return;
 
@@ -795,6 +810,7 @@ export default function WeeklyGridView({
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => { setActiveItem(null); setOverId(null); clearDragSelectionLock(); }}
     >
       <div className="flex gap-4">
         {/* Unallocated sidebar */}
