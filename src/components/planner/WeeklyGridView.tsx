@@ -745,6 +745,7 @@ export default function WeeklyGridView({
   const handleDragEnd = async (event: DragEndEvent) => {
     setActiveItem(null);
     setOverId(null);
+    clearDragSelectionLock();
     const { active, over } = event;
     if (!over) return;
 
