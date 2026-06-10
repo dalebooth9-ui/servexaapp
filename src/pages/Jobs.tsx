@@ -210,23 +210,28 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    let query = supabase.from("jobs").select("*, submissions(id, type), customers(id, name, email), sites(id, name)").order("created_at", { ascending: false });
-    // Belt-and-braces for engineers: even though RLS restricts to assigned jobs,
-    // explicitly scope the client-side query by the user's job_assignments.
+    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name)";
+    let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
+    if (!includeArchived) {
+      query = query.not("status", "in", "(completed,archived)");
+    }
+    query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
       const { data: assignments } = await supabase
         .from("job_assignments")
         .select("job_id")
         .eq("engineer_id", user.id);
       const ids = (assignments ?? []).map((a: any) => a.job_id);
-      if (ids.length === 0) { setJobs([]); return; }
+      if (ids.length === 0) { setJobs([]); setHasMore(false); return; }
       query = query.in("id", ids);
     }
     const { data } = await query;
-    setJobs(data || []);
+    const rows = data || [];
+    setHasMore(rows.length > pageSize);
+    setJobs(rows.slice(0, pageSize));
   };
 
-  useEffect(() => { fetchJobs(); }, [user]);
+  useEffect(() => { fetchJobs(); }, [user, includeArchived, pageSize]);
 
   // Keyboard shortcut: n j → open new job dialog
   useEffect(() => {
