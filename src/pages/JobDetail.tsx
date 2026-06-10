@@ -984,7 +984,7 @@ export default function JobDetail() {
       )}
 
 
-      {userRole === "admin" && (
+      {activeTab === "activity" && userRole === "admin" && (
         <Collapsible defaultOpen className="mb-6">
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Servexa Reports
@@ -996,6 +996,7 @@ export default function JobDetail() {
         </Collapsible>
       )}
 
+      {activeTab === "signoff" && (<>
       <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer & Customer Sign-Off Signatures
@@ -1035,9 +1036,13 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
-
       {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
-      {!(job?.category === "installation" || job?.category?.includes("install")) && id && <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>}
+      </>)}
+
+      {activeTab === "parts" && !(job?.category === "installation" || job?.category?.includes("install")) && id && (
+        <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>
+      )}
+
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
