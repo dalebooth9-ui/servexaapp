@@ -1609,25 +1609,35 @@ export default function Sites() {
                           </Tooltip>
                         </TooltipProvider>
                         {allUnlinked.length > 0 && (
-                          <AlertDialog>
+                          <AlertDialog onOpenChange={(open) => { if (!open) setDeleteUnlinkedConfirm(""); }}>
                             <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-6 w-6 text-destructive hover:text-destructive">
-                                <Trash2 className="h-3.5 w-3.5" />
+                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs text-muted-foreground hover:text-destructive">
+                                <Trash2 className="mr-1 h-3.5 w-3.5" /> Delete all
                               </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                               <AlertDialogHeader>
                                 <AlertDialogTitle>Delete all unlinked sites?</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                  This will permanently delete all unlinked sites that have no children or jobs. This action cannot be undone.
+                                  This will permanently delete all {allUnlinked.length} unlinked sites that have no children or jobs. This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
+                              <div className="space-y-2 py-2">
+                                <p className="text-sm text-muted-foreground">Type <strong>DELETE</strong> to confirm.</p>
+                                <Input
+                                  value={deleteUnlinkedConfirm}
+                                  onChange={(e) => setDeleteUnlinkedConfirm(e.target.value)}
+                                  placeholder="DELETE"
+                                  className="uppercase"
+                                  autoComplete="off"
+                                />
+                              </div>
                               <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogCancel onClick={() => setDeleteUnlinkedConfirm("")}>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
                                   onClick={handleDeleteAllUnlinked}
-                                  disabled={deletingUnlinked}
-                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                  disabled={deletingUnlinked || deleteUnlinkedConfirm !== "DELETE"}
+                                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
                                 >
                                   {deletingUnlinked ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                                   Delete All
