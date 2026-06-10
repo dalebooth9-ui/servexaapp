@@ -164,6 +164,21 @@ export default function Jobs() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [pageSize, setPageSize] = useState(300);
+  const [hasMore, setHasMore] = useState(false);
+  const firstLoadRef = useRef(true);
+  const renderTimerRef = useRef(false);
+  if (!renderTimerRef.current) {
+    renderTimerRef.current = true;
+    // eslint-disable-next-line no-console
+    console.time("jobs-page-render");
+  }
+  useEffect(() => {
+    // Log time to first paint of the page (after initial render commit)
+    // eslint-disable-next-line no-console
+    console.timeEnd("jobs-page-render");
+  }, []);
 
   useEffect(() => {
     const fetchCustomers = async () => {
@@ -195,23 +210,28 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    let query = supabase.from("jobs").select("*, submissions(id, type), customers(id, name, email), sites(id, name)").order("created_at", { ascending: false });
-    // Belt-and-braces for engineers: even though RLS restricts to assigned jobs,
-    // explicitly scope the client-side query by the user's job_assignments.
+    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name)";
+    let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
+    if (!includeArchived) {
+      query = query.not("status", "in", "(completed,archived)");
+    }
+    query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
       const { data: assignments } = await supabase
         .from("job_assignments")
         .select("job_id")
         .eq("engineer_id", user.id);
       const ids = (assignments ?? []).map((a: any) => a.job_id);
-      if (ids.length === 0) { setJobs([]); return; }
+      if (ids.length === 0) { setJobs([]); setHasMore(false); return; }
       query = query.in("id", ids);
     }
     const { data } = await query;
-    setJobs(data || []);
+    const rows = data || [];
+    setHasMore(rows.length > pageSize);
+    setJobs(rows.slice(0, pageSize));
   };
 
-  useEffect(() => { fetchJobs(); }, [user]);
+  useEffect(() => { fetchJobs(); }, [user, includeArchived, pageSize]);
 
   // Keyboard shortcut: n j → open new job dialog
   useEffect(() => {
@@ -1078,15 +1098,13 @@ export default function Jobs() {
       return changed ? updated : prev;
     });
     setOpenFolders((prev) => {
-      const allNames = new Set(prev);
-      let changed = false;
-      for (const name of customerNames) {
-        if (!allNames.has(name)) {
-          allNames.add(name);
-          changed = true;
-        }
+      // On first load, default-collapse all folders except the first 3.
+      // After that, preserve whatever the user has open and never auto-open new folders.
+      if (firstLoadRef.current && jobs.length > 0) {
+        firstLoadRef.current = false;
+        return customerNames.slice(0, 3);
       }
-      return changed ? Array.from(allNames) : prev;
+      return prev;
     });
   }, [jobs]);
 
@@ -1452,6 +1470,15 @@ export default function Jobs() {
                 ))}
               </SelectContent>
             </Select>
+            <label className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
+              <input
+                type="checkbox"
+                className="h-3.5 w-3.5 accent-primary"
+                checked={includeArchived}
+                onChange={(e) => setIncludeArchived(e.target.checked)}
+              />
+              Include completed & archived
+            </label>
           </div>
         )}
       </div>
@@ -1689,6 +1716,7 @@ export default function Jobs() {
                 statusColor={getStatusColor}
                 isAdmin={isAdmin}
                 isOver={overId === `folder-${customerName}`}
+                isOpen={openFolders.includes(customerName)}
                 onDelete={() => deleteCustomerFolder(customerName)}
                 onRename={() => startRenameFolder(customerName)}
                 onDeleteJob={handleDeleteJob}
@@ -1701,6 +1729,13 @@ export default function Jobs() {
               />
             ))}
           </Accordion>
+          {hasMore && (
+            <div className="flex justify-center mt-4">
+              <Button variant="outline" onClick={() => setPageSize((n) => n + 300)}>
+                Load more jobs
+              </Button>
+            </div>
+          )}
           {isAdmin && (
             <NewCustomerDropZone isDragging={!!activeJob} isOver={overId === "folder-__new_customer__"} />
           )}
