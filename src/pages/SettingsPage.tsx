@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -145,7 +146,18 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-muted-foreground">Configure your workspace — integrations, reminders, templates, and team access.</p>
       </div>
 
-      <div className="space-y-6">
+      <Tabs defaultValue="team" className="space-y-6">
+        <TabsList className="flex w-full flex-wrap h-auto justify-start gap-1">
+          <TabsTrigger value="team">Team</TabsTrigger>
+          <TabsTrigger value="email">Email</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
+          <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="advanced">Advanced</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="team" className="space-y-6 mt-0">
+          <UserRoleSettings />
+
         {/* Engineer App Install QR Code */}
         <Card>
           <CardHeader>
@@ -234,237 +246,241 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-5 w-5 text-accent" />
-              <CardTitle className="text-lg">WhatsApp Integration (Twilio)</CardTitle>
-            </div>
-            <CardDescription>
-              Receive Servexa reports automatically via WhatsApp using Twilio.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label>Webhook URL</Label>
-              <div className="flex gap-2">
-                <Input value={WEBHOOK_URL} readOnly className="font-mono text-xs" />
-                <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
-                  {copied ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-                </Button>
+        </TabsContent>
+
+        <TabsContent value="email" className="space-y-6 mt-0">
+          <EmailFromSettings />
+          <FollowUpReminderSettings />
+          <ComplianceReminderSettings />
+          <EmailAutomationSettings />
+          <EmailDeliveryTestCard />
+        </TabsContent>
+
+        <TabsContent value="documents" className="space-y-6 mt-0">
+          <JobCategorySettings />
+          <AssetCategorySettings />
+          <JobTemplateSettings />
+          <CategoryDocumentTemplateSettings />
+          <RamsTemplateSettings />
+          <FilenameFormatSettings />
+          <WordExportSettings />
+          <WatermarkSettings />
+          <VehicleCheckSettings />
+        </TabsContent>
+
+        <TabsContent value="integrations" className="space-y-6 mt-0">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="h-5 w-5 text-accent" />
+                <CardTitle className="text-lg">WhatsApp Integration (Twilio)</CardTitle>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Paste this URL into your Twilio WhatsApp Sandbox or Sender configuration as the "When a message comes in" webhook.
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-dashed p-4">
-              <p className="text-sm font-medium">Twilio Setup Checklist</p>
-              <ul className="mt-2 space-y-1 text-xs text-muted-foreground list-disc pl-4">
-                <li>Twilio Account SID, Auth Token, and WhatsApp number are configured ✓</li>
-                <li>Go to <strong>Twilio Console → Messaging → Try WhatsApp</strong> (or your production sender)</li>
-                <li>Set the webhook URL above as the "When a message comes in" callback (HTTP POST)</li>
-                <li>Ensure each engineer's WhatsApp number is saved in their profile</li>
-              </ul>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">How It Works</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="space-y-3 text-sm text-muted-foreground">
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
-                Engineer sends a message to the WhatsApp Business number with the job reference (e.g., "JOB-001")
-              </li>
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
-                Engineer sends photos, documents, text notes, or location pins
-              </li>
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
-                The system automatically files everything under the correct job
-              </li>
-              <li className="flex gap-3">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">4</span>
-                Office staff can view, filter, and download all submissions from the dashboard
-              </li>
-            </ol>
-          </CardContent>
-        </Card>
-        <UserRoleSettings />
-        <EmailDeliveryTestCard />
-        <EmailAutomationSettings />
-        <EmailFromSettings />
-        <FollowUpReminderSettings />
-        <ComplianceReminderSettings />
-        <JobCategorySettings />
-        <AssetCategorySettings />
-        <JobTemplateSettings />
-        <VehicleCheckSettings />
-        <CategoryDocumentTemplateSettings />
-        <RamsTemplateSettings />
-        <FilenameFormatSettings />
-        <WordExportSettings />
-        <WatermarkSettings />
-        <XeroSettings />
-
-        {/* The Mellor Integration */}
-        <QuoteHoundIntegrationCard />
-
-        {/* Customer merge suggestions (admin-only) */}
-        <CustomerMergeSuggestionsPanel />
-
-        {/* Customer Reassignment (admin-only) */}
-        <CustomerReassignWizard />
-
-        {/* Document Re-attach Tool */}
-        <JobDocumentReattachSettings />
-
-        {/* Weekly Report Settings */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <BarChart2 className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">Weekly Management Report</CardTitle>
-            </div>
-            <CardDescription>
-              A rich executive summary email is sent automatically every Monday at 08:00 UTC to all admin users, covering the previous week's revenue, jobs completed, engineer performance, and top customers.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-lg border border-dashed p-4 space-y-2">
-              <p className="text-sm font-medium">What's included in the report</p>
-              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
-                <li>Revenue paid vs prior week (with % delta)</li>
-                <li>Jobs created, completed, and completion rate</li>
-                <li>Per-engineer breakdown: jobs done, hours logged, submissions</li>
-                <li>Job status mix and top customers by volume</li>
-                <li>Direct link back to the full Reports dashboard</li>
-              </ul>
-            </div>
-            <div className="space-y-2">
-              <Label>Send a test report now</Label>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  placeholder="your@email.com"
-                  value={testEmail}
-                  onChange={(e) => setTestEmail(e.target.value)}
-                />
-                <Button
-                  onClick={sendTestReport}
-                  disabled={sendingReport || !testEmail}
-                  className="shrink-0"
-                >
-                  {sendingReport
-                    ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending…</>
-                    : <><Send className="mr-1.5 h-4 w-4" /> Send Test</>
-                  }
-                </Button>
+              <CardDescription>
+                Receive Servexa reports automatically via WhatsApp using Twilio.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Webhook URL</Label>
+                <div className="flex gap-2">
+                  <Input value={WEBHOOK_URL} readOnly className="font-mono text-xs" />
+                  <Button variant="outline" size="icon" onClick={copyWebhookUrl}>
+                    {copied ? <CheckCircle2 className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Paste this URL into your Twilio WhatsApp Sandbox or Sender configuration as the "When a message comes in" webhook.
+                </p>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Sends last week's data to the address above. Marked <strong>[TEST]</strong> in the subject line.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
 
-        {/* API Key Security */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              <CardTitle className="text-lg">API Key Security</CardTitle>
-            </div>
-            <CardDescription>
-              Track and manage your 90-day API key rotation schedule. Rotating keys regularly limits exposure if a key is ever compromised.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {[
-                { label: "Stored in environment secrets", done: true, detail: "Google Maps, Twilio, Resend, Xero" },
-                { label: "Restricted to your domain", done: true, detail: "Google Cloud Console HTTP referrer restriction" },
-                { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString("en-GB")}` : "Not yet logged" },
-              ].map(({ label, done, detail }) => (
-                <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5"}`}>
-                  <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
+              <div className="rounded-lg border border-dashed p-4">
+                <p className="text-sm font-medium">Twilio Setup Checklist</p>
+                <ul className="mt-2 space-y-1 text-xs text-muted-foreground list-disc pl-4">
+                  <li>Twilio Account SID, Auth Token, and WhatsApp number are configured ✓</li>
+                  <li>Go to <strong>Twilio Console → Messaging → Try WhatsApp</strong> (or your production sender)</li>
+                  <li>Set the webhook URL above as the "When a message comes in" callback (HTTP POST)</li>
+                  <li>Ensure each engineer's WhatsApp number is saved in their profile</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">How It Works</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">1</span>
+                  Engineer sends a message to the WhatsApp Business number with the job reference (e.g., "JOB-001")
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">2</span>
+                  Engineer sends photos, documents, text notes, or location pins
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">3</span>
+                  The system automatically files everything under the correct job
+                </li>
+                <li className="flex gap-3">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">4</span>
+                  Office staff can view, filter, and download all submissions from the dashboard
+                </li>
+              </ol>
+            </CardContent>
+          </Card>
+
+          <XeroSettings />
+          <QuoteHoundIntegrationCard />
+          <CustomerMergeSuggestionsPanel />
+          <CustomerReassignWizard />
+          <JobDocumentReattachSettings />
+        </TabsContent>
+
+        <TabsContent value="advanced" className="space-y-6 mt-0">
+          {/* Weekly Report Settings */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <BarChart2 className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">Weekly Management Report</CardTitle>
+              </div>
+              <CardDescription>
+                A rich executive summary email is sent automatically every Monday at 08:00 UTC to all admin users, covering the previous week's revenue, jobs completed, engineer performance, and top customers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-lg border border-dashed p-4 space-y-2">
+                <p className="text-sm font-medium">What's included in the report</p>
+                <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                  <li>Revenue paid vs prior week (with % delta)</li>
+                  <li>Jobs created, completed, and completion rate</li>
+                  <li>Per-engineer breakdown: jobs done, hours logged, submissions</li>
+                  <li>Job status mix and top customers by volume</li>
+                  <li>Direct link back to the full Reports dashboard</li>
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <Label>Send a test report now</Label>
+                <div className="flex gap-2">
+                  <Input
+                    type="email"
+                    placeholder="your@email.com"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                  />
+                  <Button
+                    onClick={sendTestReport}
+                    disabled={sendingReport || !testEmail}
+                    className="shrink-0"
+                  >
+                    {sendingReport
+                      ? <><Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> Sending…</>
+                      : <><Send className="mr-1.5 h-4 w-4" /> Send Test</>
+                    }
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Sends last week's data to the address above. Marked <strong>[TEST]</strong> in the subject line.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* API Key Security */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                <CardTitle className="text-lg">API Key Security</CardTitle>
+              </div>
+              <CardDescription>
+                Track and manage your 90-day API key rotation schedule. Rotating keys regularly limits exposure if a key is ever compromised.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-3">
+                {[
+                  { label: "Stored in environment secrets", done: true, detail: "Google Maps, Twilio, Resend, Xero" },
+                  { label: "Restricted to your domain", done: true, detail: "Google Cloud Console HTTP referrer restriction" },
+                  { label: "Rotated every 90 days", done: !!lastRotated && rotationInfo.status === "ok", detail: lastRotated ? `Last rotated ${new Date(lastRotated).toLocaleDateString("en-GB")}` : "Not yet logged" },
+                ].map(({ label, done, detail }) => (
+                  <div key={label} className={`flex items-start gap-3 rounded-lg border p-3 ${done ? "border-success/30 bg-success/5" : "border-warning/30 bg-warning/5"}`}>
+                    <CheckCircle2 className={`mt-0.5 h-4 w-4 shrink-0 ${done ? "text-success" : "text-muted-foreground/40"}`} />
+                    <div>
+                      <p className="text-xs font-medium">{label}</p>
+                      <p className="text-[11px] text-muted-foreground">{detail}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Rotation countdown */}
+              <div className={`flex items-center justify-between rounded-lg border p-4 ${
+                rotationInfo.status === "overdue" ? "border-destructive/40 bg-destructive/5"
+                : rotationInfo.status === "due_soon" ? "border-warning/40 bg-warning/5"
+                : rotationInfo.status === "ok" ? "border-success/30 bg-success/5"
+                : "border-border bg-muted/30"
+              }`}>
+                <div className="flex items-center gap-3">
+                  {rotationInfo.status === "overdue" ? (
+                    <AlertTriangle className="h-5 w-5 text-destructive" />
+                  ) : rotationInfo.status === "due_soon" ? (
+                    <AlertTriangle className="h-5 w-5 text-warning" />
+                  ) : rotationInfo.status === "ok" ? (
+                    <ShieldCheck className="h-5 w-5 text-success" />
+                  ) : (
+                    <Calendar className="h-5 w-5 text-muted-foreground" />
+                  )}
                   <div>
-                    <p className="text-xs font-medium">{label}</p>
-                    <p className="text-[11px] text-muted-foreground">{detail}</p>
+                    {rotationInfo.status === "unknown" && (
+                      <>
+                        <p className="text-sm font-medium">No rotation logged yet</p>
+                        <p className="text-xs text-muted-foreground">Click "Mark as Rotated" after you rotate your keys in Google Cloud Console, Twilio, and Resend.</p>
+                      </>
+                    )}
+                    {rotationInfo.status === "ok" && (
+                      <>
+                        <p className="text-sm font-medium text-success">{rotationInfo.daysLeft} days until next rotation</p>
+                        <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString("en-GB")}</p>
+                      </>
+                    )}
+                    {rotationInfo.status === "due_soon" && (
+                      <>
+                        <p className="text-sm font-medium text-warning">Rotation due in {rotationInfo.daysLeft} days</p>
+                        <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString("en-GB")} — rotate soon</p>
+                      </>
+                    )}
+                    {rotationInfo.status === "overdue" && (
+                      <>
+                        <p className="text-sm font-medium text-destructive">Rotation overdue!</p>
+                        <p className="text-xs text-muted-foreground">Last rotated {lastRotated ? new Date(lastRotated).toLocaleDateString("en-GB") : "never"}. Rotate your keys now.</p>
+                      </>
+                    )}
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Rotation countdown */}
-            <div className={`flex items-center justify-between rounded-lg border p-4 ${
-              rotationInfo.status === "overdue" ? "border-destructive/40 bg-destructive/5"
-              : rotationInfo.status === "due_soon" ? "border-warning/40 bg-warning/5"
-              : rotationInfo.status === "ok" ? "border-success/30 bg-success/5"
-              : "border-border bg-muted/30"
-            }`}>
-              <div className="flex items-center gap-3">
-                {rotationInfo.status === "overdue" ? (
-                  <AlertTriangle className="h-5 w-5 text-destructive" />
-                ) : rotationInfo.status === "due_soon" ? (
-                  <AlertTriangle className="h-5 w-5 text-warning" />
-                ) : rotationInfo.status === "ok" ? (
-                  <ShieldCheck className="h-5 w-5 text-success" />
-                ) : (
-                  <Calendar className="h-5 w-5 text-muted-foreground" />
-                )}
-                <div>
-                  {rotationInfo.status === "unknown" && (
-                    <>
-                      <p className="text-sm font-medium">No rotation logged yet</p>
-                      <p className="text-xs text-muted-foreground">Click "Mark as Rotated" after you rotate your keys in Google Cloud Console, Twilio, and Resend.</p>
-                    </>
-                  )}
-                  {rotationInfo.status === "ok" && (
-                    <>
-                      <p className="text-sm font-medium text-success">{rotationInfo.daysLeft} days until next rotation</p>
-                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString("en-GB")}</p>
-                    </>
-                  )}
-                  {rotationInfo.status === "due_soon" && (
-                    <>
-                      <p className="text-sm font-medium text-warning">Rotation due in {rotationInfo.daysLeft} days</p>
-                      <p className="text-xs text-muted-foreground">Due {rotationInfo.dueDate?.toLocaleDateString("en-GB")} — rotate soon</p>
-                    </>
-                  )}
-                  {rotationInfo.status === "overdue" && (
-                    <>
-                      <p className="text-sm font-medium text-destructive">Rotation overdue!</p>
-                      <p className="text-xs text-muted-foreground">Last rotated {lastRotated ? new Date(lastRotated).toLocaleDateString("en-GB") : "never"}. Rotate your keys now.</p>
-                    </>
-                  )}
-                </div>
+                <Button size="sm" variant="outline" onClick={markRotated} className="shrink-0 gap-1.5">
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Mark as Rotated
+                </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={markRotated} className="shrink-0 gap-1.5">
-                <RotateCcw className="h-3.5 w-3.5" />
-                Mark as Rotated
-              </Button>
-            </div>
 
-            <div className="rounded-lg border border-dashed p-4 space-y-2">
-              <p className="text-xs font-medium">Keys to rotate every 90 days</p>
-              <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
-                <li><strong>Google Maps API key</strong> — Google Cloud Console → APIs &amp; Services → Credentials</li>
-                <li><strong>Resend API key</strong> — resend.com → API Keys</li>
-                <li><strong>Twilio Auth Token</strong> — console.twilio.com → Account Info</li>
-                <li><strong>Xero Client Secret</strong> — developer.xero.com → My Apps</li>
-              </ul>
-              <p className="text-[11px] text-muted-foreground mt-2">After rotating each key, update it in Settings → Lovable Cloud → Secrets, then click "Mark as Rotated" above.</p>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="rounded-lg border border-dashed p-4 space-y-2">
+                <p className="text-xs font-medium">Keys to rotate every 90 days</p>
+                <ul className="text-xs text-muted-foreground list-disc pl-4 space-y-1">
+                  <li><strong>Google Maps API key</strong> — Google Cloud Console → APIs &amp; Services → Credentials</li>
+                  <li><strong>Resend API key</strong> — resend.com → API Keys</li>
+                  <li><strong>Twilio Auth Token</strong> — console.twilio.com → Account Info</li>
+                  <li><strong>Xero Client Secret</strong> — developer.xero.com → My Apps</li>
+                </ul>
+                <p className="text-[11px] text-muted-foreground mt-2">After rotating each key, update it in Settings → Lovable Cloud → Secrets, then click "Mark as Rotated" above.</p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
-      </div>
     </div>
   );
 }
