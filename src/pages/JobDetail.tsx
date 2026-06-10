@@ -965,21 +965,24 @@ export default function JobDetail() {
       </>)}
 
 
-      {userRole === "admin" && (
+      {activeTab === "overview" && userRole === "admin" && (
         <div className="mb-6">
           <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
         </div>
       )}
 
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Parts & Materials
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <JobParts jobId={id!} jobCategory={job.category} jobName={job.name} />
-        </CollapsibleContent>
-      </Collapsible>
+      {activeTab === "parts" && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Parts & Materials
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <JobParts jobId={id!} jobCategory={job.category} jobName={job.name} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+
 
       {userRole === "admin" && (
         <Collapsible defaultOpen className="mb-6">
