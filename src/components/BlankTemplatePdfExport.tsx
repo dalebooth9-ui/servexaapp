@@ -219,6 +219,34 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       toast({ title: "Preparing PDF…", description: "This may take a few seconds." });
     }
     await new Promise((r) => setTimeout(r, 50));
+    // --- Blank-template cache lookup ---------------------------------------
+    // Skip cache for job-prefilled exports and watermark-override rebuilds.
+    const cacheable = !jobInfo && !watermarkOverride;
+    const cacheKey = cacheable ? blankCacheKey(template as any, handfill) : "";
+    if (cacheable && BLANK_PDF_CACHE.has(cacheKey)) {
+      const cachedBlob = BLANK_PDF_CACHE.get(cacheKey)!;
+      const cachedName = [
+        template.name.replace(/\s+/g, "-").toLowerCase(),
+        handfill ? "handfill" : null,
+        "blank",
+      ].filter(Boolean).join("-") + ".pdf";
+      if (mode === "blob") { setGenerating(false); return cachedBlob; }
+      if (mode === "preview") {
+        setPreviewBlob(cachedBlob);
+        setPreviewName(cachedName);
+        setPreviewBuildArgs({ handfill });
+        setPreviewOpen(true);
+      } else {
+        const url = URL.createObjectURL(cachedBlob);
+        const a = document.createElement("a");
+        a.href = url; a.download = cachedName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF ready", description: cachedName });
+      }
+      setGenerating(false);
+      return;
+    }
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
