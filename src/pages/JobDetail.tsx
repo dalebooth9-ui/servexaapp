@@ -67,6 +67,16 @@ const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
+const JOB_TABS = [
+  { value: "overview", label: "Overview" },
+  { value: "documents", label: "Documents" },
+  { value: "parts", label: "Parts" },
+  { value: "survey", label: "Survey & Snags" },
+  { value: "signoff", label: "Sign-off" },
+  { value: "activity", label: "Activity" },
+] as const;
+type JobTab = (typeof JOB_TABS)[number]["value"];
+
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
   return job?.customers?.name || job?.customer || null;
