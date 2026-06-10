@@ -4,6 +4,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GripVertical, Trash2, ShieldCheck, CalendarDays, AlertCircle } from "lucide-react";
 import { format, isPast, isToday, parseISO } from "date-fns";
 import { filterAllowedFiles } from "@/lib/fileUtils";
@@ -151,22 +152,41 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
 
       {/* Right: actions */}
       {isAdmin && (
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            className="text-muted-foreground hover:text-primary transition-colors p-0.5"
-            title="Schedule in planner"
-            onClick={() => onQuickSchedule?.(job)}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-          </button>
-          <JobPrintSheetButton job={job} />
-          <WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} />
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="text-muted-foreground hover:text-destructive transition-colors p-0.5" title="Delete job">
-                <Trash2 className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                onClick={() => onQuickSchedule?.(job)}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
               </button>
-            </AlertDialogTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="top">Schedule visit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span><JobPrintSheetButton job={job} /></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">Print job sheet</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span><WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} /></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">Send message</TooltipContent>
+          </Tooltip>
+          <AlertDialog>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <AlertDialogTrigger asChild>
+                  <button className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </AlertDialogTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="top">Delete job</TooltipContent>
+            </Tooltip>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>Delete job?</AlertDialogTitle>
