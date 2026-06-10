@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { generateRamsPdf } from "@/lib/ramsPdf";
 import { generateSprinklerRamsPdf, generateExtinguisherRamsPdf, generateHydrantRamsPdf, generateInstallationRamsPdf } from "@/lib/ramsPdfVariants";
 import { supabase } from "@/integrations/supabase/client";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 
 export type RamsType = "dry_riser" | "dry_riser_remedial" | "sprinkler" | "fire_extinguisher" | "fire_hydrant" | "installation" | "wet_riser" | "fire_alarm" | "emergency_lighting" | "aov_smoke_control" | "passive_fire" | "gas_suppression" | "kitchen_suppression" | "water_mist" | "hose_reel" | "fire_risk_assessment";
 
@@ -26,10 +27,18 @@ interface Props {
 
 export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode = "preview", ramsType = "dry_riser" }: Props) {
   const [generating, setGenerating] = useState(false);
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewName, setPreviewName] = useState<string>("");
+  const [previewOpen, setPreviewOpen] = useState(false);
   const { toast } = useToast();
 
   const generate = async (forceMode?: "preview" | "download") => {
     setGenerating(true);
+    const effectiveMode = forceMode ?? mode;
+    // Immediate user feedback BEFORE the heavy synchronous jsPDF work begins,
+    // and yield a frame so the spinner / disabled button actually paint first.
+    toast({ title: "Preparing RAMS PDF…", description: "This may take a few seconds." });
+    await new Promise((r) => setTimeout(r, 50));
     try {
       let assignedEngineers: { name: string; sig: string; date: string }[] = [];
       let attendanceDate = formData["rams_attendance_date"] || "";
@@ -74,8 +83,6 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
           }
         }
       }
-
-      const effectiveMode = forceMode ?? mode;
 
       // Resolve dynamic assessor (current user) and engineers list for personnel
       let assessorName = "";
@@ -135,9 +142,10 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
       const byteArray = new Uint8Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) byteArray[i] = byteCharacters.charCodeAt(i);
       const blob = new Blob([byteArray], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
 
       if (effectiveMode === "download") {
+        // Direct <a download> click — never blocked by popup blockers.
+        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = fileName;
@@ -147,39 +155,50 @@ export default function RamsPdfExport({ formData, jobInfo, jobId, trigger, mode 
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "RAMS PDF downloaded", description: fileName });
       } else {
-        const a = document.createElement("a");
-        a.href = url;
-        a.target = "_blank";
-        a.rel = "noopener noreferrer";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        setTimeout(() => URL.revokeObjectURL(url), 30000);
-        toast({ title: "RAMS PDF opened", description: fileName });
+        // In-app modal preview — no popups, no popup-blocker interference.
+        setPreviewBlob(blob);
+        setPreviewName(fileName);
+        setPreviewOpen(true);
       }
     } catch (err: any) {
-      toast({ title: "Error generating RAMS PDF", description: err.message, variant: "destructive" });
+      toast({ title: "Error generating RAMS PDF", description: err?.message ?? "Unable to generate PDF.", variant: "destructive" });
     } finally {
       setGenerating(false);
     }
   };
 
+  const previewDialog = (
+    <PdfPreviewDialog
+      open={previewOpen}
+      onOpenChange={setPreviewOpen}
+      blob={previewBlob}
+      fileName={previewName}
+      title={previewName}
+    />
+  );
+
   if (trigger) {
     return (
-      <span onClick={() => generate()} className="cursor-pointer">
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : trigger}
-      </span>
+      <>
+        <span onClick={() => generate()} className="cursor-pointer">
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin inline" /> : trigger}
+        </span>
+        {previewDialog}
+      </>
     );
   }
 
   return (
-    <div className="flex gap-1">
-      <Button variant="outline" size="sm" onClick={() => generate("preview")} disabled={generating} title="Preview RAMS PDF">
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
-      </Button>
-      <Button variant="outline" size="sm" onClick={() => generate("download")} disabled={generating} title="Download RAMS PDF">
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-      </Button>
-    </div>
+    <>
+      <div className="flex gap-1">
+        <Button variant="outline" size="sm" onClick={() => generate("preview")} disabled={generating} title="Preview RAMS PDF">
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileText className="h-3.5 w-3.5" />}
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => generate("download")} disabled={generating} title="Download RAMS PDF">
+          {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
+      {previewDialog}
+    </>
   );
 }
