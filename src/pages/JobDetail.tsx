@@ -107,6 +107,17 @@ export default function JobDetail() {
   const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
 
+  // Tab state — persisted per-job in sessionStorage so navigating away & back
+  // keeps the same active section for the current browser session.
+  const [activeTab, setActiveTab] = useState<JobTab>(() => {
+    if (typeof window === "undefined" || !id) return "overview";
+    const stored = sessionStorage.getItem(`job-detail-tab-${id}`);
+    return JOB_TABS.some((t) => t.value === stored) ? (stored as JobTab) : "overview";
+  });
+  useEffect(() => {
+    if (id) sessionStorage.setItem(`job-detail-tab-${id}`, activeTab);
+  }, [activeTab, id]);
+
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
 
   const { uploading, uploadFilesAsSubmissions } = useFileUpload({ onComplete: () => fetchData() });
