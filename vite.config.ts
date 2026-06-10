@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       injectRegister: null, // we register via a guarded wrapper in src/pwa/registerSW.ts
       devOptions: { enabled: false }, // never emit a SW in dev / Lovable preview
-      includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js"],
+      includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"],
       workbox: {
         // Bump cacheId to force all clients to evict old precaches
         cacheId: "servexa-v4",
