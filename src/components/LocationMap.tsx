@@ -91,7 +91,7 @@ export default function LocationMap({ locations }: { locations: LocationPoint[] 
 
           const infoContent = `
             <div style="font-size:12px;max-width:200px">
-              <p style="font-weight:600;margin:0">${escapeHtml(new Date(loc.created_at).toLocaleString())}</p>
+              <p style="font-weight:600;margin:0">${escapeHtml(new Date(loc.created_at).toLocaleString("en-GB"))}</p>
               ${loc.content ? `<p style="margin:4px 0 0">${escapeHtml(loc.content)}</p>` : ""}
               <p style="margin:4px 0 0;color:#666">${loc.latitude.toFixed(6)}, ${loc.longitude.toFixed(6)}</p>
             </div>

@@ -142,7 +142,7 @@ export default function SubmissionComments({ submissionId }: SubmissionCommentsP
                     )}
                   </div>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {authorNames[c.author_id] || "Unknown"} • {new Date(c.created_at).toLocaleString()}
+                    {authorNames[c.author_id] || "Unknown"} • {new Date(c.created_at).toLocaleString("en-GB")}
                   </p>
                 </>
               )}

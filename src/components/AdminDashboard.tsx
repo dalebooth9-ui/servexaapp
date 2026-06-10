@@ -511,7 +511,7 @@ export default function AdminDashboard() {
                         {(sub as any).jobs?.name || "Unknown job"}
                         {sub.engineer_name && ` • ${sub.engineer_name}`}
                         {" • "}
-                        {new Date(sub.created_at).toLocaleDateString()}
+                        {new Date(sub.created_at).toLocaleDateString("en-GB")}
                       </p>
                     </div>
                   </div>
