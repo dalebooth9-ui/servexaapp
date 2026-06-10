@@ -45,6 +45,16 @@ type Template = {
   };
 };
 
+/**
+ * Session-scoped in-memory cache for blank template PDFs (no job-specific
+ * data, no watermark overrides). Re-clicking preview/download on the same
+ * blank template returns the cached Blob instantly instead of regenerating.
+ * Cleared on page reload. Cache key: template.id + updated_at + handfill.
+ */
+const BLANK_PDF_CACHE = new Map<string, Blob>();
+const blankCacheKey = (tpl: { id?: string; updated_at?: string; name?: string }, handfill: boolean) =>
+  `${tpl.id ?? tpl.name ?? "?"}::${tpl.updated_at ?? ""}::${handfill ? "hf" : "std"}`;
+
 type JobInfo = {
   address: string | null;
   customer: string | null;
@@ -209,6 +219,34 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       toast({ title: "Preparing PDF…", description: "This may take a few seconds." });
     }
     await new Promise((r) => setTimeout(r, 50));
+    // --- Blank-template cache lookup ---------------------------------------
+    // Skip cache for job-prefilled exports and watermark-override rebuilds.
+    const cacheable = !jobInfo && !watermarkOverride;
+    const cacheKey = cacheable ? blankCacheKey(template as any, handfill) : "";
+    if (cacheable && BLANK_PDF_CACHE.has(cacheKey)) {
+      const cachedBlob = BLANK_PDF_CACHE.get(cacheKey)!;
+      const cachedName = [
+        template.name.replace(/\s+/g, "-").toLowerCase(),
+        handfill ? "handfill" : null,
+        "blank",
+      ].filter(Boolean).join("-") + ".pdf";
+      if (mode === "blob") { setGenerating(false); return cachedBlob; }
+      if (mode === "preview") {
+        setPreviewBlob(cachedBlob);
+        setPreviewName(cachedName);
+        setPreviewBuildArgs({ handfill });
+        setPreviewOpen(true);
+      } else {
+        const url = URL.createObjectURL(cachedBlob);
+        const a = document.createElement("a");
+        a.href = url; a.download = cachedName;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF ready", description: cachedName });
+      }
+      setGenerating(false);
+      return;
+    }
     try {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
@@ -544,13 +582,16 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         handfill ? "handfill" : null,
       ].filter(Boolean).join("-") + ".pdf";
 
+      // Build the blob ONCE and reuse it for every mode + the cache.
+      const builtBlob = doc.output("blob") as Blob;
+      if (cacheable && cacheKey) BLANK_PDF_CACHE.set(cacheKey, builtBlob);
+
       if (mode === "print") {
         // Direct download — printing via a hidden iframe with a blob: PDF is
         // routinely blocked by ad/popup blockers (ERR_BLOCKED_BY_CLIENT).
         // Saving the file lets the user open & print from their PDF viewer
         // 100% reliably with zero popup-blocker interference.
-        const pdfBlob = doc.output("blob");
-        const url = URL.createObjectURL(pdfBlob);
+        const url = URL.createObjectURL(builtBlob);
         const a = document.createElement("a");
         a.href = url;
         a.download = fileName;
@@ -560,18 +601,26 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "PDF ready", description: `${fileName} downloaded — open it to print.` });
       } else if (mode === "preview") {
-        const pdfBlob = doc.output("blob");
-        setPreviewBlob(pdfBlob);
+        setPreviewBlob(builtBlob);
         setPreviewName(fileName);
         setPreviewBuildArgs({ handfill });
         setPreviewOpen(true);
       } else if (mode === "blob") {
         // Silent build — caller uses the returned Blob directly (e.g. live preview embed).
-        return doc.output("blob") as Blob;
+        return builtBlob;
       } else {
-        doc.save(fileName);
+        // download — direct <a download> click, never blocked.
+        const url = URL.createObjectURL(builtBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "PDF downloaded", description: fileName });
       }
+
     } catch (err: any) {
       // For silent blob builds, re-throw so the caller can handle it.
       if (mode === "blob") {
