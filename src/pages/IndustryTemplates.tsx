@@ -1477,14 +1477,35 @@ export default function IndustryTemplates() {
                         {/* Create RAMS */}
                         {CATEGORY_TO_RAMS_TYPE[tpl.category] && (
                           <Button
+                            type="button"
                             size="sm"
                             variant="outline"
                             className="h-7 text-xs gap-1.5"
-                            onClick={() => navigate(`/rams/new?type=${CATEGORY_TO_RAMS_TYPE[tpl.category]}`)}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              // Only navigate when this is a real, trusted user
+                              // activation on THIS button — guards against any
+                              // accidental focus / synthetic-click triggers
+                              // (e.g. while a PDF preview dialog is opening).
+                              if (!e.isTrusted) return;
+                              if ((e.currentTarget as HTMLElement) !== (e.target as HTMLElement) &&
+                                  !(e.currentTarget as HTMLElement).contains(e.target as HTMLElement)) {
+                                return;
+                              }
+                              console.info("[IndustryTemplates] RAMS button clicked", {
+                                templateId: tpl.id,
+                                templateName: tpl.name,
+                                category: tpl.category,
+                                ramsType: CATEGORY_TO_RAMS_TYPE[tpl.category],
+                              });
+                              navigate(`/rams/new?type=${CATEGORY_TO_RAMS_TYPE[tpl.category]}`);
+                            }}
                           >
                             <FileText className="h-3.5 w-3.5" /> RAMS
                           </Button>
                         )}
+
 
                         {/* Edit template */}
                         <Button
