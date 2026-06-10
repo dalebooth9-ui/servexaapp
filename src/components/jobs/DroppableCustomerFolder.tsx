@@ -12,6 +12,7 @@ interface DroppableCustomerFolderProps {
   statusColor: (s: string) => string;
   isAdmin: boolean;
   isOver: boolean;
+  isOpen?: boolean;
   onDelete?: () => void;
   onRename?: () => void;
   onDeleteJob?: (id: string) => void;
