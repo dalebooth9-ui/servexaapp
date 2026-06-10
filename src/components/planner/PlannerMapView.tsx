@@ -595,6 +595,7 @@ export default function PlannerMapView({
                 openInfoWindowRef.current = infoWindow;
               });
               markersRef.current.push({ marker, engineerId, priority: job.priority, jobId: job.id });
+            }
           } catch {
             // Skip failed geocodes
           }
@@ -611,20 +612,16 @@ export default function PlannerMapView({
               bounds.extend(pos);
               hasMarkers = true;
 
-              const pinEl = document.createElement("div");
-              pinEl.style.cssText = "display:flex;flex-direction:column;align-items:center;transform:translateY(-8px);cursor:pointer";
-              const refLabel = (job.reference_number || "").replace(/</g, "&lt;");
-              pinEl.innerHTML = `
-                <div style="background:#9ca3af;border:2px solid #6b7280;color:white;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 1px 3px rgba(0,0,0,.35)">?</div>
-                <div style="margin-top:3px;background:white;border:1px solid #d1d5db;color:#374151;font-size:10px;font-weight:600;padding:1px 5px;border-radius:3px;white-space:nowrap;box-shadow:0 1px 2px rgba(0,0,0,.18)">${refLabel}</div>
-              `;
-
-              const marker = new google.maps.marker.AdvancedMarkerElement({
-                map,
+              // Fall back to priority colour, then to neutral blue (no "?" icon)
+              const unallocPriority = (job.priority || "").toLowerCase();
+              const unallocColor = PRIORITY_PIN[unallocPriority] || UNKNOWN_PRIORITY_COLOR;
+              const marker = new google.maps.Marker({
                 position: pos,
-                title: `[Unallocated] ${job.reference_number} - ${job.name}`,
-                content: pinEl,
+                title: `[Unallocated] ${job.reference_number} — ${job.name}`,
+                icon: svgPin(unallocColor, { stroke: "#e5e7eb" }),
+                opacity: 0.85,
               });
+
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address)}`;
               const siteName = (job as any).sites?.name || (job as any).site?.name || "";
