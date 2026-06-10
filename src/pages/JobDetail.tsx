@@ -526,8 +526,30 @@ export default function JobDetail() {
         </div>
       )}
 
+      {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM. */}
+      <div className="mb-6 flex flex-wrap gap-1 border-b border-border" role="tablist" aria-label="Job sections">
+        {JOB_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            className={`px-3 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              activeTab === tab.value
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (<>
       {/* Editable Job Details */}
       <Collapsible defaultOpen className="mb-6">
+
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Job Details
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
