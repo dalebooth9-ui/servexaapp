@@ -925,6 +925,7 @@ export default function JobDetail() {
       </>)}
 
 
+      {activeTab === "survey" && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Site Survey
@@ -961,6 +962,8 @@ export default function JobDetail() {
           <InstallationProjects jobId={id!} job={job} />
         </div>
       )}
+      </>)}
+
 
       {userRole === "admin" && (
         <div className="mb-6">
