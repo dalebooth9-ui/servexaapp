@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Route, Loader2, MapPin, AlertTriangle, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
 interface ScheduleEntry {
   id: string;
@@ -28,13 +29,44 @@ interface Job {
 interface Engineer { user_id: string; full_name: string }
 
 const PRIORITY_PIN: Record<string, string> = {
+  critical: "#7f1d1d",
   high: "#ef4444",
   medium: "#f59e0b",
   low: "#10b981",
 };
 
+// Neutral fallback for jobs without a known priority (instead of grey "?" icon)
+const UNKNOWN_PRIORITY_COLOR = "#3b82f6";
+
 // Distinct highlight colour when filtering by engineer
 const ENGINEER_HIGHLIGHT = "#8b5cf6";
+
+// Build a coloured SVG pin as a data URI — works with google.maps.Marker without needing a mapId
+function svgPin(color: string, opts: { size?: number; stroke?: string } = {}): google.maps.Icon {
+  const size = opts.size ?? 36;
+  const stroke = opts.stroke ?? "#ffffff";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24"><path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7 11.5 7.3 11.78a1 1 0 0 0 1.4 0C13 21.5 20 15.25 20 10c0-4.42-3.58-8-8-8z" fill="${color}" stroke="${stroke}" stroke-width="1.5"/><circle cx="12" cy="10" r="3" fill="${stroke}"/></svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(size, size),
+    anchor: new google.maps.Point(size / 2, size),
+  };
+}
+
+function svgDot(color: string, label?: string, opts: { size?: number; stroke?: string; textColor?: string } = {}): google.maps.Icon {
+  const size = opts.size ?? 32;
+  const stroke = opts.stroke ?? "#ffffff";
+  const textColor = opts.textColor ?? "#ffffff";
+  const text = label
+    ? `<text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" font-family="system-ui,sans-serif" font-size="11" font-weight="700" fill="${textColor}">${label}</text>`
+    : "";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size / 2}" cy="${size / 2}" r="${size / 2 - 2}" fill="${color}" stroke="${stroke}" stroke-width="2"/>${text}</svg>`;
+  return {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(size, size),
+    anchor: new google.maps.Point(size / 2, size / 2),
+  };
+}
 
 interface AdhocEntryLike {
   id: string;
@@ -63,16 +95,18 @@ export default function PlannerMapView({
 }) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<{ marker: google.maps.marker.AdvancedMarkerElement; engineerId: string; priority: string; jobId: string }[]>([]);
-  const engineerMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
-  const unallocatedMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const markersRef = useRef<{ marker: google.maps.Marker; engineerId: string; priority: string; jobId: string }[]>([]);
+  const engineerMarkersRef = useRef<google.maps.Marker[]>([]);
+  const unallocatedMarkersRef = useRef<google.maps.Marker[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
-  const routeNumberOverlaysRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const routeNumberOverlaysRef = useRef<google.maps.Marker[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const openInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const refreshIntervalIdRef = useRef<number | null>(null);
   const onScheduleJobRef = useRef(onScheduleJob);
   useEffect(() => { onScheduleJobRef.current = onScheduleJob; }, [onScheduleJob]);
   const engineerLocations = useLiveEngineerLocations();
