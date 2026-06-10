@@ -76,15 +76,28 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
     }
   };
 
+  // Wrap every onClick so it cannot trigger sibling buttons via bubbling /
+  // form-submission and cannot be re-fired by focus restoration when the
+  // PdfPreviewDialog opens/closes.
+  const guard = (fn: () => any) => (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fn();
+  };
+
   return (
-    <div className="flex items-center gap-1">
+    <div
+      className="flex items-center gap-1"
+      onClick={(e) => e.stopPropagation()}
+    >
       {/* Preview (PDF) */}
       <Button
+        type="button"
         variant="ghost"
         size="icon"
         className="h-7 w-7"
         disabled={busy}
-        onClick={() => run(() => pdfRef.current?.preview())}
+        onClick={guard(() => run(() => pdfRef.current?.preview()))}
         title="Preview blank template"
         aria-label={`Preview ${template.name}`}
       >
@@ -95,6 +108,7 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
+            type="button"
             variant="ghost"
             size="icon"
             className="h-7 w-7"
@@ -128,11 +142,12 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
 
       {/* Quick Word download (also available inside Download menu) */}
       <Button
+        type="button"
         variant="ghost"
         size="icon"
         className="h-7 w-7"
         disabled={busy}
-        onClick={() => run(() => wordRef.current?.download())}
+        onClick={guard(() => run(() => wordRef.current?.download()))}
         title="Download as Word (.docx)"
         aria-label={`Download ${template.name} as Word document`}
       >
@@ -141,11 +156,12 @@ export default function BlankTemplateActions({ template, jobInfo = null }: Props
 
       {/* Print */}
       <Button
+        type="button"
         variant="ghost"
         size="icon"
         className="h-7 w-7"
         disabled={busy}
-        onClick={() => run(() => pdfRef.current?.print())}
+        onClick={guard(() => run(() => pdfRef.current?.print()))}
         title="Print blank template"
         aria-label={`Print ${template.name}`}
       >
