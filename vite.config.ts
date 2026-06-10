@@ -11,6 +11,9 @@ export default defineConfig(({ mode }) => ({
   ...(mode === "production"
     ? { esbuild: { drop: ["console", "debugger"] as ("console" | "debugger")[] } }
     : {}),
+  worker: {
+    format: "es",
+  },
   server: {
     host: "::",
     port: 8080,
