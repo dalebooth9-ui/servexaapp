@@ -292,20 +292,22 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     // Skip cache for job-prefilled exports and watermark-override rebuilds.
     const cacheable = !jobInfo && !watermarkOverride;
     const cacheKey = cacheable ? blankCacheKey(template as any, handfill) : "";
-    if (cacheable && BLANK_PDF_CACHE.has(cacheKey)) {
-      const cachedBlob = BLANK_PDF_CACHE.get(cacheKey)!;
-      const cachedName = [
-        template.name.replace(/\s+/g, "-").toLowerCase(),
-        handfill ? "handfill" : null,
-        "blank",
-      ].filter(Boolean).join("-") + ".pdf";
-      if (mode === "blob") { setGenerating(false); return cachedBlob; }
+    const storagePath = cacheable
+      ? blankPdfStoragePath(template as any, handfill)
+      : "";
+    const cachedName = [
+      template.name.replace(/\s+/g, "-").toLowerCase(),
+      handfill ? "handfill" : null,
+      "blank",
+    ].filter(Boolean).join("-") + ".pdf";
+
+    const serveCached = (cachedBlob: Blob) => {
       if (mode === "preview") {
         setPreviewBlob(cachedBlob);
         setPreviewName(cachedName);
         setPreviewBuildArgs({ handfill });
         setPreviewOpen(true);
-      } else {
+      } else if (mode !== "blob") {
         const url = URL.createObjectURL(cachedBlob);
         const a = document.createElement("a");
         a.href = url; a.download = cachedName;
@@ -313,9 +315,29 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "PDF ready", description: cachedName });
       }
+    };
+
+    // 1) In-memory cache (instant within the session)
+    if (cacheable && BLANK_PDF_CACHE.has(cacheKey)) {
+      const cachedBlob = BLANK_PDF_CACHE.get(cacheKey)!;
+      if (mode === "blob") { setGenerating(false); return cachedBlob; }
+      serveCached(cachedBlob);
       setGenerating(false);
       return;
     }
+
+    // 2) Supabase Storage cache (persists across reloads / users)
+    if (cacheable && storagePath) {
+      const remote = await fetchCachedBlankPdf(storagePath);
+      if (remote) {
+        BLANK_PDF_CACHE.set(cacheKey, remote);
+        if (mode === "blob") { setGenerating(false); return remote; }
+        serveCached(remote);
+        setGenerating(false);
+        return;
+      }
+    }
+
     try {
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
       const isDryRiser = /dry\s*riser/i.test(template.name || "");
