@@ -152,40 +152,59 @@ export default function DraggableJobRow({ job, statusColor, isAdmin, onDelete, s
 
       {/* Right: actions */}
       {isAdmin && (
-        <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            className="text-muted-foreground hover:text-primary transition-colors p-0.5"
-            title="Schedule in planner"
-            onClick={() => onQuickSchedule?.(job)}
-          >
-            <CalendarDays className="h-3.5 w-3.5" />
-          </button>
-          <JobPrintSheetButton job={job} />
-          <WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} />
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button className="text-muted-foreground hover:text-destructive transition-colors p-0.5" title="Delete job">
-                <Trash2 className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1 shrink-0 opacity-40 group-hover:opacity-100 transition-opacity">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="text-muted-foreground hover:text-primary transition-colors p-0.5"
+                onClick={() => onQuickSchedule?.(job)}
+              >
+                <CalendarDays className="h-3.5 w-3.5" />
               </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete job?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete <strong>{job.reference_number} – {job.name}</strong> and all associated data. This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  onClick={() => onDelete?.(job.id)}
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            </TooltipTrigger>
+            <TooltipContent side="top">Schedule visit</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span><JobPrintSheetButton job={job} /></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">Print job sheet</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span><WhatsAppQuickSend jobId={job.id} jobRef={job.reference_number} /></span>
+            </TooltipTrigger>
+            <TooltipContent side="top">Send message</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <TooltipTrigger asChild>
+                  <button className="text-muted-foreground hover:text-destructive transition-colors p-0.5">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete job?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will permanently delete <strong>{job.reference_number} – {job.name}</strong> and all associated data. This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    onClick={() => onDelete?.(job.id)}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <TooltipContent side="top">Delete job</TooltipContent>
+          </Tooltip>
         </div>
       )}
     </div>
