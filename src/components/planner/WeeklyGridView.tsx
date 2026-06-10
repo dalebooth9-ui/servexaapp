@@ -358,11 +358,12 @@ function DraggableScheduleCard({
       {...(isAdmin ? attributes : {})}
       {...(isAdmin ? listeners : {})}
       className={cn(
-        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors",
+        "group/schedcard relative rounded-md border-l-4 bg-card p-1.5 text-[11px] shadow-sm transition-colors select-none",
         PRIORITY_BG[job.priority] || "border-l-muted",
         isDragging && "opacity-30",
         isAdmin && "cursor-grab active:cursor-grabbing",
       )}
+      style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
     >
       {/* Admin action bar — always visible */}
       {isAdmin && (
