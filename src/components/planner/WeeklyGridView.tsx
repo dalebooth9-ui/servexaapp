@@ -481,8 +481,8 @@ function DraggableAdhocCard({
   });
 
   return (
-    <div ref={setNodeRef} className={cn(isDragging && "opacity-30")}>
-      <div className={cn(isAdmin && "cursor-grab")} {...attributes} {...listeners}>
+    <div ref={setNodeRef} className={cn("select-none", isDragging && "opacity-30")} style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}>
+      <div className={cn("select-none", isAdmin && "cursor-grab")} {...attributes} {...listeners} style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}>
         <AdhocEntryCard entry={entry} isAdmin={isAdmin} onRemove={onRemove} />
       </div>
     </div>
