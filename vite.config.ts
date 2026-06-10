@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => ({
       registerType: "autoUpdate",
       injectRegister: null, // we register via a guarded wrapper in src/pwa/registerSW.ts
       devOptions: { enabled: false }, // never emit a SW in dev / Lovable preview
-      includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js"],
+      includeAssets: ["favicon.png", "favicon.ico", "bg-sync.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png"],
       workbox: {
         // Bump cacheId to force all clients to evict old precaches
         cacheId: "servexa-v4",
@@ -100,8 +100,9 @@ export default defineConfig(({ mode }) => ({
         scope: "/",
         start_url: "/",
         icons: [
-          { src: "/favicon.png", sizes: "192x192", type: "image/png" },
-          { src: "/favicon.png", sizes: "512x512", type: "image/png", purpose: "any maskable" },
+          { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
     }),
