@@ -164,6 +164,21 @@ export default function Jobs() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
+  const [includeArchived, setIncludeArchived] = useState(false);
+  const [pageSize, setPageSize] = useState(300);
+  const [hasMore, setHasMore] = useState(false);
+  const firstLoadRef = useRef(true);
+  const renderTimerRef = useRef(false);
+  if (!renderTimerRef.current) {
+    renderTimerRef.current = true;
+    // eslint-disable-next-line no-console
+    console.time("jobs-page-render");
+  }
+  useEffect(() => {
+    // Log time to first paint of the page (after initial render commit)
+    // eslint-disable-next-line no-console
+    console.timeEnd("jobs-page-render");
+  }, []);
 
   useEffect(() => {
     const fetchCustomers = async () => {
