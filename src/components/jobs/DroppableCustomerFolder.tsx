@@ -143,10 +143,10 @@ export default function DroppableCustomerFolder({
         </div>
       </AccordionTrigger>
       <AccordionContent className="px-3 pb-3 pt-1">
-        {jobs.length === 0 ? (
+        {!isOpen ? null : jobs.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-4">No jobs in this folder</p>
         ) : (
-          <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5" style={{ userSelect: "none", WebkitUserSelect: "none" }}>
             {jobs.map((job: any) => (
               <DraggableJobRow
                 key={job.id}
