@@ -4,6 +4,7 @@ import { useDraggable } from "@dnd-kit/core";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GripVertical, Trash2, ShieldCheck, CalendarDays, AlertCircle } from "lucide-react";
 import { format, isPast, isToday, parseISO } from "date-fns";
 import { filterAllowedFiles } from "@/lib/fileUtils";
