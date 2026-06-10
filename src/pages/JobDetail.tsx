@@ -67,6 +67,16 @@ const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
+const JOB_TABS = [
+  { value: "overview", label: "Overview" },
+  { value: "documents", label: "Documents" },
+  { value: "parts", label: "Parts" },
+  { value: "survey", label: "Survey & Snags" },
+  { value: "signoff", label: "Sign-off" },
+  { value: "activity", label: "Activity" },
+] as const;
+type JobTab = (typeof JOB_TABS)[number]["value"];
+
 // Helper to get customer name from job with joined customers
 function getCustomerName(job: any): string | null {
   return job?.customers?.name || job?.customer || null;
@@ -96,6 +106,17 @@ export default function JobDetail() {
   const [qrOpen, setQrOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
+
+  // Tab state — persisted per-job in sessionStorage so navigating away & back
+  // keeps the same active section for the current browser session.
+  const [activeTab, setActiveTab] = useState<JobTab>(() => {
+    if (typeof window === "undefined" || !id) return "overview";
+    const stored = sessionStorage.getItem(`job-detail-tab-${id}`);
+    return JOB_TABS.some((t) => t.value === stored) ? (stored as JobTab) : "overview";
+  });
+  useEffect(() => {
+    if (id) sessionStorage.setItem(`job-detail-tab-${id}`, activeTab);
+  }, [activeTab, id]);
 
   useUnsavedChanges(editing, "You have unsaved changes to this job. Leave without saving?");
 
@@ -505,8 +526,30 @@ export default function JobDetail() {
         </div>
       )}
 
+      {/* Tab navigation — sections are lazy-mounted; only the active tab is in the DOM. */}
+      <div className="mb-6 flex flex-wrap gap-1 border-b border-border" role="tablist" aria-label="Job sections">
+        {JOB_TABS.map((tab) => (
+          <button
+            key={tab.value}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.value}
+            onClick={() => setActiveTab(tab.value)}
+            className={`px-3 py-2 text-sm font-medium -mb-px border-b-2 transition-colors ${
+              activeTab === tab.value
+                ? "border-primary text-primary"
+                : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeTab === "overview" && (<>
       {/* Editable Job Details */}
       <Collapsible defaultOpen className="mb-6">
+
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Job Details
             <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
@@ -757,6 +800,8 @@ export default function JobDetail() {
             ))}
           </CollapsibleContent>
         </Collapsible>
+      </>)}
+
 
       <AutoAttachTemplateChooser
         open={chooserOpen}
@@ -819,6 +864,7 @@ export default function JobDetail() {
         </DialogContent>
       </Dialog>
 
+      {activeTab === "overview" && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer Assignments
@@ -829,7 +875,6 @@ export default function JobDetail() {
             {userRole === "admin" && <EngineerAssignments jobId={id!} />}
             <WhatsAppReply jobId={id!} engineers={engineers} />
           </div>
-          <JobMessages jobId={id!} />
         </CollapsibleContent>
       </Collapsible>
 
@@ -844,7 +889,10 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
+      </>)}
 
+
+      {activeTab === "documents" && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Documents
@@ -874,7 +922,10 @@ export default function JobDetail() {
           <JobSheet jobId={id!} job={job} />
         </CollapsibleContent>
       </Collapsible>
+      </>)}
 
+
+      {activeTab === "survey" && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Site Survey
@@ -911,24 +962,29 @@ export default function JobDetail() {
           <InstallationProjects jobId={id!} job={job} />
         </div>
       )}
+      </>)}
 
-      {userRole === "admin" && (
+
+      {activeTab === "overview" && userRole === "admin" && (
         <div className="mb-6">
           <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
         </div>
       )}
 
-      <Collapsible defaultOpen className="mb-6">
-        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
-          Parts & Materials
-          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
-          <JobParts jobId={id!} jobCategory={job.category} jobName={job.name} />
-        </CollapsibleContent>
-      </Collapsible>
+      {activeTab === "parts" && (
+        <Collapsible defaultOpen className="mb-6">
+          <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+            Parts & Materials
+            <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent className="pt-3">
+            <JobParts jobId={id!} jobCategory={job.category} jobName={job.name} />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
 
-      {userRole === "admin" && (
+
+      {activeTab === "activity" && userRole === "admin" && (
         <Collapsible defaultOpen className="mb-6">
           <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
             Servexa Reports
@@ -940,6 +996,7 @@ export default function JobDetail() {
         </Collapsible>
       )}
 
+      {activeTab === "signoff" && (<>
       <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer & Customer Sign-Off Signatures
@@ -979,9 +1036,24 @@ export default function JobDetail() {
           </CollapsibleContent>
         </Collapsible>
       )}
-
       {id && <JobDefects jobId={id} siteId={job?.site_id || null} />}
-      {!(job?.category === "installation" || job?.category?.includes("install")) && id && <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>}
+      </>)}
+
+      {activeTab === "parts" && !(job?.category === "installation" || job?.category?.includes("install")) && id && (
+        <Suspense fallback={null}><JobPartsUsed jobId={id} /></Suspense>
+      )}
+
+
+      {activeTab === "activity" && (<>
+      <Collapsible defaultOpen className="mb-6">
+        <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
+          Messages
+          <ChevronDown className="h-4 w-4 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <JobMessages jobId={id!} />
+        </CollapsibleContent>
+      </Collapsible>
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
@@ -1016,6 +1088,8 @@ export default function JobDetail() {
           />
         </CollapsibleContent>
       </Collapsible>
+      </>)}
+
 
       {/* QR Code Dialog for mobile upload */}
       <QrDialog open={qrOpen} onOpenChange={setQrOpen}>
