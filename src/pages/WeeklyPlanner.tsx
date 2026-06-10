@@ -744,10 +744,6 @@ export default function WeeklyPlanner() {
 
   return (
     <div>
-      <Button variant="ghost" size="sm" className="mb-2 -ml-2" onClick={() => navigate(-1)}>
-        <ArrowLeft className="mr-1 h-4 w-4" /> Back
-      </Button>
-
       {/* Header */}
       <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
