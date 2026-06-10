@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Eye, Loader2, Printer, PenLine } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
+import { loadWatermarkSettings } from "@/hooks/useWatermarkSettings";
 import jsPDF from "jspdf";
 import { loadWatermarkImage } from "@/lib/pdfWatermark";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
@@ -22,12 +23,7 @@ import {
 } from "@/lib/pdfBody";
 import { resolveTemplateDisplayTitle } from "@/lib/templateDisplayTitle";
 import { useJobCategories } from "@/hooks/useJobCategories";
-import {
-  DRY_RISER_LAYOUT,
-  isDryRiserName,
-  dryRiserContentWidthMm,
-  commentsElasticMm,
-} from "@/lib/dryRiserLayout";
+import { DRY_RISER_LAYOUT } from "@/lib/dryRiserLayout";
 
 type Template = {
   id: string;
@@ -85,6 +81,64 @@ interface Props {
   showPrint?: boolean;
   /** When true, no UI is rendered; only the imperative ref API is exposed. */
   headless?: boolean;
+}
+
+type BlankTemplatePdfWorkerPayload = {
+  template: Template;
+  jobInfo?: JobInfo | null;
+  handfill: boolean;
+  watermarkOverride: WatermarkOverride | null;
+  watermarkSettings: {
+    mode: "tinted" | "untinted" | "none";
+    opacity: number;
+    accreditationOpacity: number;
+  };
+  categoryName: string;
+  accentColor: [number, number, number];
+  accreditationLogoUrls: string[];
+};
+
+type BlankTemplatePdfWorkerResult = {
+  blob: Blob;
+  fileName: string;
+  duration: number;
+};
+
+const waitForPaint = () =>
+  new Promise<void>((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+
+function runBlankTemplatePdfWorker(payload: BlankTemplatePdfWorkerPayload): Promise<BlankTemplatePdfWorkerResult> {
+  return new Promise((resolve, reject) => {
+    if (typeof Worker === "undefined") {
+      reject(new Error("PDF worker is not available in this browser."));
+      return;
+    }
+
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const worker = new Worker(new URL("../workers/blankTemplatePdf.worker.ts", import.meta.url), { type: "module" });
+
+    worker.onmessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (!data || data.requestId !== requestId) return;
+      worker.terminate();
+
+      if (data.type === "success") {
+        const blob = new Blob([data.buffer], { type: "application/pdf" });
+        resolve({ blob, fileName: data.fileName, duration: data.duration });
+      } else {
+        reject(new Error(data.error || "PDF generation failed."));
+      }
+    };
+
+    worker.onerror = (event) => {
+      worker.terminate();
+      reject(new Error(event.message || "PDF worker failed."));
+    };
+
+    worker.postMessage({ type: "generate", requestId, payload });
+  });
 }
 
 /** How many blank sheets to generate based on template name + job quantities */
@@ -213,12 +267,22 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     watermarkOverride: WatermarkOverride | null = null,
   ): Promise<Blob | null | void> => {
     setGenerating(true);
-    // Immediate user feedback BEFORE the heavy synchronous jsPDF work begins,
-    // and yield a frame so the spinner / disabled button actually paints first.
+    const pendingName = [
+      jobInfo?.reference_number || "blank",
+      template.name.replace(/\s+/g, "-").toLowerCase(),
+      handfill ? "handfill" : null,
+    ].filter(Boolean).join("-") + ".pdf";
+
     if (mode !== "blob") {
       toast({ title: "Preparing PDF…", description: "This may take a few seconds." });
     }
-    await new Promise((r) => setTimeout(r, 50));
+    if (mode === "preview") {
+      setPreviewBlob(null);
+      setPreviewName(pendingName);
+      setPreviewBuildArgs({ handfill });
+      setPreviewOpen(true);
+    }
+    await waitForPaint();
     // --- Blank-template cache lookup ---------------------------------------
     // Skip cache for job-prefilled exports and watermark-override rebuilds.
     const cacheable = !jobInfo && !watermarkOverride;
@@ -248,6 +312,75 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       return;
     }
     try {
+      const customerLogoUrl = jobInfo?.customers?.logo_url || null;
+      const isDryRiser = /dry\s*riser/i.test(template.name || "");
+      const categoryName = jobCategories.find(c => c.slug === jobInfo?.category)?.name
+        || (jobInfo?.category ? jobInfo.category.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : "");
+      const customerName = jobInfo?.customers?.name || jobInfo?.customer || "";
+
+      let brandLogoImg: HTMLImageElement | null = null;
+      if (customerLogoUrl) {
+        try {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(); img.src = customerLogoUrl; });
+          brandLogoImg = img;
+        } catch { /* use default colour */ }
+      }
+      const accentColor = (isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : getBrandColorFromLogo(brandLogoImg, !!customerLogoUrl)) as [number, number, number];
+      const [watermarkSettings, accreditationLogoUrls] = await Promise.all([
+        loadWatermarkSettings(),
+        fetchCustomerAccreditationLogos(customerName),
+      ]);
+
+      const label = `BlankTemplatePdfWorker:${template.id || template.name}:${handfill ? "handfill" : "standard"}`;
+      console.time(label);
+      const { blob: builtBlob, fileName, duration } = await runBlankTemplatePdfWorker({
+        template,
+        jobInfo,
+        handfill,
+        watermarkOverride,
+        watermarkSettings,
+        categoryName,
+        accentColor,
+        accreditationLogoUrls,
+      });
+      console.timeEnd(label);
+      console.info(`${label} completed in ${Math.round(duration)}ms inside src/workers/blankTemplatePdf.worker.ts`);
+
+      if (cacheable && cacheKey) BLANK_PDF_CACHE.set(cacheKey, builtBlob);
+
+      if (mode === "print") {
+        const url = URL.createObjectURL(builtBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF ready", description: `${fileName} downloaded — open it to print.` });
+      } else if (mode === "preview") {
+        setPreviewBlob(builtBlob);
+        setPreviewName(fileName);
+        setPreviewBuildArgs({ handfill });
+        setPreviewOpen(true);
+      } else if (mode === "blob") {
+        return builtBlob;
+      } else {
+        const url = URL.createObjectURL(builtBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        toast({ title: "PDF downloaded", description: fileName });
+      }
+      return;
+
+      {
       const systemQty = getSystemQty(template.name, jobInfo);
       const customerLogoUrl = jobInfo?.customers?.logo_url || null;
       // Wet/Dry Riser worksheets: force Viva Fire branding regardless of customer logo
@@ -620,6 +753,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         setTimeout(() => URL.revokeObjectURL(url), 1000);
         toast({ title: "PDF downloaded", description: fileName });
       }
+      }
 
     } catch (err: any) {
       // For silent blob builds, re-throw so the caller can handle it.
@@ -633,7 +767,22 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     }
   };
 
-  if (headless) return null;
+  if (headless) {
+    return (
+      <PdfPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        blob={previewBlob}
+        fileName={previewName}
+        title={template.name}
+        watermarkControls
+        onRebuildWithWatermark={async (override) => {
+          const blob = (await generate("blob", previewBuildArgs.handfill, override)) as Blob | null;
+          if (blob) setPreviewBlob(blob);
+        }}
+      />
+    );
+  }
 
   return (
     <>
