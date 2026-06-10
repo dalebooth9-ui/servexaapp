@@ -892,6 +892,7 @@ export default function JobDetail() {
       </>)}
 
 
+      {activeTab === "documents" && (<>
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Documents
@@ -921,6 +922,8 @@ export default function JobDetail() {
           <JobSheet jobId={id!} job={job} />
         </CollapsibleContent>
       </Collapsible>
+      </>)}
+
 
       <Collapsible defaultOpen className="mb-6">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
