@@ -274,6 +274,8 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ quantity: "", unit_cost: "", sell_price: "" });
   const [includeLabour, setIncludeLabour] = useState(false);
+  const [deleteSelectedConfirm, setDeleteSelectedConfirm] = useState("");
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState("");
 
   const isAdmin = userRole === "admin";
 
@@ -660,9 +662,9 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
           {selected.size > 0 && (
             <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2">
               <span className="text-sm font-medium">{selected.size} selected</span>
-              <AlertDialog>
+              <AlertDialog onOpenChange={(open) => { if (!open) setDeleteSelectedConfirm(""); }}>
                 <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="mr-1 h-4 w-4" /> Delete Selected
                   </Button>
                 </AlertDialogTrigger>
@@ -671,15 +673,31 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                     <AlertDialogTitle>Delete {selected.size} part(s)?</AlertDialogTitle>
                     <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
                   </AlertDialogHeader>
+                  <div className="space-y-2 py-2">
+                    <p className="text-sm text-muted-foreground">Type <strong>DELETE</strong> to confirm.</p>
+                    <Input
+                      value={deleteSelectedConfirm}
+                      onChange={(e) => setDeleteSelectedConfirm(e.target.value)}
+                      placeholder="DELETE"
+                      className="uppercase"
+                      autoComplete="off"
+                    />
+                  </div>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleBulkDelete(Array.from(selected))}>Delete</AlertDialogAction>
+                    <AlertDialogCancel onClick={() => setDeleteSelectedConfirm("")}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleBulkDelete(Array.from(selected))}
+                      disabled={deleteSelectedConfirm !== "DELETE"}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                    >
+                      Delete
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-              <AlertDialog>
+              <AlertDialog onOpenChange={(open) => { if (!open) setDeleteAllConfirm(""); }}>
                 <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                  <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive">
                     <Trash2 className="mr-1 h-4 w-4" /> Delete All
                   </Button>
                 </AlertDialogTrigger>
@@ -688,9 +706,25 @@ export default function JobParts({ jobId, jobCategory, jobName }: { jobId: strin
                     <AlertDialogTitle>Delete all {parts.length} parts?</AlertDialogTitle>
                     <AlertDialogDescription>This will remove every part and material from this job. This action cannot be undone.</AlertDialogDescription>
                   </AlertDialogHeader>
+                  <div className="space-y-2 py-2">
+                    <p className="text-sm text-muted-foreground">Type <strong>DELETE</strong> to confirm.</p>
+                    <Input
+                      value={deleteAllConfirm}
+                      onChange={(e) => setDeleteAllConfirm(e.target.value)}
+                      placeholder="DELETE"
+                      className="uppercase"
+                      autoComplete="off"
+                    />
+                  </div>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction onClick={() => handleBulkDelete(parts.map((p) => p.id))}>Delete All</AlertDialogAction>
+                    <AlertDialogCancel onClick={() => setDeleteAllConfirm("")}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => handleBulkDelete(parts.map((p) => p.id))}
+                      disabled={deleteAllConfirm !== "DELETE"}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                    >
+                      Delete All
+                    </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>

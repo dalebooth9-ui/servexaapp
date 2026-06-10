@@ -16,6 +16,7 @@ export default function AssetCategorySettings() {
   const [adding, setAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState("");
 
   const toSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -113,7 +114,7 @@ export default function AssetCategorySettings() {
         </div>
         {categories.length > 0 && (
           <div className="flex justify-end -mt-2">
-            <AlertDialog>
+            <AlertDialog onOpenChange={(open) => { if (!open) setDeleteAllConfirm(""); }}>
               <AlertDialogTrigger asChild>
                 <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground hover:text-destructive">
                   <Trash2 className="mr-1 h-3 w-3" /> Delete all
@@ -123,12 +124,26 @@ export default function AssetCategorySettings() {
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete all asset categories?</AlertDialogTitle>
                   <AlertDialogDescription>
-                    Are you sure you want to delete all asset categories? This cannot be undone.
+                    This will permanently delete all {categories.length} asset categor{categories.length === 1 ? "y" : "ies"}. This action cannot be undone.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="space-y-2 py-2">
+                  <p className="text-sm text-muted-foreground">Type <strong>DELETE</strong> to confirm.</p>
+                  <Input
+                    value={deleteAllConfirm}
+                    onChange={(e) => setDeleteAllConfirm(e.target.value)}
+                    placeholder="DELETE"
+                    className="uppercase"
+                    autoComplete="off"
+                  />
+                </div>
                 <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleDeleteAll} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                  <AlertDialogCancel onClick={() => setDeleteAllConfirm("")}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={handleDeleteAll}
+                    disabled={deleteAllConfirm !== "DELETE"}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
+                  >
                     Yes, delete all
                   </AlertDialogAction>
                 </AlertDialogFooter>
