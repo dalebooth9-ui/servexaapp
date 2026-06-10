@@ -376,6 +376,10 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
       console.info(`${label} completed in ${Math.round(duration)}ms inside src/workers/blankTemplatePdf.worker.ts`);
 
       if (cacheable && cacheKey) BLANK_PDF_CACHE.set(cacheKey, builtBlob);
+      if (cacheable && storagePath) {
+        // Fire-and-forget upload so subsequent previews load from storage.
+        void uploadCachedBlankPdf(storagePath, builtBlob);
+      }
 
       if (mode === "print") {
         const url = URL.createObjectURL(builtBlob);
