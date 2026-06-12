@@ -50,6 +50,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/stock", label: "Van Stock", icon: Truck, section: "more", adminOnly: false },
 { to: "/compliance", label: "Compliance", icon: Shield, section: "more", adminOnly: true },
   { to: "/audits", label: "Audits", icon: ClipboardCheck, section: "more", adminOnly: true },
+  { to: "/rams/generate", label: "Generate RAMS", icon: ShieldAlert, section: "more", adminOnly: true },
   { to: "/defects", label: "Defects", icon: ShieldAlert, section: "more", adminOnly: false },
   { to: "/defects/review", label: "Defects Review", icon: ShieldAlert, section: "admin", adminOnly: true },
   { to: "/report-downloads", label: "Report Downloads", icon: FileArchive, section: "more", adminOnly: false },
