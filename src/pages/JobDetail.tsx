@@ -903,7 +903,7 @@ export default function JobDetail() {
             <div className="mb-3 flex justify-end gap-2">
               <Button
                 variant="outline" size="sm" className="gap-1.5 text-xs"
-                onClick={() => navigate(`/rams/generate?job=${id}`)}
+                onClick={() => navigate(`/rams/start?job=${id}`)}
               >
                 <ClipboardList className="h-3.5 w-3.5" /> Generate RAMS (AI)
               </Button>
