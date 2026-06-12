@@ -145,6 +145,10 @@ export default function NewRamsPage() {
 
   return (
     <div className="container max-w-3xl py-6 space-y-6">
+      <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-4 text-sm text-amber-900 dark:text-amber-100">
+        <strong>Important:</strong> RAMS are safety-critical legal documents. The AI produces a <em>draft only</em> — a competent person must review and approve before anything goes to site. Do not send unapproved RAMS to site.
+      </div>
+
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" />
