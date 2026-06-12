@@ -14,7 +14,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Loader2, CheckCircle2, ShieldCheck,
   Unlock, FileDown, Lock, AlertTriangle,
 } from "lucide-react";
-import { generateGenericRamsPdf } from "@/lib/genericRamsPdf";
+import { generateBrandedRamsPdf } from "@/lib/brandedRamsPdf";
 
 type RiskRow = {
   hazard: string;
