@@ -1796,6 +1796,77 @@ export type Database = {
           },
         ]
       }
+      generic_rams: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          client: string | null
+          contract_name: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          emergency_arrangements: string | null
+          factors: Json
+          id: string
+          job_id: string
+          plant_equipment: Json
+          ppe: Json
+          risk_rows: Json
+          sequence_of_works: Json
+          site_name: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client?: string | null
+          contract_name?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          emergency_arrangements?: string | null
+          factors?: Json
+          id?: string
+          job_id: string
+          plant_equipment?: Json
+          ppe?: Json
+          risk_rows?: Json
+          sequence_of_works?: Json
+          site_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client?: string | null
+          contract_name?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          emergency_arrangements?: string | null
+          factors?: Json
+          id?: string
+          job_id?: string
+          plant_equipment?: Json
+          ppe?: Json
+          risk_rows?: Json
+          sequence_of_works?: Json
+          site_name?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generic_rams_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handover_tokens: {
         Row: {
           created_at: string
