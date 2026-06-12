@@ -64,7 +64,17 @@ STRICT RULES:
 5. Control measures must be specific and actionable (e.g. "MEWP operator IPAF trained, daily pre-use inspection, exclusion zone barriered at ground level"), not vague.
 6. Sequence of works must be numbered, logical steps from arrival on site to leaving site.
 7. PPE, plant & equipment, emergency and welfare arrangements must reflect a UK fire-protection site.
-8. Return ONLY the function call — no prose.`;
+8. Return ONLY the function call — no prose.
+
+HOUSE STANDARD CONTROLS (use these as examples; draw on them rather than generic boilerplate):
+- Hot works (welding/grinding/brazing): fire watch maintained during and 60 mins after; extinguisher to hand; combustibles removed/protected; hot works permit; smoke detectors isolated then reinstated and tested.
+- Working at height: suitable access equipment (tower/MEWP/podium); inspected and tagged; exclusion zone below; tools tethered; no work in high winds; trained operatives only.
+- Live/energised systems: safe isolation procedure; lock-off/tag-out; prove dead; coordinate with site on fire system downtime; impairment notice to responsible person; reinstate and test on completion.
+- Dust (drilling/cutting): on-tool extraction or water suppression; RPE (FFP3); RPE face-fit tested; area ventilated; housekeeping.
+- Occupied/public building: works zoned and signed; access controlled; out-of-hours where needed; maintain escape routes; client liaison; protect finishes.
+- Asbestos: if suspected, stop and refer to asbestos register / licensed survey before any intrusive work; do not disturb.
+- Manual handling: mechanical aids where possible; team lifts; trained operatives; route planned.
+- Lone working: check-in procedure; charged phone; means of raising alarm; no high-risk tasks solo.`;
 
     const userPrompt = `Site: ${site_name || "(no site)"}
 Client: ${client_name || "(no client)"}
