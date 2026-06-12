@@ -42,25 +42,40 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY missing");
 
-    const factorList = Object.entries(factors || {})
+    const flagged = Object.entries(factors || {})
       .filter(([, v]) => v)
-      .map(([k]) => FACTOR_LABELS[k] || k.replace(/_/g, " "))
-      .join(", ") || "none flagged";
+      .map(([k]) => FACTOR_LABELS[k] || k.replace(/_/g, " "));
+    const factorList = flagged.length ? flagged.join(", ") : "none flagged";
 
-    const systemPrompt = `You are a senior UK fire-protection RAMS author (BS 9990, BS 5306, BS 5839, BS 7273, EN 12845).
-Produce a draft Risk Assessment and Method Statement for the works described, tailored to fire protection trades.
-Return ONLY a function call with the requested schema. Be concise, specific, and UK-compliant.
-Risk ratings use 1-5 likelihood (L) and 1-5 severity (S); risk = L*S. Provide pre-control and post-control ratings.`;
+    const systemPrompt = `You are a senior UK fire-protection Health & Safety Advisor authoring Risk Assessments and Method Statements (RAMS) for fire-protection contractors.
+
+Author the RAMS in compliance with UK legislation and standards, using correct UK construction and fire-safety terminology, including:
+- Health and Safety at Work etc. Act 1974 (HASAWA)
+- Construction (Design and Management) Regulations 2015 (CDM 2015) — roles of Client, Principal Designer, Principal Contractor
+- Management of Health and Safety at Work Regulations 1999
+- Work at Height Regulations 2005, Confined Spaces Regulations 1997, Control of Asbestos Regulations 2012, Manual Handling Operations Regulations 1992, PPE at Work Regulations 2022, Electricity at Work Regulations 1989, Hot Work / DSEAR / RIDDOR where relevant
+- Fire standards: BS 9990, BS 5306, BS 5839, BS 7273, EN 12845
+
+STRICT RULES:
+1. Only include hazards that are genuinely relevant to the works described OR to a flagged risk factor. Do NOT pad with generic hazards that don't apply.
+2. Every flagged risk factor must produce at least one hazard row.
+3. Risk ratings are categorical: "Low", "Medium" or "High" only (no numbers).
+4. Initial rating = before controls. Residual rating = after controls have been applied.
+5. Control measures must be specific and actionable (e.g. "MEWP operator IPAF trained, daily pre-use inspection, exclusion zone barriered at ground level"), not vague.
+6. Sequence of works must be numbered, logical steps from arrival on site to leaving site.
+7. PPE, plant & equipment, emergency and welfare arrangements must reflect a UK fire-protection site.
+8. Return ONLY the function call — no prose.`;
 
     const userPrompt = `Site: ${site_name || "(no site)"}
 Client: ${client_name || "(no client)"}
-Address: ${site_address || "(no address)"}
-Risk factors flagged: ${factorList}
+Site address: ${site_address || "(no address)"}
+
+Flagged risk factors: ${factorList}
 
 Description of works:
 ${works_description || "(none provided)"}
 
-Generate hazards covering the described works AND every flagged factor (including lone working and manual handling if flagged). Include welfare arrangements.`;
+Generate a Draft RAMS tailored to these works only.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -75,37 +90,40 @@ Generate hazards covering the described works AND every flagged factor (includin
           type: "function",
           function: {
             name: "draft_rams",
-            description: "Return a draft RAMS",
+            description: "Return a UK-compliant draft RAMS for fire-protection works",
             parameters: {
               type: "object",
               properties: {
                 risk_assessment: {
                   type: "array",
+                  description: "Hazard rows. Only hazards relevant to the works and flagged factors.",
                   items: {
                     type: "object",
                     properties: {
-                      hazard: { type: "string" },
-                      who_at_risk: { type: "string" },
-                      l_pre: { type: "integer" },
-                      s_pre: { type: "integer" },
-                      controls: { type: "string" },
-                      l_post: { type: "integer" },
-                      s_post: { type: "integer" },
+                      hazard: { type: "string", description: "The hazard itself, e.g. 'Falls from height while accessing landing valves'" },
+                      who_at_risk: { type: "string", description: "Who is at risk, e.g. 'Operatives, building occupants, members of the public'" },
+                      initial_risk_rating: { type: "string", enum: ["Low", "Medium", "High"], description: "Risk before controls" },
+                      control_measures: { type: "string", description: "Specific control measures (PPE, procedures, training, isolations, permits, etc.)" },
+                      residual_risk_rating: { type: "string", enum: ["Low", "Medium", "High"], description: "Risk after controls applied" },
                     },
-                    required: ["hazard", "who_at_risk", "l_pre", "s_pre", "controls", "l_post", "s_post"],
+                    required: ["hazard", "who_at_risk", "initial_risk_rating", "control_measures", "residual_risk_rating"],
                     additionalProperties: false,
                   },
                 },
                 method_statement: {
                   type: "object",
                   properties: {
-                    sequence: { type: "array", items: { type: "string" } },
-                    ppe: { type: "array", items: { type: "string" } },
-                    plant_equipment: { type: "array", items: { type: "string" } },
-                    emergency_arrangements: { type: "string" },
-                    welfare: { type: "string" },
+                    sequence: {
+                      type: "array",
+                      description: "Numbered, logical sequence of works from arrival to departure",
+                      items: { type: "string" },
+                    },
+                    ppe: { type: "array", items: { type: "string" }, description: "PPE required (e.g. 'Hi-vis vest', 'Safety helmet to EN 397', 'Cut-resistant gloves')" },
+                    plant_equipment: { type: "array", items: { type: "string" }, description: "Plant and equipment (e.g. 'MEWP/podium step', 'Calibrated pressure test pump', 'LOTO kit')" },
+                    emergency_arrangements: { type: "string", description: "Emergency arrangements — first aid, fire, evacuation routes, RIDDOR reporting, nearest A&E if relevant" },
+                    welfare_arrangements: { type: "string", description: "Welfare provision on site or arranged off-site (toilets, drinking water, breaks, rest area)" },
                   },
-                  required: ["sequence", "ppe", "plant_equipment", "emergency_arrangements", "welfare"],
+                  required: ["sequence", "ppe", "plant_equipment", "emergency_arrangements", "welfare_arrangements"],
                   additionalProperties: false,
                 },
               },
@@ -129,6 +147,12 @@ Generate hazards covering the described works AND every flagged factor (includin
     const tc = data.choices?.[0]?.message?.tool_calls?.[0];
     if (!tc) throw new Error("No tool call returned");
     const result = JSON.parse(tc.function.arguments);
+
+    // Normalise welfare key for downstream consumers that used "welfare"
+    if (result?.method_statement?.welfare_arrangements && !result.method_statement.welfare) {
+      result.method_statement.welfare = result.method_statement.welfare_arrangements;
+    }
+
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
