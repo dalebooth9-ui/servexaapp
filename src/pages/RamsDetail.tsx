@@ -97,6 +97,11 @@ export default function RamsDetail() {
         ),
       ]);
       setJob(jobRes.data);
+      if (!data.site_name) {
+        const site = (jobRes.data?.sites as any) || {};
+        const fallback = site.name || site.address || jobRes.data?.address || jobRes.data?.name || "";
+        if (fallback) setSiteName(fallback);
+      }
       const map = new Map((profRes.data ?? []).map((p: any) => [p.user_id, p.full_name]));
       setPreparedByName(data.created_by ? map.get(data.created_by) ?? "" : "");
       setReviewerName(data.reviewed_by ? map.get(data.reviewed_by) ?? "" : "");
