@@ -90,7 +90,7 @@ export default function RamsDetail() {
 
       // job + people names
       const [jobRes, profRes] = await Promise.all([
-        supabase.from("jobs").select("id, reference_number, name").eq("id", data.job_id).maybeSingle(),
+        supabase.from("jobs").select("id, reference_number, name, address, sites(name, address), customers(name)").eq("id", data.job_id).maybeSingle(),
         supabase.from("profiles").select("user_id, full_name").in(
           "user_id",
           [data.created_by, data.reviewed_by, data.approved_by].filter(Boolean) as string[],
