@@ -14,7 +14,7 @@ import {
   ArrowLeft, Plus, Trash2, Save, Loader2, CheckCircle2, ShieldCheck,
   Unlock, FileDown, Lock, AlertTriangle,
 } from "lucide-react";
-import { generateGenericRamsPdf } from "@/lib/genericRamsPdf";
+import { generateBrandedRamsPdf } from "@/lib/brandedRamsPdf";
 
 type RiskRow = {
   hazard: string;
@@ -56,6 +56,7 @@ export default function RamsDetail() {
   const [job, setJob] = useState<any>(null);
   const [reviewerName, setReviewerName] = useState<string>("");
   const [approverName, setApproverName] = useState<string>("");
+  const [preparedByName, setPreparedByName] = useState<string>("");
 
   // editable fields
   const [siteName, setSiteName] = useState("");
@@ -92,11 +93,12 @@ export default function RamsDetail() {
         supabase.from("jobs").select("id, reference_number, name").eq("id", data.job_id).maybeSingle(),
         supabase.from("profiles").select("user_id, full_name").in(
           "user_id",
-          [data.reviewed_by, data.approved_by].filter(Boolean) as string[],
+          [data.created_by, data.reviewed_by, data.approved_by].filter(Boolean) as string[],
         ),
       ]);
       setJob(jobRes.data);
       const map = new Map((profRes.data ?? []).map((p: any) => [p.user_id, p.full_name]));
+      setPreparedByName(data.created_by ? map.get(data.created_by) ?? "" : "");
       setReviewerName(data.reviewed_by ? map.get(data.reviewed_by) ?? "" : "");
       setApproverName(data.approved_by ? map.get(data.approved_by) ?? "" : "");
       setLoading(false);
@@ -186,37 +188,29 @@ export default function RamsDetail() {
     toast({ title: "Unlocked for revision", description: `Now version ${(rams.version ?? 1) + 1}` });
   }
 
-  function exportPdf() {
+  async function exportPdf() {
     if (status !== "Approved") {
       toast({ title: "Approval required", description: "Approve the RAMS before exporting." });
       return;
     }
-    const factors = (rams?.factors ?? {}) as Record<string, boolean>;
-    const { blob, fileName } = generateGenericRamsPdf(
-      {
-        contract_name: job?.name ?? siteName,
-        site_name: siteName,
-        client: clientName,
-        description: worksDescription,
-        factors,
-        risk_rows: risks.map((r) => ({
-          hazard: r.hazard,
-          who_at_risk: r.who_at_risk,
-          l_pre: 0,
-          s_pre: 0,
-          controls: `${r.control_measures}\n\nInitial: ${r.initial_risk_rating} → Residual: ${r.residual_risk_rating}`,
-          l_post: 0,
-          s_post: 0,
-        })) as any,
-        sequence_of_works: method.sequence ?? [],
-        ppe: method.ppe ?? [],
-        plant_equipment: method.plant_equipment ?? [],
-        emergency_arrangements: [method.emergency_arrangements, method.welfare_arrangements ? `Welfare: ${method.welfare_arrangements}` : ""].filter(Boolean).join("\n\n"),
-        status: "Approved",
-        approved_at: rams?.approved_at,
-      },
-      job?.reference_number,
-    );
+    const { blob, fileName } = await generateBrandedRamsPdf({
+      job_reference: job?.reference_number ?? null,
+      job_name: job?.name ?? null,
+      site_name: siteName,
+      site_address: siteAddress,
+      client_name: clientName,
+      works_description: worksDescription,
+      factors: (rams?.factors ?? {}) as Record<string, boolean>,
+      risk_assessment: risks,
+      method_statement: method,
+      status,
+      version: rams?.version ?? 1,
+      prepared_by: preparedByName,
+      prepared_at: rams?.created_at ?? null,
+      reviewed_by: reviewerName,
+      approved_by: approverName,
+      approved_at: rams?.approved_at ?? null,
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
