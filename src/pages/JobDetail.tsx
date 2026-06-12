@@ -900,7 +900,13 @@ export default function JobDetail() {
         </CollapsibleTrigger>
         <CollapsibleContent className="pt-3">
           {userRole === "admin" && (
-            <div className="mb-3 flex justify-end">
+            <div className="mb-3 flex justify-end gap-2">
+              <Button
+                variant="outline" size="sm" className="gap-1.5 text-xs"
+                onClick={() => navigate(`/rams/generate?job=${id}`)}
+              >
+                <ClipboardList className="h-3.5 w-3.5" /> Generate RAMS (AI)
+              </Button>
               <Button
                 variant="outline" size="sm" className="gap-1.5 text-xs"
                 onClick={() => navigate(`/jobs/${id}/rams`)}
