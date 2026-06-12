@@ -65,6 +65,7 @@ STRICT RULES:
 6. Sequence of works must be numbered, logical steps from arrival on site to leaving site.
 7. PPE, plant & equipment, emergency and welfare arrangements must reflect a UK fire-protection site.
 8. Return ONLY the function call — no prose.
+9. Do NOT invent specific verifiable facts such as the name or address of the nearest A&E/hospital, specific phone numbers, or named individuals. Where a site-specific detail like nearest A&E is needed, insert a clearly marked placeholder such as "[Nearest A&E — to be confirmed by site team]" instead of guessing. Keep all generic safety guidance (permits, fire watch, PPE standards, etc.) as it is.
 
 HOUSE STANDARD CONTROLS (use these as examples; draw on them rather than generic boilerplate):
 - Hot works (welding/grinding/brazing): fire watch maintained during and 60 mins after; extinguisher to hand; combustibles removed/protected; hot works permit; smoke detectors isolated then reinstated and tested.
@@ -130,7 +131,7 @@ Generate a Draft RAMS tailored to these works only.`;
                     },
                     ppe: { type: "array", items: { type: "string" }, description: "PPE required (e.g. 'Hi-vis vest', 'Safety helmet to EN 397', 'Cut-resistant gloves')" },
                     plant_equipment: { type: "array", items: { type: "string" }, description: "Plant and equipment (e.g. 'MEWP/podium step', 'Calibrated pressure test pump', 'LOTO kit')" },
-                    emergency_arrangements: { type: "string", description: "Emergency arrangements — first aid, fire, evacuation routes, RIDDOR reporting, nearest A&E if relevant" },
+                    emergency_arrangements: { type: "string", description: "Emergency arrangements — first aid, fire, evacuation routes, RIDDOR reporting. If nearest A&E or emergency contact numbers are needed, use a placeholder such as '[Nearest A&E — to be confirmed by site team]' rather than inventing names, addresses or numbers." },
                     welfare_arrangements: { type: "string", description: "Welfare provision on site or arranged off-site (toilets, drinking water, breaks, rest area)" },
                   },
                   required: ["sequence", "ppe", "plant_equipment", "emergency_arrangements", "welfare_arrangements"],
