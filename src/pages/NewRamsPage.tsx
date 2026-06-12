@@ -80,7 +80,7 @@ export default function NewRamsPage() {
         const cust = (data.customers as any) || {};
         setSiteName((prev) => prev || site.name || site.address || data.address || data.name || "");
         setSiteAddress((prev) => prev || site.address || data.address || "");
-        setClientName((prev) => prev || cust.name || data.customer || "");
+        setClientName((prev) => prev || cust.name || "");
       });
   }, [jobId]);
 
