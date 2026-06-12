@@ -109,14 +109,20 @@ export async function generateBrandedRamsPdf(data: BrandedRamsData): Promise<{ b
   doc.setTextColor(...BRAND.dark);
 
   // ── JOB & SITE BOX ──
+  const jobSiteBody: any[] = [
+    ["Job reference", data.job_reference || "—", "Client", data.client_name || "—"],
+  ];
+  if (data.site_name) {
+    jobSiteBody.push(["Site", data.site_name, "Job", data.job_name || "—"]);
+  } else if (data.job_name) {
+    jobSiteBody.push(["Job", data.job_name, "", ""]);
+  }
+  jobSiteBody.push(["Site address", data.site_address || "—", "Issued", new Date().toLocaleDateString("en-GB")]);
+
   autoTable(doc, {
     startY: y,
     theme: "grid",
-    body: [
-      ["Job reference", data.job_reference || "—", "Client", data.client_name || "—"],
-      ["Site", data.site_name || "—", "Job", data.job_name || "—"],
-      ["Site address", data.site_address || "—", "Issued", new Date().toLocaleDateString("en-GB")],
-    ],
+    body: jobSiteBody,
     styles: { fontSize: 9, cellPadding: 5, textColor: BRAND.dark },
     columnStyles: {
       0: { fontStyle: "bold", fillColor: BRAND.light, cellWidth: 80 },
