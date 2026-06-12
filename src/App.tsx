@@ -55,6 +55,7 @@ const ServiceLevelAgreement = lazy(() => import("@/pages/ServiceLevelAgreement")
 const CookiePolicy = lazy(() => import("@/pages/CookiePolicy"));
 const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiability"));
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
+const GenericRamsPage = lazy(() => import("@/pages/GenericRamsPage"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
 const Defects = lazy(() => import("@/pages/Defects"));
