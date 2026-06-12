@@ -56,6 +56,7 @@ export default function RamsDetail() {
   const [job, setJob] = useState<any>(null);
   const [reviewerName, setReviewerName] = useState<string>("");
   const [approverName, setApproverName] = useState<string>("");
+  const [preparedByName, setPreparedByName] = useState<string>("");
 
   // editable fields
   const [siteName, setSiteName] = useState("");
