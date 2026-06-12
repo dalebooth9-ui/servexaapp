@@ -135,7 +135,7 @@ export default function NewRamsPage() {
       if (updErr) throw updErr;
 
       toast({ title: "RAMS draft generated", description: "Opening editor…" });
-      navigate(`/rams/${inserted.id}`);
+      navigate(`/rams/view/${inserted.id}`);
     } catch (e: any) {
       toast({ title: "Generate failed", description: e.message, variant: "destructive" });
     } finally {
