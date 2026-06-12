@@ -188,37 +188,29 @@ export default function RamsDetail() {
     toast({ title: "Unlocked for revision", description: `Now version ${(rams.version ?? 1) + 1}` });
   }
 
-  function exportPdf() {
+  async function exportPdf() {
     if (status !== "Approved") {
       toast({ title: "Approval required", description: "Approve the RAMS before exporting." });
       return;
     }
-    const factors = (rams?.factors ?? {}) as Record<string, boolean>;
-    const { blob, fileName } = generateGenericRamsPdf(
-      {
-        contract_name: job?.name ?? siteName,
-        site_name: siteName,
-        client: clientName,
-        description: worksDescription,
-        factors,
-        risk_rows: risks.map((r) => ({
-          hazard: r.hazard,
-          who_at_risk: r.who_at_risk,
-          l_pre: 0,
-          s_pre: 0,
-          controls: `${r.control_measures}\n\nInitial: ${r.initial_risk_rating} → Residual: ${r.residual_risk_rating}`,
-          l_post: 0,
-          s_post: 0,
-        })) as any,
-        sequence_of_works: method.sequence ?? [],
-        ppe: method.ppe ?? [],
-        plant_equipment: method.plant_equipment ?? [],
-        emergency_arrangements: [method.emergency_arrangements, method.welfare_arrangements ? `Welfare: ${method.welfare_arrangements}` : ""].filter(Boolean).join("\n\n"),
-        status: "Approved",
-        approved_at: rams?.approved_at,
-      },
-      job?.reference_number,
-    );
+    const { blob, fileName } = await generateBrandedRamsPdf({
+      job_reference: job?.reference_number ?? null,
+      job_name: job?.name ?? null,
+      site_name: siteName,
+      site_address: siteAddress,
+      client_name: clientName,
+      works_description: worksDescription,
+      factors: (rams?.factors ?? {}) as Record<string, boolean>,
+      risk_assessment: risks,
+      method_statement: method,
+      status,
+      version: rams?.version ?? 1,
+      prepared_by: preparedByName,
+      prepared_at: rams?.created_at ?? null,
+      reviewed_by: reviewerName,
+      approved_by: approverName,
+      approved_at: rams?.approved_at ?? null,
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
