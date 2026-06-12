@@ -57,6 +57,7 @@ const FireProtectionLiability = lazy(() => import("@/pages/FireProtectionLiabili
 const RamsEditor = lazy(() => import("@/pages/RamsEditor"));
 const GenericRamsPage = lazy(() => import("@/pages/GenericRamsPage"));
 const NewRamsPage = lazy(() => import("@/pages/NewRamsPage"));
+const RamsDetail = lazy(() => import("@/pages/RamsDetail"));
 const Offline = lazy(() => import("@/pages/Offline"));
 const LeaveCalendar = lazy(() => import("@/pages/LeaveCalendar"));
 const Defects = lazy(() => import("@/pages/Defects"));
