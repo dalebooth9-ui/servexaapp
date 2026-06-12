@@ -131,7 +131,7 @@ Generate a Draft RAMS tailored to these works only.`;
                     },
                     ppe: { type: "array", items: { type: "string" }, description: "PPE required (e.g. 'Hi-vis vest', 'Safety helmet to EN 397', 'Cut-resistant gloves')" },
                     plant_equipment: { type: "array", items: { type: "string" }, description: "Plant and equipment (e.g. 'MEWP/podium step', 'Calibrated pressure test pump', 'LOTO kit')" },
-                    emergency_arrangements: { type: "string", description: "Emergency arrangements — first aid, fire, evacuation routes, RIDDOR reporting, nearest A&E if relevant" },
+                    emergency_arrangements: { type: "string", description: "Emergency arrangements — first aid, fire, evacuation routes, RIDDOR reporting. If nearest A&E or emergency contact numbers are needed, use a placeholder such as '[Nearest A&E — to be confirmed by site team]' rather than inventing names, addresses or numbers." },
                     welfare_arrangements: { type: "string", description: "Welfare provision on site or arranged off-site (toilets, drinking water, breaks, rest area)" },
                   },
                   required: ["sequence", "ppe", "plant_equipment", "emergency_arrangements", "welfare_arrangements"],
