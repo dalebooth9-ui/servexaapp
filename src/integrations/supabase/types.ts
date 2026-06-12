@@ -3911,6 +3911,74 @@ export type Database = {
           },
         ]
       }
+      rams: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          client_name: string | null
+          created_at: string
+          created_by: string
+          factors: Json
+          id: string
+          job_id: string
+          method_statement: Json
+          reviewed_by: string | null
+          risk_assessment: Json
+          site_address: string | null
+          site_name: string | null
+          status: string
+          updated_at: string
+          version: number
+          works_description: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by: string
+          factors?: Json
+          id?: string
+          job_id: string
+          method_statement?: Json
+          reviewed_by?: string | null
+          risk_assessment?: Json
+          site_address?: string | null
+          site_name?: string | null
+          status?: string
+          updated_at?: string
+          version?: number
+          works_description?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          client_name?: string | null
+          created_at?: string
+          created_by?: string
+          factors?: Json
+          id?: string
+          job_id?: string
+          method_statement?: Json
+          reviewed_by?: string | null
+          risk_assessment?: Json
+          site_address?: string | null
+          site_name?: string | null
+          status?: string
+          updated_at?: string
+          version?: number
+          works_description?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rams_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rams_documents: {
         Row: {
           assessment_date: string | null
