@@ -255,6 +255,11 @@ export default function RamsDetail() {
       {/* Status bar */}
       <Card>
         <CardContent className="p-4">
+          {status === "Draft" && (
+            <div className="rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm text-amber-900 dark:text-amber-100 mb-4">
+              <strong>Draft — not approved for site.</strong> Review all hazards and controls before marking as Reviewed. Do not send to site until Approved.
+            </div>
+          )}
           <div className="flex items-center gap-2">
             {STATUS_STEPS.map((s, i) => {
               const done = i <= stepIndex;
