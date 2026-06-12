@@ -65,6 +65,7 @@ STRICT RULES:
 6. Sequence of works must be numbered, logical steps from arrival on site to leaving site.
 7. PPE, plant & equipment, emergency and welfare arrangements must reflect a UK fire-protection site.
 8. Return ONLY the function call — no prose.
+9. Do NOT invent specific verifiable facts such as the name or address of the nearest A&E/hospital, specific phone numbers, or named individuals. Where a site-specific detail like nearest A&E is needed, insert a clearly marked placeholder such as "[Nearest A&E — to be confirmed by site team]" instead of guessing. Keep all generic safety guidance (permits, fire watch, PPE standards, etc.) as it is.
 
 HOUSE STANDARD CONTROLS (use these as examples; draw on them rather than generic boilerplate):
 - Hot works (welding/grinding/brazing): fire watch maintained during and 60 mins after; extinguisher to hand; combustibles removed/protected; hot works permit; smoke detectors isolated then reinstated and tested.
