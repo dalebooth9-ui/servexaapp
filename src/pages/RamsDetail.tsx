@@ -90,13 +90,18 @@ export default function RamsDetail() {
 
       // job + people names
       const [jobRes, profRes] = await Promise.all([
-        supabase.from("jobs").select("id, reference_number, name").eq("id", data.job_id).maybeSingle(),
+        supabase.from("jobs").select("id, reference_number, name, address, sites(name, address), customers(name)").eq("id", data.job_id).maybeSingle(),
         supabase.from("profiles").select("user_id, full_name").in(
           "user_id",
           [data.created_by, data.reviewed_by, data.approved_by].filter(Boolean) as string[],
         ),
       ]);
       setJob(jobRes.data);
+      if (!data.site_name) {
+        const site = (jobRes.data?.sites as any) || {};
+        const fallback = site.name || site.address || jobRes.data?.address || jobRes.data?.name || "";
+        if (fallback) setSiteName(fallback);
+      }
       const map = new Map((profRes.data ?? []).map((p: any) => [p.user_id, p.full_name]));
       setPreparedByName(data.created_by ? map.get(data.created_by) ?? "" : "");
       setReviewerName(data.reviewed_by ? map.get(data.reviewed_by) ?? "" : "");

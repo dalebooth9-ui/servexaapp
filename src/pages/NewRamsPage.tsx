@@ -72,15 +72,15 @@ export default function NewRamsPage() {
   useEffect(() => {
     if (!jobId) return;
     supabase.from("jobs")
-      .select("address, customer, sites(name, address), customers(name)")
+      .select("id, reference_number, name, address, sites(name, address), customers(name)")
       .eq("id", jobId).maybeSingle()
       .then(({ data }) => {
         if (!data) return;
         const site = (data.sites as any) || {};
         const cust = (data.customers as any) || {};
-        setSiteName((prev) => prev || site.name || "");
+        setSiteName((prev) => prev || site.name || site.address || data.address || data.name || "");
         setSiteAddress((prev) => prev || site.address || data.address || "");
-        setClientName((prev) => prev || cust.name || data.customer || "");
+        setClientName((prev) => prev || cust.name || "");
       });
   }, [jobId]);
 
