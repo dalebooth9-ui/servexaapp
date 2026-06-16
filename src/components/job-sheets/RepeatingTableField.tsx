@@ -219,7 +219,7 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
   );
 }
 
-function RowPhotoCell({ value, onChange, fieldId, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; jobId?: string; userId?: string }) {
+function RowPhotoCell({ value, onChange, fieldId, groupLabel, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; groupLabel?: string; jobId?: string; userId?: string }) {
   const [uploading, setUploading] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -250,12 +250,17 @@ function RowPhotoCell({ value, onChange, fieldId, jobId, userId }: { value: any;
           .from("submissions")
           .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
         if (signedData?.signedUrl) {
+          // Prefix the submission file_name with the human-readable group label
+          // (e.g. unit/flat number) when available so reports/PDFs can group
+          // photos by the dwelling label rather than by array index.
+          const label = (groupLabel || "").trim().replace(/[\/\\]/g, "-");
+          const displayName = label ? `${label} — ${fileName}` : fileName;
           await supabase.from("submissions").insert({
             job_id: jobId,
             engineer_id: userId,
             type: "photo",
             file_url: signedData.signedUrl,
-            file_name: fileName,
+            file_name: displayName,
           } as any);
         }
       }
