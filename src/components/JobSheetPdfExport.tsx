@@ -843,6 +843,15 @@ export async function generateJobSheetPdf(
       }
     }
     const photoItems: PhotoItem[] = await Promise.all(photoTasks);
+    console.log("[JobSheetPdfExport] dwelling photos", {
+      tasks: photoTasks.length,
+      resolved: photoItems.length,
+      withImage: photoItems.filter((p) => p.oriented && p.oriented.dataUrl).length,
+      withSignedUrl: photoItems.filter((p) => p.url).length,
+      sample: photoItems[0]
+        ? { unit: photoItems[0].unit, hasUrl: !!photoItems[0].url, hasOriented: !!photoItems[0].oriented }
+        : null,
+    });
 
     if (photoItems.length > 0) {
       if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
