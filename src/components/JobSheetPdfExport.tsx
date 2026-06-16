@@ -403,14 +403,47 @@ export async function generateJobSheetPdf(
 
   // --- Site Photos (2-column grid with captions, embedded as base64) ---
   let sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
-  const sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
-  const sitePhotoCaptions: string[] = (resolvedFormData._site_photo_captions as string[]) || [];
+  let sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
+  let sitePhotoCaptions: string[] = (resolvedFormData._site_photo_captions as string[]) || [];
+
+  // BACKFILL: legacy reports stored photos in `submissions` (not in
+  // responses._site_photo_urls). If the caller passed raw `responses` JSON
+  // (e.g. from the Submitted reports list), fetch them here so the PDF
+  // actually shows them.
+  if (sitePhotoUrls.length === 0 && jobId) {
+    try {
+      const { data: subs } = await supabase
+        .from("submissions")
+        .select("file_url, content, engineer_id, created_at")
+        .eq("job_id", jobId)
+        .eq("type", "photo")
+        .order("created_at", { ascending: true });
+      if (subs && subs.length > 0) {
+        const ownPhotos = (subs as any[]).filter((s) => submittedBy && s.engineer_id === submittedBy);
+        const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
+        sitePhotoUrls = pool.map((s) => s.file_url as string).filter(Boolean);
+        sitePhotoCaptions = pool.map((s) => (s.content as string) || "");
+        sitePhotoPaths = pool.map(() => "");
+        console.log("[JobSheetPdfExport] site photos backfilled from submissions", {
+          jobId,
+          submittedBy,
+          totalSubs: subs.length,
+          ownCount: ownPhotos.length,
+          backfilledCount: sitePhotoUrls.length,
+        });
+      }
+    } catch (err) {
+      console.warn("[JobSheetPdfExport] backfill site photos failed", err);
+    }
+  }
+
   console.log("[JobSheetPdfExport] site photos input", {
     urlCount: sitePhotoUrls.length,
     pathCount: sitePhotoPaths.length,
     captionCount: sitePhotoCaptions.length,
     sampleUrl: sitePhotoUrls[0],
     samplePath: sitePhotoPaths[0],
+    allUrls: sitePhotoUrls,
   });
   // Always regenerate signed URLs from storage paths when available — URLs
   // persisted in the response JSON may have expired or originated from a
