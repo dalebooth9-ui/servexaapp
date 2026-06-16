@@ -876,16 +876,23 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
       // ── SIGNATURES ──
+      // Compact block (~32mm ≈ 120px per signature) so it flows onto the
+      // bottom of the previous page when there is room. Only break to a new
+      // page if less than ~32mm remains.
       if (signatures.length > 0) {
-        checkPage(30);
+        const PAGE_BOTTOM = 275;
+        const SIG_BLOCK_H = 32; // mm — title(7) + name row(6) + image(16) + gap(3)
+        // Section title — only force a new page when the whole block won't fit.
+        if (y + SIG_BLOCK_H > PAGE_BOTTOM) addPage();
         y = sectionTitle(doc, "Sign-Off Signatures", y, margin, maxWidth);
         for (const sig of signatures) {
-          checkPage(40);
+          // Per-signature: only break if this one signature won't fit.
+          if (y + 22 > PAGE_BOTTOM) addPage();
           drawTableRow(doc, y, [
             { text: `${sig.signer_name} (${sig.signer_role})`, x: margin, width: maxWidth * 0.6, bold: true },
             { text: new Date(sig.created_at).toLocaleDateString("en-GB"), x: 0, width: maxWidth * 0.4, align: "right" },
-          ], rowH, margin, maxWidth, [245, 248, 255]);
-          y += rowH + 2;
+          ], 6, margin, maxWidth, [245, 248, 255]);
+          y += 7;
           try {
             const { data: urlData } = await supabase.storage.from("signatures").createSignedUrl(sig.file_path, 60);
             if (urlData?.signedUrl) {
@@ -896,14 +903,14 @@ export default function JobPdfReport({ jobId, job }: Props) {
                 reader.onloadend = () => resolve(reader.result as string);
                 reader.readAsDataURL(blob);
               });
-              doc.addImage(dataUrl, "PNG", margin, y, 55, 18);
-              y += 22;
+              doc.addImage(dataUrl, "PNG", margin, y, 50, 16);
+              y += 17;
             }
           } catch {
             doc.text("[Signature unavailable]", margin, y + 3);
-            y += 6;
+            y += 5;
           }
-          y += 4;
+          y += 2;
         }
       }
 
