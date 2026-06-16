@@ -784,9 +784,22 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           }
         }
       }
-      const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0)
-        ? { ...formData, _site_photo_urls: photoUrls, _site_photo_paths: photoPaths, _site_photo_captions: photoCaptions }
+      const existingPhotoUrls = Array.isArray(formData._site_photo_urls) ? formData._site_photo_urls : [];
+      const existingPhotoPaths = Array.isArray(formData._site_photo_paths) ? formData._site_photo_paths : [];
+      const existingPhotoCaptions = Array.isArray(formData._site_photo_captions) ? formData._site_photo_captions : [];
+      const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0 || existingPhotoUrls.length > 0 || existingPhotoPaths.length > 0)
+        ? {
+            ...formData,
+            _site_photo_urls: [...existingPhotoUrls, ...photoUrls],
+            _site_photo_paths: [...existingPhotoPaths, ...photoPaths],
+            _site_photo_captions: [...existingPhotoCaptions, ...photoCaptions],
+          }
         : formData;
+      console.log("[JobSheetTemplates] submit report photos", {
+        existingSitePhotos: existingPhotoUrls.length,
+        newSitePhotos: photoUrls.length,
+        finalSitePhotos: Array.isArray((finalFormData as any)._site_photo_urls) ? (finalFormData as any)._site_photo_urls.length : 0,
+      });
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
           responses: finalFormData as any,

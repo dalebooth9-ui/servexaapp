@@ -67,6 +67,47 @@ function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxW
   return y + 9;
 }
 
+function extractSubmissionPath(value: any): string | null {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const match = raw.match(/\/object\/(?:public|sign)\/submissions\/(.+?)(?:\?|$)/);
+  if (match) return decodeURIComponent(match[1]);
+  if (raw.startsWith("http")) return null;
+  return raw;
+}
+
+function parseDwellingPhotos(value: any): { path: string; caption: string }[] {
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.trim().startsWith("[")
+      ? (() => { try { return JSON.parse(value); } catch { return []; } })()
+      : value
+        ? [value]
+        : [];
+  return (Array.isArray(raw) ? raw : [raw])
+    .flatMap((p: any) => {
+      const path = typeof p === "object" ? extractSubmissionPath(p.path || p.url || p.file_url) : extractSubmissionPath(p);
+      return path ? [{ path, caption: typeof p === "object" ? String(p.caption || p.note || "").trim() : "" }] : [];
+    });
+}
+
+function getDwellingRowPhotos(row: any, photoCol: any, columns: any[]): { path: string; caption: string }[] {
+  const photos = parseDwellingPhotos(photoCol ? row?.[photoCol.id] : row?.photos);
+  if (photos.length > 0) return photos;
+  const knownColumnIds = new Set((columns || []).map((c: any) => c?.id).filter(Boolean));
+  for (const [key, value] of Object.entries(row || {})) {
+    if (key === "id" || key === photoCol?.id) continue;
+    const column = (columns || []).find((c: any) => c?.id === key);
+    const label = String(column?.label || key);
+    const looksLikePhoto = /photo|image|picture/i.test(key) || /photo|image|picture/i.test(label) || (!knownColumnIds.has(key) && String(value || "").includes("template-photos/"));
+    if (!looksLikePhoto) continue;
+    const legacy = parseDwellingPhotos(value);
+    if (legacy.length > 0) return legacy;
+  }
+  return [];
+}
+
 // Renders a repeating_table field that contains a photo_gallery column
 // (the dwelling access log) using the same professional layout used in
 // the job-sheet PDF: header bar, summary stats, badge table, photo grid.
@@ -151,16 +192,7 @@ async function renderDwellingAccessLog(
     if (status === "noanswer" || status === "refused") heads = "—";
     const notes = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
     const breakdown = breakdownParts.join(", ");
-    const photosRaw = photoCol
-      ? (Array.isArray(row?.[photoCol.id])
-          ? row[photoCol.id]
-          : (typeof row?.[photoCol.id] === "string" && row[photoCol.id].trim().startsWith("[")
-              ? (() => { try { return JSON.parse(row[photoCol.id]); } catch { return []; } })()
-              : []))
-      : (Array.isArray(row?.photos) ? row.photos : []);
-    const photos = photosRaw
-      .filter((p: any) => p && typeof p === "object" && p.path)
-      .map((p: any) => ({ path: String(p.path), caption: String(p.caption || "").trim() }));
+    const photos = getDwellingRowPhotos(row, photoCol, columns);
     return { unit, statusRaw, status, heads: heads || "—", breakdown, notes, photos };
   });
 
@@ -309,7 +341,13 @@ async function renderDwellingAccessLog(
     }
   }
   const photoItems: PhotoItem[] = await Promise.all(photoTasks);
-  console.log("[JobPdfReport] dwelling photos", { tasks: photoTasks.length, withImage: photoItems.filter((p) => p.oriented).length });
+  console.log("[JobPdfReport] dwelling photos", {
+    tasks: photoTasks.length,
+    resolved: photoItems.length,
+    withImage: photoItems.filter((p) => p.oriented && p.oriented.dataUrl).length,
+    withSignedUrl: photoItems.filter((p) => p.url).length,
+    paths: entries.flatMap((e) => e.photos.map((p) => p.path)),
+  });
 
   if (photoItems.length > 0) {
     if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = 15; }
@@ -414,7 +452,9 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const latestByTemplate = new Map<string, any>();
       for (const r of allSheetResponses) {
         const prev = latestByTemplate.get(r.template_id);
-        if (!prev || new Date(r.created_at).getTime() > new Date(prev.created_at).getTime()) {
+        const currentTime = new Date(r.submitted_at || r.updated_at || r.created_at).getTime();
+        const previousTime = prev ? new Date(prev.submitted_at || prev.updated_at || prev.created_at).getTime() : 0;
+        if (!prev || currentTime > previousTime) {
           latestByTemplate.set(r.template_id, r);
         }
       }
@@ -429,7 +469,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
       let engineerNames: string[] = [];
-      let engineerProfileMap: Record<string, string> = {};
+      const engineerProfileMap: Record<string, string> = {};
       if (engIds.length > 0) {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
