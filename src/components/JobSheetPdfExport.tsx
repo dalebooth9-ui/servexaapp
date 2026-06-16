@@ -26,6 +26,47 @@ import {
 } from "@/lib/pdfBody";
 import { fetchOrientedImage } from "@/lib/exifOrient";
 
+function extractSubmissionPath(value: any): string | null {
+  if (typeof value !== "string") return null;
+  const raw = value.trim();
+  if (!raw) return null;
+  const match = raw.match(/\/object\/(?:public|sign)\/submissions\/(.+?)(?:\?|$)/);
+  if (match) return decodeURIComponent(match[1]);
+  if (raw.startsWith("http")) return null;
+  return raw;
+}
+
+function parseDwellingPhotos(value: any): { path: string; caption: string }[] {
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.trim().startsWith("[")
+      ? (() => { try { return JSON.parse(value); } catch { return []; } })()
+      : value
+        ? [value]
+        : [];
+  return (Array.isArray(raw) ? raw : [raw])
+    .flatMap((p: any) => {
+      const path = typeof p === "object" ? extractSubmissionPath(p.path || p.url || p.file_url) : extractSubmissionPath(p);
+      return path ? [{ path, caption: typeof p === "object" ? String(p.caption || p.note || "").trim() : "" }] : [];
+    });
+}
+
+function getDwellingRowPhotos(row: any, photoCol: any, columns: any[]): { path: string; caption: string }[] {
+  const photos = parseDwellingPhotos(photoCol ? row?.[photoCol.id] : row?.photos);
+  if (photos.length > 0) return photos;
+  const knownColumnIds = new Set((columns || []).map((c: any) => c?.id).filter(Boolean));
+  for (const [key, value] of Object.entries(row || {})) {
+    if (key === "id" || key === photoCol?.id) continue;
+    const column = (columns || []).find((c: any) => c?.id === key);
+    const label = String(column?.label || key);
+    const looksLikePhoto = /photo|image|picture/i.test(key) || /photo|image|picture/i.test(label) || (!knownColumnIds.has(key) && String(value || "").includes("template-photos/"));
+    if (!looksLikePhoto) continue;
+    const legacy = parseDwellingPhotos(value);
+    if (legacy.length > 0) return legacy;
+  }
+  return [];
+}
+
 type Template = {
   id: string;
   name: string;
