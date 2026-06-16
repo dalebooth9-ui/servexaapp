@@ -635,12 +635,14 @@ export async function generateJobSheetPdf(
     y += statsH + 2;
 
     // === PART C: Dwelling table ===
-    // Unit ≥35% of table width with wrap; gap before status badge.
-    const unitW = Math.max(maxWidth * 0.35, 50);
-    const statusW = Math.max(maxWidth * 0.22, 32);
-    const headsW = Math.max(maxWidth * 0.14, 20);
-    const notesW = maxWidth - unitW - statusW - headsW;
-    const tblColW = [unitW, statusW, headsW, notesW];
+    // 5 columns: Unit | Status | Heads per flat | Room breakdown & notes | Photo notes
+    const unitW = Math.max(maxWidth * 0.30, 46);
+    const statusW = Math.max(maxWidth * 0.15, 28);
+    const headsW = Math.max(maxWidth * 0.11, 18);
+    const remaining = maxWidth - unitW - statusW - headsW;
+    const notesW = remaining / 2;
+    const photoNotesW = remaining - notesW;
+    const tblColW = [unitW, statusW, headsW, notesW, photoNotesW];
     const tblHeaderH = 7;
     const renderTableHeader = () => {
       doc.setFillColor(235, 238, 242);
@@ -651,7 +653,7 @@ export async function generateJobSheetPdf(
       doc.setFontSize(8.5);
       doc.setTextColor(40, 45, 55);
       let cx = margin;
-      ["Unit", "Status", "Heads per flat", "Room breakdown & notes"].forEach((h, i) => {
+      ["Unit", "Status", "Heads per flat", "Room breakdown & notes", "Photo notes"].forEach((h, i) => {
         doc.text(h, cx + 2, y + 4.8);
         cx += tblColW[i];
       });
@@ -667,10 +669,16 @@ export async function generateJobSheetPdf(
       const notesText = e.status === "gained"
         ? [e.breakdown, e.notes].filter(Boolean).join(". ")
         : (e.notes || "—");
+      const captions = (e.photos || []).map((p) => (p.caption || "").trim()).filter(Boolean);
+      const photoNotesText = captions.length ? captions.join("; ") : "—";
       const notesLines = doc.splitTextToSize(notesText || "—", tblColW[3] - 4);
-      // Wrap unit name (leave ~3mm gap before status badge starts)
+      const photoNotesLines = doc.splitTextToSize(photoNotesText, tblColW[4] - 4);
+      // Wrap unit name (leave ~5mm gap before status badge starts)
       const unitLines = doc.splitTextToSize(String(e.unit), tblColW[0] - 5);
-      const rowH = Math.max(8, Math.max(notesLines.length * 3.6, unitLines.length * 3.6) + 3);
+      const rowH = Math.max(
+        8,
+        Math.max(notesLines.length, unitLines.length, photoNotesLines.length) * 3.6 + 3,
+      );
 
       if (y + rowH > pageHeight - footerSpace) {
         doc.addPage();
@@ -692,14 +700,14 @@ export async function generateJobSheetPdf(
       const cy = y + rowH / 2 + 1.4;
       let cx = margin;
 
-      // Unit (wrapped, top-aligned)
+      // Unit (wrapped, top-aligned, breaks long names; word-break behaviour via splitTextToSize)
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(20, 25, 35);
       doc.text(unitLines, cx + 2, y + 4.5);
       cx += tblColW[0];
 
-      // Status badge (start with a 2mm inset to guarantee gap after unit)
+      // Status badge (3mm inset to guarantee a visible gap after wrapped unit text)
       const badgeBg = e.status === "gained" ? GREEN_BG : e.status === "noanswer" ? AMBER_BG : e.status === "refused" ? RED_BG : [235, 238, 242] as [number, number, number];
       const badgeFg = e.status === "gained" ? GREEN_TXT : e.status === "noanswer" ? AMBER_TXT : e.status === "refused" ? RED_TXT : MUTED;
       const badgeText = statusLabel(e.status, e.statusRaw);
@@ -707,7 +715,7 @@ export async function generateJobSheetPdf(
       doc.setFontSize(7.5);
       const bw = Math.min(tblColW[1] - 4, doc.getTextWidth(badgeText) + 4);
       const bh = 4.6;
-      const bx = cx + 2;
+      const bx = cx + 3;
       const by = y + rowH / 2 - bh / 2;
       doc.setFillColor(...badgeBg);
       doc.roundedRect(bx, by, bw, bh, 1, 1, "F");
@@ -725,13 +733,13 @@ export async function generateJobSheetPdf(
         doc.setFont("helvetica", "normal");
         doc.setFontSize(6.5);
         doc.setTextColor(...MUTED);
-        doc.text("per flat", cx + 2 + numW + 1.5, cy);
+        doc.text("(per flat)", cx + 2 + numW + 1.5, cy);
         doc.setFontSize(9);
         doc.setTextColor(0, 0, 0);
       }
       cx += tblColW[2];
 
-      // Notes
+      // Room breakdown & notes
       if (e.status !== "gained" && e.notes) {
         doc.setFont("helvetica", "italic");
       } else {
@@ -739,6 +747,14 @@ export async function generateJobSheetPdf(
       }
       doc.setTextColor(40, 45, 55);
       doc.text(notesLines, cx + 2, y + 4.5);
+      cx += tblColW[3];
+
+      // Photo notes (combined captions)
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8.5);
+      doc.setTextColor(photoNotesText === "—" ? MUTED[0] : 40, photoNotesText === "—" ? MUTED[1] : 45, photoNotesText === "—" ? MUTED[2] : 55);
+      doc.text(photoNotesLines, cx + 2, y + 4.5);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
       doc.setTextColor(0, 0, 0);
 
@@ -754,20 +770,39 @@ export async function generateJobSheetPdf(
     }
 
     // === PART D: Photographic evidence ===
-    type PhotoItem = { unit: string; url: string | null; caption: string };
-    const photoItems: PhotoItem[] = [];
+    type PhotoItem = {
+      unit: string;
+      url: string | null;
+      caption: string;
+      oriented: { dataUrl: string; width: number; height: number; mimeType: "image/jpeg" | "image/png" } | null;
+    };
+    // Pre-resolve signed URLs AND oriented image bytes in parallel so a single slow
+    // fetch doesn't stall the whole PDF and so failures are captured before render.
+    const photoTasks: Promise<PhotoItem>[] = [];
     for (const e of entries) {
       for (const p of e.photos) {
-        let url: string | null = null;
-        try {
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
-          url = data?.signedUrl ?? null;
-        } catch (err) {
-          console.warn("Dwelling photo signed URL failed", p.path, err);
-        }
-        photoItems.push({ unit: e.unit, url, caption: p.caption });
+        photoTasks.push((async () => {
+          let url: string | null = null;
+          try {
+            const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+            url = data?.signedUrl ?? null;
+          } catch (err) {
+            console.warn("Dwelling photo signed URL failed", p.path, err);
+          }
+          let oriented: PhotoItem["oriented"] = null;
+          if (url) {
+            try {
+              const o = await fetchOrientedImage(url);
+              if (o && o.dataUrl) oriented = o;
+            } catch (err) {
+              console.warn("Dwelling photo orient failed", p.path, err);
+            }
+          }
+          return { unit: e.unit, url, caption: p.caption, oriented };
+        })());
       }
     }
+    const photoItems: PhotoItem[] = await Promise.all(photoTasks);
 
     if (photoItems.length > 0) {
       if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
@@ -784,7 +819,7 @@ export async function generateJobSheetPdf(
       const gap = 3;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
       const photoH = 56; // ~ 160px @ 72dpi
-      const captionBlock = 9;
+      const captionBlock = 11;
       const cellH = photoH + captionBlock + 2;
 
       for (let i = 0; i < photoItems.length; i++) {
@@ -796,22 +831,36 @@ export async function generateJobSheetPdf(
         }
         const x = margin + col * (photoW + gap);
         const item = photoItems[i];
+
+        // Always paint a grey backdrop first so any transparent or
+        // letterboxed image sits on a neutral surface.
+        doc.setFillColor(235, 238, 242);
+        doc.rect(x, y, photoW, photoH, "F");
+
         let rendered = false;
-        if (item.url) {
+        if (item.oriented && item.oriented.dataUrl) {
           try {
-            const oriented = await fetchOrientedImage(item.url);
-            if (oriented && oriented.dataUrl) {
-              doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
-              rendered = true;
-            }
+            // Preserve aspect ratio inside the cell.
+            const ow = item.oriented.width || photoW;
+            const oh = item.oriented.height || photoH;
+            const scale = Math.min(photoW / ow, photoH / oh);
+            const dw = Math.max(8, ow * scale);
+            const dh = Math.max(8, oh * scale);
+            const dx = x + (photoW - dw) / 2;
+            const dy = y + (photoH - dh) / 2;
+            doc.addImage(
+              item.oriented.dataUrl,
+              item.oriented.mimeType === "image/png" ? "PNG" : "JPEG",
+              dx, dy, dw, dh,
+              undefined,
+              "FAST",
+            );
+            rendered = true;
           } catch (err) {
-            console.warn("Dwelling photo render failed", err);
+            console.warn("Dwelling photo addImage failed", err);
           }
         }
         if (!rendered) {
-          // Grey placeholder
-          doc.setFillColor(235, 238, 242);
-          doc.rect(x, y, photoW, photoH, "F");
           doc.setFont("helvetica", "italic");
           doc.setFontSize(8);
           doc.setTextColor(...MUTED);
@@ -823,7 +872,7 @@ export async function generateJobSheetPdf(
         doc.setLineWidth(0.2);
         doc.rect(x, y, photoW, photoH);
 
-        // Unit label (bold) + caption (italic) beneath
+        // Unit label (bold) + caption (italic) beneath — shown for placeholder too.
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
         doc.setTextColor(20, 25, 35);
@@ -833,7 +882,7 @@ export async function generateJobSheetPdf(
           doc.setFont("helvetica", "italic");
           doc.setFontSize(7.5);
           doc.setTextColor(70, 75, 85);
-          const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 1);
+          const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 2);
           doc.text(capLines, x, y + photoH + 7);
         }
         doc.setFont("helvetica", "normal");
