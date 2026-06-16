@@ -24,6 +24,7 @@ import {
   renderSectionHeader,
   renderFilledFieldRow,
 } from "@/lib/pdfBody";
+import { fetchOrientedImage } from "@/lib/exifOrient";
 
 type Template = {
   id: string;
