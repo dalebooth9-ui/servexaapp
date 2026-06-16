@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 export type RepeatingColumn = {
   id: string;
   label: string;
-  type: "text" | "number" | "yn_na" | "dropdown" | "photo";
+  type: "text" | "number" | "yn_na" | "dropdown" | "photo" | "photo_gallery";
   options?: string[];
 };
 
