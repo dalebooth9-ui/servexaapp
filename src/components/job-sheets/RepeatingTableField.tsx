@@ -39,11 +39,38 @@ function parseRows(value: any): Row[] {
   return [];
 }
 
+function genId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {}
+  return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function RepeatingTableField({ columns, value, onChange, jobId, userId, fieldId }: Props) {
   const rows = parseRows(value);
   const containerRef = useRef<HTMLDivElement>(null);
+  const backfilledRef = useRef(false);
 
   const commit = (next: Row[]) => onChange(JSON.stringify(next));
+
+  // Backfill stable ids on any existing rows that don't have one. Runs once
+  // per mount when rows are first loaded so legacy data (saved before stable
+  // ids existed) gets a permanent id without disturbing user-entered values.
+  useEffect(() => {
+    if (backfilledRef.current) return;
+    if (rows.length === 0) return;
+    const missing = rows.some((r) => !r || !r.id);
+    if (!missing) {
+      backfilledRef.current = true;
+      return;
+    }
+    const next = rows.map((r) => (r && r.id ? r : { ...r, id: genId() }));
+    backfilledRef.current = true;
+    commit(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
 
   const updateCell = (rowIdx: number, colId: string, v: any) => {
     const next = rows.map((r, i) => (i === rowIdx ? { ...r, [colId]: v } : r));
@@ -51,8 +78,10 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
   };
 
   const addRow = () => {
-    const blank: Row = {};
-    columns.forEach((c) => (blank[c.id] = ""));
+    const blank: Row = { id: genId() };
+    columns.forEach((c) => {
+      if (c.id !== "id") blank[c.id] = "";
+    });
     commit([...rows, blank]);
   };
 
@@ -73,9 +102,12 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
         <p className="text-xs text-muted-foreground italic">No rows yet. Tap "Add Row" to begin.</p>
       )}
 
-      {rows.map((row, rowIdx) => (
+      {rows.map((row, rowIdx) => {
+        const rowId: string = row.id || `idx-${rowIdx}`;
+        const unitLabel: string = String(row.unit_number || "").trim();
+        return (
         <div
-          key={rowIdx}
+          key={rowId}
           className="relative rounded-lg border border-border bg-muted/30 p-3 pr-9 space-y-3"
         >
           <button
@@ -88,10 +120,10 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
           </button>
 
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Row {rowIdx + 1}
+            {unitLabel ? `Row ${rowIdx + 1} — ${unitLabel}` : `Row ${rowIdx + 1}`}
           </div>
 
-          {columns.map((col) => {
+          {columns.filter((c) => c.id !== "id").map((col) => {
             const val = row[col.id] ?? "";
             return (
               <div key={col.id} className="space-y-1">
@@ -161,7 +193,8 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
                   <RowPhotoCell
                     value={val}
                     onChange={(v) => updateCell(rowIdx, col.id, v)}
-                    fieldId={`${fieldId || "row"}-${rowIdx}-${col.id}`}
+                    fieldId={`${fieldId || "row"}-${rowId}-${col.id}`}
+                    groupLabel={unitLabel}
                     jobId={jobId}
                     userId={userId}
                   />
@@ -170,7 +203,9 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
             );
           })}
         </div>
-      ))}
+        );
+      })}
+
 
       <Button
         type="button"
@@ -184,7 +219,7 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
   );
 }
 
-function RowPhotoCell({ value, onChange, fieldId, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; jobId?: string; userId?: string }) {
+function RowPhotoCell({ value, onChange, fieldId, groupLabel, jobId, userId }: { value: any; onChange: (v: any) => void; fieldId: string; groupLabel?: string; jobId?: string; userId?: string }) {
   const [uploading, setUploading] = useState(false);
   const [signedUrl, setSignedUrl] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -215,12 +250,17 @@ function RowPhotoCell({ value, onChange, fieldId, jobId, userId }: { value: any;
           .from("submissions")
           .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
         if (signedData?.signedUrl) {
+          // Prefix the submission file_name with the human-readable group label
+          // (e.g. unit/flat number) when available so reports/PDFs can group
+          // photos by the dwelling label rather than by array index.
+          const label = (groupLabel || "").trim().replace(/[\/\\]/g, "-");
+          const displayName = label ? `${label} — ${fileName}` : fileName;
           await supabase.from("submissions").insert({
             job_id: jobId,
             engineer_id: userId,
             type: "photo",
             file_url: signedData.signedUrl,
-            file_name: fileName,
+            file_name: displayName,
           } as any);
         }
       }
