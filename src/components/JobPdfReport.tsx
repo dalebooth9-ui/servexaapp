@@ -452,7 +452,9 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const latestByTemplate = new Map<string, any>();
       for (const r of allSheetResponses) {
         const prev = latestByTemplate.get(r.template_id);
-        if (!prev || new Date(r.created_at).getTime() > new Date(prev.created_at).getTime()) {
+        const currentTime = new Date(r.submitted_at || r.updated_at || r.created_at).getTime();
+        const previousTime = prev ? new Date(prev.submitted_at || prev.updated_at || prev.created_at).getTime() : 0;
+        if (!prev || currentTime > previousTime) {
           latestByTemplate.set(r.template_id, r);
         }
       }
