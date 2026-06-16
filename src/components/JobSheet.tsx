@@ -48,6 +48,9 @@ const ACTION_ICON: Record<string, React.ReactNode> = {
   note: <ClipboardList className="h-3.5 w-3.5 text-muted-foreground" />,
 };
 
+const isPhotoSubmissionActivity = (entry: ActivityEntry) =>
+  entry.action === "submission" && /^photo(?::|$)/i.test((entry.details || "").trim());
+
 const VISIT_STATUS_ICON: Record<string, React.ReactNode> = {
   upcoming: <Clock className="h-3 w-3" />,
   completed: <CheckCircle2 className="h-3 w-3 text-green-600" />,
@@ -93,7 +96,10 @@ export default function JobSheet({ jobId, job }: { jobId: string; job: any }) {
         .eq("status", "submitted")
         .order("submitted_at", { ascending: true }),
     ]);
-    setActivities((actRes.data as ActivityEntry[]) || []);
+    const visibleActivities = ((actRes.data as ActivityEntry[]) || []).filter(
+      (entry) => !isPhotoSubmissionActivity(entry)
+    );
+    setActivities(visibleActivities);
     setVisits((visitRes.data as Visit[]) || []);
     setAssignments((assignRes.data as Assignment[]) || []);
     setTemplateResponses(respRes.data || []);
