@@ -635,7 +635,12 @@ export async function generateJobSheetPdf(
     y += statsH + 2;
 
     // === PART C: Dwelling table ===
-    const tblColW = [22, 32, 16, maxWidth - 22 - 32 - 16]; // Unit, Status, Heads, Notes
+    // Unit ≥35% of table width with wrap; gap before status badge.
+    const unitW = Math.max(maxWidth * 0.35, 50);
+    const statusW = Math.max(maxWidth * 0.22, 32);
+    const headsW = Math.max(maxWidth * 0.14, 20);
+    const notesW = maxWidth - unitW - statusW - headsW;
+    const tblColW = [unitW, statusW, headsW, notesW];
     const tblHeaderH = 7;
     const renderTableHeader = () => {
       doc.setFillColor(235, 238, 242);
@@ -646,7 +651,7 @@ export async function generateJobSheetPdf(
       doc.setFontSize(8.5);
       doc.setTextColor(40, 45, 55);
       let cx = margin;
-      ["Unit", "Status", "Heads", "Room breakdown & notes"].forEach((h, i) => {
+      ["Unit", "Status", "Heads per flat", "Room breakdown & notes"].forEach((h, i) => {
         doc.text(h, cx + 2, y + 4.8);
         cx += tblColW[i];
       });
@@ -663,7 +668,9 @@ export async function generateJobSheetPdf(
         ? [e.breakdown, e.notes].filter(Boolean).join(". ")
         : (e.notes || "—");
       const notesLines = doc.splitTextToSize(notesText || "—", tblColW[3] - 4);
-      const rowH = Math.max(8, notesLines.length * 3.6 + 3);
+      // Wrap unit name (leave ~3mm gap before status badge starts)
+      const unitLines = doc.splitTextToSize(String(e.unit), tblColW[0] - 5);
+      const rowH = Math.max(8, Math.max(notesLines.length * 3.6, unitLines.length * 3.6) + 3);
 
       if (y + rowH > pageHeight - footerSpace) {
         doc.addPage();
@@ -685,13 +692,14 @@ export async function generateJobSheetPdf(
       const cy = y + rowH / 2 + 1.4;
       let cx = margin;
 
-      // Unit
+      // Unit (wrapped, top-aligned)
       doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
       doc.setTextColor(20, 25, 35);
-      doc.text(String(e.unit), cx + 2, cy);
+      doc.text(unitLines, cx + 2, y + 4.5);
       cx += tblColW[0];
 
-      // Status badge
+      // Status badge (start with a 2mm inset to guarantee gap after unit)
       const badgeBg = e.status === "gained" ? GREEN_BG : e.status === "noanswer" ? AMBER_BG : e.status === "refused" ? RED_BG : [235, 238, 242] as [number, number, number];
       const badgeFg = e.status === "gained" ? GREEN_TXT : e.status === "noanswer" ? AMBER_TXT : e.status === "refused" ? RED_TXT : MUTED;
       const badgeText = statusLabel(e.status, e.statusRaw);
@@ -708,10 +716,19 @@ export async function generateJobSheetPdf(
       doc.setFontSize(9);
       cx += tblColW[1];
 
-      // Heads
-      doc.setFont("helvetica", "normal");
+      // Heads (per flat)
+      doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
       doc.text(String(e.heads || "—"), cx + 2, cy);
+      if (e.heads && e.heads !== "—") {
+        const numW = doc.getTextWidth(String(e.heads));
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(...MUTED);
+        doc.text("per flat", cx + 2 + numW + 1.5, cy);
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+      }
       cx += tblColW[2];
 
       // Notes
