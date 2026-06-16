@@ -1675,8 +1675,20 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                     variant="outline"
                     size="sm"
                     className="h-7 text-[11px] gap-1"
+                    onClick={mergePhotosFromSubmissions}
+                    title="Append any photo uploads that aren't already attached to a dwelling row in this form (existing rows only)"
+                  >
+                    <Copy className="h-3 w-3" /> Merge photos
+                  </Button>
+                )}
+                {activeResponse && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] gap-1"
                     onClick={restorePhotosFromSubmissions}
-                    title="Re-link any photo files that were uploaded for this job but are missing from the form"
+                    title="Re-link any photo files that were uploaded for this job but are missing from the form (recreates rows if needed)"
                   >
                     <RotateCcw className="h-3 w-3" /> Restore photos
                   </Button>
