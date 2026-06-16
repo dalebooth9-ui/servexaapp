@@ -405,14 +405,28 @@ export async function generateJobSheetPdf(
   let sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
   const sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
   const sitePhotoCaptions: string[] = (resolvedFormData._site_photo_captions as string[]) || [];
-  // If we have storage paths but no usable URLs (or fewer URLs than paths), regenerate signed URLs
-  if (sitePhotoPaths.length > sitePhotoUrls.length) {
+  console.log("[JobSheetPdfExport] site photos input", {
+    urlCount: sitePhotoUrls.length,
+    pathCount: sitePhotoPaths.length,
+    captionCount: sitePhotoCaptions.length,
+    sampleUrl: sitePhotoUrls[0],
+    samplePath: sitePhotoPaths[0],
+  });
+  // Always regenerate signed URLs from storage paths when available — URLs
+  // persisted in the response JSON may have expired or originated from a
+  // different host, so re-signing is the most reliable path.
+  if (sitePhotoPaths.length > 0) {
     const fresh: string[] = [];
     for (const p of sitePhotoPaths) {
-      const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 60 * 60);
-      if (data?.signedUrl) fresh.push(data.signedUrl);
+      try {
+        const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 60 * 60);
+        if (data?.signedUrl) fresh.push(data.signedUrl);
+      } catch (err) {
+        console.warn("[JobSheetPdfExport] site photo sign failed", p, err);
+      }
     }
     if (fresh.length > 0) sitePhotoUrls = fresh;
+    console.log("[JobSheetPdfExport] site photos re-signed", { freshCount: fresh.length });
   }
   if (sitePhotoUrls.length > 0) {
     doc.setFont("helvetica", "bold");
