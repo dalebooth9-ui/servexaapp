@@ -578,6 +578,12 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         mergedKeys: Object.keys(merged),
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
+      console.log("[JobSheetTemplates] edit existing report", {
+        responseId: existingResponse.id,
+        savedKeys: Object.keys(saved),
+        mergedKeys: Object.keys(merged),
+        hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
+      });
       setFormData(merged);
 
       // Site photos for legacy reports were only saved in the `submissions` table
