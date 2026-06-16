@@ -705,12 +705,23 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
           const fields = tpl.fields || [];
           const responses = resp.responses || {};
+          // Identify repeating_table fields containing a photo_gallery column
+          // (dwelling access log style) — these are rendered separately with
+          // a professional layout instead of as flat label/value rows.
+          const galleryFields = fields.filter((f: any) =>
+            f.type === "repeating_table" &&
+            Array.isArray(f.columns) &&
+            f.columns.some((c: any) => c?.type === "photo_gallery")
+          );
+          const gallerySkipIds = new Set(galleryFields.map((f: any) => f.id));
           const sections = [...new Set(fields.map((f: any) => f.section || "General"))] as string[];
           const fieldLabelW = maxWidth * 0.6;
           const fieldValW = maxWidth * 0.4;
 
           for (const section of sections) {
-            const sectionFields = fields.filter((f: any) => (f.section || "General") === section);
+            const sectionFields = fields.filter((f: any) =>
+              (f.section || "General") === section && !gallerySkipIds.has(f.id)
+            );
             if (sectionFields.length === 0) continue;
 
             checkPage(12);
