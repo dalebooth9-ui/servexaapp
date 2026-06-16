@@ -316,3 +316,164 @@ function RowPhotoCell({ value, onChange, fieldId, groupLabel, jobId, userId }: {
     </div>
   );
 }
+
+type GalleryPhoto = {
+  path: string;            // storage path in 'submissions' bucket
+  caption?: string;
+  uploaded_at?: string;
+};
+
+function parseGallery(value: any): GalleryPhoto[] {
+  if (Array.isArray(value)) return value.filter((p) => p && typeof p === "object" && p.path);
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try {
+      const v = JSON.parse(value);
+      return Array.isArray(v) ? v.filter((p) => p && typeof p === "object" && p.path) : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function RowPhotoGalleryCell({
+  value, onChange, fieldId, groupLabel, jobId, userId,
+}: {
+  value: any;
+  onChange: (v: any) => void;
+  fieldId: string;
+  groupLabel?: string;
+  jobId?: string;
+  userId?: string;
+}) {
+  const photos = parseGallery(value);
+  const [uploading, setUploading] = useState(false);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const next: Record<string, string> = { ...signedUrls };
+      const missing = photos.filter((p) => !next[p.path]);
+      if (missing.length === 0) return;
+      for (const p of missing) {
+        const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 3600);
+        if (data?.signedUrl) next[p.path] = data.signedUrl;
+      }
+      if (!cancelled) setSignedUrls(next);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photos.map((p) => p.path).join("|")]);
+
+  const commit = (next: GalleryPhoto[]) => onChange(next);
+
+  const handleUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    const added: GalleryPhoto[] = [];
+    for (const file of Array.from(files)) {
+      if (!file.type.startsWith("image/")) continue;
+      const ext = file.name.split(".").pop() || "jpg";
+      const fileName = `${fieldId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
+      const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true, contentType: file.type });
+      if (error) {
+        console.error("Upload error:", error);
+        continue;
+      }
+      added.push({ path, caption: "", uploaded_at: new Date().toISOString() });
+
+      if (jobId && userId) {
+        const { data: signedData } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        if (signedData?.signedUrl) {
+          const label = (groupLabel || "").trim().replace(/[\/\\]/g, "-");
+          const displayName = label ? `${label} — ${fileName}` : fileName;
+          await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: userId,
+            type: "photo",
+            file_url: signedData.signedUrl,
+            file_name: displayName,
+          } as any);
+        }
+      }
+    }
+    if (added.length > 0) commit([...photos, ...added]);
+    setUploading(false);
+  };
+
+  const removeAt = (idx: number) => {
+    commit(photos.filter((_, i) => i !== idx));
+  };
+
+  const setCaption = (idx: number, caption: string) => {
+    commit(photos.map((p, i) => (i === idx ? { ...p, caption: caption.slice(0, 100) } : p)));
+  };
+
+  return (
+    <div className="space-y-2">
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        multiple
+        className="hidden"
+        onChange={(e) => { handleUpload(e.target.files); if (fileRef.current) fileRef.current.value = ""; }}
+      />
+
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5 h-8 text-xs"
+        onClick={() => fileRef.current?.click()}
+        disabled={uploading}
+      >
+        {uploading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+        {uploading ? "Uploading..." : "Add Photo"}
+      </Button>
+
+      {photos.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {photos.map((p, idx) => (
+            <div key={p.path} className="shrink-0 w-[88px] space-y-1">
+              <div className="relative">
+                {signedUrls[p.path] ? (
+                  <img
+                    src={signedUrls[p.path]}
+                    alt={p.caption || `Photo ${idx + 1}`}
+                    className="w-[88px] h-[66px] rounded border object-cover bg-muted"
+                  />
+                ) : (
+                  <div className="w-[88px] h-[66px] rounded border bg-muted flex items-center justify-center">
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removeAt(idx)}
+                  aria-label="Remove photo"
+                  className="absolute -top-1.5 -right-1.5 h-5 w-5 rounded-full bg-destructive text-destructive-foreground inline-flex items-center justify-center shadow"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+              <Input
+                value={p.caption || ""}
+                onChange={(e) => setCaption(idx, e.target.value)}
+                placeholder="Caption"
+                maxLength={100}
+                className="h-6 text-[10px] px-1.5"
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
