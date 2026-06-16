@@ -526,7 +526,49 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     await fetchData();
   };
 
-  const handleStartForm = (template: Template, existingResponse?: Response) => {
+  const fetchBackfilledSitePhotos = async (existingResponse?: Response) => {
+    const { data: subs } = await supabase
+      .from("submissions")
+      .select("file_url, file_name, content, engineer_id, created_at")
+      .eq("job_id", jobId)
+      .eq("type", "photo")
+      .order("created_at", { ascending: true });
+    if (!subs || subs.length === 0) return { urls: [] as string[], paths: [] as string[], captions: [] as string[] };
+    const ownPhotos = existingResponse ? (subs as any[]).filter((s) => s.engineer_id === existingResponse.submitted_by) : [];
+    const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
+    const urls: string[] = [];
+    const paths: string[] = [];
+    const captions: string[] = [];
+    for (const s of pool) {
+      if (!s.file_url) continue;
+      urls.push(s.file_url as string);
+      paths.push("");
+      captions.push((s.content as string) || "");
+    }
+    return { urls, paths, captions };
+  };
+
+  const withPreservedSitePhotos = async (payload: Record<string, any>) => {
+    const existingUrls = Array.isArray(payload._site_photo_urls) ? payload._site_photo_urls : [];
+    const existingPaths = Array.isArray(payload._site_photo_paths) ? payload._site_photo_paths : [];
+    const existingCaptions = Array.isArray(payload._site_photo_captions) ? payload._site_photo_captions : [];
+    if (existingUrls.length > 0 || existingPaths.length > 0 || !activeResponse) return payload;
+    try {
+      const backfilled = await fetchBackfilledSitePhotos(activeResponse);
+      if (backfilled.urls.length === 0) return payload;
+      return {
+        ...payload,
+        _site_photo_urls: [...existingUrls, ...backfilled.urls],
+        _site_photo_paths: [...existingPaths, ...backfilled.paths],
+        _site_photo_captions: [...existingCaptions, ...backfilled.captions],
+      };
+    } catch (err) {
+      console.warn("[JobSheetTemplates] failed to preserve backfilled site photos on save", err);
+      return payload;
+    }
+  };
+
+  const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
