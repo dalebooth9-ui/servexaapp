@@ -526,7 +526,49 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     await fetchData();
   };
 
-  const handleStartForm = (template: Template, existingResponse?: Response) => {
+  const fetchBackfilledSitePhotos = async (existingResponse?: Response) => {
+    const { data: subs } = await supabase
+      .from("submissions")
+      .select("file_url, file_name, content, engineer_id, created_at")
+      .eq("job_id", jobId)
+      .eq("type", "photo")
+      .order("created_at", { ascending: true });
+    if (!subs || subs.length === 0) return { urls: [] as string[], paths: [] as string[], captions: [] as string[] };
+    const ownPhotos = existingResponse ? (subs as any[]).filter((s) => s.engineer_id === existingResponse.submitted_by) : [];
+    const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
+    const urls: string[] = [];
+    const paths: string[] = [];
+    const captions: string[] = [];
+    for (const s of pool) {
+      if (!s.file_url) continue;
+      urls.push(s.file_url as string);
+      paths.push("");
+      captions.push((s.content as string) || "");
+    }
+    return { urls, paths, captions };
+  };
+
+  const withPreservedSitePhotos = async (payload: Record<string, any>) => {
+    const existingUrls = Array.isArray(payload._site_photo_urls) ? payload._site_photo_urls : [];
+    const existingPaths = Array.isArray(payload._site_photo_paths) ? payload._site_photo_paths : [];
+    const existingCaptions = Array.isArray(payload._site_photo_captions) ? payload._site_photo_captions : [];
+    if (existingUrls.length > 0 || existingPaths.length > 0 || !activeResponse) return payload;
+    try {
+      const backfilled = await fetchBackfilledSitePhotos(activeResponse);
+      if (backfilled.urls.length === 0) return payload;
+      return {
+        ...payload,
+        _site_photo_urls: [...existingUrls, ...backfilled.urls],
+        _site_photo_paths: [...existingPaths, ...backfilled.paths],
+        _site_photo_captions: [...existingCaptions, ...backfilled.captions],
+      };
+    } catch (err) {
+      console.warn("[JobSheetTemplates] failed to preserve backfilled site photos on save", err);
+      return payload;
+    }
+  };
+
+  const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
@@ -586,6 +628,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         }
       }
 
+      if (!Array.isArray(merged._site_photo_urls) || merged._site_photo_urls.length === 0) {
+        try {
+          const backfilled = await fetchBackfilledSitePhotos(existingResponse);
+          if (backfilled.urls.length > 0) {
+            merged._site_photo_urls = backfilled.urls;
+            merged._site_photo_paths = backfilled.paths;
+            merged._site_photo_captions = backfilled.captions;
+          }
+        } catch (err) {
+          console.warn("[JobSheetTemplates] failed to backfill site photos", err);
+        }
+      }
+
       const extraPhotoKeys = Object.keys(merged).filter((k) => !Object.keys(saved).includes(k));
       console.debug("[JobSheetTemplates] edit existing report", {
         responseId: existingResponse.id,
@@ -606,51 +661,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
       setFormData(merged);
-
-      // Site photos for legacy reports were only saved in the `submissions` table
-      // (not in responses._site_photo_urls). Backfill them so they appear in the
-      // "Previously uploaded" grid when editing.
-      if (!Array.isArray(merged._site_photo_urls) || merged._site_photo_urls.length === 0) {
-        (async () => {
-          try {
-            const { data: subs } = await supabase
-              .from("submissions")
-              .select("file_url, file_name, content, engineer_id, created_at")
-              .eq("job_id", jobId)
-              .eq("type", "photo")
-              .order("created_at", { ascending: true });
-            if (!subs || subs.length === 0) return;
-            // Prefer photos submitted by the same engineer; fall back to all.
-            const ownPhotos = (subs as any[]).filter((s) => s.engineer_id === existingResponse.submitted_by);
-            const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
-            const urls: string[] = [];
-            const paths: string[] = [];
-            const caps: string[] = [];
-            for (const s of pool) {
-              if (!s.file_url) continue;
-              urls.push(s.file_url as string);
-              // We don't always know the storage path here; leave blank — removal
-              // from the UI just drops the URL from the report.
-              paths.push("");
-              caps.push((s.content as string) || "");
-            }
-            if (urls.length === 0) return;
-            setFormData((prev) => {
-              // If the engineer has already started adding/removing photos in this
-              // session, don't overwrite.
-              if (Array.isArray(prev._site_photo_urls) && prev._site_photo_urls.length > 0) return prev;
-              return {
-                ...prev,
-                _site_photo_urls: urls,
-                _site_photo_paths: paths,
-                _site_photo_captions: caps,
-              };
-            });
-          } catch (err) {
-            console.warn("[JobSheetTemplates] failed to backfill site photos", err);
-          }
-        })();
-      }
     } else {
       setActiveResponse(null);
       if (localDraft) {
@@ -716,20 +726,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     if (!activeTemplate) return;
     setSubmitting(true);
     try {
+      const payload = await withPreservedSitePhotos(formData);
+      console.log("[JobSheetTemplates] save report photos", {
+        responseId: activeResponse?.id || null,
+        sitePhotoUrls: Array.isArray(payload._site_photo_urls) ? payload._site_photo_urls.length : 0,
+        sitePhotoPaths: Array.isArray(payload._site_photo_paths) ? payload._site_photo_paths.length : 0,
+        sitePhotoCaptions: Array.isArray(payload._site_photo_captions) ? payload._site_photo_captions.length : 0,
+      });
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
-          responses: formData as any,
+          responses: payload as any,
         } as any).eq("id", activeResponse.id);
       } else {
         const { data } = await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
           template_id: activeTemplate.id,
-          responses: formData as any,
+          responses: payload as any,
           submitted_by: user?.id,
           status: "draft",
         } as any).select().single();
         if (data) setActiveResponse(data as Response);
       }
+      setFormData(payload);
       toast({ title: "Draft saved" });
       clearTemplateFormDraft();
       fetchData();
@@ -784,17 +802,18 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           }
         }
       }
-      const existingPhotoUrls = Array.isArray(formData._site_photo_urls) ? formData._site_photo_urls : [];
-      const existingPhotoPaths = Array.isArray(formData._site_photo_paths) ? formData._site_photo_paths : [];
-      const existingPhotoCaptions = Array.isArray(formData._site_photo_captions) ? formData._site_photo_captions : [];
+      const baseFormData = await withPreservedSitePhotos(formData);
+      const existingPhotoUrls = Array.isArray(baseFormData._site_photo_urls) ? baseFormData._site_photo_urls : [];
+      const existingPhotoPaths = Array.isArray(baseFormData._site_photo_paths) ? baseFormData._site_photo_paths : [];
+      const existingPhotoCaptions = Array.isArray(baseFormData._site_photo_captions) ? baseFormData._site_photo_captions : [];
       const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0 || existingPhotoUrls.length > 0 || existingPhotoPaths.length > 0)
         ? {
-            ...formData,
+            ...baseFormData,
             _site_photo_urls: [...existingPhotoUrls, ...photoUrls],
             _site_photo_paths: [...existingPhotoPaths, ...photoPaths],
             _site_photo_captions: [...existingPhotoCaptions, ...photoCaptions],
           }
-        : formData;
+        : baseFormData;
       console.log("[JobSheetTemplates] submit report photos", {
         existingSitePhotos: existingPhotoUrls.length,
         newSitePhotos: photoUrls.length,
