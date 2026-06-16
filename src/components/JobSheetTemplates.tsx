@@ -530,7 +530,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
-    const autoPopulatedIds = new Set(Object.keys(prefilled));
+    // Only treat a field as "auto-populated" when we actually have a value for it.
+    // Otherwise an empty auto-populate (e.g. missing site name) would wipe out the
+    // engineer's saved entry when re-opening a submitted report.
+    const autoPopulatedIds = new Set(
+      Object.entries(prefilled)
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k]) => k)
+    );
 
     // Check for auto-saved draft (sync read from localStorage mirror)
     const draftKey = `template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
@@ -538,10 +545,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     if (existingResponse) {
       setActiveResponse(existingResponse);
-      const saved = existingResponse.responses as Record<string, any>;
-      const merged: Record<string, any> = { ...prefilled };
-      Object.entries(saved).forEach(([key, val]) => {
-        if (autoPopulatedIds.has(key)) return;
+      const saved = (existingResponse.responses || {}) as Record<string, any>;
+      // Start with all saved data so nothing the engineer entered gets lost,
+      // then overlay fresh non-empty auto-populated values on top.
+      const merged: Record<string, any> = { ...saved };
+      Object.entries(prefilled).forEach(([key, val]) => {
         if (val !== undefined && val !== null && val !== "") {
           merged[key] = val;
         }
