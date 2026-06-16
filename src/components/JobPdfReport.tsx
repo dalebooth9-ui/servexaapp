@@ -13,6 +13,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { fetchOrientedImage } from "@/lib/exifOrient";
 
 interface Props {
   jobId: string;
