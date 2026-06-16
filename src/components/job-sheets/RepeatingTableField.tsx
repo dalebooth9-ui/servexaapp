@@ -447,6 +447,7 @@ function RowPhotoGalleryCell({
                   <img
                     src={signedUrls[p.path]}
                     alt={p.caption || `Photo ${idx + 1}`}
+                    data-uploaded="true"
                     className="w-[88px] h-[66px] rounded border object-cover bg-muted"
                   />
                 ) : (
