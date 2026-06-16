@@ -1544,10 +1544,24 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <DialogTitle className="text-sm flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
               </DialogTitle>
-              <button onClick={closeForm} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {activeResponse && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] gap-1"
+                    onClick={restorePhotosFromSubmissions}
+                    title="Re-link any photo files that were uploaded for this job but are missing from the form"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Restore photos
+                  </Button>
+                )}
+                <button onClick={closeForm} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
