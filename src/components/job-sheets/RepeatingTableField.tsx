@@ -102,9 +102,12 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
         <p className="text-xs text-muted-foreground italic">No rows yet. Tap "Add Row" to begin.</p>
       )}
 
-      {rows.map((row, rowIdx) => (
+      {rows.map((row, rowIdx) => {
+        const rowId: string = row.id || `idx-${rowIdx}`;
+        const unitLabel: string = String(row.unit_number || "").trim();
+        return (
         <div
-          key={rowIdx}
+          key={rowId}
           className="relative rounded-lg border border-border bg-muted/30 p-3 pr-9 space-y-3"
         >
           <button
@@ -117,10 +120,10 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
           </button>
 
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Row {rowIdx + 1}
+            {unitLabel ? `Row ${rowIdx + 1} — ${unitLabel}` : `Row ${rowIdx + 1}`}
           </div>
 
-          {columns.map((col) => {
+          {columns.filter((c) => c.id !== "id").map((col) => {
             const val = row[col.id] ?? "";
             return (
               <div key={col.id} className="space-y-1">
@@ -190,7 +193,8 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
                   <RowPhotoCell
                     value={val}
                     onChange={(v) => updateCell(rowIdx, col.id, v)}
-                    fieldId={`${fieldId || "row"}-${rowIdx}-${col.id}`}
+                    fieldId={`${fieldId || "row"}-${rowId}-${col.id}`}
+                    groupLabel={unitLabel}
                     jobId={jobId}
                     userId={userId}
                   />
@@ -199,7 +203,9 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
             );
           })}
         </div>
-      ))}
+        );
+      })}
+
 
       <Button
         type="button"
