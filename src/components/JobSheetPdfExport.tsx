@@ -770,20 +770,39 @@ export async function generateJobSheetPdf(
     }
 
     // === PART D: Photographic evidence ===
-    type PhotoItem = { unit: string; url: string | null; caption: string };
-    const photoItems: PhotoItem[] = [];
+    type PhotoItem = {
+      unit: string;
+      url: string | null;
+      caption: string;
+      oriented: { dataUrl: string; width: number; height: number; mimeType: "image/jpeg" | "image/png" } | null;
+    };
+    // Pre-resolve signed URLs AND oriented image bytes in parallel so a single slow
+    // fetch doesn't stall the whole PDF and so failures are captured before render.
+    const photoTasks: Promise<PhotoItem>[] = [];
     for (const e of entries) {
       for (const p of e.photos) {
-        let url: string | null = null;
-        try {
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
-          url = data?.signedUrl ?? null;
-        } catch (err) {
-          console.warn("Dwelling photo signed URL failed", p.path, err);
-        }
-        photoItems.push({ unit: e.unit, url, caption: p.caption });
+        photoTasks.push((async () => {
+          let url: string | null = null;
+          try {
+            const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+            url = data?.signedUrl ?? null;
+          } catch (err) {
+            console.warn("Dwelling photo signed URL failed", p.path, err);
+          }
+          let oriented: PhotoItem["oriented"] = null;
+          if (url) {
+            try {
+              const o = await fetchOrientedImage(url);
+              if (o && o.dataUrl) oriented = o;
+            } catch (err) {
+              console.warn("Dwelling photo orient failed", p.path, err);
+            }
+          }
+          return { unit: e.unit, url, caption: p.caption, oriented };
+        })());
       }
     }
+    const photoItems: PhotoItem[] = await Promise.all(photoTasks);
 
     if (photoItems.length > 0) {
       if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
@@ -800,7 +819,7 @@ export async function generateJobSheetPdf(
       const gap = 3;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
       const photoH = 56; // ~ 160px @ 72dpi
-      const captionBlock = 9;
+      const captionBlock = 11;
       const cellH = photoH + captionBlock + 2;
 
       for (let i = 0; i < photoItems.length; i++) {
@@ -812,22 +831,36 @@ export async function generateJobSheetPdf(
         }
         const x = margin + col * (photoW + gap);
         const item = photoItems[i];
+
+        // Always paint a grey backdrop first so any transparent or
+        // letterboxed image sits on a neutral surface.
+        doc.setFillColor(235, 238, 242);
+        doc.rect(x, y, photoW, photoH, "F");
+
         let rendered = false;
-        if (item.url) {
+        if (item.oriented && item.oriented.dataUrl) {
           try {
-            const oriented = await fetchOrientedImage(item.url);
-            if (oriented && oriented.dataUrl) {
-              doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
-              rendered = true;
-            }
+            // Preserve aspect ratio inside the cell.
+            const ow = item.oriented.width || photoW;
+            const oh = item.oriented.height || photoH;
+            const scale = Math.min(photoW / ow, photoH / oh);
+            const dw = Math.max(8, ow * scale);
+            const dh = Math.max(8, oh * scale);
+            const dx = x + (photoW - dw) / 2;
+            const dy = y + (photoH - dh) / 2;
+            doc.addImage(
+              item.oriented.dataUrl,
+              item.oriented.mimeType === "image/png" ? "PNG" : "JPEG",
+              dx, dy, dw, dh,
+              undefined,
+              "FAST",
+            );
+            rendered = true;
           } catch (err) {
-            console.warn("Dwelling photo render failed", err);
+            console.warn("Dwelling photo addImage failed", err);
           }
         }
         if (!rendered) {
-          // Grey placeholder
-          doc.setFillColor(235, 238, 242);
-          doc.rect(x, y, photoW, photoH, "F");
           doc.setFont("helvetica", "italic");
           doc.setFontSize(8);
           doc.setTextColor(...MUTED);
@@ -839,7 +872,7 @@ export async function generateJobSheetPdf(
         doc.setLineWidth(0.2);
         doc.rect(x, y, photoW, photoH);
 
-        // Unit label (bold) + caption (italic) beneath
+        // Unit label (bold) + caption (italic) beneath — shown for placeholder too.
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
         doc.setTextColor(20, 25, 35);
@@ -849,7 +882,7 @@ export async function generateJobSheetPdf(
           doc.setFont("helvetica", "italic");
           doc.setFontSize(7.5);
           doc.setTextColor(70, 75, 85);
-          const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 1);
+          const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 2);
           doc.text(capLines, x, y + photoH + 7);
         }
         doc.setFont("helvetica", "normal");
