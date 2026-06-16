@@ -754,12 +754,18 @@ export async function generateJobSheetPdf(
     }
 
     // === PART D: Photographic evidence ===
-    type PhotoItem = { unit: string; url: string; caption: string };
+    type PhotoItem = { unit: string; url: string | null; caption: string };
     const photoItems: PhotoItem[] = [];
     for (const e of entries) {
       for (const p of e.photos) {
-        const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
-        if (data?.signedUrl) photoItems.push({ unit: e.unit, url: data.signedUrl, caption: p.caption });
+        let url: string | null = null;
+        try {
+          const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+          url = data?.signedUrl ?? null;
+        } catch (err) {
+          console.warn("Dwelling photo signed URL failed", p.path, err);
+        }
+        photoItems.push({ unit: e.unit, url, caption: p.caption });
       }
     }
 
@@ -777,7 +783,7 @@ export async function generateJobSheetPdf(
       const cols = 3;
       const gap = 3;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
-      const photoH = 50; // ~ 170px @ 72dpi
+      const photoH = 56; // ~ 160px @ 72dpi
       const captionBlock = 9;
       const cellH = photoH + captionBlock + 2;
 
@@ -790,12 +796,28 @@ export async function generateJobSheetPdf(
         }
         const x = margin + col * (photoW + gap);
         const item = photoItems[i];
-        try {
-          const oriented = await fetchOrientedImage(item.url);
-          if (oriented) {
-            doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
+        let rendered = false;
+        if (item.url) {
+          try {
+            const oriented = await fetchOrientedImage(item.url);
+            if (oriented && oriented.dataUrl) {
+              doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
+              rendered = true;
+            }
+          } catch (err) {
+            console.warn("Dwelling photo render failed", err);
           }
-        } catch { /* skip */ }
+        }
+        if (!rendered) {
+          // Grey placeholder
+          doc.setFillColor(235, 238, 242);
+          doc.rect(x, y, photoW, photoH, "F");
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8);
+          doc.setTextColor(...MUTED);
+          doc.text("Image unavailable", x + photoW / 2, y + photoH / 2 + 1, { align: "center" });
+          doc.setTextColor(0, 0, 0);
+        }
         // Thin border around cell
         doc.setDrawColor(...BORDER);
         doc.setLineWidth(0.2);
@@ -805,7 +827,8 @@ export async function generateJobSheetPdf(
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
         doc.setTextColor(20, 25, 35);
-        doc.text(item.unit, x, y + photoH + 3.5);
+        const unitLabelLines = doc.splitTextToSize(item.unit, photoW).slice(0, 1);
+        doc.text(unitLabelLines, x, y + photoH + 3.5);
         if (item.caption) {
           doc.setFont("helvetica", "italic");
           doc.setFontSize(7.5);
