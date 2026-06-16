@@ -134,7 +134,7 @@ export default function SiteSurveyPhotos({ surveyId }: { surveyId: string }) {
             <div key={p.id} className="relative group rounded-md overflow-hidden border bg-muted">
               <button onClick={() => setLightboxIdx(i)} className="block w-full aspect-square">
                 {p.signedUrl && (
-                  <img src={p.signedUrl} alt={p.caption ?? "Survey photo"} className="w-full h-full object-cover" loading="lazy" />
+                  <img src={p.signedUrl} alt={p.caption ?? "Survey photo"} data-uploaded="true" className="w-full h-full object-cover" loading="lazy" />
                 )}
               </button>
               {p.kind === "sketch" && (
