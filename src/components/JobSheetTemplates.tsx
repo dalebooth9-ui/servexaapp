@@ -572,6 +572,21 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           }
         });
       }
+      // Alias: if the template field id is "site" but saved data only has
+      // "site_name" (or vice versa), copy the value across so the input pre-fills.
+      const SITE_ALIASES: Array<[string, string]> = [
+        ["site", "site_name"],
+        ["site_name", "site"],
+        ["address", "site_address"],
+        ["site_address", "address"],
+      ];
+      for (const [from, to] of SITE_ALIASES) {
+        if ((merged[to] === undefined || merged[to] === "") && merged[from]) {
+          merged[to] = merged[from];
+        }
+      }
+
+      const extraPhotoKeys = Object.keys(merged).filter((k) => !Object.keys(saved).includes(k));
       console.debug("[JobSheetTemplates] edit existing report", {
         responseId: existingResponse.id,
         savedKeys: Object.keys(saved),
@@ -580,8 +595,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       });
       console.log("[JobSheetTemplates] edit existing report", {
         responseId: existingResponse.id,
-        savedKeys: Object.keys(saved),
-        mergedKeys: Object.keys(merged),
+        savedSiteName: saved.site_name,
+        savedSite: saved.site,
+        mergedSiteName: merged.site_name,
+        mergedSite: merged.site,
+        extraKeys: extraPhotoKeys,
+        sitePhotoUrls: merged._site_photo_urls,
+        sitePhotoPaths: merged._site_photo_paths,
+        sitePhotoCaptions: merged._site_photo_captions,
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
       setFormData(merged);
