@@ -530,7 +530,14 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     setActiveTemplate(template);
     setViewingResponse(null);
     const prefilled = getAutoPopulatedData(template);
-    const autoPopulatedIds = new Set(Object.keys(prefilled));
+    // Only treat a field as "auto-populated" when we actually have a value for it.
+    // Otherwise an empty auto-populate (e.g. missing site name) would wipe out the
+    // engineer's saved entry when re-opening a submitted report.
+    const autoPopulatedIds = new Set(
+      Object.entries(prefilled)
+        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+        .map(([k]) => k)
+    );
 
     // Check for auto-saved draft (sync read from localStorage mirror)
     const draftKey = `template-form-${jobId}-${template.id}${existingResponse ? `-${existingResponse.id}` : ""}`;
@@ -538,10 +545,11 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
 
     if (existingResponse) {
       setActiveResponse(existingResponse);
-      const saved = existingResponse.responses as Record<string, any>;
-      const merged: Record<string, any> = { ...prefilled };
-      Object.entries(saved).forEach(([key, val]) => {
-        if (autoPopulatedIds.has(key)) return;
+      const saved = (existingResponse.responses || {}) as Record<string, any>;
+      // Start with all saved data so nothing the engineer entered gets lost,
+      // then overlay fresh non-empty auto-populated values on top.
+      const merged: Record<string, any> = { ...saved };
+      Object.entries(prefilled).forEach(([key, val]) => {
         if (val !== undefined && val !== null && val !== "") {
           merged[key] = val;
         }
@@ -1352,6 +1360,54 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2 flex items-center gap-1.5">
                 <Camera className="h-3.5 w-3.5" /> Site Photos
               </p>
+              {/* Previously uploaded photos (from a prior submission) */}
+              {Array.isArray(formData._site_photo_urls) && formData._site_photo_urls.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1.5">Previously uploaded</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    {(formData._site_photo_urls as string[]).map((url, i) => (
+                      <div key={`existing-${i}`} className="relative space-y-1">
+                        <div className="relative">
+                          <img src={url} alt={`Existing site photo ${i + 1}`} className="rounded border object-cover w-full aspect-[4/3]" />
+                          <button
+                            type="button"
+                            className="absolute top-1 right-1 bg-destructive text-destructive-foreground rounded-full h-5 w-5 flex items-center justify-center text-[11px]"
+                            title="Remove this photo from the report"
+                            onClick={() => {
+                              const urls = [...((formData._site_photo_urls as string[]) || [])];
+                              const paths = [...((formData._site_photo_paths as string[]) || [])];
+                              const caps = [...((formData._site_photo_captions as string[]) || [])];
+                              urls.splice(i, 1);
+                              paths.splice(i, 1);
+                              caps.splice(i, 1);
+                              setFormData((prev) => ({
+                                ...prev,
+                                _site_photo_urls: urls,
+                                _site_photo_paths: paths,
+                                _site_photo_captions: caps,
+                              }));
+                            }}
+                          >×</button>
+                        </div>
+                        <input
+                          type="text"
+                          maxLength={100}
+                          value={(formData._site_photo_captions as string[] | undefined)?.[i] || ""}
+                          placeholder={`Caption (optional) — defaults to "Photo ${i + 1}"`}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            const caps = [...((formData._site_photo_captions as string[]) || [])];
+                            while (caps.length <= i) caps.push("");
+                            caps[i] = v;
+                            setFormData((prev) => ({ ...prev, _site_photo_captions: caps }));
+                          }}
+                          className="w-full text-xs px-2 py-1 border rounded bg-background"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div
                 className="border-2 border-dashed rounded-lg p-3 text-center transition-colors hover:bg-muted/30 cursor-pointer"
                 onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add("border-primary", "bg-primary/5"); }}
