@@ -628,6 +628,19 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         }
       }
 
+      if (!Array.isArray(merged._site_photo_urls) || merged._site_photo_urls.length === 0) {
+        try {
+          const backfilled = await fetchBackfilledSitePhotos(existingResponse);
+          if (backfilled.urls.length > 0) {
+            merged._site_photo_urls = backfilled.urls;
+            merged._site_photo_paths = backfilled.paths;
+            merged._site_photo_captions = backfilled.captions;
+          }
+        } catch (err) {
+          console.warn("[JobSheetTemplates] failed to backfill site photos", err);
+        }
+      }
+
       const extraPhotoKeys = Object.keys(merged).filter((k) => !Object.keys(saved).includes(k));
       console.debug("[JobSheetTemplates] edit existing report", {
         responseId: existingResponse.id,
@@ -648,51 +661,6 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
         hasSitePhotos: Array.isArray(merged._site_photo_urls) && merged._site_photo_urls.length > 0,
       });
       setFormData(merged);
-
-      // Site photos for legacy reports were only saved in the `submissions` table
-      // (not in responses._site_photo_urls). Backfill them so they appear in the
-      // "Previously uploaded" grid when editing.
-      if (!Array.isArray(merged._site_photo_urls) || merged._site_photo_urls.length === 0) {
-        (async () => {
-          try {
-            const { data: subs } = await supabase
-              .from("submissions")
-              .select("file_url, file_name, content, engineer_id, created_at")
-              .eq("job_id", jobId)
-              .eq("type", "photo")
-              .order("created_at", { ascending: true });
-            if (!subs || subs.length === 0) return;
-            // Prefer photos submitted by the same engineer; fall back to all.
-            const ownPhotos = (subs as any[]).filter((s) => s.engineer_id === existingResponse.submitted_by);
-            const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
-            const urls: string[] = [];
-            const paths: string[] = [];
-            const caps: string[] = [];
-            for (const s of pool) {
-              if (!s.file_url) continue;
-              urls.push(s.file_url as string);
-              // We don't always know the storage path here; leave blank — removal
-              // from the UI just drops the URL from the report.
-              paths.push("");
-              caps.push((s.content as string) || "");
-            }
-            if (urls.length === 0) return;
-            setFormData((prev) => {
-              // If the engineer has already started adding/removing photos in this
-              // session, don't overwrite.
-              if (Array.isArray(prev._site_photo_urls) && prev._site_photo_urls.length > 0) return prev;
-              return {
-                ...prev,
-                _site_photo_urls: urls,
-                _site_photo_paths: paths,
-                _site_photo_captions: caps,
-              };
-            });
-          } catch (err) {
-            console.warn("[JobSheetTemplates] failed to backfill site photos", err);
-          }
-        })();
-      }
     } else {
       setActiveResponse(null);
       if (localDraft) {
