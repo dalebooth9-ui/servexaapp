@@ -558,14 +558,15 @@ export async function generateJobSheetPdf(
           }
         } catch { /* skip failed photo */ }
 
-        doc.setFont("helvetica", "normal");
+        doc.setFont("helvetica", "italic");
         doc.setFontSize(7.5);
         doc.setTextColor(60, 60, 60);
         const captionText = item.caption || `Photo ${i + 1}`;
-        const captionLines = doc.splitTextToSize(captionText, photoW).slice(0, 2);
+        const captionLines = doc.splitTextToSize(captionText, photoW).slice(0, 3);
         captionLines.forEach((line: string, li: number) => {
           doc.text(line, x, y + photoH + 3 + li * 3);
         });
+        doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
       }
       y += photoRowH + 2;

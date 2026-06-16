@@ -411,7 +411,7 @@ function RowPhotoGalleryCell({
   };
 
   const setCaption = (idx: number, caption: string) => {
-    commit(photos.map((p, i) => (i === idx ? { ...p, caption: caption.slice(0, 100) } : p)));
+    commit(photos.map((p, i) => (i === idx ? { ...p, caption: caption.slice(0, 150) } : p)));
   };
 
   return (
@@ -467,8 +467,9 @@ function RowPhotoGalleryCell({
               <Input
                 value={p.caption || ""}
                 onChange={(e) => setCaption(idx, e.target.value)}
-                placeholder="Caption"
-                maxLength={100}
+                placeholder="Caption (optional)"
+                maxLength={150}
+                title={`${(p.caption || "").length}/150`}
                 className="h-6 text-[10px] px-1.5"
               />
             </div>
