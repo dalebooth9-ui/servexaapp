@@ -442,145 +442,9 @@ export async function generateJobSheetPdf(
     y += Math.max(4, wrappedMaterials.length * 3) + 1;
   }
 
-  // --- Site Photos (2-column grid with captions, embedded as base64) ---
-  let sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
-  let sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
-  let sitePhotoCaptions: string[] = (resolvedFormData._site_photo_captions as string[]) || [];
+  // Site photo resolution + backfill is deferred to the PHOTOGRAPHIC EVIDENCE
+  // section at the end of the document (after the Dwelling Access Log).
 
-  // BACKFILL: legacy reports stored photos in `submissions` (not in
-  // responses._site_photo_urls). If the caller passed raw `responses` JSON
-  // (e.g. from the Submitted reports list), fetch them here so the PDF
-  // actually shows them.
-  if (sitePhotoUrls.length === 0 && jobId) {
-    try {
-      const { data: subs } = await supabase
-        .from("submissions")
-        .select("file_url, content, engineer_id, created_at")
-        .eq("job_id", jobId)
-        .eq("type", "photo")
-        .order("created_at", { ascending: true });
-      if (subs && subs.length > 0) {
-        const ownPhotos = (subs as any[]).filter((s) => submittedBy && s.engineer_id === submittedBy);
-        const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
-        sitePhotoUrls = pool.map((s) => s.file_url as string).filter(Boolean);
-        sitePhotoCaptions = pool.map((s) => (s.content as string) || "");
-        sitePhotoPaths = pool.map(() => "");
-        console.log("[JobSheetPdfExport] site photos backfilled from submissions", {
-          jobId,
-          submittedBy,
-          totalSubs: subs.length,
-          ownCount: ownPhotos.length,
-          backfilledCount: sitePhotoUrls.length,
-        });
-      }
-    } catch (err) {
-      console.warn("[JobSheetPdfExport] backfill site photos failed", err);
-    }
-  }
-
-  console.log("[JobSheetPdfExport] site photos input", {
-    urlCount: sitePhotoUrls.length,
-    pathCount: sitePhotoPaths.length,
-    captionCount: sitePhotoCaptions.length,
-    sampleUrl: sitePhotoUrls[0],
-    samplePath: sitePhotoPaths[0],
-    allUrls: sitePhotoUrls,
-  });
-  // Always regenerate signed URLs from storage paths when available — URLs
-  // persisted in the response JSON may have expired or originated from a
-  // different host, so re-signing is the most reliable path.
-  if (sitePhotoPaths.length > 0) {
-    const fresh: string[] = [];
-    for (const p of sitePhotoPaths) {
-      try {
-        const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 60 * 60);
-        if (data?.signedUrl) fresh.push(data.signedUrl);
-      } catch (err) {
-        console.warn("[JobSheetPdfExport] site photo sign failed", p, err);
-      }
-    }
-    if (fresh.length > 0) sitePhotoUrls = fresh;
-    console.log("[JobSheetPdfExport] site photos re-signed", { freshCount: fresh.length });
-  }
-  if (sitePhotoUrls.length > 0) {
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    doc.setTextColor(...accentColor);
-    doc.text("Site Photos", margin, y + 4);
-    doc.setTextColor(0, 0, 0);
-    y += 7;
-
-    const gap = 4;
-    const photoW = (maxWidth - gap) / 2; // 2 photos per row, ~93mm wide on A4 (~250px)
-    const photoH = photoW * 0.75;
-    const captionH = 5;
-    const rowH = photoH + captionH + 4;
-
-    // Pre-fetch and orient ALL site photos in parallel so a slow image
-    // doesn't stall the loop and so we know up-front which failed.
-    const orientedSitePhotos = await Promise.all(
-      sitePhotoUrls.map(async (url) => {
-        try {
-          return await fetchOrientedImage(url);
-        } catch (err) {
-          console.warn("[JobSheetPdfExport] site photo orient failed", url, err);
-          return null;
-        }
-      }),
-    );
-    console.log("[JobSheetPdfExport] site photos oriented", {
-      requested: sitePhotoUrls.length,
-      loaded: orientedSitePhotos.filter(Boolean).length,
-    });
-
-    for (let i = 0; i < sitePhotoUrls.length; i++) {
-      const col = i % 2;
-      if (col === 0 && i > 0) y += rowH;
-
-      // Check if we need a new page
-      if (y + rowH > pageHeight - footerSpace) {
-        doc.addPage();
-        y = margin;
-      }
-
-      const x = margin + col * (photoW + gap);
-
-      const oriented = orientedSitePhotos[i];
-      if (oriented && oriented.dataUrl) {
-        try {
-          doc.addImage(
-            oriented.dataUrl,
-            oriented.mimeType === "image/png" ? "PNG" : "JPEG",
-            x,
-            y,
-            photoW,
-            photoH,
-          );
-        } catch (err) {
-          console.warn("[JobSheetPdfExport] site photo addImage failed", err);
-        }
-      } else {
-        // Grey placeholder + "Image unavailable" label
-        doc.setFillColor(235, 238, 242);
-        doc.rect(x, y, photoW, photoH, "F");
-        doc.setFont("helvetica", "italic");
-        doc.setFontSize(9);
-        doc.setTextColor(110, 116, 128);
-        doc.text("Image unavailable", x + photoW / 2, y + photoH / 2, { align: "center" });
-        doc.setTextColor(0, 0, 0);
-      }
-
-      // Caption beneath
-      const caption = (sitePhotoCaptions[i] || "").trim() || `Photo ${i + 1}`;
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
-      doc.setTextColor(60, 60, 60);
-      const captionLines = doc.splitTextToSize(caption, photoW);
-      doc.text(captionLines[0], x, y + photoH + 4);
-      doc.setTextColor(0, 0, 0);
-    }
-    y += rowH;
-  }
 
 
   // --- Dwelling Access Log (Section 8) ---
@@ -874,52 +738,60 @@ export async function generateJobSheetPdf(
       (doc as any)._dwellingPages.add(p);
     }
 
-    // === PART D: Photographic evidence ===
-    type PhotoItem = {
-      unit: string;
-      url: string | null;
-      caption: string;
-      oriented: { dataUrl: string; width: number; height: number; mimeType: "image/jpeg" | "image/png" } | null;
-    };
-    // Pre-resolve signed URLs AND oriented image bytes in parallel so a single slow
-    // fetch doesn't stall the whole PDF and so failures are captured before render.
-    const photoTasks: Promise<PhotoItem>[] = [];
-    for (const e of entries) {
-      for (const p of e.photos) {
-        photoTasks.push((async () => {
-          let url: string | null = null;
-          try {
-            const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
-            url = data?.signedUrl ?? null;
-          } catch (err) {
-            console.warn("Dwelling photo signed URL failed", p.path, err);
-          }
-          let oriented: PhotoItem["oriented"] = null;
-          if (url) {
-            try {
-              const o = await fetchOrientedImage(url);
-              if (o && o.dataUrl) oriented = o;
-            } catch (err) {
-              console.warn("Dwelling photo orient failed", p.path, err);
-            }
-          }
-          return { unit: e.unit, url, caption: p.caption, oriented };
-        })());
+    // === PART D: Photographic Evidence (site photos with engineer captions) ===
+    // Resolve site photo URLs (with submissions-table backfill for legacy data),
+    // re-sign from storage paths when present, then render a 3-per-row grid
+    // with each engineer-typed caption beneath its photo.
+    let sitePhotoUrls: string[] = (resolvedFormData._site_photo_urls as string[]) || [];
+    let sitePhotoPaths: string[] = (resolvedFormData._site_photo_paths as string[]) || [];
+    let sitePhotoCaptions: string[] = (resolvedFormData._site_photo_captions as string[]) || [];
+
+    if (sitePhotoUrls.length === 0 && jobId) {
+      try {
+        const { data: subs } = await supabase
+          .from("submissions")
+          .select("file_url, content, engineer_id, created_at")
+          .eq("job_id", jobId)
+          .eq("type", "photo")
+          .order("created_at", { ascending: true });
+        if (subs && subs.length > 0) {
+          const ownPhotos = (subs as any[]).filter((s) => submittedBy && s.engineer_id === submittedBy);
+          const pool = ownPhotos.length > 0 ? ownPhotos : (subs as any[]);
+          sitePhotoUrls = pool.map((s) => s.file_url as string).filter(Boolean);
+          sitePhotoCaptions = pool.map((s) => (s.content as string) || "");
+          sitePhotoPaths = pool.map(() => "");
+        }
+      } catch (err) {
+        console.warn("[JobSheetPdfExport] backfill site photos failed", err);
       }
     }
-    const photoItems: PhotoItem[] = await Promise.all(photoTasks);
-    console.log("[JobSheetPdfExport] dwelling photos", {
-      tasks: photoTasks.length,
-      resolved: photoItems.length,
-      withImage: photoItems.filter((p) => p.oriented && p.oriented.dataUrl).length,
-      withSignedUrl: photoItems.filter((p) => p.url).length,
-        paths: entries.flatMap((e) => e.photos.map((p) => p.path)),
-      sample: photoItems[0]
-        ? { unit: photoItems[0].unit, hasUrl: !!photoItems[0].url, hasOriented: !!photoItems[0].oriented }
-        : null,
+
+    if (sitePhotoPaths.length > 0) {
+      const fresh: string[] = [];
+      for (const p of sitePhotoPaths) {
+        try {
+          const { data } = await supabase.storage.from("submissions").createSignedUrl(p, 60 * 60);
+          if (data?.signedUrl) fresh.push(data.signedUrl);
+        } catch (err) {
+          console.warn("[JobSheetPdfExport] site photo sign failed", p, err);
+        }
+      }
+      if (fresh.length > 0) sitePhotoUrls = fresh;
+    }
+
+    const orientedSitePhotos = await Promise.all(
+      sitePhotoUrls.map(async (url) => {
+        try { return await fetchOrientedImage(url); }
+        catch (err) { console.warn("[JobSheetPdfExport] site photo orient failed", url, err); return null; }
+      }),
+    );
+    console.log("[JobSheetPdfExport] photographic evidence", {
+      urlCount: sitePhotoUrls.length,
+      loaded: orientedSitePhotos.filter(Boolean).length,
+      captionCount: sitePhotoCaptions.length,
     });
 
-    if (photoItems.length > 0) {
+    if (sitePhotoUrls.length > 0) {
       if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
       doc.setFillColor(...NAVY);
       doc.rect(margin, y, maxWidth, headerH, "F");
@@ -933,11 +805,11 @@ export async function generateJobSheetPdf(
       const cols = 3;
       const gap = 3;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
-      const photoH = 56; // ~ 160px @ 72dpi
-      const captionBlock = 11;
+      const photoH = 56; // ~160px @ 72dpi
+      const captionBlock = 14;
       const cellH = photoH + captionBlock + 2;
 
-      for (let i = 0; i < photoItems.length; i++) {
+      for (let i = 0; i < sitePhotoUrls.length; i++) {
         const col = i % cols;
         if (col === 0 && i > 0) y += cellH + 2;
         if (y + cellH > pageHeight - footerSpace) {
@@ -945,34 +817,29 @@ export async function generateJobSheetPdf(
           y = margin;
         }
         const x = margin + col * (photoW + gap);
-        const item = photoItems[i];
 
-        // Always paint a grey backdrop first so any transparent or
-        // letterboxed image sits on a neutral surface.
         doc.setFillColor(235, 238, 242);
         doc.rect(x, y, photoW, photoH, "F");
 
+        const oriented = orientedSitePhotos[i];
         let rendered = false;
-        if (item.oriented && item.oriented.dataUrl) {
+        if (oriented && oriented.dataUrl) {
           try {
-            // Preserve aspect ratio inside the cell.
-            const ow = item.oriented.width || photoW;
-            const oh = item.oriented.height || photoH;
+            const ow = oriented.width || photoW;
+            const oh = oriented.height || photoH;
             const scale = Math.min(photoW / ow, photoH / oh);
             const dw = Math.max(8, ow * scale);
             const dh = Math.max(8, oh * scale);
             const dx = x + (photoW - dw) / 2;
             const dy = y + (photoH - dh) / 2;
             doc.addImage(
-              item.oriented.dataUrl,
-              item.oriented.mimeType === "image/png" ? "PNG" : "JPEG",
-              dx, dy, dw, dh,
-              undefined,
-              "FAST",
+              oriented.dataUrl,
+              oriented.mimeType === "image/png" ? "PNG" : "JPEG",
+              dx, dy, dw, dh, undefined, "FAST",
             );
             rendered = true;
           } catch (err) {
-            console.warn("Dwelling photo addImage failed", err);
+            console.warn("[JobSheetPdfExport] site photo addImage failed", err);
           }
         }
         if (!rendered) {
@@ -982,30 +849,26 @@ export async function generateJobSheetPdf(
           doc.text("Image unavailable", x + photoW / 2, y + photoH / 2 + 1, { align: "center" });
           doc.setTextColor(0, 0, 0);
         }
-        // Thin border around cell
         doc.setDrawColor(...BORDER);
         doc.setLineWidth(0.2);
         doc.rect(x, y, photoW, photoH);
 
-        // Unit label (bold) + caption (italic) beneath — shown for placeholder too.
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8);
-        doc.setTextColor(20, 25, 35);
-        const unitLabelLines = doc.splitTextToSize(item.unit, photoW).slice(0, 1);
-        doc.text(unitLabelLines, x, y + photoH + 3.5);
-        if (item.caption) {
-          doc.setFont("helvetica", "italic");
+        // Engineer caption beneath each photo (verbatim, wrapped to 3 lines).
+        const caption = (sitePhotoCaptions[i] || "").trim();
+        if (caption) {
+          doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
-          doc.setTextColor(70, 75, 85);
-          const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 2);
-          doc.text(capLines, x, y + photoH + 7);
+          doc.setTextColor(50, 55, 65);
+          const capLines = doc.splitTextToSize(caption, photoW).slice(0, 3);
+          doc.text(capLines, x, y + photoH + 3.5);
+          doc.setTextColor(0, 0, 0);
         }
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(0, 0, 0);
       }
       y += cellH + 4;
     }
   }
+
+
 
   // Force the signing section onto its own final page.
   if (galleryFields.length > 0) {
