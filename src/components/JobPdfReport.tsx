@@ -13,6 +13,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { fetchOrientedImage } from "@/lib/exifOrient";
 
 interface Props {
   jobId: string;
@@ -66,6 +67,312 @@ function sectionTitle(doc: jsPDF, title: string, y: number, margin: number, maxW
   return y + 9;
 }
 
+// Renders a repeating_table field that contains a photo_gallery column
+// (the dwelling access log) using the same professional layout used in
+// the job-sheet PDF: header bar, summary stats, badge table, photo grid.
+async function renderDwellingAccessLog(
+  doc: jsPDF,
+  field: any,
+  rawRows: any,
+  startY: number,
+  margin: number,
+  maxWidth: number,
+  pageHeight: number,
+  footerSpace: number
+): Promise<number> {
+  let y = startY;
+  let rows: any[] = [];
+  if (Array.isArray(rawRows)) rows = rawRows;
+  else if (typeof rawRows === "string" && rawRows.trim().startsWith("[")) {
+    try { rows = JSON.parse(rawRows); } catch { rows = []; }
+  }
+  if (!Array.isArray(rows) || rows.length === 0) return y;
+
+  const NAVY: [number, number, number] = [26, 46, 74];
+  const GREEN_TXT: [number, number, number] = [6, 95, 70];
+  const GREEN_BG: [number, number, number] = [209, 250, 229];
+  const AMBER_TXT: [number, number, number] = [146, 64, 14];
+  const AMBER_BG: [number, number, number] = [254, 243, 199];
+  const RED_TXT: [number, number, number] = [153, 27, 27];
+  const RED_BG: [number, number, number] = [254, 226, 226];
+  const STAT_GREEN: [number, number, number] = [26, 122, 74];
+  const STAT_AMBER: [number, number, number] = [180, 83, 9];
+  const STAT_RED: [number, number, number] = [185, 28, 28];
+  const ROW_ALT: [number, number, number] = [247, 248, 250];
+  const BORDER: [number, number, number] = [210, 214, 220];
+  const MUTED: [number, number, number] = [110, 116, 128];
+
+  type StatusKind = "gained" | "noanswer" | "refused" | "unknown";
+  const classifyStatus = (raw: string): StatusKind => {
+    const v = (raw || "").toLowerCase();
+    if (!v) return "unknown";
+    if (v.includes("refus")) return "refused";
+    if (v.includes("no answer") || v.includes("no access") || v.includes("not gained") || v.includes("not in") || v.includes("absent")) return "noanswer";
+    if (v.includes("gain") || v === "yes" || v.includes("access ok") || v.includes("ok")) return "gained";
+    return "unknown";
+  };
+  const statusLabel = (k: StatusKind, raw: string) => {
+    if (raw && raw.trim()) return raw.trim();
+    if (k === "gained") return "Access gained";
+    if (k === "noanswer") return "No answer";
+    if (k === "refused") return "Refused";
+    return "—";
+  };
+
+  const columns: any[] = Array.isArray(field.columns) ? field.columns : [];
+  const colMatch = (re: RegExp) => columns.find((c: any) => re.test(String(c?.id || "")) || re.test(String(c?.label || "")));
+  const unitCol = colMatch(/unit|flat|dwelling|apt|apartment/i);
+  const statusCol = colMatch(/status|access/i);
+  const headsCol = colMatch(/^heads?$|head[_ ]?count|total[_ ]?heads|sprinkler[_ ]?heads/i);
+  const notesCol = colMatch(/note|comment|remark/i);
+  const photoCol = columns.find((c: any) => c?.type === "photo_gallery");
+  const roomCols = columns.filter((c: any) => {
+    if (!c) return false;
+    if (c === unitCol || c === statusCol || c === headsCol || c === notesCol) return false;
+    if (c.type === "photo_gallery" || c.type === "photo") return false;
+    return /hall|kitchen|bedroom|lounge|living|bath|wc|toilet|landing|cupboard|store|stair|corridor|utility|dining|study|attic|loft|en[- ]?suite|room/i.test(String(c?.label || c?.id || ""));
+  });
+
+  type Entry = { unit: string; statusRaw: string; status: StatusKind; heads: string; breakdown: string; notes: string; photos: { path: string; caption: string }[] };
+  const entries: Entry[] = rows.map((row: any, idx: number) => {
+    const unit = String(row?.[unitCol?.id] ?? row?.unit_number ?? "").trim() || `Unit ${idx + 1}`;
+    const statusRaw = String(row?.[statusCol?.id] ?? row?.access_status ?? row?.status ?? "").trim();
+    const status = classifyStatus(statusRaw);
+    let heads = String(row?.[headsCol?.id] ?? row?.heads ?? row?.head_count ?? "").trim();
+    const breakdownParts: string[] = [];
+    let derivedHeads = 0;
+    for (const rc of roomCols) {
+      const v = row?.[rc.id];
+      const num = Number(v);
+      if (Number.isFinite(num) && num > 0) { breakdownParts.push(`${rc.label} ×${num}`); derivedHeads += num; }
+      else if (typeof v === "string" && v.trim() && v.trim() !== "0") { breakdownParts.push(`${rc.label} ${v.trim()}`); }
+    }
+    if (!heads && derivedHeads > 0) heads = String(derivedHeads);
+    if (status === "noanswer" || status === "refused") heads = "—";
+    const notes = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
+    const breakdown = breakdownParts.join(", ");
+    const photosRaw = photoCol
+      ? (Array.isArray(row?.[photoCol.id])
+          ? row[photoCol.id]
+          : (typeof row?.[photoCol.id] === "string" && row[photoCol.id].trim().startsWith("[")
+              ? (() => { try { return JSON.parse(row[photoCol.id]); } catch { return []; } })()
+              : []))
+      : (Array.isArray(row?.photos) ? row.photos : []);
+    const photos = photosRaw
+      .filter((p: any) => p && typeof p === "object" && p.path)
+      .map((p: any) => ({ path: String(p.path), caption: String(p.caption || "").trim() }));
+    return { unit, statusRaw, status, heads: heads || "—", breakdown, notes, photos };
+  });
+
+  const totals = {
+    total: entries.length,
+    gained: entries.filter((e) => e.status === "gained").length,
+    noanswer: entries.filter((e) => e.status === "noanswer").length,
+    refused: entries.filter((e) => e.status === "refused").length,
+  };
+
+  // Header bar
+  if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = 15; }
+  const headerH = 8;
+  doc.setFillColor(...NAVY);
+  doc.rect(margin, y, maxWidth, headerH, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(10);
+  doc.text((field.label || "DWELLING ACCESS LOG").toUpperCase(), margin + 3, y + 5.4);
+  doc.setTextColor(0, 0, 0);
+  y += headerH;
+
+  // Stats
+  const statsH = 14;
+  const colW = maxWidth / 4;
+  doc.setDrawColor(...BORDER);
+  doc.setLineWidth(0.2);
+  doc.rect(margin, y, maxWidth, statsH);
+  for (let i = 1; i < 4; i++) doc.line(margin + colW * i, y, margin + colW * i, y + statsH);
+  const statCols = [
+    { label: "TOTAL DWELLINGS", value: String(totals.total), color: [0, 0, 0] as [number, number, number] },
+    { label: "ACCESS GAINED", value: String(totals.gained), color: STAT_GREEN },
+    { label: "NO ANSWER", value: String(totals.noanswer), color: STAT_AMBER },
+    { label: "REFUSED", value: String(totals.refused), color: STAT_RED },
+  ];
+  statCols.forEach((s, i) => {
+    const cx = margin + colW * i + colW / 2;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.5);
+    doc.setTextColor(...MUTED);
+    doc.text(s.label, cx, y + 4.5, { align: "center" });
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.setTextColor(...s.color);
+    doc.text(s.value, cx, y + 11.5, { align: "center" });
+  });
+  doc.setTextColor(0, 0, 0);
+  y += statsH + 2;
+
+  // Table
+  const unitW = Math.max(maxWidth * 0.3, 46);
+  const statusW = Math.max(maxWidth * 0.15, 28);
+  const headsW = Math.max(maxWidth * 0.11, 18);
+  const remaining = maxWidth - unitW - statusW - headsW;
+  const notesW = remaining / 2;
+  const photoNotesW = remaining - notesW;
+  const tblColW = [unitW, statusW, headsW, notesW, photoNotesW];
+  const tblHeaderH = 7;
+  const renderTableHeader = () => {
+    doc.setFillColor(235, 238, 242);
+    doc.rect(margin, y, maxWidth, tblHeaderH, "F");
+    doc.setDrawColor(...BORDER);
+    doc.rect(margin, y, maxWidth, tblHeaderH);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(40, 45, 55);
+    let cx = margin;
+    ["Unit", "Status", "Heads per flat", "Room breakdown & notes", "Photo notes"].forEach((h, i) => {
+      doc.text(h, cx + 2, y + 4.8);
+      cx += tblColW[i];
+    });
+    doc.setTextColor(0, 0, 0);
+    y += tblHeaderH;
+  };
+  renderTableHeader();
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  for (let i = 0; i < entries.length; i++) {
+    const e = entries[i];
+    const notesText = e.status === "gained" ? [e.breakdown, e.notes].filter(Boolean).join(". ") : (e.notes || "—");
+    const captions = (e.photos || []).map((p) => (p.caption || "").trim()).filter(Boolean);
+    const photoNotesText = captions.length ? captions.join("; ") : "—";
+    const notesLines = doc.splitTextToSize(notesText || "—", tblColW[3] - 4);
+    const photoNotesLines = doc.splitTextToSize(photoNotesText, tblColW[4] - 4);
+    const unitLines = doc.splitTextToSize(String(e.unit), tblColW[0] - 5);
+    const rowH = Math.max(8, Math.max(notesLines.length, unitLines.length, photoNotesLines.length) * 3.6 + 3);
+    if (y + rowH > pageHeight - footerSpace) {
+      doc.addPage(); y = 15; renderTableHeader();
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+    }
+    if (i % 2 === 1) { doc.setFillColor(...ROW_ALT); doc.rect(margin, y, maxWidth, rowH, "F"); }
+    doc.setDrawColor(...BORDER); doc.setLineWidth(0.1);
+    doc.rect(margin, y, maxWidth, rowH);
+    const cy = y + rowH / 2 + 1.4;
+    let cx = margin;
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); doc.setTextColor(20, 25, 35);
+    doc.text(unitLines, cx + 2, y + 4.5);
+    cx += tblColW[0];
+    const badgeBg = e.status === "gained" ? GREEN_BG : e.status === "noanswer" ? AMBER_BG : e.status === "refused" ? RED_BG : [235, 238, 242] as [number, number, number];
+    const badgeFg = e.status === "gained" ? GREEN_TXT : e.status === "noanswer" ? AMBER_TXT : e.status === "refused" ? RED_TXT : MUTED;
+    const badgeText = statusLabel(e.status, e.statusRaw);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(7.5);
+    const bw = Math.min(tblColW[1] - 4, doc.getTextWidth(badgeText) + 4);
+    const bh = 4.6;
+    const bx = cx + 3;
+    const by = y + rowH / 2 - bh / 2;
+    doc.setFillColor(...badgeBg);
+    doc.roundedRect(bx, by, bw, bh, 1, 1, "F");
+    doc.setTextColor(...badgeFg);
+    doc.text(badgeText, bx + bw / 2, by + 3.3, { align: "center" });
+    doc.setFontSize(9);
+    cx += tblColW[1];
+    doc.setFont("helvetica", "bold"); doc.setTextColor(0, 0, 0);
+    doc.text(String(e.heads || "—"), cx + 2, cy);
+    cx += tblColW[2];
+    doc.setFont("helvetica", "normal"); doc.setTextColor(40, 45, 55);
+    doc.text(notesLines, cx + 2, y + 4.5);
+    cx += tblColW[3];
+    doc.setFontSize(8.5);
+    doc.setTextColor(photoNotesText === "—" ? MUTED[0] : 40, photoNotesText === "—" ? MUTED[1] : 45, photoNotesText === "—" ? MUTED[2] : 55);
+    doc.text(photoNotesLines, cx + 2, y + 4.5);
+    doc.setFontSize(9); doc.setTextColor(0, 0, 0);
+    y += rowH;
+  }
+  y += 4;
+
+  // Photo grid
+  type PhotoItem = { unit: string; url: string | null; caption: string; oriented: { dataUrl: string; width: number; height: number; mimeType: "image/jpeg" | "image/png" } | null };
+  const photoTasks: Promise<PhotoItem>[] = [];
+  for (const e of entries) {
+    for (const p of e.photos) {
+      photoTasks.push((async () => {
+        let url: string | null = null;
+        try {
+          const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+          url = data?.signedUrl ?? null;
+        } catch (err) { console.warn("Dwelling photo signed URL failed", p.path, err); }
+        let oriented: PhotoItem["oriented"] = null;
+        if (url) {
+          try { const o = await fetchOrientedImage(url); if (o && o.dataUrl) oriented = o; }
+          catch (err) { console.warn("Dwelling photo orient failed", p.path, err); }
+        }
+        return { unit: e.unit, url, caption: p.caption, oriented };
+      })());
+    }
+  }
+  const photoItems: PhotoItem[] = await Promise.all(photoTasks);
+  console.log("[JobPdfReport] dwelling photos", { tasks: photoTasks.length, withImage: photoItems.filter((p) => p.oriented).length });
+
+  if (photoItems.length > 0) {
+    if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = 15; }
+    doc.setFillColor(...NAVY);
+    doc.rect(margin, y, maxWidth, headerH, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("PHOTOGRAPHIC EVIDENCE", margin + 3, y + 5.4);
+    doc.setTextColor(0, 0, 0);
+    y += headerH + 3;
+
+    const cols = 3;
+    const gap = 3;
+    const photoW = (maxWidth - gap * (cols - 1)) / cols;
+    const photoH = 56;
+    const captionBlock = 11;
+    const cellH = photoH + captionBlock + 2;
+
+    for (let i = 0; i < photoItems.length; i++) {
+      const col = i % cols;
+      if (col === 0 && i > 0) y += cellH + 2;
+      if (y + cellH > pageHeight - footerSpace) { doc.addPage(); y = 15; }
+      const x = margin + col * (photoW + gap);
+      const item = photoItems[i];
+      doc.setFillColor(235, 238, 242);
+      doc.rect(x, y, photoW, photoH, "F");
+      let rendered = false;
+      if (item.oriented && item.oriented.dataUrl) {
+        try {
+          const ow = item.oriented.width || photoW;
+          const oh = item.oriented.height || photoH;
+          const scale = Math.min(photoW / ow, photoH / oh);
+          const dw = Math.max(8, ow * scale);
+          const dh = Math.max(8, oh * scale);
+          const dx = x + (photoW - dw) / 2;
+          const dy = y + (photoH - dh) / 2;
+          doc.addImage(item.oriented.dataUrl, item.oriented.mimeType === "image/png" ? "PNG" : "JPEG", dx, dy, dw, dh, undefined, "FAST");
+          rendered = true;
+        } catch (err) { console.warn("Dwelling photo addImage failed", err); }
+      }
+      if (!rendered) {
+        doc.setFont("helvetica", "italic"); doc.setFontSize(8); doc.setTextColor(...MUTED);
+        doc.text("Image unavailable", x + photoW / 2, y + photoH / 2 + 1, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      }
+      doc.setDrawColor(...BORDER); doc.setLineWidth(0.2);
+      doc.rect(x, y, photoW, photoH);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8); doc.setTextColor(20, 25, 35);
+      const unitLabelLines = doc.splitTextToSize(item.unit, photoW).slice(0, 1);
+      doc.text(unitLabelLines, x, y + photoH + 3.5);
+      if (item.caption) {
+        doc.setFont("helvetica", "italic"); doc.setFontSize(7.5); doc.setTextColor(70, 75, 85);
+        const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 2);
+        doc.text(capLines, x, y + photoH + 7);
+      }
+      doc.setFont("helvetica", "normal"); doc.setTextColor(0, 0, 0);
+    }
+    y += cellH + 4;
+  }
+  return y;
+}
+
 // ── Main component ──────────────────────────────────────────────
 
 export default function JobPdfReport({ jobId, job }: Props) {
@@ -102,7 +409,17 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const parts = (partsRes.data as any[]) || [];
       const signatures = (sigRes.data as any[]) || [];
       const site = siteRes.data as any;
-      const sheetResponses = (sheetRespRes.data || []) as any[];
+      const allSheetResponses = (sheetRespRes.data || []) as any[];
+      // Dedup: keep only the most recent submission per template_id
+      const latestByTemplate = new Map<string, any>();
+      for (const r of allSheetResponses) {
+        const prev = latestByTemplate.get(r.template_id);
+        if (!prev || new Date(r.created_at).getTime() > new Date(prev.created_at).getTime()) {
+          latestByTemplate.set(r.template_id, r);
+        }
+      }
+      const sheetResponses = Array.from(latestByTemplate.values());
+      console.log("[JobPdfReport] sheet responses", { total: allSheetResponses.length, deduped: sheetResponses.length });
       const templates = (templatesRes.data || []) as any[];
 
       const templateMap: Record<string, any> = {};
@@ -261,16 +578,22 @@ export default function JobPdfReport({ jobId, job }: Props) {
       y += 6;
 
       // ── SITE DETAILS TABLE ──
-      if (site) {
+      // Backfill from latest submitted form responses when no site row exists or fields are empty
+      const responseSiteName = sheetResponses.map((r: any) => r.responses?.site_name || r.responses?.site).find((v: any) => v && String(v).trim());
+      const responseSiteAddress = sheetResponses.map((r: any) => r.responses?.site_address || r.responses?.address).find((v: any) => v && String(v).trim());
+      const siteName = site?.name || responseSiteName || "";
+      const siteAddress = site?.address || responseSiteAddress || "";
+      console.log("[JobPdfReport] site fields", { fromSiteRow: !!site, siteName, siteAddress });
+      if (site || siteName || siteAddress) {
         checkPage(30);
         y = sectionTitle(doc, "Site Details", y, margin, maxWidth);
         const siteRows: [string, string][] = [
-          ["Site Name", site.name || "—"],
-          ["Address", site.address || "—"],
-          ["Postcode", site.postcode || "—"],
-          ["Contact", site.contact_name || "—"],
-          ["Phone", site.contact_phone || "—"],
-          ["Email", site.contact_email || "—"],
+          ["Site Name", siteName || "—"],
+          ["Address", siteAddress || "—"],
+          ["Postcode", site?.postcode || "—"],
+          ["Contact", site?.contact_name || "—"],
+          ["Phone", site?.contact_phone || "—"],
+          ["Email", site?.contact_email || "—"],
         ].filter(([, v]) => v !== "—") as [string, string][];
         siteRows.forEach(([label, value]) => {
           checkPage(rowH);
@@ -382,12 +705,23 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
           const fields = tpl.fields || [];
           const responses = resp.responses || {};
+          // Identify repeating_table fields containing a photo_gallery column
+          // (dwelling access log style) — these are rendered separately with
+          // a professional layout instead of as flat label/value rows.
+          const galleryFields = fields.filter((f: any) =>
+            f.type === "repeating_table" &&
+            Array.isArray(f.columns) &&
+            f.columns.some((c: any) => c?.type === "photo_gallery")
+          );
+          const gallerySkipIds = new Set(galleryFields.map((f: any) => f.id));
           const sections = [...new Set(fields.map((f: any) => f.section || "General"))] as string[];
           const fieldLabelW = maxWidth * 0.6;
           const fieldValW = maxWidth * 0.4;
 
           for (const section of sections) {
-            const sectionFields = fields.filter((f: any) => (f.section || "General") === section);
+            const sectionFields = fields.filter((f: any) =>
+              (f.section || "General") === section && !gallerySkipIds.has(f.id)
+            );
             if (sectionFields.length === 0) continue;
 
             checkPage(12);
@@ -451,6 +785,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
                 y += 5;
               }
             }
+          }
+          // Render dwelling access log fields with rich layout
+          for (const galField of galleryFields) {
+            y = await renderDwellingAccessLog(
+              doc, galField, responses[galField.id], y, margin, maxWidth, 297, 22
+            );
           }
           y += 6;
         }
