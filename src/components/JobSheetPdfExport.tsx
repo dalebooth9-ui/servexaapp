@@ -525,6 +525,7 @@ export async function generateJobSheetPdf(
     const statusCol = colMatch(/status|access/i);
     const headsCol = colMatch(/^heads?$|head[_ ]?count|total[_ ]?heads|sprinkler[_ ]?heads/i);
     const notesCol = colMatch(/note|comment|remark/i);
+    const photoCol = columns.find((c: any) => c?.type === "photo_gallery");
     const roomCols = columns.filter((c: any) => {
       if (!c) return false;
       if (c === unitCol || c === statusCol || c === headsCol || c === notesCol) return false;
