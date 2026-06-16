@@ -696,6 +696,130 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  // Lightweight, non-destructive "Merge photos" action.
+  // Unlike Restore, this never creates new rows and never touches site photos —
+  // it only fills empty `dwelling_photo` slots and appends missing gallery
+  // `photos` onto rows the engineer can still see in the form. For each
+  // (row, field) pair it uses ONLY the most recent submission so older test
+  // uploads don't leak back in.
+  const mergePhotosFromSubmissions = async () => {
+    if (!activeTemplate) return;
+    try {
+      const { data: subs, error } = await supabase
+        .from("submissions")
+        .select("file_name, content, created_at")
+        .eq("job_id", jobId)
+        .eq("type", "photo")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const photos = (subs || []) as Array<{ file_name: string; content: string | null; created_at: string }>;
+      if (photos.length === 0) {
+        toast({ title: "No photos to merge", description: "No photo uploads found for this job." });
+        return;
+      }
+
+      const uuidRe = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+      const filePatt = new RegExp(`^(?:.*?— )?(?<row>[a-z_]+)-(?<ident>\\d+|${uuidRe})-(?<field>[a-z_]+)-\\d+`, "i");
+
+      // Parse existing dwelling rows
+      const next: Record<string, any> = { ...formData };
+      let dwellingRows: any[] = [];
+      const rawDwelling = next.dwelling_access_log;
+      if (Array.isArray(rawDwelling)) dwellingRows = rawDwelling;
+      else if (typeof rawDwelling === "string" && rawDwelling.trim().startsWith("[")) {
+        try { dwellingRows = JSON.parse(rawDwelling); } catch { dwellingRows = []; }
+      }
+      if (dwellingRows.length === 0) {
+        toast({ title: "Nothing to merge into", description: "This report has no dwelling rows to attach photos to." });
+        return;
+      }
+      const byId = new Map<string, any>();
+      dwellingRows.forEach((r) => { if (r?.id) byId.set(String(r.id), r); });
+
+      // Keep only the most recent submission per (row, ident, field) bucket so
+      // we don't reintroduce earlier duplicates the engineer already replaced.
+      const latestByKey = new Map<string, { file_name: string; content: string | null; created_at: string; row: string; ident: string; field: string }>();
+      for (const p of photos) {
+        const fn = p.file_name || "";
+        if (fn.startsWith("site-photo")) continue;
+        const m = fn.match(filePatt);
+        if (!m || !m.groups) continue;
+        const row = m.groups.row;
+        if (row !== "dwelling_access_log") continue;
+        const ident = m.groups.ident;
+        const field = m.groups.field;
+        const key = `${row}|${ident}|${field}`;
+        const prev = latestByKey.get(key);
+        if (!prev || new Date(p.created_at).getTime() > new Date(prev.created_at).getTime()) {
+          latestByKey.set(key, { ...p, row, ident, field });
+        }
+      }
+
+      let dwellingPhotoSet = 0;
+      let photosAppended = 0;
+      let skippedNoRow = 0;
+      let dwellingChanged = false;
+
+      for (const entry of latestByKey.values()) {
+        const { ident, field, file_name, content, created_at } = entry;
+        let target: any = null;
+        if (/^[0-9a-f-]{36}$/i.test(ident)) {
+          target = byId.get(ident) || null;
+        } else {
+          const idx = parseInt(ident, 10);
+          if (idx >= 0 && idx < dwellingRows.length) target = dwellingRows[idx];
+        }
+        if (!target) { skippedNoRow++; continue; } // no row creation in merge mode
+
+        const storagePath = `${jobId}/template-photos/${file_name}`;
+        if (field === "dwelling_photo") {
+          if (!target.dwelling_photo) {
+            target.dwelling_photo = storagePath;
+            dwellingPhotoSet++;
+            dwellingChanged = true;
+          }
+        } else {
+          const gal: any[] = Array.isArray(target.photos) ? target.photos : [];
+          if (!gal.some((x) => x && typeof x === "object" && x.path === storagePath)) {
+            gal.push({ path: storagePath, caption: content || "", uploaded_at: created_at });
+            target.photos = gal;
+            photosAppended++;
+            dwellingChanged = true;
+          }
+        }
+      }
+
+      if (dwellingChanged) next.dwelling_access_log = JSON.stringify(dwellingRows);
+
+      console.log("[JobSheetTemplates] mergePhotosFromSubmissions", {
+        scanned: photos.length,
+        consideredLatest: latestByKey.size,
+        dwellingPhotoSet,
+        photosAppended,
+        skippedNoRow,
+      });
+
+      const totalMerged = dwellingPhotoSet + photosAppended;
+      if (totalMerged === 0) {
+        toast({
+          title: "Nothing to merge",
+          description: skippedNoRow > 0
+            ? `All matching rows already have their photos. ${skippedNoRow} upload(s) had no matching row — use Restore photos to recover them.`
+            : "All photos are already attached to their rows.",
+        });
+        return;
+      }
+      setFormData(next);
+      toast({
+        title: "Photos merged",
+        description: `Filled ${dwellingPhotoSet} dwelling photo${dwellingPhotoSet === 1 ? "" : "s"} and appended ${photosAppended} gallery photo${photosAppended === 1 ? "" : "s"} — remember to Save.`,
+      });
+    } catch (err: any) {
+      console.error("[JobSheetTemplates] mergePhotosFromSubmissions failed", err);
+      toast({ title: "Merge failed", description: err?.message || String(err), variant: "destructive" });
+    }
+  };
+
   const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
