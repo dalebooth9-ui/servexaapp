@@ -215,3 +215,9 @@
 [role="dialog"] ::-webkit-scrollbar-thumb:hover {
   background: hsl(25 95% 43%);
 }
+
+/* Respect EXIF rotation on uploaded photos (camera shots). */
+img[data-uploaded="true"],
+img[data-uploaded] {
+  image-orientation: from-image;
+}

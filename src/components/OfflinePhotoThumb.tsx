@@ -49,7 +49,7 @@ export default function OfflinePhotoThumb({ queueId, className, alt }: Props) {
 
   return (
     <div className={cn("relative overflow-hidden rounded-md border border-border", className)}>
-      <img src={url} alt={alt || "Pending upload"} className="h-full w-full object-cover" />
+      <img src={url} alt={alt || "Pending upload"} data-uploaded="true" className="h-full w-full object-cover" />
       <div className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-background/85 px-2 py-1 text-[10px] font-medium">
         {failed ? (
           <>

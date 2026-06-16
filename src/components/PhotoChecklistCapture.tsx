@@ -129,7 +129,7 @@ function PhotoCaptureButton({
           </div>
         ) : signedUrl ? (
           <>
-            <img src={signedUrl} alt={label} className="w-full h-full object-cover" />
+            <img src={signedUrl} alt={label} data-uploaded="true" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/0 hover:bg-black/20 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
               <div className="bg-black/60 rounded-full p-2">
                 <SwitchCamera className="h-5 w-5 text-white" />
