@@ -525,6 +525,7 @@ export async function generateJobSheetPdf(
     const statusCol = colMatch(/status|access/i);
     const headsCol = colMatch(/^heads?$|head[_ ]?count|total[_ ]?heads|sprinkler[_ ]?heads/i);
     const notesCol = colMatch(/note|comment|remark/i);
+    const photoCol = columns.find((c: any) => c?.type === "photo_gallery");
     const roomCols = columns.filter((c: any) => {
       if (!c) return false;
       if (c === unitCol || c === statusCol || c === headsCol || c === notesCol) return false;
@@ -563,7 +564,13 @@ export async function generateJobSheetPdf(
       if (status === "noanswer" || status === "refused") heads = "—";
       const notes = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
       const breakdown = breakdownParts.join(", ");
-      const photosRaw = Array.isArray(row?.photos) ? row.photos : [];
+      const photosRaw = photoCol
+        ? (Array.isArray(row?.[photoCol.id])
+            ? row[photoCol.id]
+            : (typeof row?.[photoCol.id] === "string" && row[photoCol.id].trim().startsWith("[")
+                ? (() => { try { return JSON.parse(row[photoCol.id]); } catch { return []; } })()
+                : []))
+        : (Array.isArray(row?.photos) ? row.photos : []);
       const photos = photosRaw
         .filter((p: any) => p && typeof p === "object" && p.path)
         .map((p: any) => ({ path: String(p.path), caption: String(p.caption || "").trim() }));
@@ -628,7 +635,12 @@ export async function generateJobSheetPdf(
     y += statsH + 2;
 
     // === PART C: Dwelling table ===
-    const tblColW = [22, 32, 16, maxWidth - 22 - 32 - 16]; // Unit, Status, Heads, Notes
+    // Unit ≥35% of table width with wrap; gap before status badge.
+    const unitW = Math.max(maxWidth * 0.35, 50);
+    const statusW = Math.max(maxWidth * 0.22, 32);
+    const headsW = Math.max(maxWidth * 0.14, 20);
+    const notesW = maxWidth - unitW - statusW - headsW;
+    const tblColW = [unitW, statusW, headsW, notesW];
     const tblHeaderH = 7;
     const renderTableHeader = () => {
       doc.setFillColor(235, 238, 242);
@@ -639,7 +651,7 @@ export async function generateJobSheetPdf(
       doc.setFontSize(8.5);
       doc.setTextColor(40, 45, 55);
       let cx = margin;
-      ["Unit", "Status", "Heads", "Room breakdown & notes"].forEach((h, i) => {
+      ["Unit", "Status", "Heads per flat", "Room breakdown & notes"].forEach((h, i) => {
         doc.text(h, cx + 2, y + 4.8);
         cx += tblColW[i];
       });
@@ -656,7 +668,9 @@ export async function generateJobSheetPdf(
         ? [e.breakdown, e.notes].filter(Boolean).join(". ")
         : (e.notes || "—");
       const notesLines = doc.splitTextToSize(notesText || "—", tblColW[3] - 4);
-      const rowH = Math.max(8, notesLines.length * 3.6 + 3);
+      // Wrap unit name (leave ~3mm gap before status badge starts)
+      const unitLines = doc.splitTextToSize(String(e.unit), tblColW[0] - 5);
+      const rowH = Math.max(8, Math.max(notesLines.length * 3.6, unitLines.length * 3.6) + 3);
 
       if (y + rowH > pageHeight - footerSpace) {
         doc.addPage();
@@ -678,13 +692,14 @@ export async function generateJobSheetPdf(
       const cy = y + rowH / 2 + 1.4;
       let cx = margin;
 
-      // Unit
+      // Unit (wrapped, top-aligned)
       doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
       doc.setTextColor(20, 25, 35);
-      doc.text(String(e.unit), cx + 2, cy);
+      doc.text(unitLines, cx + 2, y + 4.5);
       cx += tblColW[0];
 
-      // Status badge
+      // Status badge (start with a 2mm inset to guarantee gap after unit)
       const badgeBg = e.status === "gained" ? GREEN_BG : e.status === "noanswer" ? AMBER_BG : e.status === "refused" ? RED_BG : [235, 238, 242] as [number, number, number];
       const badgeFg = e.status === "gained" ? GREEN_TXT : e.status === "noanswer" ? AMBER_TXT : e.status === "refused" ? RED_TXT : MUTED;
       const badgeText = statusLabel(e.status, e.statusRaw);
@@ -701,10 +716,19 @@ export async function generateJobSheetPdf(
       doc.setFontSize(9);
       cx += tblColW[1];
 
-      // Heads
-      doc.setFont("helvetica", "normal");
+      // Heads (per flat)
+      doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
       doc.text(String(e.heads || "—"), cx + 2, cy);
+      if (e.heads && e.heads !== "—") {
+        const numW = doc.getTextWidth(String(e.heads));
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(6.5);
+        doc.setTextColor(...MUTED);
+        doc.text("per flat", cx + 2 + numW + 1.5, cy);
+        doc.setFontSize(9);
+        doc.setTextColor(0, 0, 0);
+      }
       cx += tblColW[2];
 
       // Notes
@@ -730,12 +754,18 @@ export async function generateJobSheetPdf(
     }
 
     // === PART D: Photographic evidence ===
-    type PhotoItem = { unit: string; url: string; caption: string };
+    type PhotoItem = { unit: string; url: string | null; caption: string };
     const photoItems: PhotoItem[] = [];
     for (const e of entries) {
       for (const p of e.photos) {
-        const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
-        if (data?.signedUrl) photoItems.push({ unit: e.unit, url: data.signedUrl, caption: p.caption });
+        let url: string | null = null;
+        try {
+          const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+          url = data?.signedUrl ?? null;
+        } catch (err) {
+          console.warn("Dwelling photo signed URL failed", p.path, err);
+        }
+        photoItems.push({ unit: e.unit, url, caption: p.caption });
       }
     }
 
@@ -753,7 +783,7 @@ export async function generateJobSheetPdf(
       const cols = 3;
       const gap = 3;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
-      const photoH = 50; // ~ 170px @ 72dpi
+      const photoH = 56; // ~ 160px @ 72dpi
       const captionBlock = 9;
       const cellH = photoH + captionBlock + 2;
 
@@ -766,12 +796,28 @@ export async function generateJobSheetPdf(
         }
         const x = margin + col * (photoW + gap);
         const item = photoItems[i];
-        try {
-          const oriented = await fetchOrientedImage(item.url);
-          if (oriented) {
-            doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
+        let rendered = false;
+        if (item.url) {
+          try {
+            const oriented = await fetchOrientedImage(item.url);
+            if (oriented && oriented.dataUrl) {
+              doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
+              rendered = true;
+            }
+          } catch (err) {
+            console.warn("Dwelling photo render failed", err);
           }
-        } catch { /* skip */ }
+        }
+        if (!rendered) {
+          // Grey placeholder
+          doc.setFillColor(235, 238, 242);
+          doc.rect(x, y, photoW, photoH, "F");
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(8);
+          doc.setTextColor(...MUTED);
+          doc.text("Image unavailable", x + photoW / 2, y + photoH / 2 + 1, { align: "center" });
+          doc.setTextColor(0, 0, 0);
+        }
         // Thin border around cell
         doc.setDrawColor(...BORDER);
         doc.setLineWidth(0.2);
@@ -781,7 +827,8 @@ export async function generateJobSheetPdf(
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
         doc.setTextColor(20, 25, 35);
-        doc.text(item.unit, x, y + photoH + 3.5);
+        const unitLabelLines = doc.splitTextToSize(item.unit, photoW).slice(0, 1);
+        doc.text(unitLabelLines, x, y + photoH + 3.5);
         if (item.caption) {
           doc.setFont("helvetica", "italic");
           doc.setFontSize(7.5);
