@@ -726,20 +726,28 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     if (!activeTemplate) return;
     setSubmitting(true);
     try {
+      const payload = await withPreservedSitePhotos(formData);
+      console.log("[JobSheetTemplates] save report photos", {
+        responseId: activeResponse?.id || null,
+        sitePhotoUrls: Array.isArray(payload._site_photo_urls) ? payload._site_photo_urls.length : 0,
+        sitePhotoPaths: Array.isArray(payload._site_photo_paths) ? payload._site_photo_paths.length : 0,
+        sitePhotoCaptions: Array.isArray(payload._site_photo_captions) ? payload._site_photo_captions.length : 0,
+      });
       if (activeResponse) {
         await supabase.from("job_sheet_responses").update({
-          responses: formData as any,
+          responses: payload as any,
         } as any).eq("id", activeResponse.id);
       } else {
         const { data } = await supabase.from("job_sheet_responses").insert({
           job_id: jobId,
           template_id: activeTemplate.id,
-          responses: formData as any,
+          responses: payload as any,
           submitted_by: user?.id,
           status: "draft",
         } as any).select().single();
         if (data) setActiveResponse(data as Response);
       }
+      setFormData(payload);
       toast({ title: "Draft saved" });
       clearTemplateFormDraft();
       fetchData();
