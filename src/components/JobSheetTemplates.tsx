@@ -568,6 +568,134 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
     }
   };
 
+  // Recover template-photo references from the submissions table back into
+  // the responses JSON. Used when a re-edit/save wiped the photo URLs but the
+  // files still live in storage. Safe to run any time — duplicates are skipped.
+  const restorePhotosFromSubmissions = async () => {
+    if (!activeTemplate) return;
+    try {
+      const { data: subs, error } = await supabase
+        .from("submissions")
+        .select("file_name, file_url, content, created_at")
+        .eq("job_id", jobId)
+        .eq("type", "photo")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const photos = (subs || []) as Array<{ file_name: string; file_url: string; content: string | null; created_at: string }>;
+      if (photos.length === 0) {
+        toast({ title: "No photos to restore", description: "No photo uploads found for this job." });
+        return;
+      }
+
+      const uuidRe = "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
+      const filePatt = new RegExp(`^(?:.*?— )?(?<row>[a-z_]+)-(?<ident>\\d+|${uuidRe})-(?<field>[a-z_]+)-\\d+`, "i");
+
+      const next: Record<string, any> = { ...formData };
+      let dwellingChanged = false;
+      let dwellingPhotoSet = 0;
+      let photosAppended = 0;
+      let siteAdded = 0;
+      const orphans: string[] = [];
+
+      // Site photos (site-photo-*.jpg/png)
+      const siteUrls: string[] = Array.isArray(next._site_photo_urls) ? [...next._site_photo_urls] : [];
+      const sitePaths: string[] = Array.isArray(next._site_photo_paths) ? [...next._site_photo_paths] : [];
+      const siteCaps: string[] = Array.isArray(next._site_photo_captions) ? [...next._site_photo_captions] : [];
+
+      // Parse dwelling_access_log (stored as a JSON-stringified array)
+      let dwellingRows: any[] = [];
+      const rawDwelling = next.dwelling_access_log;
+      if (Array.isArray(rawDwelling)) dwellingRows = rawDwelling;
+      else if (typeof rawDwelling === "string" && rawDwelling.trim().startsWith("[")) {
+        try { dwellingRows = JSON.parse(rawDwelling); } catch { dwellingRows = []; }
+      }
+      const byId = new Map<string, any>();
+      dwellingRows.forEach((r) => { if (r?.id) byId.set(String(r.id), r); });
+
+      for (const p of photos) {
+        const fn = p.file_name || "";
+        const url = p.file_url || "";
+        const caption = p.content || "";
+        if (fn.startsWith("site-photo")) {
+          if (url && !siteUrls.includes(url)) {
+            siteUrls.push(url);
+            sitePaths.push(`${jobId}/${fn}`);
+            siteCaps.push(caption);
+            siteAdded++;
+          }
+          continue;
+        }
+        const m = fn.match(filePatt);
+        if (!m || !m.groups) { orphans.push(fn); continue; }
+        const rowKey = m.groups.row;
+        const ident = m.groups.ident;
+        const fieldKey = m.groups.field;
+        if (rowKey !== "dwelling_access_log") { orphans.push(fn); continue; }
+        const storagePath = `${jobId}/template-photos/${fn}`;
+
+        let target: any = null;
+        if (/^[0-9a-f-]{36}$/i.test(ident)) {
+          target = byId.get(ident);
+          if (!target) {
+            target = { unit_number: "(recovered)", access_result: "", total_heads: "", room_breakdown: "", dwelling_photo: "", id: ident, photos: [] };
+            dwellingRows.push(target);
+            byId.set(ident, target);
+            dwellingChanged = true;
+          }
+        } else {
+          const idx = parseInt(ident, 10);
+          if (idx >= 0 && idx < dwellingRows.length) target = dwellingRows[idx];
+        }
+        if (!target) { orphans.push(fn); continue; }
+
+        if (fieldKey === "dwelling_photo") {
+          if (!target.dwelling_photo) {
+            target.dwelling_photo = storagePath;
+            dwellingPhotoSet++;
+            dwellingChanged = true;
+          }
+        } else {
+          const gal: any[] = Array.isArray(target.photos) ? target.photos : [];
+          if (!gal.some((x) => x && typeof x === "object" && x.path === storagePath)) {
+            gal.push({ path: storagePath, caption, uploaded_at: p.created_at });
+            target.photos = gal;
+            photosAppended++;
+            dwellingChanged = true;
+          }
+        }
+      }
+
+      if (dwellingChanged) next.dwelling_access_log = JSON.stringify(dwellingRows);
+      if (siteAdded > 0) {
+        next._site_photo_urls = siteUrls;
+        next._site_photo_paths = sitePaths;
+        next._site_photo_captions = siteCaps;
+      }
+
+      console.log("[JobSheetTemplates] restorePhotosFromSubmissions", {
+        scanned: photos.length,
+        dwellingPhotoSet,
+        photosAppended,
+        siteAdded,
+        orphans,
+      });
+
+      const totalRestored = dwellingPhotoSet + photosAppended + siteAdded;
+      if (totalRestored === 0) {
+        toast({ title: "Nothing to restore", description: `Scanned ${photos.length} photo upload(s); all were already present.` });
+        return;
+      }
+      setFormData(next);
+      toast({
+        title: "Photos restored",
+        description: `Recovered ${totalRestored} photo reference(s) — remember to Save to keep them.`,
+      });
+    } catch (err: any) {
+      console.error("[JobSheetTemplates] restorePhotosFromSubmissions failed", err);
+      toast({ title: "Restore failed", description: err?.message || String(err), variant: "destructive" });
+    }
+  };
+
   const handleStartForm = async (template: Template, existingResponse?: Response) => {
     setActiveTemplate(template);
     setViewingResponse(null);
@@ -1416,10 +1544,24 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
               <DialogTitle className="text-sm flex items-center gap-2">
                 <ClipboardCheck className="h-4 w-4" /> {activeTemplate?.name}
               </DialogTitle>
-              <button onClick={closeForm} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </button>
+              <div className="flex items-center gap-2">
+                {activeResponse && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-[11px] gap-1"
+                    onClick={restorePhotosFromSubmissions}
+                    title="Re-link any photo files that were uploaded for this job but are missing from the form"
+                  >
+                    <RotateCcw className="h-3 w-3" /> Restore photos
+                  </Button>
+                )}
+                <button onClick={closeForm} className="rounded-sm opacity-70 hover:opacity-100 transition-opacity">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </button>
+              </div>
             </div>
           </DialogHeader>
           <div className="overflow-y-auto flex-1" style={{ minHeight: 0 }}>
