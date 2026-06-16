@@ -545,16 +545,17 @@ export async function generateJobSheetPdf(
         const x = margin + col * (photoW + gap);
         const item = group.items[i];
         try {
-          const res = await fetch(item.url);
-          const blob = await res.blob();
-          const dataUrl: string = await new Promise((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onload = () => resolve(fr.result as string);
-            fr.onerror = () => reject(new Error("read fail"));
-            fr.readAsDataURL(blob);
-          });
-          const isPng = (blob.type || "").includes("png");
-          doc.addImage(dataUrl, isPng ? "PNG" : "JPEG", x, y, photoW, photoH);
+          const oriented = await fetchOrientedImage(item.url);
+          if (oriented) {
+            doc.addImage(
+              oriented.dataUrl,
+              oriented.mimeType === "image/png" ? "PNG" : "JPEG",
+              x,
+              y,
+              photoW,
+              photoH,
+            );
+          }
         } catch { /* skip failed photo */ }
 
         doc.setFont("helvetica", "normal");
