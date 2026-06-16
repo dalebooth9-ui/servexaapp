@@ -39,11 +39,38 @@ function parseRows(value: any): Row[] {
   return [];
 }
 
+function genId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch {}
+  return `r-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function RepeatingTableField({ columns, value, onChange, jobId, userId, fieldId }: Props) {
   const rows = parseRows(value);
   const containerRef = useRef<HTMLDivElement>(null);
+  const backfilledRef = useRef(false);
 
   const commit = (next: Row[]) => onChange(JSON.stringify(next));
+
+  // Backfill stable ids on any existing rows that don't have one. Runs once
+  // per mount when rows are first loaded so legacy data (saved before stable
+  // ids existed) gets a permanent id without disturbing user-entered values.
+  useEffect(() => {
+    if (backfilledRef.current) return;
+    if (rows.length === 0) return;
+    const missing = rows.some((r) => !r || !r.id);
+    if (!missing) {
+      backfilledRef.current = true;
+      return;
+    }
+    const next = rows.map((r) => (r && r.id ? r : { ...r, id: genId() }));
+    backfilledRef.current = true;
+    commit(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length]);
 
   const updateCell = (rowIdx: number, colId: string, v: any) => {
     const next = rows.map((r, i) => (i === rowIdx ? { ...r, [colId]: v } : r));
@@ -51,8 +78,10 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
   };
 
   const addRow = () => {
-    const blank: Row = {};
-    columns.forEach((c) => (blank[c.id] = ""));
+    const blank: Row = { id: genId() };
+    columns.forEach((c) => {
+      if (c.id !== "id") blank[c.id] = "";
+    });
     commit([...rows, blank]);
   };
 
