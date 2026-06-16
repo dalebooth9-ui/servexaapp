@@ -36,6 +36,7 @@ import { downloadTemplateJson } from "@/lib/templateJson";
 import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
+import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 
 type TemplateField = {
   id: string;
