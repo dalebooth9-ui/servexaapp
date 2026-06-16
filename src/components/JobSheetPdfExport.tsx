@@ -466,6 +466,111 @@ export async function generateJobSheetPdf(
   }
 
 
+  // --- Dwelling photos (grouped by unit_number) ---
+  // Any repeating_table field whose rows carry a `photos` gallery is rendered
+  // here, grouped under the row's unit_number with captions beneath each image.
+  const galleryFields = template.fields.filter((f: any) =>
+    f.type === "repeating_table" &&
+    Array.isArray((f as any).columns) &&
+    (f as any).columns.some((c: any) => c?.type === "photo_gallery")
+  );
+
+  for (const galField of galleryFields) {
+    const rawRows = resolvedFormData[galField.id];
+    let rows: any[] = [];
+    if (Array.isArray(rawRows)) rows = rawRows;
+    else if (typeof rawRows === "string" && rawRows.trim().startsWith("[")) {
+      try { rows = JSON.parse(rawRows); } catch { rows = []; }
+    }
+    if (!Array.isArray(rows) || rows.length === 0) continue;
+
+    type RenderItem = { url: string; caption: string };
+    type RenderGroup = { label: string; items: RenderItem[] };
+    const groups: RenderGroup[] = [];
+
+    for (const row of rows) {
+      const photos = Array.isArray(row?.photos) ? row.photos : [];
+      if (photos.length === 0) continue;
+      const label = String(row?.unit_number || "").trim() || "Unit (unspecified)";
+
+      const items: RenderItem[] = [];
+      for (const p of photos) {
+        if (!p || typeof p !== "object" || !p.path) continue;
+        const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+        if (data?.signedUrl) items.push({ url: data.signedUrl, caption: String(p.caption || "").trim() });
+      }
+      if (items.length > 0) groups.push({ label, items });
+    }
+
+    if (groups.length === 0) continue;
+
+    // Section heading
+    if (y + 12 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...accentColor);
+    doc.text(galField.label || "Dwelling Photos", margin, y + 4);
+    doc.setTextColor(0, 0, 0);
+    y += 7;
+
+    const gap = 4;
+    const cols = 3;
+    const photoW = (maxWidth - gap * (cols - 1)) / cols;
+    const photoH = photoW * 0.75;
+    const captionH = 8;
+    const photoRowH = photoH + captionH + 3;
+
+    for (const group of groups) {
+      // Group subheading (unit number)
+      if (y + 6 + photoRowH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setFillColor(...accentColor);
+      doc.rect(margin, y, maxWidth, 5.5, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.text(`Unit: ${group.label}`, margin + 2, y + 4);
+      doc.setTextColor(0, 0, 0);
+      y += 7;
+
+      for (let i = 0; i < group.items.length; i++) {
+        const col = i % cols;
+        if (col === 0 && i > 0) y += photoRowH;
+        if (y + photoRowH > pageHeight - footerSpace) {
+          doc.addPage();
+          y = margin;
+        }
+        const x = margin + col * (photoW + gap);
+        const item = group.items[i];
+        try {
+          const res = await fetch(item.url);
+          const blob = await res.blob();
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.onerror = () => reject(new Error("read fail"));
+            fr.readAsDataURL(blob);
+          });
+          const isPng = (blob.type || "").includes("png");
+          doc.addImage(dataUrl, isPng ? "PNG" : "JPEG", x, y, photoW, photoH);
+        } catch { /* skip failed photo */ }
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(60, 60, 60);
+        const captionText = item.caption || `Photo ${i + 1}`;
+        const captionLines = doc.splitTextToSize(captionText, photoW).slice(0, 2);
+        captionLines.forEach((line: string, li: number) => {
+          doc.text(line, x, y + photoH + 3 + li * 3);
+        });
+        doc.setTextColor(0, 0, 0);
+      }
+      y += photoRowH + 2;
+    }
+  }
+
+
+
+
   // --- Bottom stack layout (calculated from bottom up) ---
   // addAccreditationLogosToAllPages internally does: rowY = footerY - logoH - 3
   // So passing declarationFooterY places logos at declarationFooterY - logoH - 3
