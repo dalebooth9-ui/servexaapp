@@ -60,6 +60,7 @@ export default function PhotoLightbox({ photos, currentIndex, open, onOpenChange
           <img
             src={photo.url}
             alt={photo.fileName || "Photo"}
+            data-uploaded="true"
             className="max-h-[80vh] max-w-full rounded object-contain"
           />
 
