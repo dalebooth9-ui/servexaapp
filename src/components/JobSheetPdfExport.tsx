@@ -564,7 +564,13 @@ export async function generateJobSheetPdf(
       if (status === "noanswer" || status === "refused") heads = "—";
       const notes = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
       const breakdown = breakdownParts.join(", ");
-      const photosRaw = Array.isArray(row?.photos) ? row.photos : [];
+      const photosRaw = photoCol
+        ? (Array.isArray(row?.[photoCol.id])
+            ? row[photoCol.id]
+            : (typeof row?.[photoCol.id] === "string" && row[photoCol.id].trim().startsWith("[")
+                ? (() => { try { return JSON.parse(row[photoCol.id]); } catch { return []; } })()
+                : []))
+        : (Array.isArray(row?.photos) ? row.photos : []);
       const photos = photosRaw
         .filter((p: any) => p && typeof p === "object" && p.path)
         .map((p: any) => ({ path: String(p.path), caption: String(p.caption || "").trim() }));
