@@ -639,7 +639,15 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  await renderBrandingOverlay(doc, { watermark, brandColor: accentColor, accredLogos, accredFooterY: declarationFooterY, accredLogoH: logoH });
+  await renderBrandingOverlay(doc, {
+    watermark,
+    brandColor: accentColor,
+    accredLogos,
+    accredFooterY: declarationFooterY,
+    accredLogoH: logoH,
+    // Keep the flame as a subtle background so dwelling-photo pages aren't dominated by it.
+    override: { opacity: 0.06 },
+  });
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const fileName = [jobInfo?.reference_number || "job-sheet", safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
