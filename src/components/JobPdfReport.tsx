@@ -467,7 +467,7 @@ export default function JobPdfReport({ jobId, job }: Props) {
 
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
       let engineerNames: string[] = [];
-      let engineerProfileMap: Record<string, string> = {};
+      const engineerProfileMap: Record<string, string> = {};
       if (engIds.length > 0) {
         const { data: profiles } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engIds);
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
