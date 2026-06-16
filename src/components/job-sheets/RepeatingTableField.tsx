@@ -291,7 +291,7 @@ function RowPhotoCell({ value, onChange, fieldId, groupLabel, jobId, userId }: {
       />
       {signedUrl ? (
         <div className="relative inline-block">
-          <img src={signedUrl} alt="Captured" className="max-w-[140px] max-h-[100px] rounded border object-cover" />
+          <img src={signedUrl} alt="Captured" data-uploaded="true" className="max-w-[140px] max-h-[100px] rounded border object-cover" />
           <Button
             variant="destructive"
             size="icon"
