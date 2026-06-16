@@ -442,6 +442,23 @@ export async function generateJobSheetPdf(
     const captionH = 5;
     const rowH = photoH + captionH + 4;
 
+    // Pre-fetch and orient ALL site photos in parallel so a slow image
+    // doesn't stall the loop and so we know up-front which failed.
+    const orientedSitePhotos = await Promise.all(
+      sitePhotoUrls.map(async (url) => {
+        try {
+          return await fetchOrientedImage(url);
+        } catch (err) {
+          console.warn("[JobSheetPdfExport] site photo orient failed", url, err);
+          return null;
+        }
+      }),
+    );
+    console.log("[JobSheetPdfExport] site photos oriented", {
+      requested: sitePhotoUrls.length,
+      loaded: orientedSitePhotos.filter(Boolean).length,
+    });
+
     for (let i = 0; i < sitePhotoUrls.length; i++) {
       const col = i % 2;
       if (col === 0 && i > 0) y += rowH;
@@ -454,11 +471,9 @@ export async function generateJobSheetPdf(
 
       const x = margin + col * (photoW + gap);
 
-      try {
-        // Fetch with EXIF orientation applied so portrait phone shots
-        // aren't rendered sideways in the PDF.
-        const oriented = await fetchOrientedImage(sitePhotoUrls[i]);
-        if (oriented) {
+      const oriented = orientedSitePhotos[i];
+      if (oriented && oriented.dataUrl) {
+        try {
           doc.addImage(
             oriented.dataUrl,
             oriented.mimeType === "image/png" ? "PNG" : "JPEG",
@@ -467,8 +482,19 @@ export async function generateJobSheetPdf(
             photoW,
             photoH,
           );
+        } catch (err) {
+          console.warn("[JobSheetPdfExport] site photo addImage failed", err);
         }
-      } catch { /* skip failed photo */ }
+      } else {
+        // Grey placeholder + "Image unavailable" label
+        doc.setFillColor(235, 238, 242);
+        doc.rect(x, y, photoW, photoH, "F");
+        doc.setFont("helvetica", "italic");
+        doc.setFontSize(9);
+        doc.setTextColor(110, 116, 128);
+        doc.text("Image unavailable", x + photoW / 2, y + photoH / 2, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+      }
 
       // Caption beneath
       const caption = (sitePhotoCaptions[i] || "").trim() || `Photo ${i + 1}`;
