@@ -272,16 +272,22 @@ export default function JobPdfReport({ jobId, job }: Props) {
       y += 6;
 
       // ── SITE DETAILS TABLE ──
-      if (site) {
+      // Backfill from latest submitted form responses when no site row exists or fields are empty
+      const responseSiteName = sheetResponses.map((r: any) => r.responses?.site_name || r.responses?.site).find((v: any) => v && String(v).trim());
+      const responseSiteAddress = sheetResponses.map((r: any) => r.responses?.site_address || r.responses?.address).find((v: any) => v && String(v).trim());
+      const siteName = site?.name || responseSiteName || "";
+      const siteAddress = site?.address || responseSiteAddress || "";
+      console.log("[JobPdfReport] site fields", { fromSiteRow: !!site, siteName, siteAddress });
+      if (site || siteName || siteAddress) {
         checkPage(30);
         y = sectionTitle(doc, "Site Details", y, margin, maxWidth);
         const siteRows: [string, string][] = [
-          ["Site Name", site.name || "—"],
-          ["Address", site.address || "—"],
-          ["Postcode", site.postcode || "—"],
-          ["Contact", site.contact_name || "—"],
-          ["Phone", site.contact_phone || "—"],
-          ["Email", site.contact_email || "—"],
+          ["Site Name", siteName || "—"],
+          ["Address", siteAddress || "—"],
+          ["Postcode", site?.postcode || "—"],
+          ["Contact", site?.contact_name || "—"],
+          ["Phone", site?.contact_phone || "—"],
+          ["Email", site?.contact_email || "—"],
         ].filter(([, v]) => v !== "—") as [string, string][];
         siteRows.forEach(([label, value]) => {
           checkPage(rowH);
