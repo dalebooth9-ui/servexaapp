@@ -469,14 +469,46 @@ export async function generateJobSheetPdf(
   }
 
 
-  // --- Dwelling photos (grouped by unit_number) ---
-  // Any repeating_table field whose rows carry a `photos` gallery is rendered
-  // here, grouped under the row's unit_number with captions beneath each image.
+  // --- Dwelling Access Log (Section 8) ---
+  // Renders any repeating_table field that includes a photo_gallery column
+  // (the dwelling access log) using a professional layout:
+  // header bar → access summary stats → compact dwelling table → photo grid.
   const galleryFields = template.fields.filter((f: any) =>
     f.type === "repeating_table" &&
     Array.isArray((f as any).columns) &&
     (f as any).columns.some((c: any) => c?.type === "photo_gallery")
   );
+
+  const NAVY: [number, number, number] = [26, 46, 74];        // #1a2e4a
+  const GREEN_TXT: [number, number, number] = [6, 95, 70];    // #065f46
+  const GREEN_BG: [number, number, number] = [209, 250, 229]; // #d1fae5
+  const AMBER_TXT: [number, number, number] = [146, 64, 14];  // #92400e
+  const AMBER_BG: [number, number, number] = [254, 243, 199]; // #fef3c7
+  const RED_TXT: [number, number, number] = [153, 27, 27];    // #991b1b
+  const RED_BG: [number, number, number] = [254, 226, 226];   // #fee2e2
+  const STAT_GREEN: [number, number, number] = [26, 122, 74]; // #1a7a4a
+  const STAT_AMBER: [number, number, number] = [180, 83, 9];  // #b45309
+  const STAT_RED: [number, number, number] = [185, 28, 28];   // #b91c1c
+  const ROW_ALT: [number, number, number] = [247, 248, 250];
+  const BORDER: [number, number, number] = [210, 214, 220];
+  const MUTED: [number, number, number] = [110, 116, 128];
+
+  type StatusKind = "gained" | "noanswer" | "refused" | "unknown";
+  const classifyStatus = (raw: string): StatusKind => {
+    const v = (raw || "").toLowerCase();
+    if (!v) return "unknown";
+    if (v.includes("refus")) return "refused";
+    if (v.includes("no answer") || v.includes("no access") || v.includes("not gained") || v.includes("not in") || v.includes("absent")) return "noanswer";
+    if (v.includes("gain") || v === "yes" || v.includes("access ok") || v.includes("ok")) return "gained";
+    return "unknown";
+  };
+  const statusLabel = (k: StatusKind, raw: string) => {
+    if (raw && raw.trim()) return raw.trim();
+    if (k === "gained") return "Access gained";
+    if (k === "noanswer") return "No answer";
+    if (k === "refused") return "Refused";
+    return "—";
+  };
 
   for (const galField of galleryFields) {
     const rawRows = resolvedFormData[galField.id];
@@ -487,102 +519,284 @@ export async function generateJobSheetPdf(
     }
     if (!Array.isArray(rows) || rows.length === 0) continue;
 
-    type RenderItem = { url: string; caption: string };
-    type RenderGroup = { label: string; items: RenderItem[] };
-    const groups: RenderGroup[] = [];
+    const columns: any[] = Array.isArray((galField as any).columns) ? (galField as any).columns : [];
+    const colMatch = (re: RegExp) => columns.find((c: any) => re.test(String(c?.id || "")) || re.test(String(c?.label || "")));
+    const unitCol = colMatch(/unit|flat|dwelling|apt|apartment/i);
+    const statusCol = colMatch(/status|access/i);
+    const headsCol = colMatch(/^heads?$|head[_ ]?count|total[_ ]?heads|sprinkler[_ ]?heads/i);
+    const notesCol = colMatch(/note|comment|remark/i);
+    const roomCols = columns.filter((c: any) => {
+      if (!c) return false;
+      if (c === unitCol || c === statusCol || c === headsCol || c === notesCol) return false;
+      if (c.type === "photo_gallery" || c.type === "photo") return false;
+      return /hall|kitchen|bedroom|lounge|living|bath|wc|toilet|landing|cupboard|store|stair|corridor|utility|dining|study|attic|loft|en[- ]?suite|room/i.test(String(c?.label || c?.id || ""));
+    });
 
-    for (const row of rows) {
-      const photos = Array.isArray(row?.photos) ? row.photos : [];
-      if (photos.length === 0) continue;
-      const label = String(row?.unit_number || "").trim() || "Unit (unspecified)";
-
-      const items: RenderItem[] = [];
-      for (const p of photos) {
-        if (!p || typeof p !== "object" || !p.path) continue;
-        const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
-        if (data?.signedUrl) items.push({ url: data.signedUrl, caption: String(p.caption || "").trim() });
+    // Build dwelling entries
+    type Entry = {
+      unit: string;
+      statusRaw: string;
+      status: StatusKind;
+      heads: string;
+      breakdown: string;
+      notes: string;
+      photos: { path: string; caption: string }[];
+    };
+    const entries: Entry[] = rows.map((row: any, idx: number) => {
+      const unit = String(row?.[unitCol?.id] ?? row?.unit_number ?? "").trim() || `Unit ${idx + 1}`;
+      const statusRaw = String(row?.[statusCol?.id] ?? row?.access_status ?? row?.status ?? "").trim();
+      const status = classifyStatus(statusRaw);
+      let heads = String(row?.[headsCol?.id] ?? row?.heads ?? row?.head_count ?? "").trim();
+      const breakdownParts: string[] = [];
+      let derivedHeads = 0;
+      for (const rc of roomCols) {
+        const v = row?.[rc.id];
+        const num = Number(v);
+        if (Number.isFinite(num) && num > 0) {
+          breakdownParts.push(`${rc.label} ×${num}`);
+          derivedHeads += num;
+        } else if (typeof v === "string" && v.trim() && v.trim() !== "0") {
+          breakdownParts.push(`${rc.label} ${v.trim()}`);
+        }
       }
-      if (items.length > 0) groups.push({ label, items });
+      if (!heads && derivedHeads > 0) heads = String(derivedHeads);
+      if (status === "noanswer" || status === "refused") heads = "—";
+      const notes = String(row?.[notesCol?.id] ?? row?.notes ?? row?.comments ?? "").trim();
+      const breakdown = breakdownParts.join(", ");
+      const photosRaw = Array.isArray(row?.photos) ? row.photos : [];
+      const photos = photosRaw
+        .filter((p: any) => p && typeof p === "object" && p.path)
+        .map((p: any) => ({ path: String(p.path), caption: String(p.caption || "").trim() }));
+      return { unit, statusRaw, status, heads: heads || "—", breakdown, notes, photos };
+    });
+
+    const totals = {
+      total: entries.length,
+      gained: entries.filter((e) => e.status === "gained").length,
+      noanswer: entries.filter((e) => e.status === "noanswer").length,
+      refused: entries.filter((e) => e.status === "refused").length,
+    };
+
+    // === PART A: Section header bar ===
+    if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+    const dwellingSectionStartPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    const dwellingSectionStartY = y;
+
+    const headerH = 8;
+    doc.setFillColor(...NAVY);
+    doc.rect(margin, y, maxWidth, headerH, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("SECTION 8 — DWELLING ACCESS LOG", margin + 3, y + 5.4);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(200, 210, 225);
+    const stdText = "BS 9251:2021";
+    const stdW = doc.getTextWidth(stdText);
+    doc.text(stdText, margin + maxWidth - stdW - 3, y + 5.4);
+    doc.setTextColor(0, 0, 0);
+    y += headerH;
+
+    // === PART B: Access summary stats ===
+    const statsH = 14;
+    const colW = maxWidth / 4;
+    doc.setDrawColor(...BORDER);
+    doc.setLineWidth(0.2);
+    doc.rect(margin, y, maxWidth, statsH);
+    for (let i = 1; i < 4; i++) {
+      doc.line(margin + colW * i, y, margin + colW * i, y + statsH);
+    }
+    const statCols = [
+      { label: "TOTAL DWELLINGS", value: String(totals.total), color: [0, 0, 0] as [number, number, number] },
+      { label: "ACCESS GAINED", value: String(totals.gained), color: STAT_GREEN },
+      { label: "NO ANSWER", value: String(totals.noanswer), color: STAT_AMBER },
+      { label: "REFUSED", value: String(totals.refused), color: STAT_RED },
+    ];
+    statCols.forEach((s, i) => {
+      const cx = margin + colW * i + colW / 2;
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...MUTED);
+      doc.text(s.label, cx, y + 4.5, { align: "center" });
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(14);
+      doc.setTextColor(...s.color);
+      doc.text(s.value, cx, y + 11.5, { align: "center" });
+    });
+    doc.setTextColor(0, 0, 0);
+    y += statsH + 2;
+
+    // === PART C: Dwelling table ===
+    const tblColW = [22, 32, 16, maxWidth - 22 - 32 - 16]; // Unit, Status, Heads, Notes
+    const tblHeaderH = 7;
+    const renderTableHeader = () => {
+      doc.setFillColor(235, 238, 242);
+      doc.rect(margin, y, maxWidth, tblHeaderH, "F");
+      doc.setDrawColor(...BORDER);
+      doc.rect(margin, y, maxWidth, tblHeaderH);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8.5);
+      doc.setTextColor(40, 45, 55);
+      let cx = margin;
+      ["Unit", "Status", "Heads", "Room breakdown & notes"].forEach((h, i) => {
+        doc.text(h, cx + 2, y + 4.8);
+        cx += tblColW[i];
+      });
+      doc.setTextColor(0, 0, 0);
+      y += tblHeaderH;
+    };
+    renderTableHeader();
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      const notesText = e.status === "gained"
+        ? [e.breakdown, e.notes].filter(Boolean).join(". ")
+        : (e.notes || "—");
+      const notesLines = doc.splitTextToSize(notesText || "—", tblColW[3] - 4);
+      const rowH = Math.max(8, notesLines.length * 3.6 + 3);
+
+      if (y + rowH > pageHeight - footerSpace) {
+        doc.addPage();
+        y = margin;
+        renderTableHeader();
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+      }
+
+      // Alternate row shading
+      if (i % 2 === 1) {
+        doc.setFillColor(...ROW_ALT);
+        doc.rect(margin, y, maxWidth, rowH, "F");
+      }
+      doc.setDrawColor(...BORDER);
+      doc.setLineWidth(0.1);
+      doc.rect(margin, y, maxWidth, rowH);
+
+      const cy = y + rowH / 2 + 1.4;
+      let cx = margin;
+
+      // Unit
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(20, 25, 35);
+      doc.text(String(e.unit), cx + 2, cy);
+      cx += tblColW[0];
+
+      // Status badge
+      const badgeBg = e.status === "gained" ? GREEN_BG : e.status === "noanswer" ? AMBER_BG : e.status === "refused" ? RED_BG : [235, 238, 242] as [number, number, number];
+      const badgeFg = e.status === "gained" ? GREEN_TXT : e.status === "noanswer" ? AMBER_TXT : e.status === "refused" ? RED_TXT : MUTED;
+      const badgeText = statusLabel(e.status, e.statusRaw);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      const bw = Math.min(tblColW[1] - 4, doc.getTextWidth(badgeText) + 4);
+      const bh = 4.6;
+      const bx = cx + 2;
+      const by = y + rowH / 2 - bh / 2;
+      doc.setFillColor(...badgeBg);
+      doc.roundedRect(bx, by, bw, bh, 1, 1, "F");
+      doc.setTextColor(...badgeFg);
+      doc.text(badgeText, bx + bw / 2, by + 3.3, { align: "center" });
+      doc.setFontSize(9);
+      cx += tblColW[1];
+
+      // Heads
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(String(e.heads || "—"), cx + 2, cy);
+      cx += tblColW[2];
+
+      // Notes
+      if (e.status !== "gained" && e.notes) {
+        doc.setFont("helvetica", "italic");
+      } else {
+        doc.setFont("helvetica", "normal");
+      }
+      doc.setTextColor(40, 45, 55);
+      doc.text(notesLines, cx + 2, y + 4.5);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+
+      y += rowH;
+    }
+    y += 4;
+
+    // Tag pages from dwelling section start through here for subtle watermark
+    const dwellingSectionEndPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    (doc as any)._dwellingPages = (doc as any)._dwellingPages || new Set<number>();
+    for (let p = dwellingSectionStartPage; p <= dwellingSectionEndPage; p++) {
+      (doc as any)._dwellingPages.add(p);
     }
 
-    if (groups.length === 0) continue;
+    // === PART D: Photographic evidence ===
+    type PhotoItem = { unit: string; url: string; caption: string };
+    const photoItems: PhotoItem[] = [];
+    for (const e of entries) {
+      for (const p of e.photos) {
+        const { data } = await supabase.storage.from("submissions").createSignedUrl(p.path, 60 * 60);
+        if (data?.signedUrl) photoItems.push({ unit: e.unit, url: data.signedUrl, caption: p.caption });
+      }
+    }
 
-    // Section heading
-    if (y + 12 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...accentColor);
-    doc.text(galField.label || "Dwelling Photos", margin, y + 4);
-    doc.setTextColor(0, 0, 0);
-    y += 7;
-
-    const gap = 4;
-
-    for (const group of groups) {
-      const itemCount = group.items.length;
-      // Adaptive layout:
-      //  1 photo  → single image at ~60% page width
-      //  2-4      → 2-column grid
-      //  >4       → 3-column grid
-      const cols = itemCount === 1 ? 1 : itemCount <= 4 ? 2 : 3;
-      const usableW = itemCount === 1 ? maxWidth * 0.6 : maxWidth;
-      const photoW = (usableW - gap * (cols - 1)) / cols;
-      const photoH = photoW * 0.75;
-      const captionH = 8;
-      const photoRowH = photoH + captionH + 3;
-      const rowStartX = margin + (itemCount === 1 ? (maxWidth - usableW) / 2 : 0);
-
-      // Group subheading (unit number) — dark accent bar, white text
-      if (y + 6 + photoRowH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+    if (photoItems.length > 0) {
+      if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+      doc.setFillColor(...NAVY);
+      doc.rect(margin, y, maxWidth, headerH, "F");
+      doc.setTextColor(255, 255, 255);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      doc.setFillColor(...accentColor);
-      doc.rect(margin, y, maxWidth, 6.5, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.text(`Unit: ${group.label}`, margin + 2.5, y + 4.6);
+      doc.text("PHOTOGRAPHIC EVIDENCE", margin + 3, y + 5.4);
       doc.setTextColor(0, 0, 0);
-      y += 8;
+      y += headerH + 3;
 
-      for (let i = 0; i < group.items.length; i++) {
+      const cols = 3;
+      const gap = 3;
+      const photoW = (maxWidth - gap * (cols - 1)) / cols;
+      const photoH = 50; // ~ 170px @ 72dpi
+      const captionBlock = 9;
+      const cellH = photoH + captionBlock + 2;
+
+      for (let i = 0; i < photoItems.length; i++) {
         const col = i % cols;
-        if (col === 0 && i > 0) y += photoRowH;
-        if (y + photoRowH > pageHeight - footerSpace) {
+        if (col === 0 && i > 0) y += cellH + 2;
+        if (y + cellH > pageHeight - footerSpace) {
           doc.addPage();
           y = margin;
         }
-        const x = rowStartX + col * (photoW + gap);
-        const item = group.items[i];
+        const x = margin + col * (photoW + gap);
+        const item = photoItems[i];
         try {
           const oriented = await fetchOrientedImage(item.url);
           if (oriented) {
-            doc.addImage(
-              oriented.dataUrl,
-              oriented.mimeType === "image/png" ? "PNG" : "JPEG",
-              x,
-              y,
-              photoW,
-              photoH,
-            );
+            doc.addImage(oriented.dataUrl, oriented.mimeType === "image/png" ? "PNG" : "JPEG", x, y, photoW, photoH);
           }
-        } catch { /* skip failed photo */ }
+        } catch { /* skip */ }
+        // Thin border around cell
+        doc.setDrawColor(...BORDER);
+        doc.setLineWidth(0.2);
+        doc.rect(x, y, photoW, photoH);
 
-        doc.setFont("helvetica", "italic");
+        // Unit label (bold) + caption (italic) beneath
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(8);
-        doc.setTextColor(60, 60, 60);
-        const captionText = item.caption || `Photo ${i + 1}`;
-        const captionLines = doc.splitTextToSize(captionText, photoW).slice(0, 3);
-        captionLines.forEach((line: string, li: number) => {
-          doc.text(line, x, y + photoH + 3.5 + li * 3);
-        });
+        doc.setTextColor(20, 25, 35);
+        doc.text(item.unit, x, y + photoH + 3.5);
+        if (item.caption) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7.5);
+          doc.setTextColor(70, 75, 85);
+          const capLines = doc.splitTextToSize(item.caption, photoW).slice(0, 1);
+          doc.text(capLines, x, y + photoH + 7);
+        }
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
       }
-      y += photoRowH + 4;
+      y += cellH + 4;
     }
   }
 
-  // Force the signing section onto its own final page so it isn't stranded
-  // at the bottom of a photo-heavy dwelling page.
+  // Force the signing section onto its own final page.
   if (galleryFields.length > 0) {
     doc.addPage();
     y = margin;
