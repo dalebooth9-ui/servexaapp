@@ -517,23 +517,31 @@ export async function generateJobSheetPdf(
     y += 7;
 
     const gap = 4;
-    const cols = 3;
-    const photoW = (maxWidth - gap * (cols - 1)) / cols;
-    const photoH = photoW * 0.75;
-    const captionH = 8;
-    const photoRowH = photoH + captionH + 3;
 
     for (const group of groups) {
-      // Group subheading (unit number)
+      const itemCount = group.items.length;
+      // Adaptive layout:
+      //  1 photo  → single image at ~60% page width
+      //  2-4      → 2-column grid
+      //  >4       → 3-column grid
+      const cols = itemCount === 1 ? 1 : itemCount <= 4 ? 2 : 3;
+      const usableW = itemCount === 1 ? maxWidth * 0.6 : maxWidth;
+      const photoW = (usableW - gap * (cols - 1)) / cols;
+      const photoH = photoW * 0.75;
+      const captionH = 8;
+      const photoRowH = photoH + captionH + 3;
+      const rowStartX = margin + (itemCount === 1 ? (maxWidth - usableW) / 2 : 0);
+
+      // Group subheading (unit number) — dark accent bar, white text
       if (y + 6 + photoRowH > pageHeight - footerSpace) { doc.addPage(); y = margin; }
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
+      doc.setFontSize(10);
       doc.setFillColor(...accentColor);
-      doc.rect(margin, y, maxWidth, 5.5, "F");
+      doc.rect(margin, y, maxWidth, 6.5, "F");
       doc.setTextColor(255, 255, 255);
-      doc.text(`Unit: ${group.label}`, margin + 2, y + 4);
+      doc.text(`Unit: ${group.label}`, margin + 2.5, y + 4.6);
       doc.setTextColor(0, 0, 0);
-      y += 7;
+      y += 8;
 
       for (let i = 0; i < group.items.length; i++) {
         const col = i % cols;
@@ -542,7 +550,7 @@ export async function generateJobSheetPdf(
           doc.addPage();
           y = margin;
         }
-        const x = margin + col * (photoW + gap);
+        const x = rowStartX + col * (photoW + gap);
         const item = group.items[i];
         try {
           const oriented = await fetchOrientedImage(item.url);
@@ -559,18 +567,25 @@ export async function generateJobSheetPdf(
         } catch { /* skip failed photo */ }
 
         doc.setFont("helvetica", "italic");
-        doc.setFontSize(7.5);
+        doc.setFontSize(8);
         doc.setTextColor(60, 60, 60);
         const captionText = item.caption || `Photo ${i + 1}`;
         const captionLines = doc.splitTextToSize(captionText, photoW).slice(0, 3);
         captionLines.forEach((line: string, li: number) => {
-          doc.text(line, x, y + photoH + 3 + li * 3);
+          doc.text(line, x, y + photoH + 3.5 + li * 3);
         });
         doc.setFont("helvetica", "normal");
         doc.setTextColor(0, 0, 0);
       }
-      y += photoRowH + 2;
+      y += photoRowH + 4;
     }
+  }
+
+  // Force the signing section onto its own final page so it isn't stranded
+  // at the bottom of a photo-heavy dwelling page.
+  if (galleryFields.length > 0) {
+    doc.addPage();
+    y = margin;
   }
 
 
@@ -624,7 +639,15 @@ export async function generateJobSheetPdf(
     loadWatermarkImage(),
     loadAccreditationLogos(custAccredUrls),
   ]);
-  await renderBrandingOverlay(doc, { watermark, brandColor: accentColor, accredLogos, accredFooterY: declarationFooterY, accredLogoH: logoH });
+  await renderBrandingOverlay(doc, {
+    watermark,
+    brandColor: accentColor,
+    accredLogos,
+    accredFooterY: declarationFooterY,
+    accredLogoH: logoH,
+    // Keep the flame as a subtle background so dwelling-photo pages aren't dominated by it.
+    override: { opacity: 0.06 },
+  });
 
   const safeSite = siteDisplay.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase();
   const fileName = [jobInfo?.reference_number || "job-sheet", safeSite || null, template.name.replace(/\s+/g, "-").toLowerCase()].filter(Boolean).join("-") + ".pdf";
