@@ -792,7 +792,7 @@ export async function generateJobSheetPdf(
     });
 
     if (sitePhotoUrls.length > 0) {
-      if (y + 30 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
+      if (y + headerH + 5 > pageHeight - footerSpace) { doc.addPage(); y = margin; }
       doc.setFillColor(...NAVY);
       doc.rect(margin, y, maxWidth, headerH, "F");
       doc.setTextColor(255, 255, 255);
@@ -800,18 +800,18 @@ export async function generateJobSheetPdf(
       doc.setFontSize(10);
       doc.text("PHOTOGRAPHIC EVIDENCE", margin + 3, y + 5.4);
       doc.setTextColor(0, 0, 0);
-      y += headerH + 3;
+      y += headerH + 1;
 
-      const cols = 3;
-      const gap = 3;
+      const cols = 4;
+      const gap = 2;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
-      const photoH = 56; // ~160px @ 72dpi
-      const captionBlock = 14;
-      const cellH = photoH + captionBlock + 2;
+      const photoH = 42;
+      const captionBlock = 8;
+      const cellH = photoH + captionBlock + 1;
 
       for (let i = 0; i < sitePhotoUrls.length; i++) {
         const col = i % cols;
-        if (col === 0 && i > 0) y += cellH + 2;
+        if (col === 0 && i > 0) y += cellH;
         if (y + cellH > pageHeight - footerSpace) {
           doc.addPage();
           y = margin;
@@ -853,27 +853,30 @@ export async function generateJobSheetPdf(
         doc.setLineWidth(0.2);
         doc.rect(x, y, photoW, photoH);
 
-        // Engineer caption beneath each photo (verbatim, wrapped to 3 lines).
         const caption = (sitePhotoCaptions[i] || "").trim();
         if (caption) {
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(7.5);
+          doc.setFontSize(3.5);
           doc.setTextColor(50, 55, 65);
-          const capLines = doc.splitTextToSize(caption, photoW).slice(0, 3);
-          doc.text(capLines, x, y + photoH + 3.5);
+          const capLines = doc.splitTextToSize(caption, photoW).slice(0, 2);
+          doc.text(capLines, x, y + photoH + 2.5);
           doc.setTextColor(0, 0, 0);
         }
       }
-      y += cellH + 4;
+      y += cellH + 1;
     }
   }
 
 
 
-  // Force the signing section onto its own final page.
+  // Signature section flows naturally after content; only force a new page if
+  // remaining vertical space is less than ~120 px (42 mm).
   if (galleryFields.length > 0) {
-    doc.addPage();
-    y = margin;
+    const remainingSpace = pageHeight - y - footerSpace;
+    if (remainingSpace < 42) {
+      doc.addPage();
+      y = margin;
+    }
   }
 
 
