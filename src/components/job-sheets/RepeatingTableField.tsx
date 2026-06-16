@@ -199,6 +199,17 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
                     userId={userId}
                   />
                 )}
+
+                {col.type === "photo_gallery" && (
+                  <RowPhotoGalleryCell
+                    value={val}
+                    onChange={(v) => updateCell(rowIdx, col.id, v)}
+                    fieldId={`${fieldId || "row"}-${rowId}-${col.id}`}
+                    groupLabel={unitLabel}
+                    jobId={jobId}
+                    userId={userId}
+                  />
+                )}
               </div>
             );
           })}
