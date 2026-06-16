@@ -1538,6 +1538,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             <RepeatingTableReadOnly
                               columns={((field as any).columns || []) as any[]}
                               value={formData[field.id]}
+                              label={field.label}
                             />
                           ) : (
                             <span className="text-xs font-medium whitespace-pre-wrap">
