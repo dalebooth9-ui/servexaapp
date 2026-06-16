@@ -806,7 +806,7 @@ export async function generateJobSheetPdf(
       const gap = 2;
       const photoW = (maxWidth - gap * (cols - 1)) / cols;
       const photoH = 42;
-      const captionBlock = 8;
+      const captionBlock = 10;
       const cellH = photoH + captionBlock + 1;
 
       for (let i = 0; i < sitePhotoUrls.length; i++) {
@@ -856,7 +856,7 @@ export async function generateJobSheetPdf(
         const caption = (sitePhotoCaptions[i] || "").trim();
         if (caption) {
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(3.5);
+          doc.setFontSize(6);
           doc.setTextColor(50, 55, 65);
           const capLines = doc.splitTextToSize(caption, photoW).slice(0, 2);
           doc.text(capLines, x, y + photoH + 2.5);
