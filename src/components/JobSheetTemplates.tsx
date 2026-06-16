@@ -36,6 +36,7 @@ import { downloadTemplateJson } from "@/lib/templateJson";
 import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
+import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
 
 type TemplateField = {
   id: string;
@@ -1529,10 +1530,15 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
                             )
                           ) : field.type === "signature" ? (
                             formData[field.id] ? (
-                              <img src={formData[field.id]} alt="Signature" className="max-h-[60px] border rounded bg-background" />
+                              <img src={formData[field.id]} alt="Signature" data-uploaded="true" className="max-h-[60px] border rounded bg-background" />
                             ) : (
                               <span className="text-xs text-muted-foreground">—</span>
                             )
+                          ) : field.type === "repeating_table" ? (
+                            <RepeatingTableReadOnly
+                              columns={((field as any).columns || []) as any[]}
+                              value={formData[field.id]}
+                            />
                           ) : (
                             <span className="text-xs font-medium whitespace-pre-wrap">
                               {field.type === "checkbox"
