@@ -103,7 +103,17 @@ export default function JobPdfReport({ jobId, job }: Props) {
       const parts = (partsRes.data as any[]) || [];
       const signatures = (sigRes.data as any[]) || [];
       const site = siteRes.data as any;
-      const sheetResponses = (sheetRespRes.data || []) as any[];
+      const allSheetResponses = (sheetRespRes.data || []) as any[];
+      // Dedup: keep only the most recent submission per template_id
+      const latestByTemplate = new Map<string, any>();
+      for (const r of allSheetResponses) {
+        const prev = latestByTemplate.get(r.template_id);
+        if (!prev || new Date(r.created_at).getTime() > new Date(prev.created_at).getTime()) {
+          latestByTemplate.set(r.template_id, r);
+        }
+      }
+      const sheetResponses = Array.from(latestByTemplate.values());
+      console.log("[JobPdfReport] sheet responses", { total: allSheetResponses.length, deduped: sheetResponses.length });
       const templates = (templatesRes.data || []) as any[];
 
       const templateMap: Record<string, any> = {};
