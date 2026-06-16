@@ -786,6 +786,12 @@ export default function JobPdfReport({ jobId, job }: Props) {
               }
             }
           }
+          // Render dwelling access log fields with rich layout
+          for (const galField of galleryFields) {
+            y = await renderDwellingAccessLog(
+              doc, galField, responses[galField.id], y, margin, maxWidth, 297, 22
+            );
+          }
           y += 6;
         }
       }
