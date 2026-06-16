@@ -802,17 +802,18 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           }
         }
       }
-      const existingPhotoUrls = Array.isArray(formData._site_photo_urls) ? formData._site_photo_urls : [];
-      const existingPhotoPaths = Array.isArray(formData._site_photo_paths) ? formData._site_photo_paths : [];
-      const existingPhotoCaptions = Array.isArray(formData._site_photo_captions) ? formData._site_photo_captions : [];
+      const baseFormData = await withPreservedSitePhotos(formData);
+      const existingPhotoUrls = Array.isArray(baseFormData._site_photo_urls) ? baseFormData._site_photo_urls : [];
+      const existingPhotoPaths = Array.isArray(baseFormData._site_photo_paths) ? baseFormData._site_photo_paths : [];
+      const existingPhotoCaptions = Array.isArray(baseFormData._site_photo_captions) ? baseFormData._site_photo_captions : [];
       const finalFormData = (photoUrls.length > 0 || photoPaths.length > 0 || existingPhotoUrls.length > 0 || existingPhotoPaths.length > 0)
         ? {
-            ...formData,
+            ...baseFormData,
             _site_photo_urls: [...existingPhotoUrls, ...photoUrls],
             _site_photo_paths: [...existingPhotoPaths, ...photoPaths],
             _site_photo_captions: [...existingPhotoCaptions, ...photoCaptions],
           }
-        : formData;
+        : baseFormData;
       console.log("[JobSheetTemplates] submit report photos", {
         existingSitePhotos: existingPhotoUrls.length,
         newSitePhotos: photoUrls.length,
