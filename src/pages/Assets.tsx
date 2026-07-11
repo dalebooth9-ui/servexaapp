@@ -658,6 +658,13 @@ export default function Assets() {
         onOpenChange={setBulkImportOpen}
         onImported={fetchData}
       />
+
+      <ScanAssetsDialog
+        open={scanOpen}
+        onOpenChange={setScanOpen}
+        onImported={fetchData}
+        sites={sites}
+      />
     </div>
   );
 }
