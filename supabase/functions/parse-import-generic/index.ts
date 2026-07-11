@@ -69,10 +69,20 @@ serve(async (req) => {
 
     let userContent: any[];
 
+    const imageMimeMap: Record<string, string> = {
+      ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+      ".webp": "image/webp", ".gif": "image/gif", ".heic": "image/heic",
+    };
+
     if (ext === ".pdf") {
       userContent = [
         { type: "text", text: `Extract records from this document (${file_name}).` },
         { type: "image_url", image_url: { url: `data:application/pdf;base64,${file_base64}` } },
+      ];
+    } else if (imageMimeMap[ext]) {
+      userContent = [
+        { type: "text", text: `Extract records from this scanned image (${file_name}).` },
+        { type: "image_url", image_url: { url: `data:${imageMimeMap[ext]};base64,${file_base64}` } },
       ];
     } else {
       let extractedText = "";
