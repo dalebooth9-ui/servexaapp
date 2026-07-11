@@ -291,6 +291,39 @@ export default function Assets() {
     decommissioned: assets.filter((a) => a.status === "decommissioned").length,
   };
 
+  const handleExportCsv = () => {
+    if (filtered.length === 0) {
+      toast({ title: "Nothing to export", description: "No assets match the current filters.", variant: "destructive" });
+      return;
+    }
+    const headers = ["Name", "Asset Tag", "Category", "Site", "Make", "Model", "Serial Number", "Status", "Install Date", "Warranty Expiry", "Notes"];
+    const esc = (v: any) => {
+      const s = v === null || v === undefined ? "" : String(v);
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const lines = [headers.join(",")];
+    filtered.forEach((a) => {
+      lines.push([
+        a.name, a.asset_tag, a.category,
+        a.site_id ? (siteLookup[a.site_id] || "") : "",
+        a.make, a.model, a.serial_number, a.status,
+        a.install_date, a.warranty_expiry, a.notes,
+      ].map(esc).join(","));
+    });
+    const csv = "\uFEFF" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const scopeSite = statusFilter === "all" && categoryFilter === "all" && !search.trim() ? "" :
+      (categoryFilter !== "all" ? `-${categoryFilter}` : "") +
+      (statusFilter !== "all" ? `-${statusFilter}` : "");
+    const dateStr = format(new Date(), "yyyy-MM-dd");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `assets${scopeSite}-${dateStr}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -300,17 +333,26 @@ export default function Assets() {
             Track equipment, systems, and infrastructure across your estate.
           </p>
         </div>
-        {userRole === "admin" && (
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
-              <Upload className="mr-2 h-4 w-4" /> Bulk Import
-            </Button>
-            <Button onClick={openCreate}>
-              <Plus className="mr-2 h-4 w-4" /> Add Asset
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={handleExportCsv} disabled={filtered.length === 0}>
+            <Download className="mr-2 h-4 w-4" /> Download CSV
+          </Button>
+          {userRole === "admin" && (
+            <>
+              <Button variant="outline" onClick={() => setScanOpen(true)}>
+                <ScanLine className="mr-2 h-4 w-4" /> Scan Asset List
+              </Button>
+              <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" /> Bulk Import
+              </Button>
+              <Button onClick={openCreate}>
+                <Plus className="mr-2 h-4 w-4" /> Add Asset
+              </Button>
+            </>
+          )}
+        </div>
       </div>
+
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
