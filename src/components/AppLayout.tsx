@@ -410,7 +410,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   inOps={false}
                                   collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")}
-                                  badge={item.to === "/defects" ? openDefectCount : undefined} />
+                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : undefined} />
 
                               );
                             })}
@@ -430,7 +430,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               inOps={isOpsSection}
                               collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
-                              badge={item.to === "/defects" ? openDefectCount : undefined} />
+                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : undefined} />
 
                           );
                         })}
