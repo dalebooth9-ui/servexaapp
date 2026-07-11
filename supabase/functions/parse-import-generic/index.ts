@@ -9,8 +9,8 @@ const corsHeaders = {
 const ENTITY_PROMPTS: Record<string, string> = {
   customers: `Extract all customer/contact/company records. Return a JSON array with fields: name, email, phone, address. 
 Rules: name is required. Use empty string for missing fields. Return ONLY the JSON array.`,
-  assets: `Extract all asset/equipment/inventory records. Return a JSON array with fields: name, asset_tag, category, make, model, serial_number, status.
-Rules: name is required. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
+  assets: `Extract all asset/equipment/inventory records from this document (which may be a scanned photo, PDF, or spreadsheet of an asset schedule, e.g. a fire extinguisher list, sprinkler schedule, or equipment register). Return a JSON array with fields: name, asset_tag, category, make, model, serial_number, location_notes, status.
+Rules: name is required (use equipment type/description if no explicit name). location_notes should capture room/floor/zone/location column if present. category should be a short lowercase slug like "fire_extinguisher", "emergency_light", "sprinkler_head", "dry_riser", "fire_alarm", "hose_reel" — infer from context. status must be operational/maintenance/faulty/decommissioned (default operational). Use empty string for missing fields. Return ONLY the JSON array.`,
   sites: `Extract all site/location/premises/building records. Return a JSON array with fields: name, address, postcode, site_type, contact_name, contact_phone, contact_email.
 Rules: name is required. site_type must be one of: region, site, building, zone (default site). Use empty string for missing fields. Return ONLY the JSON array.`,
   site_document: `You are extracting site survey information from a fire suppression / sprinkler system document. A document may describe ONE physical site/building that contains MULTIPLE systems (e.g. System 1, System 2, System 3 — different risers or zones within the same address). Alternatively, the document may describe multiple entirely separate sites at different addresses.
