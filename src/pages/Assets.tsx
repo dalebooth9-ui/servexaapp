@@ -43,8 +43,11 @@ import {
   XCircle,
   Settings2,
   Upload,
+  ScanLine,
+  Download,
 } from "lucide-react";
 import BulkImportAssetsDialog from "@/components/BulkImportAssetsDialog";
+import ScanAssetsDialog from "@/components/ScanAssetsDialog";
 import {
   Collapsible,
   CollapsibleContent,
