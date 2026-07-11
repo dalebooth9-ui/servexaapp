@@ -206,6 +206,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
   const [openDefectCount, setOpenDefectCount] = useReactState<number>(0);
+  const [pendingReviewCount, setPendingReviewCount] = useReactState<number>(0);
 
   useEffect(() => {
     supabase.from("app_settings").select("value").eq("key", "business_whatsapp_number").single()
@@ -229,6 +230,23 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
     const channel = supabase
       .channel("defect-count-sidebar")
       .on("postgres_changes", { event: "*", schema: "public", table: "defects" }, fetchCount)
+      .subscribe();
+    return () => { mounted = false; supabase.removeChannel(channel); };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchPending = async () => {
+      const { count } = await supabase
+        .from("jobs")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending_review");
+      if (mounted) setPendingReviewCount(count || 0);
+    };
+    fetchPending();
+    const channel = supabase
+      .channel("pending-review-count-sidebar")
+      .on("postgres_changes", { event: "*", schema: "public", table: "jobs" }, fetchPending)
       .subscribe();
     return () => { mounted = false; supabase.removeChannel(channel); };
   }, []);
@@ -392,7 +410,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                                   inOps={false}
                                   collapsed={sidebarCollapsed}
                                   onTogglePin={() => handleTogglePin(item.to, "more")}
-                                  badge={item.to === "/defects" ? openDefectCount : undefined} />
+                                  badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : undefined} />
 
                               );
                             })}
@@ -412,7 +430,7 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                               inOps={isOpsSection}
                               collapsed={sidebarCollapsed}
                               onTogglePin={() => handleTogglePin(item.to, isOpsSection ? "operations" : section as "operations" | "more")}
-                              badge={item.to === "/defects" ? openDefectCount : undefined} />
+                              badge={item.to === "/defects" ? openDefectCount : item.to === "/jobs" ? pendingReviewCount : undefined} />
 
                           );
                         })}
