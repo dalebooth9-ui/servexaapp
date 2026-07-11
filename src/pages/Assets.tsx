@@ -109,6 +109,7 @@ export default function Assets() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
+  const [scanOpen, setScanOpen] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Asset | null>(null);
   const [form, setForm] = useState(emptyAsset);
