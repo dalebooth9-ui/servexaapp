@@ -250,45 +250,37 @@ export default function PlannerMapView({
     setMarkerMode("priority");
   }, []);
 
-  // Render the optimised route as a polyline on the map
-  const renderRouteOnMap = useCallback(async (optimisedWaypoints: { address: string; job_id: string }[]) => {
+  // Render the optimised route as a polyline on the map, using the encoded
+  // polyline returned by the Routes API edge function.
+  const routePolylineRef = useRef<google.maps.Polyline | null>(null);
+  const renderRouteOnMap = useCallback(async (
+    optimisedWaypoints: { address: string; job_id: string }[],
+    encodedPolyline: string | null,
+  ) => {
     const map = mapInstanceRef.current;
-    if (!map || optimisedWaypoints.length < 2) return;
+    if (!map || optimisedWaypoints.length < 2 || !encodedPolyline) return;
 
     clearRouteOverlay();
 
-    const directionsService = new google.maps.DirectionsService();
-    const origin = optimisedWaypoints[0].address;
-    const destination = optimisedWaypoints[optimisedWaypoints.length - 1].address;
-    const intermediates = optimisedWaypoints.slice(1, -1).map((wp) => ({
-      location: wp.address,
-      stopover: true,
-    }));
-
     try {
-      const result = await directionsService.route({
-        origin,
-        destination,
-        waypoints: intermediates,
-        travelMode: google.maps.TravelMode.DRIVING,
-        // Live-traffic aware ETAs (Google uses current conditions when departureTime = now)
-        drivingOptions: {
-          departureTime: new Date(),
-          trafficModel: google.maps.TrafficModel.BEST_GUESS,
-        },
-      });
-
-      const renderer = new google.maps.DirectionsRenderer({
+      // Ensure the geometry library is loaded (script URL includes libraries=geometry
+      // but importLibrary makes it awaitable on modern loaders).
+      const geometry: any = (google.maps as any).geometry
+        ?? (await (google.maps as any).importLibrary?.("geometry"));
+      const decode = geometry?.encoding?.decodePath ?? (google.maps as any).geometry?.encoding?.decodePath;
+      if (!decode) {
+        console.warn("Google Maps geometry library not available; cannot draw route polyline.");
+        return;
+      }
+      const path = decode(encodedPolyline);
+      const polyline = new google.maps.Polyline({
         map,
-        directions: result,
-        suppressMarkers: true, // Keep our custom markers
-        polylineOptions: {
-          strokeColor: "#2563eb",
-          strokeWeight: 5,
-          strokeOpacity: 0.85,
-        },
+        path,
+        strokeColor: "#2563eb",
+        strokeWeight: 5,
+        strokeOpacity: 0.85,
       });
-      directionsRendererRef.current = renderer;
+      routePolylineRef.current = polyline;
       lastOptimisedWaypointsRef.current = optimisedWaypoints;
     } catch (err) {
       console.error("Failed to render route on map:", err);
