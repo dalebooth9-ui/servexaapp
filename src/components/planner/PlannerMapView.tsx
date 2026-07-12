@@ -171,16 +171,57 @@ export default function PlannerMapView({
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
 
-  // Collect engineers that actually have scheduled jobs in the current view
+  // ---- Date filter (only show markers for the selected planner day) ----
+  const availableDates = useMemo(() => {
+    const set = new Set(schedule.map((s) => s.schedule_date));
+    return Array.from(set).sort();
+  }, [schedule]);
+
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [dateFilter, setDateFilter] = useState<string>("today");
+
+  // Auto-fallback: if today isn't in the schedule, pick the earliest available date
+  // so the user sees something rather than an empty map.
+  useEffect(() => {
+    if (availableDates.length === 0) return;
+    if (dateFilter === "all") return;
+    const desired = dateFilter === "today" ? todayStr : dateFilter;
+    if (!availableDates.includes(desired)) {
+      setDateFilter(availableDates[0]);
+    }
+  }, [availableDates, dateFilter, todayStr]);
+
+  const effectiveDate = useMemo(() => {
+    if (dateFilter === "all") return null;
+    if (dateFilter === "today") return todayStr;
+    return dateFilter;
+  }, [dateFilter, todayStr]);
+
+  // Engineers with jobs on the currently visible day (drives the engineer dropdown)
   const activeEngineers = useMemo(() => {
-    const ids = new Set(schedule.map((s) => s.engineer_id));
+    const ids = new Set(
+      schedule
+        .filter((s) => !effectiveDate || s.schedule_date === effectiveDate)
+        .map((s) => s.engineer_id),
+    );
     return engineers.filter((e) => ids.has(e.user_id));
-  }, [schedule, engineers]);
+  }, [schedule, engineers, effectiveDate]);
+
+  // Reset engineer filter if the selected engineer has no jobs on the new day
+  useEffect(() => {
+    if (selectedEngineerIdRef.current !== "all" &&
+        !activeEngineers.some((e) => e.user_id === selectedEngineerIdRef.current)) {
+      setSelectedEngineerId("all");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeEngineers]);
 
   const scheduledJobs = useMemo(() => {
     const seen = new Set<string>();
     const result: { job: Job; engineerName: string; engineerId: string; date: string }[] = [];
     for (const entry of schedule) {
+      if (effectiveDate && entry.schedule_date !== effectiveDate) continue;
+      if (selectedEngineerId !== "all" && entry.engineer_id !== selectedEngineerId) continue;
       const job = getJob(entry.job_id);
       if (job?.address && !seen.has(job.id)) {
         seen.add(job.id);
@@ -193,7 +234,7 @@ export default function PlannerMapView({
       }
     }
     return result;
-  }, [schedule, jobs, engineers]);
+  }, [schedule, jobs, engineers, effectiveDate, selectedEngineerId]);
 
   // Clear any existing route line from the map
   const clearRouteOverlay = useCallback(() => {
