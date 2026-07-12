@@ -359,14 +359,33 @@ serve(async (req) => {
   let payload: any;
   try { payload = JSON.parse(bodyText); } catch { return json(400, { error: "Invalid JSON" }); }
 
-  const email = normalise(payload);
-  if (!email) return okSilently();
-
-  const intakeAddr = extractIntakeAddress(email.to);
+  // Resolve intake address from the webhook payload BEFORE fetching the full
+  // email — the webhook always includes recipients, and we don't want to hit
+  // Resend's API for mail addressed to unknown intake addresses.
+  const preRecipients = normaliseRecipients(payload?.data ?? payload ?? {});
+  const intakeAddr = extractIntakeAddress(preRecipients);
   if (!intakeAddr) {
-    console.log("No intake address in recipients", email.to);
+    console.log("No intake address in recipients", preRecipients);
     return okSilently();
   }
+
+  const emailId = extractEmailId(payload);
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (!emailId || !resendKey) {
+    console.error("Missing email_id or RESEND_API_KEY — cannot fetch full email", { emailId, hasKey: !!resendKey });
+    return json(500, { error: "Server not configured" });
+  }
+
+  // Fetch full email + attachments from Resend API (webhook is metadata-only).
+  const email = await fetchInboundEmail(emailId, resendKey, payload);
+  console.log("Fetched inbound email", {
+    emailId,
+    from: email.from,
+    subject: email.subject,
+    attachmentCount: email.attachments.length,
+    attachmentNames: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+  });
+
 
   // Admin client
   const admin = createClient(
