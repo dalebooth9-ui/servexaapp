@@ -256,7 +256,6 @@ export default function PlannerMapView({
 
   // Render the optimised route as a polyline on the map, using the encoded
   // polyline returned by the Routes API edge function.
-  const routePolylineRef = useRef<google.maps.Polyline | null>(null);
   const renderRouteOnMap = useCallback(async (
     optimisedWaypoints: { address: string; job_id: string }[],
     encodedPolyline: string | null,
