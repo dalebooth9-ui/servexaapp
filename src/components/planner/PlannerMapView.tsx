@@ -131,6 +131,8 @@ export default function PlannerMapView({
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
+  const showUnallocatedRef = useRef(showUnallocated);
+  useEffect(() => { showUnallocatedRef.current = showUnallocated; }, [showUnallocated]);
   const [selectedEngineerId, setSelectedEngineerId] = useState<string>("all");
   const [showLiveRoutes, setShowLiveRoutes] = useState(false);
   const [showTraffic, setShowTraffic] = useState(false);
