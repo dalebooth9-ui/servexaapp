@@ -394,7 +394,14 @@ export default function Engineers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-wa">WhatsApp Number</Label>
-              <Input id="edit-wa" value={form.whatsapp_number} onChange={(e) => setForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+              <Input
+                id="edit-wa"
+                value={form.whatsapp_number}
+                onChange={(e) => setForm((f) => ({ ...f, whatsapp_number: e.target.value }))}
+                onBlur={() => setForm((f) => ({ ...f, whatsapp_number: normaliseWhatsAppNumber(f.whatsapp_number) }))}
+                placeholder="+447772544203"
+              />
+              <p className="text-xs text-muted-foreground">{WHATSAPP_NUMBER_HINT}</p>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Digital Signature</Label>
