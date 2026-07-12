@@ -209,11 +209,10 @@ export default function PlannerMapView({
 
   // Reset engineer filter if the selected engineer has no jobs on the new day
   useEffect(() => {
-    if (selectedEngineerIdRef.current !== "all" &&
-        !activeEngineers.some((e) => e.user_id === selectedEngineerIdRef.current)) {
-      setSelectedEngineerId("all");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    setSelectedEngineerId((prev) => {
+      if (prev === "all") return prev;
+      return activeEngineers.some((e) => e.user_id === prev) ? prev : "all";
+    });
   }, [activeEngineers]);
 
   const scheduledJobs = useMemo(() => {
