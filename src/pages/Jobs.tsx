@@ -1249,17 +1249,11 @@ export default function Jobs() {
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
-                  <Select value={form.customer_id || "__none__"} onValueChange={(v) => setForm({ ...form, customer_id: v === "__none__" ? "" : v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No customer</SelectItem>
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CustomerCombobox
+                    value={form.customer_id}
+                    customers={customers}
+                    onChange={(v) => setForm({ ...form, customer_id: v })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Address</Label>
