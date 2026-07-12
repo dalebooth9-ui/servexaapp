@@ -10,17 +10,23 @@ export default function PoIntakeEmailCard() {
   const [intakeEmail, setIntakeEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const { data: orgId } = await supabase.rpc("get_user_org_id");
+      const { data: orgId, error: orgIdErr } = await supabase.rpc("get_user_org_id");
+      if (orgIdErr) { setError(orgIdErr.message); setLoading(false); return; }
       if (!orgId) { setLoading(false); return; }
-      const { data } = await supabase
+      const { data, error: qErr } = await supabase
         .from("organisations")
         .select("intake_email")
         .eq("id", orgId as string)
         .maybeSingle();
-      setIntakeEmail(((data as any)?.intake_email as string) ?? null);
+      if (qErr) {
+        setError(qErr.message);
+      } else {
+        setIntakeEmail(((data as any)?.intake_email as string) ?? null);
+      }
       setLoading(false);
     })();
   }, []);
