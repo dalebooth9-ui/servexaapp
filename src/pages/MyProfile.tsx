@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import ProfileSignatureCapture from "@/components/ProfileSignatureCapture";
 import VehicleCheckHistory from "@/components/VehicleCheckHistory";
+import { normaliseWhatsAppNumber, WHATSAPP_NUMBER_HINT } from "@/lib/normalisePhone";
 
 export default function MyProfile() {
   const { user, profile } = useAuth();
