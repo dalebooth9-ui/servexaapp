@@ -13,6 +13,9 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ReactNode, lazy, Suspense, useEffect } from "react";
 import { toast } from "sonner";
+import { installGlobalErrorHandlers } from "@/lib/errorLogger";
+
+installGlobalErrorHandlers();
 
 // Eagerly loaded — used immediately on auth/landing
 import Auth from "@/pages/Auth";
