@@ -116,13 +116,13 @@ export default function PWAPrompts() {
           <div className="flex items-start gap-3">
             <RefreshCw className="h-5 w-5 mt-0.5 text-primary" />
             <div className="flex-1">
-              <p className="text-sm font-medium">A new version is available</p>
+              <p className="text-sm font-medium">A new version of Servexa is available</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Refresh to get the latest improvements.
+                Update now to get the latest fixes and improvements.
               </p>
               <div className="mt-3 flex gap-2">
                 <Button size="sm" onClick={() => { void reload(); }}>
-                  Refresh now
+                  Update now
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setReload(null)}>
                   Later
