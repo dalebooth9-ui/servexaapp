@@ -490,18 +490,19 @@ serve(async (req) => {
     } catch (e) { console.error("raw eml decode failed", e); }
   }
   for (const a of email.attachments) {
-    try {
-      const bytes = b64ToBytes(a.contentBase64);
-      if (bytes.byteLength > MAX_ATTACHMENT_BYTES) { console.warn("Skipping large attachment", a.filename); continue; }
-      const safe = a.filename.replace(/[^\w.\-]/g, "_").slice(0, 120) || "attachment.bin";
-      uploads.push({
-        path: `${orgId}/${jobId}/${Date.now()}-${safe}`,
-        label: a.filename,
-        contentType: a.contentType || "application/octet-stream",
-        bytes,
-      });
-    } catch (e) { console.error("attachment decode failed", a.filename, e); }
+    if (a.bytes.byteLength > MAX_ATTACHMENT_BYTES) {
+      console.warn("Skipping large attachment", a.filename);
+      continue;
+    }
+    const safe = a.filename.replace(/[^\w.\-]/g, "_").slice(0, 120) || "attachment.bin";
+    uploads.push({
+      path: `${orgId}/${jobId}/${Date.now()}-${safe}`,
+      label: a.filename,
+      contentType: a.contentType || "application/octet-stream",
+      bytes: a.bytes,
+    });
   }
+
 
   for (const u of uploads) {
     const { error: upErr } = await admin.storage.from("po-intake").upload(u.path, u.bytes, {
