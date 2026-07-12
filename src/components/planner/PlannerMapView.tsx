@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { format } from "date-fns";
 
 import { supabase } from "@/integrations/supabase/client";
 import { useLiveEngineerLocations, EngineerLocation } from "@/hooks/useLiveEngineerLocations";
@@ -6,7 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Route, Loader2, MapPin, AlertTriangle, RefreshCw } from "lucide-react";
+import { Route, Loader2, MapPin, AlertTriangle, RefreshCw, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 
@@ -170,16 +171,56 @@ export default function PlannerMapView({
   const getJob = (id: string) => jobs.find((j) => j.id === id);
   const getEngineer = (id: string) => engineers.find((e) => e.user_id === id);
 
-  // Collect engineers that actually have scheduled jobs in the current view
+  // ---- Date filter (only show markers for the selected planner day) ----
+  const availableDates = useMemo(() => {
+    const set = new Set(schedule.map((s) => s.schedule_date));
+    return Array.from(set).sort();
+  }, [schedule]);
+
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  const [dateFilter, setDateFilter] = useState<string>("today");
+
+  // Auto-fallback: if today isn't in the schedule, pick the earliest available date
+  // so the user sees something rather than an empty map.
+  useEffect(() => {
+    if (availableDates.length === 0) return;
+    if (dateFilter === "all") return;
+    const desired = dateFilter === "today" ? todayStr : dateFilter;
+    if (!availableDates.includes(desired)) {
+      setDateFilter(availableDates[0]);
+    }
+  }, [availableDates, dateFilter, todayStr]);
+
+  const effectiveDate = useMemo(() => {
+    if (dateFilter === "all") return null;
+    if (dateFilter === "today") return todayStr;
+    return dateFilter;
+  }, [dateFilter, todayStr]);
+
+  // Engineers with jobs on the currently visible day (drives the engineer dropdown)
   const activeEngineers = useMemo(() => {
-    const ids = new Set(schedule.map((s) => s.engineer_id));
+    const ids = new Set(
+      schedule
+        .filter((s) => !effectiveDate || s.schedule_date === effectiveDate)
+        .map((s) => s.engineer_id),
+    );
     return engineers.filter((e) => ids.has(e.user_id));
-  }, [schedule, engineers]);
+  }, [schedule, engineers, effectiveDate]);
+
+  // Reset engineer filter if the selected engineer has no jobs on the new day
+  useEffect(() => {
+    setSelectedEngineerId((prev) => {
+      if (prev === "all") return prev;
+      return activeEngineers.some((e) => e.user_id === prev) ? prev : "all";
+    });
+  }, [activeEngineers]);
 
   const scheduledJobs = useMemo(() => {
     const seen = new Set<string>();
     const result: { job: Job; engineerName: string; engineerId: string; date: string }[] = [];
     for (const entry of schedule) {
+      if (effectiveDate && entry.schedule_date !== effectiveDate) continue;
+      if (selectedEngineerId !== "all" && entry.engineer_id !== selectedEngineerId) continue;
       const job = getJob(entry.job_id);
       if (job?.address && !seen.has(job.id)) {
         seen.add(job.id);
@@ -192,7 +233,7 @@ export default function PlannerMapView({
       }
     }
     return result;
-  }, [schedule, jobs, engineers]);
+  }, [schedule, jobs, engineers, effectiveDate, selectedEngineerId]);
 
   // Clear any existing route line from the map
   const clearRouteOverlay = useCallback(() => {
@@ -269,7 +310,18 @@ export default function PlannerMapView({
 
   // Optimise route for all scheduled jobs
   const handleOptimise = async (opts?: { silent?: boolean }) => {
-    if (scheduledJobs.length < 2) return;
+    if (scheduledJobs.length < 2) {
+      if (!opts?.silent) {
+        toast({
+          title: "Need at least 2 stops to optimise",
+          description: effectiveDate
+            ? `No routeable jobs on ${effectiveDate}${selectedEngineerId !== "all" ? " for this engineer" : ""}. Change the date filter or add more stops.`
+            : "Add at least two scheduled jobs with addresses to optimise a route.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
     setOptimising(true);
     clearRouteOverlay();
     setAdhocNotices([]);
@@ -327,9 +379,25 @@ export default function PlannerMapView({
       const { data, error } = await supabase.functions.invoke("optimise-route", {
         body: { waypoints, origin },
       });
-      if (error) throw error;
+      if (error) {
+        const detail = (error as any)?.context
+          ? await (error as any).context.text().catch(() => "")
+          : (error as any)?.message || "";
+        console.error("optimise-route failed:", detail || error);
+        toast({
+          title: "Route optimisation failed",
+          description: detail?.slice(0, 300) || "The routing service returned an error. Check that all stop addresses are complete and try again.",
+          variant: "destructive",
+        });
+        setOptimising(false);
+        return;
+      }
       if (data?.error) {
-        toast({ title: "Route optimisation unavailable — check addresses are valid", variant: "destructive" });
+        toast({
+          title: "Route optimisation unavailable",
+          description: `${data.error}${data.reason ? ` (${data.reason})` : ""} — check addresses are complete and valid UK postcodes.`,
+          variant: "destructive",
+        });
         setOptimising(false);
         return;
       }
@@ -388,8 +456,13 @@ export default function PlannerMapView({
           }
         }
       }
-    } catch {
-      toast({ title: "Route optimisation failed", variant: "destructive" });
+    } catch (err) {
+      console.error("Route optimisation error:", err);
+      toast({
+        title: "Route optimisation failed",
+        description: err instanceof Error ? err.message : "Something went wrong contacting the routing service.",
+        variant: "destructive",
+      });
     }
     setOptimising(false);
     setLastRefreshAt(new Date());
@@ -987,6 +1060,22 @@ export default function PlannerMapView({
               </Button>
             </div>
           )}
+          {/* Date filter — only show markers/route for the selected planner day */}
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="h-9 w-[170px] text-xs">
+              <Calendar className="mr-1.5 h-3.5 w-3.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today ({todayStr})</SelectItem>
+              <SelectItem value="all">All dates in view</SelectItem>
+              {availableDates.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {format(new Date(d + "T00:00:00"), "EEE d MMM yyyy")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {/* Engineer filter */}
           {activeEngineers.length > 0 && (
             <Select value={selectedEngineerId} onValueChange={setSelectedEngineerId}>
@@ -1075,18 +1164,20 @@ export default function PlannerMapView({
               <SelectItem value="600">Every 10 min</SelectItem>
             </SelectContent>
           </Select>
-          {scheduledJobs.length >= 2 && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => handleOptimise()} disabled={optimising}>
-                {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
-                Optimise Route
-              </Button>
-              {directionsRendererRef.current && routeResult && (
-                <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
-                  Clear Route
-                </Button>
-              )}
-            </>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleOptimise()}
+            disabled={optimising || scheduledJobs.length < 2}
+            title={scheduledJobs.length < 2 ? "Need at least 2 scheduled stops on this day to optimise" : "Optimise the route for this day's stops"}
+          >
+            {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
+            Optimise Route
+          </Button>
+          {directionsRendererRef.current && routeResult && (
+            <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
+              Clear Route
+            </Button>
           )}
         </div>
       </div>
