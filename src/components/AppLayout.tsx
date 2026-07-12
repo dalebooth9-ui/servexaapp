@@ -480,6 +480,18 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
               ))}
             </div>
           )}
+          {desktopExpanded && (
+            <div className="mb-2">
+              <ReportProblemDialog
+                trigger={
+                  <button className="w-full flex items-center gap-2 rounded-lg border border-sidebar-border/40 bg-sidebar-accent/20 px-2 py-1.5 text-xs font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
+                    <LifeBuoy className="h-3.5 w-3.5 shrink-0" />
+                    <span>Report a problem</span>
+                  </button>
+                }
+              />
+            </div>
+          )}
           <div className={cn("flex items-center gap-2", desktopExpanded ? "justify-between" : "lg:justify-center justify-between")}>
             {desktopExpanded && (
               <div className="min-w-0 text-xs">
