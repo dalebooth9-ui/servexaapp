@@ -42,6 +42,9 @@ export default function PWAPrompts() {
   useEffect(() => {
     void setupPWA({
       onNeedRefresh: (doReload) => {
+        const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+        if (!shouldPromptForUpdate(currentVersion)) return;
+        setLastPromptedVersion(currentVersion);
         setReload(() => doReload);
       },
       onOfflineReady: () => {
