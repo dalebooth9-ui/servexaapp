@@ -70,6 +70,28 @@ export default function SettingsPage() {
     toast.success("API key rotation logged. Next rotation due in 90 days.");
   };
 
+  const handleCheckForUpdates = async () => {
+    setCheckingUpdates(true);
+    try {
+      const { updateFound, error } = await forceUpdateCheck();
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      if (updateFound) {
+        toast.success("Update available", {
+          description: "A new version of Servexa is ready. Tap the banner to update now.",
+        });
+      } else {
+        toast.success("You're on the latest version");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Update check failed");
+    } finally {
+      setCheckingUpdates(false);
+    }
+  };
+
   const rotationInfo = getRotationStatus(lastRotated);
 
   const copyWebhookUrl = () => {
