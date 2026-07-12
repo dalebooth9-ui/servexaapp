@@ -54,6 +54,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { format } from "date-fns";
+import { fuzzyFilter } from "@/lib/fuzzyMatch";
 
 type Asset = {
   id: string;
