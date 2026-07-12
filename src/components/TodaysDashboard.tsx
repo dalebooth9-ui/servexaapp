@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { MapPin, Navigation, Briefcase, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import { OpenInMapsButton } from "@/components/OpenInMapsButton";
 
 type ScheduledJob = {
   id: string;
@@ -280,6 +281,17 @@ export default function TodaysDashboard() {
                               </>
                             )}
                           </Button>
+                        )}
+                        {job.address && (
+                          <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                            <OpenInMapsButton
+                              address={job.address}
+                              size="sm"
+                              variant="outline"
+                              iconOnly
+                              className="h-7 w-7 p-0"
+                            />
+                          </div>
                         )}
                       </div>
                     </div>
