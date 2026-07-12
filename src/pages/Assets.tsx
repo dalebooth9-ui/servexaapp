@@ -169,21 +169,20 @@ export default function Assets() {
 
   const siteLookup = Object.fromEntries(sites.map((s) => [s.id, s.name]));
 
-  const filtered = assets.filter((a) => {
+  const filteredBase = assets.filter((a) => {
     if (statusFilter !== "all" && a.status !== statusFilter) return false;
     if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      return (
-        a.name.toLowerCase().includes(q) ||
-        a.asset_tag?.toLowerCase().includes(q) ||
-        a.serial_number?.toLowerCase().includes(q) ||
-        a.make?.toLowerCase().includes(q) ||
-        a.model?.toLowerCase().includes(q)
-      );
-    }
     return true;
   });
+  const filtered = fuzzyFilter(filteredBase, search, (a) => [
+    a.name,
+    a.asset_tag,
+    a.serial_number,
+    a.make,
+    a.model,
+    (a as any).location_notes,
+    siteLookup[(a as any).site_id],
+  ]);
 
   const openCreate = () => {
     setEditing(null);
