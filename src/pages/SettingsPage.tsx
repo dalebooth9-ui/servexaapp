@@ -79,9 +79,16 @@ export default function SettingsPage() {
         return;
       }
       if (updateFound) {
-        toast.success("Update available", {
-          description: "A new version of Servexa is ready. Tap the banner to update now.",
-        });
+        const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+        if (shouldPromptForUpdate(currentVersion)) {
+          toast.success("Update available", {
+            description: "A new version of Servexa is ready. Tap the banner to update now.",
+          });
+        } else {
+          toast.success("Update available", {
+            description: "A new version of Servexa is ready and will install automatically. Reload the page to apply it now.",
+          });
+        }
       } else {
         toast.success("You're on the latest version");
       }
