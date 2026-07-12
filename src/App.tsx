@@ -77,6 +77,7 @@ const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
 const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
 const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
+const ImportWizard = lazy(() => import("@/pages/ImportWizard"));
 
 const queryClient = new QueryClient();
 
@@ -179,6 +180,7 @@ const App = () => (
               <Route path="/defects/review" element={<AdminRoute><DefectsReview /></AdminRoute>} />
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+              <Route path="/settings/import" element={<AdminRoute><ImportWizard /></AdminRoute>} />
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
               <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
               <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
