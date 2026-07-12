@@ -1,27 +1,24 @@
 // Supabase Edge Function: inbound-po-email
 //
-// Receives inbound emails from Resend Inbound (or any provider that posts
-// Svix-signed webhooks with the same payload shape) addressed to
-//   po-<orgslug>-<4chars>@intake.servexaapp.com
+// Receives inbound emails from Resend Inbound (Svix-signed webhooks) addressed
+// to  po-<orgslug>-<4chars>@intake.servexaapp.com.
 //
-// Flow:
-//   1. Verify Svix signature using RESEND_INBOUND_WEBHOOK_SECRET.
-//   2. Enforce 25 MB payload cap.
-//   3. Resolve the target org from the recipient address (+ rate-limit).
-//   4. Extract PO fields from subject/body with Lovable AI.
-//   5. Create a pending_review job (source='email_po') scoped to that org,
-//      fuzzy-matching the customer within the org.
-//   6. Store the raw .eml and every attachment in the `po-intake` bucket and
-//      register them as job_documents against the new job.
+// Resend's `email.received` webhook payload is SELF-CONTAINED — the full
+// parsed email (text, html, headers, and every attachment inline as base64)
+// arrives in the initial POST. We do NOT call the Resend REST API here:
+//   - previous attempt used /emails/receiving/{id} which doesn't exist and
+//     returned 401 because the project's RESEND_API_KEY is a send-only key.
+//   - even with a full-access key, an extra round-trip is unnecessary.
 //
-// Unknown recipients and rate-limited addresses return 200 OK silently — the
-// provider must not retry, and we don't want to leak which addresses exist.
+// Also handles FORWARDED emails: office staff will forward customer POs from
+// service@vivafire.co.uk (our own inbox). The forwarder and our own org name
+// must NEVER be treated as the PO customer.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const MAX_BODY_BYTES = 25 * 1024 * 1024; // 25 MB
-const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20 MB per file
+const MAX_BODY_BYTES = 25 * 1024 * 1024;
+const MAX_ATTACHMENT_BYTES = 20 * 1024 * 1024;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -44,11 +41,6 @@ const json = (status: number, body: unknown) =>
 
 // ────────────────────────────────────────────────────────────────────────────
 // Svix signature verification
-// Docs: https://docs.svix.com/receiving/verifying-payloads/how-manual
-// Signature header format: "v1,<base64sig> v1,<base64sig>"
-// Signed content: `${msgId}.${timestamp}.${rawBody}` (HMAC-SHA256)
-// The signing secret from Resend is prefixed with "whsec_" — the bytes after
-// that prefix are base64-encoded and are the actual HMAC key.
 // ────────────────────────────────────────────────────────────────────────────
 async function verifySvix(
   secret: string,
@@ -58,8 +50,6 @@ async function verifySvix(
   signatureHeader: string,
 ): Promise<boolean> {
   if (!msgId || !timestamp || !signatureHeader) return false;
-
-  // Reject stale timestamps (>5 min drift)
   const ts = parseInt(timestamp, 10);
   if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) return false;
 
@@ -68,23 +58,16 @@ async function verifySvix(
   try {
     keyBytes = Uint8Array.from(atob(rawSecret), (c) => c.charCodeAt(0));
   } catch {
-    // Not base64 — fall back to raw utf-8 bytes so misconfigured secrets still
-    // produce a deterministic (failing) comparison rather than crashing.
     keyBytes = new TextEncoder().encode(rawSecret);
   }
 
   const key = await crypto.subtle.importKey(
-    "raw",
-    keyBytes,
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
+    "raw", keyBytes, { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
   const toSign = new TextEncoder().encode(`${msgId}.${timestamp}.${body}`);
   const sig = await crypto.subtle.sign("HMAC", key, toSign);
   const expected = btoa(String.fromCharCode(...new Uint8Array(sig)));
 
-  // The header may contain multiple space-separated versioned signatures.
   for (const part of signatureHeader.split(" ")) {
     const [ver, val] = part.split(",");
     if (ver === "v1" && val && timingSafeEqual(val, expected)) return true;
@@ -100,14 +83,7 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Payload / API fetch
-//
-// IMPORTANT: Resend's `email.received` webhook contains METADATA ONLY —
-// no body, no attachment content. We must call:
-//   GET https://api.resend.com/emails/receiving/{email_id}
-//   GET https://api.resend.com/emails/receiving/{email_id}/attachments
-//   GET <attachment.download_url>   (returns raw bytes)
-// using RESEND_API_KEY to fetch the actual content.
+// Webhook payload parsing
 // ────────────────────────────────────────────────────────────────────────────
 interface Attachment {
   filename: string;
@@ -124,13 +100,6 @@ interface InboundEmail {
   attachments: Attachment[];
 }
 
-function extractEmailId(payload: any): string | null {
-  const d = payload?.data ?? payload;
-  return (
-    d?.email_id ?? d?.id ?? d?.emailId ?? payload?.email_id ?? payload?.id ?? null
-  );
-}
-
 function normaliseRecipients(d: any): string[] {
   const toRaw = d?.to ?? d?.recipient ?? d?.recipients ?? [];
   const list: string[] = Array.isArray(toRaw)
@@ -143,93 +112,108 @@ function extractIntakeAddress(recipients: string[]): string | null {
   return recipients.find((r) => /@intake\.servexaapp\.com$/i.test(r)) ?? null;
 }
 
-async function resendGet(path: string, apiKey: string): Promise<any> {
-  const r = await fetch(`https://api.resend.com${path}`, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Resend GET ${path} → ${r.status}: ${t}`);
-  }
-  return r.json();
+function b64ToBytes(b64: string): Uint8Array {
+  const clean = b64.replace(/\s+/g, "").replace(/^data:[^;]+;base64,/i, "");
+  const bin = atob(clean);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }
 
-async function fetchInboundEmail(
-  emailId: string,
-  resendKey: string,
-  payload: any,
-): Promise<InboundEmail> {
-  // 1. Fetch the email itself (subject, from, to, text, html, headers)
-  let msg: any = {};
-  try {
-    msg = await resendGet(`/emails/receiving/${emailId}`, resendKey);
-  } catch (e) {
-    console.error("fetchInboundEmail: email fetch failed, falling back to webhook payload", e);
-    msg = payload?.data ?? payload ?? {};
-  }
+/**
+ * Parse the Resend `email.received` webhook payload directly. Resend delivers
+ * attachments inline as base64 in `data.attachments[].content`.
+ */
+function parseWebhookPayload(payload: any): InboundEmail {
+  const d = payload?.data ?? payload ?? {};
 
-  // 2. List attachments
-  let attList: any[] = [];
-  try {
-    const res = await resendGet(`/emails/receiving/${emailId}/attachments`, resendKey);
-    attList = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
-  } catch (e) {
-    console.error("fetchInboundEmail: attachments list failed", e);
-  }
+  const fromField = d?.from;
+  const from = typeof fromField === "string"
+    ? fromField
+    : (fromField?.email ?? "");
 
-  // 3. Download each attachment via its download_url
   const attachments: Attachment[] = [];
-  for (const a of attList) {
-    const url: string | undefined = a?.download_url ?? a?.url;
+  const raw = Array.isArray(d?.attachments) ? d.attachments : [];
+  for (const a of raw) {
     const filename = String(a?.filename ?? a?.name ?? "attachment.bin");
-    const contentType = String(a?.content_type ?? a?.contentType ?? "application/octet-stream");
-    if (!url) continue;
+    const contentType = String(
+      a?.content_type ?? a?.contentType ?? a?.mime_type ?? "application/octet-stream",
+    );
+    // Resend inline attachments arrive as base64 in `content`. Some providers
+    // use `data` or a data URL. Skip anything without inline content — we do
+    // not call any external API.
+    const b64 = typeof a?.content === "string" ? a.content
+      : typeof a?.data === "string" ? a.data
+      : null;
+    if (!b64) {
+      console.warn("attachment has no inline content, skipping", { filename, keys: Object.keys(a ?? {}) });
+      continue;
+    }
     try {
-      // Some Resend download URLs are pre-signed (no auth needed). Send the
-      // bearer anyway — it's harmless if the URL already carries a signature.
-      const r = await fetch(url, { headers: { Authorization: `Bearer ${resendKey}` } });
-      if (!r.ok) {
-        console.error("attachment download failed", filename, r.status);
+      const bytes = b64ToBytes(b64);
+      if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
+        console.warn("skipping oversized attachment", filename, bytes.byteLength);
         continue;
       }
-      const buf = new Uint8Array(await r.arrayBuffer());
-      if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
-        console.warn("skipping oversized attachment", filename, buf.byteLength);
-        continue;
-      }
-      attachments.push({ filename, contentType, bytes: buf });
+      attachments.push({ filename, contentType, bytes });
     } catch (e) {
-      console.error("attachment download error", filename, e);
+      console.error("attachment base64 decode failed", filename, e);
     }
   }
 
-  const d = payload?.data ?? payload ?? {};
   return {
-    from: String(msg?.from?.email ?? msg?.from ?? d?.from?.email ?? d?.from ?? "").trim(),
-    to: normaliseRecipients({ to: msg?.to ?? d?.to }),
-    subject: String(msg?.subject ?? d?.subject ?? "").trim(),
-    text: String(msg?.text ?? msg?.plain ?? d?.text ?? ""),
-    html: String(msg?.html ?? d?.html ?? ""),
-    rawEmlBase64: msg?.raw ?? msg?.raw_email ?? d?.raw ?? null,
+    from: String(from).trim(),
+    to: normaliseRecipients(d),
+    subject: String(d?.subject ?? "").trim(),
+    text: String(d?.text ?? d?.plain ?? ""),
+    html: String(d?.html ?? ""),
+    rawEmlBase64: typeof d?.raw === "string" ? d.raw
+      : typeof d?.raw_email === "string" ? d.raw_email
+      : null,
     attachments,
   };
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// AI extraction — accepts email text AND PDF/image attachments (Gemini reads
-// PDFs directly via data URL, same as parse-po-document / receive-po-email).
+// Forwarded-email handling
 // ────────────────────────────────────────────────────────────────────────────
-const EXTRACTION_PROMPT = `You extract purchase order details from an inbound email and its attachments.
-The attachment (if a PDF or image is provided) is the PRIMARY source — the PO details usually live there. The email subject/body is secondary context.
-Return a SINGLE JSON object with exactly these fields (use "" or null when unknown):
-- customer_name: the company that sent the PO. Check the letterhead, "From"/"Bill To"/"Client" on the PDF, the signature block, and the sender domain. Copy short abbreviations verbatim.
-- site_address: the site / delivery / work address
-- po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
-- job_description: full description of the work or goods ordered — as much detail as possible
-- due_date: required completion date in YYYY-MM-DD, or ""
-- priority: "high", "medium" or "low" (default "medium")
-Return ONLY the JSON object, no markdown, no explanation.`;
+/**
+ * When an email is forwarded (Gmail / Outlook / Apple Mail), the original
+ * message appears below a "Forwarded message" header. Return the portion below
+ * that header when present — that's the true source context.
+ */
+function extractForwardedBody(text: string): { forwardedFrom: string | null; body: string } {
+  if (!text) return { forwardedFrom: null, body: "" };
+  const markers = [
+    /-{3,}\s*Forwarded message\s*-{3,}/i,
+    /Begin forwarded message:/i,
+    /^From:.*\n(?:Sent|Date):.*\n(?:To|Subject):/im,
+  ];
+  let idx = -1;
+  for (const m of markers) {
+    const found = text.search(m);
+    if (found >= 0 && (idx === -1 || found < idx)) idx = found;
+  }
+  if (idx < 0) return { forwardedFrom: null, body: text };
+  const below = text.slice(idx);
+  const fromMatch = below.match(/^From:\s*(.+)$/im);
+  return {
+    forwardedFrom: fromMatch ? fromMatch[1].trim() : null,
+    body: below,
+  };
+}
 
+function stripHtml(html: string): string {
+  return html.replace(/<style[\s\S]*?<\/style>/gi, "")
+             .replace(/<script[\s\S]*?<\/script>/gi, "")
+             .replace(/<[^>]+>/g, " ")
+             .replace(/\s+/g, " ")
+             .trim();
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// AI extraction
+// ────────────────────────────────────────────────────────────────────────────
 interface Extracted {
   customer_name?: string;
   site_address?: string;
@@ -248,17 +232,53 @@ function bytesToBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted> {
-  const userText = [
-    `From: ${email.from}`,
+function buildPrompt(ownOrgName: string): string {
+  const owned = ownOrgName ? `"${ownOrgName}"` : "the receiving company";
+  return `You extract purchase order details from an inbound email and its attachments for a fire-safety contractor.
+
+CRITICAL RULES for customer_name (READ CAREFULLY):
+- ${owned} is the RECEIVING contractor — NEVER the customer. If the letterhead, sender, signature, or any field names ${owned}, that is NOT the customer.
+- The email may be FORWARDED from an internal mailbox (e.g. an office staff address). NEVER use the forwarder / sender address as the customer.
+- The customer is the company that ISSUED the PO to us. Look for it in:
+    1. The PDF letterhead / logo header
+    2. "From:", "Bill To:", "Client:", "Company:" fields on the PO
+    3. The signature block of the ORIGINAL email (below any "---------- Forwarded message ----------" header)
+    4. The original sender's email domain (below the forward header)
+- If you cannot confidently identify a customer that is NOT ${owned} and NOT the forwarder, return "" for customer_name — do NOT guess.
+
+The attachment (if a PDF or image is provided) is the PRIMARY source; the email body is secondary context.
+
+Return a SINGLE JSON object with exactly these fields (use "" or null when unknown):
+- customer_name
+- site_address: the site / delivery / work address
+- po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
+- job_description: full description of the work or goods ordered
+- due_date: required completion date in YYYY-MM-DD, or ""
+- priority: "high", "medium" or "low" (default "medium")
+
+Return ONLY the JSON object, no markdown, no explanation.`;
+}
+
+async function extractPO(
+  email: InboundEmail,
+  ownOrgName: string,
+  apiKey: string,
+): Promise<Extracted> {
+  const { forwardedFrom, body: forwardedBody } = extractForwardedBody(
+    email.text || stripHtml(email.html),
+  );
+
+  const contextLines = [
+    `Forwarder (INTERNAL — NOT the customer): ${email.from}`,
+    `Receiving contractor (NOT the customer): ${ownOrgName || "(unknown)"}`,
+    forwardedFrom ? `Original sender (below forward header): ${forwardedFrom}` : null,
     `Subject: ${email.subject}`,
     "",
-    email.text || stripHtml(email.html) || "(no body)",
-  ].join("\n").slice(0, 20000);
+    forwardedBody || "(no body)",
+  ].filter(Boolean).join("\n").slice(0, 20000);
 
-  const content: any[] = [{ type: "text", text: userText }];
+  const content: any[] = [{ type: "text", text: contextLines }];
 
-  // Attach the first PDF or image attachment (Gemini reads PDFs via image_url data URL).
   const primary = email.attachments.find((a) =>
     a.contentType.toLowerCase() === "application/pdf" ||
     /\.pdf$/i.test(a.filename) ||
@@ -277,14 +297,11 @@ async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted
 
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: primary ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash",
       messages: [
-        { role: "system", content: EXTRACTION_PROMPT },
+        { role: "system", content: buildPrompt(ownOrgName) },
         { role: "user", content },
       ],
       temperature: 0.1,
@@ -305,20 +322,29 @@ async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted
   }
 }
 
-function stripHtml(html: string): string {
-  return html.replace(/<style[\s\S]*?<\/style>/gi, "")
-             .replace(/<script[\s\S]*?<\/script>/gi, "")
-             .replace(/<[^>]+>/g, " ")
-             .replace(/\s+/g, " ")
-             .trim();
+/** Normalise a company name for equality checks. */
+function normaliseName(s: string): string {
+  return s.toLowerCase()
+    .replace(/\b(ltd|limited|plc|llp|inc|incorporated|llc|co|company|group)\b\.?/g, "")
+    .replace(/[^a-z0-9]+/g, "")
+    .trim();
 }
 
-function b64ToBytes(b64: string): Uint8Array {
-  const clean = b64.replace(/\s+/g, "");
-  const bin = atob(clean);
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
+/** True if the extracted customer name matches our own org (belt-and-braces
+ *  post-filter — the model may still occasionally get it wrong). */
+function isOwnOrg(candidate: string, ownOrgName: string): boolean {
+  if (!candidate || !ownOrgName) return false;
+  const c = normaliseName(candidate);
+  const o = normaliseName(ownOrgName);
+  if (!c || !o) return false;
+  return c === o || c.includes(o) || o.includes(c);
+}
+
+/** True if the extracted customer name matches the forwarder's email domain. */
+function isForwarderDomain(candidate: string, forwarderEmail: string): boolean {
+  if (!candidate || !forwarderEmail) return false;
+  const dom = forwarderEmail.split("@")[1]?.split(".")[0] ?? "";
+  return dom ? normaliseName(candidate).includes(normaliseName(dom)) : false;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -328,8 +354,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  // Size guard — read body as text so we can verify the signature over the
-  // exact bytes the provider signed.
   const contentLength = parseInt(req.headers.get("content-length") ?? "0", 10);
   if (contentLength && contentLength > MAX_BODY_BYTES) {
     console.warn("Rejecting oversized payload", contentLength);
@@ -337,9 +361,7 @@ serve(async (req) => {
   }
 
   const bodyText = await req.text();
-  if (bodyText.length > MAX_BODY_BYTES) {
-    return json(413, { error: "Payload too large" });
-  }
+  if (bodyText.length > MAX_BODY_BYTES) return json(413, { error: "Payload too large" });
 
   const signingSecret = Deno.env.get("RESEND_INBOUND_WEBHOOK_SECRET");
   if (!signingSecret) {
@@ -359,9 +381,6 @@ serve(async (req) => {
   let payload: any;
   try { payload = JSON.parse(bodyText); } catch { return json(400, { error: "Invalid JSON" }); }
 
-  // Resolve intake address from the webhook payload BEFORE fetching the full
-  // email — the webhook always includes recipients, and we don't want to hit
-  // Resend's API for mail addressed to unknown intake addresses.
   const preRecipients = normaliseRecipients(payload?.data ?? payload ?? {});
   const intakeAddr = extractIntakeAddress(preRecipients);
   if (!intakeAddr) {
@@ -369,32 +388,23 @@ serve(async (req) => {
     return okSilently();
   }
 
-  const emailId = extractEmailId(payload);
-  const resendKey = Deno.env.get("RESEND_API_KEY");
-  if (!emailId || !resendKey) {
-    console.error("Missing email_id or RESEND_API_KEY — cannot fetch full email", { emailId, hasKey: !!resendKey });
-    return json(500, { error: "Server not configured" });
-  }
-
-  // Fetch full email + attachments from Resend API (webhook is metadata-only).
-  const email = await fetchInboundEmail(emailId, resendKey, payload);
-  console.log("Fetched inbound email", {
-    emailId,
+  // Parse full email directly from webhook — no Resend API call.
+  const email = parseWebhookPayload(payload);
+  console.log("Parsed inbound webhook", {
     from: email.from,
     subject: email.subject,
+    to: email.to,
     attachmentCount: email.attachments.length,
     attachmentNames: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+    payloadAttachmentsPresent: Array.isArray(payload?.data?.attachments) ? payload.data.attachments.length : "n/a",
   });
 
-
-  // Admin client
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // Resolve org + rate-limit
   const { data: rows, error: rpcErr } = await admin.rpc("resolve_org_by_intake_email", { _email: intakeAddr });
   if (rpcErr) {
     console.error("resolve_org_by_intake_email failed", rpcErr);
@@ -407,13 +417,36 @@ serve(async (req) => {
   if (!orgId) { console.log("Unknown intake address", intakeAddr); return okSilently(); }
   if (!allowed) { console.warn("Rate limited", intakeAddr); return okSilently(); }
 
-  // AI extraction (best-effort — job is still created even if empty)
-  const apiKey = Deno.env.get("LOVABLE_API_KEY");
-  const extracted: Extracted = apiKey ? await extractPO(email, apiKey) : {};
+  // Look up our own org name so we can (a) tell the model what NOT to pick
+  // and (b) post-filter its output.
+  let ownOrgName = "";
+  {
+    const { data: orgRow } = await admin
+      .from("organisations")
+      .select("name")
+      .eq("id", orgId)
+      .maybeSingle();
+    ownOrgName = orgRow?.name ?? "";
+  }
 
-  // Fuzzy customer match within this org only
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  const extracted: Extracted = apiKey ? await extractPO(email, ownOrgName, apiKey) : {};
+
+  // Post-filter: strip customer if it looks like ourselves or the forwarder.
+  let extractedCustomer = (extracted.customer_name || "").trim();
+  if (extractedCustomer) {
+    if (isOwnOrg(extractedCustomer, ownOrgName)) {
+      console.log("Discarding extracted customer — matches own org", { extractedCustomer, ownOrgName });
+      extractedCustomer = "";
+    } else if (isForwarderDomain(extractedCustomer, email.from)) {
+      console.log("Discarding extracted customer — matches forwarder domain", { extractedCustomer, from: email.from });
+      extractedCustomer = "";
+    }
+  }
+
+  // Only match/create a customer when we have a valid, non-own-org name.
   let customerId: string | null = null;
-  let customerName: string | null = (extracted.customer_name || "").trim() || null;
+  let customerName: string | null = extractedCustomer || null;
   if (customerName) {
     const { data: match } = await admin
       .from("customers")
@@ -438,13 +471,16 @@ serve(async (req) => {
   const priority = ["high", "medium", "low"].includes(extracted.priority ?? "") ? extracted.priority! : "medium";
   const jobName = (extracted.job_description || extracted.po_number || email.subject || "Email PO").slice(0, 200);
 
+  const { forwardedFrom, body: forwardedBody } = extractForwardedBody(
+    email.text || stripHtml(email.html),
+  );
   const briefParts: string[] = [];
-  briefParts.push(`From: ${email.from}`);
+  briefParts.push(`Forwarded by: ${email.from}`);
+  if (forwardedFrom) briefParts.push(`Original sender: ${forwardedFrom}`);
   briefParts.push(`Subject: ${email.subject}`);
   briefParts.push("");
   if (extracted.job_description) briefParts.push(extracted.job_description);
-  const bodyText2 = email.text || stripHtml(email.html);
-  if (bodyText2) briefParts.push("", "--- Original email ---", bodyText2.slice(0, 4000));
+  if (forwardedBody) briefParts.push("", "--- Email body ---", forwardedBody.slice(0, 4000));
 
   const jobInsert: Record<string, unknown> = {
     name: jobName,
@@ -460,23 +496,19 @@ serve(async (req) => {
     brief: briefParts.join("\n").trim() || null,
   };
 
-  let jobId: string;
-  let jobRef: string;
-  {
-    const { data: newJob, error: jobErr } = await admin
-      .from("jobs")
-      .insert(jobInsert as any)
-      .select("id, reference_number")
-      .single();
-    if (jobErr || !newJob) {
-      console.error("Job insert failed", jobErr);
-      return json(500, { error: "Could not create job" });
-    }
-    jobId = newJob.id;
-    jobRef = newJob.reference_number;
+  const { data: newJob, error: jobErr } = await admin
+    .from("jobs")
+    .insert(jobInsert as any)
+    .select("id, reference_number")
+    .single();
+  if (jobErr || !newJob) {
+    console.error("Job insert failed", jobErr);
+    return json(500, { error: "Could not create job" });
   }
+  const jobId = newJob.id;
+  const jobRef = newJob.reference_number;
 
-  // ── Store raw .eml + attachments in po-intake bucket ────────────────────
+  // ── Store raw .eml + attachments in po-intake bucket ───────────────────
   const uploads: { path: string; label: string; contentType: string; bytes: Uint8Array }[] = [];
   if (email.rawEmlBase64) {
     try {
@@ -503,7 +535,7 @@ serve(async (req) => {
     });
   }
 
-
+  let uploadedCount = 0;
   for (const u of uploads) {
     const { error: upErr } = await admin.storage.from("po-intake").upload(u.path, u.bytes, {
       contentType: u.contentType,
@@ -511,7 +543,7 @@ serve(async (req) => {
     });
     if (upErr) { console.error("upload failed", u.path, upErr); continue; }
     const { data: signed } = await admin.storage.from("po-intake").createSignedUrl(u.path, 60 * 60 * 24 * 30);
-    await admin.from("job_documents").insert({
+    const { error: docErr } = await admin.from("job_documents").insert({
       job_id: jobId,
       label: u.label,
       document_type: "po_source",
@@ -519,8 +551,15 @@ serve(async (req) => {
       file_name: u.label,
       file_url: signed?.signedUrl ?? u.path,
     } as any);
+    if (docErr) console.error("job_documents insert failed", u.path, docErr);
+    else uploadedCount++;
   }
 
-  console.log("Created pending job", jobRef, "for org", orgId, "from", email.from);
-  return json(200, { ok: true, job_id: jobId, reference_number: jobRef });
+  console.log("Created pending job", jobRef, "for org", orgId, {
+    from: email.from,
+    customer: customerName ?? "(left blank for approver)",
+    uploadedCount,
+    totalAttachments: email.attachments.length,
+  });
+  return json(200, { ok: true, job_id: jobId, reference_number: jobRef, uploaded: uploadedCount });
 });
