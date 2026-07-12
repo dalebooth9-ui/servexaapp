@@ -80,15 +80,9 @@ export default function Customers() {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  const filtered = customers.filter((c) => {
-    const q = search.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(q) ||
-      (c.email || "").toLowerCase().includes(q) ||
-      (c.phone || "").toLowerCase().includes(q) ||
-      (c.address || "").toLowerCase().includes(q)
-    );
-  });
+  const filtered = customers.filter((c) =>
+    fuzzyMatch(search, c.name, c.email, c.phone, c.address)
+  );
 
   const openCreate = () => {
     setEditingId(null);
