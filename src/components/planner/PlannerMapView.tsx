@@ -378,31 +378,96 @@ export default function PlannerMapView({
         }
       }
 
-      const { data, error } = await supabase.functions.invoke("optimise-route", {
-        body: { waypoints, origin },
-      });
-      if (error) {
-        const detail = (error as any)?.context
-          ? await (error as any).context.text().catch(() => "")
-          : (error as any)?.message || "";
-        console.error("optimise-route failed:", detail || error);
+      // Client-side optimisation via the Maps JS SDK (works with referer-restricted keys —
+      // the Directions REST endpoint rejects those with REQUEST_DENIED).
+      let data: {
+        optimised: { address: string; job_id: string }[];
+        legs: any[];
+        total_distance_km: number;
+        total_duration_mins: number;
+        total_duration_in_traffic_mins: number | null;
+      };
+      try {
+        const directionsService = new google.maps.DirectionsService();
+
+        // Resolve origin address string (SDK accepts string or LatLngLiteral)
+        let originParam: string | google.maps.LatLngLiteral;
+        const hasExplicitOrigin = origin != null;
+        if (origin && typeof (origin as any).lat === "number") {
+          originParam = { lat: (origin as any).lat, lng: (origin as any).lng };
+        } else if (origin && typeof (origin as any).address === "string") {
+          originParam = (origin as any).address;
+        } else {
+          originParam = waypoints[0].address;
+        }
+
+        const destinationParam = waypoints[waypoints.length - 1].address;
+        const intermediateWps = hasExplicitOrigin
+          ? waypoints.slice(0, -1)
+          : waypoints.slice(1, -1);
+        const dsWaypoints = intermediateWps.map((w) => ({ location: w.address, stopover: true }));
+
+        const result = await directionsService.route({
+          origin: originParam,
+          destination: destinationParam,
+          waypoints: dsWaypoints,
+          optimizeWaypoints: true,
+          travelMode: google.maps.TravelMode.DRIVING,
+          drivingOptions: {
+            departureTime: new Date(),
+            trafficModel: google.maps.TrafficModel.BEST_GUESS,
+          },
+          region: "GB",
+        });
+
+        const route = result.routes[0];
+        const order = route.waypoint_order || [];
+        let optimised = waypoints;
+        if (order.length > 0) {
+          if (hasExplicitOrigin) {
+            const middle = order.map((i: number) => intermediateWps[i]);
+            optimised = [...middle, waypoints[waypoints.length - 1]];
+          } else {
+            const middle = order.map((i: number) => waypoints[i + 1]);
+            optimised = [waypoints[0], ...middle, waypoints[waypoints.length - 1]];
+          }
+        }
+
+        const legs = route.legs.map((leg) => ({
+          distance: leg.distance?.text,
+          duration: leg.duration?.text,
+          duration_in_traffic: leg.duration_in_traffic?.text ?? null,
+          duration_in_traffic_seconds: leg.duration_in_traffic?.value ?? null,
+          start_address: leg.start_address,
+          end_address: leg.end_address,
+        }));
+        const totalDistance = route.legs.reduce((s, l) => s + (l.distance?.value ?? 0), 0);
+        const totalDuration = route.legs.reduce((s, l) => s + (l.duration?.value ?? 0), 0);
+        const totalDurationTraffic = route.legs.reduce(
+          (s, l) => s + (l.duration_in_traffic?.value ?? l.duration?.value ?? 0),
+          0,
+        );
+
+        data = {
+          optimised,
+          legs,
+          total_distance_km: Math.round(totalDistance / 100) / 10,
+          total_duration_mins: Math.round(totalDuration / 60),
+          total_duration_in_traffic_mins: Math.round(totalDurationTraffic / 60),
+        };
+      } catch (err: any) {
+        // Surface the underlying Google status (e.g. ZERO_RESULTS, NOT_FOUND, REQUEST_DENIED)
+        const status = err?.code || err?.status || err?.message || "UNKNOWN";
+        console.error("Route optimisation failed:", err);
         toast({
           title: "Route optimisation failed",
-          description: detail?.slice(0, 300) || "The routing service returned an error. Check that all stop addresses are complete and try again.",
+          description: `Google Directions error: ${status}. Check that all stop addresses are complete UK postcodes.`,
           variant: "destructive",
         });
         setOptimising(false);
         return;
       }
-      if (data?.error) {
-        toast({
-          title: "Route optimisation unavailable",
-          description: `${data.error}${data.reason ? ` (${data.reason})` : ""} — check addresses are complete and valid UK postcodes.`,
-          variant: "destructive",
-        });
-        setOptimising(false);
-        return;
-      }
+
       setRouteResult(data);
       const trafficMins = data.total_duration_in_traffic_mins ?? data.total_duration_mins;
       const baseMins = data.total_duration_mins;
