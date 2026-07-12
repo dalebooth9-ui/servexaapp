@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket, LifeBuoy, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -18,6 +18,7 @@ import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
 import UndoButton from "@/components/UndoButton";
 import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
 import SetupSpotlightBanner from "@/components/SetupSpotlightBanner";
+import ReportProblemDialog from "@/components/ReportProblemDialog";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -62,6 +63,8 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
+{ to: "/admin/support-tickets", label: "Support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
+{ to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
@@ -475,6 +478,18 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
                   {label}
                 </Link>
               ))}
+            </div>
+          )}
+          {desktopExpanded && (
+            <div className="mb-2">
+              <ReportProblemDialog
+                trigger={
+                  <button className="w-full flex items-center gap-2 rounded-lg border border-sidebar-border/40 bg-sidebar-accent/20 px-2 py-1.5 text-xs font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors">
+                    <LifeBuoy className="h-3.5 w-3.5 shrink-0" />
+                    <span>Report a problem</span>
+                  </button>
+                }
+              />
             </div>
           )}
           <div className={cn("flex items-center gap-2", desktopExpanded ? "justify-between" : "lg:justify-center justify-between")}>

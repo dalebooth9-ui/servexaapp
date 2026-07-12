@@ -13,6 +13,9 @@ import { useOfflineSync } from "@/hooks/useOfflineSync";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ReactNode, lazy, Suspense, useEffect } from "react";
 import { toast } from "sonner";
+import { installGlobalErrorHandlers } from "@/lib/errorLogger";
+
+installGlobalErrorHandlers();
 
 // Eagerly loaded — used immediately on auth/landing
 import Auth from "@/pages/Auth";
@@ -72,6 +75,8 @@ const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
+const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
+const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 
 const queryClient = new QueryClient();
 
@@ -140,6 +145,8 @@ const App = () => (
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
               <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />
               <Route path="/setup" element={<AdminRoute><SetupGuide /></AdminRoute>} />
+              <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
+              <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
