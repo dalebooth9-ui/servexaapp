@@ -17,6 +17,7 @@ import TodaysVisitsBadge from "@/components/TodaysVisitsBadge";
 import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
 import UndoButton from "@/components/UndoButton";
 import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
+import SetupSpotlightBanner from "@/components/SetupSpotlightBanner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
 import {
