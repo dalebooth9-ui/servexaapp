@@ -57,10 +57,8 @@ serve(async (req) => {
     const { data: isAdmin } = await admin.rpc("has_role", { _user_id: caller.id, _role: "admin" });
     if (!isAdmin) return new Response(JSON.stringify({ error: "Admin access required" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-    const { data: orgId } = await admin.rpc("get_user_org_id", { _user_id: caller.id }).single().then((r: any) => ({ data: r.data as string })).catch(async () => {
-      const { data } = await admin.from("organisation_members").select("org_id").eq("user_id", caller.id).limit(1).maybeSingle();
-      return { data: data?.org_id as string };
-    });
+    const { data: orgRow } = await admin.from("organisation_members").select("org_id").eq("user_id", caller.id).limit(1).maybeSingle();
+    const orgId = orgRow?.org_id as string | undefined;
     if (!orgId) return new Response(JSON.stringify({ error: "No organisation for user" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
     const body = (await req.json()) as CommitBody;
