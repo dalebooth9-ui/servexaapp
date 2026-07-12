@@ -434,7 +434,14 @@ export default function Engineers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-wa">WhatsApp Number</Label>
-              <Input id="add-wa" value={addForm.whatsapp_number} onChange={(e) => setAddForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+              <Input
+                id="add-wa"
+                value={addForm.whatsapp_number}
+                onChange={(e) => setAddForm((f) => ({ ...f, whatsapp_number: e.target.value }))}
+                onBlur={() => setAddForm((f) => ({ ...f, whatsapp_number: normaliseWhatsAppNumber(f.whatsapp_number) }))}
+                placeholder="+447772544203"
+              />
+              <p className="text-xs text-muted-foreground">{WHATSAPP_NUMBER_HINT}</p>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="add-reset" checked={addForm.send_reset_email} onCheckedChange={(checked) => setAddForm((f) => ({ ...f, send_reset_email: !!checked }))} />
