@@ -14,6 +14,7 @@ import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 import EmailFromSettings from "@/components/EmailFromSettings";
+import PoIntakeEmailCard from "@/components/PoIntakeEmailCard";
 import EmailAutomationSettings from "@/components/EmailAutomationSettings";
 import JobCategorySettings from "@/components/JobCategorySettings";
 import AssetCategorySettings from "@/components/AssetCategorySettings";
@@ -249,6 +250,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="email" className="space-y-6 mt-0">
+          <PoIntakeEmailCard />
           <EmailFromSettings />
           <FollowUpReminderSettings />
           <ComplianceReminderSettings />
