@@ -522,7 +522,20 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      <div className="mt-8 flex justify-center border-t pt-4">
+      <div className="mt-8 flex flex-col items-center gap-3 border-t pt-4">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleCheckForUpdates}
+          disabled={checkingUpdates}
+          className="gap-1.5"
+        >
+          {checkingUpdates ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</>
+          ) : (
+            <><RefreshCw className="h-3.5 w-3.5" /> Check for updates</>
+          )}
+        </Button>
         <AppVersion />
       </div>
     </div>
