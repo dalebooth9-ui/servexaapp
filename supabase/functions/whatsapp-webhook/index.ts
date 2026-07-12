@@ -45,22 +45,29 @@ Deno.serve(async (req) => {
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // Validate Twilio signature
+    // Validate Twilio signature — enforced
     const signature = req.headers.get("x-twilio-signature");
     console.log(`Signature present: ${!!signature}`);
 
-    if (signature) {
-      // Use the public-facing URL that Twilio signs against, not the internal req.url
-      const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-      console.log(`Validating signature against URL: ${publicUrl}`);
-      const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
-      console.log(`Signature valid: ${isValid}`);
-      if (!isValid) {
-        console.error("Invalid Twilio signature — proceeding anyway for diagnostics");
-        // NOTE: signature check bypassed for diagnostics — re-enable in production
-      }
-    } else {
-      console.error("Missing Twilio signature — proceeding anyway for diagnostics");
+    if (!signature) {
+      console.error("Missing Twilio signature — rejecting request");
+      return new Response("Forbidden: missing signature", {
+        status: 403,
+        headers: corsHeaders,
+      });
+    }
+
+    // Use the public-facing URL that Twilio signs against, not the internal req.url
+    const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+    console.log(`Validating signature against URL: ${publicUrl}`);
+    const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
+    console.log(`Signature valid: ${isValid}`);
+    if (!isValid) {
+      console.error("Invalid Twilio signature — rejecting request");
+      return new Response("Forbidden: invalid signature", {
+        status: 403,
+        headers: corsHeaders,
+      });
     }
 
     const rawFrom = params.get("From")?.replace("whatsapp:", "") || "";
@@ -145,64 +152,37 @@ Deno.serve(async (req) => {
       console.log(`[fuzzy-match] jobId=${jobId} strippedBody="${strippedBody}" candidatesFromRef=${candidates.length}`);
       let fuzzyAttemptedNoMatch = false;
       if (!jobId && strippedBody.length >= 3) {
-        const term = strippedBody.slice(0, 120);
-        const escaped = term.replace(/[%_,()]/g, " ").trim();
-        console.log(`[fuzzy-match] searching with term="${escaped}"`);
-
-        // 1. Jobs whose own name matches
-        const { data: byJobName, error: byJobNameErr } = await supabase
+        // Load a pool of non-archived jobs (with linked site info) to score against.
+        // Client-side normalised matching so "cedar tree", "cedar-tree",
+        // "CEDARTREE COURT" all collapse to the same token.
+        const { data: jobPool, error: poolErr } = await supabase
           .from("jobs")
-          .select("id, name, reference_number, sites(name)")
+          .select("id, name, reference_number, address, sites(name, address, postcode)")
           .neq("status", "archived")
-          .ilike("name", `%${escaped}%`)
-          .limit(10);
-        if (byJobNameErr) console.error(`[fuzzy-match] byJobName err:`, byJobNameErr);
-        console.log(`[fuzzy-match] byJobName count=${(byJobName||[]).length} rows:`, JSON.stringify(byJobName));
+          .order("updated_at", { ascending: false })
+          .limit(1000);
+        if (poolErr) console.error(`[fuzzy-match] pool err:`, poolErr);
+        console.log(`[fuzzy-match] pool size=${(jobPool || []).length}`);
 
-        // 2. Jobs whose linked site name matches (via site_id FK)
-        const { data: matchingSites, error: sitesErr } = await supabase
-          .from("sites")
-          .select("id, name")
-          .ilike("name", `%${escaped}%`)
-          .limit(10);
-        if (sitesErr) console.error(`[fuzzy-match] sites err:`, sitesErr);
-        console.log(`[fuzzy-match] matchingSites rows:`, JSON.stringify(matchingSites));
+        const matches = matchJobsByCaption(strippedBody, jobPool || []);
+        console.log(`[fuzzy-match] scored matches=${matches.length} top:`,
+          JSON.stringify(matches.slice(0, 5).map((m) => ({
+            ref: m.job.reference_number, name: m.job.name, score: m.score, tokens: m.tokensMatched,
+          }))));
 
-        let bySiteName: any[] = [];
-        if (matchingSites && matchingSites.length > 0) {
-          const siteIds = matchingSites.map((s: any) => s.id);
-          const { data, error: bySiteErr } = await supabase
-            .from("jobs")
-            .select("id, name, reference_number, sites(name)")
-            .in("site_id", siteIds)
-            .neq("status", "archived")
-            .order("updated_at", { ascending: false })
-            .limit(10);
-          if (bySiteErr) console.error(`[fuzzy-match] bySite err:`, bySiteErr);
-          bySiteName = data || [];
-        }
-
-        // Merge + dedupe by job id
-        const merged = new Map<string, any>();
-        for (const j of [...(byJobName || []), ...bySiteName]) merged.set(j.id, j);
-        const matches = Array.from(merged.values());
-        console.log(`[fuzzy-match] byJobName=${(byJobName||[]).length} bySite=${bySiteName.length} merged=${matches.length}`);
-
-        if (matches.length === 1) {
-          jobId = matches[0].id;
-          console.log(`[fuzzy-match] single match → job ${matches[0].reference_number} (${jobId})`);
+        if (matches.length === 1 || (matches.length > 1 && matches[0].score > matches[1].score * 1.5)) {
+          jobId = matches[0].job.id;
+          console.log(`[fuzzy-match] confident match → job ${matches[0].job.reference_number} (${jobId})`);
         } else if (matches.length > 1) {
           const refs = matches
             .slice(0, 10)
-            .map((j: any) => j.reference_number || j.name || j.id)
+            .map((m) => m.job.reference_number || m.job.name || m.job.id)
             .join(", ");
           await sendWhatsApp(twilioSender, from,
-            `Found ${matches.length} jobs matching "${term}": ${refs} — please resend with the reference number.`
+            `Found ${matches.length} jobs matching "${strippedBody.slice(0, 80)}": ${refs} — please resend with the reference number.`
           );
           return twimlResponse();
         } else {
-          // Caption was provided but no jobs matched — do NOT silently fall back
-          // to a stale active-job context. Tell the engineer.
           fuzzyAttemptedNoMatch = true;
           console.log(`[fuzzy-match] zero matches for caption — skipping getActiveJob fallback`);
         }
@@ -608,38 +588,20 @@ Deno.serve(async (req) => {
         if (byName) job = byName;
       }
 
-      // 3. Match by site name → most recent active job at that site
+      // 3. Normalised fuzzy match by job name / site name / site address / job address
+      //    Uses the same tokenised scoring as the caption matcher so "cedar tree"
+      //    matches "CEDARTREE COURT".
       if (!job) {
-        const { data: matchingSites } = await supabase
-          .from("sites")
-          .select("id")
-          .ilike("name", `%${trimmed}%`)
-          .limit(5);
-        const siteIds = (matchingSites || []).map((s: any) => s.id);
-        if (siteIds.length > 0) {
-          const { data: bySite } = await supabase
-            .from("jobs")
-            .select("id, name, reference_number")
-            .in("site_id", siteIds)
-            .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (bySite) job = bySite;
-        }
-      }
-
-      // 4. Match by job address (partial)
-      if (!job) {
-        const { data: byAddr } = await supabase
+        const { data: jobPool } = await supabase
           .from("jobs")
-          .select("id, name, reference_number")
-          .ilike("address", `%${trimmed}%`)
+          .select("id, name, reference_number, address, sites(name, address, postcode)")
           .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (byAddr) job = byAddr;
+          .order("updated_at", { ascending: false })
+          .limit(1000);
+        const matches = matchJobsByCaption(trimmed, jobPool || []);
+        if (matches.length > 0 && (matches.length === 1 || matches[0].score > matches[1].score * 1.5)) {
+          job = matches[0].job;
+        }
       }
 
       if (job) {
@@ -961,6 +923,114 @@ function twimlResponse(message?: string): Response {
     status: 200,
     headers: { ...corsHeaders, "Content-Type": "text/xml" },
   });
+}
+
+// ── Normalised job/site matching ────────────────────────────────
+// Collapses case, spaces, hyphens, dashes and punctuation so "cedar tree",
+// "cedar-tree" and "CEDARTREE COURT" all map to the same tokens.
+function normaliseWord(s: string): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+function tokenise(s: string): string[] {
+  return (s || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+type JobCandidate = {
+  id: string;
+  name?: string | null;
+  reference_number?: string | null;
+  address?: string | null;
+  sites?: { name?: string | null; address?: string | null; postcode?: string | null } | null;
+};
+
+type ScoredJob = { job: JobCandidate; score: number; tokensMatched: number };
+
+/**
+ * Score jobs against a caption/text. The engineer typically writes the job or
+ * site name first, then notes. We try the first N leading tokens (5→1) as the
+ * search phrase, and score by:
+ *   - how many consecutive leading caption tokens appear (in order) at the
+ *     start of the normalised job name / site name / addresses
+ *   - full normalised-substring hits
+ * Returns candidates sorted by score descending. Only scores > 0 are returned.
+ */
+function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] {
+  const capTokens = tokenise(caption);
+  if (capTokens.length === 0) return [];
+  const capNormFull = capTokens.join("");
+
+  const scored: ScoredJob[] = [];
+
+  for (const job of jobs) {
+    const fields: Array<{ value: string; weight: number; primary: boolean }> = [];
+    if (job.name) fields.push({ value: job.name, weight: 100, primary: true });
+    if (job.sites?.name) fields.push({ value: job.sites.name, weight: 90, primary: true });
+    if (job.sites?.address) fields.push({ value: job.sites.address, weight: 40, primary: false });
+    if (job.sites?.postcode) fields.push({ value: job.sites.postcode, weight: 60, primary: false });
+    if (job.address) fields.push({ value: job.address, weight: 30, primary: false });
+    if (fields.length === 0) continue;
+
+    let best = 0;
+    let bestTokens = 0;
+
+    for (const f of fields) {
+      const fieldTokens = tokenise(f.value);
+      if (fieldTokens.length === 0) continue;
+      const fieldNormFull = fieldTokens.join("");
+
+      // 1. Full normalised substring hit (handles "cedartree" vs "cedar tree").
+      if (fieldNormFull.includes(capNormFull) && capNormFull.length >= 3) {
+        const s = f.weight * 3 + (fieldNormFull.startsWith(capNormFull) ? 50 : 0);
+        if (s > best) { best = s; bestTokens = capTokens.length; }
+      }
+
+      // 2. Consecutive leading caption tokens matching the field's leading tokens.
+      const maxK = Math.min(capTokens.length, fieldTokens.length, 5);
+      for (let k = maxK; k >= 1; k--) {
+        let allMatch = true;
+        for (let i = 0; i < k; i++) {
+          const ct = normaliseWord(capTokens[i]);
+          const ft = normaliseWord(fieldTokens[i]);
+          if (!ct || !ft) { allMatch = false; break; }
+          // Field token must start with caption token (allows "cedartree" prefix
+          // to match "cedartree" or caption "cedar" to match field "cedartree").
+          if (!ft.startsWith(ct) && !ct.startsWith(ft)) { allMatch = false; break; }
+        }
+        if (allMatch) {
+          const s = f.weight * k + 20;
+          if (s > best) { best = s; bestTokens = k; }
+          break;
+        }
+      }
+
+      // 3. Combined-tokens prefix: e.g. caption "cedar tree" → "cedartree" as
+      //    a prefix of the field's combined normalised form.
+      if (best === 0 && capNormFull.length >= 4 && fieldNormFull.startsWith(capNormFull)) {
+        const s = f.weight * 2;
+        if (s > best) { best = s; bestTokens = capTokens.length; }
+      }
+
+      // 4. Every caption token appears somewhere in the field (order-independent).
+      if (capTokens.length >= 2) {
+        const allIn = capTokens.every((t) => {
+          const n = normaliseWord(t);
+          return n.length >= 2 && fieldNormFull.includes(n);
+        });
+        if (allIn) {
+          const s = f.weight + 10 * capTokens.length;
+          if (s > best) { best = s; bestTokens = capTokens.length; }
+        }
+      }
+    }
+
+    if (best > 0) scored.push({ job, score: best, tokensMatched: bestTokens });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
 }
 
 async function validateTwilioSignature(
