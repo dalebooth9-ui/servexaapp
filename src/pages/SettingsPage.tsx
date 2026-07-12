@@ -57,6 +57,7 @@ export default function SettingsPage() {
   const [onboardingEmail, setOnboardingEmail] = useState("");
   const [onboardingName, setOnboardingName] = useState("");
   const [sendingOnboarding, setSendingOnboarding] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   const [lastRotated, setLastRotated] = useState<string | null>(() =>
     localStorage.getItem("api_key_last_rotated")
