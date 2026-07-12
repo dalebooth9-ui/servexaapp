@@ -649,7 +649,6 @@ export default function PlannerMapView({
         });
         mapInstanceRef.current = map;
 
-        const geocoder = new google.maps.Geocoder(); void geocoder;
         const bounds = new google.maps.LatLngBounds();
         let hasMarkers = false;
 
