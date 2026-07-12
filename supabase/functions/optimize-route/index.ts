@@ -18,6 +18,12 @@ type OriginInput =
   | null
   | undefined;
 
+type RequestBody = {
+  waypoints?: Waypoint[];
+  origin?: OriginInput;
+  optimize?: boolean;
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -43,7 +49,7 @@ Deno.serve(async (req) => {
     }, 503);
   }
 
-  let body: { waypoints?: Waypoint[]; origin?: OriginInput };
+  let body: RequestBody;
   try {
     body = await req.json();
   } catch {
@@ -56,6 +62,7 @@ Deno.serve(async (req) => {
   }
   const origin = body.origin ?? null;
   const hasExplicitOrigin = origin != null;
+  const shouldOptimiseWaypointOrder = body.optimize !== false;
 
   // Compose the ordered list of stops the way we'll ask Routes API to reason about them.
   // If an explicit origin is provided, it's the START, all waypoints are intermediates (last one becomes destination).
@@ -83,7 +90,7 @@ Deno.serve(async (req) => {
     intermediates: intermediateWps.map((w) => ({ address: w.address })),
     travelMode: "DRIVE",
     routingPreference: "TRAFFIC_AWARE",
-    optimizeWaypointOrder: true,
+    optimizeWaypointOrder: shouldOptimiseWaypointOrder,
     languageCode: "en-GB",
     regionCode: "GB",
     units: "METRIC",
@@ -146,7 +153,7 @@ Deno.serve(async (req) => {
 
   // Reorder waypoints array using the returned intermediate order.
   let optimised: Waypoint[] = waypoints;
-  if (order.length > 0) {
+  if (shouldOptimiseWaypointOrder && order.length > 0) {
     if (hasExplicitOrigin) {
       const middle = order.map((i: number) => intermediateWps[i]).filter(Boolean);
       optimised = [...middle, waypoints[waypoints.length - 1]];
