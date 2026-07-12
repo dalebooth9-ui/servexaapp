@@ -577,6 +577,63 @@ export type Database = {
         }
         Relationships: []
       }
+      client_errors: {
+        Row: {
+          context: Json
+          created_at: string
+          id: string
+          message: string
+          org_id: string | null
+          page_url: string | null
+          route: string | null
+          source: string
+          stack: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          id?: string
+          message: string
+          org_id?: string | null
+          page_url?: string | null
+          route?: string | null
+          source?: string
+          stack?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          id?: string
+          message?: string
+          org_id?: string | null
+          page_url?: string | null
+          route?: string | null
+          source?: string
+          stack?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_errors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_errors_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       compliance_records: {
         Row: {
           ai_extracted_fields: string[] | null
@@ -4510,6 +4567,78 @@ export type Database = {
           },
         ]
       }
+      support_tickets: {
+        Row: {
+          context: Json
+          created_at: string
+          description: string
+          id: string
+          org_id: string | null
+          page_url: string | null
+          reporter_email: string | null
+          reporter_name: string | null
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          route: string | null
+          status: string
+          updated_at: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          description: string
+          id?: string
+          org_id?: string | null
+          page_url?: string | null
+          reporter_email?: string | null
+          reporter_name?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          route?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          description?: string
+          id?: string
+          org_id?: string | null
+          page_url?: string | null
+          reporter_email?: string | null
+          reporter_name?: string | null
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          route?: string | null
+          status?: string
+          updated_at?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "support_tickets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "support_tickets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       suppressed_emails: {
         Row: {
           created_at: string
@@ -5000,6 +5129,7 @@ export type Database = {
         Returns: number
       }
       nextval_ppm_seq: { Args: never; Returns: number }
+      purge_old_client_errors: { Args: never; Returns: undefined }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
