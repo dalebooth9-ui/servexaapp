@@ -79,7 +79,14 @@ export default function MyProfile() {
         </div>
         <div>
           <Label htmlFor="wa">WhatsApp number</Label>
-          <Input id="wa" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+          <Input
+            id="wa"
+            value={whatsapp}
+            placeholder="+447772544203"
+            onChange={(e) => setWhatsapp(e.target.value)}
+            onBlur={() => setWhatsapp((v) => normaliseWhatsAppNumber(v))}
+          />
+          <p className="text-xs text-muted-foreground mt-1">{WHATSAPP_NUMBER_HINT}</p>
         </div>
         <Button onClick={save} disabled={saving} className="w-full">
           <Save className="h-4 w-4 mr-2" />
