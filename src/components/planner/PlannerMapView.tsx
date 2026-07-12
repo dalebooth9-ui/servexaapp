@@ -607,7 +607,7 @@ export default function PlannerMapView({
         if (!(window as any).google?.maps) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=marker&region=GB&language=en-GB`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&region=GB&language=en-GB`;
             script.async = true;
             script.defer = true;
             script.onload = () => resolve();
