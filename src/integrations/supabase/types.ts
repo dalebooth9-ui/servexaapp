@@ -3459,6 +3459,45 @@ export type Database = {
           },
         ]
       }
+      organisation_billing: {
+        Row: {
+          created_at: string
+          org_id: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          org_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          org_id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organisation_billing_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organisation_billing_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organisation_invitations: {
         Row: {
           accepted_at: string | null
@@ -3564,6 +3603,7 @@ export type Database = {
       organisations: {
         Row: {
           created_at: string
+          created_by: string | null
           id: string
           intake_email: string | null
           logo_url: string | null
@@ -3572,13 +3612,12 @@ export type Database = {
           plan_status: string
           primary_color: string | null
           slug: string
-          stripe_customer_id: string | null
-          stripe_subscription_id: string | null
           trial_ends_at: string | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          created_by?: string | null
           id?: string
           intake_email?: string | null
           logo_url?: string | null
@@ -3587,13 +3626,12 @@ export type Database = {
           plan_status?: string
           primary_color?: string | null
           slug: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          created_by?: string | null
           id?: string
           intake_email?: string | null
           logo_url?: string | null
@@ -3602,8 +3640,6 @@ export type Database = {
           plan_status?: string
           primary_color?: string | null
           slug?: string
-          stripe_customer_id?: string | null
-          stripe_subscription_id?: string | null
           trial_ends_at?: string | null
           updated_at?: string
         }
