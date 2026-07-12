@@ -498,6 +498,9 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
+      <div className="mt-8 flex justify-center border-t pt-4">
+        <AppVersion />
+      </div>
     </div>
   );
 }
