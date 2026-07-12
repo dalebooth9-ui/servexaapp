@@ -1,0 +1,18 @@
+# Servexa
+
+> Servexa is field service management software for fire protection and building safety contractors — jobs, engineers, assets, compliance, and service reports in one place.
+
+## Pages
+
+- [Product overview](/servexa): Preview of the Servexa dashboard and how field service teams use it.
+- [Sign in / sign up](/auth): Access the Servexa app.
+
+## Optional
+
+- [Terms of Service](/terms): Legal terms for using Servexa.
+- [Privacy Policy](/privacy): How Servexa handles personal data.
+- [Data Processing Agreement](/dpa): GDPR data processing terms.
+- [Acceptable Use Policy](/aup): Rules for using the platform.
+- [Service Level Agreement](/sla): Uptime and support commitments.
+- [Cookie Policy](/cookies): Cookies used on the site.
+- [Fire Protection Liability](/fire-liability): Fire protection service liability terms.

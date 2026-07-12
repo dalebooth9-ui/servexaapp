@@ -226,7 +226,7 @@ export default function CustomerPortal() {
             <h1 className="text-lg sm:text-xl font-bold truncate text-slate-900">{customerName}</h1>
             <p className="text-xs sm:text-sm text-slate-500">Customer Portal · powered by Servexa</p>
           </div>
-          <img src="/images/vivafire-logo-new.jpg" alt="Servexa" className="h-9 sm:h-10 object-contain" />
+          <img src="/images/vivafire-logo-new.jpg" alt="Servexa logo" className="h-9 sm:h-10 object-contain" />
         </div>
       </header>
 
