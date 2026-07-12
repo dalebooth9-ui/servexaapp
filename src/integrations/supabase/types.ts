@@ -3419,6 +3419,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          intake_email: string | null
           logo_url: string | null
           name: string
           plan: string
@@ -3433,6 +3434,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          intake_email?: string | null
           logo_url?: string | null
           name: string
           plan?: string
@@ -3447,6 +3449,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          intake_email?: string | null
           logo_url?: string | null
           name?: string
           plan?: string
@@ -3695,6 +3698,27 @@ export type Database = {
           id?: string
           schedule_date?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      po_intake_rate_limit: {
+        Row: {
+          count: number
+          intake_email: string
+          updated_at: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          intake_email: string
+          updated_at?: string
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          intake_email?: string
+          updated_at?: string
+          window_start?: string
         }
         Relationships: []
       }
@@ -4874,6 +4898,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      generate_intake_email: { Args: { _slug: string }; Returns: string }
       generate_vfp_reference: { Args: never; Returns: string }
       get_email_automation_status: {
         Args: never
@@ -4955,6 +4980,13 @@ export type Database = {
           message: Json
           msg_id: number
           read_ct: number
+        }[]
+      }
+      resolve_org_by_intake_email: {
+        Args: { _email: string }
+        Returns: {
+          allowed: boolean
+          org_id: string
         }[]
       }
       set_email_automation_active: {
