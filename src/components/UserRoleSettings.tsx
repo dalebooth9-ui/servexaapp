@@ -87,9 +87,22 @@ export default function UserRoleSettings() {
         fetchUsers();
       }
     } else {
+      // Resolve the target user's organisation so the new role row is org-scoped.
+      const { data: membership } = await supabase
+        .from("organisation_members")
+        .select("org_id")
+        .eq("user_id", userId)
+        .eq("status", "active")
+        .maybeSingle();
+      const orgId = membership?.org_id;
+      if (!orgId) {
+        toast.error("Cannot add role: user has no active organisation membership");
+        setToggling(null);
+        return;
+      }
       const { error } = await supabase
         .from("user_roles")
-        .insert({ user_id: userId, role });
+        .insert({ user_id: userId, role, org_id: orgId });
       if (error) {
         toast.error("Failed to add role");
       } else {
