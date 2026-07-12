@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
+import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
