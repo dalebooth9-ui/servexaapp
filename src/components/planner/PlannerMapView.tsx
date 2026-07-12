@@ -762,10 +762,17 @@ export default function PlannerMapView({
           });
         }
 
-        // Cluster scheduled + unallocated markers so labels don't overlap when zoomed out
+        // Cluster scheduled markers always; unallocated only when the filter allows it.
+        // Reading from the ref ensures re-runs of this init (e.g. after a background
+        // refetch) don't ignore a "hidden" toggle that was set before the refetch.
+        const visibleUnallocated = showUnallocatedRef.current ? unallocatedMarkersRef.current : [];
+        // Hard-detach the ones we're not showing so they aren't rendered outside the clusterer
+        if (!showUnallocatedRef.current) {
+          unallocatedMarkersRef.current.forEach((m) => m.setMap(null));
+        }
         const allJobMarkers = [
           ...markersRef.current.map((m) => m.marker),
-          ...unallocatedMarkersRef.current,
+          ...visibleUnallocated,
         ];
         if (allJobMarkers.length > 0) {
           clustererRef.current = new MarkerClusterer({ map, markers: allJobMarkers });
