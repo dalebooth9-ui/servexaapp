@@ -17,6 +17,7 @@ type Callbacks = {
 };
 
 const LAST_PROMPTED_VERSION_KEY = "pwa_last_prompted_version";
+const INSTALLED_VERSION_KEY = "pwa_installed_version";
 
 export function getLastPromptedVersion(): string | null {
   if (typeof window === "undefined") return null;
@@ -36,6 +37,33 @@ export function setLastPromptedVersion(version: string): void {
   }
 }
 
+export function clearLastPromptedVersion(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(LAST_PROMPTED_VERSION_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function getInstalledVersion(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(INSTALLED_VERSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setInstalledVersion(version: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(INSTALLED_VERSION_KEY, version);
+  } catch {
+    // ignore
+  }
+}
+
 /**
  * Returns true if we have not already prompted for an update while this
  * exact build was the running version. This stops the banner/toast from
@@ -43,6 +71,20 @@ export function setLastPromptedVersion(version: string): void {
  */
 export function shouldPromptForUpdate(currentVersion: string): boolean {
   return getLastPromptedVersion() !== currentVersion;
+}
+
+/**
+ * Reset the update-prompt state whenever the running app version changes.
+ * This ensures a fresh install (or a fresh deployment) does not inherit a
+ * stale "last prompted" version from browser storage, so the user sees the
+ * update banner correctly from the first run.
+ */
+export function resetPromptStateOnNewInstall(currentVersion: string): void {
+  const installed = getInstalledVersion();
+  if (installed !== currentVersion) {
+    clearLastPromptedVersion();
+    setInstalledVersion(currentVersion);
+  }
 }
 
 const REFUSE_HOSTNAMES = (h: string) =>
@@ -90,6 +132,13 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
     await unregisterMatching();
     return;
   }
+
+  // Reset the last-prompted version whenever the installed app version changes.
+  // A fresh PWA install can inherit origin localStorage from prior browser use;
+  // clearing the key guarantees the update banner behaves correctly from run one.
+  const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+  resetPromptStateOnNewInstall(currentVersion);
+
   try {
     const { registerSW } = await import("virtual:pwa-register");
     const update = registerSW({
