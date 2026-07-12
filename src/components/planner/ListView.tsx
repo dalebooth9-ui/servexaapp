@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Link } from "react-router-dom";
 import { ArrowUpDown, Users, Trash2, Wrench, MessageSquare } from "lucide-react";
+import { OpenInMapsButton } from "@/components/OpenInMapsButton";
 
 interface JobPart {
   id: string;
@@ -261,7 +262,21 @@ export default function ListView({
                         )}
                         <TableCell className="font-medium whitespace-nowrap">{format(parseISO(entry.schedule_date), "EEE dd/MM")}</TableCell>
                         <TableCell className="text-sm">{(job as any)?.customers?.name || job?.customer || "—"}</TableCell>
-                        <TableCell className="text-sm max-w-[180px] truncate">{job?.site?.name || job?.address || "—"}</TableCell>
+                        <TableCell className="text-sm max-w-[220px]">
+                          <div className="flex items-center gap-1.5">
+                            <span className="truncate">{job?.site?.name || job?.address || "—"}</span>
+                            {(job?.address || job?.site?.postcode) && (
+                              <OpenInMapsButton
+                                address={job?.address ?? null}
+                                postcode={job?.site?.postcode ?? null}
+                                size="sm"
+                                variant="ghost"
+                                iconOnly
+                                className="h-6 w-6 p-0 shrink-0"
+                              />
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm font-mono">{job?.site?.postcode || extractPostcode(job?.address || null) || "—"}</TableCell>
                         <TableCell>
                           {job ? (
