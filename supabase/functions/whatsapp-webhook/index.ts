@@ -45,22 +45,29 @@ Deno.serve(async (req) => {
     const body = await req.text();
     const params = new URLSearchParams(body);
 
-    // Validate Twilio signature
+    // Validate Twilio signature — enforced
     const signature = req.headers.get("x-twilio-signature");
     console.log(`Signature present: ${!!signature}`);
 
-    if (signature) {
-      // Use the public-facing URL that Twilio signs against, not the internal req.url
-      const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
-      console.log(`Validating signature against URL: ${publicUrl}`);
-      const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
-      console.log(`Signature valid: ${isValid}`);
-      if (!isValid) {
-        console.error("Invalid Twilio signature — proceeding anyway for diagnostics");
-        // NOTE: signature check bypassed for diagnostics — re-enable in production
-      }
-    } else {
-      console.error("Missing Twilio signature — proceeding anyway for diagnostics");
+    if (!signature) {
+      console.error("Missing Twilio signature — rejecting request");
+      return new Response("Forbidden: missing signature", {
+        status: 403,
+        headers: corsHeaders,
+      });
+    }
+
+    // Use the public-facing URL that Twilio signs against, not the internal req.url
+    const publicUrl = `${SUPABASE_URL}/functions/v1/whatsapp-webhook`;
+    console.log(`Validating signature against URL: ${publicUrl}`);
+    const isValid = await validateTwilioSignature(publicUrl, params, signature, TWILIO_AUTH_TOKEN);
+    console.log(`Signature valid: ${isValid}`);
+    if (!isValid) {
+      console.error("Invalid Twilio signature — rejecting request");
+      return new Response("Forbidden: invalid signature", {
+        status: 403,
+        headers: corsHeaders,
+      });
     }
 
     const rawFrom = params.get("From")?.replace("whatsapp:", "") || "";
