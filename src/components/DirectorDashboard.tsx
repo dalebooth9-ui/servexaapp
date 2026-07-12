@@ -12,6 +12,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
+import SetupChecklist from "@/components/SetupChecklist";
 import { toast } from "sonner";
 
 function reportError(label: string, error: any) {
