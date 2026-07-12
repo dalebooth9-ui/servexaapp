@@ -159,6 +159,23 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
     return m;
   }, [rows]);
 
+  const isMobile = useIsMobile();
+  const [bulkOpen, setBulkOpen] = useState(false);
+
+  const bulkAddRows = useCallback((unitLabels: string[]) => {
+    if (unitLabels.length === 0) return;
+    const newRows: Row[] = unitLabels.map((label) => {
+      const blank: Row = { id: genId(), unit_number: label };
+      columns.forEach((c) => {
+        if (c.id !== "id" && c.id !== "unit_number") blank[c.id] = "";
+      });
+      return blank;
+    });
+    commit([...rowsRef.current, ...newRows]);
+  }, [columns, commit]);
+
+  const hasUnitColumn = columns.some((c) => c.id === "unit_number");
+
   return (
     <div ref={containerRef} className="space-y-3 w-full">
       {rows.length > 5 && (
@@ -174,30 +191,44 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
       )}
 
       {rows.length === 0 && (
-        <p className="text-xs text-muted-foreground italic">No rows yet. Tap "Add Row" to begin.</p>
+        <p className="text-xs text-muted-foreground italic">No rows yet. Tap "Add Row" or "Bulk Add" to begin.</p>
       )}
 
       {trimmedQuery && filteredRows.length === 0 && (
         <p className="text-xs text-muted-foreground italic">No rows match "{query}".</p>
       )}
 
-      {visibleRows.map((row) => {
-        const rowId: string = row.id || `idx-${indexById.get(row.id) ?? 0}`;
-        const rowIdx = indexById.get(row.id) ?? 0;
-        return (
-          <DwellingRow
-            key={rowId}
-            row={row}
-            rowIndex={rowIdx}
-            columns={columns}
-            fieldId={fieldId}
-            jobId={jobId}
-            userId={userId}
-            onUpdateCell={updateCellById}
-            onRemove={removeRowById}
-          />
-        );
-      })}
+      {!isMobile ? (
+        <DesktopGrid
+          rows={visibleRows}
+          allRowsLength={rows.length}
+          columns={columns}
+          fieldId={fieldId}
+          jobId={jobId}
+          userId={userId}
+          onUpdateCell={updateCellById}
+          onRemove={removeRowById}
+          onAddRow={addRow}
+        />
+      ) : (
+        visibleRows.map((row) => {
+          const rowId: string = row.id || `idx-${indexById.get(row.id) ?? 0}`;
+          const rowIdx = indexById.get(row.id) ?? 0;
+          return (
+            <DwellingRow
+              key={rowId}
+              row={row}
+              rowIndex={rowIdx}
+              columns={columns}
+              fieldId={fieldId}
+              jobId={jobId}
+              userId={userId}
+              onUpdateCell={updateCellById}
+              onRemove={removeRowById}
+            />
+          );
+        })
+      )}
 
       {isWindowed && visibleCount < filteredRows.length && (
         <div ref={sentinelRef} className="py-4 text-center text-xs text-muted-foreground">
@@ -206,15 +237,22 @@ export default function RepeatingTableField({ columns, value, onChange, jobId, u
       )}
 
       {/* Sticky footer add bar so engineers don't have to scroll to the bottom */}
-      <div className="sticky bottom-0 z-10 -mx-3 px-3 pt-2 pb-2 bg-background/95 backdrop-blur border-t border-border">
+      <div className="sticky bottom-0 z-10 -mx-3 px-3 pt-2 pb-2 bg-background/95 backdrop-blur border-t border-border flex gap-2">
         <Button
           type="button"
           onClick={addRow}
-          className="w-full min-h-[44px] bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
+          className="flex-1 min-h-[44px] bg-accent hover:bg-accent/90 text-accent-foreground gap-2"
         >
           <Plus className="h-4 w-4" />
           Add Row{rows.length > 0 ? ` (${rows.length})` : ""}
         </Button>
+        {hasUnitColumn && (
+          <BulkAddDialog
+            open={bulkOpen}
+            onOpenChange={setBulkOpen}
+            onAdd={bulkAddRows}
+          />
+        )}
       </div>
     </div>
   );
