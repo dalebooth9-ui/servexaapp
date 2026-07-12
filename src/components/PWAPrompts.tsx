@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Download, RefreshCw, X } from "lucide-react";
-import { setupPWA } from "@/pwa/registerSW";
+import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate } from "@/pwa/registerSW";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -42,6 +42,9 @@ export default function PWAPrompts() {
   useEffect(() => {
     void setupPWA({
       onNeedRefresh: (doReload) => {
+        const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+        if (!shouldPromptForUpdate(currentVersion)) return;
+        setLastPromptedVersion(currentVersion);
         setReload(() => doReload);
       },
       onOfflineReady: () => {
