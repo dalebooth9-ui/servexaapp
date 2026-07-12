@@ -15,6 +15,7 @@ import {
 import { format } from "date-fns";
 import VehicleCheckSheet from "@/components/VehicleCheckSheet";
 import VehicleCheckHistory from "@/components/VehicleCheckHistory";
+import { OpenInMapsButton } from "@/components/OpenInMapsButton";
 
 type ScheduledJob = {
   id: string;
@@ -478,8 +479,8 @@ export default function EngineerDashboard() {
 
       {/* Nearest job */}
       {currentPos && jobsWithDistance[0] && jobsWithDistance[0].distance_km != null && (
-        <Link to={`/jobs/${jobsWithDistance[0].id}`}>
-          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-3 active:scale-[0.98] transition-transform">
+        <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-center gap-3">
+          <Link to={`/jobs/${jobsWithDistance[0].id}`} className="flex items-center gap-3 flex-1 min-w-0 active:scale-[0.98] transition-transform">
             <div className="rounded-xl bg-primary/15 p-2.5">
               <Navigation className="h-5 w-5 text-primary" />
             </div>
@@ -492,8 +493,15 @@ export default function EngineerDashboard() {
               <p className="text-lg font-bold text-primary">{jobsWithDistance[0].distance_km!.toFixed(1)}</p>
               <p className="text-xs text-muted-foreground">km</p>
             </div>
-          </div>
-        </Link>
+          </Link>
+          <OpenInMapsButton
+            address={jobsWithDistance[0].address}
+            size="sm"
+            variant="default"
+            iconOnly
+            className="shrink-0"
+          />
+        </div>
       )}
 
       {/* Today's jobs preview (first 3) */}
@@ -830,17 +838,15 @@ function JobCard({ job, expanded = false }: { job: ScheduledJob; expanded?: bool
                 </div>
               </Link>
               {job.address && (
-                <a
-                  href={`https://maps.google.com/?q=${encodeURIComponent(job.address)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex-1"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="flex items-center justify-center gap-1.5 rounded-xl bg-muted text-muted-foreground text-xs font-semibold py-2.5 active:bg-muted/70 transition-colors">
-                    <Navigation className="h-3.5 w-3.5" /> Navigate
-                  </div>
-                </a>
+                <div className="flex-1" onClick={(e) => e.stopPropagation()}>
+                  <OpenInMapsButton
+                    address={job.address}
+                    size="sm"
+                    variant="secondary"
+                    label="Directions"
+                    className="w-full"
+                  />
+                </div>
               )}
             </div>
           )}
