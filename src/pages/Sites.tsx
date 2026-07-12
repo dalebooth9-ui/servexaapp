@@ -1153,7 +1153,7 @@ export default function Sites() {
             )}
             <Button variant="outline" onClick={() => setFolderImportOpen(true)}><FolderOpen className="mr-2 h-4 w-4" /> Import from Folders</Button>
             <Button variant="outline" onClick={() => setBulkOpen(true)}><FileSpreadsheet className="mr-2 h-4 w-4" /> Bulk Import</Button>
-            <Button onClick={() => openCreate(null, "region")}><Plus className="mr-2 h-4 w-4" /> Add Region</Button>
+            <Button onClick={() => openCreate(null, "region")} data-setup="add-site"><Plus className="mr-2 h-4 w-4" /> Add Region</Button>
           </div>
         )}
       </div>
