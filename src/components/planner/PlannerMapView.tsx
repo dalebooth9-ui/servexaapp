@@ -409,7 +409,7 @@ export default function PlannerMapView({
       // Server-side optimisation via the Routes API edge function.
       // Uses GOOGLE_MAPS_SERVER_KEY (non-referer-restricted) so it works even
       // on newly-created Google Cloud projects that can't use the legacy
-      // Directions API (including Maps JS DirectionsService).
+      // legacy Maps JS client-side routing.
       let data: {
         optimised: { address: string; job_id: string }[];
         legs: any[];
@@ -939,7 +939,7 @@ export default function PlannerMapView({
   }, [engineerLocations, engineers, getLocationStatus]);
 
   // Draw live routes per engineer via the Routes API edge function, never the
-  // deprecated Maps JS DirectionsService. Honours the engineer filter.
+  // deprecated Maps JS routing. Honours the engineer filter.
   useEffect(() => {
     const map = mapInstanceRef.current;
 
