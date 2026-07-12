@@ -456,8 +456,13 @@ export default function PlannerMapView({
           }
         }
       }
-    } catch {
-      toast({ title: "Route optimisation failed", variant: "destructive" });
+    } catch (err) {
+      console.error("Route optimisation error:", err);
+      toast({
+        title: "Route optimisation failed",
+        description: err instanceof Error ? err.message : "Something went wrong contacting the routing service.",
+        variant: "destructive",
+      });
     }
     setOptimising(false);
     setLastRefreshAt(new Date());
