@@ -132,6 +132,13 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
     await unregisterMatching();
     return;
   }
+
+  // Reset the last-prompted version whenever the installed app version changes.
+  // A fresh PWA install can inherit origin localStorage from prior browser use;
+  // clearing the key guarantees the update banner behaves correctly from run one.
+  const currentVersion = typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+  resetPromptStateOnNewInstall(currentVersion);
+
   try {
     const { registerSW } = await import("virtual:pwa-register");
     const update = registerSW({
