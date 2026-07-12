@@ -449,17 +449,11 @@ export default function PlannerMapView({
         // Add numbered step labels to markers
         const map = mapInstanceRef.current;
         if (map) {
-          const geocoder = new google.maps.Geocoder();
           for (let i = 0; i < data.optimised.length; i++) {
             const wp = data.optimised[i];
             try {
-              const geoResult = await geocoder.geocode({ address: wp.address });
-              const pos = geoResult.results?.[0]?.geometry?.location;
+              const pos = await geocodeWithGoogle(wp.address);
               if (!pos) continue;
-
-              const labelDiv = document.createElement("div");
-              labelDiv.textContent = String(i + 1);
-              labelDiv.style.cssText = "background:#2563eb;color:#fff;font-weight:700;font-size:13px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);pointer-events:none;";
 
               const overlay = new google.maps.Marker({
                 map,
