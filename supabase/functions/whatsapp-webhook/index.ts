@@ -588,38 +588,20 @@ Deno.serve(async (req) => {
         if (byName) job = byName;
       }
 
-      // 3. Match by site name → most recent active job at that site
+      // 3. Normalised fuzzy match by job name / site name / site address / job address
+      //    Uses the same tokenised scoring as the caption matcher so "cedar tree"
+      //    matches "CEDARTREE COURT".
       if (!job) {
-        const { data: matchingSites } = await supabase
-          .from("sites")
-          .select("id")
-          .ilike("name", `%${trimmed}%`)
-          .limit(5);
-        const siteIds = (matchingSites || []).map((s: any) => s.id);
-        if (siteIds.length > 0) {
-          const { data: bySite } = await supabase
-            .from("jobs")
-            .select("id, name, reference_number")
-            .in("site_id", siteIds)
-            .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
-            .order("created_at", { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          if (bySite) job = bySite;
-        }
-      }
-
-      // 4. Match by job address (partial)
-      if (!job) {
-        const { data: byAddr } = await supabase
+        const { data: jobPool } = await supabase
           .from("jobs")
-          .select("id, name, reference_number")
-          .ilike("address", `%${trimmed}%`)
+          .select("id, name, reference_number, address, sites(name, address, postcode)")
           .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (byAddr) job = byAddr;
+          .order("updated_at", { ascending: false })
+          .limit(1000);
+        const matches = matchJobsByCaption(trimmed, jobPool || []);
+        if (matches.length > 0 && (matches.length === 1 || matches[0].score > matches[1].score * 1.5)) {
+          job = matches[0].job;
+        }
       }
 
       if (job) {
