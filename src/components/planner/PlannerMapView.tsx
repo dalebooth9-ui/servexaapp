@@ -1333,6 +1333,46 @@ export default function PlannerMapView({
       )}
       {routeResult?.legs && routeResult.legs.length > 0 && (
         <div className="rounded-lg border bg-card">
+          {(() => {
+            const fmtMins = (mins: number) => {
+              if (!mins) return "0m";
+              if (mins < 60) return `${mins}m`;
+              const h = Math.floor(mins / 60);
+              const m = mins % 60;
+              return m ? `${h}h ${m}m` : `${h}h`;
+            };
+            const legCount = routeResult.legs.length;
+            const stopCount = routeResult.optimised?.length ?? legCount + 1;
+            const totalBase = routeResult.total_duration_mins ?? 0;
+            const totalLive = routeResult.total_duration_in_traffic_mins ?? totalBase;
+            const avg = legCount ? Math.round(totalBase / legCount) : 0;
+            const extra = totalLive - totalBase;
+            return (
+              <div className="px-3 py-3 border-b bg-muted/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total distance</div>
+                  <div className="text-sm font-semibold">{routeResult.total_distance_km} km</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total time</div>
+                  <div className="text-sm font-semibold">
+                    {fmtMins(totalBase)}
+                    {extra > 0 && (
+                      <span className="ml-1 text-amber-600 font-medium">· {fmtMins(totalLive)} live</span>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Stops · legs</div>
+                  <div className="text-sm font-semibold">{stopCount} · {legCount}</div>
+                </div>
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Avg per leg</div>
+                  <div className="text-sm font-semibold">{fmtMins(avg)}</div>
+                </div>
+              </div>
+            );
+          })()}
           <div className="px-3 py-2 border-b flex items-center justify-between text-xs font-medium text-muted-foreground">
             <span>Route legs · baseline vs live traffic</span>
             <span className="flex items-center gap-3">
