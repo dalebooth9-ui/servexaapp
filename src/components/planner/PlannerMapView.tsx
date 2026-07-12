@@ -624,7 +624,7 @@ export default function PlannerMapView({
         if (!(window as any).google?.maps) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&region=GB&language=en-GB`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=geometry&region=GB&language=en-GB`;
             script.async = true;
             script.defer = true;
             script.onload = () => resolve();
@@ -636,13 +636,21 @@ export default function PlannerMapView({
         if (cancelled || !mapRef.current) return;
 
         const { Map: GMap } = await (window as any).google.maps.importLibrary("maps");
+        // Ensure geometry library (for polyline decoding) is available
+        try { await (window as any).google.maps.importLibrary("geometry"); } catch { /* already loaded via script tag */ }
+        // Default view: whole UK. fitBounds below will re-frame once markers geocode.
+        const UK_CENTER = { lat: 54.5, lng: -2.5 };
         const map = new GMap(mapRef.current, {
-          center: { lat: 54.0, lng: -5 },
-          zoom: 5,
+          center: UK_CENTER,
+          zoom: 6,
           mapTypeId: "roadmap",
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
+          restriction: {
+            latLngBounds: { north: 61, south: 49, west: -11, east: 3 },
+            strictBounds: false,
+          },
         });
         mapInstanceRef.current = map;
 
