@@ -16,6 +16,35 @@ type Callbacks = {
   onOfflineReady?: () => void;
 };
 
+const LAST_PROMPTED_VERSION_KEY = "pwa_last_prompted_version";
+
+export function getLastPromptedVersion(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return localStorage.getItem(LAST_PROMPTED_VERSION_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setLastPromptedVersion(version: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(LAST_PROMPTED_VERSION_KEY, version);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Returns true if we have not already prompted for an update while this
+ * exact build was the running version. This stops the banner/toast from
+ * spamming the user on every foreground check once they have dismissed it.
+ */
+export function shouldPromptForUpdate(currentVersion: string): boolean {
+  return getLastPromptedVersion() !== currentVersion;
+}
+
 const REFUSE_HOSTNAMES = (h: string) =>
   h === "lovableproject.com" ||
   h.endsWith(".lovableproject.com") ||
