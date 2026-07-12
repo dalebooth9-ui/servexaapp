@@ -124,3 +124,27 @@ export async function setupPWA(cb: Callbacks = {}): Promise<void> {
     // virtual:pwa-register only exists after vite-plugin-pwa builds; ignore in tests
   }
 }
+
+/**
+ * Manually poll the registered service worker for an update.
+ * Returns `true` if a new worker is installing or waiting after the check.
+ * The existing PWAPrompts banner will surface via `onNeedRefresh` when the
+ * new worker is waiting, so callers only need to show a "checking" toast.
+ */
+export async function forceUpdateCheck(): Promise<{ updateFound: boolean; error?: string }> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
+    return { updateFound: false, error: "Service workers are not supported in this browser." };
+  }
+  try {
+    const reg = await navigator.serviceWorker.getRegistration();
+    if (!reg) {
+      return { updateFound: false, error: "No service worker is registered." };
+    }
+    await reg.update();
+    const newWorker = reg.installing || reg.waiting;
+    const updateFound = !!newWorker && newWorker !== reg.active;
+    return { updateFound };
+  } catch (err: any) {
+    return { updateFound: false, error: err?.message || "Update check failed." };
+  }
+}
