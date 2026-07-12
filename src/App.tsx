@@ -75,6 +75,8 @@ const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
+const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
+const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 
 const queryClient = new QueryClient();
 
