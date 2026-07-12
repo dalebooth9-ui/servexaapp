@@ -22,6 +22,7 @@ import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import TableSkeleton from "@/components/TableSkeleton";
+import { normaliseWhatsAppNumber, WHATSAPP_NUMBER_HINT } from "@/lib/normalisePhone";
 
 const DOC_TYPES = ["certificate", "id", "training", "insurance", "dbs", "first_aid", "other"];
 
