@@ -379,9 +379,25 @@ export default function PlannerMapView({
       const { data, error } = await supabase.functions.invoke("optimise-route", {
         body: { waypoints, origin },
       });
-      if (error) throw error;
+      if (error) {
+        const detail = (error as any)?.context
+          ? await (error as any).context.text().catch(() => "")
+          : (error as any)?.message || "";
+        console.error("optimise-route failed:", detail || error);
+        toast({
+          title: "Route optimisation failed",
+          description: detail?.slice(0, 300) || "The routing service returned an error. Check that all stop addresses are complete and try again.",
+          variant: "destructive",
+        });
+        setOptimising(false);
+        return;
+      }
       if (data?.error) {
-        toast({ title: "Route optimisation unavailable — check addresses are valid", variant: "destructive" });
+        toast({
+          title: "Route optimisation unavailable",
+          description: `${data.error}${data.reason ? ` (${data.reason})` : ""} — check addresses are complete and valid UK postcodes.`,
+          variant: "destructive",
+        });
         setOptimising(false);
         return;
       }
