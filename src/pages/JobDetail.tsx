@@ -679,19 +679,14 @@ export default function JobDetail() {
                   </div>
                   <div>
                     <Label className="text-xs">Site</Label>
-                    <Select value={editForm.site_id || "none"} onValueChange={(v) => {
-                      const siteId = v === "none" ? "" : v;
-                      const site = sites.find((s) => s.id === siteId);
-                      setEditForm((f) => ({ ...f, site_id: siteId, ...(site?.address ? { address: site.address } : {}) }));
-                    }}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select site" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No site</SelectItem>
-                        {sites.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}{s.postcode ? ` (${s.postcode})` : ""}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SiteCombobox
+                      value={editForm.site_id}
+                      sites={sites}
+                      onChange={(siteId) => {
+                        const site = sites.find((s) => s.id === siteId);
+                        setEditForm((f) => ({ ...f, site_id: siteId, ...(site?.address ? { address: site.address } : {}) }));
+                      }}
+                    />
                   </div>
                   {job.category === "installation" ? (
                     <div>
