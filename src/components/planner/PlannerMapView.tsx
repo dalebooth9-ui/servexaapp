@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Route, Loader2, MapPin, AlertTriangle, RefreshCw, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
+import { geocodeWithGoogle } from "@/lib/geocodeCache";
 
 interface ScheduleEntry {
   id: string;
@@ -448,17 +449,11 @@ export default function PlannerMapView({
         // Add numbered step labels to markers
         const map = mapInstanceRef.current;
         if (map) {
-          const geocoder = new google.maps.Geocoder();
           for (let i = 0; i < data.optimised.length; i++) {
             const wp = data.optimised[i];
             try {
-              const geoResult = await geocoder.geocode({ address: wp.address });
-              const pos = geoResult.results?.[0]?.geometry?.location;
+              const pos = await geocodeWithGoogle(wp.address);
               if (!pos) continue;
-
-              const labelDiv = document.createElement("div");
-              labelDiv.textContent = String(i + 1);
-              labelDiv.style.cssText = "background:#2563eb;color:#fff;font-weight:700;font-size:13px;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);pointer-events:none;";
 
               const overlay = new google.maps.Marker({
                 map,
@@ -654,16 +649,14 @@ export default function PlannerMapView({
         });
         mapInstanceRef.current = map;
 
-        const geocoder = new google.maps.Geocoder();
         const bounds = new google.maps.LatLngBounds();
         let hasMarkers = false;
 
         // Scheduled jobs — coloured by priority
         for (const { job, engineerName, engineerId } of scheduledJobs) {
           try {
-            const result = await geocoder.geocode({ address: job.address!, region: "GB", componentRestrictions: { country: "GB" } });
-            if (result.results[0]) {
-              const pos = result.results[0].geometry.location;
+            const pos = await geocodeWithGoogle(job.address!);
+            if (pos) {
               bounds.extend(pos);
               hasMarkers = true;
 
@@ -675,8 +668,8 @@ export default function PlannerMapView({
               });
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address!)}`;
-              const posLat = pos.lat();
-              const posLng = pos.lng();
+              const posLat = pos.lat;
+              const posLng = pos.lng;
               const infoWindow = new google.maps.InfoWindow({
                 content: `<div style="font-family:system-ui;font-size:13px;max-width:260px">
                   <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${job.reference_number}</a> — ${job.name}<br/>
@@ -706,9 +699,8 @@ export default function PlannerMapView({
         for (const job of unallocatedJobs) {
           if (!job.address || scheduledIds.has(job.id)) continue;
           try {
-            const result = await geocoder.geocode({ address: job.address, region: "GB", componentRestrictions: { country: "GB" } });
-            if (result.results[0]) {
-              const pos = result.results[0].geometry.location;
+            const pos = await geocodeWithGoogle(job.address);
+            if (pos) {
               bounds.extend(pos);
               hasMarkers = true;
 

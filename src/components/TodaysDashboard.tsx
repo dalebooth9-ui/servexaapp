@@ -126,18 +126,12 @@ export default function TodaysDashboard() {
     if (toGeocode.length === 0) return;
 
     const geocodeAll = async () => {
+      const { geocodeWithNominatim } = await import("@/lib/geocodeCache");
       const results = new Map(geocoded);
       for (const job of toGeocode) {
         if (!job.address) continue;
-        try {
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(job.address)}`
-          );
-          const data = await res.json();
-          if (data?.[0]) {
-            results.set(job.id, { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) });
-          }
-        } catch { /* skip */ }
+        const coords = await geocodeWithNominatim(job.address);
+        if (coords) results.set(job.id, coords);
       }
       setGeocoded(results);
     };
