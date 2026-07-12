@@ -4,8 +4,18 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Build-time version stamp. Injected as globals so the app can display which
+// build is running (for support triage) and so update detection has a stable
+// per-deployment identifier.
+const BUILD_TIME = new Date().toISOString();
+const APP_VERSION = BUILD_TIME.replace(/[-:.TZ]/g, "").slice(0, 12); // e.g. 202607121930
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  define: {
+    __APP_VERSION__: JSON.stringify(APP_VERSION),
+    __APP_BUILD_TIME__: JSON.stringify(BUILD_TIME),
+  },
   // Strip console.* and debugger statements from production builds only.
   // Dev keeps them so engineers can inspect logs locally.
   ...(mode === "production"

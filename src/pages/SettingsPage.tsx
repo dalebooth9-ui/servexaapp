@@ -30,6 +30,7 @@ import JobDocumentReattachSettings from "@/components/JobDocumentReattachSetting
 import FilenameFormatSettings from "@/components/FilenameFormatSettings";
 import { WordExportSettings } from "@/components/WordExportSettings";
 import WatermarkSettings from "@/components/WatermarkSettings";
+import AppVersion from "@/components/AppVersion";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://servexaapp.lovable.app/install";
@@ -497,6 +498,9 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
+      <div className="mt-8 flex justify-center border-t pt-4">
+        <AppVersion />
+      </div>
     </div>
   );
 }
