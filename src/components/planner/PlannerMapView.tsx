@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Route, Loader2, MapPin, AlertTriangle, RefreshCw, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
+import { geocodeWithGoogle } from "@/lib/geocodeCache";
 
 interface ScheduleEntry {
   id: string;
