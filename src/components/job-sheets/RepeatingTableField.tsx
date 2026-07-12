@@ -657,3 +657,350 @@ function RowPhotoGalleryCell({
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// Desktop grid (spreadsheet-style, editable inline)
+// ---------------------------------------------------------------------------
+
+type DesktopGridProps = {
+  rows: Row[];
+  allRowsLength: number;
+  columns: RepeatingColumn[];
+  fieldId?: string;
+  jobId?: string;
+  userId?: string;
+  onUpdateCell: (rowId: string, colId: string, v: any) => void;
+  onRemove: (rowId: string) => void;
+  onAddRow: () => void;
+};
+
+function DesktopGrid({
+  rows, columns, fieldId, jobId, userId, onUpdateCell, onRemove, onAddRow,
+}: DesktopGridProps) {
+  const dataCols = useMemo(() => columns.filter((c) => c.id !== "id"), [columns]);
+  const cellRefs = useRef<Map<string, HTMLElement | null>>(new Map());
+
+  const setCellRef = (rowId: string, colId: string) => (el: HTMLElement | null) => {
+    cellRefs.current.set(`${rowId}::${colId}`, el);
+  };
+
+  const focusCell = (rowId: string, colId: string) => {
+    const el = cellRefs.current.get(`${rowId}::${colId}`);
+    if (el) {
+      el.focus();
+      if (el instanceof HTMLInputElement) el.select?.();
+    }
+  };
+
+  const handleKeyNav = (rowIdx: number, colIdx: number, rowId: string) => (e: KeyboardEvent) => {
+    const isLastCol = colIdx === dataCols.length - 1;
+    const isLastRow = rowIdx === rows.length - 1;
+    const advance = () => {
+      if (isLastCol) {
+        if (isLastRow) {
+          e.preventDefault();
+          onAddRow();
+          // Focus will be handled after the new row mounts — approximate.
+          setTimeout(() => {
+            const keys = Array.from(cellRefs.current.keys());
+            const first = keys.find((k) => k.endsWith(`::${dataCols[0].id}`) && !k.startsWith(`${rowId}::`));
+            // Focus the last newly appended row's first cell:
+            const lastNew = [...cellRefs.current.entries()].reverse().find(([k]) => k.endsWith(`::${dataCols[0].id}`));
+            lastNew?.[1]?.focus();
+          }, 80);
+        } else {
+          e.preventDefault();
+          focusCell(rows[rowIdx + 1].id, dataCols[0].id);
+        }
+      } else {
+        e.preventDefault();
+        focusCell(rowId, dataCols[colIdx + 1].id);
+      }
+    };
+    if (e.key === "Enter") advance();
+    else if (e.key === "Tab" && !e.shiftKey && isLastCol && isLastRow) advance();
+  };
+
+  const colWidth = (col: RepeatingColumn): string => {
+    switch (col.type) {
+      case "number": return "w-24";
+      case "yn_na": return "w-32";
+      case "dropdown": return "w-40";
+      case "photo": return "w-20";
+      case "photo_gallery": return "w-24";
+      default: return "min-w-[180px]";
+    }
+  };
+
+  return (
+    <div className="w-full overflow-x-auto rounded-lg border border-border">
+      <table className="w-full border-collapse text-sm">
+        <thead className="bg-muted/60 sticky top-0">
+          <tr>
+            <th className="w-10 px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border">#</th>
+            {dataCols.map((col) => (
+              <th
+                key={col.id}
+                className={`px-2 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-muted-foreground border-b border-border ${colWidth(col)}`}
+              >
+                {col.label}
+              </th>
+            ))}
+            <th className="w-10 border-b border-border" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, rowIdx) => (
+            <tr key={row.id} data-row-id={row.id} className="border-b border-border last:border-0 hover:bg-muted/20">
+              <td className="px-2 py-1 text-xs text-muted-foreground align-middle">{rowIdx + 1}</td>
+              {dataCols.map((col, colIdx) => {
+                const val = row[col.id] ?? "";
+                const commonInputProps = {
+                  ref: setCellRef(row.id, col.id) as any,
+                  onKeyDown: handleKeyNav(rowIdx, colIdx, row.id),
+                };
+                return (
+                  <td key={col.id} className="px-1.5 py-1 align-middle">
+                    {(col.type === "text") && (
+                      <Input
+                        {...commonInputProps}
+                        value={val}
+                        onChange={(e) => onUpdateCell(row.id, col.id, e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    )}
+                    {col.type === "number" && (
+                      <Input
+                        {...commonInputProps}
+                        type="number"
+                        inputMode="decimal"
+                        value={val}
+                        onChange={(e) => onUpdateCell(row.id, col.id, e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    )}
+                    {col.type === "dropdown" && (
+                      <Select
+                        value={val || ""}
+                        onValueChange={(v) => onUpdateCell(row.id, col.id, v)}
+                      >
+                        <SelectTrigger
+                          ref={setCellRef(row.id, col.id) as any}
+                          onKeyDown={handleKeyNav(rowIdx, colIdx, row.id)}
+                          className="h-8 text-sm"
+                        >
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(col.options || []).map((opt) => (
+                            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {col.type === "yn_na" && (
+                      <Select
+                        value={val || ""}
+                        onValueChange={(v) => onUpdateCell(row.id, col.id, v)}
+                      >
+                        <SelectTrigger
+                          ref={setCellRef(row.id, col.id) as any}
+                          onKeyDown={handleKeyNav(rowIdx, colIdx, row.id)}
+                          className="h-8 text-sm"
+                        >
+                          <SelectValue placeholder="—" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Y">Y</SelectItem>
+                          <SelectItem value="N">N</SelectItem>
+                          <SelectItem value="N/A">N/A</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {(col.type === "photo" || col.type === "photo_gallery") && (
+                      <PhotoCellPopover
+                        colType={col.type}
+                        value={val}
+                        onChange={(v) => onUpdateCell(row.id, col.id, v)}
+                        fieldId={`${fieldId || "row"}-${row.id}-${col.id}`}
+                        groupLabel={String(row.unit_number || "").trim()}
+                        jobId={jobId}
+                        userId={userId}
+                      />
+                    )}
+                  </td>
+                );
+              })}
+              <td className="px-1 py-1 align-middle text-right">
+                <button
+                  type="button"
+                  onClick={() => onRemove(row.id)}
+                  aria-label="Remove row"
+                  className="h-7 w-7 inline-flex items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// Compact photo cell for grid: shows icon or thumbnail; opens popover for full picker.
+function PhotoCellPopover({
+  colType, value, onChange, fieldId, groupLabel, jobId, userId,
+}: {
+  colType: "photo" | "photo_gallery";
+  value: any;
+  onChange: (v: any) => void;
+  fieldId: string;
+  groupLabel?: string;
+  jobId?: string;
+  userId?: string;
+}) {
+  const hasValue = colType === "photo"
+    ? !!value
+    : parseGallery(value).length > 0;
+  const count = colType === "photo_gallery" ? parseGallery(value).length : (value ? 1 : 0);
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant={hasValue ? "secondary" : "outline"}
+          size="sm"
+          className="h-8 w-full px-2 gap-1 text-xs"
+        >
+          {colType === "photo_gallery" ? <ImageIcon className="h-3.5 w-3.5" /> : <Camera className="h-3.5 w-3.5" />}
+          {count > 0 ? count : ""}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-[320px] p-3">
+        {colType === "photo" ? (
+          <RowPhotoCell
+            value={value}
+            onChange={onChange}
+            fieldId={fieldId}
+            groupLabel={groupLabel}
+            jobId={jobId}
+            userId={userId}
+          />
+        ) : (
+          <RowPhotoGalleryCell
+            value={value}
+            onChange={onChange}
+            fieldId={fieldId}
+            groupLabel={groupLabel}
+            jobId={jobId}
+            userId={userId}
+          />
+        )}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bulk Add dialog
+// ---------------------------------------------------------------------------
+
+function parseBulkRange(input: string): string[] {
+  const trimmed = input.trim();
+  if (!trimmed) return [];
+  // Match "Flat 1 to Flat 40", "Flat 1 - 40", "1-40", "Flat 1 – 40", etc.
+  const m = trimmed.match(/^(.*?)(\d+)\s*(?:to|-|–|—|through|thru)\s*(?:.*?)(\d+)\s*$/i);
+  if (!m) return [];
+  const prefix = (m[1] || "").trim();
+  const start = parseInt(m[2], 10);
+  const end = parseInt(m[4], 10);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+  if (end < start) return [];
+  if (end - start > 500) return []; // safety cap
+  const out: string[] = [];
+  for (let i = start; i <= end; i++) {
+    out.push(prefix ? `${prefix} ${i}` : String(i));
+  }
+  return out;
+}
+
+function BulkAddDialog({
+  open, onOpenChange, onAdd,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  onAdd: (labels: string[]) => void;
+}) {
+  const [text, setText] = useState("Flat 1 to Flat 40");
+  const { toast } = useToast();
+  const preview = useMemo(() => parseBulkRange(text), [text]);
+
+  const handleAdd = () => {
+    if (preview.length === 0) {
+      toast({
+        title: "Couldn't parse range",
+        description: "Try something like 'Flat 1 to Flat 40' or '1-20'.",
+        variant: "destructive",
+      });
+      return;
+    }
+    onAdd(preview);
+    onOpenChange(false);
+    toast({ title: `Added ${preview.length} rows` });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="min-h-[44px] gap-2"
+        >
+          <Rows3 className="h-4 w-4" />
+          Bulk Add
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Bulk add rows</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-xs">Range</Label>
+            <Input
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="e.g. Flat 1 to Flat 40"
+              autoFocus
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Prefix + number range. Also accepts "1-40", "Unit 1 – 20".
+            </p>
+          </div>
+          <div className="rounded-md border border-border bg-muted/30 p-2 text-xs max-h-32 overflow-y-auto">
+            {preview.length === 0 ? (
+              <span className="text-muted-foreground italic">No preview — check the format.</span>
+            ) : (
+              <>
+                <div className="font-medium mb-1">{preview.length} rows will be added:</div>
+                <div className="text-muted-foreground">
+                  {preview.slice(0, 6).join(", ")}
+                  {preview.length > 6 ? `, … ${preview[preview.length - 1]}` : ""}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleAdd} disabled={preview.length === 0}>
+            Add {preview.length || ""} rows
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
