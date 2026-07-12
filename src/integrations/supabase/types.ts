@@ -196,6 +196,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_batch_id: string | null
+          imported_at: string | null
           install_date: string | null
           make: string | null
           model: string | null
@@ -214,6 +216,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           install_date?: string | null
           make?: string | null
           model?: string | null
@@ -232,6 +236,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           install_date?: string | null
           make?: string | null
           model?: string | null
@@ -245,6 +251,13 @@ export type Database = {
           warranty_expiry?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "assets_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "assets_org_id_fkey"
             columns: ["org_id"]
@@ -1146,6 +1159,8 @@ export type Database = {
           created_by: string | null
           email: string | null
           id: string
+          import_batch_id: string | null
+          imported_at: string | null
           logo_url: string | null
           name: string
           org_id: string | null
@@ -1160,6 +1175,8 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           logo_url?: string | null
           name: string
           org_id?: string | null
@@ -1174,6 +1191,8 @@ export type Database = {
           created_by?: string | null
           email?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           logo_url?: string | null
           name?: string
           org_id?: string | null
@@ -1182,6 +1201,13 @@ export type Database = {
           xero_contact_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "customers_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "customers_org_id_fkey"
             columns: ["org_id"]
@@ -1997,6 +2023,69 @@ export type Database = {
           },
           {
             foreignKeyName: "handover_tokens_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      import_batches: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          created_count: number
+          entity_type: string
+          error_summary: Json | null
+          id: string
+          merged_count: number
+          org_id: string
+          row_count: number
+          skipped_count: number
+          source_filename: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          entity_type: string
+          error_summary?: Json | null
+          id?: string
+          merged_count?: number
+          org_id: string
+          row_count?: number
+          skipped_count?: number
+          source_filename?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          created_count?: number
+          entity_type?: string
+          error_summary?: Json | null
+          id?: string
+          merged_count?: number
+          org_id?: string
+          row_count?: number
+          skipped_count?: number
+          source_filename?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_batches_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_batches_org_id_fkey"
             columns: ["org_id"]
             isOneToOne: false
             referencedRelation: "organisations_safe"
@@ -4342,6 +4431,8 @@ export type Database = {
           created_at: string
           created_by: string | null
           id: string
+          import_batch_id: string | null
+          imported_at: string | null
           name: string
           notes: string | null
           org_id: string | null
@@ -4361,6 +4452,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           name: string
           notes?: string | null
           org_id?: string | null
@@ -4380,6 +4473,8 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           id?: string
+          import_batch_id?: string | null
+          imported_at?: string | null
           name?: string
           notes?: string | null
           org_id?: string | null
@@ -4391,6 +4486,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "sites_import_batch_id_fkey"
+            columns: ["import_batch_id"]
+            isOneToOne: false
+            referencedRelation: "import_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "sites_org_id_fkey"
             columns: ["org_id"]
