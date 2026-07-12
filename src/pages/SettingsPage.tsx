@@ -333,6 +333,20 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          <Card className="cursor-pointer hover:border-primary transition" onClick={() => navigate("/settings/import")}>
+            <CardHeader>
+              <CardTitle className="text-lg">Import Data</CardTitle>
+              <CardDescription>
+                Bulk-import customers, sites, or assets from a CSV or Excel export (Uptick, simPRO, Joblogic, Tradify, spreadsheets). AI will map your columns automatically.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate("/settings/import"); }}>
+                Open Import Wizard
+              </Button>
+            </CardContent>
+          </Card>
+
           <XeroSettings />
           <QuoteHoundIntegrationCard />
           <CustomerMergeSuggestionsPanel />

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, MessageCircle } from "lucide-react";
+import { ArrowLeft, MessageCircle, Upload } from "lucide-react";
 import SetupChecklist from "@/components/SetupChecklist";
 import { useSetupProgress } from "@/hooks/useSetupProgress";
 
@@ -28,6 +28,25 @@ export default function SetupGuide() {
       </div>
 
       <SetupChecklist variant="page" hideDismiss />
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Upload className="h-4 w-4 text-primary" />
+            Bringing in existing customers, sites, and assets
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-sm text-muted-foreground space-y-3">
+          <p>
+            Switching from Uptick, simPRO, Joblogic, Tradify, or a spreadsheet? Drop your export in
+            and our AI will map the columns for you — no reformatting required. You can review and
+            correct everything before anything is written.
+          </p>
+          <Button asChild size="sm">
+            <Link to="/settings/import">Import from spreadsheet</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">
