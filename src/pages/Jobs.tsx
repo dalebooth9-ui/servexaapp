@@ -1036,19 +1036,21 @@ export default function Jobs() {
     setMergeTarget("");
   };
 
-  const filtered = jobs.filter((j) => {
+  const prefiltered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
     if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
-    if (!search) return true;
-    const s = search.toLowerCase();
-    const custName = getCustomerName(j) || "";
-    return (
-      j.name.toLowerCase().includes(s) ||
-      j.reference_number.toLowerCase().includes(s) ||
-      custName.toLowerCase().includes(s)
-    );
+    return true;
   });
+  const filtered = fuzzyFilter(prefiltered, search, (j) => [
+    j.name,
+    j.reference_number,
+    getCustomerName(j),
+    (j as any).address,
+    (j as any).sites?.name,
+    (j as any).sites?.address,
+    (j as any).sites?.postcode,
+  ]);
 
   // Global select-all derived state (must come after filtered)
   const allFilteredIds = filtered.map((j) => j.id);
