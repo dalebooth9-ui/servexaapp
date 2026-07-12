@@ -6,7 +6,7 @@ import { useEngineerLocation } from "@/hooks/useEngineerLocation";
 import { useEngineerPageAccess } from "@/hooks/useEngineerPageAccess";
 import { ROUTE_TO_SLUG } from "@/lib/engineerPages";
 import { cn } from "@/lib/utils";
-import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload } from "lucide-react";
+import { LayoutDashboard, Briefcase, Users, Settings, LogOut, Menu, X, CalendarDays, Building2, FileText, MapPin, Package, Shield, ShieldAlert, Library, MessageCircle, BarChart2, TrendingUp, GripVertical, BookOpen, ClipboardCheck, ClipboardList, ChevronDown, Pin, PinOff, Palmtree, AlertTriangle, FileArchive, History, Truck, CloudUpload, Rocket } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import CommandPalette from "@/components/CommandPalette";
@@ -17,6 +17,7 @@ import TodaysVisitsBadge from "@/components/TodaysVisitsBadge";
 import UnreadMessagesBadge from "@/components/UnreadMessagesBadge";
 import UndoButton from "@/components/UndoButton";
 import KeyboardShortcutsHelp from "@/components/KeyboardShortcutsHelp";
+import SetupSpotlightBanner from "@/components/SetupSpotlightBanner";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -60,6 +61,7 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/reports/engineers", label: "Performance", icon: TrendingUp, section: "admin", adminOnly: true },
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
+{ to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
@@ -503,7 +505,10 @@ export default function AppLayout({ children }: {children: ReactNode;}) {
         </header>
         {/* Top accent bar on desktop — gives the content area a branded edge */}
         <div className="hidden lg:block h-0.5 w-full bg-gradient-to-r from-[hsl(25,95%,53%)] via-[hsl(213,51%,35%)] to-transparent shrink-0" />
-        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 md:p-6 bg-[hsl(210,22%,96%)]">
+          {userRole === "admin" && <SetupSpotlightBanner />}
+          {children}
+        </main>
       </div>
       {userRole === "admin" && <CommandPalette />}
       {userRole === "admin" && <div data-tour="ai-help"><AiHelpWizard /></div>}

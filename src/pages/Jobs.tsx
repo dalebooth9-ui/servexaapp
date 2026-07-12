@@ -1191,7 +1191,7 @@ export default function Jobs() {
             </DropdownMenu>
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); setCostingSheetFile(null); } }}>
               <DialogTrigger asChild>
-                <Button size="sm"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
+                <Button size="sm" data-setup="add-job"><Plus className="mr-2 h-4 w-4" /> New Job</Button>
               </DialogTrigger>
             <DialogContent className="max-h-[90vh] overflow-y-auto" onPointerDownOutside={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
               <DialogHeader>

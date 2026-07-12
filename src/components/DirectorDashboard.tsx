@@ -12,6 +12,7 @@ import {
 import { ResponsiveContainer, BarChart, Bar, Tooltip, XAxis } from "recharts";
 import { formatDistanceToNow, startOfWeek, addWeeks, format, startOfMonth, subMonths } from "date-fns";
 import VehicleCheckReviewCard from "@/components/VehicleCheckReviewCard";
+import SetupChecklist from "@/components/SetupChecklist";
 import { toast } from "sonner";
 
 function reportError(label: string, error: any) {
@@ -317,6 +318,10 @@ export default function DirectorDashboard() {
         <h1 className="text-2xl font-bold tracking-tight">Director Dashboard</h1>
         <p className="text-sm text-muted-foreground">Real-time business performance across operations.</p>
       </div>
+
+      <SetupChecklist />
+
+
 
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

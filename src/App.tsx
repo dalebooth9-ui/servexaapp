@@ -71,6 +71,7 @@ const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
 const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
+const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
 
 const queryClient = new QueryClient();
 
@@ -138,6 +139,7 @@ const App = () => (
               <Route path="/my-profile" element={<ProtectedRoute><MyProfile /></ProtectedRoute>} />
               <Route path="/my-timesheet" element={<ProtectedRoute><MyTimesheet /></ProtectedRoute>} />
               <Route path="/sync-status" element={<ProtectedRoute><SyncStatus /></ProtectedRoute>} />
+              <Route path="/setup" element={<AdminRoute><SetupGuide /></AdminRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />

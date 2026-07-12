@@ -259,7 +259,7 @@ export default function Engineers() {
               <LayoutGrid className="mr-1 h-4 w-4" /> Skill Matrix
             </Button>
           </div>
-          <Button onClick={() => setAddOpen(true)}>
+          <Button onClick={() => setAddOpen(true)} data-setup="add-engineer">
             <Plus className="mr-2 h-4 w-4" /> Add Engineer
           </Button>
         </div>
