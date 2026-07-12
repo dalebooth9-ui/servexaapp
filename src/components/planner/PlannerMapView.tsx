@@ -1164,18 +1164,20 @@ export default function PlannerMapView({
               <SelectItem value="600">Every 10 min</SelectItem>
             </SelectContent>
           </Select>
-          {scheduledJobs.length >= 2 && (
-            <>
-              <Button variant="outline" size="sm" onClick={() => handleOptimise()} disabled={optimising}>
-                {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
-                Optimise Route
-              </Button>
-              {directionsRendererRef.current && routeResult && (
-                <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
-                  Clear Route
-                </Button>
-              )}
-            </>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleOptimise()}
+            disabled={optimising || scheduledJobs.length < 2}
+            title={scheduledJobs.length < 2 ? "Need at least 2 scheduled stops on this day to optimise" : "Optimise the route for this day's stops"}
+          >
+            {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
+            Optimise Route
+          </Button>
+          {directionsRendererRef.current && routeResult && (
+            <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
+              Clear Route
+            </Button>
           )}
         </div>
       </div>
