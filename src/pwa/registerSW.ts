@@ -7,6 +7,9 @@
  * Exposes `setupPWA({ onNeedRefresh, onOfflineReady })` so React components
  * can subscribe to update / offline-ready events without depending on the
  * registration internals.
+ *
+ * Also exposes `forceUpdateCheck()` so UI actions (e.g. Settings → "Check for
+ * updates") can manually poll for a new service worker and surface the result.
  */
 type Callbacks = {
   onNeedRefresh?: (reload: () => Promise<void>) => void;
