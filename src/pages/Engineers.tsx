@@ -168,7 +168,8 @@ export default function Engineers() {
       toast({ title: "Error", description: "Name and email are required.", variant: "destructive" }); return;
     }
     setAdding(true);
-    const { data, error } = await supabase.functions.invoke("create-engineer", { body: addForm });
+    const payload = { ...addForm, whatsapp_number: normaliseWhatsAppNumber(addForm.whatsapp_number) };
+    const { data, error } = await supabase.functions.invoke("create-engineer", { body: payload });
     setAdding(false);
     if (error || data?.error) {
       toast({ title: "Error", description: data?.error || "Failed to create engineer.", variant: "destructive" });
