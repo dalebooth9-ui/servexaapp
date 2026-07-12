@@ -71,6 +71,7 @@ const JobApprovalAuditLog = lazy(() => import("@/pages/JobApprovalAuditLog"));
 const MyProfile = lazy(() => import("@/pages/MyProfile"));
 const MyTimesheet = lazy(() => import("@/pages/MyTimesheet"));
 const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
+const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
 
 const queryClient = new QueryClient();
 
