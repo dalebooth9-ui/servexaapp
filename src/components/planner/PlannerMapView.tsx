@@ -101,10 +101,9 @@ export default function PlannerMapView({
   const engineerMarkersRef = useRef<google.maps.Marker[]>([]);
   const unallocatedMarkersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
-  const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
   const routePolylineRef = useRef<google.maps.Polyline | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
-  const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
+  const liveRoutePolylinesRef = useRef<google.maps.Polyline[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.Marker[]>([]);
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
@@ -130,6 +129,7 @@ export default function PlannerMapView({
     }>;
     optimised?: Array<{ address: string; job_id: string }>;
   } | null>(null);
+  const [routeVisible, setRouteVisible] = useState(false);
   const [mapLoading, setMapLoading] = useState(true);
   const [mapError, setMapError] = useState<string | null>(null);
   const [showUnallocated, setShowUnallocated] = useState(true);
@@ -241,10 +241,6 @@ export default function PlannerMapView({
 
   // Clear any existing route line from the map
   const clearRouteOverlay = useCallback(() => {
-    if (directionsRendererRef.current) {
-      directionsRendererRef.current.setMap(null);
-      directionsRendererRef.current = null;
-    }
     if (routePolylineRef.current) {
       routePolylineRef.current.setMap(null);
       routePolylineRef.current = null;
@@ -253,7 +249,41 @@ export default function PlannerMapView({
     routeNumberOverlaysRef.current.forEach((m) => { m.setMap(null); });
     routeNumberOverlaysRef.current = [];
     lastOptimisedWaypointsRef.current = null;
+    setRouteVisible(false);
     setMarkerMode("priority");
+  }, []);
+
+  const invokeRouteOptimiser = useCallback(async (params: {
+    waypoints: { address: string; job_id: string }[];
+    origin?: { lat: number; lng: number } | { address: string } | null;
+    optimize?: boolean;
+  }) => {
+    const { data: fnData, error: fnError } = await supabase.functions.invoke("optimize-route", {
+      body: params,
+    });
+    if (fnError) {
+      let detail = fnError.message || "Unknown error";
+      try {
+        const ctx: any = (fnError as any).context;
+        if (ctx?.text) {
+          const raw = await ctx.text();
+          const parsed = JSON.parse(raw);
+          detail = parsed?.message || parsed?.error || raw || detail;
+        }
+      } catch { /* ignore */ }
+      throw new Error(detail);
+    }
+    if (!fnData || !fnData.optimised) {
+      throw new Error("Route optimiser returned no data");
+    }
+    return fnData as {
+      optimised: { address: string; job_id: string }[];
+      legs: any[];
+      total_distance_km: number;
+      total_duration_mins: number;
+      total_duration_in_traffic_mins: number | null;
+      encoded_polyline?: string | null;
+    };
   }, []);
 
   // Render the optimised route as a polyline on the map, using the encoded
@@ -287,6 +317,7 @@ export default function PlannerMapView({
       });
       routePolylineRef.current = polyline;
       lastOptimisedWaypointsRef.current = optimisedWaypoints;
+      setRouteVisible(true);
     } catch (err) {
       console.error("Failed to render route on map:", err);
     }
@@ -375,12 +406,10 @@ export default function PlannerMapView({
         }
       }
 
-      // Client-side optimisation via the Maps JS SDK (works with referer-restricted keys —
-      // the Directions REST endpoint rejects those with REQUEST_DENIED).
       // Server-side optimisation via the Routes API edge function.
       // Uses GOOGLE_MAPS_SERVER_KEY (non-referer-restricted) so it works even
       // on newly-created Google Cloud projects that can't use the legacy
-      // Directions API (including Maps JS DirectionsService).
+      // legacy Maps JS client-side routing.
       let data: {
         optimised: { address: string; job_id: string }[];
         legs: any[];
@@ -390,26 +419,7 @@ export default function PlannerMapView({
         encoded_polyline?: string | null;
       };
       try {
-        const { data: fnData, error: fnError } = await supabase.functions.invoke("optimize-route", {
-          body: { waypoints, origin },
-        });
-        if (fnError) {
-          // Try to surface the underlying Routes API message from the edge function body
-          let detail = fnError.message || "Unknown error";
-          try {
-            const ctx: any = (fnError as any).context;
-            if (ctx?.text) {
-              const raw = await ctx.text();
-              const parsed = JSON.parse(raw);
-              detail = parsed?.message || parsed?.error || raw || detail;
-            }
-          } catch { /* ignore */ }
-          throw new Error(detail);
-        }
-        if (!fnData || !fnData.optimised) {
-          throw new Error("Route optimiser returned no data");
-        }
-        data = fnData;
+        data = await invokeRouteOptimiser({ waypoints, origin, optimize: true });
       } catch (err: any) {
         console.error("Route optimisation failed:", err);
         toast({
@@ -817,10 +827,8 @@ export default function PlannerMapView({
       routeNumberOverlaysRef.current = [];
       engineerMarkersRef.current.forEach((m) => m.setMap(null));
       engineerMarkersRef.current = [];
-      liveRouteRenderersRef.current.forEach((r) => r.setMap(null));
-      liveRouteRenderersRef.current = [];
-      directionsRendererRef.current?.setMap(null);
-      directionsRendererRef.current = null;
+      liveRoutePolylinesRef.current.forEach((r) => r.setMap(null));
+      liveRoutePolylinesRef.current = [];
       trafficLayerRef.current?.setMap(null);
       trafficLayerRef.current = null;
       openInfoWindowRef.current?.close();
@@ -930,19 +938,18 @@ export default function PlannerMapView({
     }
   }, [engineerLocations, engineers, getLocationStatus]);
 
-  // Draw live routes per engineer: from each engineer's live GPS through their remaining
-  // scheduled jobs (in date order). Honours the engineer filter.
+  // Draw live routes per engineer via the Routes API edge function, never the
+  // deprecated Maps JS routing. Honours the engineer filter.
   useEffect(() => {
     const map = mapInstanceRef.current;
 
     // Always clear previous live routes first
-    liveRouteRenderersRef.current.forEach((r) => r.setMap(null));
-    liveRouteRenderersRef.current = [];
+    liveRoutePolylinesRef.current.forEach((r) => r.setMap(null));
+    liveRoutePolylinesRef.current = [];
 
     if (!map || !showLiveRoutes || !engineerLocations.length) return;
 
     const palette = ["#2563eb", "#7c3aed", "#db2777", "#ea580c", "#0891b2", "#65a30d"];
-    const directionsService = new google.maps.DirectionsService();
 
     // Group scheduled entries by engineer, sorted by date
     const byEngineer = new Map<string, typeof scheduledJobs>();
@@ -962,35 +969,60 @@ export default function PlannerMapView({
       byEngineer.set(entry.engineer_id, list);
     }
 
-    let colourIndex = 0;
-    for (const loc of engineerLocations) {
-      if (selectedEngineerId !== "all" && loc.user_id !== selectedEngineerId) continue;
-      const stops = byEngineer.get(loc.user_id);
-      if (!stops || stops.length === 0) continue;
+    let cancelled = false;
+    const drawLiveRoutes = async () => {
+      let colourIndex = 0;
+      for (const loc of engineerLocations) {
+        if (cancelled) return;
+        if (selectedEngineerId !== "all" && loc.user_id !== selectedEngineerId) continue;
+        const stops = byEngineer.get(loc.user_id);
+        if (!stops || stops.length === 0) continue;
 
-      const colour = palette[colourIndex % palette.length];
-      colourIndex++;
+        const waypoints = stops.map((s) => ({ address: s.job.address!, job_id: s.job.id }));
+        if (waypoints.length < 1) continue;
 
-      const origin = { lat: loc.latitude, lng: loc.longitude };
-      const destination = stops[stops.length - 1].job.address!;
-      const waypoints = stops.slice(0, -1).map((s) => ({ location: s.job.address!, stopover: true }));
+        const colour = palette[colourIndex % palette.length];
+        colourIndex++;
 
-      directionsService.route(
-        { origin, destination, waypoints, travelMode: google.maps.TravelMode.DRIVING },
-        (result, status) => {
-          if (status !== google.maps.DirectionsStatus.OK || !result) return;
-          const renderer = new google.maps.DirectionsRenderer({
-            map,
-            directions: result,
-            suppressMarkers: true,
-            preserveViewport: true,
-            polylineOptions: { strokeColor: colour, strokeWeight: 4, strokeOpacity: 0.8 },
+        try {
+          const result = await invokeRouteOptimiser({
+            waypoints,
+            origin: { lat: loc.latitude, lng: loc.longitude },
+            optimize: false,
           });
-          liveRouteRenderersRef.current.push(renderer);
+          if (cancelled || !result.encoded_polyline) continue;
+
+          const geometry: any = (google.maps as any).geometry
+            ?? (await (google.maps as any).importLibrary?.("geometry"));
+          const decode = geometry?.encoding?.decodePath ?? (google.maps as any).geometry?.encoding?.decodePath;
+          if (!decode) throw new Error("Google Maps geometry library unavailable");
+
+          const polyline = new google.maps.Polyline({
+            map,
+            path: decode(result.encoded_polyline),
+            strokeColor: colour,
+            strokeWeight: 4,
+            strokeOpacity: 0.8,
+          });
+          liveRoutePolylinesRef.current.push(polyline);
+        } catch (err: any) {
+          console.error("Live route drawing failed:", err);
+          toast({
+            title: "Live route failed",
+            description: `Routes API error: ${err?.message || "UNKNOWN"}`,
+            variant: "destructive",
+          });
         }
-      );
-    }
-  }, [showLiveRoutes, engineerLocations, schedule, jobs, engineers, selectedEngineerId]);
+      }
+    };
+
+    void drawLiveRoutes();
+    return () => {
+      cancelled = true;
+      liveRoutePolylinesRef.current.forEach((r) => r.setMap(null));
+      liveRoutePolylinesRef.current = [];
+    };
+  }, [showLiveRoutes, engineerLocations, schedule, jobs, engineers, selectedEngineerId, invokeRouteOptimiser, toast]);
 
   const allJobsWithAddress = scheduledJobs.length + unallocatedJobs.filter((j) => j.address).length;
 
@@ -1207,7 +1239,7 @@ export default function PlannerMapView({
             {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
             Optimise Route
           </Button>
-          {directionsRendererRef.current && routeResult && (
+          {routeVisible && routeResult && (
             <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
               Clear Route
             </Button>
