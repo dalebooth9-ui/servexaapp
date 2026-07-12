@@ -135,8 +135,9 @@ export default function Engineers() {
   const handleSave = async () => {
     if (!editEng) return;
     setSaving(true);
+    const normalisedWa = normaliseWhatsAppNumber(form.whatsapp_number);
     const { error } = await supabase.from("profiles").update({
-      full_name: form.full_name, phone: form.phone || null, whatsapp_number: form.whatsapp_number || null,
+      full_name: form.full_name, phone: form.phone || null, whatsapp_number: normalisedWa || null,
     }).eq("id", editEng.id);
     setSaving(false);
     if (error) {
