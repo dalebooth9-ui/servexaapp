@@ -35,7 +35,7 @@ import SiteFireLog from "@/components/SiteFireLog";
 import { Flame } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
-import { fuzzyMatch } from "@/lib/fuzzyMatch";
+import { fuzzyMatch, fuzzyFilter } from "@/lib/fuzzyMatch";
 
 type Site = {
   id: string;
