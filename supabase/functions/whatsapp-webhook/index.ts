@@ -925,6 +925,114 @@ function twimlResponse(message?: string): Response {
   });
 }
 
+// ── Normalised job/site matching ────────────────────────────────
+// Collapses case, spaces, hyphens, dashes and punctuation so "cedar tree",
+// "cedar-tree" and "CEDARTREE COURT" all map to the same tokens.
+function normaliseWord(s: string): string {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+function tokenise(s: string): string[] {
+  return (s || "")
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+}
+
+type JobCandidate = {
+  id: string;
+  name?: string | null;
+  reference_number?: string | null;
+  address?: string | null;
+  sites?: { name?: string | null; address?: string | null; postcode?: string | null } | null;
+};
+
+type ScoredJob = { job: JobCandidate; score: number; tokensMatched: number };
+
+/**
+ * Score jobs against a caption/text. The engineer typically writes the job or
+ * site name first, then notes. We try the first N leading tokens (5→1) as the
+ * search phrase, and score by:
+ *   - how many consecutive leading caption tokens appear (in order) at the
+ *     start of the normalised job name / site name / addresses
+ *   - full normalised-substring hits
+ * Returns candidates sorted by score descending. Only scores > 0 are returned.
+ */
+function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] {
+  const capTokens = tokenise(caption);
+  if (capTokens.length === 0) return [];
+  const capNormFull = capTokens.join("");
+
+  const scored: ScoredJob[] = [];
+
+  for (const job of jobs) {
+    const fields: Array<{ value: string; weight: number; primary: boolean }> = [];
+    if (job.name) fields.push({ value: job.name, weight: 100, primary: true });
+    if (job.sites?.name) fields.push({ value: job.sites.name, weight: 90, primary: true });
+    if (job.sites?.address) fields.push({ value: job.sites.address, weight: 40, primary: false });
+    if (job.sites?.postcode) fields.push({ value: job.sites.postcode, weight: 60, primary: false });
+    if (job.address) fields.push({ value: job.address, weight: 30, primary: false });
+    if (fields.length === 0) continue;
+
+    let best = 0;
+    let bestTokens = 0;
+
+    for (const f of fields) {
+      const fieldTokens = tokenise(f.value);
+      if (fieldTokens.length === 0) continue;
+      const fieldNormFull = fieldTokens.join("");
+
+      // 1. Full normalised substring hit (handles "cedartree" vs "cedar tree").
+      if (fieldNormFull.includes(capNormFull) && capNormFull.length >= 3) {
+        const s = f.weight * 3 + (fieldNormFull.startsWith(capNormFull) ? 50 : 0);
+        if (s > best) { best = s; bestTokens = capTokens.length; }
+      }
+
+      // 2. Consecutive leading caption tokens matching the field's leading tokens.
+      const maxK = Math.min(capTokens.length, fieldTokens.length, 5);
+      for (let k = maxK; k >= 1; k--) {
+        let allMatch = true;
+        for (let i = 0; i < k; i++) {
+          const ct = normaliseWord(capTokens[i]);
+          const ft = normaliseWord(fieldTokens[i]);
+          if (!ct || !ft) { allMatch = false; break; }
+          // Field token must start with caption token (allows "cedartree" prefix
+          // to match "cedartree" or caption "cedar" to match field "cedartree").
+          if (!ft.startsWith(ct) && !ct.startsWith(ft)) { allMatch = false; break; }
+        }
+        if (allMatch) {
+          const s = f.weight * k + 20;
+          if (s > best) { best = s; bestTokens = k; }
+          break;
+        }
+      }
+
+      // 3. Combined-tokens prefix: e.g. caption "cedar tree" → "cedartree" as
+      //    a prefix of the field's combined normalised form.
+      if (best === 0 && capNormFull.length >= 4 && fieldNormFull.startsWith(capNormFull)) {
+        const s = f.weight * 2;
+        if (s > best) { best = s; bestTokens = capTokens.length; }
+      }
+
+      // 4. Every caption token appears somewhere in the field (order-independent).
+      if (capTokens.length >= 2) {
+        const allIn = capTokens.every((t) => {
+          const n = normaliseWord(t);
+          return n.length >= 2 && fieldNormFull.includes(n);
+        });
+        if (allIn) {
+          const s = f.weight + 10 * capTokens.length;
+          if (s > best) { best = s; bestTokens = capTokens.length; }
+        }
+      }
+    }
+
+    if (best > 0) scored.push({ job, score: best, tokensMatched: bestTokens });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
+
 async function validateTwilioSignature(
   url: string, params: URLSearchParams, signature: string, authToken: string
 ): Promise<boolean> {
