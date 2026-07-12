@@ -101,6 +101,7 @@ export default function PlannerMapView({
   const unallocatedMarkersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const routePolylineRef = useRef<google.maps.Polyline | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.Marker[]>([]);
@@ -243,6 +244,10 @@ export default function PlannerMapView({
       directionsRendererRef.current.setMap(null);
       directionsRendererRef.current = null;
     }
+    if (routePolylineRef.current) {
+      routePolylineRef.current.setMap(null);
+      routePolylineRef.current = null;
+    }
     // Remove numbered step labels
     routeNumberOverlaysRef.current.forEach((m) => { m.setMap(null); });
     routeNumberOverlaysRef.current = [];
@@ -250,45 +255,36 @@ export default function PlannerMapView({
     setMarkerMode("priority");
   }, []);
 
-  // Render the optimised route as a polyline on the map
-  const renderRouteOnMap = useCallback(async (optimisedWaypoints: { address: string; job_id: string }[]) => {
+  // Render the optimised route as a polyline on the map, using the encoded
+  // polyline returned by the Routes API edge function.
+  const renderRouteOnMap = useCallback(async (
+    optimisedWaypoints: { address: string; job_id: string }[],
+    encodedPolyline: string | null,
+  ) => {
     const map = mapInstanceRef.current;
-    if (!map || optimisedWaypoints.length < 2) return;
+    if (!map || optimisedWaypoints.length < 2 || !encodedPolyline) return;
 
     clearRouteOverlay();
 
-    const directionsService = new google.maps.DirectionsService();
-    const origin = optimisedWaypoints[0].address;
-    const destination = optimisedWaypoints[optimisedWaypoints.length - 1].address;
-    const intermediates = optimisedWaypoints.slice(1, -1).map((wp) => ({
-      location: wp.address,
-      stopover: true,
-    }));
-
     try {
-      const result = await directionsService.route({
-        origin,
-        destination,
-        waypoints: intermediates,
-        travelMode: google.maps.TravelMode.DRIVING,
-        // Live-traffic aware ETAs (Google uses current conditions when departureTime = now)
-        drivingOptions: {
-          departureTime: new Date(),
-          trafficModel: google.maps.TrafficModel.BEST_GUESS,
-        },
-      });
-
-      const renderer = new google.maps.DirectionsRenderer({
+      // Ensure the geometry library is loaded (script URL includes libraries=geometry
+      // but importLibrary makes it awaitable on modern loaders).
+      const geometry: any = (google.maps as any).geometry
+        ?? (await (google.maps as any).importLibrary?.("geometry"));
+      const decode = geometry?.encoding?.decodePath ?? (google.maps as any).geometry?.encoding?.decodePath;
+      if (!decode) {
+        console.warn("Google Maps geometry library not available; cannot draw route polyline.");
+        return;
+      }
+      const path = decode(encodedPolyline);
+      const polyline = new google.maps.Polyline({
         map,
-        directions: result,
-        suppressMarkers: true, // Keep our custom markers
-        polylineOptions: {
-          strokeColor: "#2563eb",
-          strokeWeight: 5,
-          strokeOpacity: 0.85,
-        },
+        path,
+        strokeColor: "#2563eb",
+        strokeWeight: 5,
+        strokeOpacity: 0.85,
       });
-      directionsRendererRef.current = renderer;
+      routePolylineRef.current = polyline;
       lastOptimisedWaypointsRef.current = optimisedWaypoints;
     } catch (err) {
       console.error("Failed to render route on map:", err);
@@ -380,88 +376,44 @@ export default function PlannerMapView({
 
       // Client-side optimisation via the Maps JS SDK (works with referer-restricted keys —
       // the Directions REST endpoint rejects those with REQUEST_DENIED).
+      // Server-side optimisation via the Routes API edge function.
+      // Uses GOOGLE_MAPS_SERVER_KEY (non-referer-restricted) so it works even
+      // on newly-created Google Cloud projects that can't use the legacy
+      // Directions API (including Maps JS DirectionsService).
       let data: {
         optimised: { address: string; job_id: string }[];
         legs: any[];
         total_distance_km: number;
         total_duration_mins: number;
         total_duration_in_traffic_mins: number | null;
+        encoded_polyline?: string | null;
       };
       try {
-        const directionsService = new google.maps.DirectionsService();
-
-        // Resolve origin address string (SDK accepts string or LatLngLiteral)
-        let originParam: string | google.maps.LatLngLiteral;
-        const hasExplicitOrigin = origin != null;
-        if (origin && typeof (origin as any).lat === "number") {
-          originParam = { lat: (origin as any).lat, lng: (origin as any).lng };
-        } else if (origin && typeof (origin as any).address === "string") {
-          originParam = (origin as any).address;
-        } else {
-          originParam = waypoints[0].address;
-        }
-
-        const destinationParam = waypoints[waypoints.length - 1].address;
-        const intermediateWps = hasExplicitOrigin
-          ? waypoints.slice(0, -1)
-          : waypoints.slice(1, -1);
-        const dsWaypoints = intermediateWps.map((w) => ({ location: w.address, stopover: true }));
-
-        const result = await directionsService.route({
-          origin: originParam,
-          destination: destinationParam,
-          waypoints: dsWaypoints,
-          optimizeWaypoints: true,
-          travelMode: google.maps.TravelMode.DRIVING,
-          drivingOptions: {
-            departureTime: new Date(),
-            trafficModel: google.maps.TrafficModel.BEST_GUESS,
-          },
-          region: "GB",
+        const { data: fnData, error: fnError } = await supabase.functions.invoke("optimize-route", {
+          body: { waypoints, origin },
         });
-
-        const route = result.routes[0];
-        const order = route.waypoint_order || [];
-        let optimised = waypoints;
-        if (order.length > 0) {
-          if (hasExplicitOrigin) {
-            const middle = order.map((i: number) => intermediateWps[i]);
-            optimised = [...middle, waypoints[waypoints.length - 1]];
-          } else {
-            const middle = order.map((i: number) => waypoints[i + 1]);
-            optimised = [waypoints[0], ...middle, waypoints[waypoints.length - 1]];
-          }
+        if (fnError) {
+          // Try to surface the underlying Routes API message from the edge function body
+          let detail = fnError.message || "Unknown error";
+          try {
+            const ctx: any = (fnError as any).context;
+            if (ctx?.text) {
+              const raw = await ctx.text();
+              const parsed = JSON.parse(raw);
+              detail = parsed?.message || parsed?.error || raw || detail;
+            }
+          } catch { /* ignore */ }
+          throw new Error(detail);
         }
-
-        const legs = route.legs.map((leg) => ({
-          distance: leg.distance?.text,
-          duration: leg.duration?.text,
-          duration_in_traffic: leg.duration_in_traffic?.text ?? null,
-          duration_in_traffic_seconds: leg.duration_in_traffic?.value ?? null,
-          start_address: leg.start_address,
-          end_address: leg.end_address,
-        }));
-        const totalDistance = route.legs.reduce((s, l) => s + (l.distance?.value ?? 0), 0);
-        const totalDuration = route.legs.reduce((s, l) => s + (l.duration?.value ?? 0), 0);
-        const totalDurationTraffic = route.legs.reduce(
-          (s, l) => s + (l.duration_in_traffic?.value ?? l.duration?.value ?? 0),
-          0,
-        );
-
-        data = {
-          optimised,
-          legs,
-          total_distance_km: Math.round(totalDistance / 100) / 10,
-          total_duration_mins: Math.round(totalDuration / 60),
-          total_duration_in_traffic_mins: Math.round(totalDurationTraffic / 60),
-        };
+        if (!fnData || !fnData.optimised) {
+          throw new Error("Route optimiser returned no data");
+        }
+        data = fnData;
       } catch (err: any) {
-        // Surface the underlying Google status (e.g. ZERO_RESULTS, NOT_FOUND, REQUEST_DENIED)
-        const status = err?.code || err?.status || err?.message || "UNKNOWN";
         console.error("Route optimisation failed:", err);
         toast({
           title: "Route optimisation failed",
-          description: `Google Directions error: ${status}. Check that all stop addresses are complete UK postcodes.`,
+          description: `Routes API error: ${err?.message || "UNKNOWN"}`,
           variant: "destructive",
         });
         setOptimising(false);
@@ -482,9 +434,9 @@ export default function PlannerMapView({
         onRouteOptimised?.([...optimisedIds, ...overflowJobIds]);
       }
 
-      // Draw optimised route on map
+      // Draw optimised route on map (uses the encoded polyline from Routes API)
       if (data.optimised?.length >= 2) {
-        await renderRouteOnMap(data.optimised);
+        await renderRouteOnMap(data.optimised, data.encoded_polyline ?? null);
         setMarkerMode("route");
 
         // Show one-time traffic suggestion (skip on auto-refresh)
@@ -672,7 +624,7 @@ export default function PlannerMapView({
         if (!(window as any).google?.maps) {
           await new Promise<void>((resolve, reject) => {
             const script = document.createElement("script");
-            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&region=GB&language=en-GB`;
+            script.src = `https://maps.googleapis.com/maps/api/js?key=${data.apiKey}&libraries=geometry&region=GB&language=en-GB`;
             script.async = true;
             script.defer = true;
             script.onload = () => resolve();
@@ -684,13 +636,21 @@ export default function PlannerMapView({
         if (cancelled || !mapRef.current) return;
 
         const { Map: GMap } = await (window as any).google.maps.importLibrary("maps");
+        // Ensure geometry library (for polyline decoding) is available
+        try { await (window as any).google.maps.importLibrary("geometry"); } catch { /* already loaded via script tag */ }
+        // Default view: whole UK. fitBounds below will re-frame once markers geocode.
+        const UK_CENTER = { lat: 54.5, lng: -2.5 };
         const map = new GMap(mapRef.current, {
-          center: { lat: 54.0, lng: -5 },
-          zoom: 5,
+          center: UK_CENTER,
+          zoom: 6,
           mapTypeId: "roadmap",
           mapTypeControl: false,
           streetViewControl: false,
           fullscreenControl: false,
+          restriction: {
+            latLngBounds: { north: 61, south: 49, west: -11, east: 3 },
+            strictBounds: false,
+          },
         });
         mapInstanceRef.current = map;
 
