@@ -1,6 +1,7 @@
 import { Component, ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw } from "lucide-react";
+import { logError } from "@/lib/errorLogger";
 
 interface Props {
   children: ReactNode;
