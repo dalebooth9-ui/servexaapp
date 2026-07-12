@@ -58,6 +58,7 @@ export default function ResetPassword() {
           <img src="/favicon.png" alt="Servexa logo" className="h-10 w-10 rounded-xl" />
           <span className="text-xl font-bold">Servexa</span>
         </div>
+        <h1 className="sr-only">Reset your Servexa password</h1>
         <Card className="border-border/60 shadow-lg">
           <CardHeader>
             <CardTitle className="text-2xl font-bold">Set new password</CardTitle>

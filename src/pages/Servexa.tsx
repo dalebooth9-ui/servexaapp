@@ -287,6 +287,7 @@ export default function Servexa() {
             </button>
             <button
               onClick={() => setSidebarOpen((v) => !v)}
+              aria-label={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "center",
                 width: "100%", padding: "8px",
@@ -318,6 +319,7 @@ export default function Servexa() {
           <button
             className="md:hidden"
             onClick={() => setMobileOpen(true)}
+            aria-label="Open navigation menu"
             style={{ background: "none", border: "none", cursor: "pointer", color: brand.muted, padding: 4 }}
           >
             <Menu size={20} />
@@ -349,12 +351,14 @@ export default function Servexa() {
           </div>
 
           {/* Notifications */}
-          <button style={{
-            position: "relative", background: brand.mutedBg,
-            border: `1px solid ${brand.border}`, borderRadius: 8,
-            width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
-            cursor: "pointer",
-          }}>
+          <button
+            aria-label="Notifications"
+            style={{
+              position: "relative", background: brand.mutedBg,
+              border: `1px solid ${brand.border}`, borderRadius: 8,
+              width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center",
+              cursor: "pointer",
+            }}>
             <Bell size={16} color={brand.muted} />
             <span style={{
               position: "absolute", top: 6, right: 6, width: 7, height: 7,
@@ -541,7 +545,7 @@ export default function Servexa() {
                           </div>
                         </td>
                         <td style={{ padding: "12px 10px" }}>
-                          <button style={{ background: "none", border: "none", cursor: "pointer", color: brand.muted, padding: 4 }}>
+                          <button aria-label="Row actions" style={{ background: "none", border: "none", cursor: "pointer", color: brand.muted, padding: 4 }}>
                             <MoreHorizontal size={14} />
                           </button>
                         </td>
