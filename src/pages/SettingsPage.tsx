@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink } from "lucide-react";
+import { MessageSquare, Copy, CheckCircle2, ArrowLeft, Loader2, Send, BarChart2, Smartphone, Mail, ShieldCheck, RotateCcw, AlertTriangle, Calendar, Link2, ExternalLink, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -31,6 +31,7 @@ import FilenameFormatSettings from "@/components/FilenameFormatSettings";
 import { WordExportSettings } from "@/components/WordExportSettings";
 import WatermarkSettings from "@/components/WatermarkSettings";
 import AppVersion from "@/components/AppVersion";
+import { forceUpdateCheck } from "@/pwa/registerSW";
 
 const WEBHOOK_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/whatsapp-webhook`;
 const INSTALL_URL = "https://servexaapp.lovable.app/install";
@@ -56,6 +57,7 @@ export default function SettingsPage() {
   const [onboardingEmail, setOnboardingEmail] = useState("");
   const [onboardingName, setOnboardingName] = useState("");
   const [sendingOnboarding, setSendingOnboarding] = useState(false);
+  const [checkingUpdates, setCheckingUpdates] = useState(false);
 
   const [lastRotated, setLastRotated] = useState<string | null>(() =>
     localStorage.getItem("api_key_last_rotated")
@@ -66,6 +68,28 @@ export default function SettingsPage() {
     localStorage.setItem("api_key_last_rotated", now);
     setLastRotated(now);
     toast.success("API key rotation logged. Next rotation due in 90 days.");
+  };
+
+  const handleCheckForUpdates = async () => {
+    setCheckingUpdates(true);
+    try {
+      const { updateFound, error } = await forceUpdateCheck();
+      if (error) {
+        toast.error(error);
+        return;
+      }
+      if (updateFound) {
+        toast.success("Update available", {
+          description: "A new version of Servexa is ready. Tap the banner to update now.",
+        });
+      } else {
+        toast.success("You're on the latest version");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Update check failed");
+    } finally {
+      setCheckingUpdates(false);
+    }
   };
 
   const rotationInfo = getRotationStatus(lastRotated);
@@ -498,7 +522,20 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
 
-      <div className="mt-8 flex justify-center border-t pt-4">
+      <div className="mt-8 flex flex-col items-center gap-3 border-t pt-4">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleCheckForUpdates}
+          disabled={checkingUpdates}
+          className="gap-1.5"
+        >
+          {checkingUpdates ? (
+            <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Checking…</>
+          ) : (
+            <><RefreshCw className="h-3.5 w-3.5" /> Check for updates</>
+          )}
+        </Button>
         <AppVersion />
       </div>
     </div>
