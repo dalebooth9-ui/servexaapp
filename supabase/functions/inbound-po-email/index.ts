@@ -100,17 +100,19 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
-// Payload normalisation
-// Resend inbound event shape (as of 2026):
-//   { type: 'email.received', data: { from, to: [], subject, text, html,
-//     headers, attachments: [{ filename, contentType, content /* base64 */ }],
-//     raw?: string /* base64 .eml */ } }
-// Older/other providers may nest slightly differently, so we normalise.
+// Payload / API fetch
+//
+// IMPORTANT: Resend's `email.received` webhook contains METADATA ONLY —
+// no body, no attachment content. We must call:
+//   GET https://api.resend.com/emails/receiving/{email_id}
+//   GET https://api.resend.com/emails/receiving/{email_id}/attachments
+//   GET <attachment.download_url>   (returns raw bytes)
+// using RESEND_API_KEY to fetch the actual content.
 // ────────────────────────────────────────────────────────────────────────────
 interface Attachment {
   filename: string;
   contentType: string;
-  contentBase64: string;
+  bytes: Uint8Array;
 }
 interface InboundEmail {
   from: string;
@@ -122,45 +124,108 @@ interface InboundEmail {
   attachments: Attachment[];
 }
 
-function normalise(payload: any): InboundEmail | null {
+function extractEmailId(payload: any): string | null {
   const d = payload?.data ?? payload;
-  if (!d) return null;
-  const toRaw = d.to ?? d.recipient ?? d.recipients ?? [];
-  const toList: string[] = Array.isArray(toRaw)
+  return (
+    d?.email_id ?? d?.id ?? d?.emailId ?? payload?.email_id ?? payload?.id ?? null
+  );
+}
+
+function normaliseRecipients(d: any): string[] {
+  const toRaw = d?.to ?? d?.recipient ?? d?.recipients ?? [];
+  const list: string[] = Array.isArray(toRaw)
     ? toRaw.map((x: any) => (typeof x === "string" ? x : x?.email ?? x?.address ?? "")).filter(Boolean)
-    : typeof toRaw === "string"
-      ? [toRaw]
-      : [];
-  const attachmentsRaw = Array.isArray(d.attachments) ? d.attachments : [];
-  const attachments: Attachment[] = attachmentsRaw.map((a: any) => ({
-    filename: String(a.filename ?? a.name ?? "attachment.bin"),
-    contentType: String(a.contentType ?? a.content_type ?? "application/octet-stream"),
-    contentBase64: String(a.content ?? a.contentBase64 ?? a.base64 ?? ""),
-  })).filter((a: Attachment) => a.contentBase64);
-  return {
-    from: String(d.from?.email ?? d.from ?? d.sender ?? "").trim(),
-    to: toList.map((s) => s.toLowerCase().trim()),
-    subject: String(d.subject ?? "").trim(),
-    text: String(d.text ?? d.plain ?? ""),
-    html: String(d.html ?? ""),
-    rawEmlBase64: d.raw ?? d.raw_email ?? null,
-    attachments,
-  };
+    : typeof toRaw === "string" ? [toRaw] : [];
+  return list.map((s) => s.toLowerCase().trim());
 }
 
 function extractIntakeAddress(recipients: string[]): string | null {
   return recipients.find((r) => /@intake\.servexaapp\.com$/i.test(r)) ?? null;
 }
 
+async function resendGet(path: string, apiKey: string): Promise<any> {
+  const r = await fetch(`https://api.resend.com${path}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  if (!r.ok) {
+    const t = await r.text();
+    throw new Error(`Resend GET ${path} → ${r.status}: ${t}`);
+  }
+  return r.json();
+}
+
+async function fetchInboundEmail(
+  emailId: string,
+  resendKey: string,
+  payload: any,
+): Promise<InboundEmail> {
+  // 1. Fetch the email itself (subject, from, to, text, html, headers)
+  let msg: any = {};
+  try {
+    msg = await resendGet(`/emails/receiving/${emailId}`, resendKey);
+  } catch (e) {
+    console.error("fetchInboundEmail: email fetch failed, falling back to webhook payload", e);
+    msg = payload?.data ?? payload ?? {};
+  }
+
+  // 2. List attachments
+  let attList: any[] = [];
+  try {
+    const res = await resendGet(`/emails/receiving/${emailId}/attachments`, resendKey);
+    attList = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+  } catch (e) {
+    console.error("fetchInboundEmail: attachments list failed", e);
+  }
+
+  // 3. Download each attachment via its download_url
+  const attachments: Attachment[] = [];
+  for (const a of attList) {
+    const url: string | undefined = a?.download_url ?? a?.url;
+    const filename = String(a?.filename ?? a?.name ?? "attachment.bin");
+    const contentType = String(a?.content_type ?? a?.contentType ?? "application/octet-stream");
+    if (!url) continue;
+    try {
+      // Some Resend download URLs are pre-signed (no auth needed). Send the
+      // bearer anyway — it's harmless if the URL already carries a signature.
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${resendKey}` } });
+      if (!r.ok) {
+        console.error("attachment download failed", filename, r.status);
+        continue;
+      }
+      const buf = new Uint8Array(await r.arrayBuffer());
+      if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
+        console.warn("skipping oversized attachment", filename, buf.byteLength);
+        continue;
+      }
+      attachments.push({ filename, contentType, bytes: buf });
+    } catch (e) {
+      console.error("attachment download error", filename, e);
+    }
+  }
+
+  const d = payload?.data ?? payload ?? {};
+  return {
+    from: String(msg?.from?.email ?? msg?.from ?? d?.from?.email ?? d?.from ?? "").trim(),
+    to: normaliseRecipients({ to: msg?.to ?? d?.to }),
+    subject: String(msg?.subject ?? d?.subject ?? "").trim(),
+    text: String(msg?.text ?? msg?.plain ?? d?.text ?? ""),
+    html: String(msg?.html ?? d?.html ?? ""),
+    rawEmlBase64: msg?.raw ?? msg?.raw_email ?? d?.raw ?? null,
+    attachments,
+  };
+}
+
 // ────────────────────────────────────────────────────────────────────────────
-// AI extraction
+// AI extraction — accepts email text AND PDF/image attachments (Gemini reads
+// PDFs directly via data URL, same as parse-po-document / receive-po-email).
 // ────────────────────────────────────────────────────────────────────────────
-const EXTRACTION_PROMPT = `You extract purchase order details from an inbound email.
+const EXTRACTION_PROMPT = `You extract purchase order details from an inbound email and its attachments.
+The attachment (if a PDF or image is provided) is the PRIMARY source — the PO details usually live there. The email subject/body is secondary context.
 Return a SINGLE JSON object with exactly these fields (use "" or null when unknown):
-- customer_name: the company that sent the PO. Check the From address domain, the signature block, and the email body. Copy short abbreviations verbatim.
-- site_address: the site or delivery address for the work
-- po_number: purchase order reference (look for "PO", "Order No", "Ref")
-- job_description: full description of the work or goods ordered
+- customer_name: the company that sent the PO. Check the letterhead, "From"/"Bill To"/"Client" on the PDF, the signature block, and the sender domain. Copy short abbreviations verbatim.
+- site_address: the site / delivery / work address
+- po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
+- job_description: full description of the work or goods ordered — as much detail as possible
 - due_date: required completion date in YYYY-MM-DD, or ""
 - priority: "high", "medium" or "low" (default "medium")
 Return ONLY the JSON object, no markdown, no explanation.`;
@@ -174,6 +239,15 @@ interface Extracted {
   priority?: string;
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let s = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    s += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return btoa(s);
+}
+
 async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted> {
   const userText = [
     `From: ${email.from}`,
@@ -182,6 +256,25 @@ async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted
     email.text || stripHtml(email.html) || "(no body)",
   ].join("\n").slice(0, 20000);
 
+  const content: any[] = [{ type: "text", text: userText }];
+
+  // Attach the first PDF or image attachment (Gemini reads PDFs via image_url data URL).
+  const primary = email.attachments.find((a) =>
+    a.contentType.toLowerCase() === "application/pdf" ||
+    /\.pdf$/i.test(a.filename) ||
+    a.contentType.toLowerCase().startsWith("image/")
+  );
+  if (primary) {
+    const mime = primary.contentType.toLowerCase().startsWith("image/")
+      ? primary.contentType
+      : "application/pdf";
+    const b64 = bytesToBase64(primary.bytes);
+    content.push({
+      type: "image_url",
+      image_url: { url: `data:${mime};base64,${b64}` },
+    });
+  }
+
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -189,10 +282,10 @@ async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
+      model: primary ? "google/gemini-2.5-pro" : "google/gemini-2.5-flash",
       messages: [
         { role: "system", content: EXTRACTION_PROMPT },
-        { role: "user", content: userText },
+        { role: "user", content },
       ],
       temperature: 0.1,
     }),
@@ -202,10 +295,11 @@ async function extractPO(email: InboundEmail, apiKey: string): Promise<Extracted
     return {};
   }
   const data = await resp.json();
-  const content = data.choices?.[0]?.message?.content ?? "{}";
-  const cleaned = content.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
+  const raw = data.choices?.[0]?.message?.content ?? "{}";
+  const cleaned = raw.replace(/```json?\s*/g, "").replace(/```\s*/g, "").trim();
   try {
-    return JSON.parse(cleaned);
+    const parsed = JSON.parse(cleaned);
+    return Array.isArray(parsed) ? (parsed[0] || {}) : parsed;
   } catch {
     return {};
   }
