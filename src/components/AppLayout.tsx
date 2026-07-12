@@ -63,6 +63,8 @@ const DEFAULT_NAV_ITEMS = [
 { to: "/audit-log", label: "Audit Log", icon: History, section: "admin", adminOnly: true },
 { to: "/engineers", label: "Engineers", icon: Users, section: "admin", adminOnly: true },
 { to: "/setup", label: "Setup guide", icon: Rocket, section: "admin", adminOnly: true },
+{ to: "/admin/support-tickets", label: "Support tickets", icon: LifeBuoy, section: "admin", adminOnly: true },
+{ to: "/admin/error-log", label: "Error log", icon: Bug, section: "admin", adminOnly: true },
 { to: "/settings", label: "Settings", icon: Settings, section: "admin", adminOnly: true }];
 
 
