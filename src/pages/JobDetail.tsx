@@ -13,6 +13,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown } from "lucide-react";
+import { fuzzyMatch } from "@/lib/fuzzyMatch";
+import { cn } from "@/lib/utils";
+import SiteCombobox from "@/components/SiteCombobox";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode, PenLine } from "lucide-react";
@@ -674,19 +680,14 @@ export default function JobDetail() {
                   </div>
                   <div>
                     <Label className="text-xs">Site</Label>
-                    <Select value={editForm.site_id || "none"} onValueChange={(v) => {
-                      const siteId = v === "none" ? "" : v;
-                      const site = sites.find((s) => s.id === siteId);
-                      setEditForm((f) => ({ ...f, site_id: siteId, ...(site?.address ? { address: site.address } : {}) }));
-                    }}>
-                      <SelectTrigger className="mt-1"><SelectValue placeholder="Select site" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No site</SelectItem>
-                        {sites.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>{s.name}{s.postcode ? ` (${s.postcode})` : ""}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SiteCombobox
+                      value={editForm.site_id}
+                      sites={sites}
+                      onChange={(siteId) => {
+                        const site = sites.find((s) => s.id === siteId);
+                        setEditForm((f) => ({ ...f, site_id: siteId, ...(site?.address ? { address: site.address } : {}) }));
+                      }}
+                    />
                   </div>
                   {job.category === "installation" ? (
                     <div>

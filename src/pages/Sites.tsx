@@ -35,6 +35,7 @@ import SiteFireLog from "@/components/SiteFireLog";
 import { Flame } from "lucide-react";
 import { useJobCategories } from "@/hooks/useJobCategories";
 import { format } from "date-fns";
+import { fuzzyMatch } from "@/lib/fuzzyMatch";
 
 type Site = {
   id: string;
@@ -912,7 +913,7 @@ export default function Sites() {
   const getChildren = (parentId: string | null) => sites.filter((s) => s.parent_id === parentId);
 
   const filteredRoots = search.trim()
-    ? sites.filter((s) => s.name.toLowerCase().includes(search.toLowerCase()) || s.postcode?.toLowerCase().includes(search.toLowerCase()) || s.address?.toLowerCase().includes(search.toLowerCase()))
+    ? sites.filter((s) => fuzzyMatch(search, s.name, s.address, s.postcode))
     : sites.filter((s) => s.site_type !== "region" && (!s.parent_id || !sites.some((p) => p.id === s.parent_id && p.site_type !== "region")));
 
   const openCreate = (parentId: string | null = null, type: string = "region") => {
