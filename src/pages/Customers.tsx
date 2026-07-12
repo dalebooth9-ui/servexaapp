@@ -81,9 +81,7 @@ export default function Customers() {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  const filtered = customers.filter((c) =>
-    fuzzyMatch(search, c.name, c.email, c.phone, c.address)
-  );
+  const filtered = fuzzyFilter(customers, search, (c) => [c.name, c.email, c.phone, c.address]);
 
   const openCreate = () => {
     setEditingId(null);
