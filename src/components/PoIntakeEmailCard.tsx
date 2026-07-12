@@ -54,6 +54,10 @@ export default function PoIntakeEmailCard() {
       <CardContent className="space-y-4">
         {loading ? (
           <div className="h-10 rounded-md bg-muted animate-pulse" />
+        ) : error ? (
+          <p className="text-sm text-destructive">
+            Couldn't load intake email: {error}
+          </p>
         ) : intakeEmail ? (
           <div className="flex gap-2">
             <Input value={intakeEmail} readOnly className="font-mono text-sm" />
