@@ -113,17 +113,17 @@ export function logError(input: LogErrorInput): void {
       try {
         const { userId, orgId } = await resolveIdentity();
         if (!userId) return; // Anonymous session — RLS would reject
-        await supabase.from("client_errors").insert({
+        await supabase.from("client_errors").insert([{
           user_id: userId,
-          org_id: orgId,
+          org_id: orgId ?? undefined,
           source: entry.source,
           message: entry.message.slice(0, 2000),
-          stack: entry.stack ? entry.stack.slice(0, 8000) : null,
+          stack: entry.stack ? entry.stack.slice(0, 8000) : undefined,
           page_url: entry.page_url,
           route: entry.route,
           user_agent: entry.user_agent,
-          context: entry.context ?? {},
-        });
+          context: (entry.context ?? {}) as never,
+        }]);
       } catch {
         // Never propagate.
       }
