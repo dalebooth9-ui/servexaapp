@@ -88,14 +88,16 @@ Deno.serve(async (req) => {
       return twimlResponse();
     }
 
-    // Find engineer by WhatsApp number
+    // Find engineer by WhatsApp number — try E.164 first, fall back to 0-prefixed UK legacy format.
+    const fallbackFrom = from.startsWith("+44") ? "0" + from.slice(3) : null;
+    const candidates = fallbackFrom ? [from, fallbackFrom] : [from];
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("user_id")
-      .eq("whatsapp_number", from)
+      .select("user_id, whatsapp_number")
+      .in("whatsapp_number", candidates)
       .maybeSingle();
 
-    console.log(`[profile-lookup] normalisedFrom="${from}" rawFrom="${rawFrom}" found=${!!profile} error=${profileError?.message ?? "none"} engineerId=${profile?.user_id ?? "n/a"}`);
+    console.log(`[profile-lookup] normalisedFrom="${from}" fallback="${fallbackFrom ?? ""}" rawFrom="${rawFrom}" found=${!!profile} error=${profileError?.message ?? "none"} engineerId=${profile?.user_id ?? "n/a"}`);
 
     if (!profile) {
       console.log(`[profile-lookup] Unknown WhatsApp number: ${from} — no matching profile`);
