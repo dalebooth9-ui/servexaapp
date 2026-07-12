@@ -600,8 +600,8 @@ export default function JobDetail() {
                         <OpenInMapsButton
                           address={job.address}
                           postcode={job.sites?.postcode ?? null}
-                          lat={job.sites?.latitude ?? null}
-                          lng={job.sites?.longitude ?? null}
+                          lat={(job.sites as any)?.latitude ?? null}
+                          lng={(job.sites as any)?.longitude ?? null}
                           size="sm"
                           variant="outline"
                           label="Directions"
