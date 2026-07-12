@@ -811,14 +811,21 @@ export default function PlannerMapView({
     };
   }, [scheduledJobs, unallocatedJobs]);
 
-  // Toggle unallocated marker visibility
+  // Toggle unallocated marker visibility — keep clusterer in sync so a background
+  // refetch that rebuilds the clusterer inherits the correct visible set.
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
-    unallocatedMarkersRef.current.forEach((m) => {
-      m.setMap(showUnallocated ? map : null);
-    });
-  }, [showUnallocated]);
+    const markers = unallocatedMarkersRef.current;
+    if (markers.length === 0) return;
+    if (showUnallocated) {
+      markers.forEach((m) => m.setMap(map));
+      clustererRef.current?.addMarkers(markers, /* noDraw */ false);
+    } else {
+      clustererRef.current?.removeMarkers(markers, /* noDraw */ false);
+      markers.forEach((m) => m.setMap(null));
+    }
+  }, [showUnallocated, scheduledJobs, unallocatedJobs]);
 
   // Apply marker mode (priority colours vs route-order numbered pins) + engineer filter
   useEffect(() => {
