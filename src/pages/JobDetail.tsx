@@ -19,6 +19,7 @@ import { Check, ChevronsUpDown } from "lucide-react";
 import { fuzzyMatch } from "@/lib/fuzzyMatch";
 import { cn } from "@/lib/utils";
 import SiteCombobox from "@/components/SiteCombobox";
+import { OpenInMapsButton } from "@/components/OpenInMapsButton";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode, PenLine } from "lucide-react";
@@ -592,7 +593,22 @@ export default function JobDetail() {
                         </span>
                       )}
                     </div>
-                    <div><span className="text-muted-foreground">Site Address:</span> <span className="font-medium">{job.address || "—"}</span></div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-muted-foreground">Site Address:</span>
+                      <span className="font-medium">{job.address || "—"}</span>
+                      {job.address && (
+                        <OpenInMapsButton
+                          address={job.address}
+                          postcode={job.sites?.postcode ?? null}
+                          lat={job.sites?.latitude ?? null}
+                          lng={job.sites?.longitude ?? null}
+                          size="sm"
+                          variant="outline"
+                          label="Directions"
+                          className="h-7"
+                        />
+                      )}
+                    </div>
                     {jobW3W && (
                       <div className="flex items-center gap-1">
                         <span className="text-muted-foreground">what3words:</span>
