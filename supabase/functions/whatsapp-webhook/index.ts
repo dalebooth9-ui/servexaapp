@@ -152,64 +152,37 @@ Deno.serve(async (req) => {
       console.log(`[fuzzy-match] jobId=${jobId} strippedBody="${strippedBody}" candidatesFromRef=${candidates.length}`);
       let fuzzyAttemptedNoMatch = false;
       if (!jobId && strippedBody.length >= 3) {
-        const term = strippedBody.slice(0, 120);
-        const escaped = term.replace(/[%_,()]/g, " ").trim();
-        console.log(`[fuzzy-match] searching with term="${escaped}"`);
-
-        // 1. Jobs whose own name matches
-        const { data: byJobName, error: byJobNameErr } = await supabase
+        // Load a pool of non-archived jobs (with linked site info) to score against.
+        // Client-side normalised matching so "cedar tree", "cedar-tree",
+        // "CEDARTREE COURT" all collapse to the same token.
+        const { data: jobPool, error: poolErr } = await supabase
           .from("jobs")
-          .select("id, name, reference_number, sites(name)")
+          .select("id, name, reference_number, address, sites(name, address, postcode)")
           .neq("status", "archived")
-          .ilike("name", `%${escaped}%`)
-          .limit(10);
-        if (byJobNameErr) console.error(`[fuzzy-match] byJobName err:`, byJobNameErr);
-        console.log(`[fuzzy-match] byJobName count=${(byJobName||[]).length} rows:`, JSON.stringify(byJobName));
+          .order("updated_at", { ascending: false })
+          .limit(1000);
+        if (poolErr) console.error(`[fuzzy-match] pool err:`, poolErr);
+        console.log(`[fuzzy-match] pool size=${(jobPool || []).length}`);
 
-        // 2. Jobs whose linked site name matches (via site_id FK)
-        const { data: matchingSites, error: sitesErr } = await supabase
-          .from("sites")
-          .select("id, name")
-          .ilike("name", `%${escaped}%`)
-          .limit(10);
-        if (sitesErr) console.error(`[fuzzy-match] sites err:`, sitesErr);
-        console.log(`[fuzzy-match] matchingSites rows:`, JSON.stringify(matchingSites));
+        const matches = matchJobsByCaption(strippedBody, jobPool || []);
+        console.log(`[fuzzy-match] scored matches=${matches.length} top:`,
+          JSON.stringify(matches.slice(0, 5).map((m) => ({
+            ref: m.job.reference_number, name: m.job.name, score: m.score, tokens: m.tokensMatched,
+          }))));
 
-        let bySiteName: any[] = [];
-        if (matchingSites && matchingSites.length > 0) {
-          const siteIds = matchingSites.map((s: any) => s.id);
-          const { data, error: bySiteErr } = await supabase
-            .from("jobs")
-            .select("id, name, reference_number, sites(name)")
-            .in("site_id", siteIds)
-            .neq("status", "archived")
-            .order("updated_at", { ascending: false })
-            .limit(10);
-          if (bySiteErr) console.error(`[fuzzy-match] bySite err:`, bySiteErr);
-          bySiteName = data || [];
-        }
-
-        // Merge + dedupe by job id
-        const merged = new Map<string, any>();
-        for (const j of [...(byJobName || []), ...bySiteName]) merged.set(j.id, j);
-        const matches = Array.from(merged.values());
-        console.log(`[fuzzy-match] byJobName=${(byJobName||[]).length} bySite=${bySiteName.length} merged=${matches.length}`);
-
-        if (matches.length === 1) {
-          jobId = matches[0].id;
-          console.log(`[fuzzy-match] single match → job ${matches[0].reference_number} (${jobId})`);
+        if (matches.length === 1 || (matches.length > 1 && matches[0].score > matches[1].score * 1.5)) {
+          jobId = matches[0].job.id;
+          console.log(`[fuzzy-match] confident match → job ${matches[0].job.reference_number} (${jobId})`);
         } else if (matches.length > 1) {
           const refs = matches
             .slice(0, 10)
-            .map((j: any) => j.reference_number || j.name || j.id)
+            .map((m) => m.job.reference_number || m.job.name || m.job.id)
             .join(", ");
           await sendWhatsApp(twilioSender, from,
-            `Found ${matches.length} jobs matching "${term}": ${refs} — please resend with the reference number.`
+            `Found ${matches.length} jobs matching "${strippedBody.slice(0, 80)}": ${refs} — please resend with the reference number.`
           );
           return twimlResponse();
         } else {
-          // Caption was provided but no jobs matched — do NOT silently fall back
-          // to a stale active-job context. Tell the engineer.
           fuzzyAttemptedNoMatch = true;
           console.log(`[fuzzy-match] zero matches for caption — skipping getActiveJob fallback`);
         }
