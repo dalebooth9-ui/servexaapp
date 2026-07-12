@@ -335,7 +335,7 @@ export default function Customers() {
             <Button variant="outline" onClick={() => setBulkEnrichOpen(true)}>
               <Sparkles className="mr-2 h-4 w-4" /> AI Auto-Fill All
             </Button>
-            <Button onClick={openCreate}>
+            <Button onClick={openCreate} data-setup="add-customer">
               <Plus className="mr-2 h-4 w-4" /> Add Customer
             </Button>
           </div>
