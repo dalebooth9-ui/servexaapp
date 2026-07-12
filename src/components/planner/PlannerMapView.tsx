@@ -101,6 +101,7 @@ export default function PlannerMapView({
   const unallocatedMarkersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const directionsRendererRef = useRef<google.maps.DirectionsRenderer | null>(null);
+  const routePolylineRef = useRef<google.maps.Polyline | null>(null);
   const lastOptimisedWaypointsRef = useRef<{ address: string; job_id: string }[] | null>(null);
   const liveRouteRenderersRef = useRef<google.maps.DirectionsRenderer[]>([]);
   const routeNumberOverlaysRef = useRef<google.maps.Marker[]>([]);
