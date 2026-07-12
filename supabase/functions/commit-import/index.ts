@@ -150,32 +150,31 @@ serve(async (req) => {
       return null;
     };
 
-    const payloads = toCreate.map(buildCreatePayload).filter(Boolean) as any[];
+    // Pair each valid source row with its payload so we can link created ids back after insert.
+    const paired: { source: CommitRow; payload: any }[] = [];
+    for (const r of toCreate) {
+      const p = buildCreatePayload(r);
+      if (p) paired.push({ source: r, payload: p });
+    }
 
-    // For sites the parent_customer id needs to move onto customer_sites link (not a column on sites).
-    // We insert sites first, then link.
-    for (const batchRows of chunk(payloads, 500)) {
-      const { data: inserted, error } = await admin.from(body.entity).insert(batchRows).select("id");
+    for (const group of chunk(paired, 500)) {
+      const { data: inserted, error } = await admin
+        .from(body.entity)
+        .insert(group.map((g) => g.payload))
+        .select("id");
       if (error) {
         console.error("insert error", error);
-        errors.push({ chunk_size: batchRows.length, message: error.message });
+        errors.push({ chunk_size: group.length, message: error.message });
         continue;
       }
       created += inserted?.length || 0;
 
-      // If sites: create customer_sites links for rows that had a resolved parent
-      if (body.entity === "sites") {
+      if (body.entity === "sites" && inserted) {
         const links: any[] = [];
-        // Walk in parallel with toCreate rows to match parentMatchId
-        // NB: order preserved by insert
-        let idx = 0;
-        for (const r of toCreate) {
-          if (!buildCreatePayload(r)) continue;
-          const newId = inserted?.[idx]?.id;
-          idx++;
-          if (newId && r.parentMatchId) {
-            links.push({ customer_id: r.parentMatchId, site_id: newId });
-          }
+        for (let i = 0; i < inserted.length; i++) {
+          const newId = inserted[i].id;
+          const parent = group[i]?.source.parentMatchId;
+          if (newId && parent) links.push({ customer_id: parent, site_id: newId });
         }
         if (links.length) {
           const { error: linkErr } = await admin.from("customer_sites").insert(links);
