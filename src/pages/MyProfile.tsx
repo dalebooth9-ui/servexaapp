@@ -39,9 +39,11 @@ export default function MyProfile() {
   const save = async () => {
     if (!user) return;
     setSaving(true);
+    const normalisedWhatsapp = normaliseWhatsAppNumber(whatsapp);
+    if (normalisedWhatsapp !== whatsapp) setWhatsapp(normalisedWhatsapp);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName, phone, whatsapp_number: whatsapp })
+      .update({ full_name: fullName, phone, whatsapp_number: normalisedWhatsapp || null })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
