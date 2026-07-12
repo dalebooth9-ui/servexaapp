@@ -310,7 +310,18 @@ export default function PlannerMapView({
 
   // Optimise route for all scheduled jobs
   const handleOptimise = async (opts?: { silent?: boolean }) => {
-    if (scheduledJobs.length < 2) return;
+    if (scheduledJobs.length < 2) {
+      if (!opts?.silent) {
+        toast({
+          title: "Need at least 2 stops to optimise",
+          description: effectiveDate
+            ? `No routeable jobs on ${effectiveDate}${selectedEngineerId !== "all" ? " for this engineer" : ""}. Change the date filter or add more stops.`
+            : "Add at least two scheduled jobs with addresses to optimise a route.",
+          variant: "destructive",
+        });
+      }
+      return;
+    }
     setOptimising(true);
     clearRouteOverlay();
     setAdhocNotices([]);
