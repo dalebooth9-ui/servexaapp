@@ -5,7 +5,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Download, RefreshCw, X } from "lucide-react";
-import { setupPWA } from "@/pwa/registerSW";
+import { setupPWA, setLastPromptedVersion, shouldPromptForUpdate } from "@/pwa/registerSW";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
