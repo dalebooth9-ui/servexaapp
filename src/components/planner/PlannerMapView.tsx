@@ -649,16 +649,15 @@ export default function PlannerMapView({
         });
         mapInstanceRef.current = map;
 
-        const geocoder = new google.maps.Geocoder();
+        const geocoder = new google.maps.Geocoder(); void geocoder;
         const bounds = new google.maps.LatLngBounds();
         let hasMarkers = false;
 
         // Scheduled jobs — coloured by priority
         for (const { job, engineerName, engineerId } of scheduledJobs) {
           try {
-            const result = await geocoder.geocode({ address: job.address!, region: "GB", componentRestrictions: { country: "GB" } });
-            if (result.results[0]) {
-              const pos = result.results[0].geometry.location;
+            const pos = await geocodeWithGoogle(job.address!);
+            if (pos) {
               bounds.extend(pos);
               hasMarkers = true;
 
@@ -670,8 +669,8 @@ export default function PlannerMapView({
               });
 
               const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(job.address!)}`;
-              const posLat = pos.lat();
-              const posLng = pos.lng();
+              const posLat = pos.lat;
+              const posLng = pos.lng;
               const infoWindow = new google.maps.InfoWindow({
                 content: `<div style="font-family:system-ui;font-size:13px;max-width:260px">
                   <a href="/jobs/${job.id}" style="font-weight:600;color:#2563eb;text-decoration:none" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${job.reference_number}</a> — ${job.name}<br/>
@@ -701,9 +700,8 @@ export default function PlannerMapView({
         for (const job of unallocatedJobs) {
           if (!job.address || scheduledIds.has(job.id)) continue;
           try {
-            const result = await geocoder.geocode({ address: job.address, region: "GB", componentRestrictions: { country: "GB" } });
-            if (result.results[0]) {
-              const pos = result.results[0].geometry.location;
+            const pos = await geocodeWithGoogle(job.address);
+            if (pos) {
               bounds.extend(pos);
               hasMarkers = true;
 
