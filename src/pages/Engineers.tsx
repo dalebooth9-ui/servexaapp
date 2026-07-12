@@ -22,6 +22,7 @@ import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import TableSkeleton from "@/components/TableSkeleton";
+import { normaliseWhatsAppNumber, WHATSAPP_NUMBER_HINT } from "@/lib/normalisePhone";
 
 const DOC_TYPES = ["certificate", "id", "training", "insurance", "dbs", "first_aid", "other"];
 
@@ -134,8 +135,9 @@ export default function Engineers() {
   const handleSave = async () => {
     if (!editEng) return;
     setSaving(true);
+    const normalisedWa = normaliseWhatsAppNumber(form.whatsapp_number);
     const { error } = await supabase.from("profiles").update({
-      full_name: form.full_name, phone: form.phone || null, whatsapp_number: form.whatsapp_number || null,
+      full_name: form.full_name, phone: form.phone || null, whatsapp_number: normalisedWa || null,
     }).eq("id", editEng.id);
     setSaving(false);
     if (error) {
@@ -166,7 +168,8 @@ export default function Engineers() {
       toast({ title: "Error", description: "Name and email are required.", variant: "destructive" }); return;
     }
     setAdding(true);
-    const { data, error } = await supabase.functions.invoke("create-engineer", { body: addForm });
+    const payload = { ...addForm, whatsapp_number: normaliseWhatsAppNumber(addForm.whatsapp_number) };
+    const { data, error } = await supabase.functions.invoke("create-engineer", { body: payload });
     setAdding(false);
     if (error || data?.error) {
       toast({ title: "Error", description: data?.error || "Failed to create engineer.", variant: "destructive" });
@@ -391,7 +394,14 @@ export default function Engineers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-wa">WhatsApp Number</Label>
-              <Input id="edit-wa" value={form.whatsapp_number} onChange={(e) => setForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+              <Input
+                id="edit-wa"
+                value={form.whatsapp_number}
+                onChange={(e) => setForm((f) => ({ ...f, whatsapp_number: e.target.value }))}
+                onBlur={() => setForm((f) => ({ ...f, whatsapp_number: normaliseWhatsAppNumber(f.whatsapp_number) }))}
+                placeholder="+447772544203"
+              />
+              <p className="text-xs text-muted-foreground">{WHATSAPP_NUMBER_HINT}</p>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Digital Signature</Label>
@@ -424,7 +434,14 @@ export default function Engineers() {
             </div>
             <div className="space-y-2">
               <Label htmlFor="add-wa">WhatsApp Number</Label>
-              <Input id="add-wa" value={addForm.whatsapp_number} onChange={(e) => setAddForm((f) => ({ ...f, whatsapp_number: e.target.value }))} placeholder="+44..." />
+              <Input
+                id="add-wa"
+                value={addForm.whatsapp_number}
+                onChange={(e) => setAddForm((f) => ({ ...f, whatsapp_number: e.target.value }))}
+                onBlur={() => setAddForm((f) => ({ ...f, whatsapp_number: normaliseWhatsAppNumber(f.whatsapp_number) }))}
+                placeholder="+447772544203"
+              />
+              <p className="text-xs text-muted-foreground">{WHATSAPP_NUMBER_HINT}</p>
             </div>
             <div className="flex items-center space-x-2">
               <Checkbox id="add-reset" checked={addForm.send_reset_email} onCheckedChange={(checked) => setAddForm((f) => ({ ...f, send_reset_email: !!checked }))} />

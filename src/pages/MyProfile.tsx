@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import ProfileSignatureCapture from "@/components/ProfileSignatureCapture";
 import VehicleCheckHistory from "@/components/VehicleCheckHistory";
+import { normaliseWhatsAppNumber, WHATSAPP_NUMBER_HINT } from "@/lib/normalisePhone";
 
 export default function MyProfile() {
   const { user, profile } = useAuth();
@@ -38,9 +39,11 @@ export default function MyProfile() {
   const save = async () => {
     if (!user) return;
     setSaving(true);
+    const normalisedWhatsapp = normaliseWhatsAppNumber(whatsapp);
+    if (normalisedWhatsapp !== whatsapp) setWhatsapp(normalisedWhatsapp);
     const { error } = await supabase
       .from("profiles")
-      .update({ full_name: fullName, phone, whatsapp_number: whatsapp })
+      .update({ full_name: fullName, phone, whatsapp_number: normalisedWhatsapp || null })
       .eq("user_id", user.id);
     setSaving(false);
     if (error) {
@@ -76,7 +79,14 @@ export default function MyProfile() {
         </div>
         <div>
           <Label htmlFor="wa">WhatsApp number</Label>
-          <Input id="wa" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+          <Input
+            id="wa"
+            value={whatsapp}
+            placeholder="+447772544203"
+            onChange={(e) => setWhatsapp(e.target.value)}
+            onBlur={() => setWhatsapp((v) => normaliseWhatsAppNumber(v))}
+          />
+          <p className="text-xs text-muted-foreground mt-1">{WHATSAPP_NUMBER_HINT}</p>
         </div>
         <Button onClick={save} disabled={saving} className="w-full">
           <Save className="h-4 w-4 mr-2" />
