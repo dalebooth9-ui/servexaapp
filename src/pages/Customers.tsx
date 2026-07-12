@@ -19,7 +19,7 @@ import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/
 import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
 import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
-import { fuzzyMatch } from "@/lib/fuzzyMatch";
+import { fuzzyFilter } from "@/lib/fuzzyMatch";
 
 type Customer = {
   id: string;
