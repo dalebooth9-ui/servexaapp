@@ -1060,6 +1060,22 @@ export default function PlannerMapView({
               </Button>
             </div>
           )}
+          {/* Date filter — only show markers/route for the selected planner day */}
+          <Select value={dateFilter} onValueChange={setDateFilter}>
+            <SelectTrigger className="h-9 w-[170px] text-xs">
+              <Calendar className="mr-1.5 h-3.5 w-3.5" />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today ({todayStr})</SelectItem>
+              <SelectItem value="all">All dates in view</SelectItem>
+              {availableDates.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {format(new Date(d + "T00:00:00"), "EEE d MMM yyyy")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {/* Engineer filter */}
           {activeEngineers.length > 0 && (
             <Select value={selectedEngineerId} onValueChange={setSelectedEngineerId}>
