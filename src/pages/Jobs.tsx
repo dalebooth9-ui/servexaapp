@@ -211,7 +211,7 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name)";
+    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     if (!includeArchived) {
       query = query.not("status", "in", "(completed,archived)");
