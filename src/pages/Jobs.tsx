@@ -13,6 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { fuzzyFilter } from "@/lib/fuzzyMatch";
+import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
@@ -210,7 +212,7 @@ export default function Jobs() {
   );
 
   const fetchJobs = async () => {
-    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name)";
+    const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
     if (!includeArchived) {
       query = query.not("status", "in", "(completed,archived)");
@@ -1036,19 +1038,21 @@ export default function Jobs() {
     setMergeTarget("");
   };
 
-  const filtered = jobs.filter((j) => {
+  const prefiltered = jobs.filter((j) => {
     if (statusFilter !== "all" && j.status !== statusFilter) return false;
     if (priorityFilter !== "all" && j.priority !== priorityFilter) return false;
     if (categoryFilter !== "all" && j.category !== categoryFilter) return false;
-    if (!search) return true;
-    const s = search.toLowerCase();
-    const custName = getCustomerName(j) || "";
-    return (
-      j.name.toLowerCase().includes(s) ||
-      j.reference_number.toLowerCase().includes(s) ||
-      custName.toLowerCase().includes(s)
-    );
+    return true;
   });
+  const filtered = fuzzyFilter(prefiltered, search, (j) => [
+    j.name,
+    j.reference_number,
+    getCustomerName(j),
+    (j as any).address,
+    (j as any).sites?.name,
+    (j as any).sites?.address,
+    (j as any).sites?.postcode,
+  ]);
 
   // Global select-all derived state (must come after filtered)
   const allFilteredIds = filtered.map((j) => j.id);
@@ -1246,17 +1250,11 @@ export default function Jobs() {
                 </div>
                 <div className="space-y-2">
                   <Label>Customer</Label>
-                  <Select value={form.customer_id || "__none__"} onValueChange={(v) => setForm({ ...form, customer_id: v === "__none__" ? "" : v })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select customer" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">No customer</SelectItem>
-                      {customers.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <CustomerCombobox
+                    value={form.customer_id}
+                    customers={customers}
+                    onChange={(v) => setForm({ ...form, customer_id: v })}
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label>Address</Label>

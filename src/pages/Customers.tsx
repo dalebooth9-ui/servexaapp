@@ -19,7 +19,7 @@ import CustomerFolderDrop, { type CustomerFolderDropHandle } from "@/components/
 import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
 import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
-import { fuzzyMatch } from "@/lib/fuzzyMatch";
+import { fuzzyFilter } from "@/lib/fuzzyMatch";
 
 type Customer = {
   id: string;
@@ -81,9 +81,7 @@ export default function Customers() {
     fetchCustomers();
   }, [fetchCustomers]);
 
-  const filtered = customers.filter((c) =>
-    fuzzyMatch(search, c.name, c.email, c.phone, c.address)
-  );
+  const filtered = fuzzyFilter(customers, search, (c) => [c.name, c.email, c.phone, c.address]);
 
   const openCreate = () => {
     setEditingId(null);
