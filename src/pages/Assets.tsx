@@ -719,6 +719,10 @@ export default function Assets() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
+
+
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
