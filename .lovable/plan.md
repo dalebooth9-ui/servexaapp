@@ -1,80 +1,87 @@
-# Planner — high-density days
+## Part A — Audit of what's actually there today
 
-Goal: one engineer × 16+ visits in a single day must remain readable, fast to assign, correctly routed, and clean on mobile — without breaking single-drag flows.
+### Xero backend (`supabase/functions/xero-*`)
+- **`xero-auth`**: OAuth start (`?action=authorize`), status, disconnect. HMAC-signed state. Scopes = `openid profile email accounting.transactions accounting.contacts offline_access`. ✅ Works.
+- **`xero-oauth-callback`**: Code exchange, picks first tenant, upserts `xero_connections` on `(user_id, tenant_id)`. Redirects to `/settings`. ✅ Works.
+- **`xero-sync`**: `getValidToken` refreshes automatically; deletes stale row on refresh failure. Actions implemented:
+  - `sync_invoice` — pushes invoice OR quote (based on `document_type`). Line items map `quantity/unit_price/description`. Contact lookup by name, creates if missing. Status map: local `draft→DRAFT`, `sent/paid/overdue→AUTHORISED`, `cancelled→VOIDED`. Updates local `xero_invoice_id` + `xero_synced_at`. ✅ Works.
+  - `import_contacts` — pulls Xero customers, upserts into `customers` by `xero_contact_id`. ✅ Works.
+- **`send-invoice-email`** — Resend-based, admin-only, attaches PDF. Not wired to Xero send.
 
-## Task A (already done, out of scope of this plan)
-Dashboard "Completed jobs" queries switched from `updated_at` to canonical `completed_at` (with `updated_at` fallback for legacy rows) in `DirectorDashboard.tsx` and `AdminDashboard.tsx`. Root cause: both dashboards bucketed completed jobs by `updated_at`; a manual/SQL status flip that doesn't bump `updated_at` (no trigger on the column) fell outside the current-week/month window even though `completed_at` was correctly set today.
+### Invoicing UI
+- `Invoices.tsx`, `InvoiceDetail.tsx`, `CreateInvoiceDialog.tsx` — full local CRUD, line items, PDF, mark-paid, "Sync to Xero" button. ✅ Works standalone.
+- `XeroSettings.tsx` — Connect/disconnect/import contacts UI on Settings page. ✅ Works.
 
-## Scope of this plan (Task B)
+### Schema
+- `xero_connections` — keyed by `user_id` (**global per user, not per-org** — flagged in step 4 audit, needs fixing).
+- `customers.xero_contact_id` ✅ exists.
+- `invoices.xero_invoice_id`, `xero_synced_at` ✅ exist.
+- `xero_connections`: **0 rows**; `invoices`: **0 rows** — never used in production.
 
-### 1. Compact day cells (weekly grid)
-File: `src/components/planner/WeeklyGridView.tsx`
+### Send-to-customer flow (`SendToCustomerMenu.tsx`)
+- Already has an "Invoice" checkbox that lets you attach an **existing** invoice PDF to the report email. ✅
+- **Missing**: no way to draft a new invoice from job parts inside that flow; no Xero push on send; no "invoice sent separately via Xero" mode; no contact-mapping confirm; no unconnected fallback prompt.
 
-- Threshold: `COMPACT_THRESHOLD = 4`. When a `(engineer, day)` cell holds >4 entries, render "mini rows" instead of full `DraggableScheduleCard`s:
-  - one line per visit: `HH:mm · site name · POSTCODE` (fall back to job name / ref if site is null)
-  - compact status dot + priority stripe kept
-  - overflow after 6 mini-rows collapses further into a "+N more" pill
-- Above the mini rows: count badge `{n} jobs` + a **Open day** button that opens the Expanded Day Panel.
-- Still a droppable target — single drops (unallocated → cell, or move between cells) continue to work exactly as today.
-- Under threshold: unchanged rendering.
+### Gaps to close
+1. Draft-from-job step inside the send flow (prefill from `job_parts`, agreed price, manual lines).
+2. On send: push to Xero as **Draft** or **Awaiting Approval** (org setting), then either attach PDF to report email OR send via Xero (org setting).
+3. Contact mapping UX (first-use confirm; create-in-Xero confirm).
+4. Unconnected graceful path — invoice recorded locally, PDF attached, banner to connect.
+5. Per-org `xero_connections` (currently per-user global).
 
-### 2. Expanded Day Panel (new component)
-File: `src/components/planner/DayPanel.tsx`
+---
 
-- Sheet/Dialog opened from a compact cell or by tap on any day header.
-- Header: engineer, date, visit count, "Optimise route" and "View on map" actions (reusing existing handlers from `PlannerMapView`).
-- Ordered list of that day's visits with `@dnd-kit/sortable` (vertical) to reorder — persists to `job_schedule.sort_order` (see 6).
-- Row actions: remove, adjust span, jump to job.
-- Empty state hidden — panel only opens when ≥1 visit.
+## Part B — Build plan
 
-### 3. Bulk assign in unallocated list
-File: `src/pages/WeeklyPlanner.tsx` + new `src/components/planner/BulkAssignBar.tsx`
+### B1. Migration (per-org Xero + org settings + customer mapping trust)
+- `ALTER TABLE xero_connections ADD COLUMN org_id uuid REFERENCES organisations(id)`; backfill from `profiles.org_id` of `user_id`; make `org_id` NOT NULL; add unique `(org_id, tenant_id)`; keep `user_id` as "connected_by". Update RLS to org-scoped via `has_org_access(org_id)`.
+- `app_settings` (JSON per org) additions: `xero_invoice_status` = `DRAFT` | `AUTHORISED` (default `DRAFT`), `xero_delivery` = `attach_pdf` | `xero_send` (default `attach_pdf`).
+- `customers.xero_contact_confirmed_at timestamptz` — set when user confirms the mapping, so we don't re-ask.
+- Update `xero-sync` + `xero-auth` to resolve connection by caller's `org_id` instead of `user_id`.
 
-- Toggle "Select" mode in unallocated sidebar header; each unallocated card shows a checkbox in select mode (single-drag disabled while a card is selected).
-- Sticky footer: `{n} selected · Engineer ▾ · Date ▾ · [Assign] [Clear]`.
-- Assign action inserts N `job_schedule` rows in one `.insert([...])` call, invalidates queries, shows toast with undo (leans on the existing 8-second undo store).
-- Multi-day option: reuse the existing `MultiDayScheduleDialog` when user picks "spread over N days".
+### B2. Extend `xero-sync` edge function
+- Add `action: "draft_from_job"` — server builds invoice + line items from `job_parts` (qty × unit_price), `jobs.quoted_price` fallback, and any manual overrides passed in. Returns the new local `invoice_id` unpushed. (Or do this client-side; server keeps totals canonical.)
+- Add `action: "find_or_create_contact"` — search Xero by name/email, return candidates for the UI to confirm; on confirm, either link existing `ContactID` to `customers.xero_contact_id` or create then link.
+- Extend `sync_invoice` to honour the org's `xero_invoice_status` and, when `xero_delivery = xero_send`, call Xero `Invoices/{id}/Email` after push.
 
-### 4. Route-stop cap (25)
-Files: `src/components/planner/PlannerMapView.tsx` and the route-optimise action call sites.
+### B3. Send-to-customer review flow (`SendToCustomerMenu.tsx`)
+Add a new "Invoice" step (only when job is completed):
+- Radio: **None** / **Attach existing invoice** (current behaviour) / **Draft new invoice from job**.
+- "Draft new" opens an inline editor pre-loaded with job parts → editable lines, VAT, notes, due date. Live totals.
+- Contact mapping row: shows matched Xero contact (or "No match — will create 'ABCA Fire & Security'") with **Confirm** / **Choose different** / **Create new**. Persists to `customers.xero_contact_id` + `xero_contact_confirmed_at`.
+- If Xero not connected: yellow banner "Xero not connected — invoice will be saved locally and PDF attached. [Connect Xero]". Flow continues.
+- Send button becomes "Send report + invoice": one atomic action — save invoice locally, push to Xero (if connected), then send the customer email (attach PDF or note "sent separately via Xero" per org setting).
 
-- Google Routes API supports 25 intermediate waypoints (27 total incl. origin+destination).
-- Before invoking optimisation: if stops > 25, show a friendly toast: "This day has {n} stops. Google Routes can optimise up to 25 in one pass — showing the first 25 in the order you have them. Split the day or adjust manually." Continue with first 25 for the API call and render the remainder as pins-only (no leg lines) so the map stays honest.
-- Map pins clustering already present via existing map component — verify clustering enabled for >20 pins; enable if not.
+### B4. Settings → Integrations (`XeroSettings.tsx`)
+- Add two selects backed by org `app_settings`: **Push invoices as** (Draft / Awaiting Approval) and **Invoice delivery** (Attach PDF to our email / Send via Xero).
+- Make the Connect button visible from the send flow's banner too (route to `/settings?tab=integrations`).
 
-### 5. Mobile: engineer day list
-File: `src/pages/EngineerToday.tsx` (or equivalent — will confirm during implementation) and `src/components/EngineerDashboard.tsx`
+### B5. Error handling
+- Surface Xero API error body verbatim in a toast + append to invoice notes (audit trail).
+- If Xero push fails, invoice stays local with a "Retry Xero push" action on `InvoiceDetail`; email still sends.
 
-- List view uses the same compact row primitive as the planner grid mini-row (extracted to `src/components/planner/CompactVisitRow.tsx` so both share it).
-- Each row taps to expand inline (accordion): shows notes, parts, quick actions (Directions, Complete, Photos).
-- Sticky header "Today · {n} visits · {done}/{n} complete" so 16-visit days feel manageable.
+---
 
-### 6. Data / migration
-- Add `sort_order INT` to `job_schedule` (nullable, default null). Backfill: for each `(engineer_id, schedule_date)` group, set incrementally by `created_at`.
-- DayPanel reordering writes `sort_order` for the whole day in one transaction.
-- All existing planner queries add `order("sort_order", { ascending: true, nullsFirst: false })` then `created_at` as tiebreaker.
+## What you need to do on the Xero side
 
-## Technical notes (for review)
+1. **Create a Xero app** at https://developer.xero.com/app/manage → *New app* → **Web app**.
+2. **Company / app name**: Servexa (or your trading name).
+3. **Company URL**: `https://servexaapp.com`.
+4. **OAuth 2.0 redirect URI** (must be exact):
+   ```
+   https://geyrqplwjzwdiaeqaeul.supabase.co/functions/v1/xero-oauth-callback
+   ```
+5. **Copy** the **Client ID** and generate a **Client secret**.
+6. **Add to Lovable Cloud secrets** (Project Settings → Secrets):
+   - `XERO_CLIENT_ID`
+   - `XERO_CLIENT_SECRET`
+   - `APP_URL` = `https://servexaapp.com` (already used by the callback for post-auth redirect)
+7. **Scopes** requested by the app (nothing to configure Xero-side — Xero shows them on consent):
+   - `openid profile email`
+   - `accounting.transactions` (create/update invoices + quotes)
+   - `accounting.contacts` (create/lookup contacts)
+   - `offline_access` (refresh tokens)
+8. **Certification**: not required for private/single-tenant use. If you later want more than 25 orgs on the same app, Xero requires app certification — not needed now.
+9. **Connect**: Settings → Integrations → **Connect Xero** → sign in → pick the Servexa organisation → done. The tenant is stored and refreshed automatically.
 
-- Keep `DndContext` in `WeeklyGridView` untouched; DayPanel gets its own local `DndContext` with `SortableContext`.
-- Bulk assign uses one `.insert([...])` — with RLS in place, service role not required; failures reported per-row via the returned array.
-- Compact mini-row remains a `useDraggable` source so an admin can still drag a single visit out of a dense day into another cell without opening the panel.
-- No changes to job status semantics or completion logic.
-
-## Files to add/edit
-
-```text
-add    src/components/planner/DayPanel.tsx
-add    src/components/planner/BulkAssignBar.tsx
-add    src/components/planner/CompactVisitRow.tsx
-edit   src/components/planner/WeeklyGridView.tsx
-edit   src/components/planner/PlannerMapView.tsx
-edit   src/pages/WeeklyPlanner.tsx
-edit   src/pages/EngineerToday.tsx (or engineer day list host)
-edit   src/components/EngineerDashboard.tsx (compact list rows)
-migr   add job_schedule.sort_order + backfill
-```
-
-## Open assumption to confirm
-
-Threshold of 4 for "compact" mode — happy to tune (3 or 5). Same question for the "+N more" cutoff inside compact cells (defaulting to 6 visible mini rows).
+Once those three secrets are in place I can ship B1–B5 in one batch. Confirm to proceed.
