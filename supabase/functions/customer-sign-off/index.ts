@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
         signer_id: tokenRow.created_by, // attribute to the user who created the token
         signer_name: signerName,
         signer_role: "customer",
+        signer_position: signerPosition,
         file_path: filePath,
       });
 
