@@ -325,18 +325,21 @@ async function extractPO(
   ownOrgName: string,
   apiKey: string,
 ): Promise<Extracted> {
-  const { forwardedFrom, body: forwardedBody } = extractForwardedBody(
-    email.text || stripHtml(email.html),
-  );
+  const rawBody = (email.text && email.text.trim()) || stripHtml(email.html);
+  const { forwardedFrom } = extractForwardedBody(rawBody);
 
+  // Send the WHOLE body (latest reply + quoted chain) — the PO detail is
+  // often only in the quoted thread beneath a one-line reply.
   const contextLines = [
     `Forwarder (INTERNAL — NOT the customer): ${email.from}`,
     `Receiving contractor (NOT the customer): ${ownOrgName || "(unknown)"}`,
     forwardedFrom ? `Original sender (below forward header): ${forwardedFrom}` : null,
     `Subject: ${email.subject}`,
     "",
-    forwardedBody || "(no body)",
-  ].filter(Boolean).join("\n").slice(0, 20000);
+    "--- Full email body (includes quoted / forwarded thread) ---",
+    rawBody || "(no body)",
+  ].filter(Boolean).join("\n").slice(0, 30000);
+
 
   const content: any[] = [{ type: "text", text: contextLines }];
 
