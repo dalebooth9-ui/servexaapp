@@ -1040,14 +1040,14 @@ export default function PlannerMapView({
               {engineerLocations.map((loc) => {
                 const eng = getEngineer(loc.user_id);
                 if (!eng) return null;
-                const { status, label } = getLocationStatus(loc);
+                const { status, label, tooltip } = getLocationStatus(loc);
                 const dotColor = status === "live" ? "bg-blue-500" : status === "stale" ? "bg-amber-500" : "bg-gray-500";
                 const pulse = status === "live" ? "animate-pulse" : "";
                 return (
-                  <Badge key={loc.user_id} variant="secondary" className="text-[11px] gap-1 px-1.5 py-0.5">
+                  <Badge key={loc.user_id} variant="secondary" title={tooltip} className="text-[11px] gap-1 px-1.5 py-0.5 cursor-help">
                     <span className={`inline-block h-2 w-2 rounded-full ${dotColor} ${pulse}`} />
                     <span className="truncate max-w-[120px]">{eng.full_name}</span>
-                    <span className={`text-[10px] font-semibold ${status === "live" ? "text-blue-500" : status === "stale" ? "text-amber-500" : "text-gray-500"}`}>{label}</span>
+                    <span className={`text-[10px] font-medium ${status === "live" ? "text-blue-600 dark:text-blue-400" : status === "stale" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>· {label}</span>
                   </Badge>
                 );
               })}
@@ -1055,7 +1055,7 @@ export default function PlannerMapView({
           )}
           {routeResult && (
             <Badge variant="outline" className="text-xs">
-              {routeResult.total_distance_km} km · {routeResult.total_duration_mins} mins
+              {fmtMi(routeResult.total_distance_km)} · {routeResult.total_duration_mins} mins
               {routeResult.total_duration_in_traffic_mins != null
                 && routeResult.total_duration_in_traffic_mins !== routeResult.total_duration_mins && (
                   <span className="ml-1 text-amber-600 font-medium">
