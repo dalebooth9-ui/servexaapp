@@ -272,12 +272,16 @@ export default function CustomerDetail() {
 
   const fetchServiceReports = useCallback(async (customerName: string) => {
     if (!customerName) return;
-    // Get all jobs for this customer first
+    // Match by customer_id OR customer text so completed jobs are included.
+    const orClause = id
+      ? `customer_id.eq.${id},customer.eq.${customerName}`
+      : `customer.eq.${customerName}`;
     const { data: jobsData } = await supabase
       .from("jobs")
       .select("id, name, reference_number")
-      .eq("customer", customerName);
+      .or(orClause);
     if (!jobsData || jobsData.length === 0) { setServiceReports([]); return; }
+
 
     const jobIds = jobsData.map((j: any) => j.id);
     const { data: reportsData } = await supabase
