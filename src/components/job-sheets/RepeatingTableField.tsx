@@ -907,24 +907,67 @@ function PhotoCellPopover({
 // Bulk Add dialog
 // ---------------------------------------------------------------------------
 
-function parseBulkRange(input: string): string[] {
-  const trimmed = input.trim();
-  if (!trimmed) return [];
-  // Match "Flat 1 to Flat 40", "Flat 1 - 40", "1-40", "Flat 1 – 40", etc.
-  const m = trimmed.match(/^(.*?)(\d+)\s*(?:to|-|–|—|through|thru)\s*(?:.*?)(\d+)\s*$/i);
-  if (!m) return [];
-  const prefix = (m[1] || "").trim();
+export type BulkParseResult =
+  | { ok: true; labels: string[]; prefix: string; start: number; end: number }
+  | { ok: false; reason: string };
+
+/**
+ * Forgiving bulk-range parser. Accepts any of:
+ *   "1 to 12", "1-12", "1 – 12", "1 through 12"
+ *   "Flat 1 to 12", "Flat 1 - Flat 12", "flat 1 to flat 12"
+ *   "Unit 3 to Unit 8", "Room 1-4"
+ * Case-insensitive, whitespace tolerant. If either side supplies a word prefix
+ * (e.g. "Flat"), that prefix is applied to every generated label. If neither
+ * side supplies one, generated labels are bare numbers (caller can default).
+ */
+export function parseBulkRange(input: string): BulkParseResult {
+  const trimmed = (input || "").trim();
+  if (!trimmed) return { ok: false, reason: "Enter a range like 'Flat 1 to 12'." };
+
+  // Grab "[prefix?] number [separator] [prefix?] number"
+  const re = /^\s*([A-Za-z][A-Za-z .'&-]*?)?\s*(\d+)\s*(?:to|through|thru|-|–|—|…)\s*([A-Za-z][A-Za-z .'&-]*?)?\s*(\d+)\s*$/i;
+  const m = trimmed.match(re);
+  if (!m) {
+    return {
+      ok: false,
+      reason: "Couldn't read the range. Try 'Flat 1 to 12', '1-12', or 'Unit 3 to Unit 8'.",
+    };
+  }
+
+  const rawPrefixA = (m[1] || "").trim();
+  const rawPrefixB = (m[3] || "").trim();
   const start = parseInt(m[2], 10);
   const end = parseInt(m[4], 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
-  if (end < start) return [];
-  if (end - start > 500) return []; // safety cap
-  const out: string[] = [];
-  for (let i = start; i <= end; i++) {
-    out.push(prefix ? `${prefix} ${i}` : String(i));
+
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return { ok: false, reason: "Numbers on both sides of the range are required." };
   }
-  return out;
+  if (end < start) {
+    return { ok: false, reason: `End (${end}) must be greater than or equal to start (${start}).` };
+  }
+  if (end - start + 1 > 500) {
+    return { ok: false, reason: "Too many rows (max 500)." };
+  }
+
+  // Prefer whichever side supplied a word prefix. If both, they should match
+  // (case-insensitive) — otherwise fall back to the leading one.
+  let prefix = rawPrefixA || rawPrefixB;
+  if (rawPrefixA && rawPrefixB && rawPrefixA.toLowerCase() !== rawPrefixB.toLowerCase()) {
+    prefix = rawPrefixA;
+  }
+  // Normalise casing: Title Case first word ("flat" → "Flat").
+  if (prefix) {
+    prefix = prefix.replace(/\s+/g, " ").trim();
+    prefix = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+
+  const labels: string[] = [];
+  for (let i = start; i <= end; i++) {
+    labels.push(prefix ? `${prefix} ${i}` : String(i));
+  }
+  return { ok: true, labels, prefix, start, end };
 }
+
 
 function BulkAddDialog({
   open, onOpenChange, onAdd,
