@@ -131,14 +131,9 @@ serve(async (req) => {
     email_body = "",
   } = body || {};
 
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
-
   // NOTE: the `admin` client and `orgId` were resolved above during auth.
   // Do NOT re-derive org from any other source below this line.
+
 
   // ---------- Resolve customer within THIS org ----------
   let customerId: string | null = null;
