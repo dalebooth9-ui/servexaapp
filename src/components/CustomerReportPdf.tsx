@@ -11,6 +11,7 @@ import { renderBrandingOverlay } from "@/lib/pdfBranding";
 import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/pdfAccreditations";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
+import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf } from "@/lib/jobPhotos";
 
 interface Props {
   jobId: string;
