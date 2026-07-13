@@ -4,9 +4,17 @@
 // purchase order received by email, and creates a draft job with
 // status='pending_review' so the office coordinator can approve it.
 //
-// Auth: shared secret in the `x-intake-secret` header, matched against the
-// Supabase secret `PO_INTAKE_SECRET`. Requests without the correct secret
-// receive 404 (invisible to probes).
+// Auth model (org-scoped):
+//   - Every request MUST identify the target organisation, either by:
+//       (a) `x-org-id` header + `x-intake-secret` matching that org's
+//           per-org secret stored in `public.org_intake_secrets`, OR
+//       (b) `x-intake-secret` matching the legacy global `PO_INTAKE_SECRET`
+//           env var — in which case the org is taken from the
+//           `PO_INTAKE_DEFAULT_ORG_ID` env var. This exists only for Viva's
+//           existing Zap and is intentionally a single-org fallback.
+//   - Requests that can't be attributed to a specific org return 404.
+//   - We NEVER fall back to "the first organisation in the table" — that
+//     would silently write another subscriber's Zapier PO into Viva.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -14,7 +22,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-intake-secret",
+    "authorization, x-client-info, apikey, content-type, x-intake-secret, x-org-id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
