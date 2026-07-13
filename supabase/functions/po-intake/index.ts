@@ -48,13 +48,68 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  const expected = Deno.env.get("PO_INTAKE_SECRET");
-  if (!expected) {
-    console.error("PO_INTAKE_SECRET not configured");
-    return json(500, { error: "Server not configured" });
-  }
-  if (req.headers.get("x-intake-secret") !== expected) {
-    return json(404, { error: "Not found" });
+  // Auth & org resolution happen together — the request MUST prove which
+  // org it's writing into before we touch the DB. Split into two paths:
+  //   1. Per-org secret (x-org-id + x-intake-secret matched against
+  //      org_intake_secrets). This is the path new subscribers use.
+  //   2. Legacy global PO_INTAKE_SECRET + PO_INTAKE_DEFAULT_ORG_ID env vars.
+  //      Preserves Viva's existing Zap. If either env is missing we do NOT
+  //      fall through to "first org"; we return 404.
+  const providedSecret = req.headers.get("x-intake-secret") ?? "";
+  const providedOrgId = (req.headers.get("x-org-id") ?? "").trim();
+
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  let orgId: string | null = null;
+
+  if (providedOrgId) {
+    // Path (1): per-org secret lookup. Uses `verify_org_intake_secret` RPC
+    // which does a constant-time compare against the hashed secret so we
+    // never leak whether the org exists.
+    if (!providedSecret) {
+      return json(404, { error: "Not found" });
+    }
+    const { data: verified, error: verErr } = await admin.rpc("verify_org_intake_secret", {
+      _org_id: providedOrgId,
+      _secret: providedSecret,
+    });
+    if (verErr) {
+      console.error("verify_org_intake_secret failed", verErr);
+      return json(500, { error: "Auth check failed" });
+    }
+    if (verified === true) {
+      orgId = providedOrgId;
+    } else {
+      console.warn("po-intake per-org secret mismatch", { providedOrgId });
+      return json(404, { error: "Not found" });
+    }
+  } else {
+    // Path (2): legacy global secret + explicit default-org env var.
+    const legacySecret = Deno.env.get("PO_INTAKE_SECRET");
+    const legacyOrgId = Deno.env.get("PO_INTAKE_DEFAULT_ORG_ID");
+    if (!legacySecret || !legacyOrgId) {
+      // Never fall through to a table lookup — that's how you attribute
+      // subscriber A's PO to subscriber B.
+      return json(404, { error: "Not found" });
+    }
+    if (providedSecret !== legacySecret) {
+      return json(404, { error: "Not found" });
+    }
+    // Guard: make sure the configured default actually exists.
+    const { data: orgRow } = await admin
+      .from("organisations")
+      .select("id")
+      .eq("id", legacyOrgId)
+      .maybeSingle();
+    if (!orgRow) {
+      console.error("PO_INTAKE_DEFAULT_ORG_ID points at a non-existent org", { legacyOrgId });
+      return json(500, { error: "Server misconfigured" });
+    }
+    orgId = orgRow.id;
   }
 
   let body: IntakePayload;
