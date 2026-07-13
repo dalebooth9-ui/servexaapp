@@ -108,6 +108,7 @@ export default function PlannerMapView({
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const openInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const startMarkerRef = useRef<google.maps.Marker | null>(null);
   
   const onScheduleJobRef = useRef(onScheduleJob);
   useEffect(() => { onScheduleJobRef.current = onScheduleJob; }, [onScheduleJob]);
