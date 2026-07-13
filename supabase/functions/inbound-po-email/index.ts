@@ -3,12 +3,12 @@
 // Receives inbound emails from Resend Inbound (Svix-signed webhooks) addressed
 // to  po-<orgslug>-<4chars>@intake.servexaapp.com.
 //
-// Resend's `email.received` webhook payload is SELF-CONTAINED — the full
-// parsed email (text, html, headers, and every attachment inline as base64)
-// arrives in the initial POST. We do NOT call the Resend REST API here:
-//   - previous attempt used /emails/receiving/{id} which doesn't exist and
-//     returned 401 because the project's RESEND_API_KEY is a send-only key.
-//   - even with a full-access key, an extra round-trip is unnecessary.
+// Per Resend docs (resend.com/docs/dashboard/receiving/attachments), the
+// `email.received` webhook payload contains METADATA ONLY. Body and
+// attachment bytes must be fetched from the Resend REST API using a
+// full-access key (RESEND_RECEIVING_API_KEY):
+//   GET /emails/receiving/{email_id}              → subject/text/html/headers/raw.download_url
+//   GET /emails/receiving/{email_id}/attachments  → data[] with filename/content_type/download_url
 //
 // Also handles FORWARDED emails: office staff will forward customer POs from
 // service@vivafire.co.uk (our own inbox). The forwarder and our own org name
@@ -121,43 +121,95 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 /**
- * Parse the Resend `email.received` webhook payload directly. Resend delivers
- * attachments inline as base64 in `data.attachments[].content`.
+ * Fetch the full email + attachment bytes from Resend's REST API.
+ * The webhook payload only carries metadata (data.email_id).
  */
-function parseWebhookPayload(payload: any): InboundEmail {
-  const d = payload?.data ?? payload ?? {};
+async function fetchInboundFromResend(
+  emailId: string,
+  apiKey: string,
+): Promise<InboundEmail> {
+  const headers = { Authorization: `Bearer ${apiKey}` };
+
+  // 1. Email details
+  const detailResp = await fetch(
+    `https://api.resend.com/emails/receiving/${emailId}`,
+    { headers },
+  );
+  if (!detailResp.ok) {
+    const errText = await detailResp.text().catch(() => "");
+    console.error(
+      `Resend GET /emails/receiving/${emailId} failed`,
+      detailResp.status,
+      errText.slice(0, 500),
+    );
+    throw new Error(`Resend email fetch failed: ${detailResp.status}`);
+  }
+  const detail: any = await detailResp.json();
+  const d = detail?.data ?? detail ?? {};
 
   const fromField = d?.from;
   const from = typeof fromField === "string"
     ? fromField
     : (fromField?.email ?? "");
 
-  const attachments: Attachment[] = [];
-  const raw = Array.isArray(d?.attachments) ? d.attachments : [];
-  for (const a of raw) {
-    const filename = String(a?.filename ?? a?.name ?? "attachment.bin");
-    const contentType = String(
-      a?.content_type ?? a?.contentType ?? a?.mime_type ?? "application/octet-stream",
+  // 2. Attachment list + bytes
+  let attachments: Attachment[] = [];
+  const attListResp = await fetch(
+    `https://api.resend.com/emails/receiving/${emailId}/attachments`,
+    { headers },
+  );
+  if (!attListResp.ok) {
+    const errText = await attListResp.text().catch(() => "");
+    console.error(
+      `Resend GET /emails/receiving/${emailId}/attachments failed`,
+      attListResp.status,
+      errText.slice(0, 500),
     );
-    // Resend inline attachments arrive as base64 in `content`. Some providers
-    // use `data` or a data URL. Skip anything without inline content — we do
-    // not call any external API.
-    const b64 = typeof a?.content === "string" ? a.content
-      : typeof a?.data === "string" ? a.data
-      : null;
-    if (!b64) {
-      console.warn("attachment has no inline content, skipping", { filename, keys: Object.keys(a ?? {}) });
-      continue;
-    }
-    try {
-      const bytes = b64ToBytes(b64);
-      if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
-        console.warn("skipping oversized attachment", filename, bytes.byteLength);
+  } else {
+    const attJson: any = await attListResp.json();
+    const list: any[] = Array.isArray(attJson?.data) ? attJson.data : [];
+    for (const a of list) {
+      const filename = String(a?.filename ?? a?.name ?? "attachment.bin");
+      const contentType = String(
+        a?.content_type ?? a?.contentType ?? "application/octet-stream",
+      );
+      const url = a?.download_url ?? a?.url;
+      if (!url) {
+        console.warn("attachment has no download_url", { filename });
         continue;
       }
-      attachments.push({ filename, contentType, bytes });
+      try {
+        const r = await fetch(url);
+        if (!r.ok) {
+          console.error("attachment download failed", filename, r.status);
+          continue;
+        }
+        const buf = new Uint8Array(await r.arrayBuffer());
+        if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
+          console.warn("skipping oversized attachment", filename, buf.byteLength);
+          continue;
+        }
+        attachments.push({ filename, contentType, bytes: buf });
+      } catch (e) {
+        console.error("attachment fetch error", filename, e);
+      }
+    }
+  }
+
+  // 3. Optional raw .eml
+  let rawEmlBase64: string | null = null;
+  const rawUrl = d?.raw?.download_url ?? d?.raw_download_url ?? null;
+  if (rawUrl) {
+    try {
+      const r = await fetch(rawUrl);
+      if (r.ok) {
+        const buf = new Uint8Array(await r.arrayBuffer());
+        rawEmlBase64 = bytesToBase64(buf);
+      } else {
+        console.warn("raw eml download failed", r.status);
+      }
     } catch (e) {
-      console.error("attachment base64 decode failed", filename, e);
+      console.error("raw eml fetch error", e);
     }
   }
 
@@ -167,12 +219,11 @@ function parseWebhookPayload(payload: any): InboundEmail {
     subject: String(d?.subject ?? "").trim(),
     text: String(d?.text ?? d?.plain ?? ""),
     html: String(d?.html ?? ""),
-    rawEmlBase64: typeof d?.raw === "string" ? d.raw
-      : typeof d?.raw_email === "string" ? d.raw_email
-      : null,
+    rawEmlBase64,
     attachments,
   };
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Forwarded-email handling
@@ -388,16 +439,39 @@ serve(async (req) => {
     return okSilently();
   }
 
-  // Parse full email directly from webhook — no Resend API call.
-  const email = parseWebhookPayload(payload);
-  console.log("Parsed inbound webhook", {
+  // Webhook is metadata-only — fetch full email + attachments from Resend API.
+  const receivingKey = Deno.env.get("RESEND_RECEIVING_API_KEY");
+  if (!receivingKey) {
+    console.error(
+      "RESEND_RECEIVING_API_KEY is missing — add a full-access Resend API key under this exact secret name to fetch inbound email content.",
+    );
+    return json(500, { error: "Server not configured: RESEND_RECEIVING_API_KEY" });
+  }
+  const emailId: string | undefined =
+    payload?.data?.email_id ?? payload?.data?.id ?? payload?.email_id ?? payload?.id;
+  if (!emailId) {
+    console.error("Webhook payload missing data.email_id", { keys: Object.keys(payload?.data ?? {}) });
+    return json(400, { error: "Missing email_id" });
+  }
+
+  let email: InboundEmail;
+  try {
+    email = await fetchInboundFromResend(emailId, receivingKey);
+  } catch (e) {
+    console.error("Resend fetch failed", e);
+    return json(502, { error: "Resend fetch failed" });
+  }
+  console.log("Fetched inbound email from Resend API", {
+    emailId,
     from: email.from,
     subject: email.subject,
     to: email.to,
+    bodyTextLength: email.text.length,
+    bodyHtmlLength: email.html.length,
     attachmentCount: email.attachments.length,
     attachmentNames: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
-    payloadAttachmentsPresent: Array.isArray(payload?.data?.attachments) ? payload.data.attachments.length : "n/a",
   });
+
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
