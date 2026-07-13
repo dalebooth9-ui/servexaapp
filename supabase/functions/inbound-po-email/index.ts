@@ -272,7 +272,10 @@ interface Extracted {
   job_description?: string;
   due_date?: string;
   priority?: string;
+  po_value?: number | string | null;
+  currency?: string;
 }
+
 
 function bytesToBase64(bytes: Uint8Array): string {
   let s = "";
