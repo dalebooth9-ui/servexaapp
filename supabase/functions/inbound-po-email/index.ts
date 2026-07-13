@@ -768,11 +768,11 @@ serve(async (req) => {
     else uploadedCount++;
   }
 
-  console.log("Created pending job", jobRef, "for org", orgId, {
+  console.log("Created pending job", createdJobRef, "for org", orgId, {
     from: email.from,
     customer: customerName ?? "(left blank for approver)",
     uploadedCount,
     totalAttachments: email.attachments.length,
   });
-  return json(200, { ok: true, job_id: jobId, reference_number: jobRef, uploaded: uploadedCount });
+  return json(200, { ok: true, job_id: jobId, reference_number: createdJobRef, uploaded: uploadedCount });
 });
