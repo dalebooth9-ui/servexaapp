@@ -837,7 +837,9 @@ export default function Assets() {
         onOpenChange={setScanOpen}
         onImported={fetchData}
         sites={sites}
+        defaultSiteId={inSiteFolder ? selectedSiteId : null}
       />
+
     </div>
   );
 }
