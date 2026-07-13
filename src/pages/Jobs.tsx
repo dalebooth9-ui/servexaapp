@@ -1093,11 +1093,14 @@ export default function Jobs() {
 
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
     if (job.status === "pending_review") return acc;
+    // Rejected jobs are archive-only — only surface them under the Rejected tab.
+    if (job.status === "rejected" && statusTab !== "rejected") return acc;
     const key = getCustomerName(job)?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
     acc[key].push(job);
     return acc;
   }, {});
+
 
   if (activeJob) {
     const sourceFolder = getCustomerName(activeJob)?.trim() || "Unassigned";
