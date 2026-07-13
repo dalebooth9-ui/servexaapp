@@ -149,6 +149,7 @@ const App = () => (
               <Route path="/setup" element={<AdminRoute><SetupGuide /></AdminRoute>} />
               <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
               <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />
+              <Route path="/fleet" element={<AdminRoute><FleetVehicles /></AdminRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />
