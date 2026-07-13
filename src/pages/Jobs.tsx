@@ -167,8 +167,9 @@ export default function Jobs() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   // Visible primary status tab — Active (default), Pending Review, Completed, All
-  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "all">("active");
+  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">("active");
   const includeArchived = statusTab === "completed" || statusTab === "all";
+
   const [pageSize, setPageSize] = useState(300);
   const [hasMore, setHasMore] = useState(false);
   const firstLoadRef = useRef(true);
