@@ -303,17 +303,19 @@ CRITICAL RULES for customer_name (READ CAREFULLY):
     4. The original sender's email domain (below the forward header)
 - If you cannot confidently identify a customer that is NOT ${owned} and NOT the forwarder, return "" for customer_name — do NOT guess.
 
-The attachment (if a PDF or image is provided) is the PRIMARY source; the email body is secondary context.
+The attachment (if a PDF or image is provided) is the PRIMARY source; otherwise mine the ENTIRE email body — including any quoted / forwarded thread beneath the latest reply. A common case is a one-line reply like "PO 4512, please go ahead" on top of a long quoted chain that contains all the real detail (customer, site, scope, dates). Read the whole thread.
 
-Return a SINGLE JSON object with exactly these fields (use "" or null when unknown):
+Return a SINGLE JSON object with exactly these fields (use "" or null when unknown — never guess):
 - customer_name
 - site_address: the site / delivery / work address
-- po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
+- po_number: the customer's purchase order reference (look for "PO", "PO#", "Order No", "Ref")
 - job_description: full description of the work or goods ordered (be thorough — include scope, quantities, item lists)
 - due_date: required completion date in YYYY-MM-DD, or ""
 - priority: "high", "medium" or "low" (default "medium")
 - po_value: total order value as a NUMBER (strip currency symbols), or null
 - currency: ISO code ("GBP", "USD", "EUR") inferred from £/$/€ or explicit text, or ""
+- quote_reference: OUR quote reference if the thread mentions one (format "QUO-" followed by digits, e.g. "QUO-0042"), else ""
+- job_reference: OUR job reference if the thread mentions one (format "VFP-" or "TM-" followed by digits, e.g. "VFP-00132"), else ""
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 }
