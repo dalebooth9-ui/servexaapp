@@ -176,12 +176,22 @@ export default function CustomerSignOff() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="signer-name">Your Name</Label>
+            <Label htmlFor="signer-name">Print name <span className="text-red-500">*</span></Label>
             <Input
               id="signer-name"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Enter your name"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="signer-position">Position / role <span className="text-gray-400">(optional)</span></Label>
+            <Input
+              id="signer-position"
+              value={customerPosition}
+              onChange={(e) => setCustomerPosition(e.target.value)}
+              placeholder="e.g. Site Manager, Caretaker"
             />
           </div>
 
