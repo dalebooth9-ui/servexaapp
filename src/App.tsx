@@ -78,6 +78,7 @@ const SetupGuide = lazy(() => import("@/pages/SetupGuide"));
 const ErrorLog = lazy(() => import("@/pages/ErrorLog"));
 const SupportTickets = lazy(() => import("@/pages/SupportTickets"));
 const ImportWizard = lazy(() => import("@/pages/ImportWizard"));
+const FleetVehicles = lazy(() => import("@/pages/FleetVehicles"));
 
 const queryClient = new QueryClient();
 
