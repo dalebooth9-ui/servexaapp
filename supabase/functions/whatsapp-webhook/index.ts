@@ -1078,10 +1078,74 @@ type ScoredJob = { job: JobCandidate; score: number; tokensMatched: number };
  *   - full normalised-substring hits
  * Returns candidates sorted by score descending. Only scores > 0 are returned.
  */
+const isNumericToken = (t: string) => /^\d+$/.test(t);
+const stripNumericTokens = (tokens: string[]) => tokens.filter((t) => !isNumericToken(t));
+
+/**
+ * Score a caption's tokens against a single field's tokens using the four
+ * heuristics: full-substring, leading-consecutive, combined-prefix and
+ * all-tokens-present. Returns the best score for this pairing.
+ */
+function scoreTokenPair(
+  capTokens: string[],
+  fieldTokens: string[],
+  weight: number,
+): { score: number; tokens: number } {
+  if (capTokens.length === 0 || fieldTokens.length === 0) return { score: 0, tokens: 0 };
+  const capNormFull = capTokens.join("");
+  const fieldNormFull = fieldTokens.join("");
+  let best = 0;
+  let bestTokens = 0;
+
+  // 1. Full normalised substring hit.
+  if (fieldNormFull.includes(capNormFull) && capNormFull.length >= 3) {
+    const s = weight * 3 + (fieldNormFull.startsWith(capNormFull) ? 50 : 0);
+    if (s > best) { best = s; bestTokens = capTokens.length; }
+  }
+
+  // 2. Consecutive leading tokens (prefix-matching both directions).
+  const maxK = Math.min(capTokens.length, fieldTokens.length, 5);
+  for (let k = maxK; k >= 1; k--) {
+    let allMatch = true;
+    for (let i = 0; i < k; i++) {
+      const ct = normaliseWord(capTokens[i]);
+      const ft = normaliseWord(fieldTokens[i]);
+      if (!ct || !ft) { allMatch = false; break; }
+      if (!ft.startsWith(ct) && !ct.startsWith(ft)) { allMatch = false; break; }
+    }
+    if (allMatch) {
+      const s = weight * k + 20;
+      if (s > best) { best = s; bestTokens = k; }
+      break;
+    }
+  }
+
+  // 3. Combined-tokens prefix.
+  if (best === 0 && capNormFull.length >= 4 && fieldNormFull.startsWith(capNormFull)) {
+    const s = weight * 2;
+    if (s > best) { best = s; bestTokens = capTokens.length; }
+  }
+
+  // 4. Every caption token appears somewhere in the field.
+  if (capTokens.length >= 2) {
+    const allIn = capTokens.every((t) => {
+      const n = normaliseWord(t);
+      return n.length >= 2 && fieldNormFull.includes(n);
+    });
+    if (allIn) {
+      const s = weight + 10 * capTokens.length;
+      if (s > best) { best = s; bestTokens = capTokens.length; }
+    }
+  }
+
+  return { score: best, tokens: bestTokens };
+}
+
 function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] {
   const capTokens = tokenise(caption);
   if (capTokens.length === 0) return [];
-  const capNormFull = capTokens.join("");
+  const capTokensNoNum = stripNumericTokens(capTokens);
+  const capNumTokens = capTokens.filter(isNumericToken);
 
   const scored: ScoredJob[] = [];
 
@@ -1096,58 +1160,46 @@ function matchJobsByCaption(caption: string, jobs: JobCandidate[]): ScoredJob[] 
 
     let best = 0;
     let bestTokens = 0;
+    let matchedNumericField = false;
 
     for (const f of fields) {
       const fieldTokens = tokenise(f.value);
       if (fieldTokens.length === 0) continue;
-      const fieldNormFull = fieldTokens.join("");
+      const fieldTokensNoNum = stripNumericTokens(fieldTokens);
 
-      // 1. Full normalised substring hit (handles "cedartree" vs "cedar tree").
-      if (fieldNormFull.includes(capNormFull) && capNormFull.length >= 3) {
-        const s = f.weight * 3 + (fieldNormFull.startsWith(capNormFull) ? 50 : 0);
-        if (s > best) { best = s; bestTokens = capTokens.length; }
+      // Score with original tokens on both sides.
+      const withNums = scoreTokenPair(capTokens, fieldTokens, f.weight);
+      if (withNums.score > best) { best = withNums.score; bestTokens = withNums.tokens; }
+
+      // Also score with numeric tokens stripped from BOTH sides — this is the
+      // fix that lets "cedartree court" match "1 Cedartree Court" or
+      // "HOME GROUP - CEDARTREE COURT". Purely numeric tokens are ignored on
+      // both the search term and the job/site fields so that leading house
+      // numbers, unit numbers, etc. never block a word-based match.
+      if (capTokensNoNum.length > 0 && fieldTokensNoNum.length > 0) {
+        const noNums = scoreTokenPair(capTokensNoNum, fieldTokensNoNum, f.weight);
+        // Slight discount so an equally-good numbered match still wins the
+        // tiebreak (see disambiguation bonus below).
+        const adjusted = { score: Math.floor(noNums.score * 0.98), tokens: noNums.tokens };
+        if (adjusted.score > best) { best = adjusted.score; bestTokens = adjusted.tokens; }
       }
 
-      // 2. Consecutive leading caption tokens matching the field's leading tokens.
-      const maxK = Math.min(capTokens.length, fieldTokens.length, 5);
-      for (let k = maxK; k >= 1; k--) {
-        let allMatch = true;
-        for (let i = 0; i < k; i++) {
-          const ct = normaliseWord(capTokens[i]);
-          const ft = normaliseWord(fieldTokens[i]);
-          if (!ct || !ft) { allMatch = false; break; }
-          // Field token must start with caption token (allows "cedartree" prefix
-          // to match "cedartree" or caption "cedar" to match field "cedartree").
-          if (!ft.startsWith(ct) && !ct.startsWith(ft)) { allMatch = false; break; }
-        }
-        if (allMatch) {
-          const s = f.weight * k + 20;
-          if (s > best) { best = s; bestTokens = k; }
-          break;
-        }
-      }
-
-      // 3. Combined-tokens prefix: e.g. caption "cedar tree" → "cedartree" as
-      //    a prefix of the field's combined normalised form.
-      if (best === 0 && capNormFull.length >= 4 && fieldNormFull.startsWith(capNormFull)) {
-        const s = f.weight * 2;
-        if (s > best) { best = s; bestTokens = capTokens.length; }
-      }
-
-      // 4. Every caption token appears somewhere in the field (order-independent).
-      if (capTokens.length >= 2) {
-        const allIn = capTokens.every((t) => {
-          const n = normaliseWord(t);
-          return n.length >= 2 && fieldNormFull.includes(n);
-        });
-        if (allIn) {
-          const s = f.weight + 10 * capTokens.length;
-          if (s > best) { best = s; bestTokens = capTokens.length; }
+      // Track whether any numeric token in the caption is present in this
+      // field's tokens — used as a small disambiguation bonus when two jobs
+      // otherwise tie (e.g. "12 High Street" vs "14 High Street").
+      if (capNumTokens.length > 0) {
+        for (const n of capNumTokens) {
+          if (fieldTokens.includes(n)) { matchedNumericField = true; break; }
         }
       }
     }
 
-    if (best > 0) scored.push({ job, score: best, tokensMatched: bestTokens });
+    if (best > 0) {
+      // Disambiguation bonus: caption included a number AND the job/site had
+      // the same number → nudge this job above otherwise-tied candidates.
+      const bonus = matchedNumericField ? 15 : 0;
+      scored.push({ job, score: best + bonus, tokensMatched: bestTokens });
+    }
   }
 
   scored.sort((a, b) => b.score - a.score);
