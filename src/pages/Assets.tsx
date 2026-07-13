@@ -370,13 +370,16 @@ export default function Assets() {
     const csv = "\uFEFF" + lines.join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
+    const siteSlug = viewMode === "folders" && selectedSiteId
+      ? `-${(siteLookup[selectedSiteId] || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+      : "";
     const scopeSite = statusFilter === "all" && categoryFilter === "all" && !search.trim() ? "" :
       (categoryFilter !== "all" ? `-${categoryFilter}` : "") +
       (statusFilter !== "all" ? `-${statusFilter}` : "");
     const dateStr = format(new Date(), "yyyy-MM-dd");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `assets${scopeSite}-${dateStr}.csv`;
+    a.download = `assets${siteSlug}${scopeSite}-${dateStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
