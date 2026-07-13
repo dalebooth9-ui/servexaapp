@@ -10,6 +10,7 @@ import { Loader2, Car, AlertTriangle, Camera, X, CheckCircle2, Clock, RotateCcw 
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { DEFAULT_VEHICLE_CHECK_ITEMS, loadVehicleCheckItems, type VehicleCheckItem } from "@/lib/vehicleCheckItems";
+import VehicleSelector from "@/components/VehicleSelector";
 
 type ItemValue = "ok" | "defect" | "na";
 
