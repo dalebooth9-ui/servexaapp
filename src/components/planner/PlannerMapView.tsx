@@ -148,28 +148,33 @@ export default function PlannerMapView({
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
   const [adhocNotices, setAdhocNotices] = useState<string[]>([]);
 
+  // ---- Unit helpers (UK: display miles) ----
+  const kmToMi = (km: number | null | undefined) =>
+    km == null ? 0 : Math.round((km / 1.609344) * 10) / 10;
+  const fmtMi = (km: number | null | undefined) => `${kmToMi(km).toFixed(1)} mi`;
+
   // ---- Staleness helper ----
   type LocationStatus = { status: "live" | "stale" | "offline"; label: string; tooltip: string };
   const getLocationStatus = useCallback((loc: EngineerLocation | null): LocationStatus => {
     if (!loc || !loc.updated_at) {
-      return { status: "offline", label: "OFFLINE", tooltip: "Offline — no location data" };
+      return { status: "offline", label: "Location off", tooltip: "Location sharing is off — this engineer's device isn't reporting a live position" };
     }
     const ageMs = Date.now() - new Date(loc.updated_at).getTime();
     const ageMin = Math.floor(ageMs / 60000);
     if (ageMin < 5) {
       return {
         status: "live",
-        label: "LIVE",
-        tooltip: `Last seen: ${ageMin < 1 ? "just now" : `${ageMin} min${ageMin !== 1 ? "s" : ""} ago`}`,
+        label: "Location live",
+        tooltip: `Sharing live location · last update ${ageMin < 1 ? "just now" : `${ageMin} min${ageMin !== 1 ? "s" : ""} ago`}`,
       };
     }
     if (ageMin <= 30) {
-      return { status: "stale", label: "STALE", tooltip: `Last seen: ${ageMin} min${ageMin !== 1 ? "s" : ""} ago — location may be outdated` };
+      return { status: "stale", label: "Location stale", tooltip: `Last location update ${ageMin} min${ageMin !== 1 ? "s" : ""} ago — may be outdated` };
     }
     const ageHr = Math.floor(ageMin / 60);
     const remMin = ageMin % 60;
     const timeAgo = ageHr > 0 ? `${ageHr}h ${remMin > 0 ? `${remMin}m` : ""}` : `${ageMin}m`;
-    return { status: "offline", label: "OFFLINE", tooltip: `Offline — last seen: ${timeAgo} ago` };
+    return { status: "offline", label: "Location off", tooltip: `Location sharing off — last update ${timeAgo} ago` };
   }, []);
 
   const getJob = (id: string) => jobs.find((j) => j.id === id);
@@ -437,7 +442,7 @@ export default function PlannerMapView({
       const trafficSuffix = trafficMins != null && baseMins != null && trafficMins !== baseMins
         ? ` (${trafficMins} mins with live traffic)`
         : "";
-      toast({ title: "Route optimised", description: `${data.total_distance_km} km — ${baseMins} mins${trafficSuffix}` });
+      toast({ title: "Route optimised", description: `${fmtMi(data.total_distance_km)} — ${baseMins} mins${trafficSuffix}` });
 
       // Notify parent of optimised job order (append any overflow stops at the end)
       if (data.optimised?.length >= 2) {
@@ -1035,14 +1040,14 @@ export default function PlannerMapView({
               {engineerLocations.map((loc) => {
                 const eng = getEngineer(loc.user_id);
                 if (!eng) return null;
-                const { status, label } = getLocationStatus(loc);
+                const { status, label, tooltip } = getLocationStatus(loc);
                 const dotColor = status === "live" ? "bg-blue-500" : status === "stale" ? "bg-amber-500" : "bg-gray-500";
                 const pulse = status === "live" ? "animate-pulse" : "";
                 return (
-                  <Badge key={loc.user_id} variant="secondary" className="text-[11px] gap-1 px-1.5 py-0.5">
+                  <Badge key={loc.user_id} variant="secondary" title={tooltip} className="text-[11px] gap-1 px-1.5 py-0.5 cursor-help">
                     <span className={`inline-block h-2 w-2 rounded-full ${dotColor} ${pulse}`} />
                     <span className="truncate max-w-[120px]">{eng.full_name}</span>
-                    <span className={`text-[10px] font-semibold ${status === "live" ? "text-blue-500" : status === "stale" ? "text-amber-500" : "text-gray-500"}`}>{label}</span>
+                    <span className={`text-[10px] font-medium ${status === "live" ? "text-blue-600 dark:text-blue-400" : status === "stale" ? "text-amber-600 dark:text-amber-400" : "text-muted-foreground"}`}>· {label}</span>
                   </Badge>
                 );
               })}
@@ -1050,7 +1055,7 @@ export default function PlannerMapView({
           )}
           {routeResult && (
             <Badge variant="outline" className="text-xs">
-              {routeResult.total_distance_km} km · {routeResult.total_duration_mins} mins
+              {fmtMi(routeResult.total_distance_km)} · {routeResult.total_duration_mins} mins
               {routeResult.total_duration_in_traffic_mins != null
                 && routeResult.total_duration_in_traffic_mins !== routeResult.total_duration_mins && (
                   <span className="ml-1 text-amber-600 font-medium">
@@ -1101,13 +1106,13 @@ export default function PlannerMapView({
         <div className="flex items-center gap-2 flex-wrap">
           {/* Traffic suggestion banner */}
           {showTrafficSuggestion && (
-            <div className="flex items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-200 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-xs text-foreground shadow-sm animate-in fade-in slide-in-from-top-1">
               <span className="font-medium">Route optimised ✓</span>
-              <span className="text-yellow-300/80">— Turn on traffic layer to check conditions?</span>
+              <span className="text-muted-foreground">— turn on traffic layer to check conditions?</span>
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
-                className="h-6 text-xs text-yellow-200 hover:text-yellow-100 hover:bg-yellow-500/20 px-2"
+                className="h-6 text-xs px-2"
                 onClick={() => {
                   setShowTraffic(true);
                   setShowTrafficSuggestion(false);
@@ -1118,7 +1123,7 @@ export default function PlannerMapView({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 text-xs text-muted-foreground hover:text-foreground hover:bg-muted px-2"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground px-2"
                 onClick={() => setShowTrafficSuggestion(false)}
               >
                 No thanks
@@ -1310,7 +1315,7 @@ export default function PlannerMapView({
                     <div className="px-3 py-2">
                       <div className="font-medium text-muted-foreground mb-1">With Traffic</div>
                       <div className="font-semibold">Total: {fmt(totalLive)}</div>
-                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                      <div className="text-muted-foreground">Distance: {fmtMi(routeResult.total_distance_km)}</div>
                       {extra > 0 && (
                         <div className="text-amber-600 font-medium mt-1">Extra in traffic: +{fmt(extra)}</div>
                       )}
@@ -1318,7 +1323,7 @@ export default function PlannerMapView({
                     <div className="px-3 py-2">
                       <div className="font-medium text-muted-foreground mb-1">Without Traffic</div>
                       <div className="font-semibold">Total: {fmt(totalBase)}</div>
-                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                      <div className="text-muted-foreground">Distance: {fmtMi(routeResult.total_distance_km)}</div>
                     </div>
                   </div>
                   <ol className="divide-y max-h-48 overflow-auto text-xs border-t">
@@ -1383,7 +1388,7 @@ export default function PlannerMapView({
               <div className="px-3 py-3 border-b bg-muted/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total distance</div>
-                  <div className="text-sm font-semibold">{routeResult.total_distance_km} km</div>
+                  <div className="text-sm font-semibold">{fmtMi(routeResult.total_distance_km)}</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total time</div>
