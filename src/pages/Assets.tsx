@@ -45,6 +45,9 @@ import {
   Upload,
   ScanLine,
   Download,
+  FolderOpen,
+  ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 import BulkImportAssetsDialog from "@/components/BulkImportAssetsDialog";
 import ScanAssetsDialog from "@/components/ScanAssetsDialog";
@@ -53,6 +56,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 
@@ -73,6 +77,8 @@ type Asset = {
 };
 
 type SiteOption = { id: string; name: string; site_type: string };
+type CustomerRow = { id: string; name: string };
+type CustomerSiteRow = { customer_id: string; site_id: string };
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   operational: { label: "Operational", icon: CheckCircle2, variant: "default" },
@@ -105,6 +111,8 @@ export default function Assets() {
   const CATEGORIES = assetCategories.map((c) => c.slug);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [customerSites, setCustomerSites] = useState<CustomerSiteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -119,6 +127,10 @@ export default function Assets() {
   const [addingCat, setAddingCat] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState("");
+  const [viewMode, setViewMode] = useState<"folders" | "all">("folders");
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [showEmptySites, setShowEmptySites] = useState(false);
+  const [folderSearch, setFolderSearch] = useState("");
 
   const toSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
@@ -155,12 +167,16 @@ export default function Assets() {
     else { toast({ title: `"${name}" removed` }); refetchCategories(); }
   };
   const fetchData = async () => {
-    const [assetRes, siteRes] = await Promise.all([
+    const [assetRes, siteRes, custRes, csRes] = await Promise.all([
       supabase.from("assets").select("*").order("name"),
       supabase.from("sites").select("id, name, site_type").order("name"),
+      supabase.from("customers").select("id, name").order("name"),
+      supabase.from("customer_sites").select("customer_id, site_id"),
     ]);
     setAssets((assetRes.data as Asset[]) || []);
     setSites((siteRes.data as SiteOption[]) || []);
+    setCustomers((custRes.data as CustomerRow[]) || []);
+    setCustomerSites((csRes.data as CustomerSiteRow[]) || []);
     setLoading(false);
   };
 
@@ -169,8 +185,18 @@ export default function Assets() {
   }, []);
 
   const siteLookup = Object.fromEntries(sites.map((s) => [s.id, s.name]));
+  const customerBySite: Record<string, CustomerRow | undefined> = {};
+  {
+    const custLookup = Object.fromEntries(customers.map((c) => [c.id, c]));
+    for (const cs of customerSites) customerBySite[cs.site_id] = custLookup[cs.customer_id];
+  }
 
-  const filteredBase = assets.filter((a) => {
+  // Assets scoped to current view (site folder or all)
+  const scopedAssets = viewMode === "folders" && selectedSiteId
+    ? assets.filter((a) => a.site_id === selectedSiteId)
+    : assets;
+
+  const filteredBase = scopedAssets.filter((a) => {
     if (statusFilter !== "all" && a.status !== statusFilter) return false;
     if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
     return true;
@@ -184,6 +210,37 @@ export default function Assets() {
     (a as any).location_notes,
     siteLookup[(a as any).site_id],
   ]);
+
+  // Site folders grouped by customer
+  const assetCountBySite: Record<string, number> = {};
+  for (const a of assets) {
+    if (a.site_id) assetCountBySite[a.site_id] = (assetCountBySite[a.site_id] || 0) + 1;
+  }
+  const foldersByCustomer: { customerName: string; sites: SiteOption[] }[] = (() => {
+    const groups = new Map<string, SiteOption[]>();
+    for (const s of sites) {
+      const cust = customerBySite[s.id]?.name || "Unassigned";
+      if (!groups.has(cust)) groups.set(cust, []);
+      groups.get(cust)!.push(s);
+    }
+    const q = folderSearch.trim().toLowerCase();
+    return Array.from(groups.entries())
+      .map(([customerName, siteList]) => ({
+        customerName,
+        sites: siteList
+          .filter((s) => (showEmptySites ? true : (assetCountBySite[s.id] || 0) > 0))
+          .filter((s) => {
+            if (!q) return true;
+            return s.name.toLowerCase().includes(q) || customerName.toLowerCase().includes(q);
+          })
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .filter((g) => g.sites.length > 0)
+      .sort((a, b) => a.customerName.localeCompare(b.customerName));
+  })();
+
+  const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : null;
+  const selectedSiteCustomer = selectedSiteId ? customerBySite[selectedSiteId]?.name : null;
 
   const openCreate = () => {
     setEditing(null);
@@ -313,16 +370,22 @@ export default function Assets() {
     const csv = "\uFEFF" + lines.join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
+    const siteSlug = viewMode === "folders" && selectedSiteId
+      ? `-${(siteLookup[selectedSiteId] || "site").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`
+      : "";
     const scopeSite = statusFilter === "all" && categoryFilter === "all" && !search.trim() ? "" :
       (categoryFilter !== "all" ? `-${categoryFilter}` : "") +
       (statusFilter !== "all" ? `-${statusFilter}` : "");
     const dateStr = format(new Date(), "yyyy-MM-dd");
     const a = document.createElement("a");
     a.href = url;
-    a.download = `assets${scopeSite}-${dateStr}.csv`;
+    a.download = `assets${siteSlug}${scopeSite}-${dateStr}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
+
+  const inSiteFolder = viewMode === "folders" && !!selectedSiteId;
+  const showFolderList = viewMode === "folders" && !selectedSiteId;
 
   return (
     <div className="space-y-6">
@@ -334,9 +397,11 @@ export default function Assets() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExportCsv} disabled={filtered.length === 0}>
-            <Download className="mr-2 h-4 w-4" /> Download CSV
-          </Button>
+          {!showFolderList && (
+            <Button variant="outline" onClick={handleExportCsv} disabled={filtered.length === 0}>
+              <Download className="mr-2 h-4 w-4" /> Download CSV
+            </Button>
+          )}
           {userRole === "admin" && (
             <>
               <Button variant="outline" onClick={() => setScanOpen(true)}>
@@ -345,13 +410,120 @@ export default function Assets() {
               <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" /> Bulk Import
               </Button>
-              <Button onClick={openCreate}>
+              <Button onClick={() => {
+                openCreate();
+                if (inSiteFolder && selectedSiteId) {
+                  setForm({ ...emptyAsset, site_id: selectedSiteId });
+                }
+              }}>
                 <Plus className="mr-2 h-4 w-4" /> Add Asset
               </Button>
             </>
           )}
         </div>
       </div>
+
+      {/* View mode tabs */}
+      <Tabs
+        value={viewMode}
+        onValueChange={(v) => { setViewMode(v as any); setSelectedSiteId(null); }}
+      >
+        <TabsList>
+          <TabsTrigger value="folders">
+            <FolderOpen className="mr-1.5 h-4 w-4" /> By site
+          </TabsTrigger>
+          <TabsTrigger value="all">All assets</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* Breadcrumb when inside a site folder */}
+      {inSiteFolder && selectedSite && (
+        <div className="flex items-center gap-2 text-sm">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedSiteId(null)}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> All sites
+          </Button>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          {selectedSiteCustomer && (
+            <>
+              <span className="text-muted-foreground">{selectedSiteCustomer}</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </>
+          )}
+          <span className="font-medium">{selectedSite.name}</span>
+          <Badge variant="secondary" className="ml-1">{assetCountBySite[selectedSite.id] || 0} assets</Badge>
+        </div>
+      )}
+
+      {/* Folder list (default view) */}
+      {showFolderList ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search sites or customers..."
+                value={folderSearch}
+                onChange={(e) => setFolderSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showEmptySites}
+                onChange={(e) => setShowEmptySites(e.target.checked)}
+                className="rounded border-input"
+              />
+              Show empty sites
+            </label>
+          </div>
+          {loading ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>
+          ) : foldersByCustomer.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No sites with assets yet.</CardContent></Card>
+          ) : (
+            <div className="space-y-4">
+              {foldersByCustomer.map((group) => (
+                <div key={group.customerName} className="space-y-1.5">
+                  <div className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.customerName}
+                  </div>
+                  <Card>
+                    <CardContent className="p-0 divide-y">
+                      {group.sites.map((s) => {
+                        const count = assetCountBySite[s.id] || 0;
+                        const isEmpty = count === 0;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => setSelectedSiteId(s.id)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors ${isEmpty ? "opacity-60" : ""}`}
+                          >
+                            <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {group.customerName !== "Unassigned" ? `${group.customerName.toUpperCase()} — ${s.name}` : s.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground capitalize">{s.site_type}</div>
+                            </div>
+                            <Badge variant={isEmpty ? "outline" : "secondary"}>
+                              {count} {count === 1 ? "asset" : "assets"}
+                            </Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+
+
 
 
       {/* Stats */}
@@ -550,6 +722,10 @@ export default function Assets() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
+
+
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -664,7 +840,9 @@ export default function Assets() {
         onOpenChange={setScanOpen}
         onImported={fetchData}
         sites={sites}
+        defaultSiteId={inSiteFolder ? selectedSiteId : null}
       />
+
     </div>
   );
 }
