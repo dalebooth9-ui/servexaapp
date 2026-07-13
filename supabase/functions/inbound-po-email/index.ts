@@ -335,21 +335,39 @@ async function extractPO(
 
   const content: any[] = [{ type: "text", text: contextLines }];
 
-  const primary = email.attachments.find((a) =>
-    a.contentType.toLowerCase() === "application/pdf" ||
-    /\.pdf$/i.test(a.filename) ||
-    a.contentType.toLowerCase().startsWith("image/")
-  );
+  const candidates = email.attachments.filter((a) => {
+    const ct = a.contentType.toLowerCase();
+    return ct === "application/pdf" ||
+      /\.pdf$/i.test(a.filename) ||
+      ct.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|tiff?)$/i.test(a.filename);
+  });
+  // Prefer attachments whose filename suggests a purchase order.
+  const scoreName = (n: string): number => {
+    const s = n.toLowerCase();
+    let score = 0;
+    if (/\bpo\b|purchase.?order|order.?form|order.?no/.test(s)) score += 10;
+    if (/\.pdf$/i.test(s)) score += 2; // PDFs usually the PO over inline logos
+    if (/logo|signature|footer|banner|icon/.test(s)) score -= 5;
+    return score;
+  };
+  candidates.sort((a, b) => scoreName(b.filename) - scoreName(a.filename));
+  const primary = candidates[0];
   if (primary) {
-    const mime = primary.contentType.toLowerCase().startsWith("image/")
+    const ct = primary.contentType.toLowerCase();
+    const mime = ct.startsWith("image/")
       ? primary.contentType
-      : "application/pdf";
+      : ct === "application/pdf" || /\.pdf$/i.test(primary.filename)
+        ? "application/pdf"
+        : primary.contentType || "application/octet-stream";
     const b64 = bytesToBase64(primary.bytes);
     content.push({
       type: "image_url",
       image_url: { url: `data:${mime};base64,${b64}` },
     });
+    console.log("PO extraction using attachment", { filename: primary.filename, mime, bytes: primary.bytes.byteLength });
   }
+
 
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
