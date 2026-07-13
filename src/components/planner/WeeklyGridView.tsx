@@ -1539,6 +1539,42 @@ function SortableEngineerRow({
                     <Palmtree className="h-3 w-3 shrink-0" />{partnerEng.full_name.split(" ")[0]} on leave
                   </div>
                 )}
+                {isCompact ? (
+                  <>
+                    <button
+                      onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}
+                      className="w-full flex items-center justify-between rounded bg-primary/10 hover:bg-primary/20 border border-primary/30 px-1.5 py-1 mb-1 text-[10px] font-semibold text-primary transition-colors"
+                      title="Open day panel"
+                    >
+                      <span>{totalCellCount} jobs</span>
+                      <span className="underline">Open</span>
+                    </button>
+                    <div className="space-y-0.5">
+                      {compactRows.slice(0, MINI_VISIBLE).map((r) => (
+                        <CompactVisitRow
+                          key={r.key}
+                          refNumber={r.job?.reference_number || "—"}
+                          jobId={r.job?.id || ""}
+                          title={r.job?.name || "Untitled"}
+                          siteName={r.job?.site?.name}
+                          postcode={r.job?.site?.postcode}
+                          priority={r.job?.priority}
+                          status={r.job?.status}
+                          onRemove={isAdmin && r.entryId ? () => onRemove(r.entryId!) : undefined}
+                        />
+                      ))}
+                      {compactRows.length > MINI_VISIBLE && (
+                        <button
+                          onClick={() => dispatchOpenDayPanel({ engineerId: eng.user_id, engineerName: eng.full_name, date: dateStr })}
+                          className="w-full text-center text-[10px] text-muted-foreground hover:text-primary py-0.5"
+                        >
+                          + {compactRows.length - MINI_VISIBLE} more…
+                        </button>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                <>
                 {/* Spanning multi-day job cards */}
                 {spanStartsHere.map((spanItem) => {
                   const job = getJob(spanItem.jobId);
