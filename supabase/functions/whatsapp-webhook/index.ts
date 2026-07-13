@@ -340,6 +340,7 @@ Deno.serve(async (req) => {
             ocr_path: ocrPath,
             ocr_confidence: ocrConfidence,
             status: "pending",
+            org_id: engineerOrgId,
           });
 
           if (insertError) {
