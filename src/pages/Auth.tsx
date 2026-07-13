@@ -14,11 +14,17 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters").max(128),
 });
 
-const signupSchema = loginSchema.extend({
-  fullName: z.string().trim().min(1, "Full name is required").max(100, "Name must be under 100 characters"),
+const signupInviteSchema = loginSchema.extend({
+  fullName: z.string().trim().min(1, "Full name is required").max(100),
+  inviteToken: z.string().trim().min(8, "Enter the invitation code you were emailed").max(200),
 });
 
-type Mode = "login" | "signup" | "forgot";
+const signupCreateOrgSchema = loginSchema.extend({
+  fullName: z.string().trim().min(1, "Full name is required").max(100),
+  orgName: z.string().trim().min(2, "Organisation name is required").max(120),
+});
+
+type Mode = "login" | "signup-invite" | "signup-create-org" | "forgot";
 
 export default function Auth() {
   const [mode, setMode] = useState<Mode>("login");
