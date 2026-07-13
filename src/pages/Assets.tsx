@@ -381,6 +381,9 @@ export default function Assets() {
     URL.revokeObjectURL(url);
   };
 
+  const inSiteFolder = viewMode === "folders" && !!selectedSiteId;
+  const showFolderList = viewMode === "folders" && !selectedSiteId;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -391,9 +394,11 @@ export default function Assets() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handleExportCsv} disabled={filtered.length === 0}>
-            <Download className="mr-2 h-4 w-4" /> Download CSV
-          </Button>
+          {!showFolderList && (
+            <Button variant="outline" onClick={handleExportCsv} disabled={filtered.length === 0}>
+              <Download className="mr-2 h-4 w-4" /> Download CSV
+            </Button>
+          )}
           {userRole === "admin" && (
             <>
               <Button variant="outline" onClick={() => setScanOpen(true)}>
@@ -402,13 +407,120 @@ export default function Assets() {
               <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" /> Bulk Import
               </Button>
-              <Button onClick={openCreate}>
+              <Button onClick={() => {
+                openCreate();
+                if (inSiteFolder && selectedSiteId) {
+                  setForm({ ...emptyAsset, site_id: selectedSiteId });
+                }
+              }}>
                 <Plus className="mr-2 h-4 w-4" /> Add Asset
               </Button>
             </>
           )}
         </div>
       </div>
+
+      {/* View mode tabs */}
+      <Tabs
+        value={viewMode}
+        onValueChange={(v) => { setViewMode(v as any); setSelectedSiteId(null); }}
+      >
+        <TabsList>
+          <TabsTrigger value="folders">
+            <FolderOpen className="mr-1.5 h-4 w-4" /> By site
+          </TabsTrigger>
+          <TabsTrigger value="all">All assets</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {/* Breadcrumb when inside a site folder */}
+      {inSiteFolder && selectedSite && (
+        <div className="flex items-center gap-2 text-sm">
+          <Button variant="ghost" size="sm" onClick={() => setSelectedSiteId(null)}>
+            <ArrowLeft className="mr-1.5 h-4 w-4" /> All sites
+          </Button>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          {selectedSiteCustomer && (
+            <>
+              <span className="text-muted-foreground">{selectedSiteCustomer}</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </>
+          )}
+          <span className="font-medium">{selectedSite.name}</span>
+          <Badge variant="secondary" className="ml-1">{assetCountBySite[selectedSite.id] || 0} assets</Badge>
+        </div>
+      )}
+
+      {/* Folder list (default view) */}
+      {showFolderList ? (
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px] max-w-sm">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search sites or customers..."
+                value={folderSearch}
+                onChange={(e) => setFolderSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showEmptySites}
+                onChange={(e) => setShowEmptySites(e.target.checked)}
+                className="rounded border-input"
+              />
+              Show empty sites
+            </label>
+          </div>
+          {loading ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>
+          ) : foldersByCustomer.length === 0 ? (
+            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No sites with assets yet.</CardContent></Card>
+          ) : (
+            <div className="space-y-4">
+              {foldersByCustomer.map((group) => (
+                <div key={group.customerName} className="space-y-1.5">
+                  <div className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group.customerName}
+                  </div>
+                  <Card>
+                    <CardContent className="p-0 divide-y">
+                      {group.sites.map((s) => {
+                        const count = assetCountBySite[s.id] || 0;
+                        const isEmpty = count === 0;
+                        return (
+                          <button
+                            key={s.id}
+                            onClick={() => setSelectedSiteId(s.id)}
+                            className={`w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-muted/50 transition-colors ${isEmpty ? "opacity-60" : ""}`}
+                          >
+                            <FolderOpen className="h-4 w-4 text-muted-foreground shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">
+                                {group.customerName !== "Unassigned" ? `${group.customerName.toUpperCase()} — ${s.name}` : s.name}
+                              </div>
+                              <div className="text-xs text-muted-foreground capitalize">{s.site_type}</div>
+                            </div>
+                            <Badge variant={isEmpty ? "outline" : "secondary"}>
+                              {count} {count === 1 ? "asset" : "assets"}
+                            </Badge>
+                            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                          </button>
+                        );
+                      })}
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <>
+
+
 
 
       {/* Stats */}
