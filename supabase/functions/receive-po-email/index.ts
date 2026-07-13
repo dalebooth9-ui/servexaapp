@@ -279,6 +279,7 @@ serve(async (req) => {
 
     const jobInsert: Record<string, unknown> = {
       name: safeName,
+      org_id: orgId,
       customer_id: customerId,
       customer: customerName,
       address: (extracted.address || "").trim() || null,
