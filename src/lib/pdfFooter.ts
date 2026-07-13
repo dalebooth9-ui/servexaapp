@@ -7,9 +7,16 @@ export interface PdfSignatureData {
   /** Pre-loaded HTMLImageElement keyed by signature id */
   sigImages?: Record<string, HTMLImageElement>;
   /** Signature record for engineer/admin */
-  engineerSig?: { id: string; signer_name: string; signer_role: string } | null;
+  engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
   /** Signature record for customer */
-  customerSig?: { id: string; signer_name: string; signer_role: string } | null;
+  customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
+}
+
+function formatSigTimestamp(iso?: string): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
 }
 
 /**
