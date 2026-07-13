@@ -272,7 +272,10 @@ interface Extracted {
   job_description?: string;
   due_date?: string;
   priority?: string;
+  po_value?: number | string | null;
+  currency?: string;
 }
+
 
 function bytesToBase64(bytes: Uint8Array): string {
   let s = "";
@@ -303,9 +306,11 @@ Return a SINGLE JSON object with exactly these fields (use "" or null when unkno
 - customer_name
 - site_address: the site / delivery / work address
 - po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
-- job_description: full description of the work or goods ordered
+- job_description: full description of the work or goods ordered (be thorough — include scope, quantities, item lists)
 - due_date: required completion date in YYYY-MM-DD, or ""
 - priority: "high", "medium" or "low" (default "medium")
+- po_value: total order value as a NUMBER (strip currency symbols), or null
+- currency: ISO code ("GBP", "USD", "EUR") inferred from £/$/€ or explicit text, or ""
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 }
@@ -330,21 +335,39 @@ async function extractPO(
 
   const content: any[] = [{ type: "text", text: contextLines }];
 
-  const primary = email.attachments.find((a) =>
-    a.contentType.toLowerCase() === "application/pdf" ||
-    /\.pdf$/i.test(a.filename) ||
-    a.contentType.toLowerCase().startsWith("image/")
-  );
+  const candidates = email.attachments.filter((a) => {
+    const ct = a.contentType.toLowerCase();
+    return ct === "application/pdf" ||
+      /\.pdf$/i.test(a.filename) ||
+      ct.startsWith("image/") ||
+      /\.(jpe?g|png|webp|heic|tiff?)$/i.test(a.filename);
+  });
+  // Prefer attachments whose filename suggests a purchase order.
+  const scoreName = (n: string): number => {
+    const s = n.toLowerCase();
+    let score = 0;
+    if (/\bpo\b|purchase.?order|order.?form|order.?no/.test(s)) score += 10;
+    if (/\.pdf$/i.test(s)) score += 2; // PDFs usually the PO over inline logos
+    if (/logo|signature|footer|banner|icon/.test(s)) score -= 5;
+    return score;
+  };
+  candidates.sort((a, b) => scoreName(b.filename) - scoreName(a.filename));
+  const primary = candidates[0];
   if (primary) {
-    const mime = primary.contentType.toLowerCase().startsWith("image/")
+    const ct = primary.contentType.toLowerCase();
+    const mime = ct.startsWith("image/")
       ? primary.contentType
-      : "application/pdf";
+      : ct === "application/pdf" || /\.pdf$/i.test(primary.filename)
+        ? "application/pdf"
+        : primary.contentType || "application/octet-stream";
     const b64 = bytesToBase64(primary.bytes);
     content.push({
       type: "image_url",
       image_url: { url: `data:${mime};base64,${b64}` },
     });
+    console.log("PO extraction using attachment", { filename: primary.filename, mime, bytes: primary.bytes.byteLength });
   }
+
 
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -543,7 +566,27 @@ serve(async (req) => {
   }
 
   const priority = ["high", "medium", "low"].includes(extracted.priority ?? "") ? extracted.priority! : "medium";
-  const jobName = (extracted.job_description || extracted.po_number || email.subject || "Email PO").slice(0, 200);
+
+  const poNum = (extracted.po_number || "").trim();
+  const custForName = (customerName || "").trim();
+  const desc = (extracted.job_description || "").trim();
+  let jobName: string;
+  if (poNum && custForName) jobName = `PO ${poNum} — ${custForName}`;
+  else if (poNum) jobName = `PO ${poNum}`;
+  else if (desc) jobName = desc;
+  else if (custForName) jobName = `PO — ${custForName}`;
+  else jobName = email.subject || "Email PO";
+  jobName = jobName.slice(0, 200);
+
+  // Normalise PO value
+  let poValueNum: number | null = null;
+  if (extracted.po_value != null && extracted.po_value !== "") {
+    const n = typeof extracted.po_value === "number"
+      ? extracted.po_value
+      : parseFloat(String(extracted.po_value).replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(n)) poValueNum = n;
+  }
+  const currency = (extracted.currency || "").trim().toUpperCase();
 
   const { forwardedFrom, body: forwardedBody } = extractForwardedBody(
     email.text || stripHtml(email.html),
@@ -551,10 +594,13 @@ serve(async (req) => {
   const briefParts: string[] = [];
   briefParts.push(`Forwarded by: ${email.from}`);
   if (forwardedFrom) briefParts.push(`Original sender: ${forwardedFrom}`);
-  briefParts.push(`Subject: ${email.subject}`);
+  briefParts.push(`Original subject: ${email.subject}`);
+  if (poNum) briefParts.push(`PO number: ${poNum}`);
+  if (poValueNum != null) briefParts.push(`PO value: ${currency ? currency + " " : ""}${poValueNum.toFixed(2)}`);
   briefParts.push("");
-  if (extracted.job_description) briefParts.push(extracted.job_description);
+  if (desc) briefParts.push(desc);
   if (forwardedBody) briefParts.push("", "--- Email body ---", forwardedBody.slice(0, 4000));
+
 
   const jobInsert: Record<string, unknown> = {
     name: jobName,
