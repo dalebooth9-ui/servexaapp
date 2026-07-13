@@ -108,6 +108,25 @@ Deno.serve(async (req) => {
     console.log(`[profile-lookup] resolved engineerId=${engineerId} for from=${from}`);
     const twilioSender = { accountSid: TWILIO_ACCOUNT_SID, authToken: TWILIO_AUTH_TOKEN, fromNumber: TWILIO_WHATSAPP_NUMBER };
 
+    // ── Idempotency guard ────────────────────────────────────────
+    // Twilio occasionally re-delivers the same MessageSid (network retry, our
+    // slow response). Every submission we write records the MessageSid, so a
+    // prior successful run is easy to detect. If we've already filed anything
+    // for this MessageSid + engineer, bail out — never double-file.
+    if (messageSid) {
+      const { data: alreadyProcessed } = await supabase
+        .from("submissions")
+        .select("id")
+        .eq("whatsapp_message_id", messageSid)
+        .eq("engineer_id", engineerId)
+        .limit(1);
+      if (alreadyProcessed && alreadyProcessed.length > 0) {
+        console.log(`[idempotency] MessageSid=${messageSid} already processed for engineer=${engineerId} — skipping`);
+        return twimlResponse();
+      }
+    }
+
+
     // Handle location messages
     if (latitude && longitude) {
       const jobId = await getActiveJob(supabase, engineerId);
