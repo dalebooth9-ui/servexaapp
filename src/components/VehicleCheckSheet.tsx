@@ -10,6 +10,7 @@ import { Loader2, Car, AlertTriangle, Camera, X, CheckCircle2, Clock, RotateCcw 
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { DEFAULT_VEHICLE_CHECK_ITEMS, loadVehicleCheckItems, type VehicleCheckItem } from "@/lib/vehicleCheckItems";
+import VehicleSelector from "@/components/VehicleSelector";
 
 type ItemValue = "ok" | "defect" | "na";
 
@@ -18,6 +19,7 @@ type LatestCheck = {
   status: string;
   rejection_reason: string | null;
   vehicle_reg: string | null;
+  vehicle_id: string | null;
   items: Record<string, ItemValue> | null;
   has_defects: boolean;
   defect_notes: string | null;
@@ -33,9 +35,11 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
 
   const [latest, setLatest] = useState<LatestCheck | undefined>(undefined); // undefined = loading
   const [showForm, setShowForm] = useState(false);
+  const [vehicleId, setVehicleId] = useState("");
   const [vehicleReg, setVehicleReg] = useState("");
   const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
+  const [lastMileage, setLastMileage] = useState<number | null>(null);
   const [checkItems, setCheckItems] = useState<VehicleCheckItem[]>(DEFAULT_VEHICLE_CHECK_ITEMS);
   const [items, setItems] = useState<Record<string, ItemValue | null>>(
     Object.fromEntries(DEFAULT_VEHICLE_CHECK_ITEMS.map((i) => [i.key, null]))
@@ -61,7 +65,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
     if (!user) return;
     const { data } = await supabase
       .from("vehicle_checks")
-      .select("id, status, rejection_reason, vehicle_reg, items, has_defects, defect_notes")
+      .select("id, status, rejection_reason, vehicle_reg, vehicle_id, items, has_defects, defect_notes")
       .eq("engineer_id", user.id)
       .eq("check_date", today)
       .order("created_at", { ascending: false })
@@ -69,11 +73,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       .maybeSingle();
     setLatest((data as any) ?? null);
     if (data?.status === "accepted") onAccepted();
-    // Prefill reg from localStorage if no check submitted yet today
-    if (!data && regKey) {
-      const saved = localStorage.getItem(regKey);
-      if (saved) setVehicleReg(saved);
-    }
   };
 
   useEffect(() => {
@@ -102,6 +101,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const startResubmit = () => {
     if (latest) {
       setVehicleReg(latest.vehicle_reg || "");
+      setVehicleId(latest.vehicle_id || "");
       if (latest.items) {
         setItems({
           ...Object.fromEntries(checkItems.map((i) => [i.key, null])),
@@ -112,6 +112,25 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
     }
     setShowForm(true);
   };
+
+  // Load previous mileage for chosen vehicle as placeholder hint
+  useEffect(() => {
+    if (!vehicleId) { setLastMileage(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("vehicle_checks")
+        .select("mileage")
+        .eq("vehicle_id", vehicleId)
+        .not("mileage", "is", null)
+        .order("check_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setLastMileage((data as any)?.mileage ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [vehicleId]);
 
   const hasDefects = Object.values(items).some((v) => v === "defect");
   const allAnswered = checkItems.every((it) => items[it.key] != null);
@@ -164,6 +183,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         engineer_id: user.id,
         check_date: today,
         vehicle_reg: vehicleReg.trim() || null,
+        vehicle_id: vehicleId || null,
         mileage: mileage ? parseInt(mileage) : null,
         items: items as any,
         has_defects: hasDefects,
@@ -175,7 +195,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       } as any);
 
       if (error) throw error;
-      if (regKey) localStorage.setItem(regKey, vehicleReg.trim());
       toast.success("Check submitted — you're all set");
       setShowForm(false);
       setPhotos([]);
@@ -272,38 +291,27 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       )}
 
       <Card className="p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="reg" className="text-xs">Vehicle reg <span className="text-destructive">*</span></Label>
-            <Input
-              id="reg"
-              value={vehicleReg}
-              onChange={(e) => {
-                const val = e.target.value.toUpperCase();
-                setVehicleReg(val);
-                setRegTouched(true);
-                if (regKey) localStorage.setItem(regKey, val);
-              }}
-              onBlur={() => setRegTouched(true)}
-              placeholder="AB12 CDE"
-              className={`uppercase ${regTouched && !vehicleReg.trim() ? "border-destructive ring-1 ring-destructive/30 focus-visible:ring-destructive" : ""}`}
-              aria-invalid={regTouched && !vehicleReg.trim()}
-            />
-            {regTouched && !vehicleReg.trim() && (
-              <p className="text-[11px] text-destructive mt-1">Vehicle registration is required</p>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="mileage" className="text-xs">Mileage</Label>
-            <Input
-              id="mileage"
-              type="number"
-              inputMode="numeric"
-              value={mileage}
-              onChange={(e) => setMileage(e.target.value)}
-              placeholder="123456"
-            />
-          </div>
+        <VehicleSelector
+          engineerId={user?.id ?? null}
+          value={vehicleId}
+          reg={vehicleReg}
+          onChange={(id, reg) => {
+            setVehicleId(id);
+            setVehicleReg(reg);
+            setRegTouched(true);
+          }}
+          invalid={regTouched && !vehicleReg.trim()}
+        />
+        <div>
+          <Label htmlFor="mileage" className="text-xs">Mileage</Label>
+          <Input
+            id="mileage"
+            type="number"
+            inputMode="numeric"
+            value={mileage}
+            onChange={(e) => setMileage(e.target.value)}
+            placeholder={lastMileage != null ? `Last recorded: ${lastMileage.toLocaleString()}` : "123456"}
+          />
         </div>
       </Card>
 
