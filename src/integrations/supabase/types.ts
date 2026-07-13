@@ -100,6 +100,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          org_id: string
           slug: string
           sort_order: number
         }
@@ -107,6 +108,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          org_id?: string
           slug: string
           sort_order?: number
         }
@@ -114,10 +116,26 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          org_id?: string
           slug?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "asset_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       asset_documents: {
         Row: {
@@ -356,6 +374,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          org_id: string
           slug: string
           sort_order: number
         }
@@ -363,6 +382,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          org_id?: string
           slug: string
           sort_order?: number
         }
@@ -370,10 +390,26 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          org_id?: string
           slug?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audit_logs: {
         Row: {
@@ -522,6 +558,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          org_id: string
           updated_at: string
         }
         Insert: {
@@ -531,6 +568,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          org_id?: string
           updated_at?: string
         }
         Update: {
@@ -540,9 +578,25 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          org_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "audit_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "audit_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       audits: {
         Row: {
@@ -661,6 +715,7 @@ export type Database = {
           file_url: string | null
           id: string
           label: string
+          org_id: string
           sort_order: number
           updated_at: string
         }
@@ -675,6 +730,7 @@ export type Database = {
           file_url?: string | null
           id?: string
           label?: string
+          org_id?: string
           sort_order?: number
           updated_at?: string
         }
@@ -689,10 +745,26 @@ export type Database = {
           file_url?: string | null
           id?: string
           label?: string
+          org_id?: string
           sort_order?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "category_document_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "category_document_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       client_errors: {
         Row: {
@@ -2065,6 +2137,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          org_id: string
           priority: string
         }
         Insert: {
@@ -2072,6 +2145,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          org_id?: string
           priority?: string
         }
         Update: {
@@ -2079,9 +2153,25 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          org_id?: string
           priority?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "fault_codes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fault_codes_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       field_reports: {
         Row: {
@@ -3083,6 +3173,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          org_id: string
           slug: string
           sort_order: number
         }
@@ -3090,6 +3181,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          org_id?: string
           slug: string
           sort_order?: number
         }
@@ -3097,10 +3189,26 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          org_id?: string
           slug?: string
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_categories_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_documents: {
         Row: {
@@ -3924,6 +4032,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          org_id: string
           other_qty: number
           other_service_type: string | null
           pressure_test_qty: number
@@ -3939,6 +4048,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          org_id?: string
           other_qty?: number
           other_service_type?: string | null
           pressure_test_qty?: number
@@ -3954,6 +4064,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          org_id?: string
           other_qty?: number
           other_service_type?: string | null
           pressure_test_qty?: number
@@ -3961,7 +4072,22 @@ export type Database = {
           updated_at?: string
           visual_qty?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "job_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_visits: {
         Row: {
@@ -4632,6 +4758,7 @@ export type Database = {
           id: string
           is_active: boolean
           name: string
+          org_id: string
           updated_at: string
         }
         Insert: {
@@ -4642,6 +4769,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           name: string
+          org_id?: string
           updated_at?: string
         }
         Update: {
@@ -4652,9 +4780,25 @@ export type Database = {
           id?: string
           is_active?: boolean
           name?: string
+          org_id?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "photo_checklist_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "photo_checklist_templates_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       planner_adhoc_entries: {
         Row: {
@@ -6369,6 +6513,10 @@ export type Database = {
           allowed: boolean
           org_id: string
         }[]
+      }
+      seed_org_reference_data: {
+        Args: { _new_org_id: string; _source_org_id?: string }
+        Returns: undefined
       }
       set_email_automation_active: {
         Args: { _active: boolean; _jobname: string }

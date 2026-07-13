@@ -98,7 +98,7 @@ export function useWatermarkSettings(): {
     const value = normalise(next);
     const { error } = await supabase
       .from("app_settings")
-      .upsert({ key: SETTINGS_KEY, value: value as any }, { onConflict: "key" });
+      .upsert({ key: SETTINGS_KEY, value: value as any }, { onConflict: "org_id,key" });
     if (error) return { error: error.message };
     cachedValue = value;
     cachedPromise = Promise.resolve(value);

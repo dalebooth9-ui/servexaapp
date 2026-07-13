@@ -40,7 +40,7 @@ export default function ComplianceReminderSettings() {
     const { error } = await supabase.from("app_settings").upsert({
       key: "compliance_reminder_settings",
       value: settings as any,
-    });
+    }, { onConflict: "org_id,key" });
     setSaving(false);
     if (error) toast.error("Failed to save settings");
     else toast.success("Compliance reminder settings saved");
