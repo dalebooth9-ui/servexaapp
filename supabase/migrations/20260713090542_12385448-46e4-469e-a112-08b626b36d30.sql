@@ -1,0 +1,1 @@
+ALTER TABLE public.job_signatures ADD COLUMN IF NOT EXISTS signer_position text;
