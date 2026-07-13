@@ -617,6 +617,7 @@ Deno.serve(async (req) => {
               type: "note",
               content: `Job context set: ${prefixRaw} (via combined command)`,
               whatsapp_message_id: messageSid,
+              org_id: engineerOrgId,
             });
             console.log(`[combined-cmd] resolved job ${comboJob.reference_number} (${comboJob.id}) → running ${cmd}`);
 
