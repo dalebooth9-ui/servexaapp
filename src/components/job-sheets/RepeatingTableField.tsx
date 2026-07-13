@@ -1034,8 +1034,9 @@ function BulkAddDialog({
             }`}
             aria-live="polite"
           >
-            {!parsed.ok ? (
+            {parsed.ok !== true ? (
               <span className="text-destructive">{parsed.reason}</span>
+
             ) : (
               <>
                 <div className="font-medium mb-1">
