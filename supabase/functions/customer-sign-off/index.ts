@@ -69,7 +69,15 @@ Deno.serve(async (req) => {
     if (req.method === "POST") {
       const formData = await req.formData();
       const file = formData.get("signature") as File;
-      const signerName = formData.get("signer_name") as string || tokenRow.customer_name || "Customer";
+      const signerName = ((formData.get("signer_name") as string) || "").trim();
+      const signerPosition = ((formData.get("signer_position") as string) || "").trim() || null;
+
+      if (!signerName) {
+        return new Response(JSON.stringify({ error: "Print name is required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       if (!file) {
         return new Response(JSON.stringify({ error: "Signature file required" }), {
