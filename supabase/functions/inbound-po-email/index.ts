@@ -566,7 +566,27 @@ serve(async (req) => {
   }
 
   const priority = ["high", "medium", "low"].includes(extracted.priority ?? "") ? extracted.priority! : "medium";
-  const jobName = (extracted.job_description || extracted.po_number || email.subject || "Email PO").slice(0, 200);
+
+  const poNum = (extracted.po_number || "").trim();
+  const custForName = (customerName || "").trim();
+  const desc = (extracted.job_description || "").trim();
+  let jobName: string;
+  if (poNum && custForName) jobName = `PO ${poNum} — ${custForName}`;
+  else if (poNum) jobName = `PO ${poNum}`;
+  else if (desc) jobName = desc;
+  else if (custForName) jobName = `PO — ${custForName}`;
+  else jobName = email.subject || "Email PO";
+  jobName = jobName.slice(0, 200);
+
+  // Normalise PO value
+  let poValueNum: number | null = null;
+  if (extracted.po_value != null && extracted.po_value !== "") {
+    const n = typeof extracted.po_value === "number"
+      ? extracted.po_value
+      : parseFloat(String(extracted.po_value).replace(/[^0-9.\-]/g, ""));
+    if (Number.isFinite(n)) poValueNum = n;
+  }
+  const currency = (extracted.currency || "").trim().toUpperCase();
 
   const { forwardedFrom, body: forwardedBody } = extractForwardedBody(
     email.text || stripHtml(email.html),
@@ -574,10 +594,13 @@ serve(async (req) => {
   const briefParts: string[] = [];
   briefParts.push(`Forwarded by: ${email.from}`);
   if (forwardedFrom) briefParts.push(`Original sender: ${forwardedFrom}`);
-  briefParts.push(`Subject: ${email.subject}`);
+  briefParts.push(`Original subject: ${email.subject}`);
+  if (poNum) briefParts.push(`PO number: ${poNum}`);
+  if (poValueNum != null) briefParts.push(`PO value: ${currency ? currency + " " : ""}${poValueNum.toFixed(2)}`);
   briefParts.push("");
-  if (extracted.job_description) briefParts.push(extracted.job_description);
+  if (desc) briefParts.push(desc);
   if (forwardedBody) briefParts.push("", "--- Email body ---", forwardedBody.slice(0, 4000));
+
 
   const jobInsert: Record<string, unknown> = {
     name: jobName,
