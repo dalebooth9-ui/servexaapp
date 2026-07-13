@@ -90,11 +90,16 @@ serve(async (req) => {
   }
 
   try {
-    // ---------- Auth: shared secret ----------
+    // ---------- Auth: shared secret + explicit target org ----------
+    // Same rule as po-intake: never fall back to "first org in the table".
+    // The caller must be attributable to a specific org via the
+    // PO_INTAKE_DEFAULT_ORG_ID env var (set to the org whose Make.com pipe
+    // points at this endpoint). If it's not set, refuse.
     const expectedSecret = Deno.env.get("PO_INTAKE_SECRET");
-    if (!expectedSecret) {
-      console.error("PO_INTAKE_SECRET is not configured");
-      return json(500, { error: "Server not configured" });
+    const defaultOrgId = Deno.env.get("PO_INTAKE_DEFAULT_ORG_ID");
+    if (!expectedSecret || !defaultOrgId) {
+      console.error("PO_INTAKE_SECRET or PO_INTAKE_DEFAULT_ORG_ID not configured");
+      return json(404, { error: "Not found" });
     }
     const providedSecret = req.headers.get("x-po-intake-secret");
     if (providedSecret !== expectedSecret) {
@@ -102,6 +107,7 @@ serve(async (req) => {
       // to anyone probing without the secret.
       return json(404, { error: "Not found" });
     }
+    const orgId = defaultOrgId;
 
     // ---------- Parse body ----------
     let payload: any;
