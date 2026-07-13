@@ -11,40 +11,44 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// Branded email wrapper
-function buildEmailHtml(title: string, bodyHtml: string): string {
-  return `
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 620px; margin: 0 auto; background: #ffffff;">
-      <div style="background: #1e40af; color: #ffffff; padding: 18px 24px; border-radius: 8px 8px 0 0;">
-        <h2 style="margin: 0; font-size: 18px; font-weight: 700;">Servexa</h2>
-        <p style="margin: 3px 0 0; font-size: 12px; opacity: 0.75;">Compliance & Fire Safety Management</p>
-      </div>
-      <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
-        <h3 style="margin: 0 0 16px; font-size: 16px; color: #111827;">${title}</h3>
-        ${bodyHtml}
-        <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 20px 0;" />
-        <p style="font-size: 11px; color: #9ca3af; margin: 0;">
-          This is an automated notification from Servexa. Log in to manage your compliance records.
-        </p>
-      </div>
-    </div>
-  `;
+type Branding = Awaited<ReturnType<typeof getEmailBranding>>;
+
+function buildEmailHtml(branding: Branding, title: string, bodyHtml: string): string {
+  return wrapCustomerEmail(branding, {
+    previewText: title,
+    bodyHtml: `
+      <h3 style="margin:0 0 16px;font-size:17px;color:#111827;">${title}</h3>
+      ${bodyHtml}
+    `,
+  });
 }
 
 async function sendEmail(
-  resendKey: string,
+  branding: Branding,
   to: string,
   subject: string,
   html: string,
 ): Promise<void> {
-  const res = await fetch("https://api.resend.com/emails", {
+  const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY_1") ?? Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY) return;
+  const identity = getSendIdentity(branding);
+  const useGateway = !!LOVABLE_API_KEY;
+  const url = useGateway
+    ? "https://connector-gateway.lovable.dev/resend/emails"
+    : "https://api.resend.com/emails";
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    Authorization: useGateway ? `Bearer ${LOVABLE_API_KEY}` : `Bearer ${RESEND_API_KEY}`,
+  };
+  if (useGateway) headers["X-Connection-Api-Key"] = RESEND_API_KEY;
+
+  const res = await fetch(url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${resendKey}`,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({
-      from: await getFromAddress("reminder"),
+      from: identity.from,
+      reply_to: identity.reply_to,
       to: [to],
       subject,
       html,
@@ -55,6 +59,7 @@ async function sendEmail(
     console.error(`Resend error sending to ${to}:`, err);
   }
 }
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
