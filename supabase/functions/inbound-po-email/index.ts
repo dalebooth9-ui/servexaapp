@@ -718,7 +718,7 @@ serve(async (req) => {
     return json(500, { error: "Could not create job" });
   }
   const jobId = newJob.id;
-  const jobRef = newJob.reference_number;
+  const createdJobRef = newJob.reference_number;
 
   // ── Store raw .eml + attachments in po-intake bucket ───────────────────
   const uploads: { path: string; label: string; contentType: string; bytes: Uint8Array }[] = [];
