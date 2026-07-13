@@ -1477,8 +1477,32 @@ function SortableEngineerRow({
               continue;
             }
 
-            const hasAnyContent = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
-              + partnerSingleEntries.length + partnerSpanStartsHere.length + partnerCellAdhoc.length > 0;
+            const totalCellCount = singleEngEntries.length + spanStartsHere.length + cellAdhoc.length
+              + partnerSingleEntries.length + partnerSpanStartsHere.length + partnerCellAdhoc.length;
+            const hasAnyContent = totalCellCount > 0;
+            const COMPACT_THRESHOLD = 4;
+            const isCompact = totalCellCount > COMPACT_THRESHOLD;
+            const MINI_VISIBLE = 6;
+
+            // Prefetch mini-row data for compact mode
+            const compactRows = isCompact ? [
+              ...singleEngEntries.map((entry) => {
+                const j = getJob(entry.job_id);
+                return { key: `s-${entry.id}`, entryId: entry.id, job: j };
+              }),
+              ...spanStartsHere.map((s) => {
+                const j = getJob(s.jobId);
+                return { key: `sp-${s.jobId}`, entryId: s.entries[0]?.id, job: j };
+              }),
+              ...(partnerEng ? partnerSingleEntries.map((entry) => {
+                const j = getJob(entry.job_id);
+                return { key: `ps-${entry.id}`, entryId: entry.id, job: j };
+              }) : []),
+              ...(partnerEng ? partnerSpanStartsHere.map((s) => {
+                const j = getJob(s.jobId);
+                return { key: `psp-${s.jobId}`, entryId: s.entries[0]?.id, job: j };
+              }) : []),
+            ] : [];
 
             // Determine live preview span for a span being resized at this col
             const getEffectiveSpan = (spanItem: { jobId: string; startColIndex: number; span: number }, ownEngineerId: string) => {
