@@ -65,7 +65,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
     if (!user) return;
     const { data } = await supabase
       .from("vehicle_checks")
-      .select("id, status, rejection_reason, vehicle_reg, items, has_defects, defect_notes")
+      .select("id, status, rejection_reason, vehicle_reg, vehicle_id, items, has_defects, defect_notes")
       .eq("engineer_id", user.id)
       .eq("check_date", today)
       .order("created_at", { ascending: false })
@@ -73,11 +73,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       .maybeSingle();
     setLatest((data as any) ?? null);
     if (data?.status === "accepted") onAccepted();
-    // Prefill reg from localStorage if no check submitted yet today
-    if (!data && regKey) {
-      const saved = localStorage.getItem(regKey);
-      if (saved) setVehicleReg(saved);
-    }
   };
 
   useEffect(() => {
