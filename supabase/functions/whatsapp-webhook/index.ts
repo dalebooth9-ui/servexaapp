@@ -828,6 +828,7 @@ Deno.serve(async (req) => {
           type: "note",
           content: messageBody,
           whatsapp_message_id: messageSid,
+          org_id: engineerOrgId,
         });
       } else {
         console.log(`No active job for engineer ${engineerId}`);
