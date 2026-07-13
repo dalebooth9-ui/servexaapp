@@ -1295,6 +1295,21 @@ export default function PlannerMapView({
               <SelectItem value="600">Every 10 min</SelectItem>
             </SelectContent>
           </Select>
+          <label
+            className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none px-2 h-9 rounded border bg-background hover:bg-muted/40"
+            title="When on, the route starts from your device's current location (uses your browser's GPS). Turn off if you're planning someone else's day from the office."
+          >
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-primary"
+              checked={startFromMyLocation}
+              onChange={(e) => {
+                setStartFromMyLocation(e.target.checked);
+                if (e.target.checked) setGeoDenied(false);
+              }}
+            />
+            Start from my location
+          </label>
           <Button
             variant="outline"
             size="sm"
@@ -1305,6 +1320,11 @@ export default function PlannerMapView({
             {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
             Optimise Route
           </Button>
+          {startFromMyLocation && geoDenied && (
+            <span className="text-[11px] text-muted-foreground italic">
+              Enable location for door-to-door routing
+            </span>
+          )}
           {routeVisible && routeResult && (
             <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
               Clear Route
