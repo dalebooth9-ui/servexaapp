@@ -185,8 +185,18 @@ export default function Assets() {
   }, []);
 
   const siteLookup = Object.fromEntries(sites.map((s) => [s.id, s.name]));
+  const customerBySite: Record<string, CustomerRow | undefined> = {};
+  {
+    const custLookup = Object.fromEntries(customers.map((c) => [c.id, c]));
+    for (const cs of customerSites) customerBySite[cs.site_id] = custLookup[cs.customer_id];
+  }
 
-  const filteredBase = assets.filter((a) => {
+  // Assets scoped to current view (site folder or all)
+  const scopedAssets = viewMode === "folders" && selectedSiteId
+    ? assets.filter((a) => a.site_id === selectedSiteId)
+    : assets;
+
+  const filteredBase = scopedAssets.filter((a) => {
     if (statusFilter !== "all" && a.status !== statusFilter) return false;
     if (categoryFilter !== "all" && a.category !== categoryFilter) return false;
     return true;
@@ -200,6 +210,37 @@ export default function Assets() {
     (a as any).location_notes,
     siteLookup[(a as any).site_id],
   ]);
+
+  // Site folders grouped by customer
+  const assetCountBySite: Record<string, number> = {};
+  for (const a of assets) {
+    if (a.site_id) assetCountBySite[a.site_id] = (assetCountBySite[a.site_id] || 0) + 1;
+  }
+  const foldersByCustomer: { customerName: string; sites: SiteOption[] }[] = (() => {
+    const groups = new Map<string, SiteOption[]>();
+    for (const s of sites) {
+      const cust = customerBySite[s.id]?.name || "Unassigned";
+      if (!groups.has(cust)) groups.set(cust, []);
+      groups.get(cust)!.push(s);
+    }
+    const q = folderSearch.trim().toLowerCase();
+    return Array.from(groups.entries())
+      .map(([customerName, siteList]) => ({
+        customerName,
+        sites: siteList
+          .filter((s) => (showEmptySites ? true : (assetCountBySite[s.id] || 0) > 0))
+          .filter((s) => {
+            if (!q) return true;
+            return s.name.toLowerCase().includes(q) || customerName.toLowerCase().includes(q);
+          })
+          .sort((a, b) => a.name.localeCompare(b.name)),
+      }))
+      .filter((g) => g.sites.length > 0)
+      .sort((a, b) => a.customerName.localeCompare(b.customerName));
+  })();
+
+  const selectedSite = selectedSiteId ? sites.find((s) => s.id === selectedSiteId) : null;
+  const selectedSiteCustomer = selectedSiteId ? customerBySite[selectedSiteId]?.name : null;
 
   const openCreate = () => {
     setEditing(null);
