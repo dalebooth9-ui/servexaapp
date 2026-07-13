@@ -104,6 +104,7 @@ export default function JobDetail() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const photoCount = useJobPhotoCount(id);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
+  const [assignedEngineerIds, setAssignedEngineerIds] = useState<string[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
