@@ -167,8 +167,9 @@ export default function Jobs() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
   // Visible primary status tab — Active (default), Pending Review, Completed, All
-  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "all">("active");
+  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "rejected" | "all">("active");
   const includeArchived = statusTab === "completed" || statusTab === "all";
+
   const [pageSize, setPageSize] = useState(300);
   const [hasMore, setHasMore] = useState(false);
   const firstLoadRef = useRef(true);
@@ -221,13 +222,22 @@ export default function Jobs() {
     const searching = search.trim().length > 0;
     if (!searching) {
       if (statusTab === "active") {
-        query = query.not("status", "in", "(completed,archived)");
+        query = query.not("status", "in", "(completed,archived,rejected)");
       } else if (statusTab === "pending_review") {
         query = query.eq("status", "pending_review");
       } else if (statusTab === "completed") {
         query = query.eq("status", "completed");
+      } else if (statusTab === "rejected") {
+        query = query.eq("status", "rejected");
+      } else if (statusTab === "all") {
+        // "All" excludes rejected — those are archive-only and viewable via the Rejected tab.
+        query = query.neq("status", "rejected");
       }
+    } else {
+      // Searching across statuses — still hide rejected unless the user is on the rejected tab.
+      if (statusTab !== "rejected") query = query.neq("status", "rejected");
     }
+
     query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
       const { data: assignments } = await supabase
@@ -1083,11 +1093,14 @@ export default function Jobs() {
 
   const grouped = filtered.reduce<Record<string, any[]>>((acc, job) => {
     if (job.status === "pending_review") return acc;
+    // Rejected jobs are archive-only — only surface them under the Rejected tab.
+    if (job.status === "rejected" && statusTab !== "rejected") return acc;
     const key = getCustomerName(job)?.trim() || "Unassigned";
     if (!acc[key]) acc[key] = [];
     acc[key].push(job);
     return acc;
   }, {});
+
 
   if (activeJob) {
     const sourceFolder = getCustomerName(activeJob)?.trim() || "Unassigned";
@@ -1425,8 +1438,10 @@ export default function Jobs() {
           { key: "active", label: "Active" },
           { key: "pending_review", label: "Pending Review" },
           { key: "completed", label: "Completed" },
+          { key: "rejected", label: "Rejected" },
           { key: "all", label: "All" },
         ] as const).map((t) => (
+
           <button
             key={t.key}
             type="button"
