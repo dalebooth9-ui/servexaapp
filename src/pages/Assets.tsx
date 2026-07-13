@@ -167,12 +167,16 @@ export default function Assets() {
     else { toast({ title: `"${name}" removed` }); refetchCategories(); }
   };
   const fetchData = async () => {
-    const [assetRes, siteRes] = await Promise.all([
+    const [assetRes, siteRes, custRes, csRes] = await Promise.all([
       supabase.from("assets").select("*").order("name"),
       supabase.from("sites").select("id, name, site_type").order("name"),
+      supabase.from("customers").select("id, name").order("name"),
+      supabase.from("customer_sites").select("customer_id, site_id"),
     ]);
     setAssets((assetRes.data as Asset[]) || []);
     setSites((siteRes.data as SiteOption[]) || []);
+    setCustomers((custRes.data as CustomerRow[]) || []);
+    setCustomerSites((csRes.data as CustomerSiteRow[]) || []);
     setLoading(false);
   };
 
