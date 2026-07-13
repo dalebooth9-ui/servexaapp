@@ -28,13 +28,14 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
     setGenerating(true);
     try {
       const custAccredUrls = await fetchCustomerAccreditationLogos(job.customers?.name || job.customer);
-      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, watermark, accredLogos] = await Promise.all([
+      const [subsRes, reportsRes, visitsRes, partsRes, assignRes, sigRes, sheetsRes, watermark, accredLogos] = await Promise.all([
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("field_reports").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_visits").select("*").eq("job_id", jobId).order("scheduled_date", { ascending: true }),
         supabase.from("job_parts").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
         supabase.from("job_signatures").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
+        supabase.from("job_sheet_responses").select("responses").eq("job_id", jobId).eq("status", "submitted"),
         loadWatermarkImage(),
         loadAccreditationLogos(custAccredUrls),
       ]);
