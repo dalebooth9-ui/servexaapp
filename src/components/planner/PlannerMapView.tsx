@@ -491,6 +491,32 @@ export default function PlannerMapView({
         await renderRouteOnMap(data.optimised, data.encoded_polyline ?? null);
         setMarkerMode("route");
 
+        // Distinct "Start — you" marker at the device's current position
+        const map = mapInstanceRef.current;
+        if (map && originIsMyDevice && origin && "lat" in origin) {
+          if (startMarkerRef.current) startMarkerRef.current.setMap(null);
+          startMarkerRef.current = new google.maps.Marker({
+            map,
+            position: { lat: origin.lat, lng: origin.lng },
+            title: "Start — you",
+            zIndex: 9999,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: "#10b981",
+              fillOpacity: 1,
+              strokeColor: "#ffffff",
+              strokeWeight: 3,
+            },
+            label: {
+              text: "S",
+              color: "#ffffff",
+              fontSize: "11px",
+              fontWeight: "bold",
+            },
+          });
+        }
+
         // Show one-time traffic suggestion (skip on auto-refresh)
         if (!opts?.silent) {
           optimisationRunRef.current += 1;
