@@ -19,6 +19,7 @@ type LatestCheck = {
   status: string;
   rejection_reason: string | null;
   vehicle_reg: string | null;
+  vehicle_id: string | null;
   items: Record<string, ItemValue> | null;
   has_defects: boolean;
   defect_notes: string | null;
@@ -34,9 +35,11 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
 
   const [latest, setLatest] = useState<LatestCheck | undefined>(undefined); // undefined = loading
   const [showForm, setShowForm] = useState(false);
+  const [vehicleId, setVehicleId] = useState("");
   const [vehicleReg, setVehicleReg] = useState("");
   const [regTouched, setRegTouched] = useState(false);
   const [mileage, setMileage] = useState("");
+  const [lastMileage, setLastMileage] = useState<number | null>(null);
   const [checkItems, setCheckItems] = useState<VehicleCheckItem[]>(DEFAULT_VEHICLE_CHECK_ITEMS);
   const [items, setItems] = useState<Record<string, ItemValue | null>>(
     Object.fromEntries(DEFAULT_VEHICLE_CHECK_ITEMS.map((i) => [i.key, null]))
