@@ -54,9 +54,11 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         engineerNames = (profiles || []).map((p) => p.full_name || "Unknown");
       }
 
-      // Pre-load photo images — preserve original bytes (no canvas re-encoding)
-      // so quality is retained, and capture intrinsic dimensions for proper scaling.
-      const photos = submissions.filter((s: any) => s.type === "photo" && s.file_url);
+      // Load and compress job photos through the shared loader so the
+      // Photos tab and every PDF variant agree on what a job's photos are.
+      // Excludes photos already embedded inside submitted job-sheet responses.
+      const embeddedPaths = collectEmbeddedPhotoPaths((sheetsRes.data || []) as any[]);
+      const loaded = await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths });
       type PhotoEntry = {
         dataUrl: string;
         format: "JPEG" | "PNG";
@@ -65,52 +67,27 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         name: string;
         date: string;
         caption: string;
+        engineer: string;
       };
-      const photoImages: PhotoEntry[] = [];
-      const maxPhotos = 12;
-      for (const photo of photos.slice(0, maxPhotos)) {
-        try {
-          const path = extractStoragePath(photo.file_url);
-          if (!path) continue;
-          const { data: signed } = await supabase.storage.from("submissions").createSignedUrl(path, 3600);
-          if (!signed?.signedUrl) continue;
+      const photoImages: PhotoEntry[] = loaded.map((p) => {
+        const ts = new Date(p.createdAt);
+        return {
+          dataUrl: p.dataUrl,
+          format: "JPEG" as const,
+          natW: p.natW,
+          natH: p.natH,
+          name: p.fileName,
+          date: `${ts.toLocaleDateString("en-GB")} ${ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}`,
+          caption: p.caption,
+          engineer: p.engineerName,
+        };
+      });
+      console.log("[CustomerReportPdf] photos", {
+        loaded: photoImages.length,
+        excluded: embeddedPaths.size,
+        totalKB: Math.round(loaded.reduce((s, p) => s + p.bytes, 0) / 1024),
+      });
 
-          // 1. Download the raw bytes — no re-encoding, preserves original quality.
-          const res = await fetch(signed.signedUrl);
-          if (!res.ok) continue;
-          const blob = await res.blob();
-          const mime = blob.type || "image/jpeg";
-          const isPng = mime.includes("png");
-          const dataUrl: string = await new Promise((resolve, reject) => {
-            const fr = new FileReader();
-            fr.onload = () => resolve(fr.result as string);
-            fr.onerror = () => reject(new Error("read fail"));
-            fr.readAsDataURL(blob);
-          });
-
-          // 2. Probe intrinsic size for aspect-ratio scaling (no stretching).
-          const probe = new Image();
-          probe.crossOrigin = "anonymous";
-          await new Promise<void>((resolve, reject) => {
-            probe.onload = () => resolve();
-            probe.onerror = () => reject();
-            probe.src = dataUrl;
-          });
-
-          const ts = new Date(photo.created_at);
-          const dateStr = ts.toLocaleDateString("en-GB");
-          const timeStr = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
-          photoImages.push({
-            dataUrl,
-            format: isPng ? "PNG" : "JPEG",
-            natW: probe.naturalWidth || 1,
-            natH: probe.naturalHeight || 1,
-            name: photo.file_name || "Photo",
-            date: `${dateStr} ${timeStr}`,
-            caption: (photo as any).content || (photo as any).caption || "",
-          });
-        } catch { /* skip failed images */ }
-      }
 
 
       // Pre-load signature images
