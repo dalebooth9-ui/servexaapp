@@ -175,6 +175,7 @@ export default function JobDetail() {
     // Collect all unique engineer IDs from submissions + assignments, then fetch profiles
     const submissionEngineerIds = subs.map((s: any) => s.engineer_id);
     const assignmentEngineerIds = (assignmentsRes.data || []).map((a: any) => a.engineer_id);
+    setAssignedEngineerIds(assignmentEngineerIds);
     const engineerIds = [...new Set([...submissionEngineerIds, ...assignmentEngineerIds])];
 
     const profilesPromise = engineerIds.length > 0
