@@ -12,6 +12,7 @@ interface Signature {
   id: string;
   signer_name: string;
   signer_role: string;
+  signer_position?: string | null;
   file_path: string;
   created_at: string;
   signer_id: string;
