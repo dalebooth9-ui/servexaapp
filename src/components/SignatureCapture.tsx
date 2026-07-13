@@ -220,9 +220,12 @@ export default function SignatureCapture({
                 )}
                 <div className="mt-2 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">{sig.signer_name}</p>
+                    <p className="text-sm font-medium">{sig.signer_name || <span className="italic text-muted-foreground">Not recorded</span>}</p>
+                    {sig.signer_position && (
+                      <p className="text-xs text-muted-foreground">{sig.signer_position}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
-                      {new Date(sig.created_at).toLocaleDateString("en-GB")} • {sig.signer_role}
+                      {sig.signer_role} • {new Date(sig.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   {(userRole === "admin" || sig.signer_id === user?.id) && (
