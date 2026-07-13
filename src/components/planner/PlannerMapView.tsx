@@ -108,6 +108,7 @@ export default function PlannerMapView({
   const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
   const mapsApiKeyRef = useRef<string | null>(null);
   const openInfoWindowRef = useRef<google.maps.InfoWindow | null>(null);
+  const startMarkerRef = useRef<google.maps.Marker | null>(null);
   
   const onScheduleJobRef = useRef(onScheduleJob);
   useEffect(() => { onScheduleJobRef.current = onScheduleJob; }, [onScheduleJob]);
@@ -147,6 +148,28 @@ export default function PlannerMapView({
   const [showCompare, setShowCompare] = useState(false);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
   const [adhocNotices, setAdhocNotices] = useState<string[]>([]);
+  // "Start from my location" — on by default; disabled if user denies once
+  const [startFromMyLocation, setStartFromMyLocation] = useState(true);
+  const [geoDenied, setGeoDenied] = useState(false);
+
+  // Request the device's current location via the browser Geolocation API.
+  // Resolves to null (never rejects) so callers can fall back cleanly.
+  const requestMyLocation = useCallback((): Promise<{ lat: number; lng: number } | null> => {
+    return new Promise((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) setGeoDenied(true);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+      );
+    });
+  }, []);
 
   // ---- Unit helpers (UK: display miles) ----
   const kmToMi = (km: number | null | undefined) =>
@@ -253,6 +276,11 @@ export default function PlannerMapView({
     // Remove numbered step labels
     routeNumberOverlaysRef.current.forEach((m) => { m.setMap(null); });
     routeNumberOverlaysRef.current = [];
+    // Remove "Start — you" marker
+    if (startMarkerRef.current) {
+      startMarkerRef.current.setMap(null);
+      startMarkerRef.current = null;
+    }
     lastOptimisedWaypointsRef.current = null;
     setRouteVisible(false);
     setMarkerMode("priority");
@@ -398,9 +426,17 @@ export default function PlannerMapView({
         });
       }
 
-      // Determine origin: live GPS > engineer home/depot address > null
+      // Determine origin: browser geolocation (if opted in) > live engineer GPS > engineer home/depot address > null
       let origin: { lat: number; lng: number } | { address: string } | null = null;
-      if (selectedEngineerId && selectedEngineerId !== "all") {
+      let originIsMyDevice = false;
+      if (startFromMyLocation) {
+        const myLoc = await requestMyLocation();
+        if (myLoc) {
+          origin = myLoc;
+          originIsMyDevice = true;
+        }
+      }
+      if (!origin && selectedEngineerId && selectedEngineerId !== "all") {
         const liveLoc = engineerLocations.find((l) => l.user_id === selectedEngineerId);
         if (liveLoc) {
           origin = { lat: liveLoc.latitude, lng: liveLoc.longitude };
@@ -455,6 +491,32 @@ export default function PlannerMapView({
         await renderRouteOnMap(data.optimised, data.encoded_polyline ?? null);
         setMarkerMode("route");
 
+        // Distinct "Start — you" marker at the device's current position
+        const map = mapInstanceRef.current;
+        if (map && originIsMyDevice && origin && "lat" in origin) {
+          if (startMarkerRef.current) startMarkerRef.current.setMap(null);
+          startMarkerRef.current = new google.maps.Marker({
+            map,
+            position: { lat: origin.lat, lng: origin.lng },
+            title: "Start — you",
+            zIndex: 9999,
+            icon: {
+              path: google.maps.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: "#10b981",
+              fillOpacity: 1,
+              strokeColor: "#ffffff",
+              strokeWeight: 3,
+            },
+            label: {
+              text: "S",
+              color: "#ffffff",
+              fontSize: "11px",
+              fontWeight: "bold",
+            },
+          });
+        }
+
         // Show one-time traffic suggestion (skip on auto-refresh)
         if (!opts?.silent) {
           optimisationRunRef.current += 1;
@@ -462,7 +524,6 @@ export default function PlannerMapView({
         }
 
         // Add numbered step labels to markers
-        const map = mapInstanceRef.current;
         if (map) {
           for (let i = 0; i < data.optimised.length; i++) {
             const wp = data.optimised[i];
@@ -1234,6 +1295,21 @@ export default function PlannerMapView({
               <SelectItem value="600">Every 10 min</SelectItem>
             </SelectContent>
           </Select>
+          <label
+            className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer select-none px-2 h-9 rounded border bg-background hover:bg-muted/40"
+            title="When on, the route starts from your device's current location (uses your browser's GPS). Turn off if you're planning someone else's day from the office."
+          >
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 accent-primary"
+              checked={startFromMyLocation}
+              onChange={(e) => {
+                setStartFromMyLocation(e.target.checked);
+                if (e.target.checked) setGeoDenied(false);
+              }}
+            />
+            Start from my location
+          </label>
           <Button
             variant="outline"
             size="sm"
@@ -1244,6 +1320,11 @@ export default function PlannerMapView({
             {optimising ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <Route className="mr-1.5 h-3.5 w-3.5" />}
             Optimise Route
           </Button>
+          {startFromMyLocation && geoDenied && (
+            <span className="text-[11px] text-muted-foreground italic">
+              Enable location for door-to-door routing
+            </span>
+          )}
           {routeVisible && routeResult && (
             <Button variant="ghost" size="sm" onClick={() => { clearRouteOverlay(); setRouteResult(null); }}>
               Clear Route
