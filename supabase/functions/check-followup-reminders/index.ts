@@ -1,5 +1,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFromAddress } from "../_shared/emailFrom.ts";
+import {
+  getEmailBranding,
+  getSendIdentity,
+  wrapCustomerEmail,
+} from "../_shared/customerEmail.ts";
 
 const RESEND_GATEWAY_URL = "https://connector-gateway.lovable.dev/resend";
 
@@ -8,11 +12,12 @@ async function sendResendEmail(payload: {
   to: string[];
   subject: string;
   html: string;
+  reply_to?: string;
 }): Promise<{ error: any | null }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  if (!LOVABLE_API_KEY || !RESEND_API_KEY) {
-    return { error: { message: "Missing LOVABLE_API_KEY or RESEND_API_KEY" } };
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY_1") ?? Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY) {
+    return { error: { message: "Missing RESEND_API_KEY" } };
   }
   try {
     const res = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
@@ -127,6 +132,10 @@ Deno.serve(async (req) => {
     let created = 0;
     let emailsSent = 0;
 
+    const branding = await getEmailBranding(undefined, supabase);
+    const identity = getSendIdentity(branding);
+
+
     for (const visit of followUpVisits) {
       const job = visit.jobs as any;
       const jobId = job.id;
@@ -201,23 +210,13 @@ Deno.serve(async (req) => {
 
       try {
         const { error: emailErr } = await sendResendEmail({
-          from: await getFromAddress("reminder"),
+          from: identity.from,
+          reply_to: identity.reply_to,
           to: [customerEmail],
           subject,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-              <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 22px;">Viva Fire & Protection</h1>
-              </div>
-              <div style="padding: 30px 20px; background-color: #ffffff;">
-                ${bodyHtml}
-              </div>
-              <div style="background-color: #f3f4f6; padding: 15px 20px; text-align: center; font-size: 12px; color: #6b7280;">
-                <p style="margin: 0;">Viva Fire & Protection Ltd</p>
-              </div>
-            </div>
-          `,
+          html: wrapCustomerEmail(branding, { previewText: subject, bodyHtml }),
         });
+
 
         if (!emailErr) {
           emailsSent++;

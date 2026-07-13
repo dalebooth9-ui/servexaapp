@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFromAddress } from "../_shared/emailFrom.ts";
+import {
+  getEmailBranding,
+  getSendIdentity,
+  wrapCustomerEmail,
+  sendViaResend,
+} from "../_shared/customerEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -25,7 +30,6 @@ serve(async (req) => {
       });
     }
 
-    // Verify caller is admin
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -58,98 +62,50 @@ serve(async (req) => {
       });
     }
 
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-
-    if (!RESEND_API_KEY) {
-      console.log(`Email would be sent to: ${customerEmail}, subject: ${subject}`);
-      return new Response(JSON.stringify({
-        success: true,
-        note: "Email service not configured. Please add RESEND_API_KEY to enable email sending.",
-        logged: true,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // Resolve org_id from job when possible so the correct branding is used.
+    let orgId: string | undefined;
+    if (jobId) {
+      const { data: job } = await supabaseAdmin
+        .from("jobs").select("org_id").eq("id", jobId).maybeSingle();
+      orgId = (job as any)?.org_id;
     }
+    const branding = await getEmailBranding(orgId, supabaseAdmin);
+    const identity = getSendIdentity(branding);
 
-    // If sending an invoice, fetch and generate invoice PDF
-    const resendAttachments: any[] = [];
-
-    // Add any provided attachments (e.g., customer report PDF)
-    if (attachments && Array.isArray(attachments)) {
-      for (const att of attachments) {
-        resendAttachments.push({
-          filename: att.filename,
-          content: att.content,
-        });
-      }
-    }
-
-    // If invoice type, fetch invoice data and generate simple PDF content
+    // Mark invoice as sent if applicable
     if (emailType === "invoice" && invoiceId) {
-      const { data: invoice } = await supabaseAdmin
+      await supabaseAdmin
         .from("invoices")
-        .select("*")
-        .eq("id", invoiceId)
-        .single();
-
-      if (invoice) {
-        const { data: lineItems } = await supabaseAdmin
-          .from("invoice_line_items")
-          .select("*")
-          .eq("invoice_id", invoiceId)
-          .order("sort_order", { ascending: true });
-
-        // Mark invoice as sent
-        await supabaseAdmin
-          .from("invoices")
-          .update({ status: "sent", sent_at: new Date().toISOString() })
-          .eq("id", invoiceId);
-      }
+        .update({ status: "sent", sent_at: new Date().toISOString() })
+        .eq("id", invoiceId);
     }
 
-    // Send via Resend
-    const styledHtml = `
-      <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-        <div style="background: #1e40af; color: white; padding: 16px 20px; border-radius: 6px 6px 0 0;">
-          <h2 style="margin: 0; font-size: 18px;">Servexa</h2>
-          <p style="margin: 4px 0 0; font-size: 12px; opacity: 0.8;">Fire Safety & Compliance Solutions</p>
-        </div>
-        <div style="padding: 20px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 6px 6px;">
-          <p>Dear ${customerName || "Customer"},</p>
-          <div>${htmlBody}</div>
-        </div>
-        <div style="padding: 12px 20px; font-size: 11px; color: #6b7280; text-align: center;">
-          Sent via Servexa
-        </div>
-      </div>
-    `;
-
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: await getFromAddress("customer"),
-        to: [customerEmail],
-        subject,
-        html: styledHtml,
-        attachments: resendAttachments.length > 0 ? resendAttachments : undefined,
-      }),
+    const greeting = customerName ? `<p>Dear ${customerName},</p>` : `<p>Hi,</p>`;
+    const html = wrapCustomerEmail(branding, {
+      previewText: subject,
+      bodyHtml: `${greeting}${htmlBody || ""}`,
     });
 
-    if (!emailResponse.ok) {
-      const errData = await emailResponse.text();
-      console.error("Resend error:", errData);
-      return new Response(JSON.stringify({ error: "Failed to send email" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const resendAttachments = Array.isArray(attachments)
+      ? attachments.map((att: any) => ({ filename: att.filename, content: att.content }))
+      : [];
+
+    const sendResult = await sendViaResend({
+      from: identity.from,
+      reply_to: identity.reply_to,
+      to: [customerEmail],
+      subject,
+      html,
+      attachments: resendAttachments.length ? resendAttachments : undefined,
+    });
+
+    if (!sendResult.ok) {
+      return new Response(
+        JSON.stringify({ error: "Failed to send email", detail: sendResult.body }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    // Log notification
     if (jobId) {
       await supabaseAdmin.from("customer_notification_log").insert({
         customer_email: customerEmail,
@@ -163,9 +119,9 @@ serve(async (req) => {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
-    console.error("Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
+  } catch (err: any) {
+    console.error("send-customer-email error:", err);
+    return new Response(JSON.stringify({ error: err?.message || "Unknown error" }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

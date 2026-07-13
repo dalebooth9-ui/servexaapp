@@ -1,7 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
-import { getFromAddress } from "../_shared/emailFrom.ts";
+import {
+  getEmailBranding,
+  getSendIdentity,
+  wrapCustomerEmail,
+} from "../_shared/customerEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,25 +71,20 @@ Deno.serve(async (req) => {
     const bodyText = applyTemplate(email_body || "", vars);
     const bodyHtml = bodyText.replace(/\n/g, "<br/>");
 
+    const branding = await getEmailBranding(undefined, supabase);
+    const identity = getSendIdentity(branding);
+
     const { error: emailErr } = await resend.emails.send({
-      from: await getFromAddress("reminder"),
+      from: identity.from,
+      reply_to: identity.reply_to,
       to: [to_email],
       subject,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-          <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 22px;">Viva Fire & Protection</h1>
-          </div>
-          <div style="padding: 30px 20px; background-color: #ffffff;">
-            ${bodyHtml}
-          </div>
-          <div style="background-color: #f3f4f6; padding: 15px 20px; text-align: center; font-size: 12px; color: #6b7280;">
-            <p style="margin: 0;">Viva Fire & Protection Ltd</p>
-            <p style="margin: 4px 0 0; color: #9ca3af; font-style: italic;">This is a test email – no action required.</p>
-          </div>
-        </div>
-      `,
+      html: wrapCustomerEmail(branding, {
+        previewText: "Test reminder — no action required",
+        bodyHtml: `${bodyHtml}<p style="margin-top:16px;font-style:italic;color:#9ca3af;font-size:12px;">This is a test email — no action required.</p>`,
+      }),
     });
+
 
     if (emailErr) throw new Error(`Resend error: ${JSON.stringify(emailErr)}`);
 

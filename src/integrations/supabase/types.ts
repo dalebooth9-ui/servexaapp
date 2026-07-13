@@ -1699,6 +1699,75 @@ export type Database = {
           },
         ]
       }
+      email_branding: {
+        Row: {
+          address: string | null
+          brand_color: string
+          company_name: string
+          created_at: string
+          footer_note: string | null
+          from_address: string
+          from_name: string
+          id: string
+          logo_url: string | null
+          org_id: string
+          phone: string | null
+          reply_to: string
+          signature_html: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          brand_color?: string
+          company_name?: string
+          created_at?: string
+          footer_note?: string | null
+          from_address?: string
+          from_name?: string
+          id?: string
+          logo_url?: string | null
+          org_id: string
+          phone?: string | null
+          reply_to?: string
+          signature_html?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          brand_color?: string
+          company_name?: string
+          created_at?: string
+          footer_note?: string | null
+          from_address?: string
+          from_name?: string
+          id?: string
+          logo_url?: string | null
+          org_id?: string
+          phone?: string | null
+          reply_to?: string
+          signature_html?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_branding_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_branding_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: true
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_from_settings: {
         Row: {
           email_type: string

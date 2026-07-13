@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFromAddress } from "../_shared/emailFrom.ts";
+import {
+  getEmailBranding,
+  getSendIdentity,
+  wrapCustomerEmail,
+  sendViaResend,
+} from "../_shared/customerEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +27,7 @@ serve(async (req) => {
   const callerClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_ANON_KEY")!,
-    { global: { headers: { Authorization: authHeader } } }
+    { global: { headers: { Authorization: authHeader } } },
   );
   const callerToken = authHeader.replace("Bearer ", "");
   const { data: claimsData, error: claimsError } = await callerClient.auth.getClaims(callerToken);
@@ -34,9 +39,6 @@ serve(async (req) => {
   }
 
   try {
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    if (!RESEND_API_KEY) throw new Error("RESEND_API_KEY not configured");
-
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -47,7 +49,7 @@ serve(async (req) => {
     // Fetch job details with customer info
     const { data: job, error: jobErr } = await supabase
       .from("jobs")
-      .select("id, name, reference_number, customer, address, status")
+      .select("id, name, reference_number, customer, address, status, org_id")
       .eq("id", job_id)
       .single();
     if (jobErr || !job) throw new Error("Job not found");
@@ -59,7 +61,7 @@ serve(async (req) => {
         .from("customers")
         .select("email")
         .eq("name", job.customer)
-        .single();
+        .maybeSingle();
       customerEmail = cust?.email || null;
     }
 
@@ -70,68 +72,73 @@ serve(async (req) => {
     }
 
     // Build email content based on notification type
-    const templates: Record<string, { subject: string; body: string }> = {
+    const templates: Record<string, { subject: string; body: string; preview: string }> = {
       job_booked: {
         subject: `Job booked — ${job.reference_number}`,
-        body: `<h2>Job Booked</h2>
-          <p>A new job has been created for you: <strong>${job.reference_number}</strong> — ${job.name}.</p>
+        preview: `We've booked in ${job.name}`,
+        body: `<p>Hi,</p>
+          <p>We've booked in a new job for you: <strong>${job.reference_number}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
-          <p>We will keep you updated on progress.</p>
-          <p>Thank you,<br/>Servexa</p>`,
+          <p>We'll keep you updated as it progresses. If you need to reach us about it, just reply to this email.</p>
+          <p>Kind regards,<br/>Viva Fire Protection</p>`,
       },
       engineer_dispatched: {
         subject: `Engineer dispatched — ${job.reference_number}`,
-        body: `<h2>Engineer Dispatched</h2>
+        preview: `An engineer is on the way for ${job.reference_number}`,
+        body: `<p>Hi,</p>
           <p>An engineer has been dispatched for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
           <p>We'll notify you once the work is completed.</p>
-          <p>Thank you,<br/>Servexa</p>`,
+          <p>Kind regards,<br/>Viva Fire Protection</p>`,
       },
       job_completed: {
         subject: `Job completed — ${job.reference_number}`,
-        body: `<h2>Job Completed</h2>
+        preview: `${job.reference_number} has been completed`,
+        body: `<p>Hi,</p>
           <p>We're pleased to confirm that job <strong>${job.reference_number}</strong> — ${job.name} has been completed.</p>
           ${job.address ? `<p><strong>Location:</strong> ${job.address}</p>` : ""}
-          <p>Any questions, just give us a call or drop us an email.</p>
-          <p>Thank you,<br/>Servexa</p>`,
+          <p>Any questions, just reply to this email or give us a call.</p>
+          <p>Kind regards,<br/>Viva Fire Protection</p>`,
       },
       certificate_issued: {
         subject: `Certificate issued — ${job.reference_number}`,
-        body: `<h2>Certificate Issued</h2>
+        preview: `Your compliance certificate is ready`,
+        body: `<p>Hi,</p>
           <p>A compliance certificate has been issued for job <strong>${job.reference_number}</strong> — ${job.name}.</p>
           <p>Please contact us if you require a copy of the documentation.</p>
-          <p>Thank you,<br/>Servexa</p>`,
+          <p>Kind regards,<br/>Viva Fire Protection</p>`,
       },
     };
 
     const template = templates[notification_type];
     if (!template) throw new Error(`Unknown notification type: ${notification_type}`);
 
-    // Send email via Resend
-    const emailResp = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: await getFromAddress("customer"),
-        to: [customerEmail],
-        subject: template.subject,
-        html: template.body,
-      }),
+    const branding = await getEmailBranding((job as any).org_id, supabase);
+    const identity = getSendIdentity(branding);
+    const html = wrapCustomerEmail(branding, {
+      previewText: template.preview,
+      bodyHtml: template.body,
     });
 
-    if (!emailResp.ok) {
-      const errText = await emailResp.text();
-      console.error("Resend send failed:", errText);
-      // Return gracefully instead of 500 so the app doesn't break
-      return new Response(JSON.stringify({ sent: false, reason: "Email delivery failed – domain may not be verified", detail: errText }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const sendResult = await sendViaResend({
+      from: identity.from,
+      reply_to: identity.reply_to,
+      to: [customerEmail],
+      subject: template.subject,
+      html,
+    });
+
+    if (!sendResult.ok) {
+      return new Response(
+        JSON.stringify({
+          sent: false,
+          reason: "Email delivery failed",
+          detail: sendResult.body,
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    // Log the notification
     await supabase.from("customer_notification_log").insert({
       job_id,
       customer_email: customerEmail,

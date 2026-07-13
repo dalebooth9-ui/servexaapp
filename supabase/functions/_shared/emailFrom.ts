@@ -1,10 +1,16 @@
 // Resolve the configured "From" header for a given email type.
-// Reads from public.email_from_settings (managed in Settings UI).
-// Falls back to the provided default if no row exists or the lookup fails.
+//
+// Behaviour:
+//   1. If public.email_from_settings has a row for this email_type or "default",
+//      use it (legacy per-type override kept for backward compatibility).
+//   2. Otherwise, fall back to the org's email_branding row (single source of
+//      truth for automated customer emails — see _shared/customerEmail.ts).
+//   3. As a last resort, fall back to Viva Fire Protection's identity.
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getEmailBranding, getSendIdentity } from "./customerEmail.ts";
 
-const FALLBACK_FROM = "Servexa <noreply@vivafire.co.uk>";
+const FALLBACK_FROM = "Viva Fire Protection <service@vivafire.co.uk>";
 
 function buildFrom(name: string | null | undefined, address: string): string {
   const addr = (address || "").trim();
@@ -35,6 +41,11 @@ export async function getFromAddress(
       const row = exact ?? def;
       if (row?.from_address) return buildFrom(row.from_name, row.from_address);
     }
+
+    // No per-type override: use org email_branding identity.
+    const branding = await getEmailBranding(undefined, supabase);
+    const { from } = getSendIdentity(branding);
+    if (from) return from;
   } catch (err) {
     console.error(`[emailFrom] lookup failed for ${emailType}:`, err);
   }
