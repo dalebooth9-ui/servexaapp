@@ -64,18 +64,15 @@ serve(async (req) => {
       });
     }
 
-    // Resolve the caller's org id via profiles/member lookup.
-    const { data: orgRow } = await admin.rpc("get_user_org_id_for", { _user_id: userId }).single().catch(() => ({ data: null } as any));
-    let orgId: string | undefined = (orgRow as any) ?? undefined;
-    if (!orgId) {
-      const { data: mem } = await admin
-        .from("organisation_members")
-        .select("org_id")
-        .eq("user_id", userId)
-        .limit(1)
-        .maybeSingle();
-      orgId = (mem as any)?.org_id;
-    }
+    // Resolve the caller's org via organisation_members.
+    let orgId: string | undefined;
+    const { data: mem } = await admin
+      .from("organisation_members")
+      .select("org_id")
+      .eq("user_id", userId)
+      .limit(1)
+      .maybeSingle();
+    orgId = (mem as any)?.org_id;
 
     const branding = await getEmailBranding(orgId, admin);
     const identity = getSendIdentity(branding);
