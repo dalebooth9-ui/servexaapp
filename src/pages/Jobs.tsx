@@ -216,8 +216,17 @@ export default function Jobs() {
   const fetchJobs = async () => {
     const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
-    if (!includeArchived) {
-      query = query.not("status", "in", "(completed,archived)");
+    // When user is actively searching, fetch across ALL statuses so completed jobs
+    // still surface regardless of the current tab. Otherwise, scope by tab.
+    const searching = search.trim().length > 0;
+    if (!searching) {
+      if (statusTab === "active") {
+        query = query.not("status", "in", "(completed,archived)");
+      } else if (statusTab === "pending_review") {
+        query = query.eq("status", "pending_review");
+      } else if (statusTab === "completed") {
+        query = query.eq("status", "completed");
+      }
     }
     query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
@@ -235,7 +244,13 @@ export default function Jobs() {
     setJobs(rows.slice(0, pageSize));
   };
 
-  useEffect(() => { fetchJobs(); }, [user, includeArchived, pageSize]);
+  // Debounce refetch when tab or (debounced) search changes
+  useEffect(() => {
+    const t = setTimeout(() => { fetchJobs(); }, search.trim() ? 250 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, statusTab, pageSize, search]);
+
 
   // Keyboard shortcut: n j → open new job dialog
   useEffect(() => {
