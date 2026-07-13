@@ -30,17 +30,33 @@ type Props = {
   className?: string;
 };
 
+type DraftBlocker = {
+  id: string;
+  templateId: string | null;
+  templateName: string;
+  createdAt: string;
+  untouched: boolean;
+  hasSubmittedSibling: boolean;
+};
+
 type Readiness = {
   engineerSig: boolean;
   customerSig: boolean;
   formsSubmitted: number;
-  formsDraft: number;
+  drafts: DraftBlocker[];
   photos: number;
   remedialOutstanding: number;
   loading: boolean;
 };
 
 const TERMINAL = new Set(["completed", "cancelled", "archived", "rejected"]);
+
+// A draft is "auto-clearable" if the engineer never edited it after creation
+// AND a submitted response exists for the same template — nothing was captured
+// there, and the same form has been properly completed elsewhere.
+function isAutoClearable(d: DraftBlocker): boolean {
+  return d.untouched && d.hasSubmittedSibling;
+}
 
 export default function JobCompleteAction({
   jobId,
