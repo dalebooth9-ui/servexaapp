@@ -559,6 +559,33 @@ export default function WeeklyPlanner() {
     }
   };
 
+  const handleBulkAssign = async (jobIds: string[], engineerId: string, date: string) => {
+    if (jobIds.length === 0) return;
+    const rows = jobIds.map((jobId) => ({
+      job_id: jobId, engineer_id: engineerId, schedule_date: date, created_by: user?.id, ...editStamp(),
+    }));
+    const { data: inserted, error } = await supabase
+      .from("job_schedule")
+      .upsert(rows as any[], { onConflict: "job_id,engineer_id,schedule_date", ignoreDuplicates: true })
+      .select("id");
+    if (error) {
+      toast({ title: "Error", description: "Failed to bulk assign.", variant: "destructive" });
+      return;
+    }
+    // Bump status of any 'scheduled' jobs
+    await supabase.from("jobs").update({ status: "active" } as any).in("id", jobIds).eq("status", "scheduled");
+    const insertedIds = (inserted || []).map((r: any) => r.id);
+    toast({ title: "Bulk assigned", description: `${jobIds.length} jobs → ${format(new Date(date), "dd MMM")}.` });
+    if (insertedIds.length > 0) {
+      showUndoToast("Bulk assign", async () => {
+        markLocalEdit(insertedIds);
+        await supabase.from("job_schedule").delete().in("id", insertedIds);
+        fetchData();
+      });
+    }
+    fetchData();
+  };
+
   // Add entry
   const handleAddEntry = async () => {
     if (!addDay || !addEngineerId || !addJobId) return;
@@ -865,6 +892,7 @@ export default function WeeklyPlanner() {
             onMoveAdhoc={handleMoveAdhoc}
             onMultiDaySchedule={(job) => setMultiDayJob(job)}
             onEngineerReorder={handleEngineerReorder}
+            onBulkAssign={handleBulkAssign}
             onResizeSpan={async (jobId, engineerId, existingEntries, newDates) => {
               const existingDates = new Set(existingEntries.map((e) => e.schedule_date));
               const newDatesSet = new Set(newDates);

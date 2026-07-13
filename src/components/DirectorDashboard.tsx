@@ -110,12 +110,13 @@ export default function DirectorDashboard() {
       .select("id, status, due_date")
       .not("status", "in", `(${CLOSED.join(",")})`);
 
-    // Completed jobs in the last 8 weeks for sparkline + week/month counters
+    // Completed jobs — bucket by completed_at (canonical), fall back to updated_at for legacy rows.
+    // Fetch a wider window so rows with null completed_at whose updated_at falls in-window are included.
     const { data: completedJobs, error: completedErr } = await supabase
       .from("jobs")
-      .select("id, status, updated_at")
+      .select("id, status, completed_at, updated_at")
       .eq("status", "completed")
-      .gte("updated_at", eightWeeksAgo.toISOString());
+      .or(`completed_at.gte.${eightWeeksAgo.toISOString()},updated_at.gte.${eightWeeksAgo.toISOString()}`);
 
     if (activeErr) { reportError("Active jobs query", activeErr); return; }
     if (completedErr) { reportError("Completed jobs query", completedErr); return; }
@@ -126,11 +127,12 @@ export default function DirectorDashboard() {
 
     const active = (activeJobs || []) as any[];
     const completed = (completedJobs || []) as any[];
+    const completedDate = (j: any) => new Date(j.completed_at ?? j.updated_at);
 
     const scheduled = active.filter(j => j.status === "scheduled").length;
     const inProgress = active.filter(j => j.status === "in_progress" || j.status === "active").length;
-    const completedThisWeek = completed.filter(j => new Date(j.updated_at) >= startWeek).length;
-    const completedThisMonth = completed.filter(j => new Date(j.updated_at) >= startMonth).length;
+    const completedThisWeek = completed.filter(j => completedDate(j) >= startWeek).length;
+    const completedThisMonth = completed.filter(j => completedDate(j) >= startMonth).length;
     const overdue = active.filter(j => j.due_date && new Date(j.due_date) < now).length;
     const unassigned = active.filter(j => !assignedIds.has(j.id)).length;
 
@@ -138,7 +140,7 @@ export default function DirectorDashboard() {
     for (let i = 7; i >= 0; i--) {
       const ws = addWeeks(startWeek, -i);
       const we = addWeeks(ws, 1);
-      const count = completed.filter(j => new Date(j.updated_at) >= ws && new Date(j.updated_at) < we).length;
+      const count = completed.filter(j => { const d = completedDate(j); return d >= ws && d < we; }).length;
       weekly.push({ week: format(ws, "dd MMM"), completed: count });
     }
 

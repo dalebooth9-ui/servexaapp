@@ -558,28 +558,35 @@ export default function EngineerDashboard() {
   );
 
   // ── Tab: Jobs ──────────────────────────────────────────────
-  const JobsTab = () => (
-    <div className="space-y-4 pb-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold">My Jobs</h2>
-        <Badge variant="secondary" className="text-sm px-3 py-1">{jobs.length}</Badge>
+  const JobsTab = () => {
+    const doneCount = jobsWithDistance.filter((j: any) => j.status === "completed").length;
+    const isDense = jobsWithDistance.length > 6;
+    return (
+      <div className="space-y-3 pb-2">
+        <div className="sticky top-0 z-10 -mx-4 px-4 py-2 bg-background/95 backdrop-blur border-b flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold leading-tight">Today · {jobsWithDistance.length} {jobsWithDistance.length === 1 ? "visit" : "visits"}</h2>
+            <p className="text-[11px] text-muted-foreground leading-tight">{doneCount}/{jobsWithDistance.length} complete</p>
+          </div>
+          <Badge variant="secondary" className="text-xs px-2 py-0.5">{jobsWithDistance.length}</Badge>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-muted-foreground" /></div>
+        ) : jobsWithDistance.length === 0 ? (
+          <div className="rounded-2xl border bg-card p-10 text-center">
+            <Briefcase className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+            <p className="font-medium text-muted-foreground">No jobs assigned</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {jobsWithDistance.map((job) => (
+              <JobCard key={job.id} job={job} expanded={!isDense} />
+            ))}
+          </div>
+        )}
       </div>
-      {loading ? (
-        <div className="flex justify-center py-12"><Loader2 className="h-7 w-7 animate-spin text-muted-foreground" /></div>
-      ) : jobsWithDistance.length === 0 ? (
-        <div className="rounded-2xl border bg-card p-10 text-center">
-          <Briefcase className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-          <p className="font-medium text-muted-foreground">No jobs assigned</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {jobsWithDistance.map((job) => (
-            <JobCard key={job.id} job={job} expanded />
-          ))}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   // ── Tab: Messages ──────────────────────────────────────────
   const MessagesTab = () => (
