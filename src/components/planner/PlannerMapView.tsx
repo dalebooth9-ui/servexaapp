@@ -426,9 +426,17 @@ export default function PlannerMapView({
         });
       }
 
-      // Determine origin: live GPS > engineer home/depot address > null
+      // Determine origin: browser geolocation (if opted in) > live engineer GPS > engineer home/depot address > null
       let origin: { lat: number; lng: number } | { address: string } | null = null;
-      if (selectedEngineerId && selectedEngineerId !== "all") {
+      let originIsMyDevice = false;
+      if (startFromMyLocation) {
+        const myLoc = await requestMyLocation();
+        if (myLoc) {
+          origin = myLoc;
+          originIsMyDevice = true;
+        }
+      }
+      if (!origin && selectedEngineerId && selectedEngineerId !== "all") {
         const liveLoc = engineerLocations.find((l) => l.user_id === selectedEngineerId);
         if (liveLoc) {
           origin = { lat: liveLoc.latitude, lng: liveLoc.longitude };
