@@ -537,6 +537,7 @@ Deno.serve(async (req) => {
             engineer_id: engineerId,
             type: "note",
             content: `Job context set: ${messageBody.slice(0, 200)} (via captioned photo)`,
+            org_id: engineerOrgId,
           });
           console.log(`[sticky-context] set from captioned media → job ${jobId}`);
         }
