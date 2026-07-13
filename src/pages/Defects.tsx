@@ -37,6 +37,7 @@ type Defect = {
   location_on_site: string | null;
   bs_standard_reference: string | null;
   quote_id: string | null;
+  remedial_job_id: string | null;
   resolution_notes: string | null;
   resolved_at: string | null;
   created_at: string;
@@ -375,9 +376,12 @@ export default function Defects() {
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="open">Open</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="deferred">Deferred</SelectItem>
             <SelectItem value="quoted">Quoted</SelectItem>
+            <SelectItem value="approved">Approved</SelectItem>
+            <SelectItem value="job_created">Job Created</SelectItem>
+            <SelectItem value="resolved">Resolved</SelectItem>
+            <SelectItem value="declined">Declined</SelectItem>
+            <SelectItem value="deferred">Deferred</SelectItem>
           </SelectContent>
         </Select>
         <Select value={quotedFilter} onValueChange={(v: any) => setQuotedFilter(v)}>
@@ -401,14 +405,15 @@ export default function Defects() {
                 <TableHead>Photos</TableHead>
                 <TableHead>Severity</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Asset / Site</TableHead>
+                <TableHead className="hidden md:table-cell">Site / Customer</TableHead>
+                <TableHead className="hidden md:table-cell">Age</TableHead>
                 <TableHead className="hidden md:table-cell">Reported</TableHead>
                 <TableHead className="w-32" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 ? (
-                <TableRow><TableCell colSpan={isAdmin ? 8 : 7} className="text-center py-8 text-muted-foreground">No defects found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={isAdmin ? 9 : 8} className="text-center py-8 text-muted-foreground">No defects found</TableCell></TableRow>
               ) : filtered.map(d => {
                 const photos = (d.photos as string[] | null) || [];
                 return (
@@ -442,8 +447,16 @@ export default function Defects() {
                     <TableCell>
                       <Badge variant="outline" className={STATUS_BADGE[d.status]}>{d.status.replace("_", " ")}</Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                      {d.asset_id ? assetLookup[d.asset_id] || "—" : d.site_id ? siteLookup[d.site_id] || "—" : "—"}
+                    <TableCell className="hidden md:table-cell text-xs">
+                      <div className="text-foreground">{d.site_id ? siteLookup[d.site_id] || "—" : d.asset_id ? assetLookup[d.asset_id] || "—" : "—"}</div>
+                      <div className="text-muted-foreground">{d.site_id ? customerSites[d.site_id]?.customer_name || "" : ""}</div>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-xs">
+                      {(() => {
+                        const days = Math.floor((Date.now() - new Date(d.created_at).getTime()) / (1000 * 60 * 60 * 24));
+                        const cls = days > 30 ? "text-destructive font-medium" : days > 14 ? "text-amber-600 font-medium" : "text-muted-foreground";
+                        return <span className={cls}>{days}d</span>;
+                      })()}
                     </TableCell>
                     <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                       <div>{profiles[d.reported_by] || "Unknown"}</div>
