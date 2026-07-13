@@ -97,7 +97,8 @@ export default function CustomerSignOff() {
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/png"));
       const formData = new FormData();
       formData.append("signature", blob, "signature.png");
-      formData.append("signer_name", customerName || "Customer");
+      formData.append("signer_name", customerName.trim());
+      formData.append("signer_position", customerPosition.trim());
 
       const res = await fetch(`${baseUrl}?token=${token}`, { method: "POST", body: formData });
       const data = await res.json();
