@@ -1195,6 +1195,18 @@ export default function JobDetail() {
         }}
       />
     )}
+
+    {/* Sticky mobile "Complete Job" — visible to admins and assigned engineers */}
+    {job && (
+      <JobCompleteAction
+        jobId={id!}
+        jobStatus={job.status}
+        jobRef={job.reference_number}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        variant="sticky"
+        onCompleted={fetchData}
+      />
+    )}
     </Suspense>
     </ChunkErrorBoundary>
   );
