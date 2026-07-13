@@ -276,6 +276,11 @@ export default function PlannerMapView({
     // Remove numbered step labels
     routeNumberOverlaysRef.current.forEach((m) => { m.setMap(null); });
     routeNumberOverlaysRef.current = [];
+    // Remove "Start — you" marker
+    if (startMarkerRef.current) {
+      startMarkerRef.current.setMap(null);
+      startMarkerRef.current = null;
+    }
     lastOptimisedWaypointsRef.current = null;
     setRouteVisible(false);
     setMarkerMode("priority");
