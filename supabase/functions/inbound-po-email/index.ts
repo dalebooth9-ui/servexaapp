@@ -274,7 +274,10 @@ interface Extracted {
   priority?: string;
   po_value?: number | string | null;
   currency?: string;
+  quote_reference?: string;   // e.g. "QUO-0042"
+  job_reference?: string;     // e.g. "VFP-00132" or "TM-…"
 }
+
 
 
 function bytesToBase64(bytes: Uint8Array): string {
