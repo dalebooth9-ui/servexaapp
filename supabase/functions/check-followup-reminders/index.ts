@@ -210,23 +210,13 @@ Deno.serve(async (req) => {
 
       try {
         const { error: emailErr } = await sendResendEmail({
-          from: await getFromAddress("reminder"),
+          from: identity.from,
+          reply_to: identity.reply_to,
           to: [customerEmail],
           subject,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-              <div style="background-color: #dc2626; padding: 20px; text-align: center;">
-                <h1 style="color: #ffffff; margin: 0; font-size: 22px;">Viva Fire & Protection</h1>
-              </div>
-              <div style="padding: 30px 20px; background-color: #ffffff;">
-                ${bodyHtml}
-              </div>
-              <div style="background-color: #f3f4f6; padding: 15px 20px; text-align: center; font-size: 12px; color: #6b7280;">
-                <p style="margin: 0;">Viva Fire & Protection Ltd</p>
-              </div>
-            </div>
-          `,
+          html: wrapCustomerEmail(branding, { previewText: subject, bodyHtml }),
         });
+
 
         if (!emailErr) {
           emailsSent++;
