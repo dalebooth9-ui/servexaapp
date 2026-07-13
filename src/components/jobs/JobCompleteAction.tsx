@@ -30,17 +30,33 @@ type Props = {
   className?: string;
 };
 
+type DraftBlocker = {
+  id: string;
+  templateId: string | null;
+  templateName: string;
+  createdAt: string;
+  untouched: boolean;
+  hasSubmittedSibling: boolean;
+};
+
 type Readiness = {
   engineerSig: boolean;
   customerSig: boolean;
   formsSubmitted: number;
-  formsDraft: number;
+  drafts: DraftBlocker[];
   photos: number;
   remedialOutstanding: number;
   loading: boolean;
 };
 
 const TERMINAL = new Set(["completed", "cancelled", "archived", "rejected"]);
+
+// A draft is "auto-clearable" if the engineer never edited it after creation
+// AND a submitted response exists for the same template — nothing was captured
+// there, and the same form has been properly completed elsewhere.
+function isAutoClearable(d: DraftBlocker): boolean {
+  return d.untouched && d.hasSubmittedSibling;
+}
 
 export default function JobCompleteAction({
   jobId,
@@ -60,7 +76,7 @@ export default function JobCompleteAction({
     engineerSig: false,
     customerSig: false,
     formsSubmitted: 0,
-    formsDraft: 0,
+    drafts: [],
     photos: 0,
     remedialOutstanding: 0,
     loading: true,
@@ -73,7 +89,10 @@ export default function JobCompleteAction({
     setReadiness((r) => ({ ...r, loading: true }));
     const [sigsRes, sheetsRes, photosRes, remedialRes] = await Promise.all([
       supabase.from("job_signatures").select("signer_role").eq("job_id", jobId),
-      supabase.from("job_sheet_responses").select("status").eq("job_id", jobId),
+      supabase
+        .from("job_sheet_responses")
+        .select("id, template_id, status, created_at, updated_at, job_sheet_templates(name)")
+        .eq("job_id", jobId),
       supabase
         .from("submissions")
         .select("id", { count: "exact", head: true })
@@ -88,14 +107,28 @@ export default function JobCompleteAction({
     ]);
 
     const sigs = sigsRes.data || [];
-    const sheets = sheetsRes.data || [];
+    const sheets = (sheetsRes.data || []) as any[];
     const remedial = (remedialRes as any).data || [];
+
+    const submittedTplIds = new Set(
+      sheets.filter((s) => s.status === "submitted").map((s) => s.template_id),
+    );
+    const drafts: DraftBlocker[] = sheets
+      .filter((s) => s.status === "draft")
+      .map((s) => ({
+        id: s.id,
+        templateId: s.template_id,
+        templateName: s.job_sheet_templates?.name || "Untitled form",
+        createdAt: s.created_at,
+        untouched: !s.updated_at || s.updated_at === s.created_at,
+        hasSubmittedSibling: submittedTplIds.has(s.template_id),
+      }));
 
     setReadiness({
       engineerSig: sigs.some((s: any) => s.signer_role === "engineer"),
       customerSig: sigs.some((s: any) => s.signer_role === "customer"),
       formsSubmitted: sheets.filter((s: any) => s.status === "submitted").length,
-      formsDraft: sheets.filter((s: any) => s.status === "draft").length,
+      drafts,
       photos: photosRes.count || 0,
       remedialOutstanding: remedial.filter(
         (i: any) => i.status !== "done" && i.status !== "unable" && i.status !== "completed",
@@ -120,6 +153,11 @@ export default function JobCompleteAction({
         { event: "*", schema: "public", table: "submissions", filter: `job_id=eq.${jobId}` },
         () => loadReadiness(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "job_sheet_responses", filter: `job_id=eq.${jobId}` },
+        () => loadReadiness(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
@@ -129,11 +167,17 @@ export default function JobCompleteAction({
 
   if (!canSee || isTerminal) return null;
 
+  // Split drafts: auto-clearable (untouched + submitted sibling) vs. real blockers.
+  const autoClearDrafts = readiness.drafts.filter(isAutoClearable);
+  const blockingDrafts = readiness.drafts.filter((d) => !isAutoClearable(d));
+
   const missingRequired: string[] = [];
   if (!readiness.engineerSig) missingRequired.push("Engineer signature");
   if (!readiness.customerSig) missingRequired.push("Customer signature");
-  if (readiness.formsDraft > 0)
-    missingRequired.push(`${readiness.formsDraft} job form${readiness.formsDraft === 1 ? "" : "s"} still in draft`);
+  if (blockingDrafts.length > 0)
+    missingRequired.push(
+      `${blockingDrafts.length} job form${blockingDrafts.length === 1 ? "" : "s"} still in draft`,
+    );
   if (readiness.remedialOutstanding > 0)
     missingRequired.push(
       `${readiness.remedialOutstanding} remedial item${readiness.remedialOutstanding === 1 ? "" : "s"} outstanding`,
@@ -142,10 +186,37 @@ export default function JobCompleteAction({
   const hasMissing = missingRequired.length > 0;
   const canProceed = !hasMissing || (userRole === "admin" && overrideReason.trim().length >= 3);
 
+  const handleDeleteDraft = async (draftId: string) => {
+    const { error } = await supabase.from("job_sheet_responses").delete().eq("id", draftId);
+    if (error) {
+      toast({ title: "Couldn't delete draft", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Draft deleted" });
+    await loadReadiness();
+  };
+
+  const handleOpenDraft = () => {
+    // Sheets are on the same job detail page — close and let the user scroll.
+    setOpen(false);
+    // Best-effort: hash anchor if page uses it.
+    if (typeof window !== "undefined") {
+      window.location.hash = "job-sheets";
+    }
+  };
+
   const handleComplete = async () => {
     if (!user) return;
     setSubmitting(true);
     try {
+      // Auto-clear any untouched drafts that have a submitted sibling.
+      if (autoClearDrafts.length > 0) {
+        await supabase
+          .from("job_sheet_responses")
+          .delete()
+          .in("id", autoClearDrafts.map((d) => d.id));
+      }
+
       const patch: any = {
         status: "completed",
         completed_at: new Date().toISOString(),
@@ -275,9 +346,11 @@ export default function JobCompleteAction({
                     <ReadinessLine ok={readiness.engineerSig} label="Engineer signature" />
                     <ReadinessLine ok={readiness.customerSig} label="Customer signature" />
                     <ReadinessLine
-                      ok={readiness.formsSubmitted > 0 && readiness.formsDraft === 0}
+                      ok={readiness.formsSubmitted > 0 && blockingDrafts.length === 0}
                       label={`Job forms — ${readiness.formsSubmitted} submitted${
-                        readiness.formsDraft > 0 ? `, ${readiness.formsDraft} still in draft` : ""
+                        blockingDrafts.length > 0
+                          ? `, ${blockingDrafts.length} still in draft`
+                          : ""
                       }`}
                     />
                     <ReadinessLine
@@ -293,6 +366,64 @@ export default function JobCompleteAction({
                     )}
                   </ul>
                 </div>
+
+                {blockingDrafts.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-2">
+                    <p className="font-medium text-foreground text-xs uppercase tracking-wide">
+                      Drafts blocking completion
+                    </p>
+                    <ul className="space-y-1.5">
+                      {blockingDrafts.map((d) => {
+                        const started = new Date(d.createdAt).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                        });
+                        return (
+                          <li
+                            key={d.id}
+                            className="flex items-start gap-2 justify-between rounded border bg-background p-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-foreground truncate">{d.templateName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Started {started}
+                                {d.untouched ? " · never edited" : ""}
+                              </p>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={handleOpenDraft}
+                              >
+                                Open
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteDraft(d.id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {autoClearDrafts.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {autoClearDrafts.length} unused draft
+                    {autoClearDrafts.length === 1 ? "" : "s"} will be cleared automatically
+                    (never edited, and the same form has already been submitted).
+                  </p>
+                )}
 
                 {hasMissing && (
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
