@@ -307,7 +307,7 @@ export default function CustomerDetail() {
       job_reference: jobMap[r.job_id]?.reference_number,
       author_name: nameMap[r.author_id] || "Unknown",
     })));
-  }, []);
+  }, [id]);
 
   const exportReportToPdf = async (report: ServiceReport) => {
     const esc = (s: string) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] || m));
