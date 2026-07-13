@@ -7,9 +7,16 @@ export interface PdfSignatureData {
   /** Pre-loaded HTMLImageElement keyed by signature id */
   sigImages?: Record<string, HTMLImageElement>;
   /** Signature record for engineer/admin */
-  engineerSig?: { id: string; signer_name: string; signer_role: string } | null;
+  engineerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
   /** Signature record for customer */
-  customerSig?: { id: string; signer_name: string; signer_role: string } | null;
+  customerSig?: { id: string; signer_name: string; signer_role: string; signer_position?: string | null; created_at?: string } | null;
+}
+
+function formatSigTimestamp(iso?: string): string {
+  if (!iso) return "";
+  try {
+    return new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch { return ""; }
 }
 
 /**
@@ -84,6 +91,14 @@ export function renderPdfSignatures(
     doc.text("Signature:", margin, sigY + 11);
     doc.line(margin + 18, sigY + 11, margin + halfW, sigY + 11);
   }
+  const engTs = formatSigTimestamp(data.engineerSig?.created_at);
+  if (engTs) {
+    doc.setFontSize(6);
+    doc.setTextColor(90, 90, 90);
+    doc.text(`Signed ${engTs}`, margin, sigY + 24);
+    doc.setFontSize(7);
+    doc.setTextColor(0, 0, 0);
+  }
 
   doc.setFont("helvetica", "bold");
   doc.text("Date: ", cx, sigY + 3);
@@ -93,13 +108,24 @@ export function renderPdfSignatures(
   doc.text("Customer:", cx, sigY + 7);
   doc.setFont("helvetica", "normal");
   const customerDisplayName = data.customerSig?.signer_name || data.customerName;
-  if (customerDisplayName) doc.text(customerDisplayName, cx + 18, sigY + 7);
+  const customerPositionLine = data.customerSig?.signer_position
+    ? `${customerDisplayName || ""} — ${data.customerSig.signer_position}`
+    : customerDisplayName;
+  if (customerPositionLine) doc.text(customerPositionLine, cx + 18, sigY + 7);
   if (data.customerSig && sigImages[data.customerSig.id]) {
     doc.addImage(sigImages[data.customerSig.id], "PNG", cx + 18, sigY + 8, sigImgW, sigImgH);
   } else if (data.customerSig) {
     // Has a sig record but image failed to load — show underline
     doc.text("Signature:", cx, sigY + 11);
     doc.line(cx + 18, sigY + 11, cx + halfW, sigY + 11);
+  }
+  const custTs = formatSigTimestamp(data.customerSig?.created_at);
+  if (custTs) {
+    doc.setFontSize(6);
+    doc.setTextColor(90, 90, 90);
+    doc.text(`Signed ${custTs}`, cx, sigY + 24);
+    doc.setFontSize(7);
+    doc.setTextColor(0, 0, 0);
   }
   // If no customerSig record at all, omit the signature line entirely
 

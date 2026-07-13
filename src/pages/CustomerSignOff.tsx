@@ -14,6 +14,7 @@ export default function CustomerSignOff() {
 
   const [jobInfo, setJobInfo] = useState<any>(null);
   const [customerName, setCustomerName] = useState("");
+  const [customerPosition, setCustomerPosition] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [alreadySigned, setAlreadySigned] = useState(false);
@@ -96,7 +97,8 @@ export default function CustomerSignOff() {
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/png"));
       const formData = new FormData();
       formData.append("signature", blob, "signature.png");
-      formData.append("signer_name", customerName || "Customer");
+      formData.append("signer_name", customerName.trim());
+      formData.append("signer_position", customerPosition.trim());
 
       const res = await fetch(`${baseUrl}?token=${token}`, { method: "POST", body: formData });
       const data = await res.json();
@@ -174,12 +176,22 @@ export default function CustomerSignOff() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label htmlFor="signer-name">Your Name</Label>
+            <Label htmlFor="signer-name">Print name <span className="text-red-500">*</span></Label>
             <Input
               id="signer-name"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
               placeholder="Enter your name"
+              required
+            />
+          </div>
+          <div>
+            <Label htmlFor="signer-position">Position / role <span className="text-gray-400">(optional)</span></Label>
+            <Input
+              id="signer-position"
+              value={customerPosition}
+              onChange={(e) => setCustomerPosition(e.target.value)}
+              placeholder="e.g. Site Manager, Caretaker"
             />
           </div>
 

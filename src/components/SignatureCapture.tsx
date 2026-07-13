@@ -12,6 +12,7 @@ interface Signature {
   id: string;
   signer_name: string;
   signer_role: string;
+  signer_position?: string | null;
   file_path: string;
   created_at: string;
   signer_id: string;
@@ -47,7 +48,16 @@ export default function SignatureCapture({
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [customerName, setCustomerName] = useState(defaultSignerName);
+  const [customerPosition, setCustomerPosition] = useState("");
+  const [engineerName, setEngineerName] = useState("");
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (signerRole !== "customer" && user) {
+      supabase.from("profiles").select("full_name").eq("user_id", user.id).single()
+        .then(({ data }) => setEngineerName(data?.full_name || ""));
+    }
+  }, [user, signerRole]);
 
   const fetchSignatures = async () => {
     let query = supabase
@@ -131,20 +141,17 @@ export default function SignatureCapture({
     const canvas = canvasRef.current;
     if (!canvas || !user || !hasStrokes) return;
     if (signerRole === "customer" && !customerName.trim()) {
-      toast({ title: "Customer name required", variant: "destructive" });
+      toast({ title: "Print name is required", description: "Please enter the name of the person signing.", variant: "destructive" });
       return;
     }
     setSaving(true);
 
     try {
       let resolvedName = customerName.trim();
+      let resolvedPosition: string | null = customerPosition.trim() || null;
       if (signerRole !== "customer") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("user_id", user.id)
-          .single();
-        resolvedName = profile?.full_name || "Unknown";
+        resolvedName = engineerName || "Unknown";
+        resolvedPosition = null;
       }
 
       // Convert canvas to blob
@@ -163,6 +170,7 @@ export default function SignatureCapture({
         signer_id: user.id,
         signer_name: resolvedName,
         signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
+        signer_position: resolvedPosition,
         file_path: filePath,
       } as any);
       if (insertErr) throw insertErr;
@@ -170,7 +178,7 @@ export default function SignatureCapture({
       toast({ title: "Signature saved" });
       clearCanvas();
       setDrawing(false);
-      if (signerRole === "customer") setCustomerName(defaultSignerName);
+      if (signerRole === "customer") { setCustomerName(defaultSignerName); setCustomerPosition(""); }
       fetchSignatures();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
@@ -212,9 +220,12 @@ export default function SignatureCapture({
                 )}
                 <div className="mt-2 flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">{sig.signer_name}</p>
+                    <p className="text-sm font-medium">{sig.signer_name || <span className="italic text-muted-foreground">Not recorded</span>}</p>
+                    {sig.signer_position && (
+                      <p className="text-xs text-muted-foreground">{sig.signer_position}</p>
+                    )}
                     <p className="text-xs text-muted-foreground">
-                      {new Date(sig.created_at).toLocaleDateString("en-GB")} • {sig.signer_role}
+                      {sig.signer_role} • {new Date(sig.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </p>
                   </div>
                   {(userRole === "admin" || sig.signer_id === user?.id) && (
@@ -232,16 +243,32 @@ export default function SignatureCapture({
       {/* Capture pad */}
       {drawing ? (
         <div className="space-y-3">
-          {signerRole === "customer" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="customer-sig-name" className="text-xs">Customer name</Label>
-              <Input
-                id="customer-sig-name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Full name of person signing"
-              />
+          {signerRole === "customer" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-sig-name" className="text-xs">Print name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="customer-sig-name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Full name of person signing"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-sig-position" className="text-xs">Position / role <span className="text-muted-foreground">(optional)</span></Label>
+                <Input
+                  id="customer-sig-position"
+                  value={customerPosition}
+                  onChange={(e) => setCustomerPosition(e.target.value)}
+                  placeholder="e.g. Site Manager, Caretaker"
+                />
+              </div>
             </div>
+          ) : (
+            engineerName && (
+              <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{engineerName}</span></p>
+            )
           )}
           <div className="rounded-lg border-2 border-dashed border-muted-foreground/30 bg-background overflow-hidden">
             <canvas
@@ -266,7 +293,7 @@ export default function SignatureCapture({
             <Button variant="outline" size="sm" onClick={() => { clearCanvas(); setDrawing(false); }}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={!hasStrokes || saving}>
+            <Button size="sm" onClick={handleSave} disabled={!hasStrokes || saving || (signerRole === "customer" && !customerName.trim())}>
               <Check className="mr-1 h-4 w-4" /> {saving ? "Saving..." : "Save Signature"}
             </Button>
           </div>

@@ -3660,6 +3660,7 @@ export type Database = {
           org_id: string
           signer_id: string
           signer_name: string
+          signer_position: string | null
           signer_role: string
         }
         Insert: {
@@ -3670,6 +3671,7 @@ export type Database = {
           org_id?: string
           signer_id: string
           signer_name?: string
+          signer_position?: string | null
           signer_role?: string
         }
         Update: {
@@ -3680,6 +3682,7 @@ export type Database = {
           org_id?: string
           signer_id?: string
           signer_name?: string
+          signer_position?: string | null
           signer_role?: string
         }
         Relationships: [

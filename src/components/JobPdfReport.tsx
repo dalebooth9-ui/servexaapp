@@ -928,9 +928,13 @@ export default function JobPdfReport({ jobId, job }: Props) {
         for (const sig of signatures) {
           // Per-signature: only break if this one signature won't fit.
           if (y + 22 > PAGE_BOTTOM) addPage();
+          const signerLabel = sig.signer_name
+            ? `${sig.signer_name}${sig.signer_position ? ", " + sig.signer_position : ""} (${sig.signer_role})`
+            : `Not recorded (${sig.signer_role})`;
+          const ts = new Date(sig.created_at).toLocaleString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
           drawTableRow(doc, y, [
-            { text: `${sig.signer_name} (${sig.signer_role})`, x: margin, width: maxWidth * 0.6, bold: true },
-            { text: new Date(sig.created_at).toLocaleDateString("en-GB"), x: 0, width: maxWidth * 0.4, align: "right" },
+            { text: signerLabel, x: margin, width: maxWidth * 0.6, bold: true },
+            { text: ts, x: 0, width: maxWidth * 0.4, align: "right" },
           ], 6, margin, maxWidth, [245, 248, 255]);
           y += 7;
           try {
