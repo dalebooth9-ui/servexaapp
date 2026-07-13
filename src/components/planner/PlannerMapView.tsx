@@ -1388,7 +1388,7 @@ export default function PlannerMapView({
               <div className="px-3 py-3 border-b bg-muted/30 grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total distance</div>
-                  <div className="text-sm font-semibold">{routeResult.total_distance_km} km</div>
+                  <div className="text-sm font-semibold">{fmtMi(routeResult.total_distance_km)}</div>
                 </div>
                 <div>
                   <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Total time</div>
