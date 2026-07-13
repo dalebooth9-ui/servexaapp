@@ -445,19 +445,29 @@ serve(async (req) => {
   const bodyText = await req.text();
   if (bodyText.length > MAX_BODY_BYTES) return json(413, { error: "Payload too large" });
 
-  const signingSecret = Deno.env.get("RESEND_INBOUND_WEBHOOK_SECRET");
-  if (!signingSecret) {
-    console.error("RESEND_INBOUND_WEBHOOK_SECRET missing");
-    return json(500, { error: "Server not configured" });
-  }
+  // Test-only bypass: allows an internal simulator to POST a fully-formed
+  // InboundEmail without a valid Svix signature or a real Resend email_id.
+  // Guarded by a secret env var — production requests never hit this branch.
+  const testBypassSecret = Deno.env.get("INBOUND_PO_TEST_BYPASS");
+  const providedBypass = req.headers.get("x-test-bypass") ?? "";
+  const isTestBypass = !!testBypassSecret && providedBypass === testBypassSecret;
 
-  const svixId = req.headers.get("svix-id") ?? "";
-  const svixTs = req.headers.get("svix-timestamp") ?? "";
-  const svixSig = req.headers.get("svix-signature") ?? "";
-  const valid = await verifySvix(signingSecret, svixId, svixTs, bodyText, svixSig);
-  if (!valid) {
-    console.warn("Invalid webhook signature");
-    return json(401, { error: "Invalid signature" });
+  if (!isTestBypass) {
+    const signingSecret = Deno.env.get("RESEND_INBOUND_WEBHOOK_SECRET");
+    if (!signingSecret) {
+      console.error("RESEND_INBOUND_WEBHOOK_SECRET missing");
+      return json(500, { error: "Server not configured" });
+    }
+    const svixId = req.headers.get("svix-id") ?? "";
+    const svixTs = req.headers.get("svix-timestamp") ?? "";
+    const svixSig = req.headers.get("svix-signature") ?? "";
+    const valid = await verifySvix(signingSecret, svixId, svixTs, bodyText, svixSig);
+    if (!valid) {
+      console.warn("Invalid webhook signature");
+      return json(401, { error: "Invalid signature" });
+    }
+  } else {
+    console.warn("Test-bypass invocation of inbound-po-email");
   }
 
   let payload: any;
@@ -470,27 +480,45 @@ serve(async (req) => {
     return okSilently();
   }
 
-  // Webhook is metadata-only — fetch full email + attachments from Resend API.
-  const receivingKey = Deno.env.get("RESEND_RECEIVING_API_KEY");
-  if (!receivingKey) {
-    console.error(
-      "RESEND_RECEIVING_API_KEY is missing — add a full-access Resend API key under this exact secret name to fetch inbound email content.",
-    );
-    return json(500, { error: "Server not configured: RESEND_RECEIVING_API_KEY" });
-  }
-  const emailId: string | undefined =
-    payload?.data?.email_id ?? payload?.data?.id ?? payload?.email_id ?? payload?.id;
-  if (!emailId) {
-    console.error("Webhook payload missing data.email_id", { keys: Object.keys(payload?.data ?? {}) });
-    return json(400, { error: "Missing email_id" });
-  }
-
   let email: InboundEmail;
-  try {
-    email = await fetchInboundFromResend(emailId, receivingKey);
-  } catch (e) {
-    console.error("Resend fetch failed", e);
-    return json(502, { error: "Resend fetch failed" });
+  if (isTestBypass && payload?.data?.test_email) {
+    const te = payload.data.test_email;
+    email = {
+      from: String(te.from ?? ""),
+      to: Array.isArray(te.to) ? te.to.map((x: any) => String(x)) : [intakeAddr],
+      subject: String(te.subject ?? ""),
+      text: String(te.text ?? ""),
+      html: String(te.html ?? ""),
+      rawEmlBase64: te.rawEmlBase64 ?? null,
+      attachments: Array.isArray(te.attachments)
+        ? te.attachments.map((a: any) => ({
+            filename: String(a.filename ?? "attachment.bin"),
+            contentType: String(a.contentType ?? "application/octet-stream"),
+            bytes: b64ToBytes(String(a.base64 ?? "")),
+          }))
+        : [],
+    };
+  } else {
+    // Webhook is metadata-only — fetch full email + attachments from Resend API.
+    const receivingKey = Deno.env.get("RESEND_RECEIVING_API_KEY");
+    if (!receivingKey) {
+      console.error(
+        "RESEND_RECEIVING_API_KEY is missing — add a full-access Resend API key under this exact secret name to fetch inbound email content.",
+      );
+      return json(500, { error: "Server not configured: RESEND_RECEIVING_API_KEY" });
+    }
+    const emailId: string | undefined =
+      payload?.data?.email_id ?? payload?.data?.id ?? payload?.email_id ?? payload?.id;
+    if (!emailId) {
+      console.error("Webhook payload missing data.email_id", { keys: Object.keys(payload?.data ?? {}) });
+      return json(400, { error: "Missing email_id" });
+    }
+    try {
+      email = await fetchInboundFromResend(emailId, receivingKey);
+    } catch (e) {
+      console.error("Resend fetch failed", e);
+      return json(502, { error: "Resend fetch failed" });
+    }
   }
   console.log("Fetched inbound email from Resend API", {
     emailId,
