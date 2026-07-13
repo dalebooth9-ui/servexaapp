@@ -524,7 +524,6 @@ export default function PlannerMapView({
         }
 
         // Add numbered step labels to markers
-        const map = mapInstanceRef.current;
         if (map) {
           for (let i = 0; i < data.optimised.length; i++) {
             const wp = data.optimised[i];
