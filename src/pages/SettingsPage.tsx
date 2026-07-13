@@ -300,6 +300,15 @@ export default function SettingsPage() {
           <WordExportSettings />
           <WatermarkSettings />
           <VehicleCheckSettings />
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Fleet vehicles</CardTitle>
+              <CardDescription>Manage the vehicles engineers select when doing their daily check.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild variant="outline"><a href="/fleet">Open fleet manager</a></Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-0">
