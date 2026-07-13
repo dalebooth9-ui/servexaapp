@@ -796,6 +796,7 @@ Deno.serve(async (req) => {
           type: "note",
           content: `Job context set: ${trimmed}`,
           whatsapp_message_id: messageSid,
+          org_id: engineerOrgId,
         });
         await sendWhatsApp(twilioSender, from,
           `✅ Job set: *${job.reference_number}* — ${job.name}\n\nType *info* for details, *photos* for images, or *help* for all commands.`
