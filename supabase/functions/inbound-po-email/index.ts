@@ -652,7 +652,8 @@ serve(async (req) => {
 
   const poNum = (extracted.po_number || "").trim();
   const custForName = (customerName || "").trim();
-  const desc = (extracted.job_description || "").trim();
+  const desc = (extracted.job_description || "").trim() || (quotePrefill.description ?? "").trim();
+  const siteAddress = (extracted.site_address || "").trim() || (quotePrefill.address ?? "").trim();
   let jobName: string;
   if (poNum && custForName) jobName = `PO ${poNum} — ${custForName}`;
   else if (poNum) jobName = `PO ${poNum}`;
@@ -680,6 +681,13 @@ serve(async (req) => {
   briefParts.push(`Original subject: ${email.subject}`);
   if (poNum) briefParts.push(`PO number: ${poNum}`);
   if (poValueNum != null) briefParts.push(`PO value: ${currency ? currency + " " : ""}${poValueNum.toFixed(2)}`);
+  if (matchedQuoteRef) briefParts.push(`Related quote: ${matchedQuoteRef}`);
+  if (relatedJobRef) briefParts.push(`Possibly related job: ${relatedJobRef}`);
+  if (provenance.length) {
+    briefParts.push("");
+    briefParts.push("--- Source / provenance ---");
+    for (const p of provenance) briefParts.push(`• ${p}`);
+  }
   briefParts.push("");
   if (desc) briefParts.push(desc);
   if (forwardedBody) briefParts.push("", "--- Email body ---", forwardedBody.slice(0, 4000));
@@ -690,7 +698,7 @@ serve(async (req) => {
     org_id: orgId,
     customer_id: customerId,
     customer: customerName,
-    address: (extracted.site_address || "").trim() || null,
+    address: siteAddress || null,
     priority,
     category: "general",
     due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
@@ -698,6 +706,7 @@ serve(async (req) => {
     source: "email_po",
     brief: briefParts.join("\n").trim() || null,
   };
+
 
   const { data: newJob, error: jobErr } = await admin
     .from("jobs")
