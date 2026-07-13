@@ -183,6 +183,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         engineer_id: user.id,
         check_date: today,
         vehicle_reg: vehicleReg.trim() || null,
+        vehicle_id: vehicleId || null,
         mileage: mileage ? parseInt(mileage) : null,
         items: items as any,
         has_defects: hasDefects,
@@ -194,7 +195,6 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       } as any);
 
       if (error) throw error;
-      if (regKey) localStorage.setItem(regKey, vehicleReg.trim());
       toast.success("Check submitted — you're all set");
       setShowForm(false);
       setPhotos([]);
