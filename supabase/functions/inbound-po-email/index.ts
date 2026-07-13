@@ -3,12 +3,12 @@
 // Receives inbound emails from Resend Inbound (Svix-signed webhooks) addressed
 // to  po-<orgslug>-<4chars>@intake.servexaapp.com.
 //
-// Resend's `email.received` webhook payload is SELF-CONTAINED — the full
-// parsed email (text, html, headers, and every attachment inline as base64)
-// arrives in the initial POST. We do NOT call the Resend REST API here:
-//   - previous attempt used /emails/receiving/{id} which doesn't exist and
-//     returned 401 because the project's RESEND_API_KEY is a send-only key.
-//   - even with a full-access key, an extra round-trip is unnecessary.
+// Per Resend docs (resend.com/docs/dashboard/receiving/attachments), the
+// `email.received` webhook payload contains METADATA ONLY. Body and
+// attachment bytes must be fetched from the Resend REST API using a
+// full-access key (RESEND_RECEIVING_API_KEY):
+//   GET /emails/receiving/{email_id}              → subject/text/html/headers/raw.download_url
+//   GET /emails/receiving/{email_id}/attachments  → data[] with filename/content_type/download_url
 //
 // Also handles FORWARDED emails: office staff will forward customer POs from
 // service@vivafire.co.uk (our own inbox). The forwarder and our own org name
