@@ -44,6 +44,7 @@ import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
+import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 
 // Heavy children — code-split out of the JobDetail bundle. Each one pulls in
 // hefty deps (jspdf/html2canvas/tiptap/exceljs/docx) transitively, so we
@@ -71,11 +72,13 @@ const InstallationProjects = lazy(() => import("@/components/InstallationProject
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
+const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
 const JOB_TABS = [
   { value: "overview", label: "Overview" },
+  { value: "photos", label: "Photos" },
   { value: "documents", label: "Documents" },
   { value: "parts", label: "Parts" },
   { value: "survey", label: "Survey & Snags" },
@@ -98,6 +101,7 @@ export default function JobDetail() {
   const { convert: convertW3W } = useWhat3Words();
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const photoCount = useJobPhotoCount(id);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(true);
@@ -549,9 +553,22 @@ export default function JobDetail() {
             }`}
           >
             {tab.label}
+            {tab.value === "photos" && photoCount > 0 && (
+              <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">
+                {photoCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
+
+      {activeTab === "photos" && id && (
+        <Suspense fallback={<LazyFallback />}>
+          <JobPhotos jobId={id} engineers={engineers} isAdmin={userRole === "admin"} />
+        </Suspense>
+      )}
+
+
 
       {activeTab === "overview" && (<>
       {/* Editable Job Details */}
