@@ -1,98 +1,75 @@
 
-# Universal Import Wizard
+# Step 3 — RLS policy rewrite (org-scoped)
 
-A single entry-point wizard that lets a new company drop in a CSV/XLSX export from Uptick, simPRO, Joblogic, Tradify, or a spreadsheet and get it into Servexa without reformatting. Reuses existing plumbing where possible.
+Goal: rewrite every tenant-data policy so cross-org access is impossible at the database layer, without changing any behaviour for Viva Fire's current users (admin, office, engineer).
 
-## Scope (this build)
+Non-negotiable: Viva Fire is live right now. Every batch is verified with a two-org fixture before moving on; if any batch shows behaviour drift for Viva, I stop and report instead of continuing.
 
-Three record types: **customers**, **sites**, **assets**. Deliberately excluded (can follow later): jobs, engineers, parts, PPM schedules.
+## Approach (applies to every batch)
 
-## Entry points
-
-- Settings → new **"Import Data"** card (admin only).
-- New route `/settings/import` opening the wizard.
-- Deep link from the Getting Started / Setup guide on the Customers and Sites steps ("Import from spreadsheet →").
-
-## Wizard flow (5 steps)
+For each table, policies are rewritten to the pattern:
 
 ```text
-1. Choose type   →   2. Upload file   →   3. AI column mapping
-                                                 ↓
-                        5. Result summary   ←   4. Preview & validate
-                        (+ Undo batch)
+USING  (org_id = public.get_user_org_id()
+        AND public.has_role_in_org(auth.uid(), org_id, <role>))
+WITH CHECK (org_id = public.get_user_org_id()
+        AND public.has_role_in_org(auth.uid(), org_id, <role>))
 ```
 
-### Step 1 — Choose record type
-Cards: Customers / Sites / Assets. Each shows the target fields and a "download example template" link (reuses existing example generators from BulkImport dialogs).
+- `has_role` compatibility shim stays in place the entire step so any policy we haven't migrated yet keeps working. It becomes safe to remove only after: (a) zero policies reference bare `has_role`, and (b) app code no longer calls it. I'll flag when both are true — removal is its own later step.
+- Child tables without their own `org_id` (rare after step 2) route through their parent via a `SECURITY DEFINER` helper, never a subquery that itself hits RLS.
+- Policies that only check `authenticated` with no org scope get rewritten to require org membership.
+- Existing role semantics preserved exactly: admins keep full org access, engineers keep the same subset (assigned jobs, own submissions, own vehicle checks, etc.), office keeps read/write where they had it.
+- Every batch = one migration file, reviewable independently, followed by the fixture test.
 
-### Step 2 — Upload
-- Accept `.csv`, `.xlsx`, `.xls`, one file, up to ~10MB.
-- Parse client-side with existing `readExcelFile` (already in `src/lib/excelUtils.ts`) and a small CSV parser (Papa Parse — add dep) into `{ headers: string[], rows: string[][] }`.
-- Cap to 5,000 data rows per import; over that, show a friendly message asking the user to split.
+## Fixture test (run after every batch)
 
-### Step 3 — AI column mapping
-- New edge function `suggest-import-mapping` calls Lovable AI (`google/gemini-2.5-flash`) with the source headers + 5 sample rows + the target schema for the chosen type. Returns `{ mapping: { targetField: sourceHeader|null }, confidence, notes }`.
-- UI: two-column table — target field on the left, dropdown of source columns on the right, sample values shown beneath. User can override any mapping. Required fields are marked; the Next button disables until they're mapped.
-- Fallback: heuristic name-match (lowercased, punctuation stripped, common aliases like "company" → name, "postcode/zip" → postcode) runs first so AI is only needed for ambiguous columns; if AI call fails, mapping still works.
+Two orgs seeded (Viva + a throwaway `test_org_b`), one admin + one engineer per org. For each table in the batch:
 
-### Step 4 — Preview & validate
-Client-side transform rows using the confirmed mapping, then validate:
-- **Required missing** → flagged red, row excluded unless fixed inline.
-- **Duplicate against existing** — customers by lowercased name, sites by name+postcode, assets by asset_tag or (name+site). Query in batches with `.in()`.
-- **Unmatched parent** (sites → customer, assets → site): fuzzy match against existing records using `src/lib/fuzzyMatch.ts`. Show best match with a confidence badge; user can accept, pick a different one, or mark "create new".
-- **Within-file duplicates** collapsed.
-- Row-level actions: **Skip**, **Fix** (inline edit), **Merge with existing** (writes to existing row, keeps id).
-- Summary counters at the top: `X to create · Y to merge · Z skipped · N problems`.
+1. Viva admin can SELECT/INSERT/UPDATE/DELETE Viva rows (all previously-working paths).
+2. Viva engineer can do exactly what they could before (assigned-job scope etc.).
+3. Cross-org attempts (Viva user reading/writing org B rows, and vice versa) all return zero rows / permission errors.
+4. Anonymous access unchanged (portal tokens, public sign-off routes still work via `SECURITY DEFINER` RPCs).
 
-### Step 5 — Commit
-- New edge function `commit-import` (service-role, admin-only). Receives resolved rows + type + `import_batch_id` (uuid generated client-side).
-- Inserts in chunks of 500 with progress reported back via a simple polling record in a new `import_batches` table (status, processed, total, errors).
-- Every created row gets `import_batch_id` and `imported_at` columns.
-- Merges do a targeted UPDATE on the existing row for empty fields only (non-destructive fill).
-- On completion: summary screen with counts + **"Undo this import"** button that deletes all rows tagged with the batch id (only rows still untouched since insert — checked via `updated_at = created_at`).
+Fixture data is cleaned up at the end of each batch. If any assertion fails, batch is rolled back and reported.
 
-## Data model changes
+## Batches (in order)
 
-New migration:
+1. **Jobs & scheduling** — `jobs`, `job_visits`, `job_assignments`, `job_activity_log`, `job_schedule`, `job_messages`, `job_templates`, `job_template_locks`, `planner_adhoc_entries`, `notifications`.
+2. **Customers & sites** — `customers`, `customer_sites`, `sites`, `customer_documents`, `customer_paperwork`, `customer_merge_suggestions`, `customer_notification_log`, `customer_portal_tokens`, `customer_sign_off_tokens`.
+3. **Documents & submissions** — `job_documents`, `submissions`, `submission_comments`, `job_sheet_templates`, `job_sheet_responses`, `job_photo_checklists`, `job_photo_checklist_responses`, `photo_checklist_templates`, `photo_checklist_items`, `field_reports`, `pre_completion_checklist_items`, `rams`, `rams_documents`, `generic_rams`, `site_surveys`, `site_survey_photos`, `job_site_surveys`, `job_site_survey_photos`.
+4. **Assets & compliance** — `assets`, `asset_documents`, `asset_sensors`, `sensor_readings`, `compliance_records`, `defects`, `audits`, `audit_responses`, `audit_template_items`, `audit_templates`, `fire_log_entries`, `fire_log_tokens`, `ppm_schedules`, `conformity_certificates`, `digital_twin_health`, `installation_projects`, `installation_issues`, `installation_issue_history`, `installation_issue_photos`, `installation_handover_tokens`, `handover_tokens`.
+5. **Finance & parts** — `invoices`, `invoice_line_items`, `quote_approval_tokens`, `parts_library`, `job_parts`, `van_stock`, `stock_transactions`.
+6. **Engineer / HR / config** — `profiles`, `engineer_documents`, `engineer_leave`, `engineer_locations`, `engineer_onboarding_logs`, `engineer_page_access`, `time_clock`, `vehicle_checks`, `vehicles`, `bank_holidays`, `email_from_settings`, `email_send_log`, `email_send_state`, `email_unsubscribe_tokens`, `suppressed_emails`, `import_batches`, `client_errors`, `pending_whatsapp_scans`, `support_tickets`, `ai_wizard_conversations`, `app_settings`, `category_document_templates`, `xero_connections`.
 
-- `import_batches` table — org_id, created_by, entity_type, source_filename, row_count, created_count, merged_count, skipped_count, status (`pending|running|complete|failed|undone`), error_summary jsonb. RLS: org-scoped read/write for admins; service_role all.
-- Add nullable columns `import_batch_id uuid` and `imported_at timestamptz` to `customers`, `sites`, `assets` (indexed on `import_batch_id`).
-- Grants + RLS in the same migration per project rules.
+Global reference tables (`job_categories`, `asset_categories`, `audit_categories`, `fault_codes`, etc. — the 16 left global in step 2) keep their existing read-to-all-authenticated policies.
 
-## Reused plumbing
+## Special attention items (flagged, not silently changed)
 
-- `src/lib/excelUtils.ts` for XLSX parsing.
-- `src/lib/fuzzyMatch.ts` for parent matching.
-- Pattern from `BulkImportCustomersDialog` / `BulkImportSitesDialog` / `BulkImportAssetsDialog` for validation and insert shape — the wizard replaces the per-entity dialogs' AI step but keeps their target schemas.
-- `parse-import-generic` stays as-is for the existing document-drop flow; the new mapping function is separate because it's header→field, not full extraction.
+- **`storage.objects` bucket policies.** I will audit each bucket's current policy but will NOT change storage paths in this step — object keys are currently un-prefixed with `org_id`, so retroactive path enforcement would break existing links. I'll list every bucket, its current policy, and whether it's already effectively org-scoped via the parent row (e.g. `job_documents` row check). Any bucket that isn't → flagged for **step 6 (storage repathing)** with a concrete recommendation. No object moves in this step.
+- **`SECURITY DEFINER` functions.** I'll enumerate every existing `SECURITY DEFINER` function that touches tenant tables (`admin_*`, `get_portal_*`, `sign_handover_token`, `create_customer_sign_off_token`, `resolve_org_by_intake_email`, `notify_*`, `auto_create_fire_log_entry`, `email_queue_*`, etc.) and confirm each one either (a) already scopes by `org_id`/token, or (b) is admin-gated. Any that would let a caller read/write across orgs is flagged and fixed in the same batch as its table.
+- **Policies without org scope** (e.g. `Authenticated can read app_settings` on `app_settings` — `USING (true)`): rewritten to `org_id = get_user_org_id()` where the row has an org, or explicitly documented as intentionally global (config/reference tables).
+- **`ai_wizard_conversations`, `notifications`, `profiles`** — currently scoped by `user_id`. I'll add `AND org_id = get_user_org_id()` as belt-and-braces without narrowing existing access.
 
-## Files
+## What I will report after each batch
 
-New:
-- `supabase/migrations/<ts>_import_wizard.sql`
-- `supabase/functions/suggest-import-mapping/index.ts`
-- `supabase/functions/commit-import/index.ts`
-- `src/pages/ImportWizard.tsx` (route `/settings/import`)
-- `src/components/import-wizard/StepChooseType.tsx`
-- `src/components/import-wizard/StepUpload.tsx`
-- `src/components/import-wizard/StepMapping.tsx`
-- `src/components/import-wizard/StepReview.tsx`
-- `src/components/import-wizard/StepResult.tsx`
-- `src/components/import-wizard/schemas.ts` (target field defs per entity)
-- `src/lib/importMapping.ts` (heuristic mapper + row transform + validators)
+- Tables covered, policy diffs (dropped → created), migration file path.
+- Fixture test output: pass/fail per assertion.
+- Any flagged items for later steps (storage repathing, definer function tightening).
+- Explicit "Viva unaffected" confirmation based on the Viva-role fixture assertions.
 
-Edited:
-- `src/App.tsx` — route.
-- `src/pages/SettingsPage.tsx` — Import Data card.
-- `src/pages/SetupGuide.tsx` — "Import from spreadsheet" link on customers/sites steps.
-- `package.json` — add `papaparse` + `@types/papaparse`.
+## What I will NOT do in this step
 
-## Multi-tenancy
+- No storage object moves or path rewrites (deferred to step 6).
+- No removal of the `has_role` shim (deferred to a later step once nothing references it).
+- No changes to RLS-exempt system schemas (`auth`, `storage`, `realtime`, `supabase_functions`, `vault`).
+- No app/UI code changes. If a policy rewrite would require an app change to stay working, I stop and report instead of pushing through.
 
-Everything writes with the acting user's `org_id` (resolved via `get_user_org_id()` in the commit function). No cross-org reads. Undo is scoped to the batch's org_id + admin role check.
+## Stop conditions
 
-## Out of scope
+Any of the following → stop and report, do not continue to next batch:
+- A fixture assertion for Viva's existing access fails.
+- A policy rewrite requires an app-code change to preserve current behaviour.
+- A `SECURITY DEFINER` function's current implementation cannot be safely tightened without a code change.
 
-- Jobs / PPM / engineers / parts import.
-- Direct API connectors to Uptick/simPRO/etc. (CSV export is the interop layer.)
-- Background/async import for >5,000 rows — synchronous chunked commit is enough for the stated scale.
+On completion of batch 6 with all fixtures green: full report, then wait for your go-ahead before step 4.
