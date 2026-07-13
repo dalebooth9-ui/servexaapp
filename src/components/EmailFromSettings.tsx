@@ -84,7 +84,7 @@ export default function EmailFromSettings() {
         from_name: row.from_name?.trim() || "Servexa",
         from_address: row.from_address.trim(),
         updated_at: new Date().toISOString(),
-      }, { onConflict: "email_type" });
+      }, { onConflict: "org_id,email_type" });
     setSavingKey(null);
     if (error) toast.error(`Save failed: ${error.message}`);
     else toast.success(`Saved ${EMAIL_TYPES.find(t => t.key === key)?.label ?? key}`);
