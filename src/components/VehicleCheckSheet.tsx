@@ -291,38 +291,27 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
       )}
 
       <Card className="p-4 space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <Label htmlFor="reg" className="text-xs">Vehicle reg <span className="text-destructive">*</span></Label>
-            <Input
-              id="reg"
-              value={vehicleReg}
-              onChange={(e) => {
-                const val = e.target.value.toUpperCase();
-                setVehicleReg(val);
-                setRegTouched(true);
-                if (regKey) localStorage.setItem(regKey, val);
-              }}
-              onBlur={() => setRegTouched(true)}
-              placeholder="AB12 CDE"
-              className={`uppercase ${regTouched && !vehicleReg.trim() ? "border-destructive ring-1 ring-destructive/30 focus-visible:ring-destructive" : ""}`}
-              aria-invalid={regTouched && !vehicleReg.trim()}
-            />
-            {regTouched && !vehicleReg.trim() && (
-              <p className="text-[11px] text-destructive mt-1">Vehicle registration is required</p>
-            )}
-          </div>
-          <div>
-            <Label htmlFor="mileage" className="text-xs">Mileage</Label>
-            <Input
-              id="mileage"
-              type="number"
-              inputMode="numeric"
-              value={mileage}
-              onChange={(e) => setMileage(e.target.value)}
-              placeholder="123456"
-            />
-          </div>
+        <VehicleSelector
+          engineerId={user?.id ?? null}
+          value={vehicleId}
+          reg={vehicleReg}
+          onChange={(id, reg) => {
+            setVehicleId(id);
+            setVehicleReg(reg);
+            setRegTouched(true);
+          }}
+          invalid={regTouched && !vehicleReg.trim()}
+        />
+        <div>
+          <Label htmlFor="mileage" className="text-xs">Mileage</Label>
+          <Input
+            id="mileage"
+            type="number"
+            inputMode="numeric"
+            value={mileage}
+            onChange={(e) => setMileage(e.target.value)}
+            placeholder={lastMileage != null ? `Last recorded: ${lastMileage.toLocaleString()}` : "123456"}
+          />
         </div>
       </Card>
 
