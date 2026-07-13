@@ -162,11 +162,17 @@ export default function JobCompleteAction({
 
   if (!canSee || isTerminal) return null;
 
+  // Split drafts: auto-clearable (untouched + submitted sibling) vs. real blockers.
+  const autoClearDrafts = readiness.drafts.filter(isAutoClearable);
+  const blockingDrafts = readiness.drafts.filter((d) => !isAutoClearable(d));
+
   const missingRequired: string[] = [];
   if (!readiness.engineerSig) missingRequired.push("Engineer signature");
   if (!readiness.customerSig) missingRequired.push("Customer signature");
-  if (readiness.formsDraft > 0)
-    missingRequired.push(`${readiness.formsDraft} job form${readiness.formsDraft === 1 ? "" : "s"} still in draft`);
+  if (blockingDrafts.length > 0)
+    missingRequired.push(
+      `${blockingDrafts.length} job form${blockingDrafts.length === 1 ? "" : "s"} still in draft`,
+    );
   if (readiness.remedialOutstanding > 0)
     missingRequired.push(
       `${readiness.remedialOutstanding} remedial item${readiness.remedialOutstanding === 1 ? "" : "s"} outstanding`,
@@ -175,10 +181,37 @@ export default function JobCompleteAction({
   const hasMissing = missingRequired.length > 0;
   const canProceed = !hasMissing || (userRole === "admin" && overrideReason.trim().length >= 3);
 
+  const handleDeleteDraft = async (draftId: string) => {
+    const { error } = await supabase.from("job_sheet_responses").delete().eq("id", draftId);
+    if (error) {
+      toast({ title: "Couldn't delete draft", description: error.message, variant: "destructive" });
+      return;
+    }
+    toast({ title: "Draft deleted" });
+    await loadReadiness();
+  };
+
+  const handleOpenDraft = () => {
+    // Sheets are on the same job detail page — close and let the user scroll.
+    setOpen(false);
+    // Best-effort: hash anchor if page uses it.
+    if (typeof window !== "undefined") {
+      window.location.hash = "job-sheets";
+    }
+  };
+
   const handleComplete = async () => {
     if (!user) return;
     setSubmitting(true);
     try {
+      // Auto-clear any untouched drafts that have a submitted sibling.
+      if (autoClearDrafts.length > 0) {
+        await supabase
+          .from("job_sheet_responses")
+          .delete()
+          .in("id", autoClearDrafts.map((d) => d.id));
+      }
+
       const patch: any = {
         status: "completed",
         completed_at: new Date().toISOString(),
