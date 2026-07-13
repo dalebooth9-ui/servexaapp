@@ -6446,6 +6446,10 @@ export type Database = {
         Args: { _label: string; _org_id: string; _secret: string }
         Returns: string
       }
+      customer_logo_path_belongs_to_caller: {
+        Args: { _name: string }
+        Returns: boolean
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
