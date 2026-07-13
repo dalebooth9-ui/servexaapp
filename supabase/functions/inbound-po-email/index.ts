@@ -520,8 +520,7 @@ serve(async (req) => {
       return json(502, { error: "Resend fetch failed" });
     }
   }
-  console.log("Fetched inbound email from Resend API", {
-    emailId,
+  console.log("Inbound email ready", {
     from: email.from,
     subject: email.subject,
     to: email.to,
