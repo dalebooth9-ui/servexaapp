@@ -562,6 +562,14 @@ export default function JobDetail() {
         ))}
       </div>
 
+      {activeTab === "photos" && id && (
+        <Suspense fallback={<LazyFallback />}>
+          <JobPhotos jobId={id} engineers={engineers} isAdmin={userRole === "admin"} />
+        </Suspense>
+      )}
+
+
+
       {activeTab === "overview" && (<>
       {/* Editable Job Details */}
       <Collapsible defaultOpen className="mb-6">
