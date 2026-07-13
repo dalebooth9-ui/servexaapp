@@ -121,43 +121,95 @@ function b64ToBytes(b64: string): Uint8Array {
 }
 
 /**
- * Parse the Resend `email.received` webhook payload directly. Resend delivers
- * attachments inline as base64 in `data.attachments[].content`.
+ * Fetch the full email + attachment bytes from Resend's REST API.
+ * The webhook payload only carries metadata (data.email_id).
  */
-function parseWebhookPayload(payload: any): InboundEmail {
-  const d = payload?.data ?? payload ?? {};
+async function fetchInboundFromResend(
+  emailId: string,
+  apiKey: string,
+): Promise<InboundEmail> {
+  const headers = { Authorization: `Bearer ${apiKey}` };
+
+  // 1. Email details
+  const detailResp = await fetch(
+    `https://api.resend.com/emails/receiving/${emailId}`,
+    { headers },
+  );
+  if (!detailResp.ok) {
+    const errText = await detailResp.text().catch(() => "");
+    console.error(
+      `Resend GET /emails/receiving/${emailId} failed`,
+      detailResp.status,
+      errText.slice(0, 500),
+    );
+    throw new Error(`Resend email fetch failed: ${detailResp.status}`);
+  }
+  const detail: any = await detailResp.json();
+  const d = detail?.data ?? detail ?? {};
 
   const fromField = d?.from;
   const from = typeof fromField === "string"
     ? fromField
     : (fromField?.email ?? "");
 
-  const attachments: Attachment[] = [];
-  const raw = Array.isArray(d?.attachments) ? d.attachments : [];
-  for (const a of raw) {
-    const filename = String(a?.filename ?? a?.name ?? "attachment.bin");
-    const contentType = String(
-      a?.content_type ?? a?.contentType ?? a?.mime_type ?? "application/octet-stream",
+  // 2. Attachment list + bytes
+  let attachments: Attachment[] = [];
+  const attListResp = await fetch(
+    `https://api.resend.com/emails/receiving/${emailId}/attachments`,
+    { headers },
+  );
+  if (!attListResp.ok) {
+    const errText = await attListResp.text().catch(() => "");
+    console.error(
+      `Resend GET /emails/receiving/${emailId}/attachments failed`,
+      attListResp.status,
+      errText.slice(0, 500),
     );
-    // Resend inline attachments arrive as base64 in `content`. Some providers
-    // use `data` or a data URL. Skip anything without inline content — we do
-    // not call any external API.
-    const b64 = typeof a?.content === "string" ? a.content
-      : typeof a?.data === "string" ? a.data
-      : null;
-    if (!b64) {
-      console.warn("attachment has no inline content, skipping", { filename, keys: Object.keys(a ?? {}) });
-      continue;
-    }
-    try {
-      const bytes = b64ToBytes(b64);
-      if (bytes.byteLength > MAX_ATTACHMENT_BYTES) {
-        console.warn("skipping oversized attachment", filename, bytes.byteLength);
+  } else {
+    const attJson: any = await attListResp.json();
+    const list: any[] = Array.isArray(attJson?.data) ? attJson.data : [];
+    for (const a of list) {
+      const filename = String(a?.filename ?? a?.name ?? "attachment.bin");
+      const contentType = String(
+        a?.content_type ?? a?.contentType ?? "application/octet-stream",
+      );
+      const url = a?.download_url ?? a?.url;
+      if (!url) {
+        console.warn("attachment has no download_url", { filename });
         continue;
       }
-      attachments.push({ filename, contentType, bytes });
+      try {
+        const r = await fetch(url);
+        if (!r.ok) {
+          console.error("attachment download failed", filename, r.status);
+          continue;
+        }
+        const buf = new Uint8Array(await r.arrayBuffer());
+        if (buf.byteLength > MAX_ATTACHMENT_BYTES) {
+          console.warn("skipping oversized attachment", filename, buf.byteLength);
+          continue;
+        }
+        attachments.push({ filename, contentType, bytes: buf });
+      } catch (e) {
+        console.error("attachment fetch error", filename, e);
+      }
+    }
+  }
+
+  // 3. Optional raw .eml
+  let rawEmlBase64: string | null = null;
+  const rawUrl = d?.raw?.download_url ?? d?.raw_download_url ?? null;
+  if (rawUrl) {
+    try {
+      const r = await fetch(rawUrl);
+      if (r.ok) {
+        const buf = new Uint8Array(await r.arrayBuffer());
+        rawEmlBase64 = bytesToBase64(buf);
+      } else {
+        console.warn("raw eml download failed", r.status);
+      }
     } catch (e) {
-      console.error("attachment base64 decode failed", filename, e);
+      console.error("raw eml fetch error", e);
     }
   }
 
@@ -167,12 +219,11 @@ function parseWebhookPayload(payload: any): InboundEmail {
     subject: String(d?.subject ?? "").trim(),
     text: String(d?.text ?? d?.plain ?? ""),
     html: String(d?.html ?? ""),
-    rawEmlBase64: typeof d?.raw === "string" ? d.raw
-      : typeof d?.raw_email === "string" ? d.raw_email
-      : null,
+    rawEmlBase64,
     attachments,
   };
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Forwarded-email handling
