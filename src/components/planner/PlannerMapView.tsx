@@ -1106,13 +1106,13 @@ export default function PlannerMapView({
         <div className="flex items-center gap-2 flex-wrap">
           {/* Traffic suggestion banner */}
           {showTrafficSuggestion && (
-            <div className="flex items-center gap-2 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-3 py-1.5 text-xs text-yellow-200 animate-in fade-in slide-in-from-top-1">
+            <div className="flex items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-xs text-foreground shadow-sm animate-in fade-in slide-in-from-top-1">
               <span className="font-medium">Route optimised ✓</span>
-              <span className="text-yellow-300/80">— Turn on traffic layer to check conditions?</span>
+              <span className="text-muted-foreground">— turn on traffic layer to check conditions?</span>
               <Button
-                variant="ghost"
+                variant="default"
                 size="sm"
-                className="h-6 text-xs text-yellow-200 hover:text-yellow-100 hover:bg-yellow-500/20 px-2"
+                className="h-6 text-xs px-2"
                 onClick={() => {
                   setShowTraffic(true);
                   setShowTrafficSuggestion(false);
@@ -1123,7 +1123,7 @@ export default function PlannerMapView({
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-6 text-xs text-muted-foreground hover:text-foreground hover:bg-muted px-2"
+                className="h-6 text-xs text-muted-foreground hover:text-foreground px-2"
                 onClick={() => setShowTrafficSuggestion(false)}
               >
                 No thanks
