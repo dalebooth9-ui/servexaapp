@@ -1,7 +1,11 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "https://esm.sh/resend@4.0.0";
 import { requireEnv, missingEnvResponse } from "../_shared/requireEnv.ts";
-import { getFromAddress } from "../_shared/emailFrom.ts";
+import {
+  getEmailBranding,
+  getSendIdentity,
+  wrapCustomerEmail,
+} from "../_shared/customerEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
