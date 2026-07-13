@@ -12,11 +12,12 @@ async function sendResendEmail(payload: {
   to: string[];
   subject: string;
   html: string;
+  reply_to?: string;
 }): Promise<{ error: any | null }> {
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-  if (!LOVABLE_API_KEY || !RESEND_API_KEY) {
-    return { error: { message: "Missing LOVABLE_API_KEY or RESEND_API_KEY" } };
+  const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY_1") ?? Deno.env.get("RESEND_API_KEY");
+  if (!RESEND_API_KEY) {
+    return { error: { message: "Missing RESEND_API_KEY" } };
   }
   try {
     const res = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
