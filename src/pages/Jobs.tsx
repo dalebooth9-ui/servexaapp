@@ -1419,6 +1419,34 @@ export default function Jobs() {
         )}
       </div>
 
+      {/* Primary status tabs — completed jobs are one tap away */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {([
+          { key: "active", label: "Active" },
+          { key: "pending_review", label: "Pending Review" },
+          { key: "completed", label: "Completed" },
+          { key: "all", label: "All" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setStatusTab(t.key)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              statusTab === t.key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        {search.trim() && (
+          <span className="self-center pl-2 text-[11px] text-muted-foreground">
+            Searching across all statuses
+          </span>
+        )}
+      </div>
+
       {/* Search & filter bar — visually separated from the job list */}
       <div className="mb-6 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex gap-2">
