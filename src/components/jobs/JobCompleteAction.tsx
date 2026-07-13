@@ -153,6 +153,11 @@ export default function JobCompleteAction({
         { event: "*", schema: "public", table: "submissions", filter: `job_id=eq.${jobId}` },
         () => loadReadiness(),
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "job_sheet_responses", filter: `job_id=eq.${jobId}` },
+        () => loadReadiness(),
+      )
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
