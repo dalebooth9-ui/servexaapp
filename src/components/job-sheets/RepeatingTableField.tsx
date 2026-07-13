@@ -907,24 +907,67 @@ function PhotoCellPopover({
 // Bulk Add dialog
 // ---------------------------------------------------------------------------
 
-function parseBulkRange(input: string): string[] {
-  const trimmed = input.trim();
-  if (!trimmed) return [];
-  // Match "Flat 1 to Flat 40", "Flat 1 - 40", "1-40", "Flat 1 – 40", etc.
-  const m = trimmed.match(/^(.*?)(\d+)\s*(?:to|-|–|—|through|thru)\s*(?:.*?)(\d+)\s*$/i);
-  if (!m) return [];
-  const prefix = (m[1] || "").trim();
+export type BulkParseResult =
+  | { ok: true; labels: string[]; prefix: string; start: number; end: number }
+  | { ok: false; reason: string };
+
+/**
+ * Forgiving bulk-range parser. Accepts any of:
+ *   "1 to 12", "1-12", "1 – 12", "1 through 12"
+ *   "Flat 1 to 12", "Flat 1 - Flat 12", "flat 1 to flat 12"
+ *   "Unit 3 to Unit 8", "Room 1-4"
+ * Case-insensitive, whitespace tolerant. If either side supplies a word prefix
+ * (e.g. "Flat"), that prefix is applied to every generated label. If neither
+ * side supplies one, generated labels are bare numbers (caller can default).
+ */
+export function parseBulkRange(input: string): BulkParseResult {
+  const trimmed = (input || "").trim();
+  if (!trimmed) return { ok: false, reason: "Enter a range like 'Flat 1 to 12'." };
+
+  // Grab "[prefix?] number [separator] [prefix?] number"
+  const re = /^\s*([A-Za-z][A-Za-z .'&-]*?)?\s*(\d+)\s*(?:to|through|thru|-|–|—|…)\s*([A-Za-z][A-Za-z .'&-]*?)?\s*(\d+)\s*$/i;
+  const m = trimmed.match(re);
+  if (!m) {
+    return {
+      ok: false,
+      reason: "Couldn't read the range. Try 'Flat 1 to 12', '1-12', or 'Unit 3 to Unit 8'.",
+    };
+  }
+
+  const rawPrefixA = (m[1] || "").trim();
+  const rawPrefixB = (m[3] || "").trim();
   const start = parseInt(m[2], 10);
   const end = parseInt(m[4], 10);
-  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
-  if (end < start) return [];
-  if (end - start > 500) return []; // safety cap
-  const out: string[] = [];
-  for (let i = start; i <= end; i++) {
-    out.push(prefix ? `${prefix} ${i}` : String(i));
+
+  if (!Number.isFinite(start) || !Number.isFinite(end)) {
+    return { ok: false, reason: "Numbers on both sides of the range are required." };
   }
-  return out;
+  if (end < start) {
+    return { ok: false, reason: `End (${end}) must be greater than or equal to start (${start}).` };
+  }
+  if (end - start + 1 > 500) {
+    return { ok: false, reason: "Too many rows (max 500)." };
+  }
+
+  // Prefer whichever side supplied a word prefix. If both, they should match
+  // (case-insensitive) — otherwise fall back to the leading one.
+  let prefix = rawPrefixA || rawPrefixB;
+  if (rawPrefixA && rawPrefixB && rawPrefixA.toLowerCase() !== rawPrefixB.toLowerCase()) {
+    prefix = rawPrefixA;
+  }
+  // Normalise casing: Title Case first word ("flat" → "Flat").
+  if (prefix) {
+    prefix = prefix.replace(/\s+/g, " ").trim();
+    prefix = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+  }
+
+  const labels: string[] = [];
+  for (let i = start; i <= end; i++) {
+    labels.push(prefix ? `${prefix} ${i}` : String(i));
+  }
+  return { ok: true, labels, prefix, start, end };
 }
+
 
 function BulkAddDialog({
   open, onOpenChange, onAdd,
@@ -933,23 +976,26 @@ function BulkAddDialog({
   onOpenChange: (v: boolean) => void;
   onAdd: (labels: string[]) => void;
 }) {
-  const [text, setText] = useState("Flat 1 to Flat 40");
+  const [text, setText] = useState("Flat 1 to 12");
   const { toast } = useToast();
-  const preview = useMemo(() => parseBulkRange(text), [text]);
+  const parsed = useMemo(() => parseBulkRange(text), [text]);
+  const labels = parsed.ok ? parsed.labels : [];
+  const count = labels.length;
 
   const handleAdd = () => {
-    if (preview.length === 0) {
+    if (parsed.ok !== true) {
       toast({
         title: "Couldn't parse range",
-        description: "Try something like 'Flat 1 to Flat 40' or '1-20'.",
+        description: parsed.reason,
         variant: "destructive",
       });
       return;
     }
-    onAdd(preview);
+    onAdd(labels);
     onOpenChange(false);
-    toast({ title: `Added ${preview.length} rows` });
+    toast({ title: `Added ${count} rows` });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -973,22 +1019,32 @@ function BulkAddDialog({
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. Flat 1 to Flat 40"
+              placeholder="e.g. Flat 1 to 12"
               autoFocus
             />
             <p className="text-[11px] text-muted-foreground">
-              Prefix + number range. Also accepts "1-40", "Unit 1 – 20".
+              Accepts "Flat 1 to 12", "1-12", "Flat 1 - Flat 12", "Unit 3 to Unit 8".
             </p>
           </div>
-          <div className="rounded-md border border-border bg-muted/30 p-2 text-xs max-h-32 overflow-y-auto">
-            {preview.length === 0 ? (
-              <span className="text-muted-foreground italic">No preview — check the format.</span>
+          <div
+            className={`rounded-md border p-2 text-xs max-h-32 overflow-y-auto ${
+              parsed.ok
+                ? "border-border bg-muted/30"
+                : "border-destructive/40 bg-destructive/5"
+            }`}
+            aria-live="polite"
+          >
+            {parsed.ok !== true ? (
+              <span className="text-destructive">{parsed.reason}</span>
+
             ) : (
               <>
-                <div className="font-medium mb-1">{preview.length} rows will be added:</div>
+                <div className="font-medium mb-1">
+                  Will create {count} rows: {labels[0]} … {labels[count - 1]}
+                </div>
                 <div className="text-muted-foreground">
-                  {preview.slice(0, 6).join(", ")}
-                  {preview.length > 6 ? `, … ${preview[preview.length - 1]}` : ""}
+                  {labels.slice(0, 6).join(", ")}
+                  {count > 6 ? `, … ${labels[count - 1]}` : ""}
                 </div>
               </>
             )}
@@ -996,11 +1052,12 @@ function BulkAddDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleAdd} disabled={preview.length === 0}>
-            Add {preview.length || ""} rows
+          <Button onClick={handleAdd} disabled={!parsed.ok}>
+            Add {count || ""} rows
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
