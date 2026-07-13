@@ -450,7 +450,6 @@ serve(async (req) => {
     console.error("RESEND_INBOUND_WEBHOOK_SECRET missing");
     return json(500, { error: "Server not configured" });
   }
-
   const svixId = req.headers.get("svix-id") ?? "";
   const svixTs = req.headers.get("svix-timestamp") ?? "";
   const svixSig = req.headers.get("svix-signature") ?? "";
@@ -484,7 +483,6 @@ serve(async (req) => {
     console.error("Webhook payload missing data.email_id", { keys: Object.keys(payload?.data ?? {}) });
     return json(400, { error: "Missing email_id" });
   }
-
   let email: InboundEmail;
   try {
     email = await fetchInboundFromResend(emailId, receivingKey);
@@ -492,8 +490,7 @@ serve(async (req) => {
     console.error("Resend fetch failed", e);
     return json(502, { error: "Resend fetch failed" });
   }
-  console.log("Fetched inbound email from Resend API", {
-    emailId,
+  console.log("Inbound email ready", {
     from: email.from,
     subject: email.subject,
     to: email.to,
@@ -718,7 +715,7 @@ serve(async (req) => {
     return json(500, { error: "Could not create job" });
   }
   const jobId = newJob.id;
-  const jobRef = newJob.reference_number;
+  const createdJobRef = newJob.reference_number;
 
   // ── Store raw .eml + attachments in po-intake bucket ───────────────────
   const uploads: { path: string; label: string; contentType: string; bytes: Uint8Array }[] = [];
@@ -768,11 +765,11 @@ serve(async (req) => {
     else uploadedCount++;
   }
 
-  console.log("Created pending job", jobRef, "for org", orgId, {
+  console.log("Created pending job", createdJobRef, "for org", orgId, {
     from: email.from,
     customer: customerName ?? "(left blank for approver)",
     uploadedCount,
     totalAttachments: email.attachments.length,
   });
-  return json(200, { ok: true, job_id: jobId, reference_number: jobRef, uploaded: uploadedCount });
+  return json(200, { ok: true, job_id: jobId, reference_number: createdJobRef, uploaded: uploadedCount });
 });
