@@ -164,6 +164,23 @@ Deno.serve(async (req) => {
         if (refJob) { jobId = refJob.id; break; }
       }
 
+      // ── Burst race guard ────────────────────────────────────────
+      // Real incident (2026-07-13 11:05 UTC): a captioned photo + 6
+      // captionless photos arrived within ~5s. Parallel invocations of this
+      // function read the sticky-context row BEFORE the captioned sibling's
+      // context write had landed, so 3 captionless siblings inherited a
+      // *stale* context set hours earlier and mis-filed to another customer.
+      //
+      // Fix for captionless media: defer briefly so any captioned sibling in
+      // the same burst wins the context write, then resolve context against
+      // the NEWEST note. Captioned media is unaffected — it always resolves
+      // from its own text.
+      const bodyIsEmptyForBurst = !messageBody || messageBody.trim().length === 0;
+      if (bodyIsEmptyForBurst) {
+        await new Promise((resolve) => setTimeout(resolve, 2500));
+        console.log(`[burst-guard] captionless media deferred 2500ms to let sibling context writes land`);
+      }
+
       // If no reference matched, try fuzzy match against job name OR linked site name
       // using the caption text. Combined search (not fallback): any job where
       //   jobs.name ILIKE %caption%  OR  jobs.site → sites.name ILIKE %caption%.
@@ -171,6 +188,7 @@ Deno.serve(async (req) => {
       // remaining caption text as the fuzzy search term.
       const strippedBody = (messageBody || "").replace(jobRefPattern, " ").replace(/\s+/g, " ").trim();
       console.log(`[fuzzy-match] jobId=${jobId} strippedBody="${strippedBody}" candidatesFromRef=${candidates.length}`);
+
       let fuzzyAttemptedNoMatch = false;
       if (!jobId && strippedBody.length >= 3) {
         // Load a pool of non-archived jobs (with linked site info) to score against.
