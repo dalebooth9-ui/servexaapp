@@ -548,6 +548,17 @@ export default function InvoiceDetail() {
                   Convert to Invoice
                 </Button>
               )}
+              {canCreateRemedial && userRole === "admin" && (
+                <Button size="sm" onClick={handleCreateRemedialJob} disabled={creatingRemedial}>
+                  {creatingRemedial ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Wrench className="mr-1.5 h-4 w-4" />}
+                  Create Remedial Job
+                </Button>
+              )}
+              {existingRemedialJobId && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/jobs/${existingRemedialJobId}`}><Wrench className="mr-1.5 h-4 w-4" /> View Remedial Job</Link>
+                </Button>
+              )}
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
                 <Download className="mr-1.5 h-4 w-4" />
                 {generatingPdf ? "Generating..." : "PDF"}
