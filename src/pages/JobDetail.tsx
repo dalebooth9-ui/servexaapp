@@ -45,6 +45,7 @@ import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
 import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
+import JobCompleteAction from "@/components/jobs/JobCompleteAction";
 
 // Heavy children — code-split out of the JobDetail bundle. Each one pulls in
 // hefty deps (jspdf/html2canvas/tiptap/exceljs/docx) transitively, so we
@@ -103,6 +104,7 @@ export default function JobDetail() {
   const [submissions, setSubmissions] = useState<any[]>([]);
   const photoCount = useJobPhotoCount(id);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
+  const [assignedEngineerIds, setAssignedEngineerIds] = useState<string[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -173,6 +175,7 @@ export default function JobDetail() {
     // Collect all unique engineer IDs from submissions + assignments, then fetch profiles
     const submissionEngineerIds = subs.map((s: any) => s.engineer_id);
     const assignmentEngineerIds = (assignmentsRes.data || []).map((a: any) => a.engineer_id);
+    setAssignedEngineerIds(assignmentEngineerIds);
     const engineerIds = [...new Set([...submissionEngineerIds, ...assignmentEngineerIds])];
 
     const profilesPromise = engineerIds.length > 0
@@ -1005,9 +1008,19 @@ export default function JobDetail() {
       </>)}
 
 
-      {activeTab === "overview" && userRole === "admin" && (
-        <div className="mb-6">
-          <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
+      {activeTab === "overview" && (
+        <div className="mb-6 space-y-3">
+          {userRole === "admin" && (
+            <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
+          )}
+          <JobCompleteAction
+            jobId={id!}
+            jobStatus={job.status}
+            jobRef={job.reference_number}
+            isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+            variant="inline"
+            onCompleted={fetchData}
+          />
         </div>
       )}
 
@@ -1037,6 +1050,15 @@ export default function JobDetail() {
       )}
 
       {activeTab === "signoff" && (<>
+      <JobCompleteAction
+        jobId={id!}
+        jobStatus={job.status}
+        jobRef={job.reference_number}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        variant="banner"
+        className="mb-4"
+        onCompleted={fetchData}
+      />
       <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer & Customer Sign-Off Signatures
@@ -1171,6 +1193,18 @@ export default function JobDetail() {
           priority: job.priority,
           description: job.description ?? undefined,
         }}
+      />
+    )}
+
+    {/* Sticky mobile "Complete Job" — visible to admins and assigned engineers */}
+    {job && (
+      <JobCompleteAction
+        jobId={id!}
+        jobStatus={job.status}
+        jobRef={job.reference_number}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        variant="sticky"
+        onCompleted={fetchData}
       />
     )}
     </Suspense>

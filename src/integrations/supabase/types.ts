@@ -4028,6 +4028,9 @@ export type Database = {
           asset_id: string | null
           brief: string | null
           category: string
+          completed_at: string | null
+          completed_by: string | null
+          completion_override_reason: string | null
           created_at: string
           created_by: string | null
           customer: string | null
@@ -4061,6 +4064,9 @@ export type Database = {
           asset_id?: string | null
           brief?: string | null
           category?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_override_reason?: string | null
           created_at?: string
           created_by?: string | null
           customer?: string | null
@@ -4094,6 +4100,9 @@ export type Database = {
           asset_id?: string | null
           brief?: string | null
           category?: string
+          completed_at?: string | null
+          completed_by?: string | null
+          completion_override_reason?: string | null
           created_at?: string
           created_by?: string | null
           customer?: string | null
