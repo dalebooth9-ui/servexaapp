@@ -537,6 +537,75 @@ serve(async (req) => {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   const extracted: Extracted = apiKey ? await extractPO(email, ownOrgName, apiKey) : {};
 
+  // ── Regex fallback for OUR references (in case the model missed them) ─
+  const rawBodyAll = `${email.subject}\n${email.text || ""}\n${stripHtml(email.html)}`;
+  const quoteRefRe = /\bQUO-\d{3,6}\b/i;
+  const jobRefRe = /\b(?:VFP|TM)-\d{3,6}\b/i;
+  const quoteRef = (extracted.quote_reference || "").trim().toUpperCase()
+    || (rawBodyAll.match(quoteRefRe)?.[0]?.toUpperCase() ?? "");
+  const jobRef = (extracted.job_reference || "").trim().toUpperCase()
+    || (rawBodyAll.match(jobRefRe)?.[0]?.toUpperCase() ?? "");
+
+  // ── If a quote reference is found, prefill from that quote ────────────
+  const provenance: string[] = [];
+  let quotePrefill: {
+    customer_name?: string | null;
+    customer_id?: string | null;
+    address?: string | null;
+    description?: string | null;
+  } = {};
+  let matchedQuoteRef: string | null = null;
+  if (quoteRef) {
+    const { data: q } = await admin
+      .from("invoices")
+      .select("id, invoice_number, customer_name, customer_address, notes, job_id, document_type")
+      .eq("org_id", orgId)
+      .ilike("invoice_number", quoteRef)
+      .eq("document_type", "quote")
+      .maybeSingle();
+    if (q) {
+      matchedQuoteRef = q.invoice_number;
+      quotePrefill = {
+        customer_name: q.customer_name || null,
+        address: q.customer_address || null,
+        description: q.notes || null,
+      };
+      // Try to link the customer_id via the quote's linked job
+      if (q.job_id) {
+        const { data: linkedJob } = await admin
+          .from("jobs")
+          .select("customer_id, customer, address")
+          .eq("id", q.job_id)
+          .maybeSingle();
+        if (linkedJob) {
+          quotePrefill.customer_id = linkedJob.customer_id ?? null;
+          quotePrefill.customer_name = quotePrefill.customer_name || linkedJob.customer || null;
+          quotePrefill.address = quotePrefill.address || linkedJob.address || null;
+        }
+      }
+      provenance.push(`Matched quote ${matchedQuoteRef} — customer/site/scope prefilled from that quote.`);
+    } else {
+      provenance.push(`Quote reference ${quoteRef} mentioned in email, but no matching quote found in this org.`);
+    }
+  }
+
+  // ── If a job reference is found, flag possible relation ──────────────
+  let relatedJobRef: string | null = null;
+  if (jobRef) {
+    const { data: existingJob } = await admin
+      .from("jobs")
+      .select("id, reference_number")
+      .eq("org_id", orgId)
+      .eq("reference_number", jobRef)
+      .maybeSingle();
+    if (existingJob) {
+      relatedJobRef = existingJob.reference_number;
+      provenance.push(`Email references existing job ${relatedJobRef} — approver should decide whether to merge or keep separate.`);
+    } else {
+      provenance.push(`Job reference ${jobRef} mentioned in email, but no matching job found in this org.`);
+    }
+  }
+
   // Post-filter: strip customer if it looks like ourselves or the forwarder.
   let extractedCustomer = (extracted.customer_name || "").trim();
   if (extractedCustomer) {
@@ -549,29 +618,35 @@ serve(async (req) => {
     }
   }
 
-  // Only match/create a customer when we have a valid, non-own-org name.
-  let customerId: string | null = null;
-  let customerName: string | null = extractedCustomer || null;
-  if (customerName) {
+  // Prefer extracted customer; fall back to quote prefill.
+  const effectiveCustomerName = extractedCustomer || (quotePrefill.customer_name ?? "");
+
+  // Match/create a customer when we have a valid, non-own-org name.
+  let customerId: string | null = quotePrefill.customer_id ?? null;
+  let customerName: string | null = effectiveCustomerName || null;
+  if (effectiveCustomerName && !customerId) {
     const { data: match } = await admin
       .from("customers")
       .select("id, name")
       .eq("org_id", orgId)
-      .ilike("name", customerName)
+      .ilike("name", effectiveCustomerName)
       .limit(1)
       .maybeSingle();
     if (match) {
       customerId = match.id;
       customerName = match.name;
-    } else {
+    } else if (extractedCustomer) {
+      // Only auto-create when the AI actually extracted a customer (don't
+      // silently create from a quote prefill that failed to match).
       const { data: newCust } = await admin
         .from("customers")
-        .insert({ name: customerName, org_id: orgId } as any)
+        .insert({ name: extractedCustomer, org_id: orgId } as any)
         .select("id, name")
         .single();
       if (newCust) { customerId = newCust.id; customerName = newCust.name; }
     }
   }
+
 
   const priority = ["high", "medium", "low"].includes(extracted.priority ?? "") ? extracted.priority! : "medium";
 
