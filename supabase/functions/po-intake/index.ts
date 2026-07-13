@@ -4,9 +4,17 @@
 // purchase order received by email, and creates a draft job with
 // status='pending_review' so the office coordinator can approve it.
 //
-// Auth: shared secret in the `x-intake-secret` header, matched against the
-// Supabase secret `PO_INTAKE_SECRET`. Requests without the correct secret
-// receive 404 (invisible to probes).
+// Auth model (org-scoped):
+//   - Every request MUST identify the target organisation, either by:
+//       (a) `x-org-id` header + `x-intake-secret` matching that org's
+//           per-org secret stored in `public.org_intake_secrets`, OR
+//       (b) `x-intake-secret` matching the legacy global `PO_INTAKE_SECRET`
+//           env var — in which case the org is taken from the
+//           `PO_INTAKE_DEFAULT_ORG_ID` env var. This exists only for Viva's
+//           existing Zap and is intentionally a single-org fallback.
+//   - Requests that can't be attributed to a specific org return 404.
+//   - We NEVER fall back to "the first organisation in the table" — that
+//     would silently write another subscriber's Zapier PO into Viva.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -14,7 +22,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-intake-secret",
+    "authorization, x-client-info, apikey, content-type, x-intake-secret, x-org-id",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -40,13 +48,68 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json(405, { error: "Method not allowed" });
 
-  const expected = Deno.env.get("PO_INTAKE_SECRET");
-  if (!expected) {
-    console.error("PO_INTAKE_SECRET not configured");
-    return json(500, { error: "Server not configured" });
-  }
-  if (req.headers.get("x-intake-secret") !== expected) {
-    return json(404, { error: "Not found" });
+  // Auth & org resolution happen together — the request MUST prove which
+  // org it's writing into before we touch the DB. Split into two paths:
+  //   1. Per-org secret (x-org-id + x-intake-secret matched against
+  //      org_intake_secrets). This is the path new subscribers use.
+  //   2. Legacy global PO_INTAKE_SECRET + PO_INTAKE_DEFAULT_ORG_ID env vars.
+  //      Preserves Viva's existing Zap. If either env is missing we do NOT
+  //      fall through to "first org"; we return 404.
+  const providedSecret = req.headers.get("x-intake-secret") ?? "";
+  const providedOrgId = (req.headers.get("x-org-id") ?? "").trim();
+
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+
+  let orgId: string | null = null;
+
+  if (providedOrgId) {
+    // Path (1): per-org secret lookup. Uses `verify_org_intake_secret` RPC
+    // which does a constant-time compare against the hashed secret so we
+    // never leak whether the org exists.
+    if (!providedSecret) {
+      return json(404, { error: "Not found" });
+    }
+    const { data: verified, error: verErr } = await admin.rpc("verify_org_intake_secret", {
+      _org_id: providedOrgId,
+      _secret: providedSecret,
+    });
+    if (verErr) {
+      console.error("verify_org_intake_secret failed", verErr);
+      return json(500, { error: "Auth check failed" });
+    }
+    if (verified === true) {
+      orgId = providedOrgId;
+    } else {
+      console.warn("po-intake per-org secret mismatch", { providedOrgId });
+      return json(404, { error: "Not found" });
+    }
+  } else {
+    // Path (2): legacy global secret + explicit default-org env var.
+    const legacySecret = Deno.env.get("PO_INTAKE_SECRET");
+    const legacyOrgId = Deno.env.get("PO_INTAKE_DEFAULT_ORG_ID");
+    if (!legacySecret || !legacyOrgId) {
+      // Never fall through to a table lookup — that's how you attribute
+      // subscriber A's PO to subscriber B.
+      return json(404, { error: "Not found" });
+    }
+    if (providedSecret !== legacySecret) {
+      return json(404, { error: "Not found" });
+    }
+    // Guard: make sure the configured default actually exists.
+    const { data: orgRow } = await admin
+      .from("organisations")
+      .select("id")
+      .eq("id", legacyOrgId)
+      .maybeSingle();
+    if (!orgRow) {
+      console.error("PO_INTAKE_DEFAULT_ORG_ID points at a non-existent org", { legacyOrgId });
+      return json(500, { error: "Server misconfigured" });
+    }
+    orgId = orgRow.id;
   }
 
   let body: IntakePayload;
@@ -68,22 +131,22 @@ serve(async (req) => {
     email_body = "",
   } = body || {};
 
-  const admin = createClient(
-    Deno.env.get("SUPABASE_URL")!,
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    { auth: { autoRefreshToken: false, persistSession: false } },
-  );
+  // NOTE: the `admin` client and `orgId` were resolved above during auth.
+  // Do NOT re-derive org from any other source below this line.
 
-  // ---------- Resolve customer (case-insensitive fuzzy match) ----------
+
+  // ---------- Resolve customer within THIS org ----------
   let customerId: string | null = null;
   let resolvedCustomerName: string | null =
     (customer_name || "").trim() || null;
 
   if (resolvedCustomerName) {
-    // Exact case-insensitive match first
+    // Exact case-insensitive match, scoped to the caller's org so we can't
+    // accidentally link to another subscriber's customer of the same name.
     const exact = await admin
       .from("customers")
       .select("id, name")
+      .eq("org_id", orgId)
       .ilike("name", resolvedCustomerName)
       .limit(1)
       .maybeSingle();
@@ -91,28 +154,12 @@ serve(async (req) => {
     if (exact.data) {
       customerId = exact.data.id;
       resolvedCustomerName = exact.data.name;
-    } else {
-      // Fuzzy match via trigram similarity RPC already in this project
-      const { data: fuzzy } = await admin.rpc("find_similar_customer", {
-        _name: resolvedCustomerName,
-        _threshold: 0.6,
-      });
-      const first = Array.isArray(fuzzy) ? fuzzy[0] : fuzzy;
-      if (first?.id) {
-        customerId = first.id;
-        resolvedCustomerName = first.name;
-      }
     }
+    // NOTE: `find_similar_customer` isn't org-scoped, so we deliberately
+    // skip it here; a same-name fuzzy match across orgs would leak a
+    // customer_id into the wrong org. The approver can pick / create the
+    // right customer when reviewing the pending job.
   }
-
-  // ---------- Pick the org (single-tenant deployment today) ----------
-  const { data: org } = await admin
-    .from("organisations")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  const orgId = org?.id ?? null;
 
   // ---------- Compose the job row ----------
   const name = (job_description || email_subject || po_number || "Email PO").slice(0, 200);

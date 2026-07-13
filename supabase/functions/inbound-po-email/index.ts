@@ -624,6 +624,7 @@ serve(async (req) => {
       source: "email_po",
       file_name: u.label,
       file_url: signed?.signedUrl ?? u.path,
+      org_id: orgId,
     } as any);
     if (docErr) console.error("job_documents insert failed", u.path, docErr);
     else uploadedCount++;

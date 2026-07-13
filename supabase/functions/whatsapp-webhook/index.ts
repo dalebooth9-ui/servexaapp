@@ -105,7 +105,28 @@ Deno.serve(async (req) => {
     }
 
     const engineerId = profile.user_id;
-    console.log(`[profile-lookup] resolved engineerId=${engineerId} for from=${from}`);
+
+    // ── Resolve engineer's org ─────────────────────────────────────
+    // ALL writes below MUST be stamped with this org_id. The affected tables
+    // (submissions, pending_whatsapp_scans, job_activity_log, notifications)
+    // have `NOT NULL DEFAULT '11111111-...'` on org_id — so any insert that
+    // omits org_id silently attributes the row to Viva Fire. That's fine
+    // today (Viva is single-tenant), but it's a cross-tenant leak the moment
+    // a second org's engineer WhatsApps us. We derive org from an authoritative
+    // source (organisation_members) rather than trusting profile.org_id, which
+    // is only a denormalised copy.
+    const { data: memberRow } = await supabase
+      .from("organisation_members")
+      .select("org_id")
+      .eq("user_id", engineerId)
+      .eq("status", "active")
+      .maybeSingle();
+    const engineerOrgId: string | null = memberRow?.org_id ?? null;
+    if (!engineerOrgId) {
+      console.warn(`[profile-lookup] engineer ${engineerId} has no active org membership — dropping message to avoid mis-attribution`);
+      return twimlResponse();
+    }
+    console.log(`[profile-lookup] resolved engineerId=${engineerId} orgId=${engineerOrgId} for from=${from}`);
     const twilioSender = { accountSid: TWILIO_ACCOUNT_SID, authToken: TWILIO_AUTH_TOKEN, fromNumber: TWILIO_WHATSAPP_NUMBER };
 
     // ── Idempotency guard ────────────────────────────────────────
@@ -139,6 +160,7 @@ Deno.serve(async (req) => {
           longitude: parseFloat(longitude),
           content: messageBody || null,
           whatsapp_message_id: messageSid,
+          org_id: engineerOrgId,
         });
       }
       return twimlResponse();
@@ -318,6 +340,7 @@ Deno.serve(async (req) => {
             ocr_path: ocrPath,
             ocr_confidence: ocrConfidence,
             status: "pending",
+            org_id: engineerOrgId,
           });
 
           if (insertError) {
@@ -489,6 +512,7 @@ Deno.serve(async (req) => {
           file_name: friendlyName,
           whatsapp_message_id: messageSid,
           content: messageBody || null,
+          org_id: engineerOrgId,
         });
         savedCount++;
         savedPaths.push(storagePath);
@@ -513,6 +537,7 @@ Deno.serve(async (req) => {
             engineer_id: engineerId,
             type: "note",
             content: `Job context set: ${messageBody.slice(0, 200)} (via captioned photo)`,
+            org_id: engineerOrgId,
           });
           console.log(`[sticky-context] set from captioned media → job ${jobId}`);
         }
@@ -592,6 +617,7 @@ Deno.serve(async (req) => {
               type: "note",
               content: `Job context set: ${prefixRaw} (via combined command)`,
               whatsapp_message_id: messageSid,
+              org_id: engineerOrgId,
             });
             console.log(`[combined-cmd] resolved job ${comboJob.reference_number} (${comboJob.id}) → running ${cmd}`);
 
@@ -770,6 +796,7 @@ Deno.serve(async (req) => {
           type: "note",
           content: `Job context set: ${trimmed}`,
           whatsapp_message_id: messageSid,
+          org_id: engineerOrgId,
         });
         await sendWhatsApp(twilioSender, from,
           `✅ Job set: *${job.reference_number}* — ${job.name}\n\nType *info* for details, *photos* for images, or *help* for all commands.`
@@ -801,6 +828,7 @@ Deno.serve(async (req) => {
           type: "note",
           content: messageBody,
           whatsapp_message_id: messageSid,
+          org_id: engineerOrgId,
         });
       } else {
         console.log(`No active job for engineer ${engineerId}`);

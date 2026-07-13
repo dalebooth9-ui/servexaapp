@@ -4377,6 +4377,51 @@ export type Database = {
           },
         ]
       }
+      org_intake_secrets: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string | null
+          last_used_at: string | null
+          org_id: string
+          secret_hash: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          last_used_at?: string | null
+          org_id: string
+          secret_hash: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string | null
+          last_used_at?: string | null
+          org_id?: string
+          secret_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "org_intake_secrets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "org_intake_secrets_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations_safe"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organisation_billing: {
         Row: {
           created_at: string
@@ -6397,6 +6442,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_org_intake_secret: {
+        Args: { _label: string; _org_id: string; _secret: string }
+        Returns: string
+      }
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
@@ -6535,6 +6584,10 @@ export type Database = {
         Returns: boolean
       }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
+      verify_org_intake_secret: {
+        Args: { _org_id: string; _secret: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "engineer"

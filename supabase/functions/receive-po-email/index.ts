@@ -90,11 +90,16 @@ serve(async (req) => {
   }
 
   try {
-    // ---------- Auth: shared secret ----------
+    // ---------- Auth: shared secret + explicit target org ----------
+    // Same rule as po-intake: never fall back to "first org in the table".
+    // The caller must be attributable to a specific org via the
+    // PO_INTAKE_DEFAULT_ORG_ID env var (set to the org whose Make.com pipe
+    // points at this endpoint). If it's not set, refuse.
     const expectedSecret = Deno.env.get("PO_INTAKE_SECRET");
-    if (!expectedSecret) {
-      console.error("PO_INTAKE_SECRET is not configured");
-      return json(500, { error: "Server not configured" });
+    const defaultOrgId = Deno.env.get("PO_INTAKE_DEFAULT_ORG_ID");
+    if (!expectedSecret || !defaultOrgId) {
+      console.error("PO_INTAKE_SECRET or PO_INTAKE_DEFAULT_ORG_ID not configured");
+      return json(404, { error: "Not found" });
     }
     const providedSecret = req.headers.get("x-po-intake-secret");
     if (providedSecret !== expectedSecret) {
@@ -102,6 +107,7 @@ serve(async (req) => {
       // to anyone probing without the secret.
       return json(404, { error: "Not found" });
     }
+    const orgId = defaultOrgId;
 
     // ---------- Parse body ----------
     let payload: any;
@@ -213,6 +219,7 @@ serve(async (req) => {
       const { data: matched } = await admin
         .from("customers")
         .select("id, name")
+        .eq("org_id", orgId)
         .ilike("name", customerName)
         .limit(1)
         .maybeSingle();
@@ -223,7 +230,7 @@ serve(async (req) => {
       } else {
         const { data: newCust, error: custErr } = await admin
           .from("customers")
-          .insert({ name: customerName } as any)
+          .insert({ name: customerName, org_id: orgId } as any)
           .select("id, name")
           .single();
         if (custErr) {
@@ -272,6 +279,7 @@ serve(async (req) => {
 
     const jobInsert: Record<string, unknown> = {
       name: safeName,
+      org_id: orgId,
       customer_id: customerId,
       customer: customerName,
       address: (extracted.address || "").trim() || null,
