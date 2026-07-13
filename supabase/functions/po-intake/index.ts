@@ -137,16 +137,21 @@ serve(async (req) => {
     { auth: { autoRefreshToken: false, persistSession: false } },
   );
 
-  // ---------- Resolve customer (case-insensitive fuzzy match) ----------
+  // NOTE: the `admin` client and `orgId` were resolved above during auth.
+  // Do NOT re-derive org from any other source below this line.
+
+  // ---------- Resolve customer within THIS org ----------
   let customerId: string | null = null;
   let resolvedCustomerName: string | null =
     (customer_name || "").trim() || null;
 
   if (resolvedCustomerName) {
-    // Exact case-insensitive match first
+    // Exact case-insensitive match, scoped to the caller's org so we can't
+    // accidentally link to another subscriber's customer of the same name.
     const exact = await admin
       .from("customers")
       .select("id, name")
+      .eq("org_id", orgId)
       .ilike("name", resolvedCustomerName)
       .limit(1)
       .maybeSingle();
@@ -154,28 +159,12 @@ serve(async (req) => {
     if (exact.data) {
       customerId = exact.data.id;
       resolvedCustomerName = exact.data.name;
-    } else {
-      // Fuzzy match via trigram similarity RPC already in this project
-      const { data: fuzzy } = await admin.rpc("find_similar_customer", {
-        _name: resolvedCustomerName,
-        _threshold: 0.6,
-      });
-      const first = Array.isArray(fuzzy) ? fuzzy[0] : fuzzy;
-      if (first?.id) {
-        customerId = first.id;
-        resolvedCustomerName = first.name;
-      }
     }
+    // NOTE: `find_similar_customer` isn't org-scoped, so we deliberately
+    // skip it here; a same-name fuzzy match across orgs would leak a
+    // customer_id into the wrong org. The approver can pick / create the
+    // right customer when reviewing the pending job.
   }
-
-  // ---------- Pick the org (single-tenant deployment today) ----------
-  const { data: org } = await admin
-    .from("organisations")
-    .select("id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-  const orgId = org?.id ?? null;
 
   // ---------- Compose the job row ----------
   const name = (job_description || email_subject || po_number || "Email PO").slice(0, 200);
