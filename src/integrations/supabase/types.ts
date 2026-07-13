@@ -5935,6 +5935,7 @@ export type Database = {
           reviewed_by: string | null
           status: string
           submitted_at: string | null
+          vehicle_id: string | null
           vehicle_reg: string | null
         }
         Insert: {
@@ -5954,6 +5955,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           submitted_at?: string | null
+          vehicle_id?: string | null
           vehicle_reg?: string | null
         }
         Update: {
@@ -5973,6 +5975,7 @@ export type Database = {
           reviewed_by?: string | null
           status?: string
           submitted_at?: string | null
+          vehicle_id?: string | null
           vehicle_reg?: string | null
         }
         Relationships: [
@@ -5990,7 +5993,56 @@ export type Database = {
             referencedRelation: "organisations_safe"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "vehicle_checks_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      vehicles: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          default_engineer_id: string | null
+          id: string
+          label: string | null
+          make: string | null
+          model: string | null
+          org_id: string
+          registration: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          default_engineer_id?: string | null
+          id?: string
+          label?: string | null
+          make?: string | null
+          model?: string | null
+          org_id?: string
+          registration: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          default_engineer_id?: string | null
+          id?: string
+          label?: string | null
+          make?: string | null
+          model?: string | null
+          org_id?: string
+          registration?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       xero_connections: {
         Row: {
