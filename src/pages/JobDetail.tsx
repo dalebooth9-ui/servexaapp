@@ -1050,6 +1050,15 @@ export default function JobDetail() {
       )}
 
       {activeTab === "signoff" && (<>
+      <JobCompleteAction
+        jobId={id!}
+        jobStatus={job.status}
+        jobRef={job.reference_number}
+        isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+        variant="banner"
+        className="mb-4"
+        onCompleted={fetchData}
+      />
       <Collapsible defaultOpen className="mb-6" id="sign-off-signatures-section">
         <CollapsibleTrigger className="flex w-full items-center justify-between rounded-lg bg-card border px-4 py-3 text-left font-semibold hover:bg-muted transition-colors">
           Engineer & Customer Sign-Off Signatures
