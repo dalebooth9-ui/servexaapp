@@ -439,16 +439,39 @@ serve(async (req) => {
     return okSilently();
   }
 
-  // Parse full email directly from webhook — no Resend API call.
-  const email = parseWebhookPayload(payload);
-  console.log("Parsed inbound webhook", {
+  // Webhook is metadata-only — fetch full email + attachments from Resend API.
+  const receivingKey = Deno.env.get("RESEND_RECEIVING_API_KEY");
+  if (!receivingKey) {
+    console.error(
+      "RESEND_RECEIVING_API_KEY is missing — add a full-access Resend API key under this exact secret name to fetch inbound email content.",
+    );
+    return json(500, { error: "Server not configured: RESEND_RECEIVING_API_KEY" });
+  }
+  const emailId: string | undefined =
+    payload?.data?.email_id ?? payload?.data?.id ?? payload?.email_id ?? payload?.id;
+  if (!emailId) {
+    console.error("Webhook payload missing data.email_id", { keys: Object.keys(payload?.data ?? {}) });
+    return json(400, { error: "Missing email_id" });
+  }
+
+  let email: InboundEmail;
+  try {
+    email = await fetchInboundFromResend(emailId, receivingKey);
+  } catch (e) {
+    console.error("Resend fetch failed", e);
+    return json(502, { error: "Resend fetch failed" });
+  }
+  console.log("Fetched inbound email from Resend API", {
+    emailId,
     from: email.from,
     subject: email.subject,
     to: email.to,
+    bodyTextLength: email.text.length,
+    bodyHtmlLength: email.html.length,
     attachmentCount: email.attachments.length,
     attachmentNames: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
-    payloadAttachmentsPresent: Array.isArray(payload?.data?.attachments) ? payload.data.attachments.length : "n/a",
   });
+
 
   const admin = createClient(
     Deno.env.get("SUPABASE_URL")!,
