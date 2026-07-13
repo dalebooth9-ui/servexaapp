@@ -29,6 +29,10 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import AdhocEntryCard from "./AdhocEntryCard";
+import CompactVisitRow from "./CompactVisitRow";
+import DayPanel from "./DayPanel";
+import BulkAssignBar from "./BulkAssignBar";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { AdhocEntry } from "@/pages/WeeklyPlanner";
 
 interface ScheduleEntry {
@@ -91,13 +95,20 @@ function extractPostcodeArea(job: Job): string {
 function DraggableUnallocatedJob({
   job,
   onMultiDay,
+  selectable,
+  selected,
+  onToggleSelect,
 }: {
   job: Job;
   onMultiDay: (job: Job) => void;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (jobId: string) => void;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `unalloc-${job.id}`,
     data: { type: "unallocated", job },
+    disabled: selectable, // no drag while in bulk-select mode
   });
 
   const isOverdue = job.due_date && isPast(startOfDay(parseISO(job.due_date))) && !isSameDay(parseISO(job.due_date), new Date());
@@ -108,10 +119,17 @@ function DraggableUnallocatedJob({
       className={cn(
         "group relative rounded-md border-l-4 bg-card p-2 text-xs shadow-sm hover:shadow transition-shadow select-none",
         isOverdue ? "border-l-destructive bg-destructive/10 ring-2 ring-destructive/50" : isDueToday ? "border-l-amber-500 bg-amber-500/5 ring-1 ring-amber-500/40" : PRIORITY_BG[job.priority] || "border-l-muted",
-        isDragging && "opacity-30"
+        isDragging && "opacity-30",
+        selectable && selected && "ring-2 ring-primary"
       )}
       style={{ WebkitUserSelect: "none", userSelect: "none" } as React.CSSProperties}
+      onClick={selectable ? () => onToggleSelect?.(job.id) : undefined}
     >
+      {selectable && (
+        <div className="absolute top-1.5 left-1.5 z-20 bg-card rounded p-0.5">
+          <Checkbox checked={!!selected} onCheckedChange={() => onToggleSelect?.(job.id)} />
+        </div>
+      )}
       <div
         ref={setNodeRef}
         {...attributes}
@@ -581,6 +599,7 @@ export default function WeeklyGridView({
   onMultiDaySchedule,
   onEngineerReorder,
   onResizeSpan,
+  onBulkAssign,
 }: {
   weekDays: Date[];
   engineers: Engineer[];
@@ -597,12 +616,36 @@ export default function WeeklyGridView({
   onMultiDaySchedule: (job: Job) => void;
   onEngineerReorder: (newOrder: string[]) => void;
   onResizeSpan?: (jobId: string, engineerId: string, existingEntries: ScheduleEntry[], newDates: string[]) => Promise<void>;
+  onBulkAssign?: (jobIds: string[], engineerId: string, date: string) => Promise<void>;
 }) {
   const [activeItem, setActiveItem] = useState<any>(null);
   const [overId, setOverId] = useState<string | null>(null);
   const [sidebarMode, setSidebarMode] = useState<"unallocated" | "all">("unallocated");
   const [leaveMap, setLeaveMap] = useState<Map<string, string[]>>(new Map());
   const [bankHolidayDates, setBankHolidayDates] = useState<Set<string>>(new Set());
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedJobIds, setSelectedJobIds] = useState<Set<string>>(new Set());
+  const [dayPanel, setDayPanel] = useState<{ engineerId: string; engineerName: string; date: string } | null>(null);
+
+  const toggleSelect = (jobId: string) => {
+    setSelectedJobIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(jobId)) next.delete(jobId); else next.add(jobId);
+      return next;
+    });
+  };
+
+  // Listen for cell requests to open the day panel
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail?.engineerId && detail?.date) {
+        setDayPanel({ engineerId: detail.engineerId, engineerName: detail.engineerName || "", date: detail.date });
+      }
+    };
+    window.addEventListener("planner:open-day-panel", handler as EventListener);
+    return () => window.removeEventListener("planner:open-day-panel", handler as EventListener);
+  }, []);
 
   // Custom collision detection: when dragging an engineer-pair, prefer eng-drop- droppables over sortable rows
   const collisionDetection: CollisionDetection = (args) => {
@@ -817,7 +860,27 @@ export default function WeeklyGridView({
         {isAdmin && (
           <div className="w-[220px] shrink-0">
             <DroppableUnallocatedZone>
-              <h3 className="mb-2 text-sm font-semibold">Job Pool</h3>
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold">Job Pool</h3>
+                {onBulkAssign && (
+                  <button
+                    className={cn(
+                      "text-[10px] rounded px-1.5 py-0.5 font-medium transition-colors border",
+                      selectMode
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted hover:bg-muted/80 border-border"
+                    )}
+                    onClick={() => {
+                      setSelectMode((s) => {
+                        if (s) setSelectedJobIds(new Set());
+                        return !s;
+                      });
+                    }}
+                  >
+                    {selectMode ? "Done" : "Select"}
+                  </button>
+                )}
+              </div>
               <div className="flex gap-1 mb-2">
                 <button
                   className={cn(
@@ -868,6 +931,9 @@ export default function WeeklyGridView({
                                   key={job.id}
                                   job={job}
                                   onMultiDay={onMultiDaySchedule}
+                                  selectable={selectMode}
+                                  selected={selectedJobIds.has(job.id)}
+                                  onToggleSelect={toggleSelect}
                                 />
                               ))}
                             </div>
@@ -893,6 +959,9 @@ export default function WeeklyGridView({
                               key={`unalloc-${job.id}`}
                               job={job}
                               onMultiDay={onMultiDaySchedule}
+                              selectable={selectMode}
+                              selected={selectedJobIds.has(job.id)}
+                              onToggleSelect={toggleSelect}
                             />
                           ))}
                         </div>
@@ -940,6 +1009,20 @@ export default function WeeklyGridView({
                 )}
                 <ScrollBar orientation="vertical" />
               </ScrollArea>
+              {selectMode && onBulkAssign && (
+                <BulkAssignBar
+                  count={selectedJobIds.size}
+                  engineers={engineers}
+                  defaultDate={format(weekDays[0], "yyyy-MM-dd")}
+                  onAssign={async (engineerId, date) => {
+                    const ids = Array.from(selectedJobIds);
+                    await onBulkAssign(ids, engineerId, date);
+                    setSelectedJobIds(new Set());
+                    setSelectMode(false);
+                  }}
+                  onClear={() => setSelectedJobIds(new Set())}
+                />
+              )}
             </DroppableUnallocatedZone>
           </div>
         )}
@@ -1036,8 +1119,25 @@ export default function WeeklyGridView({
           </div>
         )}
       </DragOverlay>
+      {dayPanel && (
+        <DayPanel
+          open={!!dayPanel}
+          onOpenChange={(v) => { if (!v) setDayPanel(null); }}
+          engineerId={dayPanel.engineerId}
+          engineerName={dayPanel.engineerName}
+          date={dayPanel.date}
+          onRemove={onRemove}
+        />
+      )}
     </DndContext>
   );
+}
+
+// Global exposed opener so cells can trigger the panel via a lightweight event.
+// (Kept as a module-level bus to avoid threading callbacks through every SortableEngineerRow prop.)
+const openDayPanelEvent = "planner:open-day-panel";
+export function dispatchOpenDayPanel(detail: { engineerId: string; engineerName: string; date: string }) {
+  window.dispatchEvent(new CustomEvent(openDayPanelEvent, { detail }));
 }
 
 // Compute multi-day spans for a set of schedule entries within the visible weekDays

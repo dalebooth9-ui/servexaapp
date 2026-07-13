@@ -51,8 +51,9 @@ export default function AdminDashboard() {
         supabase.from("jobs").select("id", { count: "exact", head: true }),
         supabase.from("submissions").select("type"),
         supabase.from("submissions").select("*, jobs(name, reference_number)").order("created_at", { ascending: false }).limit(5),
-        supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").gte("updated_at", startOfMonth),
-        supabase.from("jobs").select("id, status, created_at, updated_at").gte("created_at", fourWeeksAgo),
+        // Canonical: use completed_at. Fall back to updated_at for legacy rows without completed_at set.
+        supabase.from("jobs").select("id", { count: "exact", head: true }).eq("status", "completed").or(`completed_at.gte.${startOfMonth},and(completed_at.is.null,updated_at.gte.${startOfMonth})`),
+        supabase.from("jobs").select("id, status, created_at, updated_at, completed_at").gte("created_at", fourWeeksAgo),
         supabase.from("invoices").select("total, status").gte("created_at", startOfMonth),
         supabase.from("job_assignments").select("engineer_id").gte("assigned_at", startOfMonth),
       ]);
@@ -84,9 +85,10 @@ export default function AdminDashboard() {
         const weekStart = new Date(now.getTime() - (i + 1) * 7 * 24 * 60 * 60 * 1000);
         const weekEnd = new Date(now.getTime() - i * 7 * 24 * 60 * 60 * 1000);
         const label = `W${4 - i}`;
+        const completedDate = (j: any) => new Date(j.completed_at ?? j.updated_at);
         weeks.push({
           name: label,
-          completed: allJobs.filter((j) => j.status === "completed" && new Date(j.updated_at) >= weekStart && new Date(j.updated_at) < weekEnd).length,
+          completed: allJobs.filter((j) => j.status === "completed" && completedDate(j) >= weekStart && completedDate(j) < weekEnd).length,
           created: allJobs.filter((j) => new Date(j.created_at) >= weekStart && new Date(j.created_at) < weekEnd).length,
         });
       }

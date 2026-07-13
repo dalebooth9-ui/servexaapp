@@ -3459,6 +3459,7 @@ export type Database = {
           notes_color: string | null
           org_id: string
           schedule_date: string
+          sort_order: number | null
           updated_at: string
         }
         Insert: {
@@ -3475,6 +3476,7 @@ export type Database = {
           notes_color?: string | null
           org_id?: string
           schedule_date: string
+          sort_order?: number | null
           updated_at?: string
         }
         Update: {
@@ -3491,6 +3493,7 @@ export type Database = {
           notes_color?: string | null
           org_id?: string
           schedule_date?: string
+          sort_order?: number | null
           updated_at?: string
         }
         Relationships: [
