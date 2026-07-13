@@ -274,7 +274,10 @@ interface Extracted {
   priority?: string;
   po_value?: number | string | null;
   currency?: string;
+  quote_reference?: string;   // e.g. "QUO-0042"
+  job_reference?: string;     // e.g. "VFP-00132" or "TM-…"
 }
+
 
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -300,17 +303,19 @@ CRITICAL RULES for customer_name (READ CAREFULLY):
     4. The original sender's email domain (below the forward header)
 - If you cannot confidently identify a customer that is NOT ${owned} and NOT the forwarder, return "" for customer_name — do NOT guess.
 
-The attachment (if a PDF or image is provided) is the PRIMARY source; the email body is secondary context.
+The attachment (if a PDF or image is provided) is the PRIMARY source; otherwise mine the ENTIRE email body — including any quoted / forwarded thread beneath the latest reply. A common case is a one-line reply like "PO 4512, please go ahead" on top of a long quoted chain that contains all the real detail (customer, site, scope, dates). Read the whole thread.
 
-Return a SINGLE JSON object with exactly these fields (use "" or null when unknown):
+Return a SINGLE JSON object with exactly these fields (use "" or null when unknown — never guess):
 - customer_name
 - site_address: the site / delivery / work address
-- po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
+- po_number: the customer's purchase order reference (look for "PO", "PO#", "Order No", "Ref")
 - job_description: full description of the work or goods ordered (be thorough — include scope, quantities, item lists)
 - due_date: required completion date in YYYY-MM-DD, or ""
 - priority: "high", "medium" or "low" (default "medium")
 - po_value: total order value as a NUMBER (strip currency symbols), or null
 - currency: ISO code ("GBP", "USD", "EUR") inferred from £/$/€ or explicit text, or ""
+- quote_reference: OUR quote reference if the thread mentions one (format "QUO-" followed by digits, e.g. "QUO-0042"), else ""
+- job_reference: OUR job reference if the thread mentions one (format "VFP-" or "TM-" followed by digits, e.g. "VFP-00132"), else ""
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 }
@@ -320,18 +325,21 @@ async function extractPO(
   ownOrgName: string,
   apiKey: string,
 ): Promise<Extracted> {
-  const { forwardedFrom, body: forwardedBody } = extractForwardedBody(
-    email.text || stripHtml(email.html),
-  );
+  const rawBody = (email.text && email.text.trim()) || stripHtml(email.html);
+  const { forwardedFrom } = extractForwardedBody(rawBody);
 
+  // Send the WHOLE body (latest reply + quoted chain) — the PO detail is
+  // often only in the quoted thread beneath a one-line reply.
   const contextLines = [
     `Forwarder (INTERNAL — NOT the customer): ${email.from}`,
     `Receiving contractor (NOT the customer): ${ownOrgName || "(unknown)"}`,
     forwardedFrom ? `Original sender (below forward header): ${forwardedFrom}` : null,
     `Subject: ${email.subject}`,
     "",
-    forwardedBody || "(no body)",
-  ].filter(Boolean).join("\n").slice(0, 20000);
+    "--- Full email body (includes quoted / forwarded thread) ---",
+    rawBody || "(no body)",
+  ].filter(Boolean).join("\n").slice(0, 30000);
+
 
   const content: any[] = [{ type: "text", text: contextLines }];
 
@@ -529,6 +537,75 @@ serve(async (req) => {
   const apiKey = Deno.env.get("LOVABLE_API_KEY");
   const extracted: Extracted = apiKey ? await extractPO(email, ownOrgName, apiKey) : {};
 
+  // ── Regex fallback for OUR references (in case the model missed them) ─
+  const rawBodyAll = `${email.subject}\n${email.text || ""}\n${stripHtml(email.html)}`;
+  const quoteRefRe = /\bQUO-\d{3,6}\b/i;
+  const jobRefRe = /\b(?:VFP|TM)-\d{3,6}\b/i;
+  const quoteRef = (extracted.quote_reference || "").trim().toUpperCase()
+    || (rawBodyAll.match(quoteRefRe)?.[0]?.toUpperCase() ?? "");
+  const jobRef = (extracted.job_reference || "").trim().toUpperCase()
+    || (rawBodyAll.match(jobRefRe)?.[0]?.toUpperCase() ?? "");
+
+  // ── If a quote reference is found, prefill from that quote ────────────
+  const provenance: string[] = [];
+  let quotePrefill: {
+    customer_name?: string | null;
+    customer_id?: string | null;
+    address?: string | null;
+    description?: string | null;
+  } = {};
+  let matchedQuoteRef: string | null = null;
+  if (quoteRef) {
+    const { data: q } = await admin
+      .from("invoices")
+      .select("id, invoice_number, customer_name, customer_address, notes, job_id, document_type")
+      .eq("org_id", orgId)
+      .ilike("invoice_number", quoteRef)
+      .eq("document_type", "quote")
+      .maybeSingle();
+    if (q) {
+      matchedQuoteRef = q.invoice_number;
+      quotePrefill = {
+        customer_name: q.customer_name || null,
+        address: q.customer_address || null,
+        description: q.notes || null,
+      };
+      // Try to link the customer_id via the quote's linked job
+      if (q.job_id) {
+        const { data: linkedJob } = await admin
+          .from("jobs")
+          .select("customer_id, customer, address")
+          .eq("id", q.job_id)
+          .maybeSingle();
+        if (linkedJob) {
+          quotePrefill.customer_id = linkedJob.customer_id ?? null;
+          quotePrefill.customer_name = quotePrefill.customer_name || linkedJob.customer || null;
+          quotePrefill.address = quotePrefill.address || linkedJob.address || null;
+        }
+      }
+      provenance.push(`Matched quote ${matchedQuoteRef} — customer/site/scope prefilled from that quote.`);
+    } else {
+      provenance.push(`Quote reference ${quoteRef} mentioned in email, but no matching quote found in this org.`);
+    }
+  }
+
+  // ── If a job reference is found, flag possible relation ──────────────
+  let relatedJobRef: string | null = null;
+  if (jobRef) {
+    const { data: existingJob } = await admin
+      .from("jobs")
+      .select("id, reference_number")
+      .eq("org_id", orgId)
+      .eq("reference_number", jobRef)
+      .maybeSingle();
+    if (existingJob) {
+      relatedJobRef = existingJob.reference_number;
+      provenance.push(`Email references existing job ${relatedJobRef} — approver should decide whether to merge or keep separate.`);
+    } else {
+      provenance.push(`Job reference ${jobRef} mentioned in email, but no matching job found in this org.`);
+    }
+  }
+
   // Post-filter: strip customer if it looks like ourselves or the forwarder.
   let extractedCustomer = (extracted.customer_name || "").trim();
   if (extractedCustomer) {
@@ -541,35 +618,42 @@ serve(async (req) => {
     }
   }
 
-  // Only match/create a customer when we have a valid, non-own-org name.
-  let customerId: string | null = null;
-  let customerName: string | null = extractedCustomer || null;
-  if (customerName) {
+  // Prefer extracted customer; fall back to quote prefill.
+  const effectiveCustomerName = extractedCustomer || (quotePrefill.customer_name ?? "");
+
+  // Match/create a customer when we have a valid, non-own-org name.
+  let customerId: string | null = quotePrefill.customer_id ?? null;
+  let customerName: string | null = effectiveCustomerName || null;
+  if (effectiveCustomerName && !customerId) {
     const { data: match } = await admin
       .from("customers")
       .select("id, name")
       .eq("org_id", orgId)
-      .ilike("name", customerName)
+      .ilike("name", effectiveCustomerName)
       .limit(1)
       .maybeSingle();
     if (match) {
       customerId = match.id;
       customerName = match.name;
-    } else {
+    } else if (extractedCustomer) {
+      // Only auto-create when the AI actually extracted a customer (don't
+      // silently create from a quote prefill that failed to match).
       const { data: newCust } = await admin
         .from("customers")
-        .insert({ name: customerName, org_id: orgId } as any)
+        .insert({ name: extractedCustomer, org_id: orgId } as any)
         .select("id, name")
         .single();
       if (newCust) { customerId = newCust.id; customerName = newCust.name; }
     }
   }
 
+
   const priority = ["high", "medium", "low"].includes(extracted.priority ?? "") ? extracted.priority! : "medium";
 
   const poNum = (extracted.po_number || "").trim();
   const custForName = (customerName || "").trim();
-  const desc = (extracted.job_description || "").trim();
+  const desc = (extracted.job_description || "").trim() || (quotePrefill.description ?? "").trim();
+  const siteAddress = (extracted.site_address || "").trim() || (quotePrefill.address ?? "").trim();
   let jobName: string;
   if (poNum && custForName) jobName = `PO ${poNum} — ${custForName}`;
   else if (poNum) jobName = `PO ${poNum}`;
@@ -597,6 +681,13 @@ serve(async (req) => {
   briefParts.push(`Original subject: ${email.subject}`);
   if (poNum) briefParts.push(`PO number: ${poNum}`);
   if (poValueNum != null) briefParts.push(`PO value: ${currency ? currency + " " : ""}${poValueNum.toFixed(2)}`);
+  if (matchedQuoteRef) briefParts.push(`Related quote: ${matchedQuoteRef}`);
+  if (relatedJobRef) briefParts.push(`Possibly related job: ${relatedJobRef}`);
+  if (provenance.length) {
+    briefParts.push("");
+    briefParts.push("--- Source / provenance ---");
+    for (const p of provenance) briefParts.push(`• ${p}`);
+  }
   briefParts.push("");
   if (desc) briefParts.push(desc);
   if (forwardedBody) briefParts.push("", "--- Email body ---", forwardedBody.slice(0, 4000));
@@ -607,7 +698,7 @@ serve(async (req) => {
     org_id: orgId,
     customer_id: customerId,
     customer: customerName,
-    address: (extracted.site_address || "").trim() || null,
+    address: siteAddress || null,
     priority,
     category: "general",
     due_date: extracted.due_date && /^\d{4}-\d{2}-\d{2}$/.test(extracted.due_date) ? extracted.due_date : null,
@@ -615,6 +706,7 @@ serve(async (req) => {
     source: "email_po",
     brief: briefParts.join("\n").trim() || null,
   };
+
 
   const { data: newJob, error: jobErr } = await admin
     .from("jobs")
