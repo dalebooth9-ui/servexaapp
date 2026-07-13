@@ -284,6 +284,7 @@ export default function SettingsPage() {
 
         <TabsContent value="email" className="space-y-6 mt-0">
           <PoIntakeEmailCard />
+          <EmailBrandingSettings />
           <EmailFromSettings />
           <FollowUpReminderSettings />
           <ComplianceReminderSettings />
