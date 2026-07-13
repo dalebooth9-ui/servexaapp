@@ -331,13 +331,19 @@ export default function CustomerDetail() {
   };
 
   const fetchJobs = useCallback(async (customerName: string) => {
+    // Match by customer_id (canonical link) OR the legacy customer text field,
+    // so completed jobs linked via customer_id still show up in the history.
+    const orClause = id
+      ? `customer_id.eq.${id},customer.eq.${customerName}`
+      : `customer.eq.${customerName}`;
     const { data } = await supabase
       .from("jobs")
       .select("*")
-      .eq("customer", customerName)
+      .or(orClause)
       .order("created_at", { ascending: false });
     setJobs((data as Job[]) || []);
-  }, []);
+  }, [id]);
+
 
   useEffect(() => {
     if (!id) return;
