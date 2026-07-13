@@ -243,16 +243,32 @@ export default function SignatureCapture({
       {/* Capture pad */}
       {drawing ? (
         <div className="space-y-3">
-          {signerRole === "customer" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="customer-sig-name" className="text-xs">Customer name</Label>
-              <Input
-                id="customer-sig-name"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Full name of person signing"
-              />
+          {signerRole === "customer" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-sig-name" className="text-xs">Print name <span className="text-destructive">*</span></Label>
+                <Input
+                  id="customer-sig-name"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Full name of person signing"
+                  required
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="customer-sig-position" className="text-xs">Position / role <span className="text-muted-foreground">(optional)</span></Label>
+                <Input
+                  id="customer-sig-position"
+                  value={customerPosition}
+                  onChange={(e) => setCustomerPosition(e.target.value)}
+                  placeholder="e.g. Site Manager, Caretaker"
+                />
+              </div>
             </div>
+          ) : (
+            engineerName && (
+              <p className="text-xs text-muted-foreground">Signing as <span className="font-medium text-foreground">{engineerName}</span></p>
+            )
           )}
           <div className="rounded-lg border-2 border-dashed border-muted-foreground/30 bg-background overflow-hidden">
             <canvas
