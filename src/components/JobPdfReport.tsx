@@ -880,36 +880,76 @@ export default function JobPdfReport({ jobId, job }: Props) {
         y += 6;
       }
 
-      // ── PHOTOS ──
-      if (photos.length > 0) {
+      // ── JOB PHOTOS (grid, 2 per row) ──
+      if (jobPhotos.length > 0) {
         checkPage(20);
-        y = sectionTitle(doc, `Photos (${photos.length})`, y, margin, maxWidth);
-        for (const p of photos) {
-          const dataUrl = photoImages[p.id];
-          if (dataUrl) {
-            checkPage(60);
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "normal");
-            doc.setTextColor(100, 100, 100);
-            doc.text(`${p.file_name || "Photo"} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 3);
-            doc.setTextColor(30, 30, 30);
-            y += 5;
-            try {
-              doc.addImage(dataUrl, "JPEG", margin, y, 60, 45);
-              y += 50;
-            } catch {
-              doc.text("[Image could not be embedded]", margin, y + 3);
-              y += 6;
-            }
-          } else {
-            checkPage(rowH);
-            doc.setFontSize(11);
-            doc.text(`• ${p.file_name} — ${new Date(p.created_at).toLocaleDateString("en-GB")}`, margin, y + 4);
-            y += rowH;
+        y = sectionTitle(doc, `Job Photos (${jobPhotos.length})`, y, margin, maxWidth);
+        const gap = 5;
+        const cols = 2;
+        const cellW = (maxWidth - gap * (cols - 1)) / cols;
+        const cellH = 60;                 // mm — image area
+        const captionH = 12;              // mm — 2 lines of meta
+        const blockH = cellH + captionH + 4;
+
+        let col = 0;
+        for (const ph of jobPhotos) {
+          if (col === 0) checkPage(blockH);
+          const xPos = margin + col * (cellW + gap);
+
+          // Neutral cell background so letterboxed images look intentional.
+          doc.setFillColor(...PDF_PALETTE.zebra);
+          doc.setDrawColor(...PDF_PALETTE.borderSoft);
+          doc.setLineWidth(0.2);
+          doc.rect(xPos, y, cellW, cellH, "FD");
+
+          // Aspect-preserving fit
+          const ratio = ph.natW / ph.natH || 1;
+          let drawW = cellW - 2;
+          let drawH = drawW / ratio;
+          if (drawH > cellH - 2) {
+            drawH = cellH - 2;
+            drawW = drawH * ratio;
+          }
+          const ix = xPos + (cellW - drawW) / 2;
+          const iy = y + (cellH - drawH) / 2;
+          try {
+            doc.addImage(ph.dataUrl, "JPEG", ix, iy, drawW, drawH, undefined, "FAST");
+          } catch {
+            doc.setFontSize(9);
+            doc.setTextColor(150, 150, 150);
+            doc.text("Image unavailable", xPos + cellW / 2, y + cellH / 2, { align: "center" });
+          }
+
+          // Caption block: caption (bold), then engineer · date/time
+          const ts = new Date(ph.createdAt);
+          const dateStr = ts.toLocaleDateString("en-GB");
+          const timeStr = ts.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+          const meta = [ph.engineerName, `${dateStr} ${timeStr}`].filter(Boolean).join(" · ");
+
+          doc.setFontSize(8.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(40, 40, 40);
+          const capText = ph.caption || ph.fileName;
+          const capLines = doc.splitTextToSize(capText, cellW).slice(0, 1);
+          doc.text(capLines[0] || "", xPos, y + cellH + 4);
+
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(110, 110, 110);
+          const metaLines = doc.splitTextToSize(meta, cellW).slice(0, 1);
+          doc.text(metaLines[0] || "", xPos, y + cellH + 8);
+          doc.setTextColor(0, 0, 0);
+
+          col++;
+          if (col >= cols) {
+            col = 0;
+            y += blockH;
           }
         }
+        if (col !== 0) y += blockH;
         y += 4;
       }
+
 
       // ── SIGNATURES ──
       // Compact block (~32mm ≈ 120px per signature) so it flows onto the
