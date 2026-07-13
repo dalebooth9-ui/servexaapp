@@ -1315,7 +1315,7 @@ export default function PlannerMapView({
                     <div className="px-3 py-2">
                       <div className="font-medium text-muted-foreground mb-1">With Traffic</div>
                       <div className="font-semibold">Total: {fmt(totalLive)}</div>
-                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                      <div className="text-muted-foreground">Distance: {fmtMi(routeResult.total_distance_km)}</div>
                       {extra > 0 && (
                         <div className="text-amber-600 font-medium mt-1">Extra in traffic: +{fmt(extra)}</div>
                       )}
@@ -1323,7 +1323,7 @@ export default function PlannerMapView({
                     <div className="px-3 py-2">
                       <div className="font-medium text-muted-foreground mb-1">Without Traffic</div>
                       <div className="font-semibold">Total: {fmt(totalBase)}</div>
-                      <div className="text-muted-foreground">Distance: {routeResult.total_distance_km} km</div>
+                      <div className="text-muted-foreground">Distance: {fmtMi(routeResult.total_distance_km)}</div>
                     </div>
                   </div>
                   <ol className="divide-y max-h-48 overflow-auto text-xs border-t">
