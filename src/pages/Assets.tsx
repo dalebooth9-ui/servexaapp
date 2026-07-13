@@ -111,6 +111,8 @@ export default function Assets() {
   const CATEGORIES = assetCategories.map((c) => c.slug);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [sites, setSites] = useState<SiteOption[]>([]);
+  const [customers, setCustomers] = useState<CustomerRow[]>([]);
+  const [customerSites, setCustomerSites] = useState<CustomerSiteRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -125,6 +127,10 @@ export default function Assets() {
   const [addingCat, setAddingCat] = useState(false);
   const [editingCatId, setEditingCatId] = useState<string | null>(null);
   const [editCatName, setEditCatName] = useState("");
+  const [viewMode, setViewMode] = useState<"folders" | "all">("folders");
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [showEmptySites, setShowEmptySites] = useState(false);
+  const [folderSearch, setFolderSearch] = useState("");
 
   const toSlug = (name: string) =>
     name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
