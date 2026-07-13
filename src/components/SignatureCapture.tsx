@@ -141,20 +141,17 @@ export default function SignatureCapture({
     const canvas = canvasRef.current;
     if (!canvas || !user || !hasStrokes) return;
     if (signerRole === "customer" && !customerName.trim()) {
-      toast({ title: "Customer name required", variant: "destructive" });
+      toast({ title: "Print name is required", description: "Please enter the name of the person signing.", variant: "destructive" });
       return;
     }
     setSaving(true);
 
     try {
       let resolvedName = customerName.trim();
+      let resolvedPosition: string | null = customerPosition.trim() || null;
       if (signerRole !== "customer") {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name")
-          .eq("user_id", user.id)
-          .single();
-        resolvedName = profile?.full_name || "Unknown";
+        resolvedName = engineerName || "Unknown";
+        resolvedPosition = null;
       }
 
       // Convert canvas to blob
@@ -173,6 +170,7 @@ export default function SignatureCapture({
         signer_id: user.id,
         signer_name: resolvedName,
         signer_role: signerRole === "customer" ? "customer" : (userRole || "engineer"),
+        signer_position: resolvedPosition,
         file_path: filePath,
       } as any);
       if (insertErr) throw insertErr;
@@ -180,7 +178,7 @@ export default function SignatureCapture({
       toast({ title: "Signature saved" });
       clearCanvas();
       setDrawing(false);
-      if (signerRole === "customer") setCustomerName(defaultSignerName);
+      if (signerRole === "customer") { setCustomerName(defaultSignerName); setCustomerPosition(""); }
       fetchSignatures();
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
