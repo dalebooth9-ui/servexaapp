@@ -1438,8 +1438,10 @@ export default function Jobs() {
           { key: "active", label: "Active" },
           { key: "pending_review", label: "Pending Review" },
           { key: "completed", label: "Completed" },
+          { key: "rejected", label: "Rejected" },
           { key: "all", label: "All" },
         ] as const).map((t) => (
+
           <button
             key={t.key}
             type="button"
