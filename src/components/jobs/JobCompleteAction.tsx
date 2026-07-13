@@ -341,9 +341,11 @@ export default function JobCompleteAction({
                     <ReadinessLine ok={readiness.engineerSig} label="Engineer signature" />
                     <ReadinessLine ok={readiness.customerSig} label="Customer signature" />
                     <ReadinessLine
-                      ok={readiness.formsSubmitted > 0 && readiness.formsDraft === 0}
+                      ok={readiness.formsSubmitted > 0 && blockingDrafts.length === 0}
                       label={`Job forms — ${readiness.formsSubmitted} submitted${
-                        readiness.formsDraft > 0 ? `, ${readiness.formsDraft} still in draft` : ""
+                        blockingDrafts.length > 0
+                          ? `, ${blockingDrafts.length} still in draft`
+                          : ""
                       }`}
                     />
                     <ReadinessLine
@@ -359,6 +361,64 @@ export default function JobCompleteAction({
                     )}
                   </ul>
                 </div>
+
+                {blockingDrafts.length > 0 && (
+                  <div className="rounded-md border p-3 space-y-2">
+                    <p className="font-medium text-foreground text-xs uppercase tracking-wide">
+                      Drafts blocking completion
+                    </p>
+                    <ul className="space-y-1.5">
+                      {blockingDrafts.map((d) => {
+                        const started = new Date(d.createdAt).toLocaleDateString("en-GB", {
+                          day: "numeric",
+                          month: "short",
+                        });
+                        return (
+                          <li
+                            key={d.id}
+                            className="flex items-start gap-2 justify-between rounded border bg-background p-2"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm text-foreground truncate">{d.templateName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Started {started}
+                                {d.untouched ? " · never edited" : ""}
+                              </p>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={handleOpenDraft}
+                              >
+                                Open
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs text-destructive hover:text-destructive"
+                                onClick={() => handleDeleteDraft(d.id)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {autoClearDrafts.length > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {autoClearDrafts.length} unused draft
+                    {autoClearDrafts.length === 1 ? "" : "s"} will be cleared automatically
+                    (never edited, and the same form has already been submitted).
+                  </p>
+                )}
 
                 {hasMissing && (
                   <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3">
