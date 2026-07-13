@@ -1534,6 +1534,7 @@ export type Database = {
           photo_url: string | null
           photos: Json
           quote_id: string | null
+          remedial_job_id: string | null
           reported_by: string
           resolution_notes: string | null
           resolved_at: string | null
@@ -1557,6 +1558,7 @@ export type Database = {
           photo_url?: string | null
           photos?: Json
           quote_id?: string | null
+          remedial_job_id?: string | null
           reported_by: string
           resolution_notes?: string | null
           resolved_at?: string | null
@@ -1580,6 +1582,7 @@ export type Database = {
           photo_url?: string | null
           photos?: Json
           quote_id?: string | null
+          remedial_job_id?: string | null
           reported_by?: string
           resolution_notes?: string | null
           resolved_at?: string | null
@@ -1624,6 +1627,13 @@ export type Database = {
             columns: ["quote_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "defects_remedial_job_id_fkey"
+            columns: ["remedial_job_id"]
+            isOneToOne: false
+            referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
           {

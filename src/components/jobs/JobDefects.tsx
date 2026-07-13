@@ -45,6 +45,9 @@ const STATUS_BADGE: Record<string, string> = {
   resolved: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400",
   deferred: "bg-muted text-muted-foreground",
   quoted: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+  approved: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400",
+  job_created: "bg-cyan-500/15 text-cyan-700 dark:text-cyan-400",
+  declined: "bg-muted text-muted-foreground line-through",
 };
 
 const CATEGORIES = [

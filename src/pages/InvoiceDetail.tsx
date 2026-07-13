@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save } from "lucide-react";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
@@ -41,6 +41,8 @@ export default function InvoiceDetail() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [syncingXero, setSyncingXero] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [creatingRemedial, setCreatingRemedial] = useState(false);
+  const [linkedDefects, setLinkedDefects] = useState<any[]>([]);
   const [deleting, setDeleting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -59,12 +61,14 @@ export default function InvoiceDetail() {
 
   const fetchData = async () => {
     if (!id) return;
-    const [invRes, itemsRes] = await Promise.all([
+    const [invRes, itemsRes, defRes] = await Promise.all([
       supabase.from("invoices").select("*").eq("id", id).single(),
       supabase.from("invoice_line_items").select("*").eq("invoice_id", id).order("sort_order"),
+      supabase.from("defects").select("id, title, site_id, category, remedial_job_id, status").eq("quote_id", id),
     ]);
     setInvoice(invRes.data);
     setLineItems(itemsRes.data || []);
+    setLinkedDefects((defRes.data as any[]) || []);
     // Fetch customer accreditation logos (fall back to Viva Fire defaults)
     const defaultLogos = [
       "/accreditation/smas-logo.png",
@@ -305,6 +309,61 @@ export default function InvoiceDetail() {
     }
   };
 
+  const existingRemedialJobId = linkedDefects.find(d => d.remedial_job_id)?.remedial_job_id || null;
+  const canCreateRemedial = isQuote && invoice?.status === "accepted" && linkedDefects.length > 0 && !existingRemedialJobId;
+
+  const handleCreateRemedialJob = async () => {
+    if (!invoice || linkedDefects.length === 0) return;
+    setCreatingRemedial(true);
+    try {
+      // Infer site + customer from the linked defects
+      const siteId = linkedDefects.map(d => d.site_id).find(Boolean) || null;
+      let customerId: string | null = null;
+      let address: string | null = invoice.customer_address || null;
+      if (siteId) {
+        const { data: cs } = await supabase
+          .from("customer_sites")
+          .select("customer_id, sites(address)")
+          .eq("site_id", siteId)
+          .maybeSingle();
+        customerId = (cs as any)?.customer_id || null;
+        address = (cs as any)?.sites?.address || address;
+      }
+      // Category: use first defect's category if it maps to something, else 'general'
+      const catRaw = linkedDefects.map(d => d.category).find(Boolean) || null;
+      const category = catRaw ? `${catRaw}_remedial` : "general";
+
+      const { data: newJob, error: jobErr } = await supabase.from("jobs").insert({
+        name: `Remedial works — ${invoice.invoice_number}`,
+        description: `Remedial works from quote ${invoice.invoice_number}. Covers ${linkedDefects.length} defect${linkedDefects.length === 1 ? "" : "s"}.`,
+        customer: invoice.customer_name,
+        customer_id: customerId,
+        site_id: siteId,
+        address,
+        priority: "medium",
+        category,
+        status: "active",
+        source: "Defect Quote",
+        created_by: invoice.created_by,
+      } as any).select("id, reference_number").single();
+
+      if (jobErr) throw jobErr;
+
+      await supabase.from("defects").update({
+        remedial_job_id: newJob.id,
+        status: "job_created",
+      } as any).eq("quote_id", invoice.id);
+
+      toast({ title: "Remedial job created", description: `${newJob.reference_number} created from quote.` });
+      navigate(`/jobs/${newJob.id}`);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to create remedial job.", variant: "destructive" });
+    } finally {
+      setCreatingRemedial(false);
+    }
+  };
+
+
   const generatePdf = async (): Promise<jsPDF | null> => {
     if (!printRef.current) return null;
     setGeneratingPdf(true);
@@ -487,6 +546,17 @@ export default function InvoiceDetail() {
                 <Button size="sm" variant="outline" onClick={handleConvertToInvoice} disabled={converting}>
                   {converting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <ArrowRightLeft className="mr-1.5 h-4 w-4" />}
                   Convert to Invoice
+                </Button>
+              )}
+              {canCreateRemedial && userRole === "admin" && (
+                <Button size="sm" onClick={handleCreateRemedialJob} disabled={creatingRemedial}>
+                  {creatingRemedial ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Wrench className="mr-1.5 h-4 w-4" />}
+                  Create Remedial Job
+                </Button>
+              )}
+              {existingRemedialJobId && (
+                <Button size="sm" variant="outline" asChild>
+                  <Link to={`/jobs/${existingRemedialJobId}`}><Wrench className="mr-1.5 h-4 w-4" /> View Remedial Job</Link>
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={generatingPdf}>
