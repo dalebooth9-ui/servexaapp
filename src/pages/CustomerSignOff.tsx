@@ -14,6 +14,7 @@ export default function CustomerSignOff() {
 
   const [jobInfo, setJobInfo] = useState<any>(null);
   const [customerName, setCustomerName] = useState("");
+  const [customerPosition, setCustomerPosition] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [alreadySigned, setAlreadySigned] = useState(false);
