@@ -222,13 +222,22 @@ export default function Jobs() {
     const searching = search.trim().length > 0;
     if (!searching) {
       if (statusTab === "active") {
-        query = query.not("status", "in", "(completed,archived)");
+        query = query.not("status", "in", "(completed,archived,rejected)");
       } else if (statusTab === "pending_review") {
         query = query.eq("status", "pending_review");
       } else if (statusTab === "completed") {
         query = query.eq("status", "completed");
+      } else if (statusTab === "rejected") {
+        query = query.eq("status", "rejected");
+      } else if (statusTab === "all") {
+        // "All" excludes rejected — those are archive-only and viewable via the Rejected tab.
+        query = query.neq("status", "rejected");
       }
+    } else {
+      // Searching across statuses — still hide rejected unless the user is on the rejected tab.
+      if (statusTab !== "rejected") query = query.neq("status", "rejected");
     }
+
     query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
       const { data: assignments } = await supabase
