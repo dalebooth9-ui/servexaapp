@@ -296,12 +296,12 @@ Deno.serve(async (req) => {
           const engName = engProfile?.full_name || "Engineer";
 
           await sendWhatsApp(twilioSender, from,
-            `📸 Got it, ${engName}! Your sheet has been scanned and sent to the office for review. They'll create the job from it shortly.`
+            `📸 Got it, ${engName}! Which job is this for? Reply with the job name or reference and resend, or send a job name first. In the meantime I've queued it for the office to review.`
           );
         } catch (scanError) {
           console.error("Auto-scan pipeline error:", scanError);
           await sendWhatsApp(twilioSender, from,
-            "⚠️ Couldn't auto-scan that image. Please text a job reference number first, then resend."
+            "⚠️ Which job is this for? Reply with the job name or reference (e.g. VFP-00123) and resend."
           );
         }
         return twimlResponse();
