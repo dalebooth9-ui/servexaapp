@@ -413,16 +413,17 @@ export default function PlannerMapView({
         }
       }
 
-      // Guard: Google Directions allows at most 10 intermediate waypoints (~12 total stops)
-      const MAX_STOPS = 12;
+      // Google Routes API allows up to 25 intermediate waypoints (~27 stops incl. origin/destination).
+      // Bumped from the older 12-stop guard because service-run days can hit 16+ visits.
+      const MAX_STOPS = 25;
       let waypoints = allWaypoints;
       let overflowJobIds: string[] = [];
       if (allWaypoints.length > MAX_STOPS) {
         waypoints = allWaypoints.slice(0, MAX_STOPS);
         overflowJobIds = allWaypoints.slice(MAX_STOPS).map((w) => w.job_id);
         toast({
-          title: "Too many stops",
-          description: "Route optimisation works best with up to 12 stops. Showing optimised order for the first 12 — drag to reorder the rest.",
+          title: `${allWaypoints.length} stops — optimising the first ${MAX_STOPS}`,
+          description: `Google Routes can optimise up to ${MAX_STOPS} stops in one pass. The remaining ${allWaypoints.length - MAX_STOPS} are shown as pins in their existing order — split the day or reorder manually.`,
         });
       }
 
