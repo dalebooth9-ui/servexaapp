@@ -101,6 +101,7 @@ export default function JobDetail() {
   const { convert: convertW3W } = useWhat3Words();
   const [job, setJob] = useState<any>(null);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const photoCount = useJobPhotoCount(id);
   const [engineers, setEngineers] = useState<{ id: string; name: string }[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [loading, setLoading] = useState(true);
