@@ -1002,14 +1002,16 @@ async function handleFilesCommand(supabase: any, sender: TwilioSender, to: strin
 }
 
 async function handleCompleteCommand(supabase: any, sender: TwilioSender, to: string, jobId: string, engineerId: string) {
-  const { data: job } = await supabase
+  const { data: job, error: jobErr } = await supabase
     .from("jobs")
-    .select("reference_number, name, status")
+    .select("id, reference_number, name, status, org_id")
     .eq("id", jobId)
     .maybeSingle();
 
-  if (!job) {
-    await sendWhatsApp(sender, to, "Could not load job.");
+  if (jobErr || !job) {
+    console.error("[complete] load job failed", { jobId, jobErr });
+    await sendWhatsApp(sender, to,
+      "Something went wrong completing the job — it has NOT been marked complete, please tell the office.");
     return;
   }
 
@@ -1018,21 +1020,69 @@ async function handleCompleteCommand(supabase: any, sender: TwilioSender, to: st
     return;
   }
 
-  const { error } = await supabase
-    .from("jobs")
-    .update({ status: "completed" })
-    .eq("id", jobId);
+  // Look up engineer name for the activity log entry
+  let engineerName = "an engineer";
+  try {
+    const { data: prof } = await supabase
+      .from("profiles").select("full_name").eq("user_id", engineerId).maybeSingle();
+    if (prof?.full_name) engineerName = prof.full_name;
+  } catch (_) { /* non-fatal */ }
 
-  if (error) {
-    console.error("Complete error:", error);
-    await sendWhatsApp(sender, to, "❌ Failed to update job status. Please try again.");
+  const nowIso = new Date().toISOString();
+
+  // 1) Update the job — verify the row was actually written by using .select()
+  const { data: updatedJobRows, error: jobUpdErr } = await supabase
+    .from("jobs")
+    .update({ status: "completed", completed_at: nowIso, completed_by: engineerId })
+    .eq("id", jobId)
+    .select("id, status");
+
+  if (jobUpdErr || !updatedJobRows || updatedJobRows.length === 0 || updatedJobRows[0].status !== "completed") {
+    console.error("[complete] job update failed or affected 0 rows", { jobId, jobUpdErr, updatedJobRows });
+    await sendWhatsApp(sender, to,
+      "Something went wrong completing the job — it has NOT been marked complete, please tell the office.");
     return;
   }
 
+  // 2) Update today's visit for this engineer (if any). Do NOT fail the whole
+  //    completion if there is no matching visit — jobs can exist without one.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: updatedVisits, error: visitUpdErr } = await supabase
+    .from("job_visits")
+    .update({ status: "completed", completed_at: nowIso })
+    .eq("job_id", jobId)
+    .eq("engineer_id", engineerId)
+    .eq("scheduled_date", today)
+    .in("status", ["upcoming", "unscheduled", "overdue"])
+    .select("id");
+
+  if (visitUpdErr) {
+    // Log but don't roll back — the job itself is completed. Warn office.
+    console.error("[complete] visit update errored", { jobId, engineerId, visitUpdErr });
+  }
+
+  // 3) Best-effort activity log (the trigger also logs status_change, but this
+  //    records who did it — the trigger sees auth.uid()=null from service role).
+  try {
+    await supabase.from("job_activity_log").insert({
+      job_id: jobId,
+      user_id: engineerId,
+      action: "status_change",
+      details: `Completed via WhatsApp by ${engineerName}`,
+      org_id: job.org_id,
+    });
+  } catch (e) {
+    console.error("[complete] activity log insert failed (non-fatal)", e);
+  }
+
+  const visitNote = updatedVisits && updatedVisits.length > 0
+    ? `\nToday's visit closed.`
+    : "";
   await sendWhatsApp(sender, to,
-    `✅ *${job.reference_number}* — ${job.name}\n\nJob marked as *completed*.`
+    `✅ *${job.reference_number}* — ${job.name}\n\nJob marked as *completed*.${visitNote}`
   );
 }
+
 
 // ── Utility functions ───────────────────────────────────────────
 
