@@ -45,6 +45,9 @@ import {
   Upload,
   ScanLine,
   Download,
+  FolderOpen,
+  ChevronRight,
+  ArrowLeft,
 } from "lucide-react";
 import BulkImportAssetsDialog from "@/components/BulkImportAssetsDialog";
 import ScanAssetsDialog from "@/components/ScanAssetsDialog";
@@ -53,6 +56,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format } from "date-fns";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 
