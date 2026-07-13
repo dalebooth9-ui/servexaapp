@@ -148,6 +148,28 @@ export default function PlannerMapView({
   const [showCompare, setShowCompare] = useState(false);
   const [markerMode, setMarkerMode] = useState<"priority" | "route">("priority");
   const [adhocNotices, setAdhocNotices] = useState<string[]>([]);
+  // "Start from my location" — on by default; disabled if user denies once
+  const [startFromMyLocation, setStartFromMyLocation] = useState(true);
+  const [geoDenied, setGeoDenied] = useState(false);
+
+  // Request the device's current location via the browser Geolocation API.
+  // Resolves to null (never rejects) so callers can fall back cleanly.
+  const requestMyLocation = useCallback((): Promise<{ lat: number; lng: number } | null> => {
+    return new Promise((resolve) => {
+      if (typeof navigator === "undefined" || !navigator.geolocation) {
+        resolve(null);
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        (err) => {
+          if (err.code === err.PERMISSION_DENIED) setGeoDenied(true);
+          resolve(null);
+        },
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 30_000 },
+      );
+    });
+  }, []);
 
   // ---- Unit helpers (UK: display miles) ----
   const kmToMi = (km: number | null | undefined) =>
