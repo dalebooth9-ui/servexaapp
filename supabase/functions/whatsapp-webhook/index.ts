@@ -160,6 +160,7 @@ Deno.serve(async (req) => {
           longitude: parseFloat(longitude),
           content: messageBody || null,
           whatsapp_message_id: messageSid,
+          org_id: engineerOrgId,
         });
       }
       return twimlResponse();
