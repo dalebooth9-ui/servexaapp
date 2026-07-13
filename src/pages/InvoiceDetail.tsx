@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save } from "lucide-react";
+import { ArrowLeft, Download, Send, Loader2, RefreshCw, ArrowRightLeft, Pencil, Trash2, Plus, X, Save, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import html2canvas from "html2canvas";
@@ -41,6 +41,8 @@ export default function InvoiceDetail() {
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [syncingXero, setSyncingXero] = useState(false);
   const [converting, setConverting] = useState(false);
+  const [creatingRemedial, setCreatingRemedial] = useState(false);
+  const [linkedDefects, setLinkedDefects] = useState<any[]>([]);
   const [deleting, setDeleting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -59,12 +61,14 @@ export default function InvoiceDetail() {
 
   const fetchData = async () => {
     if (!id) return;
-    const [invRes, itemsRes] = await Promise.all([
+    const [invRes, itemsRes, defRes] = await Promise.all([
       supabase.from("invoices").select("*").eq("id", id).single(),
       supabase.from("invoice_line_items").select("*").eq("invoice_id", id).order("sort_order"),
+      supabase.from("defects").select("id, title, site_id, category, remedial_job_id, status").eq("quote_id", id),
     ]);
     setInvoice(invRes.data);
     setLineItems(itemsRes.data || []);
+    setLinkedDefects((defRes.data as any[]) || []);
     // Fetch customer accreditation logos (fall back to Viva Fire defaults)
     const defaultLogos = [
       "/accreditation/smas-logo.png",
