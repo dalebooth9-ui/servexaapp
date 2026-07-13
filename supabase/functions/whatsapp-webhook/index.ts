@@ -492,6 +492,106 @@ Deno.serve(async (req) => {
     if (messageBody) {
       const command = messageBody.trim().toLowerCase();
 
+      // ── Combined "<job name/ref> <command>" messages ──
+      // e.g. "Cedartree court complete", "VFP-00132 - info", "site name, photos".
+      // If the message ends with a known command word after a job identifier,
+      // resolve the prefix to a job, set sticky context, then run the command.
+      // Only fires when the whole message isn't itself a bare command.
+      const COMBINED_COMMANDS: Record<string, string> = {
+        complete: "complete", done: "complete", finish: "complete", finished: "complete",
+        info: "info", details: "info", status: "info",
+        photos: "photos", images: "photos", pics: "photos",
+        files: "files", documents: "files", docs: "files",
+        report: "report", reports: "report",
+        notes: "notes", history: "notes", log: "notes",
+        parts: "parts", materials: "parts",
+        help: "help", commands: "help", menu: "help",
+      };
+      const combinedMatch = command.match(
+        /^(.+?)[\s,\-–—]+(complete|done|finish|finished|info|details|status|photos|images|pics|files|documents|docs|report|reports|notes|history|log|parts|materials|help|commands|menu)\s*[.!?]*$/i,
+      );
+      if (combinedMatch && !(command in COMBINED_COMMANDS)) {
+        const prefixRaw = messageBody.trim().slice(0, combinedMatch[1].length).trim().replace(/[\s,\-–—]+$/, "");
+        const cmd = COMBINED_COMMANDS[combinedMatch[2].toLowerCase()];
+        console.log(`[combined-cmd] prefix="${prefixRaw}" cmd=${cmd}`);
+
+        if (prefixRaw.length >= 2) {
+          // Resolve prefix to a job (exact ref → ilike name → fuzzy pool match)
+          let comboJob: any = null;
+          const { data: byRef } = await supabase
+            .from("jobs").select("id, name, reference_number")
+            .ilike("reference_number", prefixRaw).maybeSingle();
+          if (byRef) comboJob = byRef;
+          if (!comboJob) {
+            const { data: byName } = await supabase
+              .from("jobs").select("id, name, reference_number")
+              .ilike("name", `%${prefixRaw}%`).limit(1).maybeSingle();
+            if (byName) comboJob = byName;
+          }
+          if (!comboJob) {
+            const { data: jobPool } = await supabase
+              .from("jobs")
+              .select("id, name, reference_number, address, sites(name, address, postcode)")
+              .in("status", ["active", "in_progress", "scheduled", "awaiting_parts", "on_hold", "requires_revisit"])
+              .order("updated_at", { ascending: false })
+              .limit(1000);
+            const matches = matchJobsByCaption(prefixRaw, jobPool || []);
+            if (matches.length > 0 && (matches.length === 1 || matches[0].score > matches[1].score * 1.5)) {
+              comboJob = matches[0].job;
+            } else if (matches.length > 1) {
+              const refs = matches.slice(0, 10).map((m) => m.job.reference_number || m.job.name || m.job.id).join(", ");
+              await sendWhatsApp(twilioSender, from,
+                `Found ${matches.length} jobs matching "${prefixRaw.slice(0, 80)}": ${refs} — please resend with the reference number.`
+              );
+              return twimlResponse();
+            }
+          }
+
+          if (comboJob) {
+            // Set sticky context so subsequent captionless media follows this job
+            await supabase.from("submissions").insert({
+              job_id: comboJob.id,
+              engineer_id: engineerId,
+              type: "note",
+              content: `Job context set: ${prefixRaw} (via combined command)`,
+              whatsapp_message_id: messageSid,
+            });
+            console.log(`[combined-cmd] resolved job ${comboJob.reference_number} (${comboJob.id}) → running ${cmd}`);
+
+            switch (cmd) {
+              case "complete":
+                await handleCompleteCommand(supabase, twilioSender, from, comboJob.id, engineerId);
+                break;
+              case "info":
+                await handleInfoCommand(supabase, twilioSender, from, comboJob.id); break;
+              case "photos":
+                await handlePhotosCommand(supabase, twilioSender, from, comboJob.id); break;
+              case "files":
+                await handleFilesCommand(supabase, twilioSender, from, comboJob.id); break;
+              case "report":
+                await handleReportCommand(supabase, twilioSender, from, comboJob.id); break;
+              case "notes":
+                await handleNotesCommand(supabase, twilioSender, from, comboJob.id); break;
+              case "parts":
+                await handlePartsCommand(supabase, twilioSender, from, comboJob.id); break;
+              case "help":
+                // Confirm the job set, then fall through to help text
+                await sendWhatsApp(twilioSender, from,
+                  `✅ Job set: *${comboJob.reference_number}* — ${comboJob.name}\n\nSee *help* for commands.`);
+                break;
+            }
+            return twimlResponse();
+          }
+
+          // Prefix didn't resolve — ask for clarification instead of treating as a note
+          await sendWhatsApp(twilioSender, from,
+            `⚠️ Couldn't find a job matching "${prefixRaw.slice(0, 80)}". Please resend with the job reference number (e.g. VFP-00123), then the command.`
+          );
+          return twimlResponse();
+        }
+      }
+
+
       // Command: info / details / job — send job summary
       if (["info", "details", "job", "status"].includes(command)) {
         const jobId = await getActiveJob(supabase, engineerId);
