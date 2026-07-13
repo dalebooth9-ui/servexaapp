@@ -1008,9 +1008,19 @@ export default function JobDetail() {
       </>)}
 
 
-      {activeTab === "overview" && userRole === "admin" && (
-        <div className="mb-6">
-          <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
+      {activeTab === "overview" && (
+        <div className="mb-6 space-y-3">
+          {userRole === "admin" && (
+            <JobStatusPipeline currentStatus={job.status} onChange={handleStatusChange} />
+          )}
+          <JobCompleteAction
+            jobId={id!}
+            jobStatus={job.status}
+            jobRef={job.reference_number}
+            isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+            variant="inline"
+            onCompleted={fetchData}
+          />
         </div>
       )}
 
