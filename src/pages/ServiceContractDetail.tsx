@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ArrowLeft, Plus, Trash2, FileText, Repeat, PoundSterling, Save, Loader2, Wrench, X } from "lucide-react";
-import { format, addYears, addMonths, differenceInDays } from "date-fns";
+import { format, addYears, differenceInDays } from "date-fns";
 import { toast } from "sonner";
 
 type Service = { id: string; description: string; quantity: number; unit_price: number; ppm_schedule_id: string | null; sort_order: number };
