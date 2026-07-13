@@ -190,14 +190,17 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Track whether this media message matched via its own caption — if so,
+      // we set sticky context so subsequent captionless photos in the same
+      // burst follow the same job.
+      const matchedViaCaption = !!jobId;
+
       // Otherwise, try the normal active job resolution — but only if the
       // engineer didn't give us a caption that we already failed to match.
+      // Strict mode + 4h window: never guess, never use stale context.
       if (!jobId && !fuzzyAttemptedNoMatch) {
-        // For media, use strict mode: only resolve to an explicitly-set context
-        // or today's scheduled visit. Never silently route to the most-recent
-        // assigned job — that's how photos end up in the wrong folder.
-        jobId = await getActiveJob(supabase, engineerId, true);
-        console.log(`[active-job] strict resolved jobId=${jobId}`);
+        jobId = await getActiveJob(supabase, engineerId, true, 4);
+        console.log(`[active-job] strict(4h) resolved jobId=${jobId}`);
       }
 
       // If a caption was provided but matched nothing, prompt the engineer
@@ -293,12 +296,12 @@ Deno.serve(async (req) => {
           const engName = engProfile?.full_name || "Engineer";
 
           await sendWhatsApp(twilioSender, from,
-            `📸 Got it, ${engName}! Your sheet has been scanned and sent to the office for review. They'll create the job from it shortly.`
+            `📸 Got it, ${engName}! Which job is this for? Reply with the job name or reference and resend, or send a job name first. In the meantime I've queued it for the office to review.`
           );
         } catch (scanError) {
           console.error("Auto-scan pipeline error:", scanError);
           await sendWhatsApp(twilioSender, from,
-            "⚠️ Couldn't auto-scan that image. Please text a job reference number first, then resend."
+            "⚠️ Which job is this for? Reply with the job name or reference (e.g. VFP-00123) and resend."
           );
         }
         return twimlResponse();
@@ -307,7 +310,7 @@ Deno.serve(async (req) => {
       // If still no job, prompt the engineer
       if (!jobId) {
         await sendWhatsApp(twilioSender, from,
-          "⚠️ No job scheduled for today. Please text the job reference number or job name first to set context."
+          "⚠️ Which job is this for? Reply with the job name or reference (e.g. VFP-00123) and resend, or send a job name first."
         );
         return twimlResponse();
       }
@@ -461,6 +464,22 @@ Deno.serve(async (req) => {
         const jobName = ji.name ? ` — ${ji.name}` : "";
         const siteName = ji.sites?.name ? ` — ${ji.sites.name}` : (ji.sites?.address ? ` — ${ji.sites.address}` : "");
         const noun = savedCount === 1 ? "Photo" : `${savedCount} files`;
+
+        // If this media matched via its own caption, set/refresh sticky context
+        // so subsequent captionless photos in the same burst follow this job.
+        // Without this write, only standalone text messages set context — which
+        // is exactly the bug that caused captionless follow-ups to fall through
+        // to the today's-visits guess and mis-file to another customer's job.
+        if (matchedViaCaption) {
+          await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: engineerId,
+            type: "note",
+            content: `Job context set: ${messageBody.slice(0, 200)} (via captioned photo)`,
+          });
+          console.log(`[sticky-context] set from captioned media → job ${jobId}`);
+        }
+
         await sendWhatsApp(twilioSender, from,
           `✅ ${noun} saved to job ${ref}${jobName}${siteName}`
         );
@@ -1055,27 +1074,41 @@ async function validateTwilioSignature(
   return computed === signature;
 }
 
-async function getActiveJob(supabase: any, engineerId: string, strict = false): Promise<string | null> {
+async function getActiveJob(
+  supabase: any,
+  engineerId: string,
+  strict = false,
+  maxContextHours = 12,
+): Promise<string | null> {
   // 1. Check for an explicit context set by the engineer (most recent "Job context set" note)
+  //    Only trust context set within the last `maxContextHours` — stale context
+  //    silently swallowing new photos is exactly the failure mode we're avoiding.
+  const cutoff = new Date(Date.now() - maxContextHours * 3600 * 1000).toISOString();
   const { data: contextSubs } = await supabase
     .from("submissions")
-    .select("job_id")
+    .select("job_id, created_at")
     .eq("engineer_id", engineerId)
     .eq("type", "note")
     .ilike("content", "Job context set:%")
+    .gte("created_at", cutoff)
     .order("created_at", { ascending: false })
     .limit(1);
 
   if (contextSubs && contextSubs.length > 0) {
-    console.log(`Context job found: ${contextSubs[0].job_id}`);
+    console.log(`Context job found (within ${maxContextHours}h): ${contextSubs[0].job_id} @ ${contextSubs[0].created_at}`);
     return contextSubs[0].job_id;
   }
 
-  // 2. Check job_visits scheduled for TODAY assigned to this engineer
-  //    This prevents messages accidentally going to wrong jobs
-  const today = new Date().toISOString().split("T")[0]; // YYYY-MM-DD
-  console.log(`Checking today's visits for engineer ${engineerId} on ${today}`);
+  // In strict mode (used for media routing) we NEVER guess. Silently mis-filing
+  // a photo to the wrong customer's job is worse than asking a follow-up
+  // question, so return null and let the caller prompt / route to pending-scan.
+  if (strict) {
+    console.log(`Strict mode: no recent (<${maxContextHours}h) explicit context — returning null (no visit/assignment fallback)`);
+    return null;
+  }
 
+  // 2. (Non-strict, e.g. text commands like "info"/"photos") Check today's visits
+  const today = new Date().toISOString().split("T")[0];
   const { data: todayVisits } = await supabase
     .from("job_visits")
     .select("job_id, status, jobs(status)")
@@ -1086,26 +1119,14 @@ async function getActiveJob(supabase: any, engineerId: string, strict = false): 
     .limit(5);
 
   if (todayVisits && todayVisits.length > 0) {
-    // Prefer visits for active/in_progress jobs
     const activeVisit = todayVisits.find(
       (v: any) => v.jobs?.status === "active" || v.jobs?.status === "in_progress"
     );
-    if (activeVisit) {
-      console.log(`Today's scheduled visit found (active job): ${activeVisit.job_id}`);
-      return activeVisit.job_id;
-    }
-    console.log(`Today's scheduled visit found: ${todayVisits[0].job_id}`);
+    if (activeVisit) return activeVisit.job_id;
     return todayVisits[0].job_id;
   }
 
-  // In strict mode (e.g. media routing), don't guess based on stale assignments —
-  // ask the engineer to set context explicitly instead.
-  if (strict) {
-    console.log("Strict mode: no explicit context or today's visit — returning null");
-    return null;
-  }
-
-  // 3. Fall back to most recently assigned active job
+  // 3. Fall back to most recently assigned active job (non-strict only)
   const { data: assignments } = await supabase
     .from("job_assignments")
     .select("job_id, jobs(status)")
@@ -1117,13 +1138,9 @@ async function getActiveJob(supabase: any, engineerId: string, strict = false): 
 
   for (const assignment of assignments) {
     if ((assignment as any).jobs?.status === "active") {
-      console.log(`Fallback active job found: ${assignment.job_id}`);
       return assignment.job_id;
     }
   }
 
-  // 4. Last resort: most recently assigned job regardless of status
-  const fallback = assignments[0]?.job_id || null;
-  console.log(`Last resort job: ${fallback}`);
-  return fallback;
+  return assignments[0]?.job_id || null;
 }
