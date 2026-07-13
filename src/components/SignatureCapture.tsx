@@ -293,7 +293,7 @@ export default function SignatureCapture({
             <Button variant="outline" size="sm" onClick={() => { clearCanvas(); setDrawing(false); }}>
               Cancel
             </Button>
-            <Button size="sm" onClick={handleSave} disabled={!hasStrokes || saving}>
+            <Button size="sm" onClick={handleSave} disabled={!hasStrokes || saving || (signerRole === "customer" && !customerName.trim())}>
               <Check className="mr-1 h-4 w-4" /> {saving ? "Saving..." : "Save Signature"}
             </Button>
           </div>
