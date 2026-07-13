@@ -310,7 +310,7 @@ Deno.serve(async (req) => {
       // If still no job, prompt the engineer
       if (!jobId) {
         await sendWhatsApp(twilioSender, from,
-          "⚠️ No job scheduled for today. Please text the job reference number or job name first to set context."
+          "⚠️ Which job is this for? Reply with the job name or reference (e.g. VFP-00123) and resend, or send a job name first."
         );
         return twimlResponse();
       }
