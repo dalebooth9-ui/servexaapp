@@ -976,22 +976,24 @@ function BulkAddDialog({
   onOpenChange: (v: boolean) => void;
   onAdd: (labels: string[]) => void;
 }) {
-  const [text, setText] = useState("Flat 1 to Flat 40");
+  const [text, setText] = useState("Flat 1 to 12");
   const { toast } = useToast();
-  const preview = useMemo(() => parseBulkRange(text), [text]);
+  const parsed = useMemo(() => parseBulkRange(text), [text]);
+  const labels = parsed.ok ? parsed.labels : [];
+  const count = labels.length;
 
   const handleAdd = () => {
-    if (preview.length === 0) {
+    if (!parsed.ok) {
       toast({
         title: "Couldn't parse range",
-        description: "Try something like 'Flat 1 to Flat 40' or '1-20'.",
+        description: parsed.reason,
         variant: "destructive",
       });
       return;
     }
-    onAdd(preview);
+    onAdd(labels);
     onOpenChange(false);
-    toast({ title: `Added ${preview.length} rows` });
+    toast({ title: `Added ${count} rows` });
   };
 
   return (
@@ -1016,22 +1018,31 @@ function BulkAddDialog({
             <Input
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="e.g. Flat 1 to Flat 40"
+              placeholder="e.g. Flat 1 to 12"
               autoFocus
             />
             <p className="text-[11px] text-muted-foreground">
-              Prefix + number range. Also accepts "1-40", "Unit 1 – 20".
+              Accepts "Flat 1 to 12", "1-12", "Flat 1 - Flat 12", "Unit 3 to Unit 8".
             </p>
           </div>
-          <div className="rounded-md border border-border bg-muted/30 p-2 text-xs max-h-32 overflow-y-auto">
-            {preview.length === 0 ? (
-              <span className="text-muted-foreground italic">No preview — check the format.</span>
+          <div
+            className={`rounded-md border p-2 text-xs max-h-32 overflow-y-auto ${
+              parsed.ok
+                ? "border-border bg-muted/30"
+                : "border-destructive/40 bg-destructive/5"
+            }`}
+            aria-live="polite"
+          >
+            {!parsed.ok ? (
+              <span className="text-destructive">{parsed.reason}</span>
             ) : (
               <>
-                <div className="font-medium mb-1">{preview.length} rows will be added:</div>
+                <div className="font-medium mb-1">
+                  Will create {count} rows: {labels[0]} … {labels[count - 1]}
+                </div>
                 <div className="text-muted-foreground">
-                  {preview.slice(0, 6).join(", ")}
-                  {preview.length > 6 ? `, … ${preview[preview.length - 1]}` : ""}
+                  {labels.slice(0, 6).join(", ")}
+                  {count > 6 ? `, … ${labels[count - 1]}` : ""}
                 </div>
               </>
             )}
@@ -1039,11 +1050,12 @@ function BulkAddDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleAdd} disabled={preview.length === 0}>
-            Add {preview.length || ""} rows
+          <Button onClick={handleAdd} disabled={!parsed.ok}>
+            Add {count || ""} rows
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
+
