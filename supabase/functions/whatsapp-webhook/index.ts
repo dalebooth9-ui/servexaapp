@@ -105,7 +105,28 @@ Deno.serve(async (req) => {
     }
 
     const engineerId = profile.user_id;
-    console.log(`[profile-lookup] resolved engineerId=${engineerId} for from=${from}`);
+
+    // ── Resolve engineer's org ─────────────────────────────────────
+    // ALL writes below MUST be stamped with this org_id. The affected tables
+    // (submissions, pending_whatsapp_scans, job_activity_log, notifications)
+    // have `NOT NULL DEFAULT '11111111-...'` on org_id — so any insert that
+    // omits org_id silently attributes the row to Viva Fire. That's fine
+    // today (Viva is single-tenant), but it's a cross-tenant leak the moment
+    // a second org's engineer WhatsApps us. We derive org from an authoritative
+    // source (organisation_members) rather than trusting profile.org_id, which
+    // is only a denormalised copy.
+    const { data: memberRow } = await supabase
+      .from("organisation_members")
+      .select("org_id")
+      .eq("user_id", engineerId)
+      .eq("status", "active")
+      .maybeSingle();
+    const engineerOrgId: string | null = memberRow?.org_id ?? null;
+    if (!engineerOrgId) {
+      console.warn(`[profile-lookup] engineer ${engineerId} has no active org membership — dropping message to avoid mis-attribution`);
+      return twimlResponse();
+    }
+    console.log(`[profile-lookup] resolved engineerId=${engineerId} orgId=${engineerOrgId} for from=${from}`);
     const twilioSender = { accountSid: TWILIO_ACCOUNT_SID, authToken: TWILIO_AUTH_TOKEN, fromNumber: TWILIO_WHATSAPP_NUMBER };
 
     // ── Idempotency guard ────────────────────────────────────────
