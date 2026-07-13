@@ -464,6 +464,22 @@ Deno.serve(async (req) => {
         const jobName = ji.name ? ` — ${ji.name}` : "";
         const siteName = ji.sites?.name ? ` — ${ji.sites.name}` : (ji.sites?.address ? ` — ${ji.sites.address}` : "");
         const noun = savedCount === 1 ? "Photo" : `${savedCount} files`;
+
+        // If this media matched via its own caption, set/refresh sticky context
+        // so subsequent captionless photos in the same burst follow this job.
+        // Without this write, only standalone text messages set context — which
+        // is exactly the bug that caused captionless follow-ups to fall through
+        // to the today's-visits guess and mis-file to another customer's job.
+        if (matchedViaCaption) {
+          await supabase.from("submissions").insert({
+            job_id: jobId,
+            engineer_id: engineerId,
+            type: "note",
+            content: `Job context set: ${messageBody.slice(0, 200)} (via captioned photo)`,
+          });
+          console.log(`[sticky-context] set from captioned media → job ${jobId}`);
+        }
+
         await sendWhatsApp(twilioSender, from,
           `✅ ${noun} saved to job ${ref}${jobName}${siteName}`
         );
