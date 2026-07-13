@@ -342,9 +342,8 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
           doc.setFont("helvetica", "normal");
           doc.setFontSize(7.5);
           doc.setTextColor(110, 110, 110);
-          const meta = photo.caption
-            ? `${photo.date}  ·  ${photo.caption}`
-            : photo.date;
+          const metaBits = [photo.engineer, photo.date, photo.caption].filter(Boolean);
+          const meta = metaBits.join("  ·  ");
           const metaLines = doc.splitTextToSize(meta, cellW);
           doc.text(metaLines.slice(0, 1)[0] || "", xPos, y + cellH + 8);
           doc.setTextColor(0, 0, 0);
