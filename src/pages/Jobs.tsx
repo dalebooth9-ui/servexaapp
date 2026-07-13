@@ -1485,15 +1485,10 @@ export default function Jobs() {
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5 accent-primary"
-                checked={includeArchived}
-                onChange={(e) => setIncludeArchived(e.target.checked)}
-              />
-              Include completed & archived
-            </label>
+            <span className="pl-2 text-[11px] text-muted-foreground self-center">
+              Use the tabs above to switch between Active, Pending Review, Completed and All.
+            </span>
+
           </div>
         )}
       </div>
