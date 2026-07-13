@@ -512,6 +512,7 @@ Deno.serve(async (req) => {
           file_name: friendlyName,
           whatsapp_message_id: messageSid,
           content: messageBody || null,
+          org_id: engineerOrgId,
         });
         savedCount++;
         savedPaths.push(storagePath);
