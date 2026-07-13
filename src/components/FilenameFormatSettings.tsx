@@ -79,7 +79,7 @@ export default function FilenameFormatSettings() {
     setSaving(true);
     const { error } = await supabase
       .from("app_settings")
-      .upsert({ key: "filename_format", value: config as any }, { onConflict: "key" });
+      .upsert({ key: "filename_format", value: config as any }, { onConflict: "org_id,key" });
     setSaving(false);
     if (error) {
       toast.error("Failed to save: " + error.message);
