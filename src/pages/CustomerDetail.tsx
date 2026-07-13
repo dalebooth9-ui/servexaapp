@@ -272,12 +272,16 @@ export default function CustomerDetail() {
 
   const fetchServiceReports = useCallback(async (customerName: string) => {
     if (!customerName) return;
-    // Get all jobs for this customer first
+    // Match by customer_id OR customer text so completed jobs are included.
+    const orClause = id
+      ? `customer_id.eq.${id},customer.eq.${customerName}`
+      : `customer.eq.${customerName}`;
     const { data: jobsData } = await supabase
       .from("jobs")
       .select("id, name, reference_number")
-      .eq("customer", customerName);
+      .or(orClause);
     if (!jobsData || jobsData.length === 0) { setServiceReports([]); return; }
+
 
     const jobIds = jobsData.map((j: any) => j.id);
     const { data: reportsData } = await supabase
@@ -303,7 +307,7 @@ export default function CustomerDetail() {
       job_reference: jobMap[r.job_id]?.reference_number,
       author_name: nameMap[r.author_id] || "Unknown",
     })));
-  }, []);
+  }, [id]);
 
   const exportReportToPdf = async (report: ServiceReport) => {
     const esc = (s: string) => s.replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m] || m));
@@ -331,13 +335,19 @@ export default function CustomerDetail() {
   };
 
   const fetchJobs = useCallback(async (customerName: string) => {
+    // Match by customer_id (canonical link) OR the legacy customer text field,
+    // so completed jobs linked via customer_id still show up in the history.
+    const orClause = id
+      ? `customer_id.eq.${id},customer.eq.${customerName}`
+      : `customer.eq.${customerName}`;
     const { data } = await supabase
       .from("jobs")
       .select("*")
-      .eq("customer", customerName)
+      .or(orClause)
       .order("created_at", { ascending: false });
     setJobs((data as Job[]) || []);
-  }, []);
+  }, [id]);
+
 
   useEffect(() => {
     if (!id) return;

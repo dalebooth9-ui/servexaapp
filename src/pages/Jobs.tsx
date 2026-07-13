@@ -166,7 +166,9 @@ export default function Jobs() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [showFilters, setShowFilters] = useState(false);
-  const [includeArchived, setIncludeArchived] = useState(false);
+  // Visible primary status tab — Active (default), Pending Review, Completed, All
+  const [statusTab, setStatusTab] = useState<"active" | "pending_review" | "completed" | "all">("active");
+  const includeArchived = statusTab === "completed" || statusTab === "all";
   const [pageSize, setPageSize] = useState(300);
   const [hasMore, setHasMore] = useState(false);
   const firstLoadRef = useRef(true);
@@ -214,8 +216,17 @@ export default function Jobs() {
   const fetchJobs = async () => {
     const COLUMNS = "id, reference_number, name, customer, customer_id, site_id, address, status, priority, category, due_date, created_at, source, result, pressure_test_qty, visual_qty, other_qty, other_service_type, rejection_reason, submissions(id, type), customers(id, name, email), sites(id, name, address, postcode)";
     let query = supabase.from("jobs").select(COLUMNS).order("created_at", { ascending: false });
-    if (!includeArchived) {
-      query = query.not("status", "in", "(completed,archived)");
+    // When user is actively searching, fetch across ALL statuses so completed jobs
+    // still surface regardless of the current tab. Otherwise, scope by tab.
+    const searching = search.trim().length > 0;
+    if (!searching) {
+      if (statusTab === "active") {
+        query = query.not("status", "in", "(completed,archived)");
+      } else if (statusTab === "pending_review") {
+        query = query.eq("status", "pending_review");
+      } else if (statusTab === "completed") {
+        query = query.eq("status", "completed");
+      }
     }
     query = query.limit(pageSize + 1);
     if (userRole === "engineer" && user) {
@@ -233,7 +244,13 @@ export default function Jobs() {
     setJobs(rows.slice(0, pageSize));
   };
 
-  useEffect(() => { fetchJobs(); }, [user, includeArchived, pageSize]);
+  // Debounce refetch when tab or (debounced) search changes
+  useEffect(() => {
+    const t = setTimeout(() => { fetchJobs(); }, search.trim() ? 250 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, statusTab, pageSize, search]);
+
 
   // Keyboard shortcut: n j → open new job dialog
   useEffect(() => {
@@ -1402,6 +1419,34 @@ export default function Jobs() {
         )}
       </div>
 
+      {/* Primary status tabs — completed jobs are one tap away */}
+      <div className="mb-3 flex flex-wrap gap-1.5">
+        {([
+          { key: "active", label: "Active" },
+          { key: "pending_review", label: "Pending Review" },
+          { key: "completed", label: "Completed" },
+          { key: "all", label: "All" },
+        ] as const).map((t) => (
+          <button
+            key={t.key}
+            type="button"
+            onClick={() => setStatusTab(t.key)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              statusTab === t.key
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-muted-foreground hover:text-foreground hover:bg-muted"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+        {search.trim() && (
+          <span className="self-center pl-2 text-[11px] text-muted-foreground">
+            Searching across all statuses
+          </span>
+        )}
+      </div>
+
       {/* Search & filter bar — visually separated from the job list */}
       <div className="mb-6 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
         <div className="flex gap-2">
@@ -1468,15 +1513,10 @@ export default function Jobs() {
                 ))}
               </SelectContent>
             </Select>
-            <label className="flex items-center gap-2 text-xs text-muted-foreground pl-2">
-              <input
-                type="checkbox"
-                className="h-3.5 w-3.5 accent-primary"
-                checked={includeArchived}
-                onChange={(e) => setIncludeArchived(e.target.checked)}
-              />
-              Include completed & archived
-            </label>
+            <span className="pl-2 text-[11px] text-muted-foreground self-center">
+              Use the tabs above to switch between Active, Pending Review, Completed and All.
+            </span>
+
           </div>
         )}
       </div>
