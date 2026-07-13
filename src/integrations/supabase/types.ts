@@ -6558,6 +6558,13 @@ export type Database = {
         }[]
       }
       purge_old_client_errors: { Args: never; Returns: undefined }
+      purge_old_rejected_email_po_jobs: {
+        Args: never
+        Returns: {
+          deleted_jobs: number
+          deleted_objects: number
+        }[]
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
