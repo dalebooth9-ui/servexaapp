@@ -139,6 +139,7 @@ serve(async (req) => {
       }
     }
 
+    const branding = await getEmailBranding(undefined, supabase);
     let updated = 0;
     let notified = 0;
     let emailed = 0;
