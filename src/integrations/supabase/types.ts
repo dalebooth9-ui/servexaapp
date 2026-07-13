@@ -3040,6 +3040,7 @@ export type Database = {
       }
       invoices: {
         Row: {
+          contract_id: string | null
           created_at: string
           created_by: string
           customer_address: string | null
@@ -3064,6 +3065,7 @@ export type Database = {
           xero_synced_at: string | null
         }
         Insert: {
+          contract_id?: string | null
           created_at?: string
           created_by: string
           customer_address?: string | null
@@ -3088,6 +3090,7 @@ export type Database = {
           xero_synced_at?: string | null
         }
         Update: {
+          contract_id?: string | null
           created_at?: string
           created_by?: string
           customer_address?: string | null
@@ -3112,6 +3115,13 @@ export type Database = {
           xero_synced_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "invoices_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "invoices_job_id_fkey"
             columns: ["job_id"]
@@ -4242,6 +4252,7 @@ export type Database = {
           completed_at: string | null
           completed_by: string | null
           completion_override_reason: string | null
+          contract_id: string | null
           created_at: string
           created_by: string | null
           customer: string | null
@@ -4278,6 +4289,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           completion_override_reason?: string | null
+          contract_id?: string | null
           created_at?: string
           created_by?: string | null
           customer?: string | null
@@ -4314,6 +4326,7 @@ export type Database = {
           completed_at?: string | null
           completed_by?: string | null
           completion_override_reason?: string | null
+          contract_id?: string | null
           created_at?: string
           created_by?: string | null
           customer?: string | null
@@ -4347,6 +4360,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "jobs_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
             referencedColumns: ["id"]
           },
           {
@@ -5510,6 +5530,208 @@ export type Database = {
           },
         ]
       }
+      service_contract_renewals: {
+        Row: {
+          applied_increase_pct: number
+          contract_id: string
+          id: string
+          new_renewal_date: string
+          new_value: number
+          notes: string | null
+          org_id: string
+          previous_renewal_date: string
+          previous_value: number
+          renewed_at: string
+          renewed_by: string | null
+        }
+        Insert: {
+          applied_increase_pct?: number
+          contract_id: string
+          id?: string
+          new_renewal_date: string
+          new_value: number
+          notes?: string | null
+          org_id: string
+          previous_renewal_date: string
+          previous_value: number
+          renewed_at?: string
+          renewed_by?: string | null
+        }
+        Update: {
+          applied_increase_pct?: number
+          contract_id?: string
+          id?: string
+          new_renewal_date?: string
+          new_value?: number
+          notes?: string | null
+          org_id?: string
+          previous_renewal_date?: string
+          previous_value?: number
+          renewed_at?: string
+          renewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_contract_renewals_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_contract_services: {
+        Row: {
+          contract_id: string
+          created_at: string
+          description: string
+          id: string
+          org_id: string
+          ppm_schedule_id: string | null
+          quantity: number
+          sort_order: number
+          unit_price: number
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          description: string
+          id?: string
+          org_id: string
+          ppm_schedule_id?: string | null
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          org_id?: string
+          ppm_schedule_id?: string | null
+          quantity?: number
+          sort_order?: number
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_contract_services_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_contract_services_ppm_schedule_id_fkey"
+            columns: ["ppm_schedule_id"]
+            isOneToOne: false
+            referencedRelation: "ppm_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_contract_sites: {
+        Row: {
+          contract_id: string
+          created_at: string
+          id: string
+          org_id: string
+          site_id: string
+        }
+        Insert: {
+          contract_id: string
+          created_at?: string
+          id?: string
+          org_id: string
+          site_id: string
+        }
+        Update: {
+          contract_id?: string
+          created_at?: string
+          id?: string
+          org_id?: string
+          site_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_contract_sites_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "service_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_contract_sites_site_id_fkey"
+            columns: ["site_id"]
+            isOneToOne: false
+            referencedRelation: "sites"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_contracts: {
+        Row: {
+          billing_frequency: string
+          contract_value: number
+          created_at: string
+          created_by: string | null
+          customer_id: string
+          id: string
+          name: string
+          notes: string | null
+          org_id: string
+          price_increase_pct: number
+          reference_number: string
+          renewal_date: string
+          start_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          billing_frequency?: string
+          contract_value?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id: string
+          id?: string
+          name: string
+          notes?: string | null
+          org_id: string
+          price_increase_pct?: number
+          reference_number: string
+          renewal_date: string
+          start_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          billing_frequency?: string
+          contract_value?: number
+          created_at?: string
+          created_by?: string | null
+          customer_id?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          org_id?: string
+          price_increase_pct?: number
+          reference_number?: string
+          renewal_date?: string
+          start_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_contracts_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_survey_photos: {
         Row: {
           caption: string | null
@@ -6546,6 +6768,7 @@ export type Database = {
           similarity: number
         }[]
       }
+      generate_contract_reference: { Args: never; Returns: string }
       generate_intake_email: { Args: { _slug: string }; Returns: string }
       generate_vfp_reference: { Args: never; Returns: string }
       get_email_automation_status: {

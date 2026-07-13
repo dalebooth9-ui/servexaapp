@@ -37,6 +37,8 @@ const Audits = lazy(() => import("@/pages/Audits"));
 const Invoices = lazy(() => import("@/pages/Invoices"));
 const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
+const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
+const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
@@ -167,6 +169,8 @@ const App = () => (
               <Route path="/quotes" element={<AdminRoute><Quotes /></AdminRoute>} />
               <Route path="/invoices" element={<AdminRoute><Invoices /></AdminRoute>} />
               <Route path="/invoices/:id" element={<AdminRoute><InvoiceDetail /></AdminRoute>} />
+              <Route path="/contracts" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContracts /></Suspense></AdminRoute>} />
+              <Route path="/contracts/:id" element={<AdminRoute><Suspense fallback={<PageFallback />}><ServiceContractDetail /></Suspense></AdminRoute>} />
               <Route path="/sites" element={<AccessRoute pageSlug="sites"><Sites /></AccessRoute>} />
               <Route path="/site-surveys" element={<AccessRoute pageSlug="site-surveys"><Suspense fallback={<PageFallback />}><SiteSurveys /></Suspense></AccessRoute>} />
               <Route path="/site-surveys/:id" element={<AccessRoute pageSlug="site-surveys"><Suspense fallback={<PageFallback />}><SiteSurveyDetail /></Suspense></AccessRoute>} />
