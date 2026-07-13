@@ -1,6 +1,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getFromAddress } from "../_shared/emailFrom.ts";
+import {
+  getEmailBranding,
+  getSendIdentity,
+  wrapCustomerEmail,
+  sendViaResend,
+} from "../_shared/customerEmail.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,9 +13,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -25,7 +28,6 @@ serve(async (req) => {
       });
     }
 
-    // Verify caller is admin
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -49,7 +51,7 @@ serve(async (req) => {
       });
     }
 
-    const { customerEmail, customerName, invoiceNumber, total, pdfBase64 } = await req.json();
+    const { customerEmail, customerName, invoiceNumber, total, pdfBase64, invoiceId } = await req.json();
 
     if (!customerEmail || !invoiceNumber) {
       return new Response(JSON.stringify({ error: "customerEmail and invoiceNumber are required" }), {
@@ -58,70 +60,46 @@ serve(async (req) => {
       });
     }
 
-    // Use Lovable AI to compose the email, then we'll send it via a simple approach
-    // For now, we'll use Resend-style sending or log it
-    // Since we don't have a mail service configured, we'll use the built-in Supabase auth email
-    // Actually, let's check for a RESEND_API_KEY or similar
-
-    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-    
-    if (!RESEND_API_KEY) {
-      // Fallback: log the email details and return success with a note
-      console.log(`Invoice email would be sent to: ${customerEmail}`);
-      console.log(`Invoice: ${invoiceNumber}, Total: £${total}`);
-      
-      return new Response(JSON.stringify({ 
-        success: true, 
-        note: "Email service not configured. Please add RESEND_API_KEY to enable email sending.",
-        logged: true,
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let orgId: string | undefined;
+    if (invoiceId) {
+      const { data: inv } = await supabaseAdmin
+        .from("invoices").select("org_id").eq("id", invoiceId).maybeSingle();
+      orgId = (inv as any)?.org_id;
     }
+    const branding = await getEmailBranding(orgId, supabaseAdmin);
+    const identity = getSendIdentity(branding);
 
-    // Send via Resend
-    const emailResponse = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: await getFromAddress("invoice"),
-        to: [customerEmail],
-        subject: `Invoice ${invoiceNumber} - £${Number(total).toFixed(2)}`,
-        html: `
-          <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2>Invoice ${invoiceNumber}</h2>
-            <p>Dear ${customerName || "Customer"},</p>
-            <p>Please find attached your invoice for <strong>£${Number(total).toFixed(2)}</strong>.</p>
-            <p>Any questions, just give us a call or drop us an email.</p>
-            <p>Kind regards,<br/>Servexa</p>
-          </div>
-        `,
-        attachments: pdfBase64 ? [{
-          filename: `${invoiceNumber}.pdf`,
-          content: pdfBase64,
-        }] : [],
-      }),
+    const subject = `Invoice ${invoiceNumber} — £${Number(total || 0).toFixed(2)}`;
+    const body = `
+      <p>Dear ${customerName || "Customer"},</p>
+      <p>Please find attached your invoice <strong>${invoiceNumber}</strong> for <strong>£${Number(total || 0).toFixed(2)}</strong>.</p>
+      <p>Any questions about this invoice, just reply to this email or give us a call.</p>
+      <p>Kind regards,<br/>Viva Fire Protection</p>
+    `;
+    const html = wrapCustomerEmail(branding, { previewText: subject, bodyHtml: body });
+
+    const result = await sendViaResend({
+      from: identity.from,
+      reply_to: identity.reply_to,
+      to: [customerEmail],
+      subject,
+      html,
+      attachments: pdfBase64 ? [{ filename: `${invoiceNumber}.pdf`, content: pdfBase64 }] : undefined,
     });
 
-    if (!emailResponse.ok) {
-      const errData = await emailResponse.text();
-      console.error("Resend error:", errData);
-      return new Response(JSON.stringify({ error: "Failed to send email" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (!result.ok) {
+      return new Response(
+        JSON.stringify({ error: "Failed to send email", detail: result.body }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (err) {
-    console.error("Error:", err);
+  } catch (err: any) {
+    console.error("send-invoice-email error:", err);
     return new Response(JSON.stringify({ error: err.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
