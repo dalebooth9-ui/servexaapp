@@ -1,6 +1,7 @@
 // Shared helper for outbound AUTOMATED customer emails.
-// Provides: getEmailBranding(), getSendIdentity(), wrapCustomerEmail()
-// and sendBrandedCustomerEmail() which posts to the Resend gateway.
+// Provides: getEmailBranding(), getSendIdentity(), wrapCustomerEmail(),
+// and sendViaResend() which posts to the Resend connector gateway
+// (falling back to the direct Resend API when only a plain key is set).
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -50,15 +51,15 @@ export async function getEmailBranding(
 ): Promise<EmailBranding> {
   try {
     const sb = client ?? serviceClient();
-    let q = sb.from("email_branding").select("*").limit(1);
-    if (orgId) q = q.eq("org_id", orgId);
-    else q = q.eq("org_id", VIVA_ORG_ID);
-    const { data } = await q;
-    if (data && data.length) {
-      const row = data[0] as any;
-      return { ...DEFAULT_BRANDING, ...row };
-    }
-    // Fallback: any row
+    const targetOrg = orgId || VIVA_ORG_ID;
+    const { data } = await sb
+      .from("email_branding")
+      .select("*")
+      .eq("org_id", targetOrg)
+      .limit(1);
+    if (data && data.length) return { ...DEFAULT_BRANDING, ...(data[0] as any) };
+
+    // Fallback — pick any row rather than sending with hardcoded defaults.
     const { data: any1 } = await sb.from("email_branding").select("*").limit(1);
     if (any1 && any1.length) return { ...DEFAULT_BRANDING, ...(any1[0] as any) };
   } catch (err) {
@@ -110,17 +111,9 @@ export function wrapCustomerEmail(
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f9;padding:24px 12px;">
       <tr><td align="center">
         <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:10px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.06);border:1px solid #e5e7eb;">
-          <tr>
-            <td style="background:${brand};padding:20px 28px;">${logo}</td>
-          </tr>
-          <tr>
-            <td style="padding:28px;color:#1f2937;font-size:15px;line-height:1.6;">
-              ${opts.bodyHtml}
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:20px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">${sig}</td>
-          </tr>
+          <tr><td style="background:${brand};padding:20px 28px;">${logo}</td></tr>
+          <tr><td style="padding:28px;color:#1f2937;font-size:15px;line-height:1.6;">${opts.bodyHtml}</td></tr>
+          <tr><td style="padding:20px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">${sig}</td></tr>
           ${b.footer_note ? `<tr><td style="padding:14px 28px;background:#f9fafb;border-top:1px solid #eef1f4;font-size:11px;color:#9ca3af;text-align:center;line-height:1.5;">${escapeHtml(b.footer_note)}</td></tr>` : ""}
         </table>
       </td></tr>
@@ -129,8 +122,6 @@ export function wrapCustomerEmail(
 </html>`;
 }
 
-// Convenience — POST to Resend via the connector gateway (or fall back
-// to direct api.resend.com if RESEND_API_KEY looks like a direct key).
 export async function sendViaResend(payload: {
   from: string;
   to: string | string[];
@@ -145,15 +136,15 @@ export async function sendViaResend(payload: {
   if (!RESEND_API_KEY) {
     return { ok: false, status: 503, body: { error: "RESEND_API_KEY not configured" } };
   }
-  const body = {
+  const body: Record<string, unknown> = {
     from: payload.from,
     to: Array.isArray(payload.to) ? payload.to : [payload.to],
     subject: payload.subject,
     html: payload.html,
-    reply_to: payload.reply_to,
-    attachments: payload.attachments,
   };
-  // Prefer gateway when Lovable key is present.
+  if (payload.reply_to) body.reply_to = payload.reply_to;
+  if (payload.attachments && payload.attachments.length) body.attachments = payload.attachments;
+
   const useGateway = !!LOVABLE_API_KEY;
   const url = useGateway
     ? "https://connector-gateway.lovable.dev/resend/emails"
@@ -163,9 +154,11 @@ export async function sendViaResend(payload: {
     Authorization: useGateway ? `Bearer ${LOVABLE_API_KEY}` : `Bearer ${RESEND_API_KEY}`,
   };
   if (useGateway) headers["X-Connection-Api-Key"] = RESEND_API_KEY;
+
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
   const text = await res.text();
   let parsed: any;
   try { parsed = JSON.parse(text); } catch { parsed = { raw: text }; }
+  if (!res.ok) console.error(`[customerEmail] Resend send failed [${res.status}]`, parsed);
   return { ok: res.ok, status: res.status, body: parsed };
 }
