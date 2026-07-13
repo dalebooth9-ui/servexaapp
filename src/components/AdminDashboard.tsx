@@ -18,6 +18,7 @@ import BatchScanDialog from "@/components/BatchScanDialog";
 import PendingWhatsAppScans from "@/components/PendingWhatsAppScans";
 import DefectSummaryCard from "@/components/DefectSummaryCard";
 import DefectFlywheelCard from "@/components/DefectFlywheelCard";
+import RenewalPipelineCard from "@/components/RenewalPipelineCard";
 import PipelineValueCard from "@/components/PipelineValueCard";
 import AtRiskJobsCard from "@/components/AtRiskJobsCard";
 
@@ -380,6 +381,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <DefectSummaryCard />
           <DefectFlywheelCard />
+          <RenewalPipelineCard />
         </div>
       )}
 
