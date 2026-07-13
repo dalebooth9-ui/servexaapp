@@ -1699,7 +1699,9 @@ function SortableEngineerRow({
                     {partnerCellAdhoc.map((adhoc) => (
                       <DraggableAdhocCard key={adhoc.id} entry={adhoc} isAdmin={isAdmin} onRemove={onRemoveAdhoc} />
                     ))}
-                  </>
+                    </>
+                )}
+                </>
                 )}
               </>
             );
