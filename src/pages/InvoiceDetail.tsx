@@ -309,6 +309,61 @@ export default function InvoiceDetail() {
     }
   };
 
+  const existingRemedialJobId = linkedDefects.find(d => d.remedial_job_id)?.remedial_job_id || null;
+  const canCreateRemedial = isQuote && invoice?.status === "accepted" && linkedDefects.length > 0 && !existingRemedialJobId;
+
+  const handleCreateRemedialJob = async () => {
+    if (!invoice || linkedDefects.length === 0) return;
+    setCreatingRemedial(true);
+    try {
+      // Infer site + customer from the linked defects
+      const siteId = linkedDefects.map(d => d.site_id).find(Boolean) || null;
+      let customerId: string | null = null;
+      let address: string | null = invoice.customer_address || null;
+      if (siteId) {
+        const { data: cs } = await supabase
+          .from("customer_sites")
+          .select("customer_id, sites(address)")
+          .eq("site_id", siteId)
+          .maybeSingle();
+        customerId = (cs as any)?.customer_id || null;
+        address = (cs as any)?.sites?.address || address;
+      }
+      // Category: use first defect's category if it maps to something, else 'general'
+      const catRaw = linkedDefects.map(d => d.category).find(Boolean) || null;
+      const category = catRaw ? `${catRaw}_remedial` : "general";
+
+      const { data: newJob, error: jobErr } = await supabase.from("jobs").insert({
+        name: `Remedial works — ${invoice.invoice_number}`,
+        description: `Remedial works from quote ${invoice.invoice_number}. Covers ${linkedDefects.length} defect${linkedDefects.length === 1 ? "" : "s"}.`,
+        customer: invoice.customer_name,
+        customer_id: customerId,
+        site_id: siteId,
+        address,
+        priority: "medium",
+        category,
+        status: "active",
+        source: "Defect Quote",
+        created_by: invoice.created_by,
+      } as any).select("id, reference_number").single();
+
+      if (jobErr) throw jobErr;
+
+      await supabase.from("defects").update({
+        remedial_job_id: newJob.id,
+        status: "job_created",
+      } as any).eq("quote_id", invoice.id);
+
+      toast({ title: "Remedial job created", description: `${newJob.reference_number} created from quote.` });
+      navigate(`/jobs/${newJob.id}`);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Failed to create remedial job.", variant: "destructive" });
+    } finally {
+      setCreatingRemedial(false);
+    }
+  };
+
+
   const generatePdf = async (): Promise<jsPDF | null> => {
     if (!printRef.current) return null;
     setGeneratingPdf(true);
