@@ -983,7 +983,7 @@ function BulkAddDialog({
   const count = labels.length;
 
   const handleAdd = () => {
-    if (!parsed.ok) {
+    if (parsed.ok !== true) {
       toast({
         title: "Couldn't parse range",
         description: parsed.reason,
@@ -995,6 +995,7 @@ function BulkAddDialog({
     onOpenChange(false);
     toast({ title: `Added ${count} rows` });
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
