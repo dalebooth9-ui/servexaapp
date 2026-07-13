@@ -132,6 +132,10 @@ Deno.serve(async (req) => {
     let created = 0;
     let emailsSent = 0;
 
+    const branding = await getEmailBranding(undefined, supabase);
+    const identity = getSendIdentity(branding);
+
+
     for (const visit of followUpVisits) {
       const job = visit.jobs as any;
       const jobId = job.id;
