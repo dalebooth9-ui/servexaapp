@@ -77,6 +77,8 @@ type Asset = {
 };
 
 type SiteOption = { id: string; name: string; site_type: string };
+type CustomerRow = { id: string; name: string };
+type CustomerSiteRow = { customer_id: string; site_id: string };
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ElementType; variant: "default" | "secondary" | "destructive" | "outline" }> = {
   operational: { label: "Operational", icon: CheckCircle2, variant: "default" },
