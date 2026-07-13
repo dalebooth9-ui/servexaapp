@@ -306,9 +306,11 @@ Return a SINGLE JSON object with exactly these fields (use "" or null when unkno
 - customer_name
 - site_address: the site / delivery / work address
 - po_number: purchase order reference (look for "PO", "PO#", "Order No", "Ref")
-- job_description: full description of the work or goods ordered
+- job_description: full description of the work or goods ordered (be thorough — include scope, quantities, item lists)
 - due_date: required completion date in YYYY-MM-DD, or ""
 - priority: "high", "medium" or "low" (default "medium")
+- po_value: total order value as a NUMBER (strip currency symbols), or null
+- currency: ISO code ("GBP", "USD", "EUR") inferred from £/$/€ or explicit text, or ""
 
 Return ONLY the JSON object, no markdown, no explanation.`;
 }
