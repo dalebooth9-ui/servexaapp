@@ -71,11 +71,13 @@ const InstallationProjects = lazy(() => import("@/components/InstallationProject
 const SiteSurveyCard = lazy(() => import("@/components/SiteSurveyCard"));
 const JobDefects = lazy(() => import("@/components/jobs/JobDefects"));
 const JobPartsUsed = lazy(() => import("@/components/jobs/JobPartsUsed"));
+const JobPhotos = lazy(() => import("@/components/jobs/JobPhotos"));
 
 const LazyFallback = () => <div className="h-8 w-full animate-pulse rounded bg-muted/40" aria-hidden />;
 
 const JOB_TABS = [
   { value: "overview", label: "Overview" },
+  { value: "photos", label: "Photos" },
   { value: "documents", label: "Documents" },
   { value: "parts", label: "Parts" },
   { value: "survey", label: "Survey & Snags" },
