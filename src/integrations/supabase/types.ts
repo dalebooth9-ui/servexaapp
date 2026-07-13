@@ -6547,6 +6547,16 @@ export type Database = {
         Returns: number
       }
       nextval_ppm_seq: { Args: never; Returns: number }
+      preview_invitation_token: {
+        Args: { _token: string }
+        Returns: {
+          email: string
+          expired: boolean
+          org_id: string
+          org_name: string
+          role: string
+        }[]
+      }
       purge_old_client_errors: { Args: never; Returns: undefined }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -6583,7 +6593,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      storage_object_org_id: { Args: { _name: string }; Returns: string }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
+      user_can_access_storage_path: {
+        Args: { _name: string }
+        Returns: boolean
+      }
       verify_org_intake_secret: {
         Args: { _org_id: string; _secret: string }
         Returns: boolean
