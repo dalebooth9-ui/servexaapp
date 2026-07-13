@@ -551,6 +551,11 @@ export default function JobDetail() {
             }`}
           >
             {tab.label}
+            {tab.value === "photos" && photoCount > 0 && (
+              <span className="ml-1.5 inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-semibold text-muted-foreground">
+                {photoCount}
+              </span>
+            )}
           </button>
         ))}
       </div>
