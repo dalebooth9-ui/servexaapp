@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,17 +14,27 @@ const loginSchema = z.object({
   password: z.string().min(6, "Password must be at least 6 characters").max(128),
 });
 
-const signupSchema = loginSchema.extend({
-  fullName: z.string().trim().min(1, "Full name is required").max(100, "Name must be under 100 characters"),
+const signupInviteSchema = loginSchema.extend({
+  fullName: z.string().trim().min(1, "Full name is required").max(100),
+  inviteToken: z.string().trim().min(8, "Enter the invitation code you were emailed").max(200),
 });
 
-type Mode = "login" | "signup" | "forgot";
+const signupCreateOrgSchema = loginSchema.extend({
+  fullName: z.string().trim().min(1, "Full name is required").max(100),
+  orgName: z.string().trim().min(2, "Organisation name is required").max(120),
+});
+
+type Mode = "login" | "signup-invite" | "signup-create-org" | "forgot";
 
 export default function Auth() {
-  const [mode, setMode] = useState<Mode>("login");
+  const [searchParams] = useSearchParams();
+  const initialInvite = searchParams.get("invite") || "";
+  const [mode, setMode] = useState<Mode>(initialInvite ? "signup-invite" : "login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [inviteToken, setInviteToken] = useState(initialInvite);
+  const [orgName, setOrgName] = useState("");
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
   const navigate = useNavigate();
@@ -35,7 +45,7 @@ export default function Auth() {
     setLoading(true);
 
     if (mode === "forgot") {
-      const emailParsed = z.string().trim().email("Please enter a valid email address").safeParse(email);
+      const emailParsed = z.string().trim().email().safeParse(email);
       if (!emailParsed.success) {
         toast({ title: "Validation error", description: emailParsed.error.errors[0]?.message, variant: "destructive" });
         setLoading(false);
@@ -44,11 +54,8 @@ export default function Auth() {
       const { error } = await supabase.auth.resetPasswordForEmail(emailParsed.data, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      if (error) {
-        toast({ title: "Error", description: "Could not send reset email. Please try again.", variant: "destructive" });
-      } else {
-        setForgotSent(true);
-      }
+      if (error) toast({ title: "Error", description: "Could not send reset email.", variant: "destructive" });
+      else setForgotSent(true);
       setLoading(false);
       return;
     }
@@ -61,13 +68,46 @@ export default function Auth() {
         return;
       }
       const { error } = await supabase.auth.signInWithPassword({ email: parsed.data.email, password: parsed.data.password });
-      if (error) {
-        toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
-      } else {
-        navigate("/");
+      if (error) toast({ title: "Login failed", description: "Invalid email or password.", variant: "destructive" });
+      else navigate("/");
+      setLoading(false);
+      return;
+    }
+
+    if (mode === "signup-invite") {
+      const parsed = signupInviteSchema.safeParse({ email, password, fullName, inviteToken });
+      if (!parsed.success) {
+        toast({ title: "Validation error", description: parsed.error.errors[0]?.message, variant: "destructive" });
+        setLoading(false);
+        return;
       }
-    } else {
-      const parsed = signupSchema.safeParse({ email, password, fullName });
+      // Preview the invitation first so we can give a friendly error before creating the auth user.
+      const { data: preview } = await supabase.rpc("preview_invitation_token", { _token: parsed.data.inviteToken });
+      const row = Array.isArray(preview) ? preview[0] : preview;
+      if (!row || row.expired) {
+        toast({ title: "Invalid invitation", description: "That invitation code is invalid, expired, or already used.", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      const { error } = await supabase.auth.signUp({
+        email: parsed.data.email,
+        password: parsed.data.password,
+        options: {
+          data: {
+            full_name: parsed.data.fullName,
+            invitation_token: parsed.data.inviteToken,
+          },
+          emailRedirectTo: window.location.origin,
+        },
+      });
+      if (error) toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+      else toast({ title: "Check your email", description: `We sent a confirmation link. You'll join ${row.org_name} on confirmation.` });
+      setLoading(false);
+      return;
+    }
+
+    if (mode === "signup-create-org") {
+      const parsed = signupCreateOrgSchema.safeParse({ email, password, fullName, orgName });
       if (!parsed.success) {
         toast({ title: "Validation error", description: parsed.error.errors[0]?.message, variant: "destructive" });
         setLoading(false);
@@ -77,37 +117,39 @@ export default function Auth() {
         email: parsed.data.email,
         password: parsed.data.password,
         options: {
-          data: { full_name: parsed.data.fullName },
+          data: {
+            full_name: parsed.data.fullName,
+            create_org: true,
+            org_name: parsed.data.orgName,
+          },
           emailRedirectTo: window.location.origin,
         },
       });
-      if (error) {
-        toast({ title: "Sign up failed", description: "Unable to create account. Please try again.", variant: "destructive" });
-      } else {
-        toast({
-          title: "Check your email",
-          description: "We sent you a confirmation link to verify your account.",
-        });
-      }
+      if (error) toast({ title: "Sign up failed", description: error.message, variant: "destructive" });
+      else toast({ title: "Check your email", description: "We sent you a confirmation link. Your organisation will be created on confirmation." });
+      setLoading(false);
+      return;
     }
-    setLoading(false);
   };
 
   const titleMap: Record<Mode, string> = {
     login: "Welcome back",
-    signup: "Create your account",
+    "signup-invite": "Accept your invitation",
+    "signup-create-org": "Create your organisation",
     forgot: "Reset your password",
   };
 
   const subtitleMap: Record<Mode, string> = {
     login: "Sign in to your Servexa account",
-    signup: "Get started with Servexa",
+    "signup-invite": "Join your team on Servexa",
+    "signup-create-org": "Start your Servexa workspace",
     forgot: "We'll email you a reset link",
   };
 
+  const isSignup = mode === "signup-invite" || mode === "signup-create-org";
+
   return (
     <div className="flex min-h-screen">
-      {/* Branded left panel */}
       <div className="hidden md:flex md:w-1/2 flex-col justify-between bg-sidebar p-12 text-sidebar-foreground">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
@@ -151,10 +193,8 @@ export default function Auth() {
         </div>
       </div>
 
-      {/* Right panel — auth form */}
       <div className="flex flex-1 items-center justify-center bg-background p-6">
         <div className="w-full max-w-md">
-          {/* Mobile logo */}
           <div className="mb-8 flex items-center justify-center gap-2.5 md:hidden">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary">
               <span className="text-base font-black text-primary-foreground">S</span>
@@ -182,26 +222,38 @@ export default function Auth() {
                 </div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {mode === "signup" && (
+                  {isSignup && (
                     <div className="space-y-2">
                       <Label htmlFor="name">Full Name</Label>
                       <Input id="name" value={fullName} onChange={(e) => setFullName(e.target.value)} required placeholder="Jane Smith" />
                     </div>
                   )}
+
+                  {mode === "signup-invite" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="invite">Invitation code</Label>
+                      <Input id="invite" value={inviteToken} onChange={(e) => setInviteToken(e.target.value)} required placeholder="Paste the code from your invite email" />
+                    </div>
+                  )}
+
+                  {mode === "signup-create-org" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="org">Organisation name</Label>
+                      <Input id="org" value={orgName} onChange={(e) => setOrgName(e.target.value)} required placeholder="Acme Fire Services Ltd" />
+                    </div>
+                  )}
+
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
                     <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required placeholder="you@company.com" />
                   </div>
+
                   {mode !== "forgot" && (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <Label htmlFor="password">Password</Label>
                         {mode === "login" && (
-                          <button
-                            type="button"
-                            onClick={() => setMode("forgot")}
-                            className="text-xs text-primary hover:underline"
-                          >
+                          <button type="button" onClick={() => setMode("forgot")} className="text-xs text-primary hover:underline">
                             Forgot password?
                           </button>
                         )}
@@ -209,23 +261,38 @@ export default function Auth() {
                       <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="••••••••" />
                     </div>
                   )}
+
                   <Button type="submit" className="w-full" disabled={loading}>
-                    {loading ? "Loading..." : mode === "login" ? "Sign In" : mode === "signup" ? "Create Account" : "Send Reset Link"}
+                    {loading ? "Loading..." :
+                      mode === "login" ? "Sign In" :
+                      mode === "signup-invite" ? "Accept invitation" :
+                      mode === "signup-create-org" ? "Create organisation" :
+                      "Send Reset Link"}
                   </Button>
                 </form>
               )}
 
               {!forgotSent && (
-                <div className="mt-4 text-center text-sm text-muted-foreground">
-                  {mode === "login" ? (
-                    <>Don't have an account?{" "}
-                      <button onClick={() => setMode("signup")} className="font-medium text-primary hover:underline">Sign Up</button>
+                <div className="mt-4 space-y-2 text-center text-sm text-muted-foreground">
+                  {mode === "login" && (
+                    <>
+                      <div>
+                        Have an invitation code?{" "}
+                        <button onClick={() => setMode("signup-invite")} className="font-medium text-primary hover:underline">Accept invite</button>
+                      </div>
+                      <div>
+                        New organisation?{" "}
+                        <button onClick={() => setMode("signup-create-org")} className="font-medium text-primary hover:underline">Create workspace</button>
+                      </div>
                     </>
-                  ) : mode === "signup" ? (
-                    <>Already have an account?{" "}
+                  )}
+                  {isSignup && (
+                    <div>
+                      Already have an account?{" "}
                       <button onClick={() => setMode("login")} className="font-medium text-primary hover:underline">Sign In</button>
-                    </>
-                  ) : (
+                    </div>
+                  )}
+                  {mode === "forgot" && (
                     <button onClick={() => setMode("login")} className="font-medium text-primary hover:underline">Back to Sign In</button>
                   )}
                 </div>
