@@ -346,10 +346,10 @@ serve(async (req) => {
           const subject = `🔔 ${sortedRecords.length} Compliance Record${sortedRecords.length > 1 ? "s" : ""} Expiring Within ${threshold} Days`;
           for (const admin of adminEmails) {
             await sendEmail(
-              RESEND_API_KEY!,
+              branding,
               admin.email,
               subject,
-              buildEmailHtml(`Compliance Expiry Reminder — ${threshold} Days`, bodyHtml),
+              buildEmailHtml(branding, `Compliance Expiry Reminder — ${threshold} Days`, bodyHtml),
             );
             emailed++;
           }
