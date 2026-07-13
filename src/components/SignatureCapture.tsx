@@ -48,7 +48,16 @@ export default function SignatureCapture({
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [customerName, setCustomerName] = useState(defaultSignerName);
+  const [customerPosition, setCustomerPosition] = useState("");
+  const [engineerName, setEngineerName] = useState("");
   const lastPoint = useRef<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (signerRole !== "customer" && user) {
+      supabase.from("profiles").select("full_name").eq("user_id", user.id).single()
+        .then(({ data }) => setEngineerName(data?.full_name || ""));
+    }
+  }, [user, signerRole]);
 
   const fetchSignatures = async () => {
     let query = supabase
