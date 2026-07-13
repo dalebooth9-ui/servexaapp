@@ -823,7 +823,7 @@ export default function WeeklyPlanner() {
       </div>
 
       {view === "month" && scheduleCapped && (
-        <div className="mb-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-200 flex items-center gap-2">
+        <div className="mb-3 rounded-md border border-yellow-500/30 bg-yellow-500/10 px-4 py-2.5 text-sm text-yellow-800 dark:text-yellow-200 flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-yellow-400" />
           Showing the first 500 bookings this month. Use week view for full detail.
         </div>
