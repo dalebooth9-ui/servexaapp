@@ -491,25 +491,20 @@ export default function JobPdfReport({ jobId, job }: Props) {
       }
 
 
-      // Pre-load photos (only if toggle is on)
-      const photos = includePhotos ? submissions.filter((s: any) => s.type === "photo" && s.file_url) : [];
-      const photoImages: Record<string, string> = {};
-      await Promise.all(photos.map(async (p: any) => {
-        try {
-          const path = extractPath(p.file_url);
-          if (!path) return;
-          const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 60);
-          if (!data?.signedUrl) return;
-          const response = await fetch(data.signedUrl);
-          const blob = await response.blob();
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-          photoImages[p.id] = dataUrl;
-        } catch { /* skip */ }
-      }));
+      // Pre-load photos via shared loader (same source as Photos tab).
+      // Excludes any photo already embedded inside a submitted job-sheet
+      // response (photo_gallery columns, photo fields) so the job-level
+      // Photos section never duplicates images shown inline elsewhere.
+      const embeddedPaths = collectEmbeddedPhotoPaths(sheetResponses);
+      const jobPhotos: JobPhotoForPdf[] = includePhotos
+        ? await loadJobPhotosForPdf({ jobId, excludePaths: embeddedPaths })
+        : [];
+      console.log("[JobPdfReport] job photos", {
+        loaded: jobPhotos.length,
+        excluded: embeddedPaths.size,
+        totalBytes: jobPhotos.reduce((s, p) => s + p.bytes, 0),
+      });
+
 
       // Pre-load company logo — use customer logo if available
       let logoDataUrl: string | null = null;
