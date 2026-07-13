@@ -76,7 +76,7 @@ export default function JobCompleteAction({
     engineerSig: false,
     customerSig: false,
     formsSubmitted: 0,
-    formsDraft: 0,
+    drafts: [],
     photos: 0,
     remedialOutstanding: 0,
     loading: true,
@@ -89,7 +89,10 @@ export default function JobCompleteAction({
     setReadiness((r) => ({ ...r, loading: true }));
     const [sigsRes, sheetsRes, photosRes, remedialRes] = await Promise.all([
       supabase.from("job_signatures").select("signer_role").eq("job_id", jobId),
-      supabase.from("job_sheet_responses").select("status").eq("job_id", jobId),
+      supabase
+        .from("job_sheet_responses")
+        .select("id, template_id, status, created_at, updated_at, job_sheet_templates(name)")
+        .eq("job_id", jobId),
       supabase
         .from("submissions")
         .select("id", { count: "exact", head: true })
@@ -104,14 +107,28 @@ export default function JobCompleteAction({
     ]);
 
     const sigs = sigsRes.data || [];
-    const sheets = sheetsRes.data || [];
+    const sheets = (sheetsRes.data || []) as any[];
     const remedial = (remedialRes as any).data || [];
+
+    const submittedTplIds = new Set(
+      sheets.filter((s) => s.status === "submitted").map((s) => s.template_id),
+    );
+    const drafts: DraftBlocker[] = sheets
+      .filter((s) => s.status === "draft")
+      .map((s) => ({
+        id: s.id,
+        templateId: s.template_id,
+        templateName: s.job_sheet_templates?.name || "Untitled form",
+        createdAt: s.created_at,
+        untouched: !s.updated_at || s.updated_at === s.created_at,
+        hasSubmittedSibling: submittedTplIds.has(s.template_id),
+      }));
 
     setReadiness({
       engineerSig: sigs.some((s: any) => s.signer_role === "engineer"),
       customerSig: sigs.some((s: any) => s.signer_role === "customer"),
       formsSubmitted: sheets.filter((s: any) => s.status === "submitted").length,
-      formsDraft: sheets.filter((s: any) => s.status === "draft").length,
+      drafts,
       photos: photosRes.count || 0,
       remedialOutstanding: remedial.filter(
         (i: any) => i.status !== "done" && i.status !== "unable" && i.status !== "completed",
