@@ -44,6 +44,7 @@ import AutoAttachTemplateChooser from "@/components/AutoAttachTemplateChooser";
 import { useFileUpload } from "@/hooks/useFileUpload";
 import { ALLOWED_EXTENSIONS, extractStoragePath } from "@/lib/fileUtils";
 import { buildAttachPlan, insertDraftResponses, lockJobTemplate, type MatchSlot, type TemplateOption } from "@/lib/autoAttachJobDocuments";
+import { useJobPhotoCount } from "@/hooks/useJobPhotoCount";
 
 // Heavy children — code-split out of the JobDetail bundle. Each one pulls in
 // hefty deps (jspdf/html2canvas/tiptap/exceljs/docx) transitively, so we
