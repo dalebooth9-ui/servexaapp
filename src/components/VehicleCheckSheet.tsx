@@ -101,6 +101,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
   const startResubmit = () => {
     if (latest) {
       setVehicleReg(latest.vehicle_reg || "");
+      setVehicleId(latest.vehicle_id || "");
       if (latest.items) {
         setItems({
           ...Object.fromEntries(checkItems.map((i) => [i.key, null])),
@@ -111,6 +112,25 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
     }
     setShowForm(true);
   };
+
+  // Load previous mileage for chosen vehicle as placeholder hint
+  useEffect(() => {
+    if (!vehicleId) { setLastMileage(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from("vehicle_checks")
+        .select("mileage")
+        .eq("vehicle_id", vehicleId)
+        .not("mileage", "is", null)
+        .order("check_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!cancelled) setLastMileage((data as any)?.mileage ?? null);
+    })();
+    return () => { cancelled = true; };
+  }, [vehicleId]);
 
   const hasDefects = Object.values(items).some((v) => v === "defect");
   const allAnswered = checkItems.every((it) => items[it.key] != null);
