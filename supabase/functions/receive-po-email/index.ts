@@ -219,6 +219,7 @@ serve(async (req) => {
       const { data: matched } = await admin
         .from("customers")
         .select("id, name")
+        .eq("org_id", orgId)
         .ilike("name", customerName)
         .limit(1)
         .maybeSingle();
@@ -229,7 +230,7 @@ serve(async (req) => {
       } else {
         const { data: newCust, error: custErr } = await admin
           .from("customers")
-          .insert({ name: customerName } as any)
+          .insert({ name: customerName, org_id: orgId } as any)
           .select("id, name")
           .single();
         if (custErr) {
