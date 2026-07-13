@@ -221,10 +221,10 @@ serve(async (req) => {
 
         for (const admin of adminEmails) {
           await sendEmail(
-            RESEND_API_KEY,
+            branding,
             admin.email,
             `⚠️ ${expiredRecords.length} Compliance Record${expiredRecords.length > 1 ? "s" : ""} Expired`,
-            buildEmailHtml("Compliance Records Expired", bodyHtml),
+            buildEmailHtml(branding, "Compliance Records Expired", bodyHtml),
           );
           emailed++;
         }
