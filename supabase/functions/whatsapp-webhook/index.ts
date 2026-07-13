@@ -190,14 +190,17 @@ Deno.serve(async (req) => {
         }
       }
 
+      // Track whether this media message matched via its own caption — if so,
+      // we set sticky context so subsequent captionless photos in the same
+      // burst follow the same job.
+      const matchedViaCaption = !!jobId;
+
       // Otherwise, try the normal active job resolution — but only if the
       // engineer didn't give us a caption that we already failed to match.
+      // Strict mode + 4h window: never guess, never use stale context.
       if (!jobId && !fuzzyAttemptedNoMatch) {
-        // For media, use strict mode: only resolve to an explicitly-set context
-        // or today's scheduled visit. Never silently route to the most-recent
-        // assigned job — that's how photos end up in the wrong folder.
-        jobId = await getActiveJob(supabase, engineerId, true);
-        console.log(`[active-job] strict resolved jobId=${jobId}`);
+        jobId = await getActiveJob(supabase, engineerId, true, 4);
+        console.log(`[active-job] strict(4h) resolved jobId=${jobId}`);
       }
 
       // If a caption was provided but matched nothing, prompt the engineer
