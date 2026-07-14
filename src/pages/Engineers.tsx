@@ -314,7 +314,7 @@ export default function Engineers() {
             <TableBody>
               {engineers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No engineers found. Users need to be assigned the engineer role.
                   </TableCell>
                 </TableRow>
