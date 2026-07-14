@@ -333,7 +333,11 @@ function addWatermark(doc: jsPDF, watermark: LoadedImage | null, brandColor: Rgb
 
 async function buildPdf(payload: WorkerPayload) {
   const { template, jobInfo, handfill, categoryName, accentColor } = payload;
-  const systemQty = getSystemQty(template.name, jobInfo);
+  const autoQty = getSystemQty(template.name, jobInfo);
+  const overrideQty = payload.copiesOverride && payload.copiesOverride > 0
+    ? Math.floor(payload.copiesOverride)
+    : null;
+  const systemQty = Math.max(overrideQty ?? autoQty, 1);
   const customerLogoUrl = jobInfo?.customers?.logo_url || null;
   const isDryRiser = /dry\s*riser/i.test(template.name || "");
   const isWetRiser = /wet\s*riser/i.test(template.name || "");
@@ -347,7 +351,15 @@ async function buildPdf(payload: WorkerPayload) {
   const siteName = jobInfo?.site?.name || "";
   const siteAddress = [jobInfo?.site?.address || jobInfo?.address || "", jobInfo?.site?.postcode || ""].filter(Boolean).join(", ");
   const refNumber = jobInfo?.reference_number || "";
-  const dateVal = "";
+  const dateVal = (() => {
+    const iso = jobInfo?.due_date;
+    if (!iso) return "";
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return String(iso);
+      return d.toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" });
+    } catch { return String(iso); }
+  })();
   const riserField = template.fields.find(f => f.label.toLowerCase().includes("riser location"));
   const riserLocValue = jobInfo?.site?.riser_location || (riserField ? (autoVals[riserField.id] || "") : "");
   const engineerList = (jobInfo?.engineers || []).join(", ");
@@ -370,6 +382,7 @@ async function buildPdf(payload: WorkerPayload) {
     const { title: sheetTitle, subtitle: sheetSubtitle } = resolveTemplateDisplayTitle(template.name, {
       brandingSubtitle: template.branding?.company_subtitle ?? null,
     });
+    const systemLabel = systemQty > 1 ? `System ${sysIdx + 1} of ${systemQty}` : "";
     let y = renderHeader(doc, sheetTitle, branding, {
       customerName,
       siteName,
@@ -377,6 +390,8 @@ async function buildPdf(payload: WorkerPayload) {
       refNumber,
       dateVal,
       riserLocation: riserLocValue,
+      engineer: engineerList,
+      systemLabel,
     }, template.standard || sheetSubtitle, isDryRiser ? DRY_RISER_LAYOUT.header.brandBlueRgb : accentColor, {
       compact: false,
       marginX,
