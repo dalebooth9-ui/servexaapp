@@ -143,12 +143,18 @@ function checkboxToStored(v: "yes" | "no" | "na" | ""): boolean | string | undef
   return undefined;
 }
 
-export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
+export default function ScanCompletedJobDialog({
+  open,
+  onOpenChange,
+  queueItem,
+  onQueueItemResolved,
+}: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [step, setStep] = useState<"upload" | "processing" | "review">("upload");
+  const [mode, setMode] = useState<"single" | "bulk">("single");
   const [images, setImages] = useState<ImgFile[]>([]);
   const [processingMsg, setProcessingMsg] = useState("");
 
