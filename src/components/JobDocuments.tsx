@@ -718,6 +718,8 @@ ${sections}
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
+        <JobPdfReport jobId={jobId} job={job} />
+        <JobWordReport jobId={jobId} job={job} />
         <Button
           variant="outline"
           size="sm"
