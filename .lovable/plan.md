@@ -1,66 +1,99 @@
+# Bulk Scan Paper Reports
 
-## Goal
-
-Add a backfill tool that turns a photo of a handwritten completed paper job sheet into a real completed job in Servexa — matched to an existing `job_sheet_templates` row, human-reviewed, and stored so the normal branded PDF report generator (`CustomerReportPdf` / job sheet PDF) works with no changes.
+Extend the existing "Scan Paper Report" flow with a bulk mode that turns a stack of photos into a review queue, one paper form at a time, feeding the same single-form review UI already built.
 
 ## User flow
 
-1. Admin opens **Jobs page → "Scan Paper Report"** (button next to existing "New Job" — admin-only, same role guard as other admin actions).
-2. Dialog step 1 — **Upload photos**: one or multiple images (front/back). Reuses the existing camera/upload UI pattern from `ScanJobSheet.tsx`.
-3. Dialog step 2 — **AI processing** (single loading state):
-   - Call new edge function `scan-completed-job-report`.
-   - Function first classifies which `job_sheet_templates` row best matches the form (using template name + category + first ~6 field labels as keywords).
-   - Then runs the existing OCR + extraction pipeline against that template's fields.
-   - Returns `{ template, extracted, header, candidate_matches, _ocr_path }`. `candidate_matches` = top 3 templates so the admin can override.
-4. Dialog step 3 — **Review form**:
-   - Template selector at top (pre-selected to the AI pick, with confidence hint; admin can swap to any other template — re-triggers extraction for that template).
-   - Customer picker (reuses `CustomerCombobox`) — required, no auto-create for customers.
-   - Site picker (reuses `SiteCombobox`, scoped to chosen customer) with **"+ Create new site"** inline — opens a small form (name / address / postcode / riser_location) that creates the site + customer_sites junction row before continuing.
-   - Job header fields (name, PO number, completion date, engineer/technician).
-   - Full field grid rendered from the template's `fields` JSON, pre-filled with the extracted answers. Each row is editable (text, checkbox tri-state yes/no/N/A, select) using the same value shapes the existing job sheet UI writes (`true`/`false`/`"N/A"`/descriptive string).
-   - Warning banner listing fields the OCR left blank or low-confidence so the admin can spot gaps.
-5. Dialog step 4 — **Confirm & file**:
-   - Insert a new `jobs` row: `status='completed'`, `source='paper backfill'`, `category` derived from the template, `completed_at` from the reviewed date, `completed_by` = current admin, org + customer + site set.
-   - Insert `job_sheet_responses` with `status='submitted'`, `submitted_at=now()`, `submitted_by`=current admin, `responses` = the reviewed object.
-   - Upload each source photo to the existing `job-documents` storage bucket and insert `job_documents` rows tagged `document_type='source_scan'` so they appear in the job's Documents panel as evidence (same code path as attaching a PDF today).
-   - Toast success + link to the new job so Dale can generate the branded Customer Report PDF immediately.
-
-Existing UI style, admin role check (`useEngineerPageAccess` + `has_role_in_org(..., 'admin')`), and org scoping are preserved. No changes to how field engineers submit sheets on live jobs.
+1. **Open dialog** → new tab **"Bulk scan"** alongside the existing "Single scan" tab in `ScanCompletedJobDialog`.
+2. **Upload & group** (step 1)
+   - Drop 20–40 photos.
+   - Default grouping: 1 photo = 1 form.
+   - Grouping UI: thumbnails in a grid; select 2+ and click "Group as one form (front/back)" to bundle them. Bundle shows as a small stack with a badge (e.g. "2 pages"). "Ungroup" reverses it.
+   - Show `N forms detected` counter.
+3. **Start batch** (step 2)
+   - Client uploads each photo to `submissions` bucket under `paper-batches/<batch_id>/…` (reusing existing storage patterns — admin-only path).
+   - Creates a `paper_scan_batches` row + one `paper_scan_batch_items` row per form (with the list of image paths).
+   - Fires background edge function `process-paper-scan-batch` (fire-and-forget via `supabase.functions.invoke` with no await on completion; function iterates items).
+   - Dialog shows live progress (Realtime channel or polling every 3s on the batch row).
+4. **Review queue** (step 3, and also reachable from Jobs page)
+   - New page `/paper-scan-queue` (admin-only) that lists all items across recent batches with columns: thumbnail, detected template, customer/site guess, date guess, status badge (`ready` / `low_confidence` / `failed` / `confirmed` / `rejected`), age.
+   - Badge count in the Jobs page (like Jobs-to-Approve badge) showing pending items.
+5. **Per-item review** → reuses the existing single-scan review step (extracted body + customer/site pickers + create-site inline). Confirm = same insert path as single flow (job + response + `job_documents`). Reject = mark item `rejected`, keep photos.
 
 ## Files
 
-New:
-- `supabase/functions/scan-completed-job-report/index.ts` — orchestration edge fn.
-  1. Auth via JWT (same pattern as `ocr-job-sheet`).
-  2. Load all published `job_sheet_templates` for the caller's org (+ global org-null ones).
-  3. If `template_id` in body is set, skip classification; otherwise call Lovable AI (`google/gemini-3-flash-preview`, vision) with the images + a compact `{id, name, category, top_field_labels}` list and ask for the best match + top 3.
-  4. Delegate the OCR/extract logic to the shared code used by `ocr-job-sheet` (extract the reusable pieces into `supabase/functions/_shared/jobSheetOcr.ts` and import from both fns — no behaviour change to `ocr-job-sheet`).
-  5. Return `{ template_id, template_name, candidate_matches, extracted, header, _ocr_path }`.
-- `supabase/functions/_shared/jobSheetOcr.ts` — extracted helpers (`analyzeWithAzure`, `gptFieldMapping`, `gptVisionFallback`, `buildExtractionTool`, normalisation utilities). Pure refactor of the code currently inside `ocr-job-sheet/index.ts`.
-- `src/components/ScanCompletedJobDialog.tsx` — the multi-step dialog (upload → processing → review → confirm). Follows the styling of `ScanAssetsDialog.tsx` and `ScanJobSheet.tsx`.
-- `src/components/scan-completed/CreateSiteInline.tsx` — small inline form used by the site picker to add a missing site.
+**New**
+- `supabase/migrations/<ts>_paper_scan_batches.sql` — two tables + RLS.
+- `supabase/functions/process-paper-scan-batch/index.ts` — background orchestrator. For each `pending` item: fetch photos, call the shared classification + OCR helpers (same code path as `classify-job-sheet-template` and `ocr-job-sheet`), store result on the item row, set status. Continues on per-item error (sets item to `failed` with `error` text).
+- `src/pages/PaperScanQueue.tsx` — queue list page.
+- `src/components/paper-scan/BulkScanTab.tsx` — upload + grouping UI inside dialog.
+- `src/components/paper-scan/PhotoGrouper.tsx` — small grid + group/ungroup controls.
+- `src/components/paper-scan/BatchProgress.tsx` — realtime/polled progress bar.
+- `src/components/paper-scan/PaperScanQueueBadge.tsx` — count badge for Jobs page.
+- `src/hooks/usePaperScanQueue.ts` — realtime subscribe + counts.
 
-Edited:
-- `src/pages/Jobs.tsx` — add the "Scan Paper Report" button (admin-only) that opens `ScanCompletedJobDialog`.
-- `supabase/functions/ocr-job-sheet/index.ts` — import from `_shared/jobSheetOcr.ts` instead of the inline copies (behaviour identical).
+**Edited**
+- `src/components/ScanCompletedJobDialog.tsx` — wrap existing steps in a Tabs (`Single` | `Bulk`); when opened from a queue item, jump straight to the review step with the item's extracted payload pre-loaded.
+- `src/pages/Jobs.tsx` — add "Paper scan queue" button + badge next to the existing "Scan Paper Report" trigger.
+- `src/App.tsx` — register `/paper-scan-queue` route (admin-only, matches existing admin route pattern).
 
-No DB migration required — everything reuses existing tables (`jobs`, `job_sheet_responses`, `job_documents`, `sites`, `customer_sites`) and their existing RLS policies.
+## Data model
 
-## Technical notes
+```sql
+-- Header: one row per uploaded batch
+create table public.paper_scan_batches (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null,
+  created_by uuid not null,
+  status text not null default 'processing', -- processing | complete
+  total_items int not null default 0,
+  processed_items int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
 
-- Template classification uses vision on a single downsized image (max 1024px, quality 0.6) to keep latency + tokens down. Full-res images are passed only to the extraction stage.
-- Extraction reuses the exact Azure → GPT-vision fallback pipeline already in production, so answer shapes match what the branded PDF generator expects. No new normalisation rules.
-- Value shapes written to `job_sheet_responses.responses`:
-  - Checkbox: `true` / `false` / `"N/A"` (string).
-  - Descriptive answers ("N/A - exposed valve"): stored verbatim — `pdfBody.ts` already renders strings as descriptive text.
-  - Dates: stored as `dd/mm/yyyy` string (matches existing responses).
-- Photo evidence: stored under `job-documents/<org_id>/<job_id>/paper-scan-<n>.<ext>`. Row `document_type='source_scan'`, `uploaded_by=admin`, so it shows in the existing Documents tab with no UI changes.
-- Admin gating: dialog trigger hidden unless `has_role('admin')`, and the edge function re-checks `has_role_in_org` before performing writes — defence in depth like other admin-only fns.
-- Multi-tenant: every insert scopes `org_id = get_user_org_id()`; edge fn refuses if org mismatch.
-- Error surfaces: 402 (credits) / 429 (rate limit) from Lovable AI bubble up as clear toast messages, matching the pattern in `ScanJobSheet.tsx`.
+-- One row per form (may reference N photos)
+create table public.paper_scan_batch_items (
+  id uuid primary key default gen_random_uuid(),
+  batch_id uuid not null references public.paper_scan_batches(id) on delete cascade,
+  org_id uuid not null,
+  image_paths text[] not null,                    -- storage paths in `submissions`
+  status text not null default 'pending',         -- pending | processing | ready | low_confidence | failed | confirmed | rejected
+  confidence numeric,
+  detected_template_id uuid,
+  candidate_matches jsonb,
+  extracted jsonb,                                -- { header, responses, ... } same shape single-scan returns
+  guess_customer_id uuid,
+  guess_site_id uuid,
+  guess_date date,
+  error text,
+  created_job_id uuid,                            -- set on confirm
+  reviewed_by uuid,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+```
+
+Grants + RLS: authenticated can select/insert/update rows scoped to their org via existing `get_user_org_id()` helper; admin-only enforced at the edge function AND in policies via `has_role_in_org(auth.uid(), org_id, 'admin')`. `service_role` full access for the background function.
+
+Status thresholds: `confidence >= 0.7` → `ready`; `< 0.7` → `low_confidence`; parse error → `failed`.
+
+## Background processing
+
+- `process-paper-scan-batch` accepts `{ batch_id }`, verifies caller is admin in the batch's org, then iterates items marked `pending`.
+- For each item: download signed URLs → classify → OCR against chosen template → attempt to guess customer/site by matching extracted "site name/address" against `sites` table (fuzzy, best effort — falls back to null; guess is a hint only).
+- Writes result + status back to `paper_scan_batch_items`; increments `paper_scan_batches.processed_items`.
+- Chunked (max 5 items per invocation loop; if more remain, re-invokes itself) to stay well under edge function CPU limits.
+- Shared logic from existing `classify-job-sheet-template` and `ocr-job-sheet` extracted into `supabase/functions/_shared/paperScan.ts` (pure refactor).
+
+## Confirm path
+
+On confirm from queue: call the same insert routine currently in `ScanCompletedJobDialog` (extract into `src/lib/paperScanConfirm.ts` helper so both single and bulk flows reuse it). Copies photos from `paper-batches/…` into the job's `job-documents` path, sets item status to `confirmed`, stores `created_job_id`.
 
 ## Out of scope (v1)
 
-- No auto-creation of customers (only sites) — matching request.
-- No bulk upload of many forms at once; one form → one job per dialog run.
-- No editing of a filed backfill from inside this dialog — after confirm the admin uses the normal job/response edit screens.
+- No cross-batch dedupe.
+- No auto-assign customer/site — always human confirm.
+- No mobile-optimised review; desktop table + existing dialog.
+- No CSV export of batch results.
