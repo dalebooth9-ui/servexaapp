@@ -349,6 +349,45 @@ export default function ScanCompletedJobDialog({
       });
   }, [customerId]);
 
+  // ── Auto-crop signatures out of the source photos using the bboxes the
+  // OCR function returned. Runs in both single and queue flows; either
+  // slot can be blank and the reviewer can crop it manually. ──
+  const autoCropSignatures = async (
+    src: ImgFile[],
+    hdr: Record<string, any>,
+  ) => {
+    if (!src.length) return;
+    const engBox = hdr?.engineer_signature_bbox as SignatureBoundingBox | undefined;
+    const custBox = hdr?.customer_signature_bbox as SignatureBoundingBox | undefined;
+
+    if (hasUsableSignatureBoundingBox(engBox)) {
+      const pageIdx = Math.min(engBox?.page_index || 0, src.length - 1);
+      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
+      const cropped = await cropSignatureFromScanSource(source, engBox!);
+      if (cropped?.blob) {
+        setEngineerSig({
+          blob: cropped.blob,
+          previewUrl: URL.createObjectURL(cropped.blob),
+          name: String(hdr?.engineer || "").trim() || "Engineer",
+          pageIdx,
+        });
+      }
+    }
+    if (hasUsableSignatureBoundingBox(custBox)) {
+      const pageIdx = Math.min(custBox?.page_index || 0, src.length - 1);
+      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
+      const cropped = await cropSignatureFromScanSource(source, custBox!, { mode: "field" });
+      if (cropped?.blob) {
+        setCustomerSig({
+          blob: cropped.blob,
+          previewUrl: URL.createObjectURL(cropped.blob),
+          name: String(hdr?.customer_signed_name || "").trim() || "Customer",
+          pageIdx,
+        });
+      }
+    }
+  };
+
   // ── File input ──
   const addFiles = (fs: FileList | null) => {
     if (!fs || fs.length === 0) return;
