@@ -524,7 +524,8 @@ export default function ScanCompletedJobDialog({
           mime_type: "image/jpeg",
         })),
       );
-      await loadTemplateAndExtract(newTemplateId, imagePayloads);
+      const hdr = await loadTemplateAndExtract(newTemplateId, imagePayloads);
+      await autoCropSignatures(images, hdr);
       setStep("review");
     } catch (e: any) {
       toast({
