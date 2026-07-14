@@ -29,6 +29,7 @@ import {
 import {
   loadEngineerSignatureLibrary, findEngineerSignatureByName,
 } from "@/lib/engineerSignatureLibrary";
+import { isBlankAnswer, filterNonBlankRows } from "@/lib/pdfBody";
 
 interface Props {
   jobId: string;
