@@ -16,7 +16,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet, ScanLine } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet, ScanLine, Printer } from "lucide-react";
+import SiteSheetPrintDialog from "@/components/SiteSheetPrintDialog";
+import { ToastAction } from "@/components/ui/toast";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
@@ -77,6 +79,7 @@ export default function Jobs() {
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
   const [scanPaperOpen, setScanPaperOpen] = useState(false);
+  const [siteSheetJobId, setSiteSheetJobId] = useState<string | null>(null);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -621,7 +624,15 @@ export default function Jobs() {
     setFileDropUploading(false);
     setFileDropDialogOpen(false);
     setFileDropPendingFiles([]);
-    toast({ title: "Job created", description: `${parsed.data.name} created with ${fileDropPendingFiles.length} file(s).` });
+    toast({
+      title: "Job created",
+      description: `${parsed.data.name} created with ${fileDropPendingFiles.length} file(s). Print site sheets?`,
+      action: newJob?.id ? (
+        <ToastAction altText="Print site sheets" onClick={() => setSiteSheetJobId(newJob.id)}>
+          Print site sheets
+        </ToastAction>
+      ) : undefined,
+    });
     fetchJobs();
   };
 
@@ -729,7 +740,15 @@ export default function Jobs() {
         : "Failed to create job. Please try again.";
       toast({ title: "Error", description: message, variant: "destructive" });
     } else {
-      toast({ title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created" });
+      toast({
+        title: statusOverride === "scheduled" ? "Job created & submitted to planner" : "Job created",
+        description: "Print site sheets for the engineer?",
+        action: createdJob?.id ? (
+          <ToastAction altText="Print site sheets" onClick={() => setSiteSheetJobId(createdJob.id)}>
+            Print site sheets
+          </ToastAction>
+        ) : undefined,
+      });
       clearJobFormDraft();
       setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" });
       setDialogOpen(false);
@@ -2080,6 +2099,11 @@ export default function Jobs() {
           <Plus className="h-6 w-6" />
         </button>
       )}
+      <SiteSheetPrintDialog
+        jobId={siteSheetJobId}
+        open={!!siteSheetJobId}
+        onOpenChange={(o) => { if (!o) setSiteSheetJobId(null); }}
+      />
     </div>
   );
 }

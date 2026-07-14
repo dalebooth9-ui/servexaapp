@@ -22,7 +22,8 @@ import SiteCombobox from "@/components/SiteCombobox";
 import { OpenInMapsButton } from "@/components/OpenInMapsButton";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode, PenLine } from "lucide-react";
+import { Download, Trash2, ChevronDown, ArrowLeft, FileText, CalendarClock, ExternalLink, Pencil, Save, X, ClipboardList, Sparkles, Camera, QrCode, PenLine, Printer } from "lucide-react";
+import SiteSheetPrintDialog from "@/components/SiteSheetPrintDialog";
 import { QRCodeSVG } from "qrcode.react";
 import { Dialog as QrDialog, DialogContent as QrDialogContent, DialogHeader as QrDialogHeader, DialogTitle as QrDialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -118,6 +119,7 @@ export default function JobDetail() {
   const [chooserSlots, setChooserSlots] = useState<MatchSlot[]>([]);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [siteSheetOpen, setSiteSheetOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
 
@@ -401,7 +403,7 @@ export default function JobDetail() {
               <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
             </div>
           )}
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -409,6 +411,15 @@ export default function JobDetail() {
               onClick={() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
             >
               <PenLine className="h-3.5 w-3.5" /> Customer Sign-Off
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => setSiteSheetOpen(true)}
+              title="Print blank site sheets pre-filled from this job"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print for site
             </Button>
           </div>
           {job.category === "installation" ? (
@@ -1209,6 +1220,11 @@ export default function JobDetail() {
         onCompleted={fetchData}
       />
     )}
+    <SiteSheetPrintDialog
+      jobId={id || null}
+      open={siteSheetOpen}
+      onOpenChange={setSiteSheetOpen}
+    />
     </Suspense>
     </ChunkErrorBoundary>
   );

@@ -69,6 +69,7 @@ type JobInfo = {
   engineers?: string[];
   other_qty?: number;
   other_service_type?: string | null;
+  due_date?: string | null;
   site?: {
     name: string;
     address: string | null;
@@ -101,6 +102,7 @@ type BlankTemplatePdfWorkerPayload = {
   categoryName: string;
   accentColor: [number, number, number];
   accreditationLogoUrls: string[];
+  copiesOverride?: number | null;
 };
 
 type BlankTemplatePdfWorkerResult = {
@@ -168,7 +170,7 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
-type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null };
+type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null; copiesOverride?: number | null };
 
 const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
   return new Promise((resolve, reject) => {
@@ -260,16 +262,17 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: (o) => generate("download", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
-    print: (o) => generate("print", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
-    preview: (o) => generate("preview", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
-    getBlob: (o) => generate("blob", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<Blob | null>,
+    download: (o) => generate("download", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<void>,
+    print: (o) => generate("print", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<void>,
+    preview: (o) => generate("preview", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<void>,
+    getBlob: (o) => generate("blob", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<Blob | null>,
   }));
 
   const generate = async (
     mode: "download" | "print" | "preview" | "blob" = "preview",
     handfill = false,
     watermarkOverride: WatermarkOverride | null = null,
+    copiesOverride: number | null = null,
   ): Promise<Blob | null | void> => {
     setGenerating(true);
     const pendingName = [
@@ -290,7 +293,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     await waitForPaint();
     // --- Blank-template cache lookup ---------------------------------------
     // Skip cache for job-prefilled exports and watermark-override rebuilds.
-    const cacheable = !jobInfo && !watermarkOverride;
+    const cacheable = !jobInfo && !watermarkOverride && !copiesOverride;
     const cacheKey = cacheable ? blankCacheKey(template as any, handfill) : "";
     const storagePath = cacheable
       ? blankPdfStoragePath(template as any, handfill)
@@ -371,6 +374,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         categoryName,
         accentColor,
         accreditationLogoUrls,
+        copiesOverride,
       });
       console.timeEnd(label);
       console.info(`${label} completed in ${Math.round(duration)}ms inside src/workers/blankTemplatePdf.worker.ts`);
