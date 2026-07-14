@@ -35,9 +35,18 @@ import {
   CheckCircle2,
   Plus,
   XCircle,
+  PenLine,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import BulkScanTab from "@/components/paper-scan/BulkScanTab";
+import PaperSignatureCropper from "@/components/paper-scan/PaperSignatureCropper";
+import {
+  cropSignatureFromScanSource,
+  hasUsableSignatureBoundingBox,
+  type SignatureBoundingBox,
+  type ScanImageSource,
+} from "@/lib/signatureCrop";
+import { detectPaperMismatches } from "@/lib/paperScanMismatch";
 
 // ── Types ──
 type TemplateField = {
@@ -179,6 +188,16 @@ export default function ScanCompletedJobDialog({
   const [completionDate, setCompletionDate] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  // Cropped signatures (auto or manual) — uploaded on confirm
+  type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
+  const [engineerSig, setEngineerSig] = useState<SigCapture | null>(null);
+  const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
+  const [manualCrop, setManualCrop] = useState<{
+    role: "engineer" | "customer";
+    pageIdx: number;
+  } | null>(null);
+  const [ackMismatch, setAckMismatch] = useState(false);
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Reset on close
@@ -198,6 +217,10 @@ export default function ScanCompletedJobDialog({
       setJobName("");
       setCompletionDate("");
       setProcessingMsg("");
+      setEngineerSig(null);
+      setCustomerSig(null);
+      setManualCrop(null);
+      setAckMismatch(false);
     }
   }, [open]);
 
@@ -257,6 +280,26 @@ export default function ScanCompletedJobDialog({
         setJobName(
           `${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`,
         );
+
+        // Download queue-item photos as File objects so we can crop
+        // signatures out of them client-side.
+        setProcessingMsg("Loading source photos…");
+        const downloaded: ImgFile[] = [];
+        for (const p of queueItem.imagePaths) {
+          const { data } = await supabase.storage
+            .from("submissions")
+            .download(p);
+          if (data) {
+            const name = p.split("/").pop() || "scan.jpg";
+            const file = new File([data], name, {
+              type: (data as Blob).type || "image/jpeg",
+            });
+            downloaded.push({ file, url: URL.createObjectURL(file) });
+          }
+        }
+        setImages(downloaded);
+
+        await autoCropSignatures(downloaded, hdr);
         setStep("review");
       } catch (e: any) {
         toast({
@@ -305,6 +348,45 @@ export default function ScanCompletedJobDialog({
         setSites(opts);
       });
   }, [customerId]);
+
+  // ── Auto-crop signatures out of the source photos using the bboxes the
+  // OCR function returned. Runs in both single and queue flows; either
+  // slot can be blank and the reviewer can crop it manually. ──
+  const autoCropSignatures = async (
+    src: ImgFile[],
+    hdr: Record<string, any>,
+  ) => {
+    if (!src.length) return;
+    const engBox = hdr?.engineer_signature_bbox as SignatureBoundingBox | undefined;
+    const custBox = hdr?.customer_signature_bbox as SignatureBoundingBox | undefined;
+
+    if (hasUsableSignatureBoundingBox(engBox)) {
+      const pageIdx = Math.min(engBox?.page_index || 0, src.length - 1);
+      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
+      const cropped = await cropSignatureFromScanSource(source, engBox!);
+      if (cropped?.blob) {
+        setEngineerSig({
+          blob: cropped.blob,
+          previewUrl: URL.createObjectURL(cropped.blob),
+          name: String(hdr?.engineer || "").trim() || "Engineer",
+          pageIdx,
+        });
+      }
+    }
+    if (hasUsableSignatureBoundingBox(custBox)) {
+      const pageIdx = Math.min(custBox?.page_index || 0, src.length - 1);
+      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
+      const cropped = await cropSignatureFromScanSource(source, custBox!, { mode: "field" });
+      if (cropped?.blob) {
+        setCustomerSig({
+          blob: cropped.blob,
+          previewUrl: URL.createObjectURL(cropped.blob),
+          name: String(hdr?.customer_signed_name || "").trim() || "Customer",
+          pageIdx,
+        });
+      }
+    }
+  };
 
   // ── File input ──
   const addFiles = (fs: FileList | null) => {
@@ -387,6 +469,7 @@ export default function ScanCompletedJobDialog({
     // Prefill job header widgets from header
     if (hdr.date) setCompletionDate(parseDateInput(String(hdr.date)));
     setJobName(`${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`);
+    return hdr;
   };
 
   // ── Analyze ──
@@ -416,7 +499,8 @@ export default function ScanCompletedJobDialog({
       }
       setCandidates(cands);
 
-      await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      const hdr = await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      await autoCropSignatures(images, hdr);
       setStep("review");
     } catch (e: any) {
       toast({
@@ -440,7 +524,8 @@ export default function ScanCompletedJobDialog({
           mime_type: "image/jpeg",
         })),
       );
-      await loadTemplateAndExtract(newTemplateId, imagePayloads);
+      const hdr = await loadTemplateAndExtract(newTemplateId, imagePayloads);
+      await autoCropSignatures(images, hdr);
       setStep("review");
     } catch (e: any) {
       toast({
@@ -510,6 +595,28 @@ export default function ScanCompletedJobDialog({
   }, [template, responses]);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
+  const selectedSite = sites.find((s) => s.id === siteId);
+
+  const mismatches = useMemo(
+    () =>
+      detectPaperMismatches({
+        extractedCustomer: header?.customer as string | undefined,
+        selectedCustomer: selectedCustomer?.name,
+        extractedSite: header?.site as string | undefined,
+        selectedSiteText: selectedSite
+          ? [selectedSite.name, selectedSite.address, selectedSite.postcode]
+              .filter(Boolean)
+              .join(", ")
+          : "",
+      }),
+    [header, selectedCustomer, selectedSite],
+  );
+
+  useEffect(() => {
+    setAckMismatch(false);
+  }, [customerId, siteId, header]);
+
+
 
   // ── Confirm & file ──
   const handleConfirm = async () => {
@@ -520,6 +627,14 @@ export default function ScanCompletedJobDialog({
     }
     if (!siteId) {
       toast({ title: "Choose or create a site", variant: "destructive" });
+      return;
+    }
+    if (mismatches.length > 0 && !ackMismatch) {
+      toast({
+        title: "Confirm the mismatch first",
+        description: "The paper form doesn't clearly match the selected customer/site. Tick the acknowledgement or change the selection.",
+        variant: "destructive",
+      });
       return;
     }
     setSaving(true);
@@ -682,6 +797,28 @@ export default function ScanCompletedJobDialog({
           });
         }
       }
+
+      // Persist captured signatures — same pattern as normal in-app sign-off
+      const uploadSig = async (sig: SigCapture, role: "engineer" | "customer") => {
+        const path = `${user.id}/${jobId}-${role}-paper-${Date.now()}.png`;
+        const { error: upErr } = await supabase.storage
+          .from("signatures")
+          .upload(path, sig.blob, { contentType: "image/png" });
+        if (upErr) {
+          console.error("signature upload failed", upErr);
+          return;
+        }
+        await supabase.from("job_signatures" as any).insert({
+          job_id: jobId,
+          signer_id: user.id,
+          signer_name: sig.name || (role === "customer" ? "Customer" : "Engineer"),
+          signer_role: role,
+          file_path: path,
+        });
+      };
+      if (engineerSig) await uploadSig(engineerSig, "engineer");
+      if (customerSig) await uploadSig(customerSig, "customer");
+
 
 
       toast({
@@ -993,6 +1130,146 @@ export default function ScanCompletedJobDialog({
                 </div>
               </div>
             )}
+
+            {/* Site/customer mismatch guard */}
+            {mismatches.length > 0 && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="space-y-1 text-sm">
+                    <div className="font-medium text-destructive">
+                      This paper form may not belong to the selected {mismatches.map((m) => m.kind).join(" / ")}
+                    </div>
+                    {mismatches.map((m) => (
+                      <div key={m.kind} className="text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Paper says:</span>{" "}
+                          <span className="font-medium">{m.extracted}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Selected:</span>{" "}
+                          <span className="font-medium">{m.selected}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="text-xs text-muted-foreground pt-1">
+                      Change the picker above, or tick below to file anyway.
+                    </div>
+                    <label className="flex items-center gap-2 text-xs pt-1">
+                      <input
+                        type="checkbox"
+                        checked={ackMismatch}
+                        onChange={(e) => setAckMismatch(e.target.checked)}
+                      />
+                      I've checked — file against the selected customer/site anyway
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Signatures captured from the paper form */}
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Signatures from paper form
+              </div>
+              {(["engineer", "customer"] as const).map((role) => {
+                const sig = role === "engineer" ? engineerSig : customerSig;
+                const setSig = role === "engineer" ? setEngineerSig : setCustomerSig;
+                const nameGuess =
+                  role === "engineer"
+                    ? String(header?.engineer || "").trim()
+                    : String(header?.customer_signed_name || "").trim();
+                return (
+                  <div
+                    key={role}
+                    className="grid grid-cols-1 sm:grid-cols-[110px,1fr,auto] gap-2 items-center"
+                  >
+                    <Label className="text-xs capitalize">{role}</Label>
+                    <div className="flex items-center gap-2">
+                      {sig ? (
+                        <img
+                          src={sig.previewUrl}
+                          alt={`${role} signature`}
+                          className="h-14 max-w-[220px] object-contain bg-muted rounded border"
+                        />
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground">
+                          No signature captured{nameGuess ? ` (name detected: ${nameGuess})` : ""}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      {sig && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSig(null)}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={images.length === 0}
+                        onClick={() =>
+                          setManualCrop({ role, pageIdx: sig?.pageIdx ?? 0 })
+                        }
+                      >
+                        <PenLine className="h-3.5 w-3.5 mr-1" />
+                        {sig ? "Redraw" : "Select from photo"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              {manualCrop && images[manualCrop.pageIdx] && (
+                <div className="border-t pt-3 space-y-2">
+                  {images.length > 1 && (
+                    <div className="flex gap-1 flex-wrap text-xs">
+                      <span className="text-muted-foreground self-center">Page:</span>
+                      {images.map((_, i) => (
+                        <Button
+                          key={i}
+                          size="sm"
+                          variant={manualCrop.pageIdx === i ? "default" : "outline"}
+                          className="h-6"
+                          onClick={() =>
+                            setManualCrop({ ...manualCrop, pageIdx: i })
+                          }
+                        >
+                          {i + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  <PaperSignatureCropper
+                    imageUrl={images[manualCrop.pageIdx].url}
+                    onCancel={() => setManualCrop(null)}
+                    onCrop={(blob, previewUrl) => {
+                      const role = manualCrop.role;
+                      const name =
+                        role === "engineer"
+                          ? String(header?.engineer || "").trim() || "Engineer"
+                          : String(header?.customer_signed_name || "").trim() ||
+                            "Customer";
+                      const cap: SigCapture = {
+                        blob,
+                        previewUrl,
+                        name,
+                        pageIdx: manualCrop.pageIdx,
+                      };
+                      if (role === "engineer") setEngineerSig(cap);
+                      else setCustomerSig(cap);
+                      setManualCrop(null);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
