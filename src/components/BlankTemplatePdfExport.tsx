@@ -101,6 +101,7 @@ type BlankTemplatePdfWorkerPayload = {
   categoryName: string;
   accentColor: [number, number, number];
   accreditationLogoUrls: string[];
+  copiesOverride?: number | null;
 };
 
 type BlankTemplatePdfWorkerResult = {
