@@ -13,6 +13,7 @@ import XeroSettings from "@/components/XeroSettings";
 import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
+import StorageMigrationPanel from "@/components/StorageMigrationPanel";
 import EmailFromSettings from "@/components/EmailFromSettings";
 import EmailBrandingSettings from "@/components/EmailBrandingSettings";
 import PoIntakeEmailCard from "@/components/PoIntakeEmailCard";
@@ -400,6 +401,7 @@ export default function SettingsPage() {
         </TabsContent>
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
+          <StorageMigrationPanel />
           {/* Weekly Report Settings */}
           <Card>
             <CardHeader>
