@@ -318,13 +318,13 @@ serve(async (req) => {
           console.error("Job insert retry failed:", retry.error);
           return json(500, { error: "Could not create job" });
         }
-        return await uploadAndRespond(retry.data, admin, file_base64, file_name, extracted, noteParts);
+        return await uploadAndRespond(retry.data, admin, file_base64, file_name, extracted, noteParts, orgId);
       }
       console.error("Job insert failed:", jobErr);
       return json(500, { error: "Could not create job" });
     }
 
-    return await uploadAndRespond(newJob, admin, file_base64, file_name, extracted, noteParts);
+    return await uploadAndRespond(newJob, admin, file_base64, file_name, extracted, noteParts, orgId);
   } catch (err) {
     console.error("Unhandled error:", err);
     return json(500, { error: String(err?.message || err) });
@@ -338,13 +338,15 @@ async function uploadAndRespond(
   fileName: string,
   extracted: ExtractedPO,
   noteParts: string[],
+  orgId: string,
 ) {
   // Upload the original PDF as a submission so it's permanently attached.
   // Store a DURABLE reference (storage://bucket/path) — viewers mint a fresh
   // signed URL at display time. Never persist signed URLs (they expire).
+  // Path is org-prefixed so per-object storage RLS can enforce tenant isolation.
   try {
     const bytes = Uint8Array.from(atob(fileB64), (c) => c.charCodeAt(0));
-    const path = `${job.id}/${Date.now()}-${fileName.replace(/[^\w.\-]/g, "_")}`;
+    const path = `${orgId}/${job.id}/${Date.now()}-${fileName.replace(/[^\w.\-]/g, "_")}`;
     const { error: upErr } = await admin.storage
       .from("submissions")
       .upload(path, bytes, { contentType: "application/pdf", upsert: false });
