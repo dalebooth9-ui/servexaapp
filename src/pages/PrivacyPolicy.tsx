@@ -35,7 +35,7 @@ export default function PrivacyPolicy() {
             <p className="text-muted-foreground leading-relaxed">
               Data controller: Viva Fire Protection Ltd (company no. 06464084), Unit 1, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ, United Kingdom. Registered with the Information Commissioner's Office (ICO) under registration number{" "}
               <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">ZB398286</code>. Contact:{" "}
-              <a href="mailto:privacy@servexa.io" className="text-primary hover:underline">privacy@servexa.io</a>.
+              <a href="mailto:privacy@servexaapp.com" className="text-primary hover:underline">privacy@servexaapp.com</a>.
             </p>
           </section>
 
