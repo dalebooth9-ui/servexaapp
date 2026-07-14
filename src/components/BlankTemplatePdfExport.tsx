@@ -293,7 +293,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
     await waitForPaint();
     // --- Blank-template cache lookup ---------------------------------------
     // Skip cache for job-prefilled exports and watermark-override rebuilds.
-    const cacheable = !jobInfo && !watermarkOverride;
+    const cacheable = !jobInfo && !watermarkOverride && !copiesOverride;
     const cacheKey = cacheable ? blankCacheKey(template as any, handfill) : "";
     const storagePath = cacheable
       ? blankPdfStoragePath(template as any, handfill)
