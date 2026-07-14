@@ -68,9 +68,26 @@ type Candidate = {
 
 type ImgFile = { file: File; url: string };
 
+export type QueueItemInput = {
+  itemId: string;
+  batchId: string;
+  templateId: string;
+  extracted: Record<string, any>;
+  header: Record<string, any>;
+  imagePaths: string[];
+  guessCustomerId: string | null;
+  guessSiteId: string | null;
+  guessDate: string | null; // yyyy-mm-dd
+  candidateMatches: Candidate[];
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  /** When provided, dialog skips upload and goes straight to review of a queued form. */
+  queueItem?: QueueItemInput;
+  /** Called after confirm/reject to refresh the queue. */
+  onQueueItemResolved?: () => void;
 }
 
 // ── Helpers ──
