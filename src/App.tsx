@@ -39,6 +39,7 @@ const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
 const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
 const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
+const PaperScanQueue = lazy(() => import("@/pages/PaperScanQueue"));
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
