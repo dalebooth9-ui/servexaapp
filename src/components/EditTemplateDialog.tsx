@@ -540,12 +540,16 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setUploadingLogo(true);
     const ext = file.name.split(".").pop() || "jpg";
     const path = `template-logos/${template?.id}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true });
+    const orgPath = await buildOrgPathAsync(path);
+    const { error } = await supabase.storage.from("submissions").upload(orgPath, file, { upsert: true });
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
     } else {
-      const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (data?.signedUrl) setLogoUrl(data.signedUrl);
+      // Store a durable ref (storage://bucket/path). Signed URLs stored in
+      // config expire — same bug class as job_documents. Render-time helpers
+      // (pdfHeader, wordTemplateBuilder) resolve to fresh signed URLs.
+      const { buildDurableRef } = await import("@/lib/durableStorageRef");
+      setLogoUrl(buildDurableRef("submissions", orgPath));
     }
     setUploadingLogo(false);
   };
