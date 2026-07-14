@@ -482,6 +482,7 @@ export default function JobDetail() {
             <AiJobBriefDialog job={job} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
+            <JobWordReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
               <ScheduleFollowUpJobs sourceJob={job} />
