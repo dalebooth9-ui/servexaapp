@@ -499,13 +499,13 @@ export default function ScanCompletedJobDialog({
     }
   };
 
-  // ── Fields that are missing / low confidence ──
+  // ── Fields blank in the extracted data (soft warning only — paper backfill
+  // treats every template field as optional so a partly-filled sheet still
+  // files. Job-level essentials (customer/site/date) remain required.) ──
   const missingFields = useMemo(() => {
     if (!template) return [] as TemplateField[];
     return template.fields.filter(
-      (f) =>
-        f.required &&
-        (responses[f.id] === undefined || responses[f.id] === ""),
+      (f) => responses[f.id] === undefined || responses[f.id] === "" || responses[f.id] === null,
     );
   }, [template, responses]);
 
@@ -576,8 +576,13 @@ export default function ScanCompletedJobDialog({
       const jobId = (job as any).id;
       const jobRef = (job as any).reference_number;
 
-      // Insert job_sheet_responses
-      const fullResponses: Record<string, any> = { ...responses };
+      // Insert job_sheet_responses — strip blank/undefined so the payload
+      // only contains real answers (paper backfill: all template fields optional).
+      const fullResponses: Record<string, any> = {};
+      for (const [k, v] of Object.entries(responses)) {
+        if (v === undefined || v === null || v === "") continue;
+        fullResponses[k] = v;
+      }
       // Ensure header sub-fields land in response if template has matching IDs
       if (header.customer && !fullResponses["customer_name"] && template.fields.some(f => f.id === "customer_name")) {
         fullResponses.customer_name = header.customer;
@@ -1012,12 +1017,12 @@ export default function ScanCompletedJobDialog({
                 <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
                 <div>
                   <div className="font-medium">
-                    {missingFields.length} required field
-                    {missingFields.length === 1 ? "" : "s"} blank
+                    {missingFields.length} field
+                    {missingFields.length === 1 ? "" : "s"} blank on the paper form
                   </div>
                   <div className="text-muted-foreground">
                     {missingFields.map((f) => f.label).slice(0, 5).join(" · ")}
-                    {missingFields.length > 5 ? "…" : ""}
+                    {missingFields.length > 5 ? "…" : ""} — you can still file the job; blank answers will be omitted.
                   </div>
                 </div>
               </div>
@@ -1046,9 +1051,6 @@ export default function ScanCompletedJobDialog({
                         >
                           <Label className="text-sm pt-1.5">
                             {f.label}
-                            {f.required && (
-                              <span className="text-destructive"> *</span>
-                            )}
                           </Label>
                           <div>{renderField(f)}</div>
                         </div>
