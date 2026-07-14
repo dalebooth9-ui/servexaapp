@@ -357,22 +357,10 @@ export default function ScanCompletedJobDialog({
     hdr: Record<string, any>,
   ) => {
     if (!src.length) return;
-    const engBox = hdr?.engineer_signature_bbox as SignatureBoundingBox | undefined;
+    // Engineer signatures come from the stored engineer library (managed
+    // in Settings → Documents → Engineer signatures) — never cropped from
+    // the paper photo. Only the customer signature is cropped from the scan.
     const custBox = hdr?.customer_signature_bbox as SignatureBoundingBox | undefined;
-
-    if (hasUsableSignatureBoundingBox(engBox)) {
-      const pageIdx = Math.min(engBox?.page_index || 0, src.length - 1);
-      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
-      const cropped = await cropSignatureFromScanSource(source, engBox!);
-      if (cropped?.blob) {
-        setEngineerSig({
-          blob: cropped.blob,
-          previewUrl: URL.createObjectURL(cropped.blob),
-          name: String(hdr?.engineer || "").trim() || "Engineer",
-          pageIdx,
-        });
-      }
-    }
     if (hasUsableSignatureBoundingBox(custBox)) {
       const pageIdx = Math.min(custBox?.page_index || 0, src.length - 1);
       const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
