@@ -302,6 +302,7 @@ export default function SettingsPage() {
           <FilenameFormatSettings />
           <WordExportSettings />
           <WatermarkSettings />
+          <EngineerSignatureSettings />
           <VehicleCheckSettings />
           <Card>
             <CardHeader>
