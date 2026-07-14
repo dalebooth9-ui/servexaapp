@@ -604,38 +604,80 @@ export default function ScanCompletedJobDialog({
         } as any);
       if (respErr) throw respErr;
 
-      // Upload each photo + create job_documents row
-      for (let i = 0; i < images.length; i++) {
-        const img = images[i];
-        const ext =
-          img.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
-          "jpg";
-        const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
-        const path = `job-documents/${jobId}/${safeName}`;
-        const { error: upErr } = await supabase.storage
-          .from("submissions")
-          .upload(path, img.file, {
-            upsert: true,
-            contentType: img.file.type || "image/jpeg",
+      // Attach photos — from File objects (single flow) or copy from storage (queue flow)
+      if (queueItem && queueItem.imagePaths.length > 0) {
+        for (let i = 0; i < queueItem.imagePaths.length; i++) {
+          const src = queueItem.imagePaths[i];
+          const ext =
+            src.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+            "jpg";
+          const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
+          const dest = `job-documents/${jobId}/${safeName}`;
+          const { error: copyErr } = await supabase.storage
+            .from("submissions")
+            .copy(src, dest);
+          if (copyErr) {
+            console.error("copy failed", src, copyErr);
+            continue;
+          }
+          const { data: urlData } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(dest, 60 * 60 * 24 * 365 * 5);
+          await supabase.from("job_documents" as any).insert({
+            job_id: jobId,
+            document_type: "source_scan",
+            label: `Original paper form (page ${i + 1})`,
+            file_url: urlData?.signedUrl || null,
+            file_name: safeName,
+            source: "manual",
+            created_by: user.id,
           });
-        if (upErr) {
-          console.error("upload failed", upErr);
-          continue;
         }
-        const { data: urlData } = await supabase.storage
-          .from("submissions")
-          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        // Mark queue item confirmed
+        await supabase
+          .from("paper_scan_batch_items")
+          .update({
+            status: "confirmed",
+            created_job_id: jobId,
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq("id", queueItem.itemId);
+        onQueueItemResolved?.();
+      } else {
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          const ext =
+            img.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+            "jpg";
+          const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
+          const path = `job-documents/${jobId}/${safeName}`;
+          const { error: upErr } = await supabase.storage
+            .from("submissions")
+            .upload(path, img.file, {
+              upsert: true,
+              contentType: img.file.type || "image/jpeg",
+            });
+          if (upErr) {
+            console.error("upload failed", upErr);
+            continue;
+          }
+          const { data: urlData } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
 
-        await supabase.from("job_documents" as any).insert({
-          job_id: jobId,
-          document_type: "source_scan",
-          label: `Original paper form (page ${i + 1})`,
-          file_url: urlData?.signedUrl || null,
-          file_name: safeName,
-          source: "manual",
-          created_by: user.id,
-        });
+          await supabase.from("job_documents" as any).insert({
+            job_id: jobId,
+            document_type: "source_scan",
+            label: `Original paper form (page ${i + 1})`,
+            file_url: urlData?.signedUrl || null,
+            file_name: safeName,
+            source: "manual",
+            created_by: user.id,
+          });
+        }
       }
+
 
       toast({
         title: `Job ${jobRef} filed`,
