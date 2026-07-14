@@ -217,7 +217,6 @@ export default function ScanCompletedJobDialog({
       setCompletionDate("");
       setProcessingMsg("");
       setCustomerSig(null);
-      setCustomerSig(null);
       setManualCrop(null);
       setAckMismatch(false);
     }
