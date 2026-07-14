@@ -80,3 +80,7 @@ KB structure includes `last_updated`. The admin editor surfaces "articles not up
 ~1 migration with ~45 seed rows, 1 edge function, 3 new components, ~4 edited files. Large but mechanical — most of the effort is writing accurate KB copy from source.
 
 Approve and I'll implement in one pass, then report back with the seeded article count and a screenshot check on 2–3 pages.
+
+
+## Help Articles hygiene
+When you ship a UI change (button rename, new feature, workflow tweak), update the matching row in `help_articles` (Settings → Advanced → Help Articles) so the in-app AI Help Assistant stays accurate. The last_updated column is auto-stamped; entries not touched in 90+ days show a stale warning in the admin panel.
