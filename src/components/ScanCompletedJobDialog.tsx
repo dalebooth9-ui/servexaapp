@@ -499,7 +499,8 @@ export default function ScanCompletedJobDialog({
       }
       setCandidates(cands);
 
-      await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      const hdr = await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      await autoCropSignatures(images, hdr);
       setStep("review");
     } catch (e: any) {
       toast({
