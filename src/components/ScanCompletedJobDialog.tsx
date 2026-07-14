@@ -191,9 +191,8 @@ export default function ScanCompletedJobDialog({
   // Cropped signatures (auto or manual) — uploaded on confirm
   type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
   const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
-  const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
   const [manualCrop, setManualCrop] = useState<{
-    role: "engineer" | "customer";
+    role: "customer";
     pageIdx: number;
   } | null>(null);
   const [ackMismatch, setAckMismatch] = useState(false);
