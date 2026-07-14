@@ -166,6 +166,18 @@ export default function Engineers() {
     }
   };
 
+  const handleTogglePlanner = async (eng: any, next: boolean) => {
+    // Optimistic UI — hidden staff remain fully assignable everywhere else.
+    setEngineers((prev) => prev.map((e) => (e.id === eng.id ? { ...e, show_on_planner: next } : e)));
+    const { error } = await supabase.from("profiles").update({ show_on_planner: next }).eq("id", eng.id);
+    if (error) {
+      setEngineers((prev) => prev.map((e) => (e.id === eng.id ? { ...e, show_on_planner: !next } : e)));
+      toast({ title: "Error", description: "Failed to update planner visibility.", variant: "destructive" });
+    } else {
+      toast({ title: next ? "Shown on planner" : "Hidden from planner", description: eng.full_name });
+    }
+  };
+
   const handleDeactivate = async (eng: any) => {
     setEngineers((prev) => prev.filter((e) => e.id !== eng.id));
     deleteWithUndo({
