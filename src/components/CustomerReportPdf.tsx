@@ -463,7 +463,6 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       // === FOOTER (shared utility) ===
       const footerText = getDefaultFooterText(job.name || "");
-      const footerY = doc.internal.pageSize.getHeight() - 18;
       renderPdfFooter(doc, footerY, footerText);
 
       // === WATERMARK + ACCREDITATIONS (unified overlay) ===
