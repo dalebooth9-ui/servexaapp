@@ -12,7 +12,6 @@ import { useToast } from "@/hooks/use-toast";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import SubmissionComments from "@/components/SubmissionComments";
 import {
-import { buildOrgPathAsync } from "@/lib/orgStoragePath";
   getFileExtension,
   extractStoragePath,
   canPreviewInBrowser,
@@ -21,6 +20,7 @@ import { buildOrgPathAsync } from "@/lib/orgStoragePath";
   IMAGE_EXTENSIONS,
   isImageFile,
 } from "@/lib/fileUtils";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 function getDocIcon(fileName: string) {
   const ext = getFileExtension(fileName);
