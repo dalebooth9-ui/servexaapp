@@ -320,6 +320,21 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [companyName, setCompanyName] = useState("");
   const [companySubtitle, setCompanySubtitle] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!logoUrl) { setLogoPreviewUrl(""); return; }
+      if (/^https?:\/\//.test(logoUrl) && !logoUrl.includes("/object/sign/")) {
+        setLogoPreviewUrl(logoUrl);
+        return;
+      }
+      const { resolveToSignedUrl } = await import("@/lib/durableStorageRef");
+      const url = await resolveToSignedUrl(logoUrl, "submissions").catch(() => null);
+      if (!cancelled) setLogoPreviewUrl(url || logoUrl);
+    })();
+    return () => { cancelled = true; };
+  }, [logoUrl]);
   const [footerText, setFooterText] = useState("");
   const [declarationText, setDeclarationText] = useState("");
   // Per-template Word/PDF header logo tuning. Stored as strings so the user
