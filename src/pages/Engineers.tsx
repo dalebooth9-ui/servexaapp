@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { useUndoAction } from "@/hooks/useUndoAction";
 import { useAuth } from "@/hooks/useAuth";
@@ -44,7 +45,7 @@ export default function Engineers() {
   const [engineers, setEngineers] = useState<any[]>([]);
   const [engLoading, setEngLoading] = useState(true);
   const [editEng, setEditEng] = useState<any | null>(null);
-  const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
+  const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "", show_on_planner: true });
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "", send_reset_email: true });
@@ -130,7 +131,12 @@ export default function Engineers() {
 
   const openEdit = (eng: any) => {
     setEditEng(eng);
-    setForm({ full_name: eng.full_name || "", phone: eng.phone || "", whatsapp_number: eng.whatsapp_number || "" });
+    setForm({
+      full_name: eng.full_name || "",
+      phone: eng.phone || "",
+      whatsapp_number: eng.whatsapp_number || "",
+      show_on_planner: eng.show_on_planner !== false,
+    });
   };
 
   const handleSave = async () => {
@@ -138,17 +144,37 @@ export default function Engineers() {
     setSaving(true);
     const normalisedWa = normaliseWhatsAppNumber(form.whatsapp_number);
     const { error } = await supabase.from("profiles").update({
-      full_name: form.full_name, phone: form.phone || null, whatsapp_number: normalisedWa || null,
+      full_name: form.full_name,
+      phone: form.phone || null,
+      whatsapp_number: normalisedWa || null,
+      show_on_planner: form.show_on_planner,
     }).eq("id", editEng.id);
     setSaving(false);
     if (error) {
       toast({ title: "Error", description: "Failed to update engineer.", variant: "destructive" });
     } else {
-      const oldValues = { full_name: editEng.full_name, phone: editEng.phone || null, whatsapp_number: editEng.whatsapp_number || null };
+      const oldValues = {
+        full_name: editEng.full_name,
+        phone: editEng.phone || null,
+        whatsapp_number: editEng.whatsapp_number || null,
+        show_on_planner: editEng.show_on_planner !== false,
+      };
       const engId = editEng.id;
       setEditEng(null);
       fetchEngineers();
       editWithUndo({ label: "Engineer updated", onUndo: async () => { await supabase.from("profiles").update(oldValues).eq("id", engId); fetchEngineers(); } });
+    }
+  };
+
+  const handleTogglePlanner = async (eng: any, next: boolean) => {
+    // Optimistic UI — hidden staff remain fully assignable everywhere else.
+    setEngineers((prev) => prev.map((e) => (e.id === eng.id ? { ...e, show_on_planner: next } : e)));
+    const { error } = await supabase.from("profiles").update({ show_on_planner: next }).eq("id", eng.id);
+    if (error) {
+      setEngineers((prev) => prev.map((e) => (e.id === eng.id ? { ...e, show_on_planner: !next } : e)));
+      toast({ title: "Error", description: "Failed to update planner visibility.", variant: "destructive" });
+    } else {
+      toast({ title: next ? "Shown on planner" : "Hidden from planner", description: eng.full_name });
     }
   };
 
@@ -281,13 +307,14 @@ export default function Engineers() {
                 <TableHead>WhatsApp</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead className="text-right">Assigned Jobs</TableHead>
+                <TableHead className="text-center">Show on Planner</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {engineers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                     No engineers found. Users need to be assigned the engineer role.
                   </TableCell>
                 </TableRow>
@@ -318,6 +345,13 @@ export default function Engineers() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{eng.phone || "—"}</TableCell>
                     <TableCell className="text-right"><Badge variant="secondary">{eng.job_count}</Badge></TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={eng.show_on_planner !== false}
+                        onCheckedChange={(v) => handleTogglePlanner(eng, v)}
+                        aria-label="Show on planner"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" title="Certification documents" onClick={() => openDocs(eng)}>
@@ -403,6 +437,19 @@ export default function Engineers() {
                 placeholder="+447772544203"
               />
               <p className="text-xs text-muted-foreground">{WHATSAPP_NUMBER_HINT}</p>
+            </div>
+            <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="edit-show-planner" className="text-sm font-medium">Show on planner</Label>
+                <p className="text-xs text-muted-foreground">
+                  Off = hidden from the Weekly/Day/Month Planner rows. Still assignable to jobs and shown in reports.
+                </p>
+              </div>
+              <Switch
+                id="edit-show-planner"
+                checked={form.show_on_planner}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, show_on_planner: v }))}
+              />
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Digital Signature</Label>

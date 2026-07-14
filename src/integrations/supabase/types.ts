@@ -5497,6 +5497,7 @@ export type Database = {
           org_id: string | null
           phone: string | null
           planner_engineer_order: Json
+          show_on_planner: boolean
           signature_data: string | null
           updated_at: string
           user_id: string
@@ -5509,6 +5510,7 @@ export type Database = {
           org_id?: string | null
           phone?: string | null
           planner_engineer_order?: Json
+          show_on_planner?: boolean
           signature_data?: string | null
           updated_at?: string
           user_id: string
@@ -5521,6 +5523,7 @@ export type Database = {
           org_id?: string | null
           phone?: string | null
           planner_engineer_order?: Json
+          show_on_planner?: boolean
           signature_data?: string | null
           updated_at?: string
           user_id?: string

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS show_on_planner boolean NOT NULL DEFAULT true;

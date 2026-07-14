@@ -288,8 +288,12 @@ export default function WeeklyPlanner() {
       if (timedOut) return;
       const engineerIds = (engRolesRes.data || []).map((r) => r.user_id);
       if (engineerIds.length > 0) {
-        const { data: profilesData } = await supabase.from("profiles").select("user_id, full_name").in("user_id", engineerIds);
-        setEngineers(profilesData || []);
+        const { data: profilesData } = await supabase
+          .from("profiles")
+          .select("user_id, full_name, show_on_planner")
+          .in("user_id", engineerIds);
+        // Planner display filter — hidden staff remain fully assignable elsewhere.
+        setEngineers((profilesData || []).filter((p: any) => p.show_on_planner !== false));
       } else {
         setEngineers([]);
       }
