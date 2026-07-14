@@ -624,7 +624,15 @@ export default function Jobs() {
     setFileDropUploading(false);
     setFileDropDialogOpen(false);
     setFileDropPendingFiles([]);
-    toast({ title: "Job created", description: `${parsed.data.name} created with ${fileDropPendingFiles.length} file(s).` });
+    toast({
+      title: "Job created",
+      description: `${parsed.data.name} created with ${fileDropPendingFiles.length} file(s). Print site sheets?`,
+      action: newJob?.id ? (
+        <ToastAction altText="Print site sheets" onClick={() => setSiteSheetJobId(newJob.id)}>
+          Print site sheets
+        </ToastAction>
+      ) : undefined,
+    });
     fetchJobs();
   };
 
