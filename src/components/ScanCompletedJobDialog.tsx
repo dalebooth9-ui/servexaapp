@@ -499,13 +499,13 @@ export default function ScanCompletedJobDialog({
     }
   };
 
-  // ── Fields that are missing / low confidence ──
+  // ── Fields blank in the extracted data (soft warning only — paper backfill
+  // treats every template field as optional so a partly-filled sheet still
+  // files. Job-level essentials (customer/site/date) remain required.) ──
   const missingFields = useMemo(() => {
     if (!template) return [] as TemplateField[];
     return template.fields.filter(
-      (f) =>
-        f.required &&
-        (responses[f.id] === undefined || responses[f.id] === ""),
+      (f) => responses[f.id] === undefined || responses[f.id] === "" || responses[f.id] === null,
     );
   }, [template, responses]);
 
