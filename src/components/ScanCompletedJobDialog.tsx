@@ -185,6 +185,7 @@ export default function ScanCompletedJobDialog({
   useEffect(() => {
     if (!open) {
       setStep("upload");
+      setMode("single");
       setImages([]);
       setCandidates([]);
       setTemplate(null);
@@ -199,6 +200,76 @@ export default function ScanCompletedJobDialog({
       setProcessingMsg("");
     }
   }, [open]);
+
+  // Preload from queue item (bulk review flow)
+  useEffect(() => {
+    if (!open || !queueItem) return;
+    (async () => {
+      setStep("processing");
+      setProcessingMsg("Loading queued form…");
+      try {
+        const { data: tpl, error: tplErr } = await supabase
+          .from("job_sheet_templates")
+          .select("id, name, category, job_category, fields")
+          .eq("id", queueItem.templateId)
+          .maybeSingle();
+        if (tplErr || !tpl) throw new Error(tplErr?.message || "Template missing");
+        const tplObj: Template = {
+          id: (tpl as any).id,
+          name: (tpl as any).name,
+          category: (tpl as any).category,
+          job_category: (tpl as any).job_category,
+          fields: Array.isArray((tpl as any).fields) ? (tpl as any).fields : [],
+        };
+        setTemplate(tplObj);
+        setCandidates(queueItem.candidateMatches || []);
+
+        // Normalise extracted responses (same shape helper as single flow)
+        const extracted = queueItem.extracted || {};
+        const normalised: Record<string, any> = {};
+        for (const f of tplObj.fields) {
+          const raw = extracted[f.id];
+          if (raw === undefined || raw === null || raw === "") continue;
+          if (f.type === "checkbox") {
+            const cb = coerceCheckbox(raw);
+            const stored = checkboxToStored(cb);
+            if (stored === undefined && typeof raw === "string") {
+              normalised[f.id] = raw;
+            } else if (stored !== undefined) {
+              normalised[f.id] = stored;
+            }
+          } else {
+            normalised[f.id] = raw;
+          }
+        }
+        setResponses(normalised);
+        setHeader(queueItem.header || {});
+
+        if (queueItem.guessCustomerId) setCustomerId(queueItem.guessCustomerId);
+        if (queueItem.guessSiteId) setSiteId(queueItem.guessSiteId);
+        if (queueItem.guessDate) {
+          const m = queueItem.guessDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) setCompletionDate(`${m[3]}/${m[2]}/${m[1]}`);
+        } else if (queueItem.header?.date) {
+          setCompletionDate(parseDateInput(String(queueItem.header.date)));
+        }
+        const hdr = queueItem.header || {};
+        setJobName(
+          `${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`,
+        );
+        setStep("review");
+      } catch (e: any) {
+        toast({
+          title: "Couldn't load form",
+          description: e?.message,
+          variant: "destructive",
+        });
+        onOpenChange(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, queueItem?.itemId]);
+
 
   // Load customer list once
   useEffect(() => {
