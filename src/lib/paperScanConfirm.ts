@@ -106,7 +106,13 @@ export async function paperScanConfirm(
   const jobId = (job as any).id as string;
   const jobRef = (job as any).reference_number as string;
 
-  const fullResponses: Record<string, any> = { ...responses };
+  // Strip blank/undefined answers — paper backfill treats every template
+  // field as optional. Only real, non-empty answers land in the payload.
+  const fullResponses: Record<string, any> = {};
+  for (const [k, v] of Object.entries(responses)) {
+    if (v === undefined || v === null || v === "") continue;
+    fullResponses[k] = v;
+  }
   if (
     header.customer &&
     !fullResponses["customer_name"] &&
