@@ -66,6 +66,8 @@ type WorkerPayload = {
   categoryName: string;
   accentColor: RgbTriple;
   accreditationLogoUrls: string[];
+  /** When set, overrides the auto-derived number of System N of M copies. */
+  copiesOverride?: number | null;
 };
 
 type LoadedImage = {
