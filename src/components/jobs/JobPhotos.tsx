@@ -152,20 +152,15 @@ export default function JobPhotos({ jobId, engineers = [], isAdmin }: {
 
     out.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    // Batch-sign
-    const paths = out.map((p) => p.storagePath).filter(Boolean) as string[];
-    const uniquePaths = Array.from(new Set(paths));
-    let signedMap: Record<string, string> = {};
-    if (uniquePaths.length > 0) {
-      const { data } = await supabase.storage.from(BUCKET).createSignedUrls(uniquePaths, 3600);
-      (data || []).forEach((r) => {
-        if (r.path && r.signedUrl) signedMap[r.path] = r.signedUrl;
-      });
-    }
+    // Batch-sign. Most sources live in "submissions", but job_documents
+    // may point at other buckets (e.g. "po-intake" for email attachments).
+    // resolveManyToSignedUrls groups by bucket automatically.
+    const rawRefs = out.map((p) => p.fallbackUrl || p.storagePath || null);
+    const signedUrls = await resolveManyToSignedUrls(rawRefs, BUCKET, 3600);
 
-    setItems(out.map((p) => ({
+    setItems(out.map((p, i) => ({
       ...p,
-      signedUrl: p.storagePath ? signedMap[p.storagePath] : (p.fallbackUrl?.startsWith("http") ? p.fallbackUrl : undefined),
+      signedUrl: signedUrls[i] || undefined,
     })));
     setLoading(false);
   }, [jobId, engineerName]);
