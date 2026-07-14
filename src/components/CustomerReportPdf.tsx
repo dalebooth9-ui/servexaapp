@@ -393,7 +393,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(10);
 
         for (const f of figureRefs) {
-          if (iy > 270) break;
+          if (iy > CONTENT_BOTTOM) break;
           const captionTxt = f.caption ? `${f.name} — ${f.caption}` : f.name;
           const lines = doc.splitTextToSize(captionTxt, pageWidth - margin * 2 - 14 - 18);
           const rowH = Math.max(6, lines.length * 4.5);
