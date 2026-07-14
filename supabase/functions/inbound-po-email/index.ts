@@ -490,14 +490,19 @@ serve(async (req) => {
     console.error("Resend fetch failed", e);
     return json(502, { error: "Resend fetch failed" });
   }
-  console.log("Inbound email ready", {
+  // Diagnostic log for EVERY inbound email — so failed intakes are traceable
+  // even if we bail early later. Michelle can grep function logs by subject/from.
+  console.log("[inbound-po-email] received", {
+    email_id: emailId,
     from: email.from,
-    subject: email.subject,
     to: email.to,
-    bodyTextLength: email.text.length,
-    bodyHtmlLength: email.html.length,
-    attachmentCount: email.attachments.length,
-    attachmentNames: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+    subject: email.subject,
+    intake: intakeAddr,
+    attachment_count: email.attachments.length,
+    attachment_names: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+    body_text_length: email.text.length,
+    body_html_length: email.html.length,
+    has_raw_eml: !!email.rawEmlBase64,
   });
 
 
