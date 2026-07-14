@@ -12,6 +12,10 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf } from "@/lib/jobPhotos";
+import {
+  loadEngineerSignatureLibrary,
+  findEngineerSignatureByName,
+} from "@/lib/engineerSignatureLibrary";
 
 interface Props {
   jobId: string;
@@ -109,12 +113,23 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 10;
       const maxWidth = pageWidth - margin * 2;
 
+      // Reserve the footer zone so body content never runs into the
+      // accreditation logo strip or the declaration footer. Mirrors the
+      // numbers used by renderBrandingOverlay + renderPdfFooter below.
+      const FOOTER_BAND_H = 18;
+      const ACCRED_LOGO_H = 12;
+      const ACCRED_GAP = 3;
+      const footerY = pageHeight - FOOTER_BAND_H;
+      // Body content must end above the accreditation strip (with a 2mm buffer)
+      const CONTENT_BOTTOM = footerY - ACCRED_LOGO_H - ACCRED_GAP - 2;
+
       const addPage = () => { doc.addPage(); };
       const checkPage = (needed: number, currentY: number): number => {
-        if (currentY + needed > 270) { addPage(); return 20; }
+        if (currentY + needed > CONTENT_BOTTOM) { addPage(); return 20; }
         return currentY;
       };
 
@@ -378,7 +393,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         doc.setFontSize(10);
 
         for (const f of figureRefs) {
-          if (iy > 270) break;
+          if (iy > CONTENT_BOTTOM) break;
           const captionTxt = f.caption ? `${f.name} — ${f.caption}` : f.name;
           const lines = doc.splitTextToSize(captionTxt, pageWidth - margin * 2 - 14 - 18);
           const rowH = Math.max(6, lines.length * 4.5);
@@ -429,15 +444,66 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       y += 4;
 
       // === SIGNATURES (shared utility) ===
-      if (signatures.length > 0) {
+      // Resolve the technician name from job_sheet_responses (paper scans
+      // populate this), falling back to assigned engineer names.
+      const sheetRows = (sheetsRes.data as any[]) || [];
+      const technicianFromSheet = sheetRows
+        .map((row: any) => (row?.responses?.technician_name || "").toString().trim())
+        .find((v: string) => v.length > 0);
+      const technicianName = technicianFromSheet || engineerNames[0] || "";
+
+      // Auto-fill technician signature from the stored engineer-signature
+      // library when we don't already have one attached to the job.
+      let engineerSig =
+        signatures.find(
+          (s: any) => s.signer_role === "engineer" || s.signer_role === "admin",
+        ) || null;
+      const customerSig =
+        signatures.find((s: any) => s.signer_role === "customer") || null;
+
+      const hasEngineerImage = engineerSig && engineerSig.file_path && sigImages[engineerSig.id];
+      if (!hasEngineerImage && technicianName) {
+        try {
+          const library = await loadEngineerSignatureLibrary();
+          const match = findEngineerSignatureByName(library, technicianName);
+          if (match?.file_path) {
+            const { data: signed } = await supabase.storage
+              .from("signatures")
+              .createSignedUrl(match.file_path, 3600);
+            if (signed?.signedUrl) {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject();
+                img.src = signed.signedUrl;
+              });
+              const synthId = `library-${match.id}`;
+              sigImages[synthId] = img;
+              engineerSig = {
+                id: synthId,
+                signer_name: technicianName,
+                signer_role: "engineer",
+                signer_position: null,
+                created_at: undefined,
+                file_path: match.file_path,
+              } as any;
+            }
+          }
+        } catch (e) {
+          console.warn("engineer signature library lookup failed", e);
+        }
+      }
+
+      const shouldRenderSigs =
+        signatures.length > 0 || engineerSig || customerSig;
+      if (shouldRenderSigs) {
         y = checkPage(30, y);
-
-        const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || null;
-        const customerSig = signatures.find((s: any) => s.signer_role === "customer") || null;
-
         const sigData: PdfSignatureData = {
-          dateStr: new Date(signatures[0]?.created_at || Date.now()).toLocaleDateString("en-GB"),
-          technicianName: engineerSig?.signer_name || engineerNames[0] || "",
+          dateStr: new Date(
+            signatures[0]?.created_at || job.completed_at || Date.now(),
+          ).toLocaleDateString("en-GB"),
+          technicianName: engineerSig?.signer_name || technicianName,
           customerName: customerSig?.signer_name || customerName,
           sigImages,
           engineerSig,
@@ -446,9 +512,9 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         y = renderPdfSignatures(doc, y, sigData);
       }
 
+
       // === FOOTER (shared utility) ===
       const footerText = getDefaultFooterText(job.name || "");
-      const footerY = doc.internal.pageSize.getHeight() - 18;
       renderPdfFooter(doc, footerY, footerText);
 
       // === WATERMARK + ACCREDITATIONS (unified overlay) ===

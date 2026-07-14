@@ -2210,6 +2210,39 @@ export type Database = {
           },
         ]
       }
+      engineer_signatures: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_path: string
+          id: string
+          name: string
+          org_id: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_path: string
+          id?: string
+          name: string
+          org_id: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_path?: string
+          id?: string
+          name?: string
+          org_id?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       fault_codes: {
         Row: {
           code: string

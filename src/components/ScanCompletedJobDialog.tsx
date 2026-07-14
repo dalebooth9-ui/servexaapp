@@ -190,10 +190,9 @@ export default function ScanCompletedJobDialog({
 
   // Cropped signatures (auto or manual) — uploaded on confirm
   type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
-  const [engineerSig, setEngineerSig] = useState<SigCapture | null>(null);
   const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
   const [manualCrop, setManualCrop] = useState<{
-    role: "engineer" | "customer";
+    role: "customer";
     pageIdx: number;
   } | null>(null);
   const [ackMismatch, setAckMismatch] = useState(false);
@@ -217,7 +216,6 @@ export default function ScanCompletedJobDialog({
       setJobName("");
       setCompletionDate("");
       setProcessingMsg("");
-      setEngineerSig(null);
       setCustomerSig(null);
       setManualCrop(null);
       setAckMismatch(false);
@@ -357,22 +355,10 @@ export default function ScanCompletedJobDialog({
     hdr: Record<string, any>,
   ) => {
     if (!src.length) return;
-    const engBox = hdr?.engineer_signature_bbox as SignatureBoundingBox | undefined;
+    // Engineer signatures come from the stored engineer library (managed
+    // in Settings → Documents → Engineer signatures) — never cropped from
+    // the paper photo. Only the customer signature is cropped from the scan.
     const custBox = hdr?.customer_signature_bbox as SignatureBoundingBox | undefined;
-
-    if (hasUsableSignatureBoundingBox(engBox)) {
-      const pageIdx = Math.min(engBox?.page_index || 0, src.length - 1);
-      const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
-      const cropped = await cropSignatureFromScanSource(source, engBox!);
-      if (cropped?.blob) {
-        setEngineerSig({
-          blob: cropped.blob,
-          previewUrl: URL.createObjectURL(cropped.blob),
-          name: String(hdr?.engineer || "").trim() || "Engineer",
-          pageIdx,
-        });
-      }
-    }
     if (hasUsableSignatureBoundingBox(custBox)) {
       const pageIdx = Math.min(custBox?.page_index || 0, src.length - 1);
       const source: ScanImageSource = { file: src[pageIdx].file, preview: src[pageIdx].url };
@@ -816,7 +802,6 @@ export default function ScanCompletedJobDialog({
           file_path: path,
         });
       };
-      if (engineerSig) await uploadSig(engineerSig, "engineer");
       if (customerSig) await uploadSig(customerSig, "customer");
 
 
@@ -1168,62 +1153,63 @@ export default function ScanCompletedJobDialog({
               </div>
             )}
 
-            {/* Signatures captured from the paper form */}
+            {/* Customer signature captured from the paper form. Engineer
+                signatures are pulled from the stored engineer-signature
+                library at PDF-render time, so nothing to review here. */}
             <div className="rounded-md border p-3 space-y-3">
               <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Signatures from paper form
+                Customer signature from paper form
               </div>
-              {(["engineer", "customer"] as const).map((role) => {
-                const sig = role === "engineer" ? engineerSig : customerSig;
-                const setSig = role === "engineer" ? setEngineerSig : setCustomerSig;
-                const nameGuess =
-                  role === "engineer"
-                    ? String(header?.engineer || "").trim()
-                    : String(header?.customer_signed_name || "").trim();
-                return (
-                  <div
-                    key={role}
-                    className="grid grid-cols-1 sm:grid-cols-[110px,1fr,auto] gap-2 items-center"
+              <div className="grid grid-cols-1 sm:grid-cols-[110px,1fr,auto] gap-2 items-center">
+                <Label className="text-xs">Customer</Label>
+                <div className="flex items-center gap-2">
+                  {customerSig ? (
+                    <img
+                      src={customerSig.previewUrl}
+                      alt="customer signature"
+                      className="h-14 max-w-[220px] object-contain bg-muted rounded border"
+                    />
+                  ) : (
+                    <span className="text-xs italic text-muted-foreground">
+                      No signature captured
+                      {header?.customer_signed_name
+                        ? ` (name detected: ${String(header.customer_signed_name).trim()})`
+                        : ""}
+                    </span>
+                  )}
+                </div>
+                <div className="flex gap-1">
+                  {customerSig && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => setCustomerSig(null)}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={images.length === 0}
+                    onClick={() =>
+                      setManualCrop({
+                        role: "customer",
+                        pageIdx: customerSig?.pageIdx ?? 0,
+                      })
+                    }
                   >
-                    <Label className="text-xs capitalize">{role}</Label>
-                    <div className="flex items-center gap-2">
-                      {sig ? (
-                        <img
-                          src={sig.previewUrl}
-                          alt={`${role} signature`}
-                          className="h-14 max-w-[220px] object-contain bg-muted rounded border"
-                        />
-                      ) : (
-                        <span className="text-xs italic text-muted-foreground">
-                          No signature captured{nameGuess ? ` (name detected: ${nameGuess})` : ""}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex gap-1">
-                      {sig && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => setSig(null)}
-                        >
-                          Clear
-                        </Button>
-                      )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={images.length === 0}
-                        onClick={() =>
-                          setManualCrop({ role, pageIdx: sig?.pageIdx ?? 0 })
-                        }
-                      >
-                        <PenLine className="h-3.5 w-3.5 mr-1" />
-                        {sig ? "Redraw" : "Select from photo"}
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+                    <PenLine className="h-3.5 w-3.5 mr-1" />
+                    {customerSig ? "Redraw" : "Select from photo"}
+                  </Button>
+                </div>
+              </div>
+              {header?.engineer && (
+                <p className="text-xs text-muted-foreground border-t pt-2">
+                  Technician on this form: <strong>{String(header.engineer).trim()}</strong>.
+                  {" "}Their stored signature (from Settings → Documents → Engineer signatures) will be used in the PDF automatically.
+                </p>
+              )}
               {manualCrop && images[manualCrop.pageIdx] && (
                 <div className="border-t pt-3 space-y-2">
                   {images.length > 1 && (
@@ -1248,26 +1234,23 @@ export default function ScanCompletedJobDialog({
                     imageUrl={images[manualCrop.pageIdx].url}
                     onCancel={() => setManualCrop(null)}
                     onCrop={(blob, previewUrl) => {
-                      const role = manualCrop.role;
                       const name =
-                        role === "engineer"
-                          ? String(header?.engineer || "").trim() || "Engineer"
-                          : String(header?.customer_signed_name || "").trim() ||
-                            "Customer";
-                      const cap: SigCapture = {
+                        String(header?.customer_signed_name || "").trim() ||
+                        "Customer";
+                      setCustomerSig({
                         blob,
                         previewUrl,
                         name,
                         pageIdx: manualCrop.pageIdx,
-                      };
-                      if (role === "engineer") setEngineerSig(cap);
-                      else setCustomerSig(cap);
+                      });
                       setManualCrop(null);
                     }}
                   />
                 </div>
               )}
             </div>
+
+
 
 
 
