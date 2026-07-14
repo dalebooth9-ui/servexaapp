@@ -679,6 +679,13 @@ serve(async (req) => {
     email.text || stripHtml(email.html),
   );
   const briefParts: string[] = [];
+  if (needsReviewNoPo) {
+    briefParts.push("⚠️ Needs review — no PO number detected in email or attachments.");
+    briefParts.push("");
+  }
+  if (email.attachments.length === 0) {
+    briefParts.push("(Body-only email — no attachments were included.)");
+  }
   briefParts.push(`Forwarded by: ${email.from}`);
   if (forwardedFrom) briefParts.push(`Original sender: ${forwardedFrom}`);
   briefParts.push(`Original subject: ${email.subject}`);
