@@ -629,6 +629,14 @@ export default function ScanCompletedJobDialog({
       toast({ title: "Choose or create a site", variant: "destructive" });
       return;
     }
+    if (mismatches.length > 0 && !ackMismatch) {
+      toast({
+        title: "Confirm the mismatch first",
+        description: "The paper form doesn't clearly match the selected customer/site. Tick the acknowledgement or change the selection.",
+        variant: "destructive",
+      });
+      return;
+    }
     setSaving(true);
     try {
       const site = sites.find((s) => s.id === siteId);
