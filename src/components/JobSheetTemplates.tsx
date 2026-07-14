@@ -219,8 +219,33 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
       if (!t.job_category) return t.category === "rams";
       return normalizeCategory(t.job_category) === jobCategory;
     });
+
+    // Ensure every template referenced by an existing response is available for
+    // rendering, even if it doesn't match the job's category (e.g. paper-scan
+    // backfill jobs whose category doesn't line up with the detected template).
+    const respTplIds = Array.from(
+      new Set(
+        (respRes.data || [])
+          .map((r: any) => r.template_id)
+          .filter((id: string | null) => id && !allTpls.some((t: any) => t.id === id)),
+      ),
+    );
+    let mergedAllTpls = allTpls;
+    if (respTplIds.length > 0) {
+      const { data: extraTpls } = await supabase
+        .from("job_sheet_templates")
+        .select("*")
+        .in("id", respTplIds);
+      const extras = (extraTpls || []).map((t: any) => ({
+        ...t,
+        fields: (typeof t.fields === "string" ? JSON.parse(t.fields) : t.fields) as TemplateField[],
+        branding: t.branding || {},
+      }));
+      mergedAllTpls = [...allTpls, ...extras];
+    }
+
     setTemplates(filteredTpls);
-    setAllTemplates(allTpls);
+    setAllTemplates(mergedAllTpls);
     setResponses((respRes.data || []) as Response[]);
 
     // Profile + assignment lookups in parallel
