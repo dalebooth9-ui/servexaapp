@@ -656,12 +656,13 @@ serve(async (req) => {
   const custForName = (customerName || "").trim();
   const desc = (extracted.job_description || "").trim() || (quotePrefill.description ?? "").trim();
   const siteAddress = (extracted.site_address || "").trim() || (quotePrefill.address ?? "").trim();
+  const needsReviewNoPo = !poNum;
   let jobName: string;
   if (poNum && custForName) jobName = `PO ${poNum} — ${custForName}`;
   else if (poNum) jobName = `PO ${poNum}`;
-  else if (desc) jobName = desc;
-  else if (custForName) jobName = `PO — ${custForName}`;
-  else jobName = email.subject || "Email PO";
+  else if (custForName) jobName = `Needs review — no PO number (${custForName})`;
+  else if (desc) jobName = `Needs review — no PO number: ${desc}`;
+  else jobName = `Needs review — no PO number: ${email.subject || "(no subject)"}`;
   jobName = jobName.slice(0, 200);
 
   // Normalise PO value
