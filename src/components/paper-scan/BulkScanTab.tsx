@@ -7,10 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Upload, Loader2, ScanLine } from "lucide-react";
 import PhotoGrouper, {
-import { buildOrgPathAsync } from "@/lib/orgStoragePath";
   type FormGroup,
   type PhotoItem,
 } from "./PhotoGrouper";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface Props {
   onClose: () => void;
