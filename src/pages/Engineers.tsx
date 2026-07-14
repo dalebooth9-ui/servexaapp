@@ -45,7 +45,7 @@ export default function Engineers() {
   const [engineers, setEngineers] = useState<any[]>([]);
   const [engLoading, setEngLoading] = useState(true);
   const [editEng, setEditEng] = useState<any | null>(null);
-  const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "" });
+  const [form, setForm] = useState({ full_name: "", phone: "", whatsapp_number: "", show_on_planner: true });
   const [saving, setSaving] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [addForm, setAddForm] = useState({ full_name: "", email: "", phone: "", whatsapp_number: "", send_reset_email: true });
