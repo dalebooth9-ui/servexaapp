@@ -7,6 +7,7 @@ type AuthContextType = {
   user: User | null;
   userRole: "admin" | "engineer" | null;
   profile: { full_name: string; whatsapp_number: string | null } | null;
+  orgId: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
 };
@@ -16,6 +17,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   userRole: null,
   profile: null,
+  orgId: null,
   loading: true,
   signOut: async () => {},
 });
