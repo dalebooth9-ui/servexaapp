@@ -119,6 +119,7 @@ export default function JobDetail() {
   const [chooserSlots, setChooserSlots] = useState<MatchSlot[]>([]);
   const [followUpOpen, setFollowUpOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const [siteSheetOpen, setSiteSheetOpen] = useState(false);
   const [jobW3W, setJobW3W] = useState<string | null>(null);
   const jobUploadUrl = `${window.location.origin}/jobs/${id}`;
 
