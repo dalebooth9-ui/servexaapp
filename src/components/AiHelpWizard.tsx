@@ -313,7 +313,7 @@ export default function AiHelpWizard() {
     setLoading(true);
     setMessages([{ role: "assistant", content: "" }]);
 
-    callWizard([{ role: "user", content: contextPrompt }], currentPage)
+    callWizard([{ role: "user", content: contextPrompt }], currentPage, resolveHelpSlug(location.pathname))
       .then(({ message, quick_actions }) => {
         const newMessages: Message[] = [{ role: "assistant", content: message, quick_actions }];
         setMessages(newMessages);
@@ -348,7 +348,8 @@ export default function AiHelpWizard() {
     try {
       const { message, quick_actions } = await callWizard(
         updatedMessages.map(({ role, content }) => ({ role, content })),
-        currentPage
+        currentPage,
+        resolveHelpSlug(location.pathname),
       );
       setMessages((prev) => {
         const copy = [...prev];
