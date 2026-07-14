@@ -188,6 +188,16 @@ export default function ScanCompletedJobDialog({
   const [completionDate, setCompletionDate] = useState<string>("");
   const [saving, setSaving] = useState(false);
 
+  // Cropped signatures (auto or manual) — uploaded on confirm
+  type SigCapture = { blob: Blob; previewUrl: string; name: string; pageIdx: number };
+  const [engineerSig, setEngineerSig] = useState<SigCapture | null>(null);
+  const [customerSig, setCustomerSig] = useState<SigCapture | null>(null);
+  const [manualCrop, setManualCrop] = useState<{
+    role: "engineer" | "customer";
+    pageIdx: number;
+  } | null>(null);
+  const [ackMismatch, setAckMismatch] = useState(false);
+
   const fileRef = useRef<HTMLInputElement | null>(null);
 
   // Reset on close
