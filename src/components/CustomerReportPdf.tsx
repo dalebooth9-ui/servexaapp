@@ -12,6 +12,10 @@ import { fetchCustomerAccreditationLogos, loadAccreditationLogos } from "@/lib/p
 import { PDF_PALETTE } from "@/lib/pdfPalette";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
 import { collectEmbeddedPhotoPaths, loadJobPhotosForPdf } from "@/lib/jobPhotos";
+import {
+  loadEngineerSignatureLibrary,
+  findEngineerSignatureByName,
+} from "@/lib/engineerSignatureLibrary";
 
 interface Props {
   jobId: string;
