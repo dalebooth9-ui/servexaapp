@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import type { RgbTriple } from "@/lib/extractLogoColors";
 import { PDF_PALETTE } from "@/lib/pdfPalette";
+import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 export interface PdfHeaderData {
   customerName: string;
