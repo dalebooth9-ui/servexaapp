@@ -35,9 +35,18 @@ import {
   CheckCircle2,
   Plus,
   XCircle,
+  PenLine,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import BulkScanTab from "@/components/paper-scan/BulkScanTab";
+import PaperSignatureCropper from "@/components/paper-scan/PaperSignatureCropper";
+import {
+  cropSignatureFromScanSource,
+  hasUsableSignatureBoundingBox,
+  type SignatureBoundingBox,
+  type ScanImageSource,
+} from "@/lib/signatureCrop";
+import { detectPaperMismatches } from "@/lib/paperScanMismatch";
 
 // ── Types ──
 type TemplateField = {
