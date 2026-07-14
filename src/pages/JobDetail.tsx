@@ -1220,6 +1220,11 @@ export default function JobDetail() {
         onCompleted={fetchData}
       />
     )}
+    <SiteSheetPrintDialog
+      jobId={id || null}
+      open={siteSheetOpen}
+      onOpenChange={setSiteSheetOpen}
+    />
     </Suspense>
     </ChunkErrorBoundary>
   );
