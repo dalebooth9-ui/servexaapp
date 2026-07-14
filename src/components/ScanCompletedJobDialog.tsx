@@ -1131,6 +1131,146 @@ export default function ScanCompletedJobDialog({
               </div>
             )}
 
+            {/* Site/customer mismatch guard */}
+            {mismatches.length > 0 && (
+              <div className="rounded-md border border-destructive/50 bg-destructive/10 p-3 space-y-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                  <div className="space-y-1 text-sm">
+                    <div className="font-medium text-destructive">
+                      This paper form may not belong to the selected {mismatches.map((m) => m.kind).join(" / ")}
+                    </div>
+                    {mismatches.map((m) => (
+                      <div key={m.kind} className="text-xs">
+                        <div>
+                          <span className="text-muted-foreground">Paper says:</span>{" "}
+                          <span className="font-medium">{m.extracted}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Selected:</span>{" "}
+                          <span className="font-medium">{m.selected}</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="text-xs text-muted-foreground pt-1">
+                      Change the picker above, or tick below to file anyway.
+                    </div>
+                    <label className="flex items-center gap-2 text-xs pt-1">
+                      <input
+                        type="checkbox"
+                        checked={ackMismatch}
+                        onChange={(e) => setAckMismatch(e.target.checked)}
+                      />
+                      I've checked — file against the selected customer/site anyway
+                    </label>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Signatures captured from the paper form */}
+            <div className="rounded-md border p-3 space-y-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Signatures from paper form
+              </div>
+              {(["engineer", "customer"] as const).map((role) => {
+                const sig = role === "engineer" ? engineerSig : customerSig;
+                const setSig = role === "engineer" ? setEngineerSig : setCustomerSig;
+                const nameGuess =
+                  role === "engineer"
+                    ? String(header?.engineer || "").trim()
+                    : String(header?.customer_signed_name || "").trim();
+                return (
+                  <div
+                    key={role}
+                    className="grid grid-cols-1 sm:grid-cols-[110px,1fr,auto] gap-2 items-center"
+                  >
+                    <Label className="text-xs capitalize">{role}</Label>
+                    <div className="flex items-center gap-2">
+                      {sig ? (
+                        <img
+                          src={sig.previewUrl}
+                          alt={`${role} signature`}
+                          className="h-14 max-w-[220px] object-contain bg-muted rounded border"
+                        />
+                      ) : (
+                        <span className="text-xs italic text-muted-foreground">
+                          No signature captured{nameGuess ? ` (name detected: ${nameGuess})` : ""}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1">
+                      {sig && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => setSig(null)}
+                        >
+                          Clear
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={images.length === 0}
+                        onClick={() =>
+                          setManualCrop({ role, pageIdx: sig?.pageIdx ?? 0 })
+                        }
+                      >
+                        <PenLine className="h-3.5 w-3.5 mr-1" />
+                        {sig ? "Redraw" : "Select from photo"}
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+              {manualCrop && images[manualCrop.pageIdx] && (
+                <div className="border-t pt-3 space-y-2">
+                  {images.length > 1 && (
+                    <div className="flex gap-1 flex-wrap text-xs">
+                      <span className="text-muted-foreground self-center">Page:</span>
+                      {images.map((_, i) => (
+                        <Button
+                          key={i}
+                          size="sm"
+                          variant={manualCrop.pageIdx === i ? "default" : "outline"}
+                          className="h-6"
+                          onClick={() =>
+                            setManualCrop({ ...manualCrop, pageIdx: i })
+                          }
+                        >
+                          {i + 1}
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                  <PaperSignatureCropper
+                    imageUrl={images[manualCrop.pageIdx].url}
+                    onCancel={() => setManualCrop(null)}
+                    onCrop={(blob, previewUrl) => {
+                      const role = manualCrop.role;
+                      const name =
+                        role === "engineer"
+                          ? String(header?.engineer || "").trim() || "Engineer"
+                          : String(header?.customer_signed_name || "").trim() ||
+                            "Customer";
+                      const cap: SigCapture = {
+                        blob,
+                        previewUrl,
+                        name,
+                        pageIdx: manualCrop.pageIdx,
+                      };
+                      if (role === "engineer") setEngineerSig(cap);
+                      else setCustomerSig(cap);
+                      setManualCrop(null);
+                    }}
+                  />
+                </div>
+              )}
+            </div>
+
+
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Job name</Label>
