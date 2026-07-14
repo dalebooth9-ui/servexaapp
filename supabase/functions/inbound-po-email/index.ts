@@ -490,14 +490,19 @@ serve(async (req) => {
     console.error("Resend fetch failed", e);
     return json(502, { error: "Resend fetch failed" });
   }
-  console.log("Inbound email ready", {
+  // Diagnostic log for EVERY inbound email — so failed intakes are traceable
+  // even if we bail early later. Michelle can grep function logs by subject/from.
+  console.log("[inbound-po-email] received", {
+    email_id: emailId,
     from: email.from,
-    subject: email.subject,
     to: email.to,
-    bodyTextLength: email.text.length,
-    bodyHtmlLength: email.html.length,
-    attachmentCount: email.attachments.length,
-    attachmentNames: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+    subject: email.subject,
+    intake: intakeAddr,
+    attachment_count: email.attachments.length,
+    attachment_names: email.attachments.map((a) => `${a.filename} (${a.bytes.byteLength}b, ${a.contentType})`),
+    body_text_length: email.text.length,
+    body_html_length: email.html.length,
+    has_raw_eml: !!email.rawEmlBase64,
   });
 
 
@@ -651,12 +656,13 @@ serve(async (req) => {
   const custForName = (customerName || "").trim();
   const desc = (extracted.job_description || "").trim() || (quotePrefill.description ?? "").trim();
   const siteAddress = (extracted.site_address || "").trim() || (quotePrefill.address ?? "").trim();
+  const needsReviewNoPo = !poNum;
   let jobName: string;
   if (poNum && custForName) jobName = `PO ${poNum} — ${custForName}`;
   else if (poNum) jobName = `PO ${poNum}`;
-  else if (desc) jobName = desc;
-  else if (custForName) jobName = `PO — ${custForName}`;
-  else jobName = email.subject || "Email PO";
+  else if (custForName) jobName = `Needs review — no PO number (${custForName})`;
+  else if (desc) jobName = `Needs review — no PO number: ${desc}`;
+  else jobName = `Needs review — no PO number: ${email.subject || "(no subject)"}`;
   jobName = jobName.slice(0, 200);
 
   // Normalise PO value
@@ -673,6 +679,13 @@ serve(async (req) => {
     email.text || stripHtml(email.html),
   );
   const briefParts: string[] = [];
+  if (needsReviewNoPo) {
+    briefParts.push("⚠️ Needs review — no PO number detected in email or attachments.");
+    briefParts.push("");
+  }
+  if (email.attachments.length === 0) {
+    briefParts.push("(Body-only email — no attachments were included.)");
+  }
   briefParts.push(`Forwarded by: ${email.from}`);
   if (forwardedFrom) briefParts.push(`Original sender: ${forwardedFrom}`);
   briefParts.push(`Original subject: ${email.subject}`);
@@ -778,6 +791,28 @@ serve(async (req) => {
         bytes,
       });
     } catch (e) { console.error("raw eml decode failed", e); }
+  } else {
+    // Resend didn't hand us a raw .eml — synthesize a minimal RFC 822 message
+    // from the metadata we do have, so Michelle can always open the source
+    // (critical for body-only PO emails with no attachments).
+    try {
+      const synth =
+        `From: ${email.from}\r\n` +
+        `To: ${email.to.join(", ")}\r\n` +
+        `Subject: ${email.subject}\r\n` +
+        `Date: ${new Date().toUTCString()}\r\n` +
+        `MIME-Version: 1.0\r\n` +
+        `Content-Type: text/plain; charset=UTF-8\r\n` +
+        `X-Servexa-Note: Synthesized from webhook metadata (raw source unavailable from provider).\r\n` +
+        `\r\n` +
+        (email.text || stripHtml(email.html) || "(empty body)");
+      uploads.push({
+        path: `${orgId}/${jobId}/original.eml`,
+        label: "Original email (reconstructed)",
+        contentType: "message/rfc822",
+        bytes: new TextEncoder().encode(synth),
+      });
+    } catch (e) { console.error("synth eml build failed", e); }
   }
   for (const a of email.attachments) {
     if (a.bytes.byteLength > MAX_ATTACHMENT_BYTES) {
@@ -814,14 +849,18 @@ serve(async (req) => {
     else uploadedCount++;
   }
 
-  console.log(idempotentReuse ? "Attached to existing draft" : "Created pending job",
-    createdJobRef, "for org", orgId, {
-      from: email.from,
-      customer: customerName ?? "(left blank for approver)",
-      uploadedCount,
-      totalAttachments: email.attachments.length,
-      idempotentReuse,
-    });
+  console.log("[inbound-po-email] outcome", {
+    from: email.from,
+    subject: email.subject,
+    attachment_count: email.attachments.length,
+    outcome: idempotentReuse ? "attached_to_existing_draft" : "created_pending_draft",
+    reference_number: createdJobRef,
+    org_id: orgId,
+    customer: customerName ?? null,
+    po_number: poNum || null,
+    needs_review_no_po: needsReviewNoPo,
+    uploaded_documents: uploadedCount,
+  });
   return json(200, {
     ok: true,
     job_id: jobId,
