@@ -936,8 +936,19 @@ export async function generateJobSheetPdf(
   // For customer display name, prefer the preloaded customer sig name (OCR-extracted signer like "R. Croft")
   const customerSignedDisplayName = resolvedFormData._customer_signed_name || customerSig?.signer_name || jobInfo?.customers?.name || jobInfo?.customer || "";
 
+  // Precedence: response's technician answer (either the template field labelled
+  // "technician name" OR the top-level `technician_name` key persisted on the
+  // response payload by the paper-scan flow) → assigned engineer / submitting
+  // user → engineer signature record. This MUST match the engineer signature
+  // lookup source (which keys off technician_name) so the printed NAME and the
+  // rendered signature can't disagree — see VFP-00163 regression.
   const techField = template.fields.find(f => f.label.toLowerCase().includes("technician name"));
-  const techName = (techField && formData[techField.id]) ? String(formData[techField.id]) : (submittedBy || engineerSig?.signer_name || "");
+  const techFieldValue = techField && formData[techField.id] ? String(formData[techField.id]).trim() : "";
+  const responseTechName =
+    (typeof resolvedFormData.technician_name === "string" && resolvedFormData.technician_name.trim()) ||
+    (typeof resolvedFormData._technician_name === "string" && resolvedFormData._technician_name.trim()) ||
+    "";
+  const techName = techFieldValue || responseTechName || submittedBy || engineerSig?.signer_name || "";
 
   renderPdfSignatures(doc, sigY, {
     dateStr: sigDateStr,
