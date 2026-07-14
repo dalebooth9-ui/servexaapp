@@ -170,7 +170,7 @@ function getSystemQty(templateName: string, jobInfo: JobInfo | null | undefined)
   return 1;
 }
 
-type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null };
+type GenerateOpts = { handfill?: boolean; watermarkOverride?: WatermarkOverride | null; copiesOverride?: number | null };
 
 const printBlobInPage = (blob: Blob, fileName: string): Promise<void> => {
   return new Promise((resolve, reject) => {
