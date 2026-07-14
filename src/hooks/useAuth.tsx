@@ -27,6 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "engineer" | null>(null);
   const [profile, setProfile] = useState<{ full_name: string; whatsapp_number: string | null } | null>(null);
+  const [orgId, setOrgId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,16 +41,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setTimeout(async () => {
             const [roleRes, profileRes] = await Promise.all([
               supabase.from("user_roles").select("role").eq("user_id", session.user.id),
-              supabase.from("profiles").select("full_name, whatsapp_number").eq("user_id", session.user.id).maybeSingle(),
+              supabase.from("profiles").select("full_name, whatsapp_number, org_id").eq("user_id", session.user.id).maybeSingle(),
             ]);
             const roles = (roleRes.data ?? []).map((r) => r.role);
             setUserRole(roles.includes("admin") ? "admin" : roles.includes("engineer") ? "engineer" : null);
-            setProfile(profileRes.data ?? null);
+            const prof = profileRes.data as any;
+            setProfile(prof ? { full_name: prof.full_name, whatsapp_number: prof.whatsapp_number } : null);
+            setOrgId(prof?.org_id ?? null);
             setLoading(false);
           }, 0);
         } else {
           setUserRole(null);
           setProfile(null);
+          setOrgId(null);
           setLoading(false);
         }
       }
@@ -67,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, userRole, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ session, user, userRole, profile, orgId, loading, signOut }}>
       {children}
     </AuthContext.Provider>
   );
