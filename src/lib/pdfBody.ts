@@ -181,6 +181,47 @@ function hasRenderableValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
 }
 
+/**
+ * A field is "blank" (no answer given) when the value is undefined/null,
+ * an empty/whitespace-only string, an explicit "omitted" marker, an empty
+ * array, or an array/object whose entries are all themselves blank.
+ *
+ * IMPORTANT: an explicit "N/A" answer is NOT blank — it's a real answer.
+ * Boolean values (including `false`) are treated as real answers too.
+ */
+export function isBlankAnswer(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "boolean") return false;
+  if (typeof value === "number") return false;
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return true;
+    const low = t.toLowerCase();
+    return low === "__omitted__" || low === "__omit__";
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return true;
+    return value.every((row) => isBlankAnswer(row));
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if ((obj as any).__omitted__ === true || (obj as any).omitted === true) return true;
+    const keys = Object.keys(obj).filter((k) => k !== "id");
+    if (keys.length === 0) return true;
+    return keys.every((k) => isBlankAnswer(obj[k]));
+  }
+  return false;
+}
+
+/**
+ * Filter repeating-table rows to only those with at least one non-blank cell.
+ * Individual empty cells within a rendered row are fine to display as "—".
+ */
+export function filterNonBlankRows(rows: unknown): any[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((row) => !isBlankAnswer(row));
+}
+
 function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string, includeNa?: boolean): void {
   doc.setFontSize(7);
   doc.rect(x, y + 1, 3, 3);
