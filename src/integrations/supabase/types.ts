@@ -201,6 +201,62 @@ export type Database = {
           },
         ]
       }
+      asset_review_flags: {
+        Row: {
+          asset_id: string
+          created_at: string
+          field: string
+          id: string
+          job_id: string | null
+          job_sheet_response_id: string | null
+          new_value: string | null
+          old_value: string | null
+          org_id: string | null
+          reason: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          field: string
+          id?: string
+          job_id?: string | null
+          job_sheet_response_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string | null
+          reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          field?: string
+          id?: string
+          job_id?: string | null
+          job_sheet_response_id?: string | null
+          new_value?: string | null
+          old_value?: string | null
+          org_id?: string | null
+          reason?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_review_flags_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asset_sensors: {
         Row: {
           asset_id: string
@@ -277,9 +333,67 @@ export type Database = {
           },
         ]
       }
+      asset_service_history: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          inspection_date: string | null
+          inspection_type: string | null
+          job_id: string | null
+          job_sheet_response_id: string | null
+          org_id: string | null
+          outlets_count: number | null
+          result_summary: string | null
+          riser_location: string | null
+          template_id: string | null
+          template_name: string | null
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          inspection_date?: string | null
+          inspection_type?: string | null
+          job_id?: string | null
+          job_sheet_response_id?: string | null
+          org_id?: string | null
+          outlets_count?: number | null
+          result_summary?: string | null
+          riser_location?: string | null
+          template_id?: string | null
+          template_name?: string | null
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          inspection_date?: string | null
+          inspection_type?: string | null
+          job_id?: string | null
+          job_sheet_response_id?: string | null
+          org_id?: string | null
+          outlets_count?: number | null
+          result_summary?: string | null
+          riser_location?: string | null
+          template_id?: string | null
+          template_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_service_history_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       assets: {
         Row: {
           asset_tag: string | null
+          asset_type: string | null
+          attributes: Json
           category: string
           created_at: string
           created_by: string | null
@@ -287,11 +401,18 @@ export type Database = {
           import_batch_id: string | null
           imported_at: string | null
           install_date: string | null
+          last_inspection_at: string | null
+          last_inspection_result: string | null
+          last_inspection_type: string | null
+          last_job_id: string | null
+          last_job_sheet_response_id: string | null
           make: string | null
           model: string | null
           name: string
           notes: string | null
           org_id: string | null
+          outlets_count: number | null
+          riser_location: string | null
           serial_number: string | null
           site_id: string | null
           status: string
@@ -300,6 +421,8 @@ export type Database = {
         }
         Insert: {
           asset_tag?: string | null
+          asset_type?: string | null
+          attributes?: Json
           category?: string
           created_at?: string
           created_by?: string | null
@@ -307,11 +430,18 @@ export type Database = {
           import_batch_id?: string | null
           imported_at?: string | null
           install_date?: string | null
+          last_inspection_at?: string | null
+          last_inspection_result?: string | null
+          last_inspection_type?: string | null
+          last_job_id?: string | null
+          last_job_sheet_response_id?: string | null
           make?: string | null
           model?: string | null
           name: string
           notes?: string | null
           org_id?: string | null
+          outlets_count?: number | null
+          riser_location?: string | null
           serial_number?: string | null
           site_id?: string | null
           status?: string
@@ -320,6 +450,8 @@ export type Database = {
         }
         Update: {
           asset_tag?: string | null
+          asset_type?: string | null
+          attributes?: Json
           category?: string
           created_at?: string
           created_by?: string | null
@@ -327,11 +459,18 @@ export type Database = {
           import_batch_id?: string | null
           imported_at?: string | null
           install_date?: string | null
+          last_inspection_at?: string | null
+          last_inspection_result?: string | null
+          last_inspection_type?: string | null
+          last_job_id?: string | null
+          last_job_sheet_response_id?: string | null
           make?: string | null
           model?: string | null
           name?: string
           notes?: string | null
           org_id?: string | null
+          outlets_count?: number | null
+          riser_location?: string | null
           serial_number?: string | null
           site_id?: string | null
           status?: string
@@ -6858,6 +6997,7 @@ export type Database = {
       }
     }
     Functions: {
+      _extract_int_from_jsonb: { Args: { v: Json }; Returns: number }
       admin_create_customer_portal_token: {
         Args: { _customer_email: string; _customer_id: string }
         Returns: string
@@ -7125,6 +7265,10 @@ export type Database = {
         Returns: boolean
       }
       storage_object_org_id: { Args: { _name: string }; Returns: string }
+      sync_asset_from_job_sheet: {
+        Args: { _response_id: string }
+        Returns: undefined
+      }
       user_belongs_to_org: { Args: { _org_id: string }; Returns: boolean }
       user_can_access_storage_path: {
         Args: { _name: string }
