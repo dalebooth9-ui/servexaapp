@@ -595,6 +595,28 @@ export default function ScanCompletedJobDialog({
   }, [template, responses]);
 
   const selectedCustomer = customers.find((c) => c.id === customerId);
+  const selectedSite = sites.find((s) => s.id === siteId);
+
+  const mismatches = useMemo(
+    () =>
+      detectPaperMismatches({
+        extractedCustomer: header?.customer as string | undefined,
+        selectedCustomer: selectedCustomer?.name,
+        extractedSite: header?.site as string | undefined,
+        selectedSiteText: selectedSite
+          ? [selectedSite.name, selectedSite.address, selectedSite.postcode]
+              .filter(Boolean)
+              .join(", ")
+          : "",
+      }),
+    [header, selectedCustomer, selectedSite],
+  );
+
+  useEffect(() => {
+    setAckMismatch(false);
+  }, [customerId, siteId, header]);
+
+
 
   // ── Confirm & file ──
   const handleConfirm = async () => {
