@@ -1150,7 +1150,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
   };
 
   const handleViewResponse = (resp: Response) => {
-    const tpl = templates.find((t) => t.id === resp.template_id);
+    const tpl = allTemplates.find((t) => t.id === resp.template_id);
     if (tpl) {
       setViewingResponse(resp);
       setActiveTemplate(tpl);
