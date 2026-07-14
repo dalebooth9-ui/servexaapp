@@ -438,6 +438,19 @@ export default function Engineers() {
               />
               <p className="text-xs text-muted-foreground">{WHATSAPP_NUMBER_HINT}</p>
             </div>
+            <div className="flex items-start justify-between gap-3 rounded-md border p-3">
+              <div className="space-y-0.5">
+                <Label htmlFor="edit-show-planner" className="text-sm font-medium">Show on planner</Label>
+                <p className="text-xs text-muted-foreground">
+                  Off = hidden from the Weekly/Day/Month Planner rows. Still assignable to jobs and shown in reports.
+                </p>
+              </div>
+              <Switch
+                id="edit-show-planner"
+                checked={form.show_on_planner}
+                onCheckedChange={(v) => setForm((f) => ({ ...f, show_on_planner: v }))}
+              />
+            </div>
             <div className="space-y-2">
               <Label className="text-sm font-medium">Digital Signature</Label>
               {editEng && <ProfileSignatureCapture userId={editEng.user_id} />}
