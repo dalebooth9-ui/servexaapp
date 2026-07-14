@@ -1433,6 +1433,7 @@ export default function Jobs() {
           </Dialog>
           <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImported={fetchJobs} />
           <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchJobs} />
+          <ScanCompletedJobDialog open={scanPaperOpen} onOpenChange={setScanPaperOpen} />
           </div>
         )}
       </div>
