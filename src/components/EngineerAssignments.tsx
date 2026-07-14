@@ -12,6 +12,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { jobCategoryToCertType, bestCertOfType, getCertStatus, certTypeLabel } from "@/lib/certStatus";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Engineer = { user_id: string; full_name: string; whatsapp_number: string | null };
 type Assignment = { id: string; engineer_id: string; assigned_at: string; profile?: Engineer };
@@ -180,7 +181,7 @@ export default function EngineerAssignments({ jobId }: { jobId: string }) {
       const destPath = `${jobId}/${Date.now()}-${doc.file_name}`;
       const { data: fileData } = await supabase.storage.from("engineer-documents").download(doc.file_url);
       if (!fileData) continue;
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(destPath, fileData);
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(destPath), fileData);
       if (uploadError) continue;
       const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(destPath);
       await supabase.from("submissions").insert({

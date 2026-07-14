@@ -20,6 +20,7 @@ import BulkImportCustomersDialog from "@/components/BulkImportCustomersDialog";
 import BulkAiEnrichDialog from "@/components/BulkAiEnrichDialog";
 import TableSkeleton from "@/components/TableSkeleton";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Customer = {
   id: string;
@@ -237,7 +238,7 @@ export default function Customers() {
       const storagePath = `${uploadCustomerId}/${Date.now()}_${file.name}`;
       const { error: uploadErr } = await supabase.storage
         .from("submissions")
-        .upload(storagePath, file, { contentType: file.type });
+        .upload(await buildOrgPathAsync(storagePath), file, { contentType: file.type });
       if (uploadErr) {
         toast({ title: `Failed to upload ${file.name}`, description: uploadErr.message, variant: "destructive" });
         continue;

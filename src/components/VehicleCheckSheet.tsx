@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { DEFAULT_VEHICLE_CHECK_ITEMS, loadVehicleCheckItems, type VehicleCheckItem } from "@/lib/vehicleCheckItems";
 import VehicleSelector from "@/components/VehicleSelector";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type ItemValue = "ok" | "defect" | "na";
 
@@ -173,7 +174,7 @@ export default function VehicleCheckSheet({ onAccepted }: Props) {
         const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("vehicle-checks")
-          .upload(path, photo);
+          .upload(await buildOrgPathAsync(path), photo);
         if (upErr) throw upErr;
         photoUrls.push(path);
       }

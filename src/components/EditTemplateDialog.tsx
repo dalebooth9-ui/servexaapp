@@ -40,6 +40,7 @@ import { resolveFooterText } from "@/lib/pdfFooter";
 import { runTemplateQa, summariseQa } from "@/lib/templateQa";
 import { AlertTriangle } from "lucide-react";
 import BlankTemplatePdfExport, { type BlankTemplatePdfExportHandle } from "@/components/BlankTemplatePdfExport";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type TemplateField = {
   id: string;
@@ -539,7 +540,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setUploadingLogo(true);
     const ext = file.name.split(".").pop() || "jpg";
     const path = `template-logos/${template?.id}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true });
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
     } else {

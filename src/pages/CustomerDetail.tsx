@@ -26,6 +26,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { saveMapPinForJob } from "@/lib/saveMapPin";
 import CustomerPortalLink from "@/components/CustomerPortalLink";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -223,7 +224,7 @@ export default function CustomerDetail() {
       return;
     }
     const newPath = `${jobId}/${Date.now()}-${doc.file_name}`;
-    const { error: upErr } = await supabase.storage.from("submissions").upload(newPath, fileData);
+    const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(newPath), fileData);
     if (upErr) {
       toast({ title: "Error", description: "Failed to copy file to job.", variant: "destructive" });
       setAttachingDocId(null);
@@ -389,7 +390,7 @@ export default function CustomerDetail() {
     let processed = 0;
     for (const file of validFiles) {
       const filePath = `customer-docs/${id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
 
       if (uploadError) {
         toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });
@@ -466,7 +467,7 @@ export default function CustomerDetail() {
 
     // Upload new file
     const newPath = `customer-docs/${id}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("submissions").upload(newPath, file);
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(newPath), file);
     if (uploadError) {
       toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
       setUploading(false);
@@ -556,7 +557,7 @@ export default function CustomerDetail() {
       // Upload new files as submissions
       for (const file of jobDropFiles) {
         const filePath = `${newJob.id}/${Date.now()}-${file.name}`;
-        const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
+        const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
         if (!upErr) {
           const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
           const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
@@ -580,7 +581,7 @@ export default function CustomerDetail() {
         const { data: fileData } = await supabase.storage.from("submissions").download(storagePath);
         if (!fileData) continue;
         const newPath = `${newJob.id}/${Date.now()}-${doc.file_name}`;
-        const { error: upErr } = await supabase.storage.from("submissions").upload(newPath, fileData);
+        const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(newPath), fileData);
         if (!upErr) {
           const ext = doc.file_name.slice(doc.file_name.lastIndexOf(".")).toLowerCase();
           const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";
@@ -732,7 +733,7 @@ export default function CustomerDetail() {
     let uploaded = 0;
     for (const file of validFiles) {
       const filePath = `${jobId}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
+      const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
       if (!upErr) {
         const ext = file.name.slice(file.name.lastIndexOf(".")).toLowerCase();
         const type = IMAGE_EXTENSIONS.includes(ext) ? "photo" : "document";

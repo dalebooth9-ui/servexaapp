@@ -37,6 +37,7 @@ import RamsPdfExport from "./RamsPdfExport";
 import AiRamsAutoFill from "./AiRamsAutoFill";
 import RepeatingTableField from "./job-sheets/RepeatingTableField";
 import RepeatingTableReadOnly from "./job-sheets/RepeatingTableReadOnly";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type TemplateField = {
   id: string;
@@ -1051,7 +1052,7 @@ export default function JobSheetTemplates({ jobId }: { jobId: string }) {
           const filePath = `${jobId}/${fileName}`;
           const { error: upErr } = await supabase.storage
             .from("submissions")
-            .upload(filePath, photo.file, { contentType: photo.file.type });
+            .upload(await buildOrgPathAsync(filePath), photo.file, { contentType: photo.file.type });
           if (upErr) {
             console.error("Site photo upload failed", upErr);
             toast({ title: "Photo upload failed", description: upErr.message, variant: "destructive" });
@@ -2404,7 +2405,7 @@ function PhotoField({ value, onChange, fieldId, jobId, userId }: { value: any; o
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${fieldId}-${Date.now()}.${ext}`;
     const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
-    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true, contentType: file.type });
+    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true, contentType: file.type });
     if (error) {
       console.error("Upload error:", error);
     } else {

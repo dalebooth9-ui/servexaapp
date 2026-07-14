@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { PenLine, Upload, Trash2, Plus, Loader2 } from "lucide-react";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Row = {
   id: string;
@@ -275,7 +276,7 @@ function SignatureEditorDialog({
         const path = `engineer-library/${user.id}/${slug(name)}-${Date.now()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("signatures")
-          .upload(path, blob, { contentType, upsert: true });
+          .upload(await buildOrgPathAsync(path), blob, { contentType, upsert: true });
         if (upErr) throw upErr;
         if (existing?.file_path && existing.file_path !== path) {
           await supabase.storage.from("signatures").remove([existing.file_path]);

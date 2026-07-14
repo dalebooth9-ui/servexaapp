@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Plus, Camera } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useWhat3Words } from "@/hooks/useWhat3Words";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface AddNoteInputProps {
   jobId: string;
@@ -61,7 +62,7 @@ export default function AddNoteInput({ jobId, userId, onAdded }: AddNoteInputPro
 
     const w3w = await getW3W();
     const filePath = `${jobId}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
 
     if (uploadError) {
       toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });

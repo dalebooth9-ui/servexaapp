@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FolderOpen, Upload, FileText, Image, Loader2, Layers, FolderTree } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const ALLOWED_EXTENSIONS = [".pdf", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -131,7 +132,7 @@ const FolderImportDialog = forwardRef<FolderImportDialogHandle, FolderImportDial
       }
 
       const filePath = `${jobId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
 
       if (uploadError) {
         toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });

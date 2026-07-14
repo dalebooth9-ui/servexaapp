@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown, Plus, Camera, ShieldAlert, ExternalLink, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Defect = {
   id: string;
@@ -101,7 +102,7 @@ export default function JobDefects({ jobId, siteId }: JobDefectsProps) {
     const urls: string[] = [];
     for (const file of files) {
       const path = `defects/${defectId}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from("submissions").upload(path, file);
+      const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file);
       if (error) { toast.error(`Photo upload failed: ${file.name}`); continue; }
       urls.push(supabase.storage.from("submissions").getPublicUrl(path).data.publicUrl);
     }

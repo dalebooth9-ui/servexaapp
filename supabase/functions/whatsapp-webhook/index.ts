@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
           const fileBlob = await fileRes.blob();
           const ext = firstMediaType.split("/")[1] || "jpeg";
           const fileName = `whatsapp_scan_${Date.now()}.${ext}`;
-          const storagePath = `pending-scans/${engineerId}/${fileName}`;
+          const storagePath = `${engineerOrgId ?? "no-org"}/pending-scans/${engineerId}/${fileName}`;
 
           // Upload to submissions bucket
           const { error: uploadError } = await supabase.storage
@@ -493,7 +493,7 @@ Deno.serve(async (req) => {
         const friendlyName = disambiguate(rawFriendly, `${mediaUrl}|${i}|${Date.now()}`);
         // Storage keys must be URL-safe; keep the human-friendly label in file_name only.
         const safeStorageName = sanitizeStorageSegment(friendlyName);
-        const storagePath = `${jobId}/${engineerId}/${Date.now()}_${i}_${safeStorageName}`;
+        const storagePath = `${engineerOrgId ?? "no-org"}/${jobId}/${engineerId}/${Date.now()}_${i}_${safeStorageName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("submissions")

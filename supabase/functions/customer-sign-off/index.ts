@@ -87,7 +87,15 @@ Deno.serve(async (req) => {
       }
 
       const jobId = tokenRow.job_id;
-      const filePath = `customer/${jobId}-${Date.now()}.png`;
+      // Resolve the job's org_id so the signature is stored under a
+      // tenant-scoped prefix (per-object storage RLS enforces isolation).
+      const { data: jobRow } = await supabase
+        .from("jobs")
+        .select("org_id")
+        .eq("id", jobId)
+        .maybeSingle();
+      const jobOrgId = (jobRow as any)?.org_id ?? "no-org";
+      const filePath = `${jobOrgId}/customer/${jobId}-${Date.now()}.png`;
 
       // Upload signature image
       const arrayBuffer = await file.arrayBuffer();

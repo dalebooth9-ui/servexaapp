@@ -20,6 +20,7 @@ import {
   IMAGE_EXTENSIONS,
   isImageFile,
 } from "@/lib/fileUtils";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 function getDocIcon(fileName: string) {
   const ext = getFileExtension(fileName);
@@ -173,7 +174,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
 
     const jobId = replacingSub.job_id;
     const newPath = `${jobId}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("submissions").upload(newPath, file);
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(newPath), file);
     if (uploadError) {
       toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
       setReplacingSub(null);

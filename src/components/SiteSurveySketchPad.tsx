@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Eraser, Save, Pencil } from "lucide-react";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const BUCKET = "site-survey-media";
 
@@ -65,7 +66,7 @@ export default function SiteSurveySketchPad({ surveyId, onSaved }: { surveyId: s
     const blob: Blob | null = await new Promise((r) => canvasRef.current!.toBlob(r, "image/png"));
     if (!blob) { setSaving(false); return; }
     const path = `${surveyId}/sketch-${Date.now()}.png`;
-    const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, blob, { contentType: "image/png" });
+    const { error: upErr } = await supabase.storage.from(BUCKET).upload(await buildOrgPathAsync(path), blob, { contentType: "image/png" });
     if (upErr) {
       toast({ title: "Save failed", description: upErr.message, variant: "destructive" });
       setSaving(false);

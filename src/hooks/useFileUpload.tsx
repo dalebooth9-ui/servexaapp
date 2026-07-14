@@ -2,6 +2,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { isImageFile, isVideoFile, isAllowedFile, extractStoragePath } from "@/lib/fileUtils";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface UseFileUploadOptions {
   bucket?: string;

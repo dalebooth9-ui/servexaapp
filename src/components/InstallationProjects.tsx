@@ -19,6 +19,7 @@ import {
 import jsPDF from "jspdf";
 import PhotoAnnotator from "@/components/PhotoAnnotator";
 import PreCompletionChecklist from "@/components/PreCompletionChecklist";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -838,7 +839,7 @@ function ProjectDetail({
       const ext = file.name.split(".").pop();
       // Path: {issueId}/{userId}/filename — userId at position [2] matches RLS foldername check
       const path = `${issueId}/${uid}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("installation-photos").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("installation-photos").upload(await buildOrgPathAsync(path), file);
       if (upErr) { toast({ title: `Upload failed: ${file.name}`, variant: "destructive" }); continue; }
       const { data: photoRow, error: dbErr } = await supabase
         .from("installation_issue_photos" as any)
@@ -865,7 +866,7 @@ function ProjectDetail({
     const ext = file.name.split(".").pop();
     // Path: {issueId}/{userId}/resolution — userId at position [2] matches RLS foldername check
     const path = `${issueId}/${uid}/resolution-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("installation-photos").upload(path, file);
+    const { error: upErr } = await supabase.storage.from("installation-photos").upload(await buildOrgPathAsync(path), file);
     if (upErr) { toast({ title: "Upload failed", variant: "destructive" }); setUploadingIssueId(null); return; }
     await supabase.from("installation_issues" as any).update({ resolution_photo_url: path, resolution_photo_file_name: file.name }).eq("id", issueId);
     const signed = await getSignedUrl(path);

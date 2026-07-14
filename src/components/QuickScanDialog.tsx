@@ -19,6 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
 import { mergeQuickScanState } from "@/lib/quickScanState";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface TemplateField {
   id: string;
@@ -887,7 +888,7 @@ export default function QuickScanDialog() {
         const sigPath = `${role}/${jobId}-${Date.now()}.png`;
         const { error: uploadErr } = await supabase.storage
           .from("signatures")
-          .upload(sigPath, blob, { contentType: "image/png" });
+          .upload(await buildOrgPathAsync(sigPath), blob, { contentType: "image/png" });
         if (!uploadErr) {
           await supabase.from("job_signatures").insert({
             job_id: jobId,

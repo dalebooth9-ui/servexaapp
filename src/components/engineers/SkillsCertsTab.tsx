@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { Plus, Loader2, FileText, Download, Trash2, Upload, X, ShieldCheck, AlertTriangle, ShieldAlert, ShieldX } from "lucide-react";
 import { CERTIFICATION_TYPES, ISSUING_BODIES, certTypeLabel, getCertStatus, statusLabel, type CertStatus } from "@/lib/certStatus";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type CertDoc = {
   id: string;
@@ -83,7 +84,7 @@ export default function SkillsCertsTab({ engineerId, engineerName }: Props) {
     let inserted = 0;
     for (const file of pendingFiles) {
       const filePath = `${engineerId}/${Date.now()}-${file.name}`;
-      const up = await supabase.storage.from("engineer-documents").upload(filePath, file);
+      const up = await supabase.storage.from("engineer-documents").upload(await buildOrgPathAsync(filePath), file);
       if (up.error) {
         toast({ title: `Upload failed: ${file.name}`, description: up.error.message, variant: "destructive" });
         continue;

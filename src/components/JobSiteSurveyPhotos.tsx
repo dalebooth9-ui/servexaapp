@@ -6,6 +6,7 @@ import { useWhat3Words } from "@/hooks/useWhat3Words";
 import { Button } from "@/components/ui/button";
 import { Camera, Upload, Loader2, Trash2, MapPin } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const BUCKET = "site-survey-media";
 
@@ -73,7 +74,7 @@ export default function JobSiteSurveyPhotos({ surveyId, jobId }: { surveyId: str
     let ok = 0;
     for (const file of Array.from(files)) {
       const path = `job-survey/${jobId}/${surveyId}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file);
+      const { error: upErr } = await supabase.storage.from(BUCKET).upload(await buildOrgPathAsync(path), file);
       if (upErr) {
         toast({ title: "Upload failed", description: upErr.message, variant: "destructive" });
         continue;

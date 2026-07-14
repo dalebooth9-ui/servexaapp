@@ -45,6 +45,7 @@ import DroppableCustomerFolder from "@/components/jobs/DroppableCustomerFolder";
 import NewCustomerDropZone from "@/components/jobs/NewCustomerDropZone";
 import QuickScheduleDialog from "@/components/jobs/QuickScheduleDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const jobSchema = z.object({
   name: z.string().trim().min(1, "Job name is required").max(200, "Job name must be under 200 characters"),
@@ -748,7 +749,7 @@ export default function Jobs() {
             const filePath = `costing-sheets/${createdJob.id}/${safeName}`;
             const { error: uploadError } = await supabase.storage
               .from("submissions")
-              .upload(filePath, capturedCostingSheet, { upsert: true });
+              .upload(await buildOrgPathAsync(filePath), capturedCostingSheet, { upsert: true });
             if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
 
             // Create a long-lived signed URL (24 h) so the edge function can fetch it

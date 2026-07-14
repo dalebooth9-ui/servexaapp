@@ -47,6 +47,7 @@ import {
   type ScanImageSource,
 } from "@/lib/signatureCrop";
 import { detectPaperMismatches } from "@/lib/paperScanMismatch";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 // ── Types ──
 type TemplateField = {
@@ -760,7 +761,7 @@ export default function ScanCompletedJobDialog({
           const path = `job-documents/${jobId}/${safeName}`;
           const { error: upErr } = await supabase.storage
             .from("submissions")
-            .upload(path, img.file, {
+            .upload(await buildOrgPathAsync(path), img.file, {
               upsert: true,
               contentType: img.file.type || "image/jpeg",
             });
@@ -789,7 +790,7 @@ export default function ScanCompletedJobDialog({
         const path = `${user.id}/${jobId}-${role}-paper-${Date.now()}.png`;
         const { error: upErr } = await supabase.storage
           .from("signatures")
-          .upload(path, sig.blob, { contentType: "image/png" });
+          .upload(await buildOrgPathAsync(path), sig.blob, { contentType: "image/png" });
         if (upErr) {
           console.error("signature upload failed", upErr);
           return;

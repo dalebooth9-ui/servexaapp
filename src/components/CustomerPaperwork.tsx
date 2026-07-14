@@ -14,6 +14,7 @@ import {
 import { FileText, Image, Upload, Trash2, Download, Loader2, ClipboardList, Pencil, Check, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { Progress } from "@/components/ui/progress";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
 const ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".gif"];
@@ -77,7 +78,7 @@ export default function CustomerPaperwork({ customerId }: Props) {
     let processed = 0;
     for (const file of validFiles) {
       const path = `${customerId}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await supabase.storage.from("customer-paperwork").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("customer-paperwork").upload(await buildOrgPathAsync(path), file);
       if (!upErr) {
         await supabase.from("customer_paperwork" as any).insert({
           customer_id: customerId,

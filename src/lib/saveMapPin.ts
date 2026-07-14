@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 /**
  * Geocode an address via the server-side Maps proxy, fetch a static map image
@@ -79,7 +80,7 @@ export async function saveMapPinForJob({
     const filePath = `${jobId}/${fileName}`;
     const { error: uploadError } = await supabase.storage
       .from("submissions")
-      .upload(filePath, finalBlob, { contentType: "image/png" });
+      .upload(await buildOrgPathAsync(filePath), finalBlob, { contentType: "image/png" });
     if (uploadError) return;
 
     // 5. Create submission record

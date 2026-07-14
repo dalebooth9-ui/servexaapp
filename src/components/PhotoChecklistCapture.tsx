@@ -27,6 +27,7 @@ import {
 import { format } from "date-fns";
 import jsPDF from "jspdf";
 import { PDF_DIMENSIONS } from "@/lib/pdfDimensions";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -285,7 +286,7 @@ export default function PhotoChecklistCapture({
     setUploading(prev => ({ ...prev, [key]: true }));
     try {
       const path = `${jobId}/checklist_${itemId}_${field}_${Date.now()}.${file.name.split(".").pop()}`;
-      const { error: upErr } = await supabase.storage.from("submissions").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file);
       if (upErr) throw upErr;
 
       const clId = await ensureChecklist(selectedTemplate!.id);

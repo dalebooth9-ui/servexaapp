@@ -45,6 +45,7 @@ import {
   Activity,
 } from "lucide-react";
 import { format } from "date-fns";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Asset = {
   id: string;
@@ -179,7 +180,7 @@ export default function AssetDetail() {
 
     setUploading(true);
     const path = `${id}/${Date.now()}_${file.name}`;
-    const { error: uploadErr } = await supabase.storage.from("asset-documents").upload(path, file);
+    const { error: uploadErr } = await supabase.storage.from("asset-documents").upload(await buildOrgPathAsync(path), file);
     if (uploadErr) {
       toast({ title: "Upload failed", description: uploadErr.message, variant: "destructive" });
       setUploading(false);
