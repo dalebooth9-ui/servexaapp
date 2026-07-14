@@ -345,7 +345,7 @@ export default function JobWordReport({ jobId, job }: Props) {
           labelValueRow("Status", job.status || "—"),
           labelValueRow("Due date", fmtDate(job.due_date)),
           labelValueRow("Engineers", engineerNames.join(", ") || "—"),
-          labelValueRow("Brief", job.brief || "—"),
+          // Internal job brief intentionally omitted from customer-facing report.
         ],
       }));
 
