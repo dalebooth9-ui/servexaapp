@@ -291,7 +291,7 @@ Deno.serve(async (req) => {
           const fileBlob = await fileRes.blob();
           const ext = firstMediaType.split("/")[1] || "jpeg";
           const fileName = `whatsapp_scan_${Date.now()}.${ext}`;
-          const storagePath = `pending-scans/${engineerId}/${fileName}`;
+          const storagePath = `${engineerOrgId ?? "no-org"}/pending-scans/${engineerId}/${fileName}`;
 
           // Upload to submissions bucket
           const { error: uploadError } = await supabase.storage
