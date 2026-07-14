@@ -549,14 +549,13 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       return ao - bo;
     });
 
-  // Resolve a JobDoc.file_url into a fetchable URL (handling customer-paperwork paths).
+  // Resolve a JobDoc.file_url into a fetchable URL. Handles durable
+  // "storage://<bucket>/<path>" refs, legacy signed URLs, and bare paths.
   const resolveDocUrl = async (doc: JobDoc): Promise<string | null> => {
     if (!doc.file_url) return null;
-    if (doc.source === "customer_paperwork" && !doc.file_url.startsWith("http")) {
-      const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 600);
-      return data?.signedUrl || null;
-    }
-    return doc.file_url;
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    return resolveToSignedUrl(doc.file_url, defaultBucket, 600);
   };
 
   const handlePrintAll = async () => {
