@@ -1060,23 +1060,53 @@ export default function ScanCompletedJobDialog({
               })()}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setStep("upload")}
-                disabled={saving}
-              >
-                Back
-              </Button>
-              <Button onClick={handleConfirm} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+            <div className="flex justify-between gap-2 pt-2 border-t">
+              <div>
+                {queueItem && (
+                  <Button
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={saving}
+                    onClick={async () => {
+                      if (!user) return;
+                      await supabase
+                        .from("paper_scan_batch_items")
+                        .update({
+                          status: "rejected",
+                          reviewed_by: user.id,
+                          reviewed_at: new Date().toISOString(),
+                        })
+                        .eq("id", queueItem.itemId);
+                      toast({ title: "Discarded" });
+                      onQueueItemResolved?.();
+                      onOpenChange(false);
+                    }}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" /> Discard
+                  </Button>
                 )}
-                Confirm & file job
-              </Button>
+              </div>
+              <div className="flex gap-2">
+                {!queueItem && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep("upload")}
+                    disabled={saving}
+                  >
+                    Back
+                  </Button>
+                )}
+                <Button onClick={handleConfirm} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                  )}
+                  Confirm & file job
+                </Button>
+              </div>
             </div>
+
           </div>
         )}
       </DialogContent>
