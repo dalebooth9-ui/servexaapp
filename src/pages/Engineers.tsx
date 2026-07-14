@@ -131,7 +131,12 @@ export default function Engineers() {
 
   const openEdit = (eng: any) => {
     setEditEng(eng);
-    setForm({ full_name: eng.full_name || "", phone: eng.phone || "", whatsapp_number: eng.whatsapp_number || "" });
+    setForm({
+      full_name: eng.full_name || "",
+      phone: eng.phone || "",
+      whatsapp_number: eng.whatsapp_number || "",
+      show_on_planner: eng.show_on_planner !== false,
+    });
   };
 
   const handleSave = async () => {
@@ -139,13 +144,21 @@ export default function Engineers() {
     setSaving(true);
     const normalisedWa = normaliseWhatsAppNumber(form.whatsapp_number);
     const { error } = await supabase.from("profiles").update({
-      full_name: form.full_name, phone: form.phone || null, whatsapp_number: normalisedWa || null,
+      full_name: form.full_name,
+      phone: form.phone || null,
+      whatsapp_number: normalisedWa || null,
+      show_on_planner: form.show_on_planner,
     }).eq("id", editEng.id);
     setSaving(false);
     if (error) {
       toast({ title: "Error", description: "Failed to update engineer.", variant: "destructive" });
     } else {
-      const oldValues = { full_name: editEng.full_name, phone: editEng.phone || null, whatsapp_number: editEng.whatsapp_number || null };
+      const oldValues = {
+        full_name: editEng.full_name,
+        phone: editEng.phone || null,
+        whatsapp_number: editEng.whatsapp_number || null,
+        show_on_planner: editEng.show_on_planner !== false,
+      };
       const engId = editEng.id;
       setEditEng(null);
       fetchEngineers();
