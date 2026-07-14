@@ -29,6 +29,7 @@ import {
 import {
   loadEngineerSignatureLibrary, findEngineerSignatureByName,
 } from "@/lib/engineerSignatureLibrary";
+import { isBlankAnswer, filterNonBlankRows } from "@/lib/pdfBody";
 
 interface Props {
   jobId: string;
@@ -238,25 +239,36 @@ export default function JobWordReport({ jobId, job }: Props) {
         }
       }
 
-      // Job sheet responses
+      // Job sheet responses — mirrors the PDF: blank answers are dropped
+      // entirely (no label, no dash), and a template section with no answers
+      // is omitted along with its heading.
       const sheets = (sheetsRes.data as any[]) || [];
+      const OMIT_KEYS = new Set(["__omitted_sections__"]);
       for (const sheet of sheets) {
         const tplName = tplNames[sheet.template_id] || "Job sheet";
-        children.push(sectionHeading(tplName));
         const responses = (sheet.responses || {}) as Record<string, any>;
         const rows = Object.entries(responses)
-          .filter(([, v]) => v != null && v !== "" && !(Array.isArray(v) && v.length === 0))
-          .map(([k, v]) => labelValueRow(k, renderResponseValue(v)));
-        if (rows.length) {
-          children.push(new Table({
-            width: { size: 9360, type: WidthType.DXA },
-            columnWidths: [3200, 6160],
-            rows,
-          }));
-        } else {
-          children.push(new Paragraph({ children: [new TextRun({ text: "(no answers recorded)", italics: true, size: 20 })] }));
-        }
+          .filter(([k]) => !OMIT_KEYS.has(k) && !k.endsWith("_notes"))
+          .filter(([, v]) => !isBlankAnswer(v))
+          .map(([k, v]) => {
+            // For repeating tables, drop entirely-blank rows before summarising.
+            if (Array.isArray(v)) {
+              const nonBlank = filterNonBlankRows(v);
+              if (nonBlank.length === 0) return null;
+              return labelValueRow(k, `${nonBlank.length} row(s)`);
+            }
+            return labelValueRow(k, renderResponseValue(v));
+          })
+          .filter((r): r is TableRow => r !== null);
+        if (rows.length === 0) continue; // skip section heading entirely
+        children.push(sectionHeading(tplName));
+        children.push(new Table({
+          width: { size: 9360, type: WidthType.DXA },
+          columnWidths: [3200, 6160],
+          rows,
+        }));
       }
+
 
       // Parts
       const parts = (partsRes.data as any[]) || [];

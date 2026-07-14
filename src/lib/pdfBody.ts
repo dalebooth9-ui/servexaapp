@@ -181,6 +181,47 @@ function hasRenderableValue(value: unknown): boolean {
   return value !== undefined && value !== null && value !== "";
 }
 
+/**
+ * A field is "blank" (no answer given) when the value is undefined/null,
+ * an empty/whitespace-only string, an explicit "omitted" marker, an empty
+ * array, or an array/object whose entries are all themselves blank.
+ *
+ * IMPORTANT: an explicit "N/A" answer is NOT blank — it's a real answer.
+ * Boolean values (including `false`) are treated as real answers too.
+ */
+export function isBlankAnswer(value: unknown): boolean {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "boolean") return false;
+  if (typeof value === "number") return false;
+  if (typeof value === "string") {
+    const t = value.trim();
+    if (!t) return true;
+    const low = t.toLowerCase();
+    return low === "__omitted__" || low === "__omit__";
+  }
+  if (Array.isArray(value)) {
+    if (value.length === 0) return true;
+    return value.every((row) => isBlankAnswer(row));
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    if ((obj as any).__omitted__ === true || (obj as any).omitted === true) return true;
+    const keys = Object.keys(obj).filter((k) => k !== "id");
+    if (keys.length === 0) return true;
+    return keys.every((k) => isBlankAnswer(obj[k]));
+  }
+  return false;
+}
+
+/**
+ * Filter repeating-table rows to only those with at least one non-blank cell.
+ * Individual empty cells within a rendered row are fine to display as "—".
+ */
+export function filterNonBlankRows(rows: unknown): any[] {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((row) => !isBlankAnswer(row));
+}
+
 function renderBlankYesNoBoxes(doc: jsPDF, x: number, y: number, autoVal?: string, includeNa?: boolean): void {
   doc.setFontSize(7);
   doc.rect(x, y + 1, 3, 3);
@@ -345,6 +386,52 @@ export function getSectionFields(
     if (normLabel === normSection) return false;
     return true;
   });
+}
+
+/**
+ * Like getSectionFields but ALSO drops:
+ *   • fields whose answer is blank (undefined/null/""/"__omitted__"/empty array)
+ *   • fields in a section listed under formData.__omitted_sections__
+ * Used by the customer-facing PDF/Word so unanswered fields simply disappear
+ * instead of printing a "—" placeholder row.
+ */
+export function getRenderableSectionFields(
+  fields: PdfTemplateField[],
+  section: string,
+  skipIds: Set<string>,
+  values: Record<string, unknown> | null | undefined,
+  omittedSections?: string[] | null,
+): PdfTemplateField[] {
+  if (omittedSections && omittedSections.includes(section)) return [];
+  const base = getSectionFields(fields, section, skipIds);
+  if (!values) return base;
+  return base.filter((f) => {
+    // For repeating tables, use the row-level filter so tables with zero
+    // real rows disappear entirely.
+    if (f.type === "repeating_table") {
+      const rowsVal = values[f.id];
+      const parsed = typeof rowsVal === "string" && rowsVal.trim().startsWith("[")
+        ? (() => { try { return JSON.parse(rowsVal as string); } catch { return []; } })()
+        : rowsVal;
+      return filterNonBlankRows(parsed).length > 0;
+    }
+    return !isBlankAnswer(values[f.id]);
+  });
+}
+
+/**
+ * Return only the section names that will actually render at least one field
+ * once blank/omitted filtering is applied.
+ */
+export function getRenderableSections(
+  fields: PdfTemplateField[],
+  skipIds: Set<string>,
+  values: Record<string, unknown> | null | undefined,
+  omittedSections?: string[] | null,
+): string[] {
+  return getSections(fields).filter(
+    (sec) => getRenderableSectionFields(fields, sec, skipIds, values, omittedSections).length > 0,
+  );
 }
 
 export interface SectionLayout {
