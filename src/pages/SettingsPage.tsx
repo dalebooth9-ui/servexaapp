@@ -14,6 +14,7 @@ import RamsTemplateSettings from "@/components/RamsTemplateSettings";
 import FollowUpReminderSettings from "@/components/FollowUpReminderSettings";
 import EmailDeliveryTestCard from "@/components/EmailDeliveryTestCard";
 import StorageMigrationPanel from "@/components/StorageMigrationPanel";
+import HelpArticlesAdmin from "@/components/HelpArticlesAdmin";
 import EmailFromSettings from "@/components/EmailFromSettings";
 import EmailBrandingSettings from "@/components/EmailBrandingSettings";
 import PoIntakeEmailCard from "@/components/PoIntakeEmailCard";
@@ -402,6 +403,7 @@ export default function SettingsPage() {
 
         <TabsContent value="advanced" className="space-y-6 mt-0">
           <StorageMigrationPanel />
+          <HelpArticlesAdmin />
           {/* Weekly Report Settings */}
           <Card>
             <CardHeader>
