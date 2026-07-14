@@ -149,7 +149,16 @@ function renderHeader(
   doc: jsPDF,
   templateName: string,
   branding: NonNullable<Template["branding"]>,
-  data: { customerName: string; siteName: string; siteAddress: string; refNumber: string; dateVal: string; riserLocation: string },
+  data: {
+    customerName: string;
+    siteName: string;
+    siteAddress: string;
+    refNumber: string;
+    dateVal: string;
+    riserLocation: string;
+    engineer?: string;
+    systemLabel?: string;
+  },
   standard: string | null | undefined,
   accent: RgbTriple,
   opts: { compact?: boolean; marginX?: number; logo?: LoadedImage | null; isDryRiser?: boolean },
@@ -182,7 +191,10 @@ function renderHeader(
   doc.setFontSize(opts.isDryRiser ? DRY_RISER_LAYOUT.header.titleSizePt : 15);
   doc.setTextColor(...accent);
   const titleY = compact ? y + 2 : y;
-  doc.text(templateName.toUpperCase(), pageWidth / 2, titleY, { align: "center" });
+  const titleText = data.systemLabel
+    ? `${templateName.toUpperCase()} — ${data.systemLabel.toUpperCase()}`
+    : templateName.toUpperCase();
+  doc.text(titleText, pageWidth / 2, titleY, { align: "center" });
   y = titleY + 4;
 
   if (standard) {
@@ -200,8 +212,10 @@ function renderHeader(
   doc.setTextColor(30, 30, 30);
 
   const headerRowH = 6;
+  const engineerVal = (data.engineer || "").trim();
   if (opts.isDryRiser) {
-    const detailH = headerRowH * 3;
+    // 4-row grid: Customer/Date · Site/PO · Riser Location (full) · Engineer (full)
+    const detailH = headerRowH * 4;
     const c1 = maxWidth * 0.18;
     const c2 = maxWidth * 0.34;
     const c3 = maxWidth * 0.12;
@@ -215,10 +229,11 @@ function renderHeader(
     doc.rect(x0, y, maxWidth, detailH);
     doc.line(x0, y + headerRowH, x4, y + headerRowH);
     doc.line(x0, y + headerRowH * 2, x4, y + headerRowH * 2);
+    doc.line(x0, y + headerRowH * 3, x4, y + headerRowH * 3);
     doc.line(x1, y, x1, y + headerRowH * 2);
     doc.line(x2, y, x2, y + headerRowH * 2);
     doc.line(x3, y, x3, y + headerRowH * 2);
-    doc.line(x1, y + headerRowH * 2, x1, y + headerRowH * 3);
+    doc.line(x1, y + headerRowH * 2, x1, y + headerRowH * 4);
     const drawCell = (label: string, value: string, lx: number, vx: number, maxValueW: number, yy: number) => {
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -231,9 +246,11 @@ function renderHeader(
     drawCell("Site:", [data.siteName, data.siteAddress].filter(Boolean).join(", "), x0, x1, c2 - 4, y + headerRowH);
     drawCell("PO/REF:", data.refNumber, x2, x3, x4 - x3 - 4, y + headerRowH);
     drawCell("Riser Location:", data.riserLocation, x0, x1, x4 - x1 - 4, y + headerRowH * 2);
+    drawCell("Engineer:", engineerVal, x0, x1, x4 - x1 - 4, y + headerRowH * 3);
     y += detailH + 8;
   } else {
-    const detailH = headerRowH * 3;
+    // 4-row grid: Customer / Date · Site / PO/REF · Riser Location (full) · Engineer (full)
+    const detailH = headerRowH * 4;
     const splitX = margin + maxWidth * 0.7;
     doc.setDrawColor(0);
     doc.setLineWidth(0.2);
@@ -241,6 +258,7 @@ function renderHeader(
     doc.line(splitX, y, splitX, y + headerRowH * 2);
     doc.line(margin, y + headerRowH, margin + maxWidth, y + headerRowH);
     doc.line(margin, y + headerRowH * 2, margin + maxWidth, y + headerRowH * 2);
+    doc.line(margin, y + headerRowH * 3, margin + maxWidth, y + headerRowH * 3);
     doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.text("Customer:", margin + 1, y + 4);
@@ -262,6 +280,10 @@ function renderHeader(
     doc.text("Riser Location:", margin + 1, y + headerRowH * 2 + 4);
     doc.setFont("helvetica", "normal");
     doc.text(data.riserLocation, margin + 28, y + headerRowH * 2 + 4);
+    doc.setFont("helvetica", "bold");
+    doc.text("Engineer:", margin + 1, y + headerRowH * 3 + 4);
+    doc.setFont("helvetica", "normal");
+    doc.text(doc.splitTextToSize(engineerVal, maxWidth - 22).slice(0, 1).join(""), margin + 19, y + headerRowH * 3 + 4);
     y += detailH + 2;
   }
 
