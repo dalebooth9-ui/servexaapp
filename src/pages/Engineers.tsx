@@ -345,6 +345,13 @@ export default function Engineers() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{eng.phone || "—"}</TableCell>
                     <TableCell className="text-right"><Badge variant="secondary">{eng.job_count}</Badge></TableCell>
+                    <TableCell className="text-center">
+                      <Switch
+                        checked={eng.show_on_planner !== false}
+                        onCheckedChange={(v) => handleTogglePlanner(eng, v)}
+                        aria-label="Show on planner"
+                      />
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
                         <Button variant="ghost" size="icon" title="Certification documents" onClick={() => openDocs(eng)}>
