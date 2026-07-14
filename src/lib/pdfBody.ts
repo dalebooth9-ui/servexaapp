@@ -388,6 +388,52 @@ export function getSectionFields(
   });
 }
 
+/**
+ * Like getSectionFields but ALSO drops:
+ *   • fields whose answer is blank (undefined/null/""/"__omitted__"/empty array)
+ *   • fields in a section listed under formData.__omitted_sections__
+ * Used by the customer-facing PDF/Word so unanswered fields simply disappear
+ * instead of printing a "—" placeholder row.
+ */
+export function getRenderableSectionFields(
+  fields: PdfTemplateField[],
+  section: string,
+  skipIds: Set<string>,
+  values: Record<string, unknown> | null | undefined,
+  omittedSections?: string[] | null,
+): PdfTemplateField[] {
+  if (omittedSections && omittedSections.includes(section)) return [];
+  const base = getSectionFields(fields, section, skipIds);
+  if (!values) return base;
+  return base.filter((f) => {
+    // For repeating tables, use the row-level filter so tables with zero
+    // real rows disappear entirely.
+    if (f.type === "repeating_table") {
+      const rowsVal = values[f.id];
+      const parsed = typeof rowsVal === "string" && rowsVal.trim().startsWith("[")
+        ? (() => { try { return JSON.parse(rowsVal as string); } catch { return []; } })()
+        : rowsVal;
+      return filterNonBlankRows(parsed).length > 0;
+    }
+    return !isBlankAnswer(values[f.id]);
+  });
+}
+
+/**
+ * Return only the section names that will actually render at least one field
+ * once blank/omitted filtering is applied.
+ */
+export function getRenderableSections(
+  fields: PdfTemplateField[],
+  skipIds: Set<string>,
+  values: Record<string, unknown> | null | undefined,
+  omittedSections?: string[] | null,
+): string[] {
+  return getSections(fields).filter(
+    (sec) => getRenderableSectionFields(fields, sec, skipIds, values, omittedSections).length > 0,
+  );
+}
+
 export interface SectionLayout {
   totalFieldRows: number;
   totalSectionHeaders: number;
