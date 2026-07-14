@@ -768,6 +768,28 @@ export default function ScanCompletedJobDialog({
         }
       }
 
+      // Persist captured signatures — same pattern as normal in-app sign-off
+      const uploadSig = async (sig: SigCapture, role: "engineer" | "customer") => {
+        const path = `${user.id}/${jobId}-${role}-paper-${Date.now()}.png`;
+        const { error: upErr } = await supabase.storage
+          .from("signatures")
+          .upload(path, sig.blob, { contentType: "image/png" });
+        if (upErr) {
+          console.error("signature upload failed", upErr);
+          return;
+        }
+        await supabase.from("job_signatures" as any).insert({
+          job_id: jobId,
+          signer_id: user.id,
+          signer_name: sig.name || (role === "customer" ? "Customer" : "Engineer"),
+          signer_role: role,
+          file_path: path,
+        });
+      };
+      if (engineerSig) await uploadSig(engineerSig, "engineer");
+      if (customerSig) await uploadSig(customerSig, "customer");
+
+
 
       toast({
         title: `Job ${jobRef} filed`,
