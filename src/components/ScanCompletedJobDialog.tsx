@@ -280,6 +280,26 @@ export default function ScanCompletedJobDialog({
         setJobName(
           `${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`,
         );
+
+        // Download queue-item photos as File objects so we can crop
+        // signatures out of them client-side.
+        setProcessingMsg("Loading source photos…");
+        const downloaded: ImgFile[] = [];
+        for (const p of queueItem.imagePaths) {
+          const { data } = await supabase.storage
+            .from("submissions")
+            .download(p);
+          if (data) {
+            const name = p.split("/").pop() || "scan.jpg";
+            const file = new File([data], name, {
+              type: (data as Blob).type || "image/jpeg",
+            });
+            downloaded.push({ file, url: URL.createObjectURL(file) });
+          }
+        }
+        setImages(downloaded);
+
+        await autoCropSignatures(downloaded, hdr);
         setStep("review");
       } catch (e: any) {
         toast({
