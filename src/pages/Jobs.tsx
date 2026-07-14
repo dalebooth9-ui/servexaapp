@@ -20,6 +20,7 @@ import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText,
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
+import PaperScanQueueBadge from "@/components/paper-scan/PaperScanQueueBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
