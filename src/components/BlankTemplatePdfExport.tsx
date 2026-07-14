@@ -262,16 +262,17 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
   const { categories: jobCategories } = useJobCategories();
 
   useImperativeHandle(ref, () => ({
-    download: (o) => generate("download", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
-    print: (o) => generate("print", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
-    preview: (o) => generate("preview", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<void>,
-    getBlob: (o) => generate("blob", o?.handfill ?? false, o?.watermarkOverride ?? null) as Promise<Blob | null>,
+    download: (o) => generate("download", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<void>,
+    print: (o) => generate("print", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<void>,
+    preview: (o) => generate("preview", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<void>,
+    getBlob: (o) => generate("blob", o?.handfill ?? false, o?.watermarkOverride ?? null, o?.copiesOverride ?? null) as Promise<Blob | null>,
   }));
 
   const generate = async (
     mode: "download" | "print" | "preview" | "blob" = "preview",
     handfill = false,
     watermarkOverride: WatermarkOverride | null = null,
+    copiesOverride: number | null = null,
   ): Promise<Blob | null | void> => {
     setGenerating(true);
     const pendingName = [
