@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { useLocation, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveHelpSlug } from "@/lib/helpArticles";
 
 type QuickAction = { label: string; url: string; description: string };
 type Message = {
@@ -137,7 +138,8 @@ function getPageSuggestions(pathname: string): string[] {
 
 async function callWizard(
   messages: Array<{ role: string; content: string }>,
-  currentPage: string
+  currentPage: string,
+  currentSlug: string | null,
 ): Promise<{ message: string; quick_actions: QuickAction[] }> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData?.session?.access_token;
@@ -152,7 +154,7 @@ async function callWizard(
         "Authorization": `Bearer ${token ?? anonKey}`,
         "apikey": anonKey,
       },
-      body: JSON.stringify({ messages, currentPage }),
+      body: JSON.stringify({ messages, currentPage, currentSlug }),
     }
   );
 
