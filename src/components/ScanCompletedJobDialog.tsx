@@ -469,6 +469,7 @@ export default function ScanCompletedJobDialog({
     // Prefill job header widgets from header
     if (hdr.date) setCompletionDate(parseDateInput(String(hdr.date)));
     setJobName(`${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`);
+    return hdr;
   };
 
   // ── Analyze ──
