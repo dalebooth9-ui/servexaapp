@@ -1051,9 +1051,6 @@ export default function ScanCompletedJobDialog({
                         >
                           <Label className="text-sm pt-1.5">
                             {f.label}
-                            {f.required && (
-                              <span className="text-destructive"> *</span>
-                            )}
                           </Label>
                           <div>{renderField(f)}</div>
                         </div>
