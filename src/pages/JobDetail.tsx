@@ -402,7 +402,7 @@ export default function JobDetail() {
               <Badge variant="secondary" className="text-xs">{categoryDisplayName}</Badge>
             </div>
           )}
-          <div className="mt-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -410,6 +410,15 @@ export default function JobDetail() {
               onClick={() => document.getElementById("sign-off-signatures-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
             >
               <PenLine className="h-3.5 w-3.5" /> Customer Sign-Off
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1.5 text-xs"
+              onClick={() => setSiteSheetOpen(true)}
+              title="Print blank site sheets pre-filled from this job"
+            >
+              <Printer className="h-3.5 w-3.5" /> Print for site
             </Button>
           </div>
           {job.category === "installation" ? (
