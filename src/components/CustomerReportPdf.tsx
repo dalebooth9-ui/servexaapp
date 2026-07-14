@@ -113,12 +113,23 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
 
       const doc = new jsPDF();
       const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
       const margin = 10;
       const maxWidth = pageWidth - margin * 2;
 
+      // Reserve the footer zone so body content never runs into the
+      // accreditation logo strip or the declaration footer. Mirrors the
+      // numbers used by renderBrandingOverlay + renderPdfFooter below.
+      const FOOTER_BAND_H = 18;
+      const ACCRED_LOGO_H = 12;
+      const ACCRED_GAP = 3;
+      const footerY = pageHeight - FOOTER_BAND_H;
+      // Body content must end above the accreditation strip (with a 2mm buffer)
+      const CONTENT_BOTTOM = footerY - ACCRED_LOGO_H - ACCRED_GAP - 2;
+
       const addPage = () => { doc.addPage(); };
       const checkPage = (needed: number, currentY: number): number => {
-        if (currentY + needed > 270) { addPage(); return 20; }
+        if (currentY + needed > CONTENT_BOTTOM) { addPage(); return 20; }
         return currentY;
       };
 
