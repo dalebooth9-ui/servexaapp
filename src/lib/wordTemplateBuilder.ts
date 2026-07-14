@@ -548,8 +548,12 @@ export async function buildBlankTemplateDoc(template: WordTemplateInput): Promis
   const LBL = layout.labelCol;
   const VAL = layout.valueCol;
   const customLogoUrl = template.branding?.logo_url?.trim();
+  // Resolve durable storage refs / legacy signed URLs to a fresh signed URL.
+  const resolvedCustomLogo = customLogoUrl
+    ? (await (await import("@/lib/durableStorageRef")).resolveToSignedUrl(customLogoUrl, "submissions").catch(() => null)) || customLogoUrl
+    : "";
   const headerLogoUrl =
-    customLogoUrl && customLogoUrl.length > 0 ? customLogoUrl : "/images/vivafire-logo-new.png";
+    resolvedCustomLogo && resolvedCustomLogo.length > 0 ? resolvedCustomLogo : "/images/vivafire-logo-new.png";
   const watermarkUrl = "/images/viva-watermark.png";
   const [headerLogo, watermark, ...accredLogos] = await Promise.all([
     fetchImageBytes(headerLogoUrl),

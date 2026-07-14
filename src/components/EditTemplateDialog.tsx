@@ -320,6 +320,21 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
   const [companyName, setCompanyName] = useState("");
   const [companySubtitle, setCompanySubtitle] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!logoUrl) { setLogoPreviewUrl(""); return; }
+      if (/^https?:\/\//.test(logoUrl) && !logoUrl.includes("/object/sign/")) {
+        setLogoPreviewUrl(logoUrl);
+        return;
+      }
+      const { resolveToSignedUrl } = await import("@/lib/durableStorageRef");
+      const url = await resolveToSignedUrl(logoUrl, "submissions").catch(() => null);
+      if (!cancelled) setLogoPreviewUrl(url || logoUrl);
+    })();
+    return () => { cancelled = true; };
+  }, [logoUrl]);
   const [footerText, setFooterText] = useState("");
   const [declarationText, setDeclarationText] = useState("");
   // Per-template Word/PDF header logo tuning. Stored as strings so the user
@@ -540,12 +555,16 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
     setUploadingLogo(true);
     const ext = file.name.split(".").pop() || "jpg";
     const path = `template-logos/${template?.id}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true });
+    const orgPath = await buildOrgPathAsync(path);
+    const { error } = await supabase.storage.from("submissions").upload(orgPath, file, { upsert: true });
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
     } else {
-      const { data } = await supabase.storage.from("submissions").createSignedUrl(path, 60 * 60 * 24 * 365);
-      if (data?.signedUrl) setLogoUrl(data.signedUrl);
+      // Store a durable ref (storage://bucket/path). Signed URLs stored in
+      // config expire — same bug class as job_documents. Render-time helpers
+      // (pdfHeader, wordTemplateBuilder) resolve to fresh signed URLs.
+      const { buildDurableRef } = await import("@/lib/durableStorageRef");
+      setLogoUrl(buildDurableRef("submissions", orgPath));
     }
     setUploadingLogo(false);
   };
@@ -967,7 +986,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                       </Button>
                       {logoUrl ? (
                         <div className="flex items-center gap-2">
-                          <img src={logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
+                          <img src={logoPreviewUrl || logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setLogoUrl("")}>
                             <X className="h-3 w-3" />
                           </Button>
