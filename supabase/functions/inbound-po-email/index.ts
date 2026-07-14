@@ -849,14 +849,18 @@ serve(async (req) => {
     else uploadedCount++;
   }
 
-  console.log(idempotentReuse ? "Attached to existing draft" : "Created pending job",
-    createdJobRef, "for org", orgId, {
-      from: email.from,
-      customer: customerName ?? "(left blank for approver)",
-      uploadedCount,
-      totalAttachments: email.attachments.length,
-      idempotentReuse,
-    });
+  console.log("[inbound-po-email] outcome", {
+    from: email.from,
+    subject: email.subject,
+    attachment_count: email.attachments.length,
+    outcome: idempotentReuse ? "attached_to_existing_draft" : "created_pending_draft",
+    reference_number: createdJobRef,
+    org_id: orgId,
+    customer: customerName ?? null,
+    po_number: poNum || null,
+    needs_review_no_po: needsReviewNoPo,
+    uploaded_documents: uploadedCount,
+  });
   return json(200, {
     ok: true,
     job_id: jobId,
