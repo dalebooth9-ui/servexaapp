@@ -791,6 +791,28 @@ serve(async (req) => {
         bytes,
       });
     } catch (e) { console.error("raw eml decode failed", e); }
+  } else {
+    // Resend didn't hand us a raw .eml — synthesize a minimal RFC 822 message
+    // from the metadata we do have, so Michelle can always open the source
+    // (critical for body-only PO emails with no attachments).
+    try {
+      const synth =
+        `From: ${email.from}\r\n` +
+        `To: ${email.to.join(", ")}\r\n` +
+        `Subject: ${email.subject}\r\n` +
+        `Date: ${new Date().toUTCString()}\r\n` +
+        `MIME-Version: 1.0\r\n` +
+        `Content-Type: text/plain; charset=UTF-8\r\n` +
+        `X-Servexa-Note: Synthesized from webhook metadata (raw source unavailable from provider).\r\n` +
+        `\r\n` +
+        (email.text || stripHtml(email.html) || "(empty body)");
+      uploads.push({
+        path: `${orgId}/${jobId}/original.eml`,
+        label: "Original email (reconstructed)",
+        contentType: "message/rfc822",
+        bytes: new TextEncoder().encode(synth),
+      });
+    } catch (e) { console.error("synth eml build failed", e); }
   }
   for (const a of email.attachments) {
     if (a.bytes.byteLength > MAX_ATTACHMENT_BYTES) {
