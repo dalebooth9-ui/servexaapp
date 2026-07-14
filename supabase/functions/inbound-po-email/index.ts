@@ -704,18 +704,67 @@ serve(async (req) => {
     brief: briefParts.join("\n").trim() || null,
   };
 
-
-  const { data: newJob, error: jobErr } = await admin
-    .from("jobs")
-    .insert(jobInsert as any)
-    .select("id, reference_number")
-    .single();
-  if (jobErr || !newJob) {
-    console.error("Job insert failed", jobErr);
-    return json(500, { error: "Could not create job" });
+  // ── Idempotency ────────────────────────────────────────────────────────
+  // If the same PO number from the same sender has landed in the approval
+  // queue within the last 7 days, attach these new files to the existing
+  // draft instead of creating another duplicate job. Only applies while the
+  // original is still pending_review — once approved / rejected we let a
+  // new job through so genuine "same PO, new work" cases aren't blocked.
+  let jobId: string;
+  let createdJobRef: string;
+  let idempotentReuse = false;
+  const senderKey = (email.from || "").toLowerCase().trim();
+  if (poNum && senderKey) {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: dupCandidates } = await admin
+      .from("jobs")
+      .select("id, reference_number, brief, name, created_at")
+      .eq("org_id", orgId)
+      .eq("source", "email_po")
+      .eq("status", "pending_review")
+      .gte("created_at", sevenDaysAgo)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    const poNeedle = `PO ${poNum}`;
+    const senderNeedle = `Forwarded by: ${senderKey}`;
+    const existing = (dupCandidates || []).find((j: any) => {
+      const name = (j.name || "").toLowerCase();
+      const brief = (j.brief || "").toLowerCase();
+      const poHit = name.includes(poNeedle.toLowerCase()) || brief.includes(`po number: ${poNum.toLowerCase()}`);
+      const senderHit = brief.includes(senderNeedle.toLowerCase());
+      return poHit && senderHit;
+    });
+    if (existing) {
+      idempotentReuse = true;
+      jobId = existing.id;
+      createdJobRef = existing.reference_number;
+      console.log("Idempotent PO intake — attaching to existing draft", {
+        jobId, createdJobRef, poNum, senderKey,
+      });
+      // Append a note to the existing job so Michelle sees the duplicate arrived.
+      try {
+        await admin.from("job_messages").insert({
+          job_id: jobId,
+          message: `Duplicate PO email received from ${email.from} — attachments added to this draft.`,
+          author_role: "system",
+        } as any);
+      } catch (e) { console.warn("dup note insert failed", e); }
+    }
   }
-  const jobId = newJob.id;
-  const createdJobRef = newJob.reference_number;
+
+  if (!idempotentReuse) {
+    const { data: newJob, error: jobErr } = await admin
+      .from("jobs")
+      .insert(jobInsert as any)
+      .select("id, reference_number")
+      .single();
+    if (jobErr || !newJob) {
+      console.error("Job insert failed", jobErr);
+      return json(500, { error: "Could not create job" });
+    }
+    jobId = newJob.id;
+    createdJobRef = newJob.reference_number;
+  }
 
   // ── Store raw .eml + attachments in po-intake bucket ───────────────────
   const uploads: { path: string; label: string; contentType: string; bytes: Uint8Array }[] = [];
@@ -751,25 +800,33 @@ serve(async (req) => {
       upsert: false,
     });
     if (upErr) { console.error("upload failed", u.path, upErr); continue; }
-    const { data: signed } = await admin.storage.from("po-intake").createSignedUrl(u.path, 60 * 60 * 24 * 30);
+    // Store a DURABLE reference; viewers mint a fresh signed URL at open time.
     const { error: docErr } = await admin.from("job_documents").insert({
       job_id: jobId,
       label: u.label,
       document_type: "po_source",
       source: "email_po",
       file_name: u.label,
-      file_url: signed?.signedUrl ?? u.path,
+      file_url: `storage://po-intake/${u.path}`,
       org_id: orgId,
     } as any);
     if (docErr) console.error("job_documents insert failed", u.path, docErr);
     else uploadedCount++;
   }
 
-  console.log("Created pending job", createdJobRef, "for org", orgId, {
-    from: email.from,
-    customer: customerName ?? "(left blank for approver)",
-    uploadedCount,
-    totalAttachments: email.attachments.length,
+  console.log(idempotentReuse ? "Attached to existing draft" : "Created pending job",
+    createdJobRef, "for org", orgId, {
+      from: email.from,
+      customer: customerName ?? "(left blank for approver)",
+      uploadedCount,
+      totalAttachments: email.attachments.length,
+      idempotentReuse,
+    });
+  return json(200, {
+    ok: true,
+    job_id: jobId,
+    reference_number: createdJobRef,
+    uploaded: uploadedCount,
+    idempotent_reuse: idempotentReuse,
   });
-  return json(200, { ok: true, job_id: jobId, reference_number: createdJobRef, uploaded: uploadedCount });
 });

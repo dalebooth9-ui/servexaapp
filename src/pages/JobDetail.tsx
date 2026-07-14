@@ -66,6 +66,7 @@ const JobVisits = lazy(() => import("@/components/JobVisits"));
 const JobSheet = lazy(() => import("@/components/JobSheet"));
 const JobParts = lazy(() => import("@/components/JobParts"));
 const JobPdfReport = lazy(() => import("@/components/JobPdfReport"));
+const JobWordReport = lazy(() => import("@/components/JobWordReport"));
 const SubmissionList = lazy(() => import("@/components/jobs/SubmissionList"));
 const EngineerCertificates = lazy(() => import("@/components/jobs/EngineerCertificates"));
 const JobDocuments = lazy(() => import("@/components/JobDocuments"));
@@ -481,6 +482,7 @@ export default function JobDetail() {
             <AiJobBriefDialog job={job} />
             <SendToCustomerMenu jobId={id!} job={job} customerEmail={customerEmail} />
             <JobPdfReport jobId={id!} job={job} />
+            <JobWordReport jobId={id!} job={job} />
             <CloneJobDialog sourceJob={job} />
             {(job.status === "completed" || job.status === "archived") && (
               <ScheduleFollowUpJobs sourceJob={job} />

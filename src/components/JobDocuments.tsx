@@ -11,6 +11,7 @@ import BlankTemplatePdfExport from "@/components/BlankTemplatePdfExport";
 import PreStartChecklistPdf from "@/components/PreStartChecklistPdf";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import type { RamsType } from "@/components/RamsPdfExport";
+import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 
 type JobDoc = {
   id: string;
@@ -451,12 +452,11 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
 
   const handleDownload = async (doc: JobDoc) => {
     if (!doc.file_url) return;
-    let url = doc.file_url;
-    // Customer paperwork stores a storage path, not a full URL — generate a signed URL
-    if (doc.source === "customer_paperwork" && !doc.file_url.startsWith("http")) {
-      const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 300);
-      if (data?.signedUrl) url = data.signedUrl;
-    }
+    // Always resolve to a FRESH signed URL — legacy rows may hold expired
+    // signed URLs or durable "storage://" refs. See src/lib/durableStorageRef.
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    const url = (await resolveToSignedUrl(doc.file_url, defaultBucket, 3600)) || doc.file_url;
     // Detect previewable types from the file name (or fall back to URL pathname)
     const name = (doc.file_name || url).toLowerCase();
     const ext = name.split("?")[0].split("#")[0].split(".").pop() || "";
@@ -550,14 +550,13 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
       return ao - bo;
     });
 
-  // Resolve a JobDoc.file_url into a fetchable URL (handling customer-paperwork paths).
+  // Resolve a JobDoc.file_url into a fetchable URL. Handles durable
+  // "storage://<bucket>/<path>" refs, legacy signed URLs, and bare paths.
   const resolveDocUrl = async (doc: JobDoc): Promise<string | null> => {
     if (!doc.file_url) return null;
-    if (doc.source === "customer_paperwork" && !doc.file_url.startsWith("http")) {
-      const { data } = await supabase.storage.from("customer-paperwork").createSignedUrl(doc.file_url, 600);
-      return data?.signedUrl || null;
-    }
-    return doc.file_url;
+    const defaultBucket =
+      doc.source === "customer_paperwork" ? "customer-paperwork" : "submissions";
+    return resolveToSignedUrl(doc.file_url, defaultBucket, 600);
   };
 
   const handlePrintAll = async () => {

@@ -340,6 +340,8 @@ async function uploadAndRespond(
   noteParts: string[],
 ) {
   // Upload the original PDF as a submission so it's permanently attached.
+  // Store a DURABLE reference (storage://bucket/path) — viewers mint a fresh
+  // signed URL at display time. Never persist signed URLs (they expire).
   try {
     const bytes = Uint8Array.from(atob(fileB64), (c) => c.charCodeAt(0));
     const path = `${job.id}/${Date.now()}-${fileName.replace(/[^\w.\-]/g, "_")}`;
@@ -347,11 +349,10 @@ async function uploadAndRespond(
       .from("submissions")
       .upload(path, bytes, { contentType: "application/pdf", upsert: false });
     if (!upErr) {
-      const { data: urlData } = admin.storage.from("submissions").getPublicUrl(path);
       await admin.from("submissions").insert({
         job_id: job.id,
         type: "document",
-        file_url: urlData.publicUrl,
+        file_url: `storage://submissions/${path}`,
         file_name: fileName,
       } as any);
     } else {
