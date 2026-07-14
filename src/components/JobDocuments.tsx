@@ -12,6 +12,8 @@ import PreStartChecklistPdf from "@/components/PreStartChecklistPdf";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import type { RamsType } from "@/components/RamsPdfExport";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
+import JobPdfReport from "@/components/JobPdfReport";
+import JobWordReport from "@/components/JobWordReport";
 
 type JobDoc = {
   id: string;
@@ -716,6 +718,8 @@ ${sections}
 
       {/* Actions */}
       <div className="flex items-center gap-2 pt-2 border-t flex-wrap">
+        <JobPdfReport jobId={jobId} job={job} />
+        <JobWordReport jobId={jobId} job={job} />
         <Button
           variant="outline"
           size="sm"

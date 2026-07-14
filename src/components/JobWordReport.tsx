@@ -3,19 +3,23 @@
  *
  * Produces the same branded customer report as an editable .docx so the
  * office can tweak wording before sending. Uses the `docx` npm library
- * entirely client-side, matching the PDF's information architecture:
- *   • Branded header (logo + JOB REPORT + ref / date)
- *   • Customer / Site block
- *   • Job info (status, category, dates, engineers)
- *   • Submitted job-sheet responses (one section per template)
- *   • Parts used
- *   • Comments (from submissions.type = "comment")
- *   • Signatures (embedded PNGs)
- *   • Accreditation footer note
+ * entirely client-side.
  *
- * NOTE: We deliberately keep this simpler than the PDF (no photo grid,
- * no watermark) — the goal is an editable draft, not a pixel-perfect
- * replica. Formatting stays close to the PDF's Viva-Fire navy palette.
+ * Rendering rules — matches the PDF (CustomerReportPdf / JobSheetPdfExport):
+ *   • Header ONCE — Viva Fire logo + customer/site/ref/date block.
+ *     Header fields (site, address, customer, engineer, ref, date, comments,
+ *     materials) are excluded from the responses tables via buildSkipIds so
+ *     they don't render twice.
+ *   • Template-driven — each job_sheet_response is rendered using the
+ *     template's field labels and section groupings (never raw field IDs).
+ *     Blank/omitted fields and empty sections are skipped.
+ *   • Repeating tables (e.g. Dwelling Access Log) render as proper Word
+ *     tables using the template's column definitions — one row per entry,
+ *     internal `id`/photo columns hidden.
+ *   • Accreditation strip in the page footer (customer logos or default
+ *     Viva Fire set) + declaration text on every page.
+ *   • Engineer signature falls back to the stored engineer_signatures
+ *     library (same as the PDF).
  */
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -24,12 +28,19 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
-  AlignmentType, HeadingLevel, BorderStyle, WidthType, ShadingType, PageBreak,
+  AlignmentType, HeadingLevel, BorderStyle, WidthType, ShadingType,
+  Header, Footer, VerticalAlign,
 } from "docx";
 import {
   loadEngineerSignatureLibrary, findEngineerSignatureByName,
 } from "@/lib/engineerSignatureLibrary";
-import { isBlankAnswer, filterNonBlankRows } from "@/lib/pdfBody";
+import {
+  isBlankAnswer, filterNonBlankRows,
+  buildSkipIds, getRenderableSections, getRenderableSectionFields,
+  type PdfTemplateField,
+} from "@/lib/pdfBody";
+import { fetchCustomerAccreditationLogos } from "@/lib/pdfAccreditations";
+import { getDefaultFooterText } from "@/lib/pdfFooter";
 
 interface Props {
   jobId: string;
@@ -42,6 +53,12 @@ const BORDER_HEX = "B4B4B4";
 
 const border = { style: BorderStyle.SINGLE, size: 4, color: BORDER_HEX };
 const cellBorders = { top: border, bottom: border, left: border, right: border };
+const noBorders = {
+  top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+};
 
 function labelValueRow(label: string, value: string): TableRow {
   return new TableRow({
@@ -71,6 +88,14 @@ function sectionHeading(text: string): Paragraph {
   });
 }
 
+type ImgFormat = "png" | "jpg" | "gif" | "bmp";
+function detectImgFormat(url: string): ImgFormat {
+  const u = url.toLowerCase().split("?")[0];
+  if (u.endsWith(".png")) return "png";
+  if (u.endsWith(".gif")) return "gif";
+  if (u.endsWith(".bmp")) return "bmp";
+  return "jpg";
+}
 async function urlToArrayBuffer(url: string): Promise<ArrayBuffer | null> {
   try {
     const r = await fetch(url);
@@ -84,16 +109,94 @@ function fmtDate(d?: string | null): string {
   try { return new Date(d).toLocaleDateString("en-GB"); } catch { return d; }
 }
 
-function renderResponseValue(v: any): string {
+/** Render a single field value as a display string (non-table fields only). */
+function renderFieldValue(field: PdfTemplateField, v: any): string {
   if (v == null || v === "") return "—";
   if (typeof v === "boolean") return v ? "Yes" : "No";
-  if (Array.isArray(v)) return v.map(renderResponseValue).join(", ");
+  if (Array.isArray(v)) {
+    return v.map((x) => (typeof x === "object" ? JSON.stringify(x) : String(x))).join(", ");
+  }
   if (typeof v === "object") {
-    // Photo gallery / attachment refs — summarise.
     if (Array.isArray((v as any).photos)) return `${(v as any).photos.length} photo(s) attached`;
     try { return JSON.stringify(v); } catch { return String(v); }
   }
-  return String(v);
+  const s = String(v).trim();
+  // Handle yes/no style
+  const low = s.toLowerCase();
+  if (low === "yes" || low === "true") return "Yes";
+  if (low === "no" || low === "false") return "No";
+  return s;
+}
+
+/** Build a repeating-table as a proper Word table using column defs. */
+function buildRepeatingTable(field: any, rowsIn: any[]): (Paragraph | Table)[] {
+  const rows = filterNonBlankRows(rowsIn);
+  if (rows.length === 0) return [];
+  const rawCols: any[] = Array.isArray(field.columns) ? field.columns : [];
+  // Hide internal columns: id, photo galleries, hidden.
+  const columns = rawCols.filter((c) => {
+    if (!c) return false;
+    const id = String(c.id || "").toLowerCase();
+    if (id === "id") return false;
+    if (c.type === "photo_gallery" || c.type === "photo" || c.type === "image") return false;
+    return true;
+  });
+  // If no column defs, derive from the union of row keys (excluding id/photos).
+  const derivedKeys: string[] = columns.length === 0
+    ? Array.from(rows.reduce<Set<string>>((set, r) => {
+        Object.keys(r || {}).forEach((k) => {
+          if (k === "id") return;
+          if (/photo|image|picture/i.test(k)) return;
+          set.add(k);
+        });
+        return set;
+      }, new Set()))
+    : [];
+  const colDefs = columns.length > 0
+    ? columns.map((c) => ({ id: String(c.id), label: String(c.label || c.id) }))
+    : derivedKeys.map((k) => ({ id: k, label: k.replace(/_/g, " ").replace(/\b\w/g, (m) => m.toUpperCase()) }));
+
+  if (colDefs.length === 0) return [];
+
+  const tableWidth = 9360;
+  const colW = Math.floor(tableWidth / colDefs.length);
+  const colWidths = colDefs.map(() => colW);
+
+  const headerRow = new TableRow({
+    tableHeader: true,
+    children: colDefs.map((c) => new TableCell({
+      width: { size: colW, type: WidthType.DXA },
+      borders: cellBorders,
+      shading: { type: ShadingType.CLEAR, fill: NAVY_HEX, color: "auto" },
+      margins: { top: 60, bottom: 60, left: 100, right: 100 },
+      children: [new Paragraph({ children: [new TextRun({ text: c.label, bold: true, color: "FFFFFF", size: 18 })] })],
+    })),
+  });
+
+  const bodyRows = rows.map((row) => new TableRow({
+    children: colDefs.map((c) => {
+      const raw = row?.[c.id];
+      let txt: string;
+      if (raw == null || raw === "") txt = "—";
+      else if (typeof raw === "boolean") txt = raw ? "Yes" : "No";
+      else if (Array.isArray(raw)) txt = raw.map((x) => (typeof x === "object" ? "" : String(x))).filter(Boolean).join(", ") || "—";
+      else if (typeof raw === "object") { try { txt = JSON.stringify(raw); } catch { txt = "—"; } }
+      else txt = String(raw);
+      return new TableCell({
+        width: { size: colW, type: WidthType.DXA },
+        borders: cellBorders,
+        margins: { top: 50, bottom: 50, left: 100, right: 100 },
+        verticalAlign: VerticalAlign.TOP,
+        children: [new Paragraph({ children: [new TextRun({ text: txt, size: 18 })] })],
+      });
+    }),
+  }));
+
+  return [new Table({
+    width: { size: tableWidth, type: WidthType.DXA },
+    columnWidths: colWidths,
+    rows: [headerRow, ...bodyRows],
+  })];
 }
 
 export default function JobWordReport({ jobId, job }: Props) {
@@ -103,7 +206,8 @@ export default function JobWordReport({ jobId, job }: Props) {
   const generate = async () => {
     setGenerating(true);
     try {
-      const [visitsRes, partsRes, assignRes, sigRes, sheetsRes, subsRes] = await Promise.all([
+      const custName = job.customers?.name || job.customer || "";
+      const [visitsRes, partsRes, assignRes, sigRes, sheetsRes, subsRes, accredUrls] = await Promise.all([
         supabase.from("job_visits").select("*").eq("job_id", jobId).order("scheduled_date", { ascending: true }),
         supabase.from("job_parts").select("*").eq("job_id", jobId),
         supabase.from("job_assignments").select("engineer_id").eq("job_id", jobId),
@@ -112,6 +216,7 @@ export default function JobWordReport({ jobId, job }: Props) {
           .select("id, template_id, responses, submitted_at")
           .eq("job_id", jobId).eq("status", "submitted"),
         supabase.from("submissions").select("*").eq("job_id", jobId).order("created_at", { ascending: true }),
+        fetchCustomerAccreditationLogos(custName),
       ]);
 
       const engIds = [...new Set((assignRes.data || []).map((a: any) => a.engineer_id))];
@@ -121,23 +226,37 @@ export default function JobWordReport({ jobId, job }: Props) {
         engineerNames = (profiles || []).map((p: any) => p.full_name || "Unknown");
       }
 
-      // Template names for section headings.
+      // Load templates for each response (name + fields + branding).
       const tplIds = [...new Set((sheetsRes.data || []).map((s: any) => s.template_id).filter(Boolean))];
-      const tplNames: Record<string, string> = {};
+      const templatesById: Record<string, { name: string; fields: PdfTemplateField[] }> = {};
       if (tplIds.length) {
         const { data: tpls } = await supabase
-          .from("job_sheet_templates").select("id, name").in("id", tplIds as string[]);
-        (tpls || []).forEach((t: any) => { tplNames[t.id] = t.name; });
+          .from("job_sheet_templates").select("id, name, fields").in("id", tplIds as string[]);
+        (tpls || []).forEach((t: any) => {
+          const fields = Array.isArray(t.fields) ? (t.fields as PdfTemplateField[]) : [];
+          templatesById[t.id] = { name: t.name, fields };
+        });
       }
 
       // Logo (customer brand > default Viva).
-      const logoUrl = job?.customers?.logo_url || "/images/vivafire-logo-new.jpg";
+      const logoUrl = job?.customers?.logo_url || "/vivafire-logo.png";
       const logoBuf = await urlToArrayBuffer(logoUrl);
+      const logoFmt = detectImgFormat(logoUrl);
+
+      // Accreditation logos → ArrayBuffer for footer strip.
+      const accredEntries = await Promise.all(
+        (accredUrls || []).slice(0, 6).map(async (u) => ({
+          bytes: await urlToArrayBuffer(u),
+          fmt: detectImgFormat(u),
+        })),
+      );
+      const accredImgs = accredEntries.filter((e): e is { bytes: ArrayBuffer; fmt: ImgFormat } => !!e.bytes);
 
       // Signatures — download PNG bytes.
       const signatures = (sigRes.data as any[]) || [];
       const sigLib = await loadEngineerSignatureLibrary();
-      const sigEntries: { role: string; name: string; date: string; bytes: ArrayBuffer | null }[] = [];
+      type SigEntry = { role: string; name: string; date: string; bytes: ArrayBuffer | null };
+      const sigEntries: SigEntry[] = [];
       for (const s of signatures) {
         let bytes: ArrayBuffer | null = null;
         try {
@@ -151,19 +270,22 @@ export default function JobWordReport({ jobId, job }: Props) {
           bytes,
         });
       }
-      // Fallback: if no engineer signature captured for this job, use stored one.
+      // Fallback engineer signature from library (matches PDF behaviour).
       if (!sigEntries.some((s) => s.role.toLowerCase().includes("engineer"))) {
-        const first = engineerNames[0];
-        if (first) {
-          const stored = findEngineerSignatureByName(sigLib, first);
+        // Prefer technician_name captured in the response over assigned-engineer list.
+        const techFromSheet = ((sheetsRes.data as any[]) || [])
+          .map((row: any) => (row?.responses?.technician_name || "").toString().trim())
+          .find((v: string) => v.length > 0);
+        const techName = techFromSheet || engineerNames[0];
+        if (techName) {
+          const stored = findEngineerSignatureByName(sigLib, techName);
           if (stored?.file_path) {
             let bytes: ArrayBuffer | null = null;
             try {
-              const { data } = await supabase.storage.from("signatures")
-                .createSignedUrl(stored.file_path, 3600);
+              const { data } = await supabase.storage.from("signatures").createSignedUrl(stored.file_path, 3600);
               if (data?.signedUrl) bytes = await urlToArrayBuffer(data.signedUrl);
             } catch { /* ignore */ }
-            if (bytes) sigEntries.push({ role: "Engineer", name: first, date: fmtDate(new Date().toISOString()), bytes });
+            if (bytes) sigEntries.push({ role: "Engineer", name: techName, date: fmtDate(new Date().toISOString()), bytes });
           }
         }
       }
@@ -171,12 +293,12 @@ export default function JobWordReport({ jobId, job }: Props) {
       // ── Build docx body ────────────────────────────────────────────────
       const children: (Paragraph | Table)[] = [];
 
-      // Header: logo + title
+      // Header block — logo + title (ONCE — no repeated site/address rows).
       if (logoBuf) {
         children.push(new Paragraph({
           alignment: AlignmentType.LEFT,
           children: [new ImageRun({
-            type: "png",
+            type: logoFmt,
             data: logoBuf,
             transformation: { width: 140, height: 60 },
             altText: { title: "Logo", description: "Company logo", name: "logo" },
@@ -196,15 +318,18 @@ export default function JobWordReport({ jobId, job }: Props) {
         })],
       }));
 
-      // Customer / Site
+      // Customer / Site (rendered ONCE here — matching fields are skipped in the responses tables).
       children.push(sectionHeading("Customer & Site"));
+      const siteName = job.sites?.name || "";
+      const siteAddress = job.sites?.address || job.address || "";
       children.push(new Table({
         width: { size: 9360, type: WidthType.DXA },
         columnWidths: [3200, 6160],
         rows: [
-          labelValueRow("Customer", job.customers?.name || job.customer || "—"),
+          labelValueRow("Customer", custName || "—"),
+          labelValueRow("Site", siteName || "—"),
+          labelValueRow("Site address", siteAddress || "—"),
           labelValueRow("Contact", job.customers?.email || job.customers?.phone || "—"),
-          labelValueRow("Site address", job.address || "—"),
         ],
       }));
 
@@ -239,36 +364,75 @@ export default function JobWordReport({ jobId, job }: Props) {
         }
       }
 
-      // Job sheet responses — mirrors the PDF: blank answers are dropped
-      // entirely (no label, no dash), and a template section with no answers
-      // is omitted along with its heading.
+      // Template-driven job-sheet responses — use field labels + section order
+      // exactly like the PDF, and skip fields already rendered in the header.
       const sheets = (sheetsRes.data as any[]) || [];
-      const OMIT_KEYS = new Set(["__omitted_sections__"]);
       for (const sheet of sheets) {
-        const tplName = tplNames[sheet.template_id] || "Job sheet";
+        const tpl = templatesById[sheet.template_id];
+        if (!tpl || !Array.isArray(tpl.fields) || tpl.fields.length === 0) continue;
         const responses = (sheet.responses || {}) as Record<string, any>;
-        const rows = Object.entries(responses)
-          .filter(([k]) => !OMIT_KEYS.has(k) && !k.endsWith("_notes"))
-          .filter(([, v]) => !isBlankAnswer(v))
-          .map(([k, v]) => {
-            // For repeating tables, drop entirely-blank rows before summarising.
-            if (Array.isArray(v)) {
-              const nonBlank = filterNonBlankRows(v);
-              if (nonBlank.length === 0) return null;
-              return labelValueRow(k, `${nonBlank.length} row(s)`);
-            }
-            return labelValueRow(k, renderResponseValue(v));
-          })
-          .filter((r): r is TableRow => r !== null);
-        if (rows.length === 0) continue; // skip section heading entirely
-        children.push(sectionHeading(tplName));
-        children.push(new Table({
-          width: { size: 9360, type: WidthType.DXA },
-          columnWidths: [3200, 6160],
-          rows,
-        }));
-      }
+        const skipIds = buildSkipIds(tpl.fields);
+        const omittedSections: string[] = Array.isArray((responses as any).__omitted_sections__)
+          ? ((responses as any).__omitted_sections__ as string[])
+          : [];
+        const sections = getRenderableSections(tpl.fields, skipIds, responses, omittedSections);
+        if (sections.length === 0) continue;
 
+        // Template name as a top-level section banner (deduped against sections below).
+        children.push(sectionHeading(tpl.name || "Job sheet"));
+
+        for (const section of sections) {
+          const sectionFields = getRenderableSectionFields(
+            tpl.fields, section, skipIds, responses, omittedSections,
+          );
+          if (sectionFields.length === 0) continue;
+
+          // Sub-section banner (skip if it duplicates the template name).
+          if ((section || "").trim().toLowerCase() !== (tpl.name || "").trim().toLowerCase()) {
+            children.push(sectionHeading(section));
+          }
+
+          // Split simple fields (rendered as one label/value table) from
+          // repeating tables (rendered as their own tables).
+          const simple = sectionFields.filter((f) => f.type !== "repeating_table");
+          const tables = sectionFields.filter((f) => f.type === "repeating_table");
+
+          if (simple.length > 0) {
+            const rows: TableRow[] = [];
+            for (const f of simple) {
+              const raw = responses[f.id];
+              if (isBlankAnswer(raw)) continue;
+              rows.push(labelValueRow(f.label, renderFieldValue(f, raw)));
+              const notesVal = responses[`${f.id}_notes`];
+              if (!isBlankAnswer(notesVal)) {
+                rows.push(labelValueRow(`${f.label} — notes`, String(notesVal)));
+              }
+            }
+            if (rows.length > 0) {
+              children.push(new Table({
+                width: { size: 9360, type: WidthType.DXA },
+                columnWidths: [3200, 6160],
+                rows,
+              }));
+            }
+          }
+
+          for (const tf of tables) {
+            let rowsVal = responses[tf.id];
+            if (typeof rowsVal === "string" && rowsVal.trim().startsWith("[")) {
+              try { rowsVal = JSON.parse(rowsVal); } catch { rowsVal = []; }
+            }
+            if (!Array.isArray(rowsVal) || rowsVal.length === 0) continue;
+            // Field label above the table for clarity.
+            children.push(new Paragraph({
+              spacing: { before: 160, after: 80 },
+              children: [new TextRun({ text: tf.label, bold: true, size: 22, color: NAVY_HEX })],
+            }));
+            const built = buildRepeatingTable(tf, rowsVal);
+            for (const b of built) children.push(b);
+          }
+        }
+      }
 
       // Parts
       const parts = (partsRes.data as any[]) || [];
@@ -342,13 +506,36 @@ export default function JobWordReport({ jobId, job }: Props) {
         }
       }
 
-      // Accreditation note
-      children.push(new Paragraph({
-        spacing: { before: 360 },
-        children: [new TextRun({
-          text: "Report produced in accordance with the applicable British Standards. Accreditations shown on the branded PDF version.",
-          italics: true, size: 18, color: "666666",
-        })],
+      // ── Footer with accreditation logo strip + declaration text ────────
+      const footerText = getDefaultFooterText(job.name || "");
+      const footerChildren: (Paragraph | Table)[] = [];
+      if (accredImgs.length > 0) {
+        // One-row table with each accreditation logo in its own borderless cell.
+        const cellW = Math.floor(9360 / accredImgs.length);
+        footerChildren.push(new Table({
+          width: { size: 9360, type: WidthType.DXA },
+          columnWidths: accredImgs.map(() => cellW),
+          rows: [new TableRow({
+            children: accredImgs.map((a) => new TableCell({
+              width: { size: cellW, type: WidthType.DXA },
+              borders: noBorders,
+              margins: { top: 40, bottom: 40, left: 40, right: 40 },
+              children: [new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: [new ImageRun({
+                  type: a.fmt as any,
+                  data: a.bytes,
+                  transformation: { width: 70, height: 30 },
+                  altText: { title: "Accreditation", description: "Accreditation logo", name: "accred" },
+                })],
+              })],
+            })),
+          })],
+        }));
+      }
+      footerChildren.push(new Paragraph({
+        alignment: AlignmentType.CENTER,
+        children: [new TextRun({ text: footerText || "", italics: true, size: 16, color: "666666" })],
       }));
 
       const doc = new Document({
@@ -359,8 +546,11 @@ export default function JobWordReport({ jobId, job }: Props) {
           properties: {
             page: {
               size: { width: 11906, height: 16838 }, // A4
-              margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 },
+              margin: { top: 1000, right: 1000, bottom: 1600, left: 1000 },
             },
+          },
+          footers: {
+            default: new Footer({ children: footerChildren }),
           },
           children,
         }],
