@@ -49,6 +49,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const prof = profileRes.data as any;
             setProfile(prof ? { full_name: prof.full_name, whatsapp_number: prof.whatsapp_number } : null);
             setOrgId(prof?.org_id ?? null);
+            primeOrgIdCache(prof?.org_id ?? null);
             setLoading(false);
           }, 0);
         } else {
