@@ -986,7 +986,7 @@ export default function EditTemplateDialog({ open, onOpenChange, template, onSav
                       </Button>
                       {logoUrl ? (
                         <div className="flex items-center gap-2">
-                          <img src={logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
+                          <img src={logoPreviewUrl || logoUrl} alt="Logo preview" className="h-8 rounded border object-contain" />
                           <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setLogoUrl("")}>
                             <X className="h-3 w-3" />
                           </Button>
