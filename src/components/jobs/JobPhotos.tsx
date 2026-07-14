@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Download, MessageCircle, Camera, AlertTriangle, ClipboardCheck, FileImage } from "lucide-react";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import { extractStoragePath, isImageFile } from "@/lib/fileUtils";
+import { resolveManyToSignedUrls } from "@/lib/durableStorageRef";
 
 type Source = "whatsapp" | "app" | "defect" | "checklist" | "document";
 
