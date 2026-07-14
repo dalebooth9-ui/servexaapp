@@ -181,9 +181,16 @@ export async function renderPdfHeader(
   const companySubtitle = branding.company_subtitle || "";
   // Default to the Viva Fire logo for every PDF. Only override when the customer has
   // their own uploaded logo (a real, non-empty URL on the customer record).
-  const logoUrl = branding.logo_url && branding.logo_url.trim() !== ""
-    ? branding.logo_url
-    : "/images/vivafire-logo-new.png";
+  // Default to the Viva Fire logo for every PDF. Only override when the customer/template has
+  // their own uploaded logo (a real, non-empty URL on the record).
+  // Resolve durable storage refs (storage://…) and legacy signed URLs to a
+  // FRESH signed URL — signed URLs stored in config expire and are the same
+  // bug class as job_documents signed refs.
+  const rawLogo = branding.logo_url && branding.logo_url.trim() !== "" ? branding.logo_url : "";
+  const resolvedLogo = rawLogo
+    ? (await resolveToSignedUrl(rawLogo, "submissions").catch(() => null)) || rawLogo
+    : "";
+  const logoUrl = resolvedLogo || "/images/vivafire-logo-new.png";
 
   let logoBottomY = logoTopY;
 
