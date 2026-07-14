@@ -374,6 +374,7 @@ const BlankTemplatePdfExport = forwardRef<BlankTemplatePdfExportHandle, Props>(f
         categoryName,
         accentColor,
         accreditationLogoUrls,
+        copiesOverride,
       });
       console.timeEnd(label);
       console.info(`${label} completed in ${Math.round(duration)}ms inside src/workers/blankTemplatePdf.worker.ts`);
