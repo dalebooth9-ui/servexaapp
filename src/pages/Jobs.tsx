@@ -16,9 +16,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { fuzzyFilter } from "@/lib/fuzzyMatch";
 import CustomerCombobox from "@/components/CustomerCombobox";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
+import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet, ScanLine } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
+import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
@@ -73,6 +74,7 @@ export default function Jobs() {
   const [costingSheetProcessing, setCostingSheetProcessing] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [folderImportOpen, setFolderImportOpen] = useState(false);
+  const [scanPaperOpen, setScanPaperOpen] = useState(false);
   const [activeJob, setActiveJob] = useState<any>(null);
   const [activeFolder, setActiveFolder] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
@@ -1217,6 +1219,9 @@ export default function Jobs() {
                 <DropdownMenuItem onClick={() => setBulkImportOpen(true)}>
                   <Upload className="mr-2 h-4 w-4" /> Import CSV
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setScanPaperOpen(true)}>
+                  <ScanLine className="mr-2 h-4 w-4" /> Scan Paper Report
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) { setForm({ name: "", reference_number: "", customer_id: "", address: "", priority: "medium", category: "general", pressure_test_qty: 0, visual_qty: 0, other_qty: 0, other_service_type: "", due_date: "", allocated_days: "" }); setDialogParsedFile(null); setDialogParsingFile(false); setCostingSheetFile(null); } }}>
@@ -1428,6 +1433,7 @@ export default function Jobs() {
           </Dialog>
           <BulkImportDialog open={bulkImportOpen} onOpenChange={setBulkImportOpen} onImported={fetchJobs} />
           <FolderImportDialog ref={folderImportRef} open={folderImportOpen} onOpenChange={setFolderImportOpen} onImported={fetchJobs} />
+          <ScanCompletedJobDialog open={scanPaperOpen} onOpenChange={setScanPaperOpen} />
           </div>
         )}
       </div>

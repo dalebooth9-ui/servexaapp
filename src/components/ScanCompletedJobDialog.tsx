@@ -1,0 +1,934 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import CustomerCombobox, {
+  type CustomerOption,
+} from "@/components/CustomerCombobox";
+import SiteCombobox, { type SiteOption } from "@/components/SiteCombobox";
+import {
+  Loader2,
+  Upload,
+  ScanLine,
+  X,
+  AlertTriangle,
+  CheckCircle2,
+  Plus,
+} from "lucide-react";
+
+// ── Types ──
+type TemplateField = {
+  id: string;
+  label: string;
+  type: string;
+  section?: string;
+  options?: string[];
+  required?: boolean;
+  allow_notes?: boolean;
+};
+
+type Template = {
+  id: string;
+  name: string;
+  category: string | null;
+  job_category: string | null;
+  fields: TemplateField[];
+};
+
+type Candidate = {
+  template_id: string;
+  name: string;
+  confidence: number;
+  reason?: string;
+  category?: string | null;
+};
+
+type ImgFile = { file: File; url: string };
+
+interface Props {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+}
+
+// ── Helpers ──
+async function fileToBase64(file: File, maxDim = 1800): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const blob = new Blob([buf], { type: file.type });
+  const bmp = await createImageBitmap(blob).catch(() => null);
+  if (!bmp) {
+    const b64 = btoa(
+      String.fromCharCode(...new Uint8Array(buf)),
+    );
+    return b64;
+  }
+  const scale = Math.min(1, maxDim / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(bmp, 0, 0, w, h);
+  const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  return dataUrl.split(",")[1];
+}
+
+function parseDateInput(raw: string): string {
+  if (!raw) return "";
+  const parts = raw.trim().split(/[\/\-.]/);
+  if (parts.length === 3) {
+    const [a, b, c] = parts;
+    const year = c.length === 2 ? `20${c}` : c;
+    return `${a.padStart(2, "0")}/${b.padStart(2, "0")}/${year}`;
+  }
+  return raw;
+}
+
+function coerceCheckbox(val: unknown): "yes" | "no" | "na" | "" {
+  if (val === true) return "yes";
+  if (val === false) return "no";
+  if (typeof val === "string") {
+    const s = val.trim().toLowerCase();
+    if (s === "yes" || s === "true" || s === "pass") return "yes";
+    if (s === "no" || s === "false" || s === "fail") return "no";
+    if (s === "n/a" || s === "na") return "na";
+  }
+  return "";
+}
+
+function checkboxToStored(v: "yes" | "no" | "na" | ""): boolean | string | undefined {
+  if (v === "yes") return true;
+  if (v === "no") return false;
+  if (v === "na") return "N/A";
+  return undefined;
+}
+
+export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+
+  const [step, setStep] = useState<"upload" | "processing" | "review">("upload");
+  const [images, setImages] = useState<ImgFile[]>([]);
+  const [processingMsg, setProcessingMsg] = useState("");
+
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [template, setTemplate] = useState<Template | null>(null);
+  const [responses, setResponses] = useState<Record<string, any>>({});
+  const [header, setHeader] = useState<Record<string, any>>({});
+
+  const [customers, setCustomers] = useState<CustomerOption[]>([]);
+  const [customerId, setCustomerId] = useState("");
+  const [sites, setSites] = useState<SiteOption[]>([]);
+  const [siteId, setSiteId] = useState("");
+  const [showNewSite, setShowNewSite] = useState(false);
+  const [newSite, setNewSite] = useState({
+    name: "",
+    address: "",
+    postcode: "",
+    riser_location: "",
+  });
+
+  const [jobName, setJobName] = useState("");
+  const [completionDate, setCompletionDate] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // Reset on close
+  useEffect(() => {
+    if (!open) {
+      setStep("upload");
+      setImages([]);
+      setCandidates([]);
+      setTemplate(null);
+      setResponses({});
+      setHeader({});
+      setCustomerId("");
+      setSiteId("");
+      setShowNewSite(false);
+      setNewSite({ name: "", address: "", postcode: "", riser_location: "" });
+      setJobName("");
+      setCompletionDate("");
+      setProcessingMsg("");
+    }
+  }, [open]);
+
+  // Load customer list once
+  useEffect(() => {
+    if (!open) return;
+    supabase
+      .from("customers")
+      .select("id, name, email")
+      .order("name")
+      .then(({ data }) => setCustomers((data as any) || []));
+  }, [open]);
+
+  // Load sites when customer selected
+  useEffect(() => {
+    if (!customerId) {
+      setSites([]);
+      setSiteId("");
+      return;
+    }
+    supabase
+      .from("customer_sites")
+      .select("site_id, sites(id, name, address, postcode)")
+      .eq("customer_id", customerId)
+      .then(({ data }) => {
+        const opts: SiteOption[] = (data || [])
+          .map((r: any) => r.sites)
+          .filter(Boolean)
+          .map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            address: s.address,
+            postcode: s.postcode,
+          }));
+        setSites(opts);
+      });
+  }, [customerId]);
+
+  // ── File input ──
+  const addFiles = (fs: FileList | null) => {
+    if (!fs || fs.length === 0) return;
+    const arr = Array.from(fs).filter((f) => f.type.startsWith("image/"));
+    setImages((prev) => [
+      ...prev,
+      ...arr.map((f) => ({ file: f, url: URL.createObjectURL(f) })),
+    ]);
+  };
+
+  const removeImg = (idx: number) => {
+    setImages((prev) => {
+      const c = [...prev];
+      const [gone] = c.splice(idx, 1);
+      if (gone) URL.revokeObjectURL(gone.url);
+      return c;
+    });
+  };
+
+  // ── Load template + extract ──
+  const loadTemplateAndExtract = async (
+    templateId: string,
+    imagePayloads: { image_base64: string; mime_type?: string }[],
+  ) => {
+    const { data: tpl, error: tplErr } = await supabase
+      .from("job_sheet_templates")
+      .select("id, name, category, job_category, fields")
+      .eq("id", templateId)
+      .maybeSingle();
+    if (tplErr || !tpl) throw new Error(tplErr?.message || "Template missing");
+    const tplObj: Template = {
+      id: (tpl as any).id,
+      name: (tpl as any).name,
+      category: (tpl as any).category,
+      job_category: (tpl as any).job_category,
+      fields: Array.isArray((tpl as any).fields) ? (tpl as any).fields : [],
+    };
+
+    setTemplate(tplObj);
+    setProcessingMsg(`Reading form using "${tplObj.name}"…`);
+
+    const { data, error } = await supabase.functions.invoke("ocr-job-sheet", {
+      body: {
+        images: imagePayloads,
+        template_name: tplObj.name,
+        fields: tplObj.fields.map((f) => ({
+          id: f.id,
+          label: f.label,
+          type: f.type,
+          section: f.section,
+          options: f.options,
+        })),
+      },
+    });
+    if (error) throw new Error(error.message || "OCR failed");
+    const extracted: Record<string, any> = data?.extracted || {};
+    const hdr: Record<string, any> = data?.header || {};
+
+    // Normalise checkbox strings → booleans/N/A
+    const normalised: Record<string, any> = {};
+    for (const f of tplObj.fields) {
+      const raw = extracted[f.id];
+      if (raw === undefined || raw === null || raw === "") continue;
+      if (f.type === "checkbox") {
+        const cb = coerceCheckbox(raw);
+        const stored = checkboxToStored(cb);
+        if (stored === undefined && typeof raw === "string") {
+          normalised[f.id] = raw;
+        } else if (stored !== undefined) {
+          normalised[f.id] = stored;
+        }
+      } else {
+        normalised[f.id] = raw;
+      }
+    }
+
+    setResponses(normalised);
+    setHeader(hdr);
+    // Prefill job header widgets from header
+    if (hdr.date) setCompletionDate(parseDateInput(String(hdr.date)));
+    setJobName(`${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`);
+  };
+
+  // ── Analyze ──
+  const handleAnalyze = async () => {
+    if (images.length === 0) return;
+    setStep("processing");
+    setProcessingMsg("Preparing photos…");
+    try {
+      const imagePayloads = await Promise.all(
+        images.map(async (im) => ({
+          image_base64: await fileToBase64(im.file),
+          mime_type: "image/jpeg",
+        })),
+      );
+
+      setProcessingMsg("Matching against templates…");
+      const { data: clsData, error: clsErr } = await supabase.functions.invoke(
+        "classify-job-sheet-template",
+        { body: { images: imagePayloads } },
+      );
+      if (clsErr) throw new Error(clsErr.message || "Classification failed");
+      const cands: Candidate[] = clsData?.candidates || [];
+      if (cands.length === 0) {
+        throw new Error(
+          "Couldn't match the form to any template. Try a clearer photo, or select a template manually after upload.",
+        );
+      }
+      setCandidates(cands);
+
+      await loadTemplateAndExtract(cands[0].template_id, imagePayloads);
+      setStep("review");
+    } catch (e: any) {
+      toast({
+        title: "Scan failed",
+        description: e?.message || "Please try again.",
+        variant: "destructive",
+      });
+      setStep("upload");
+    }
+  };
+
+  // ── Switch template in review ──
+  const handleTemplateChange = async (newTemplateId: string) => {
+    if (!newTemplateId || newTemplateId === template?.id) return;
+    setStep("processing");
+    setProcessingMsg("Re-reading form with new template…");
+    try {
+      const imagePayloads = await Promise.all(
+        images.map(async (im) => ({
+          image_base64: await fileToBase64(im.file),
+          mime_type: "image/jpeg",
+        })),
+      );
+      await loadTemplateAndExtract(newTemplateId, imagePayloads);
+      setStep("review");
+    } catch (e: any) {
+      toast({
+        title: "Re-scan failed",
+        description: e?.message || "Please try again.",
+        variant: "destructive",
+      });
+      setStep("review");
+    }
+  };
+
+  // ── Create new site ──
+  const handleCreateSite = async () => {
+    if (!customerId || !newSite.name.trim()) {
+      toast({ title: "Site name required", variant: "destructive" });
+      return;
+    }
+    try {
+      const { data: created, error } = await supabase
+        .from("sites")
+        .insert({
+          name: newSite.name.trim(),
+          address: newSite.address.trim() || null,
+          postcode: newSite.postcode.trim() || null,
+          riser_location: newSite.riser_location.trim() || null,
+          site_type: "site",
+          created_by: user?.id,
+          notes: "Created via Scan Paper Report backfill",
+        })
+        .select("id, name, address, postcode")
+        .single();
+      if (error) throw error;
+
+      await supabase.from("customer_sites").insert({
+        customer_id: customerId,
+        site_id: (created as any).id,
+      });
+
+      const opt: SiteOption = {
+        id: (created as any).id,
+        name: (created as any).name,
+        address: (created as any).address,
+        postcode: (created as any).postcode,
+      };
+      setSites((prev) => [...prev, opt]);
+      setSiteId(opt.id);
+      setShowNewSite(false);
+      setNewSite({ name: "", address: "", postcode: "", riser_location: "" });
+      toast({ title: "Site created" });
+    } catch (e: any) {
+      toast({
+        title: "Could not create site",
+        description: e?.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // ── Fields that are missing / low confidence ──
+  const missingFields = useMemo(() => {
+    if (!template) return [] as TemplateField[];
+    return template.fields.filter(
+      (f) =>
+        f.required &&
+        (responses[f.id] === undefined || responses[f.id] === ""),
+    );
+  }, [template, responses]);
+
+  const selectedCustomer = customers.find((c) => c.id === customerId);
+
+  // ── Confirm & file ──
+  const handleConfirm = async () => {
+    if (!template || !user) return;
+    if (!customerId) {
+      toast({ title: "Choose a customer", variant: "destructive" });
+      return;
+    }
+    if (!siteId) {
+      toast({ title: "Choose or create a site", variant: "destructive" });
+      return;
+    }
+    setSaving(true);
+    try {
+      const site = sites.find((s) => s.id === siteId);
+      const jobAddress = [site?.address, site?.postcode]
+        .filter(Boolean)
+        .join(", ");
+
+      // Derive completion timestamp
+      let completedAt = new Date().toISOString();
+      if (completionDate) {
+        // dd/mm/yyyy
+        const m = completionDate.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (m) {
+          completedAt = new Date(`${m[3]}-${m[2]}-${m[1]}T12:00:00Z`).toISOString();
+        }
+      }
+
+      const category =
+        template.category === "pressure_test"
+          ? "pressure_test"
+          : template.category === "visual"
+            ? "visual"
+            : template.category === "sprinkler" ||
+                template.category === "sprinkler_service" ||
+                template.category === "commercial_sprinkler_service"
+              ? "commercial_sprinkler_service"
+              : (template.category || template.job_category || "general");
+
+      // Insert job
+      const { data: job, error: jobErr } = await supabase
+        .from("jobs")
+        .insert({
+          name: jobName || `${template.name} — backfilled`,
+          customer: selectedCustomer?.name || null,
+          customer_id: customerId,
+          site_id: siteId,
+          address: jobAddress || null,
+          status: "completed",
+          priority: "medium",
+          category,
+          source: "paper backfill",
+          created_by: user.id,
+          completed_by: user.id,
+          completed_at: completedAt,
+          pressure_test_qty: category === "pressure_test" ? 1 : 0,
+          visual_qty: category === "visual" ? 1 : 0,
+          other_qty: category !== "pressure_test" && category !== "visual" ? 1 : 0,
+        } as any)
+        .select("id, reference_number")
+        .single();
+      if (jobErr) throw jobErr;
+      const jobId = (job as any).id;
+      const jobRef = (job as any).reference_number;
+
+      // Insert job_sheet_responses
+      const fullResponses: Record<string, any> = { ...responses };
+      // Ensure header sub-fields land in response if template has matching IDs
+      if (header.customer && !fullResponses["customer_name"] && template.fields.some(f => f.id === "customer_name")) {
+        fullResponses.customer_name = header.customer;
+      }
+      if (header.po_ref && !fullResponses["po_number"]) {
+        fullResponses.po_number = String(header.po_ref);
+      }
+      if (completionDate && !fullResponses["date"]) {
+        fullResponses.date = completionDate;
+      }
+      if (header.engineer && !fullResponses["technician_name"]) {
+        fullResponses.technician_name = header.engineer;
+      }
+
+      const { error: respErr } = await supabase
+        .from("job_sheet_responses")
+        .insert({
+          job_id: jobId,
+          template_id: template.id,
+          submitted_by: user.id,
+          status: "submitted",
+          submitted_at: new Date().toISOString(),
+          responses: fullResponses,
+        } as any);
+      if (respErr) throw respErr;
+
+      // Upload each photo + create job_documents row
+      for (let i = 0; i < images.length; i++) {
+        const img = images[i];
+        const ext =
+          img.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+          "jpg";
+        const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
+        const path = `job-documents/${jobId}/${safeName}`;
+        const { error: upErr } = await supabase.storage
+          .from("submissions")
+          .upload(path, img.file, {
+            upsert: true,
+            contentType: img.file.type || "image/jpeg",
+          });
+        if (upErr) {
+          console.error("upload failed", upErr);
+          continue;
+        }
+        const { data: urlData } = await supabase.storage
+          .from("submissions")
+          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+
+        await supabase.from("job_documents" as any).insert({
+          job_id: jobId,
+          document_type: "source_scan",
+          label: `Original paper form (page ${i + 1})`,
+          file_url: urlData?.signedUrl || null,
+          file_name: safeName,
+          source: "manual",
+          created_by: user.id,
+        });
+      }
+
+      toast({
+        title: `Job ${jobRef} filed`,
+        description: "Paper report digitised. Opening the job now.",
+      });
+      onOpenChange(false);
+      navigate(`/jobs/${jobId}`);
+    } catch (e: any) {
+      toast({
+        title: "Couldn't file job",
+        description: e?.message || "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Field renderer ──
+  const renderField = (f: TemplateField) => {
+    const val = responses[f.id];
+    const setVal = (v: any) => setResponses((r) => ({ ...r, [f.id]: v }));
+
+    // Yes/No/N/A tri-state for checkbox
+    if (f.type === "checkbox") {
+      const cur = coerceCheckbox(val);
+      const useDescriptive =
+        typeof val === "string" && cur === "" && val.trim().length > 0;
+      return (
+        <div className="space-y-1.5">
+          <div className="flex gap-1">
+            {(["yes", "no", "na"] as const).map((opt) => (
+              <Button
+                key={opt}
+                type="button"
+                size="sm"
+                variant={cur === opt ? "default" : "outline"}
+                className="h-7 px-3"
+                onClick={() => setVal(checkboxToStored(opt))}
+              >
+                {opt === "yes" ? "Yes" : opt === "no" ? "No" : "N/A"}
+              </Button>
+            ))}
+            {useDescriptive && (
+              <span className="text-xs italic text-muted-foreground self-center ml-2">
+                Extracted text: "{String(val)}"
+              </span>
+            )}
+          </div>
+          {(f.allow_notes || useDescriptive) && (
+            <Input
+              value={useDescriptive ? String(val) : ""}
+              placeholder="Optional note (e.g. N/A - exposed valve)"
+              onChange={(e) => setVal(e.target.value)}
+              className="h-8 text-sm"
+            />
+          )}
+        </div>
+      );
+    }
+    if (f.type === "select" && f.options?.length) {
+      return (
+        <Select value={String(val ?? "")} onValueChange={setVal}>
+          <SelectTrigger className="h-9"><SelectValue placeholder="Select…" /></SelectTrigger>
+          <SelectContent>
+            {f.options.map((o) => (
+              <SelectItem key={o} value={o}>{o}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+    if (f.type === "textarea") {
+      return (
+        <Textarea
+          value={String(val ?? "")}
+          onChange={(e) => setVal(e.target.value)}
+          rows={2}
+        />
+      );
+    }
+    if (f.type === "date") {
+      return (
+        <Input
+          value={String(val ?? "")}
+          placeholder="dd/mm/yyyy"
+          onChange={(e) => setVal(e.target.value)}
+        />
+      );
+    }
+    return (
+      <Input
+        value={String(val ?? "")}
+        onChange={(e) => setVal(e.target.value)}
+      />
+    );
+  };
+
+  // ── UI ──
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[92vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <ScanLine className="h-5 w-5" /> Scan paper job sheet
+          </DialogTitle>
+          <DialogDescription>
+            Digitise a completed handwritten report. AI matches it to the closest template — you review the answers, pick the customer/site, and file it as a completed job.
+          </DialogDescription>
+        </DialogHeader>
+
+        {step === "upload" && (
+          <div className="space-y-4">
+            <div
+              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40"
+              onClick={() => fileRef.current?.click()}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                addFiles(e.dataTransfer.files);
+              }}
+            >
+              <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+              <p className="mt-2 text-sm">
+                Click to upload photo(s) of the paper form, or drag & drop
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Add front and back / multiple pages if needed.
+              </p>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => addFiles(e.target.files)}
+              />
+            </div>
+
+            {images.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {images.map((im, idx) => (
+                  <div key={idx} className="relative group">
+                    <img
+                      src={im.url}
+                      alt=""
+                      className="w-full h-32 object-cover rounded border"
+                    />
+                    <button
+                      className="absolute top-1 right-1 rounded-full bg-black/60 text-white p-1 opacity-0 group-hover:opacity-100"
+                      onClick={() => removeImg(idx)}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleAnalyze}
+                disabled={images.length === 0}
+              >
+                <ScanLine className="mr-2 h-4 w-4" /> Analyse form
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {step === "processing" && (
+          <div className="py-12 text-center space-y-3">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              {processingMsg || "Working…"}
+            </p>
+          </div>
+        )}
+
+        {step === "review" && template && (
+          <div className="space-y-4">
+            {/* Template selector */}
+            <div className="rounded-md border p-3 bg-muted/30 space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <div className="text-xs text-muted-foreground">Detected template</div>
+                  <div className="font-medium text-sm">{template.name}</div>
+                </div>
+                {candidates[0] && (
+                  <Badge variant="secondary">
+                    {Math.round((candidates[0].confidence || 0) * 100)}% match
+                  </Badge>
+                )}
+              </div>
+              {candidates.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="text-muted-foreground">Not right? Try:</span>
+                  {candidates
+                    .filter((c) => c.template_id !== template.id)
+                    .map((c) => (
+                      <Button
+                        key={c.template_id}
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs"
+                        onClick={() => handleTemplateChange(c.template_id)}
+                      >
+                        {c.name}
+                      </Button>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            {/* Job header */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Customer *</Label>
+                <CustomerCombobox
+                  value={customerId}
+                  customers={customers}
+                  onChange={setCustomerId}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Site *</Label>
+                <div className="flex gap-1">
+                  <SiteCombobox
+                    value={siteId}
+                    sites={sites}
+                    onChange={setSiteId}
+                    className="flex-1"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    disabled={!customerId}
+                    onClick={() => setShowNewSite((s) => !s)}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {showNewSite && (
+              <div className="rounded-md border p-3 space-y-2 bg-muted/20">
+                <div className="text-xs font-medium">Create new site</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Site name"
+                    value={newSite.name}
+                    onChange={(e) =>
+                      setNewSite({ ...newSite, name: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Postcode"
+                    value={newSite.postcode}
+                    onChange={(e) =>
+                      setNewSite({ ...newSite, postcode: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Address"
+                    className="md:col-span-2"
+                    value={newSite.address}
+                    onChange={(e) =>
+                      setNewSite({ ...newSite, address: e.target.value })
+                    }
+                  />
+                  <Input
+                    placeholder="Riser location (optional)"
+                    className="md:col-span-2"
+                    value={newSite.riser_location}
+                    onChange={(e) =>
+                      setNewSite({ ...newSite, riser_location: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowNewSite(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleCreateSite}>
+                    Create site
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Job name</Label>
+                <Input
+                  value={jobName}
+                  onChange={(e) => setJobName(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Completion date (dd/mm/yyyy)</Label>
+                <Input
+                  value={completionDate}
+                  placeholder="dd/mm/yyyy"
+                  onChange={(e) => setCompletionDate(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {missingFields.length > 0 && (
+              <div className="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+                <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
+                <div>
+                  <div className="font-medium">
+                    {missingFields.length} required field
+                    {missingFields.length === 1 ? "" : "s"} blank
+                  </div>
+                  <div className="text-muted-foreground">
+                    {missingFields.map((f) => f.label).slice(0, 5).join(" · ")}
+                    {missingFields.length > 5 ? "…" : ""}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Fields */}
+            <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-1">
+              {(() => {
+                const bySection = new Map<string, TemplateField[]>();
+                template.fields.forEach((f) => {
+                  const s = f.section || "Details";
+                  if (!bySection.has(s)) bySection.set(s, []);
+                  bySection.get(s)!.push(f);
+                });
+                const out: JSX.Element[] = [];
+                bySection.forEach((fields, section) => {
+                  out.push(
+                    <div key={section} className="space-y-2">
+                      <div className="text-xs uppercase tracking-wide text-muted-foreground font-medium border-b pb-1">
+                        {section}
+                      </div>
+                      {fields.map((f) => (
+                        <div
+                          key={f.id}
+                          className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start"
+                        >
+                          <Label className="text-sm pt-1.5">
+                            {f.label}
+                            {f.required && (
+                              <span className="text-destructive"> *</span>
+                            )}
+                          </Label>
+                          <div>{renderField(f)}</div>
+                        </div>
+                      ))}
+                    </div>,
+                  );
+                });
+                return out;
+              })()}
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t">
+              <Button
+                variant="outline"
+                onClick={() => setStep("upload")}
+                disabled={saving}
+              >
+                Back
+              </Button>
+              <Button onClick={handleConfirm} disabled={saving}>
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                )}
+                Confirm & file job
+              </Button>
+            </div>
+          </div>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
