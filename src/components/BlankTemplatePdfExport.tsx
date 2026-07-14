@@ -69,6 +69,7 @@ type JobInfo = {
   engineers?: string[];
   other_qty?: number;
   other_service_type?: string | null;
+  due_date?: string | null;
   site?: {
     name: string;
     address: string | null;
