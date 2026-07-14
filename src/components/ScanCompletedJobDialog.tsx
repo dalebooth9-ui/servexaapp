@@ -576,8 +576,13 @@ export default function ScanCompletedJobDialog({
       const jobId = (job as any).id;
       const jobRef = (job as any).reference_number;
 
-      // Insert job_sheet_responses
-      const fullResponses: Record<string, any> = { ...responses };
+      // Insert job_sheet_responses — strip blank/undefined so the payload
+      // only contains real answers (paper backfill: all template fields optional).
+      const fullResponses: Record<string, any> = {};
+      for (const [k, v] of Object.entries(responses)) {
+        if (v === undefined || v === null || v === "") continue;
+        fullResponses[k] = v;
+      }
       // Ensure header sub-fields land in response if template has matching IDs
       if (header.customer && !fullResponses["customer_name"] && template.fields.some(f => f.id === "customer_name")) {
         fullResponses.customer_name = header.customer;
