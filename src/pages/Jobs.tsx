@@ -2099,6 +2099,11 @@ export default function Jobs() {
           <Plus className="h-6 w-6" />
         </button>
       )}
+      <SiteSheetPrintDialog
+        jobId={siteSheetJobId}
+        open={!!siteSheetJobId}
+        onOpenChange={(o) => { if (!o) setSiteSheetJobId(null); }}
+      />
     </div>
   );
 }
