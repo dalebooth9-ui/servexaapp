@@ -6866,6 +6866,14 @@ export type Database = {
         Returns: boolean
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
+      engineer_can_access_asset: {
+        Args: { _asset_id: string; _user_id: string }
+        Returns: boolean
+      }
+      engineer_can_access_customer: {
+        Args: { _customer_id: string; _user_id: string }
+        Returns: boolean
+      }
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
@@ -6953,6 +6961,10 @@ export type Database = {
       }
       is_admin_direct: { Args: { _user_id: string }; Returns: boolean }
       is_org_admin: { Args: { _org_id: string }; Returns: boolean }
+      mark_job_message_read: {
+        Args: { _message_id: string }
+        Returns: undefined
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
