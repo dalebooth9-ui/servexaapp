@@ -1,0 +1,373 @@
+// Background processor for bulk paper-scan batches.
+// For each pending item in a batch: downloads its photos from storage,
+// classifies against the org's job_sheet_templates, then extracts field
+// answers using the existing ocr-job-sheet edge function.
+// Results are written back onto paper_scan_batch_items rows.
+//
+// Invocation:
+//   POST { batch_id: string } with the admin user's JWT in Authorization.
+// The function processes up to CHUNK_SIZE items and if more remain,
+// re-invokes itself to continue (so we never exhaust one edge invocation).
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+const CHUNK_SIZE = 3;
+const BUCKET = "submissions";
+const CONFIDENCE_READY_THRESHOLD = 0.7;
+
+async function pathToBase64(
+  supabase: ReturnType<typeof createClient>,
+  path: string,
+): Promise<{ image_base64: string; mime_type: string } | null> {
+  const { data, error } = await supabase.storage.from(BUCKET).download(path);
+  if (error || !data) {
+    console.error("download failed", path, error?.message);
+    return null;
+  }
+  const buf = await data.arrayBuffer();
+  // Base64 encode
+  const bytes = new Uint8Array(buf);
+  let bin = "";
+  const CHUNK = 0x8000;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    bin += String.fromCharCode.apply(
+      null,
+      Array.from(bytes.subarray(i, i + CHUNK)) as any,
+    );
+  }
+  const image_base64 = btoa(bin);
+  return { image_base64, mime_type: (data as Blob).type || "image/jpeg" };
+}
+
+async function fuzzyGuessSite(
+  supabase: ReturnType<typeof createClient>,
+  orgId: string,
+  header: Record<string, unknown> | null,
+): Promise<{ customerId: string | null; siteId: string | null }> {
+  if (!header) return { customerId: null, siteId: null };
+  const siteName = String(header.site || header.site_name || "").trim();
+  const customerName = String(header.customer || header.customer_name || "")
+    .trim();
+
+  let siteId: string | null = null;
+  let customerId: string | null = null;
+
+  if (siteName.length >= 3) {
+    const { data } = await supabase
+      .from("sites")
+      .select("id")
+      .eq("org_id", orgId)
+      .ilike("name", `%${siteName.substring(0, 40)}%`)
+      .limit(1)
+      .maybeSingle();
+    if (data) siteId = (data as any).id;
+  }
+
+  if (customerName.length >= 3) {
+    const { data } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("org_id", orgId)
+      .ilike("name", `%${customerName.substring(0, 40)}%`)
+      .limit(1)
+      .maybeSingle();
+    if (data) customerId = (data as any).id;
+  }
+
+  if (siteId && !customerId) {
+    const { data } = await supabase
+      .from("customer_sites")
+      .select("customer_id")
+      .eq("site_id", siteId)
+      .limit(1)
+      .maybeSingle();
+    if (data) customerId = (data as any).customer_id;
+  }
+
+  return { customerId, siteId };
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  const jwt = authHeader.substring("Bearer ".length);
+
+  const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
+  const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+  const userClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: authHeader } },
+  });
+  const service = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+  const { data: { user }, error: userError } = await userClient.auth.getUser();
+  if (userError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  try {
+    const body = await req.json();
+    const batchId: string = body.batch_id;
+    if (!batchId) throw new Error("batch_id required");
+
+    // Verify caller is admin in the batch's org
+    const { data: batch } = await service
+      .from("paper_scan_batches")
+      .select("id, org_id, status, total_items, processed_items")
+      .eq("id", batchId)
+      .maybeSingle();
+    if (!batch) throw new Error("Batch not found");
+
+    const { data: isAdmin } = await service.rpc("has_role_in_org", {
+      _user_id: user.id,
+      _org_id: (batch as any).org_id,
+      _role: "admin",
+    });
+    if (!isAdmin) {
+      return new Response(JSON.stringify({ error: "Forbidden" }), {
+        status: 403,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // Pick up to CHUNK_SIZE pending items
+    const { data: items } = await service
+      .from("paper_scan_batch_items")
+      .select("id, image_paths, org_id")
+      .eq("batch_id", batchId)
+      .eq("status", "pending")
+      .limit(CHUNK_SIZE);
+
+    if (!items || items.length === 0) {
+      // Mark batch complete if nothing pending or processing left
+      const { data: leftover } = await service
+        .from("paper_scan_batch_items")
+        .select("id", { count: "exact", head: true })
+        .eq("batch_id", batchId)
+        .in("status", ["pending", "processing"]);
+      if (!leftover) {
+        await service
+          .from("paper_scan_batches")
+          .update({ status: "complete" })
+          .eq("id", batchId);
+      }
+      return new Response(
+        JSON.stringify({ ok: true, processed: 0, done: true }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    for (const item of items) {
+      const itemId = (item as any).id;
+      const orgId = (item as any).org_id;
+      const paths: string[] = (item as any).image_paths || [];
+
+      await service
+        .from("paper_scan_batch_items")
+        .update({ status: "processing" })
+        .eq("id", itemId);
+
+      try {
+        // Download and base64 the images
+        const payloads: { image_base64: string; mime_type?: string }[] = [];
+        for (const p of paths) {
+          const enc = await pathToBase64(service, p);
+          if (enc) payloads.push(enc);
+        }
+        if (payloads.length === 0) throw new Error("No readable images");
+
+        // Classify: call classify-job-sheet-template with user JWT
+        const clsResp = await fetch(
+          `${SUPABASE_URL}/functions/v1/classify-job-sheet-template`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({ images: payloads }),
+          },
+        );
+        if (!clsResp.ok) {
+          throw new Error(
+            `classify failed ${clsResp.status}: ${await clsResp.text()}`,
+          );
+        }
+        const clsJson = await clsResp.json();
+        const candidates: any[] = clsJson.candidates || [];
+        if (candidates.length === 0) {
+          throw new Error("No matching template");
+        }
+        const top = candidates[0];
+
+        // Fetch full template fields
+        const { data: tpl } = await service
+          .from("job_sheet_templates")
+          .select("id, name, category, job_category, fields")
+          .eq("id", top.template_id)
+          .maybeSingle();
+        if (!tpl) throw new Error("Template not found");
+
+        const fields = Array.isArray((tpl as any).fields)
+          ? (tpl as any).fields
+          : [];
+
+        // OCR/extract
+        const ocrResp = await fetch(
+          `${SUPABASE_URL}/functions/v1/ocr-job-sheet`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${jwt}`,
+              "Content-Type": "application/json",
+              apikey: SUPABASE_ANON_KEY,
+            },
+            body: JSON.stringify({
+              images: payloads,
+              template_name: (tpl as any).name,
+              fields: fields.map((f: any) => ({
+                id: f.id,
+                label: f.label,
+                type: f.type,
+                section: f.section,
+                options: f.options,
+              })),
+            }),
+          },
+        );
+        if (!ocrResp.ok) {
+          throw new Error(
+            `ocr failed ${ocrResp.status}: ${await ocrResp.text()}`,
+          );
+        }
+        const ocrJson = await ocrResp.json();
+        const extracted = ocrJson.extracted || {};
+        const header = ocrJson.header || {};
+
+        // Guess customer/site
+        const { customerId, siteId } = await fuzzyGuessSite(
+          service,
+          orgId,
+          header,
+        );
+
+        // Guess date
+        let guessDate: string | null = null;
+        const rawDate = String(header.date || "").trim();
+        if (rawDate) {
+          const m = rawDate.match(/^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+          if (m) {
+            const yyyy = m[3].length === 2 ? `20${m[3]}` : m[3];
+            const dd = m[1].padStart(2, "0");
+            const mm = m[2].padStart(2, "0");
+            guessDate = `${yyyy}-${mm}-${dd}`;
+          }
+        }
+
+        const confidence = typeof top.confidence === "number"
+          ? top.confidence
+          : 0.5;
+        const status = confidence >= CONFIDENCE_READY_THRESHOLD
+          ? "ready"
+          : "low_confidence";
+
+        await service
+          .from("paper_scan_batch_items")
+          .update({
+            status,
+            confidence,
+            detected_template_id: top.template_id,
+            candidate_matches: candidates,
+            extracted,
+            header_data: header,
+            guess_customer_id: customerId,
+            guess_site_id: siteId,
+            guess_date: guessDate,
+            error: null,
+          })
+          .eq("id", itemId);
+      } catch (e: any) {
+        console.error("item failed", itemId, e?.message);
+        await service
+          .from("paper_scan_batch_items")
+          .update({
+            status: "failed",
+            error: (e?.message || "Unknown error").substring(0, 400),
+          })
+          .eq("id", itemId);
+      }
+
+      // Increment processed_items
+      const { data: b } = await service
+        .from("paper_scan_batches")
+        .select("processed_items")
+        .eq("id", batchId)
+        .maybeSingle();
+      if (b) {
+        await service
+          .from("paper_scan_batches")
+          .update({ processed_items: ((b as any).processed_items || 0) + 1 })
+          .eq("id", batchId);
+      }
+    }
+
+    // Check if more pending — re-invoke self
+    const { count: pendingLeft } = await service
+      .from("paper_scan_batch_items")
+      .select("id", { count: "exact", head: true })
+      .eq("batch_id", batchId)
+      .eq("status", "pending");
+
+    if ((pendingLeft || 0) > 0) {
+      // Fire and forget re-invocation (do not await response)
+      fetch(`${SUPABASE_URL}/functions/v1/process-paper-scan-batch`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          "Content-Type": "application/json",
+          apikey: SUPABASE_ANON_KEY,
+        },
+        body: JSON.stringify({ batch_id: batchId }),
+      }).catch((e) => console.error("re-invoke failed", e));
+    } else {
+      await service
+        .from("paper_scan_batches")
+        .update({ status: "complete" })
+        .eq("id", batchId);
+    }
+
+    return new Response(
+      JSON.stringify({ ok: true, processed: items.length }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (e: any) {
+    console.error("process-paper-scan-batch error:", e);
+    return new Response(
+      JSON.stringify({ error: e?.message || "Unknown error" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
+  }
+});
