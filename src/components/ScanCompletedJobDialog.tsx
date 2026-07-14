@@ -802,7 +802,6 @@ export default function ScanCompletedJobDialog({
           file_path: path,
         });
       };
-      if (engineerSig) await uploadSig(engineerSig, "engineer");
       if (customerSig) await uploadSig(customerSig, "customer");
 
 
