@@ -39,6 +39,7 @@ const InvoiceDetail = lazy(() => import("@/pages/InvoiceDetail"));
 const Quotes = lazy(() => import("@/pages/Quotes"));
 const ServiceContracts = lazy(() => import("@/pages/ServiceContracts"));
 const ServiceContractDetail = lazy(() => import("@/pages/ServiceContractDetail"));
+const PaperScanQueue = lazy(() => import("@/pages/PaperScanQueue"));
 const PartsLibrary = lazy(() => import("@/pages/PartsLibrary"));
 const VanStock = lazy(() => import("@/pages/VanStock"));
 const IndustryTemplates = lazy(() => import("@/pages/IndustryTemplates"));
@@ -152,6 +153,7 @@ const App = () => (
               <Route path="/admin/error-log" element={<AdminRoute><ErrorLog /></AdminRoute>} />
               <Route path="/admin/support-tickets" element={<AdminRoute><SupportTickets /></AdminRoute>} />
               <Route path="/fleet" element={<AdminRoute><FleetVehicles /></AdminRoute>} />
+              <Route path="/paper-scan-queue" element={<AdminRoute><Suspense fallback={<PageFallback />}><PaperScanQueue /></Suspense></AdminRoute>} />
               <Route path="/jobs" element={<AccessRoute pageSlug="jobs"><Jobs /></AccessRoute>} />
               <Route path="/jobs/:id" element={<AccessRoute pageSlug="jobs"><JobDetail /></AccessRoute>} />
               <Route path="/jobs/:jobId/rams" element={<AccessRoute pageSlug="jobs"><RamsEditor /></AccessRoute>} />

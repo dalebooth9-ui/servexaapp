@@ -34,7 +34,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Plus,
+  XCircle,
 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import BulkScanTab from "@/components/paper-scan/BulkScanTab";
 
 // ── Types ──
 type TemplateField = {
@@ -65,9 +68,26 @@ type Candidate = {
 
 type ImgFile = { file: File; url: string };
 
+export type QueueItemInput = {
+  itemId: string;
+  batchId: string;
+  templateId: string;
+  extracted: Record<string, any>;
+  header: Record<string, any>;
+  imagePaths: string[];
+  guessCustomerId: string | null;
+  guessSiteId: string | null;
+  guessDate: string | null; // yyyy-mm-dd
+  candidateMatches: Candidate[];
+};
+
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
+  /** When provided, dialog skips upload and goes straight to review of a queued form. */
+  queueItem?: QueueItemInput;
+  /** Called after confirm/reject to refresh the queue. */
+  onQueueItemResolved?: () => void;
 }
 
 // ── Helpers ──
@@ -123,12 +143,18 @@ function checkboxToStored(v: "yes" | "no" | "na" | ""): boolean | string | undef
   return undefined;
 }
 
-export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
+export default function ScanCompletedJobDialog({
+  open,
+  onOpenChange,
+  queueItem,
+  onQueueItemResolved,
+}: Props) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { toast } = useToast();
 
   const [step, setStep] = useState<"upload" | "processing" | "review">("upload");
+  const [mode, setMode] = useState<"single" | "bulk">("single");
   const [images, setImages] = useState<ImgFile[]>([]);
   const [processingMsg, setProcessingMsg] = useState("");
 
@@ -159,6 +185,7 @@ export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
   useEffect(() => {
     if (!open) {
       setStep("upload");
+      setMode("single");
       setImages([]);
       setCandidates([]);
       setTemplate(null);
@@ -173,6 +200,76 @@ export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
       setProcessingMsg("");
     }
   }, [open]);
+
+  // Preload from queue item (bulk review flow)
+  useEffect(() => {
+    if (!open || !queueItem) return;
+    (async () => {
+      setStep("processing");
+      setProcessingMsg("Loading queued form…");
+      try {
+        const { data: tpl, error: tplErr } = await supabase
+          .from("job_sheet_templates")
+          .select("id, name, category, job_category, fields")
+          .eq("id", queueItem.templateId)
+          .maybeSingle();
+        if (tplErr || !tpl) throw new Error(tplErr?.message || "Template missing");
+        const tplObj: Template = {
+          id: (tpl as any).id,
+          name: (tpl as any).name,
+          category: (tpl as any).category,
+          job_category: (tpl as any).job_category,
+          fields: Array.isArray((tpl as any).fields) ? (tpl as any).fields : [],
+        };
+        setTemplate(tplObj);
+        setCandidates(queueItem.candidateMatches || []);
+
+        // Normalise extracted responses (same shape helper as single flow)
+        const extracted = queueItem.extracted || {};
+        const normalised: Record<string, any> = {};
+        for (const f of tplObj.fields) {
+          const raw = extracted[f.id];
+          if (raw === undefined || raw === null || raw === "") continue;
+          if (f.type === "checkbox") {
+            const cb = coerceCheckbox(raw);
+            const stored = checkboxToStored(cb);
+            if (stored === undefined && typeof raw === "string") {
+              normalised[f.id] = raw;
+            } else if (stored !== undefined) {
+              normalised[f.id] = stored;
+            }
+          } else {
+            normalised[f.id] = raw;
+          }
+        }
+        setResponses(normalised);
+        setHeader(queueItem.header || {});
+
+        if (queueItem.guessCustomerId) setCustomerId(queueItem.guessCustomerId);
+        if (queueItem.guessSiteId) setSiteId(queueItem.guessSiteId);
+        if (queueItem.guessDate) {
+          const m = queueItem.guessDate.match(/^(\d{4})-(\d{2})-(\d{2})/);
+          if (m) setCompletionDate(`${m[3]}/${m[2]}/${m[1]}`);
+        } else if (queueItem.header?.date) {
+          setCompletionDate(parseDateInput(String(queueItem.header.date)));
+        }
+        const hdr = queueItem.header || {};
+        setJobName(
+          `${tplObj.name} — ${hdr.site || hdr.customer || "backfilled"}`,
+        );
+        setStep("review");
+      } catch (e: any) {
+        toast({
+          title: "Couldn't load form",
+          description: e?.message,
+          variant: "destructive",
+        });
+        onOpenChange(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, queueItem?.itemId]);
+
 
   // Load customer list once
   useEffect(() => {
@@ -507,38 +604,80 @@ export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
         } as any);
       if (respErr) throw respErr;
 
-      // Upload each photo + create job_documents row
-      for (let i = 0; i < images.length; i++) {
-        const img = images[i];
-        const ext =
-          img.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
-          "jpg";
-        const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
-        const path = `job-documents/${jobId}/${safeName}`;
-        const { error: upErr } = await supabase.storage
-          .from("submissions")
-          .upload(path, img.file, {
-            upsert: true,
-            contentType: img.file.type || "image/jpeg",
+      // Attach photos — from File objects (single flow) or copy from storage (queue flow)
+      if (queueItem && queueItem.imagePaths.length > 0) {
+        for (let i = 0; i < queueItem.imagePaths.length; i++) {
+          const src = queueItem.imagePaths[i];
+          const ext =
+            src.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+            "jpg";
+          const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
+          const dest = `job-documents/${jobId}/${safeName}`;
+          const { error: copyErr } = await supabase.storage
+            .from("submissions")
+            .copy(src, dest);
+          if (copyErr) {
+            console.error("copy failed", src, copyErr);
+            continue;
+          }
+          const { data: urlData } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(dest, 60 * 60 * 24 * 365 * 5);
+          await supabase.from("job_documents" as any).insert({
+            job_id: jobId,
+            document_type: "source_scan",
+            label: `Original paper form (page ${i + 1})`,
+            file_url: urlData?.signedUrl || null,
+            file_name: safeName,
+            source: "manual",
+            created_by: user.id,
           });
-        if (upErr) {
-          console.error("upload failed", upErr);
-          continue;
         }
-        const { data: urlData } = await supabase.storage
-          .from("submissions")
-          .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+        // Mark queue item confirmed
+        await supabase
+          .from("paper_scan_batch_items")
+          .update({
+            status: "confirmed",
+            created_job_id: jobId,
+            reviewed_by: user.id,
+            reviewed_at: new Date().toISOString(),
+          })
+          .eq("id", queueItem.itemId);
+        onQueueItemResolved?.();
+      } else {
+        for (let i = 0; i < images.length; i++) {
+          const img = images[i];
+          const ext =
+            img.file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") ||
+            "jpg";
+          const safeName = `paper-scan-${i + 1}-${Date.now()}.${ext}`;
+          const path = `job-documents/${jobId}/${safeName}`;
+          const { error: upErr } = await supabase.storage
+            .from("submissions")
+            .upload(path, img.file, {
+              upsert: true,
+              contentType: img.file.type || "image/jpeg",
+            });
+          if (upErr) {
+            console.error("upload failed", upErr);
+            continue;
+          }
+          const { data: urlData } = await supabase.storage
+            .from("submissions")
+            .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
 
-        await supabase.from("job_documents" as any).insert({
-          job_id: jobId,
-          document_type: "source_scan",
-          label: `Original paper form (page ${i + 1})`,
-          file_url: urlData?.signedUrl || null,
-          file_name: safeName,
-          source: "manual",
-          created_by: user.id,
-        });
+          await supabase.from("job_documents" as any).insert({
+            job_id: jobId,
+            document_type: "source_scan",
+            label: `Original paper form (page ${i + 1})`,
+            file_url: urlData?.signedUrl || null,
+            file_name: safeName,
+            source: "manual",
+            created_by: user.id,
+          });
+        }
       }
+
 
       toast({
         title: `Job ${jobRef} filed`,
@@ -650,67 +789,79 @@ export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
           </DialogDescription>
         </DialogHeader>
 
-        {step === "upload" && (
-          <div className="space-y-4">
-            <div
-              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40"
-              onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                addFiles(e.dataTransfer.files);
-              }}
-            >
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-2 text-sm">
-                Click to upload photo(s) of the paper form, or drag & drop
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Add front and back / multiple pages if needed.
-              </p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => addFiles(e.target.files)}
-              />
-            </div>
+        {step === "upload" && !queueItem && (
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "bulk")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single">Single scan</TabsTrigger>
+              <TabsTrigger value="bulk">Bulk scan</TabsTrigger>
+            </TabsList>
 
-            {images.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {images.map((im, idx) => (
-                  <div key={idx} className="relative group">
-                    <img
-                      src={im.url}
-                      alt=""
-                      className="w-full h-32 object-cover rounded border"
-                    />
-                    <button
-                      className="absolute top-1 right-1 rounded-full bg-black/60 text-white p-1 opacity-0 group-hover:opacity-100"
-                      onClick={() => removeImg(idx)}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAnalyze}
-                disabled={images.length === 0}
+            <TabsContent value="single" className="space-y-4 mt-4">
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40"
+                onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  addFiles(e.dataTransfer.files);
+                }}
               >
-                <ScanLine className="mr-2 h-4 w-4" /> Analyse form
-              </Button>
-            </div>
-          </div>
+                <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-sm">
+                  Click to upload photo(s) of one paper form, or drag & drop
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Add front and back / multiple pages if needed.
+                </p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addFiles(e.target.files)}
+                />
+              </div>
+
+              {images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {images.map((im, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={im.url}
+                        alt=""
+                        className="w-full h-32 object-cover rounded border"
+                      />
+                      <button
+                        className="absolute top-1 right-1 rounded-full bg-black/60 text-white p-1 opacity-0 group-hover:opacity-100"
+                        onClick={() => removeImg(idx)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={images.length === 0}
+                >
+                  <ScanLine className="mr-2 h-4 w-4" /> Analyse form
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="bulk" className="mt-4">
+              <BulkScanTab onClose={() => onOpenChange(false)} />
+            </TabsContent>
+          </Tabs>
         )}
+
 
         {step === "processing" && (
           <div className="py-12 text-center space-y-3">
@@ -909,23 +1060,53 @@ export default function ScanCompletedJobDialog({ open, onOpenChange }: Props) {
               })()}
             </div>
 
-            <div className="flex justify-end gap-2 pt-2 border-t">
-              <Button
-                variant="outline"
-                onClick={() => setStep("upload")}
-                disabled={saving}
-              >
-                Back
-              </Button>
-              <Button onClick={handleConfirm} disabled={saving}>
-                {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
+            <div className="flex justify-between gap-2 pt-2 border-t">
+              <div>
+                {queueItem && (
+                  <Button
+                    variant="ghost"
+                    className="text-destructive hover:text-destructive"
+                    disabled={saving}
+                    onClick={async () => {
+                      if (!user) return;
+                      await supabase
+                        .from("paper_scan_batch_items")
+                        .update({
+                          status: "rejected",
+                          reviewed_by: user.id,
+                          reviewed_at: new Date().toISOString(),
+                        })
+                        .eq("id", queueItem.itemId);
+                      toast({ title: "Discarded" });
+                      onQueueItemResolved?.();
+                      onOpenChange(false);
+                    }}
+                  >
+                    <XCircle className="mr-2 h-4 w-4" /> Discard
+                  </Button>
                 )}
-                Confirm & file job
-              </Button>
+              </div>
+              <div className="flex gap-2">
+                {!queueItem && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setStep("upload")}
+                    disabled={saving}
+                  >
+                    Back
+                  </Button>
+                )}
+                <Button onClick={handleConfirm} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                  )}
+                  Confirm & file job
+                </Button>
+              </div>
             </div>
+
           </div>
         )}
       </DialogContent>

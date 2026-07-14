@@ -4707,6 +4707,116 @@ export type Database = {
         }
         Relationships: []
       }
+      paper_scan_batch_items: {
+        Row: {
+          batch_id: string
+          candidate_matches: Json | null
+          confidence: number | null
+          created_at: string
+          created_job_id: string | null
+          detected_template_id: string | null
+          error: string | null
+          extracted: Json | null
+          guess_customer_id: string | null
+          guess_date: string | null
+          guess_site_id: string | null
+          header_data: Json | null
+          id: string
+          image_paths: string[]
+          org_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          batch_id: string
+          candidate_matches?: Json | null
+          confidence?: number | null
+          created_at?: string
+          created_job_id?: string | null
+          detected_template_id?: string | null
+          error?: string | null
+          extracted?: Json | null
+          guess_customer_id?: string | null
+          guess_date?: string | null
+          guess_site_id?: string | null
+          header_data?: Json | null
+          id?: string
+          image_paths: string[]
+          org_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          batch_id?: string
+          candidate_matches?: Json | null
+          confidence?: number | null
+          created_at?: string
+          created_job_id?: string | null
+          detected_template_id?: string | null
+          error?: string | null
+          extracted?: Json | null
+          guess_customer_id?: string | null
+          guess_date?: string | null
+          guess_site_id?: string | null
+          header_data?: Json | null
+          id?: string
+          image_paths?: string[]
+          org_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "paper_scan_batch_items_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "paper_scan_batches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      paper_scan_batches: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          note: string | null
+          org_id: string
+          processed_items: number
+          status: string
+          total_items: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          note?: string | null
+          org_id: string
+          processed_items?: number
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          note?: string | null
+          org_id?: string
+          processed_items?: number
+          status?: string
+          total_items?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       parts_library: {
         Row: {
           category: string

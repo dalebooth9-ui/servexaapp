@@ -20,6 +20,7 @@ import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText,
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
 import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
+import PaperScanQueueBadge from "@/components/paper-scan/PaperScanQueueBadge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
@@ -1221,6 +1222,12 @@ export default function Jobs() {
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => setScanPaperOpen(true)}>
                   <ScanLine className="mr-2 h-4 w-4" /> Scan Paper Report
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/paper-scan-queue" className="cursor-pointer flex items-center">
+                    <ScanLine className="mr-2 h-4 w-4" /> Paper Scan Queue
+                    <span className="ml-auto"><PaperScanQueueBadge /></span>
+                  </Link>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
