@@ -1017,12 +1017,12 @@ export default function ScanCompletedJobDialog({
                 <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5" />
                 <div>
                   <div className="font-medium">
-                    {missingFields.length} required field
-                    {missingFields.length === 1 ? "" : "s"} blank
+                    {missingFields.length} field
+                    {missingFields.length === 1 ? "" : "s"} blank on the paper form
                   </div>
                   <div className="text-muted-foreground">
                     {missingFields.map((f) => f.label).slice(0, 5).join(" · ")}
-                    {missingFields.length > 5 ? "…" : ""}
+                    {missingFields.length > 5 ? "…" : ""} — you can still file the job; blank answers will be omitted.
                   </div>
                 </div>
               </div>
