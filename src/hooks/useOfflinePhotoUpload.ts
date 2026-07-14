@@ -48,9 +48,9 @@ export function useOfflinePhotoUpload() {
       return { ok: true, queued: false, path: scopedInput.path };
     } catch (e) {
       if (isNetworkError(e)) {
-        const item = await enqueuePhoto(input);
+        const item = await enqueuePhoto(scopedInput);
         toast.info("Photo saved locally — will upload when back online");
-        return { ok: true, queued: true, queueId: item.id, localUrl: URL.createObjectURL(input.blob) };
+        return { ok: true, queued: true, queueId: item.id, localUrl: URL.createObjectURL(scopedInput.blob) };
       }
       return { ok: false, queued: false, error: e };
     }
