@@ -61,10 +61,7 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
       const unread = msgs.filter((m) => !m.read_by.includes(user?.id || ""));
       if (unread.length > 0 && user) {
         for (const msg of unread) {
-          await supabase
-            .from("job_messages" as any)
-            .update({ read_by: [...msg.read_by, user.id] } as any)
-            .eq("id", msg.id);
+          await (supabase as any).rpc("mark_job_message_read", { _message_id: msg.id });
         }
       }
     }
