@@ -307,6 +307,7 @@ export default function Engineers() {
                 <TableHead>WhatsApp</TableHead>
                 <TableHead>Phone</TableHead>
                 <TableHead className="text-right">Assigned Jobs</TableHead>
+                <TableHead className="text-center">Show on Planner</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
