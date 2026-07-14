@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Plus, Search, FolderOpen, Trash2, Upload, ArrowLeft, Loader2, FileText, Image, X, BookTemplate, Save, ChevronDown, SlidersHorizontal, MoreHorizontal, Sparkles, Download, CheckSquare, Briefcase, FileSpreadsheet } from "lucide-react";
 import BulkImportDialog from "@/components/BulkImportDialog";
 import FolderImportDialog, { type FolderImportDialogHandle } from "@/components/FolderImportDialog";
+import ScanCompletedJobDialog from "@/components/ScanCompletedJobDialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion } from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
