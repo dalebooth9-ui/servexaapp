@@ -393,7 +393,17 @@ export async function generateJobSheetPdf(
   const footerSpace = isDryRiser ? 50 : 58;
   const availableH = pageHeight - y - footerSpace;
   const skipIds = buildSkipIds(template.fields);
-  const sections = getSections(template.fields);
+  // Sections/fields the user marked as "omit from report" during form fill.
+  const omittedSections: string[] = Array.isArray((resolvedFormData as any).__omitted_sections__)
+    ? ((resolvedFormData as any).__omitted_sections__ as string[])
+    : [];
+  // Only render sections that have at least one non-blank, non-omitted field.
+  const sections = getRenderableSections(
+    template.fields,
+    skipIds,
+    resolvedFormData,
+    omittedSections,
+  );
   const colSplit = maxWidth * (isDryRiser ? 0.7 : 0.68);
 
   const commentsField = template.fields.find(f => f.label.toLowerCase().includes("comment"));
@@ -402,7 +412,12 @@ export async function generateJobSheetPdf(
   const materialsVal = materialsField ? resolvedFormData[materialsField.id] || "" : "";
   const commentsH = (commentsVal || materialsVal) ? 9 : 0;
 
-  const layout = computeSectionLayout(template.fields, sections, skipIds, availableH, {
+  // Layout sizing is driven off the same renderable-field set so we don't
+  // reserve vertical space for rows that will never actually be drawn.
+  const renderableFieldsForLayout = sections.flatMap((sec) =>
+    getRenderableSectionFields(template.fields, sec, skipIds, resolvedFormData, omittedSections),
+  );
+  const layout = computeSectionLayout(renderableFieldsForLayout, sections, skipIds, availableH, {
     extraSpaceUsed: commentsH,
     sectionHeaderH: isDryRiser ? DRY_RISER_LAYOUT.body.sectionHeaderRowMm : undefined,
     minRowH: isDryRiser ? DRY_RISER_LAYOUT.body.fieldRowMm : undefined,
@@ -410,7 +425,13 @@ export async function generateJobSheetPdf(
   });
 
   for (const section of sections) {
-    const sectionFields = getSectionFields(template.fields, section, skipIds);
+    const sectionFields = getRenderableSectionFields(
+      template.fields,
+      section,
+      skipIds,
+      resolvedFormData,
+      omittedSections,
+    );
     if (sectionFields.length === 0) continue;
 
     y = renderSectionHeader(doc, section, y, { margin, maxWidth, colSplit, sectionHeaderH: layout.sectionHeaderH });
@@ -422,6 +443,8 @@ export async function generateJobSheetPdf(
     }
     y += 1;
   }
+
+
 
   // --- Comments + Materials compact ---
   doc.setFontSize(7);
