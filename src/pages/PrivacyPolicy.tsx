@@ -16,30 +16,36 @@ export default function PrivacyPolicy() {
         </button>
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <img src={servexaLogo} alt="Servexa" className="h-10 rounded-lg" />
-            <span className="text-xl font-bold">Servexa</span>
+            <img src={servexaLogo} alt="Servexa Platform" className="h-10 rounded-lg" />
+            <span className="text-xl font-bold">Servexa Platform</span>
           </div>
           <h1 className="text-3xl font-bold mb-2">Privacy Policy</h1>
-          <p className="text-sm text-muted-foreground">Last updated: {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</p>
+          <p className="text-sm text-muted-foreground">
+            Last updated:{" "}
+            {new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}
+          </p>
         </div>
 
         <div className="prose prose-sm max-w-none space-y-6 text-foreground">
-
           <section>
             <h2 className="text-xl font-semibold mb-3">1. Introduction</h2>
+            <p className="text-muted-foreground leading-relaxed mb-2">
+              Servexa Platform ("we", "us", "our") is committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our field service management platform. We comply with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
+            </p>
             <p className="text-muted-foreground leading-relaxed">
-              Servexa ("we", "us", "our") is committed to protecting your personal information. This Privacy Policy explains how we collect, use, disclose, and safeguard your data when you use our field service management platform. We comply with the UK General Data Protection Regulation (UK GDPR) and the Data Protection Act 2018.
+              Data controller: Viva Fire Protection Ltd (company no. 06464084), Unit 1, St Johns Industrial Estate, Lees, Oldham, OL4 3DZ, United Kingdom. Registered with the Information Commissioner's Office (ICO) under registration number{" "}
+              <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">ZB398286</code>. Contact:{" "}
+              <a href="mailto:privacy@servexa.io" className="text-primary hover:underline">privacy@servexa.io</a>.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">2. Data We Collect</h2>
-            <p className="text-muted-foreground leading-relaxed mb-2">We collect the following categories of personal data:</p>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li><strong>Account data:</strong> Name, email address, password (hashed), role</li>
               <li><strong>Profile data:</strong> Phone number, WhatsApp number, signature</li>
               <li><strong>Location data:</strong> GPS coordinates when engineers are clocked in (with consent)</li>
-              <li><strong>Job data:</strong> Job records, submissions, photos, Servexa reports you create</li>
+              <li><strong>Job data:</strong> Job records, submissions, photos, field reports you create</li>
               <li><strong>Communication data:</strong> Messages sent through the platform</li>
               <li><strong>Usage data:</strong> Log files, IP addresses, browser type, pages visited</li>
               <li><strong>Customer data:</strong> Customer and site records you enter into the system</li>
@@ -48,7 +54,6 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-xl font-semibold mb-3">3. Legal Basis for Processing</h2>
-            <p className="text-muted-foreground leading-relaxed mb-2">We process your personal data on the following legal bases:</p>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li><strong>Contract performance:</strong> Processing necessary to provide the Service under our agreement with you</li>
               <li><strong>Legitimate interests:</strong> Security monitoring, fraud prevention, service improvement</li>
@@ -61,7 +66,7 @@ export default function PrivacyPolicy() {
             <h2 className="text-xl font-semibold mb-3">4. How We Use Your Data</h2>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li>To provide, operate, and maintain the Service</li>
-              <li>To process job assignments, scheduling, and Servexa reports</li>
+              <li>To process job assignments, scheduling, and field reports</li>
               <li>To send notifications, reminders, and reports</li>
               <li>To enable customer communications and sign-off workflows</li>
               <li>To improve and personalise the Service</li>
@@ -71,27 +76,35 @@ export default function PrivacyPolicy() {
 
           <section>
             <h2 className="text-xl font-semibold mb-3">5. Data Sharing</h2>
-            <p className="text-muted-foreground leading-relaxed mb-2">We do not sell your personal data. We may share data with:</p>
+            <p className="text-muted-foreground leading-relaxed mb-2">
+              We do not sell your personal data. We may share data with:
+            </p>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
-              <li><strong>Supabase:</strong> Our cloud database and authentication provider (EU/US data centres)</li>
+              <li><strong>Supabase:</strong> Cloud database, authentication and file storage (EU/US data centres)</li>
+              <li><strong>Lovable:</strong> Application hosting and platform infrastructure</li>
+              <li><strong>Stripe:</strong> Payment processing for subscription billing</li>
               <li><strong>Resend:</strong> Email delivery service for notifications and reports</li>
               <li><strong>Twilio:</strong> WhatsApp/SMS messaging integration (if configured)</li>
-              <li><strong>Xero:</strong> Accounting integration (if connected)</li>
-              <li><strong>Google Maps:</strong> Location mapping features</li>
+              <li><strong>Google Maps & what3words:</strong> Mapping, geocoding and precise-location features</li>
+              <li><strong>Lovable AI Gateway (Google Gemini, OpenAI):</strong> AI features such as RAMS auto-fill, customer reports and predictive maintenance</li>
+              <li><strong>ElevenLabs:</strong> Voice-to-text transcription for engineer voice notes</li>
+              <li><strong>Accounting integrations (if connected):</strong> Xero, QuickBooks, Sage, FreeAgent, FreshBooks</li>
               <li><strong>Law enforcement:</strong> Where required by law</li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">6. Data Retention</h2>
-            <p className="text-muted-foreground leading-relaxed">
+            <p className="text-muted-foreground leading-relaxed mb-2">
               We retain your data for as long as your account is active or as needed to provide the Service. Job records and compliance documents may be retained for up to 7 years to meet legal obligations. Location data is retained for 90 days. You may request deletion of your data by contacting your account administrator.
+            </p>
+            <p className="text-muted-foreground leading-relaxed">
+              <strong>Free trial accounts:</strong> if a free trial expires and is not converted to a paid subscription, all account data (including any customer, site, asset and job records uploaded during the trial) will be retained for 30 days after trial expiry to allow reactivation, after which it will be permanently deleted from our production systems. Aggregated, anonymised usage statistics and minimum records required by law (e.g. billing/tax records) may be retained for longer.
             </p>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold mb-3">7. Your Rights (UK GDPR)</h2>
-            <p className="text-muted-foreground leading-relaxed mb-2">Under UK GDPR, you have the right to:</p>
             <ul className="list-disc pl-6 space-y-1 text-muted-foreground">
               <li><strong>Access:</strong> Request a copy of your personal data</li>
               <li><strong>Rectification:</strong> Correct inaccurate or incomplete data</li>
@@ -102,7 +115,8 @@ export default function PrivacyPolicy() {
               <li><strong>Withdraw consent:</strong> For consent-based processing (e.g. location tracking)</li>
             </ul>
             <p className="text-muted-foreground leading-relaxed mt-2">
-              To exercise these rights, contact your account administrator. You also have the right to lodge a complaint with the Information Commissioner's Office (ICO) at <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ico.org.uk</a>.
+              To exercise these rights, contact your account administrator. You also have the right to lodge a complaint with the Information Commissioner's Office (ICO) at{" "}
+              <a href="https://ico.org.uk" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">ico.org.uk</a>.
             </p>
           </section>
 
@@ -142,8 +156,15 @@ export default function PrivacyPolicy() {
           </section>
 
           <div className="border-t pt-6 space-y-3 text-xs text-muted-foreground">
-            <p>⚠️ <strong>Important notice:</strong> These are placeholder privacy policies for convenience. You should have these reviewed by a qualified solicitor or data protection officer before commercial use, particularly if processing employee or customer personal data at scale.</p>
-            <p>Related documents: <a href="/terms" className="text-primary hover:underline">Terms of Service</a> · <a href="/dpa" className="text-primary hover:underline">Data Processing Agreement</a></p>
+            <p>
+              Related documents:{" "}
+              <a href="/terms" className="text-primary hover:underline">Terms of Service</a> ·{" "}
+              <a href="/dpa" className="text-primary hover:underline">Data Processing Agreement</a> ·{" "}
+              <a href="/aup" className="text-primary hover:underline">Acceptable Use Policy</a> ·{" "}
+              <a href="/sla" className="text-primary hover:underline">Service Level Agreement</a> ·{" "}
+              <a href="/cookies" className="text-primary hover:underline">Cookie Policy</a> ·{" "}
+              <a href="/fire-liability" className="text-primary hover:underline">Fire Protection Liability</a>
+            </p>
           </div>
         </div>
       </div>

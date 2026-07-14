@@ -186,9 +186,14 @@ export default function Auth() {
 
         <div className="space-y-1">
           <p className="text-sm text-sidebar-foreground/40">© {new Date().getFullYear()} Servexa. All rights reserved.</p>
-          <div className="flex gap-3 text-xs text-sidebar-foreground/30">
-            <a href="/terms" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Terms of Service</a>
-            <a href="/privacy" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Privacy Policy</a>
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-sidebar-foreground/30">
+            <a href="/terms" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Terms</a>
+            <a href="/privacy" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Privacy</a>
+            <a href="/dpa" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">DPA</a>
+            <a href="/aup" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">AUP</a>
+            <a href="/sla" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">SLA</a>
+            <a href="/cookies" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Cookies</a>
+            <a href="/fire-liability" target="_blank" className="hover:text-sidebar-foreground/60 transition-colors">Fire Liability</a>
           </div>
         </div>
       </div>
