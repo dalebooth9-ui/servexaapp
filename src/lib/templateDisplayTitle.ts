@@ -35,11 +35,15 @@ export function resolveTemplateDisplayTitle(
 ): TemplateDisplayTitle {
   const name = (templateName || "").trim();
 
-  if (isDryRiserName(name)) {
-    return { title: "Dry Riser Pressure Test", subtitle: RISER_SUBTITLE };
-  }
-  if (isWetRiserName(name)) {
-    return { title: "Wet Riser Pressure Test", subtitle: RISER_SUBTITLE };
+  // Title MUST come from the actual template the response belongs to — never
+  // a hardcoded variant. Previously this collapsed every "Dry Riser *"
+  // template to "Dry Riser Pressure Test", so Visual sheets rendered with
+  // the wrong heading (regression on VFP-00163). Keep the riser subtitle
+  // heuristic (branding line) but always emit the real template name as
+  // the title so Visual → "Dry Riser Visual", Pressure Test → "Dry Riser
+  // Pressure Test", etc.
+  if (isDryRiserName(name) || isWetRiserName(name)) {
+    return { title: name, subtitle: opts.brandingSubtitle?.trim() || RISER_SUBTITLE };
   }
 
   return {
