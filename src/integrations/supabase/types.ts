@@ -2789,6 +2789,51 @@ export type Database = {
           },
         ]
       }
+      help_articles: {
+        Row: {
+          common_problems: Json
+          created_at: string
+          id: string
+          keywords: string[]
+          last_updated: string
+          purpose: string
+          related_slugs: string[]
+          route_pattern: string | null
+          slug: string
+          steps: Json
+          title: string
+          updated_by: string | null
+        }
+        Insert: {
+          common_problems?: Json
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          last_updated?: string
+          purpose: string
+          related_slugs?: string[]
+          route_pattern?: string | null
+          slug: string
+          steps?: Json
+          title: string
+          updated_by?: string | null
+        }
+        Update: {
+          common_problems?: Json
+          created_at?: string
+          id?: string
+          keywords?: string[]
+          last_updated?: string
+          purpose?: string
+          related_slugs?: string[]
+          route_pattern?: string | null
+          slug?: string
+          steps?: Json
+          title?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       import_batches: {
         Row: {
           created_at: string
