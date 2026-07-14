@@ -135,12 +135,17 @@ serve(async (req) => {
       .join("\n");
 
     const systemPrompt = `You are helping an admin file a completed paper job sheet in a fire-safety servicing app.
-Look at the photo(s) of the paper form and pick which of the available templates it best matches. Compare the printed headings, question wording, section labels, and layout — not the handwritten answers.
-Common headings to look for:
-- "SCOPE OF WORK: HYDRAULIC PRESSURE TEST" or "PRESSURE TEST" → dry riser pressure test template
-- "6 MONTHLY VISUAL INSPECTION" / "VISUAL INSPECTION" of a dry riser → dry riser visual template
-- "CERTIFICATE OF INSPECTION SPRINKLER SYSTEM" / "SPRINKLER" → sprinkler inspection template
-- "WET RISER" → wet riser template
+Look at the photo(s) of the paper form and pick which of the available templates it best matches.
+
+CRITICAL matching rules:
+- You MUST return a template_id from the "Available templates" list below. Never invent or generate a template name that is not in the list — return the exact uuid.
+- Match on printed headings, section titles, question wording, and layout — NOT on handwritten answers.
+- A form titled "6 MONTHLY VISUAL INSPECTION", "VISUAL INSPECTION", "PERIODIC VISUAL", or that only contains yes/no tick-box rows for physical condition (valves, outlets, signage, cabinet) is a VISUAL inspection template — never a pressure test template, even if the form is about a dry riser.
+- A form titled "HYDRAULIC PRESSURE TEST", "PRESSURE TEST", "ANNUAL PRESSURE TEST", or that has psi/bar/pressure-reading columns and a hold-time table is a PRESSURE TEST template.
+- "CERTIFICATE OF INSPECTION SPRINKLER SYSTEM" / "SPRINKLER" → sprinkler inspection template.
+- "WET RISER" → wet riser template.
+- If more than one plausible template exists, return them ordered best first with honest confidences (do not return 0.9 unless the printed heading is unambiguous). If nothing is a reasonable match, return an empty candidates array.
+
 Return STRICT JSON only, no prose, no markdown: {"candidates":[{"template_id":"<uuid>","confidence":0-1,"reason":"short"}]}
 Return up to 3 candidates, ordered best first.`;
 
