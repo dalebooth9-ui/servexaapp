@@ -11,6 +11,7 @@ import { Route, Loader2, MapPin, AlertTriangle, RefreshCw, Calendar } from "luci
 import { useToast } from "@/hooks/use-toast";
 import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { geocodeWithGoogle } from "@/lib/geocodeCache";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface ScheduleEntry {
   id: string;
@@ -641,7 +642,7 @@ export default function PlannerMapView({
       const fileName = `map-pin-${Date.now()}.png`;
       const filePath = `${jobId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, finalBlob, { contentType: "image/png" });
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), finalBlob, { contentType: "image/png" });
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);

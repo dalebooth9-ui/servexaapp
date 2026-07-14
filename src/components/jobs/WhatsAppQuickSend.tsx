@@ -22,6 +22,7 @@ import { MessageSquare, Send, ArrowLeft, Eye, FileText, Image as ImageIcon, Pape
 import { useToast } from "@/hooks/use-toast";
 import CustomerReportPdf from "@/components/CustomerReportPdf";
 import { extractStoragePath } from "@/lib/fileUtils";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type JobContext = {
   reference_number?: string | null;
@@ -317,7 +318,7 @@ export default function WhatsAppQuickSend({ jobId, jobRef }: { jobId: string; jo
     const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
     const blob = new Blob([bytes], { type: "application/pdf" });
     const path = `whatsapp-attachments/${jobId}/${Date.now()}-${fileName.replace(/[^a-z0-9.\-_]/gi, "_")}`;
-    const { error: upErr } = await supabase.storage.from("submissions").upload(path, blob, {
+    const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), blob, {
       contentType: "application/pdf",
       upsert: true,
     });

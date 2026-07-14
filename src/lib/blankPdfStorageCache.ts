@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const BUCKET = "blank-template-pdfs";
 
@@ -27,7 +28,7 @@ export async function fetchCachedBlankPdf(path: string): Promise<Blob | null> {
 /** Best-effort upload — never throws. */
 export async function uploadCachedBlankPdf(path: string, blob: Blob): Promise<void> {
   try {
-    await supabase.storage.from(BUCKET).upload(path, blob, {
+    await supabase.storage.from(BUCKET).upload(await buildOrgPathAsync(path), blob, {
       contentType: "application/pdf",
       cacheControl: "3600",
       upsert: true,

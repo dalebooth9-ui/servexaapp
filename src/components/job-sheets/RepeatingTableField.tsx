@@ -13,6 +13,7 @@ import { Plus, X, Camera, Loader2, Search, Trash2, Rows3, ImageIcon } from "luci
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useToast } from "@/hooks/use-toast";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 export type RepeatingColumn = {
   id: string;
@@ -432,7 +433,7 @@ function RowPhotoCell({ value, onChange, fieldId, groupLabel, jobId, userId }: {
     const ext = file.name.split(".").pop() || "jpg";
     const fileName = `${fieldId}-${Date.now()}.${ext}`;
     const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
-    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true, contentType: file.type });
+    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true, contentType: file.type });
     if (error) {
       console.error("Upload error:", error);
     } else {
@@ -556,7 +557,7 @@ function RowPhotoGalleryCell({
       const ext = file.name.split(".").pop() || "jpg";
       const fileName = `${fieldId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
       const path = jobId ? `${jobId}/template-photos/${fileName}` : `template-photos/${fileName}`;
-      const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true, contentType: file.type });
+      const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true, contentType: file.type });
       if (error) {
         console.error("Upload error:", error);
         continue;

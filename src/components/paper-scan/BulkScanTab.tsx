@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Upload, Loader2, ScanLine } from "lucide-react";
 import PhotoGrouper, {
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
   type FormGroup,
   type PhotoItem,
 } from "./PhotoGrouper";
@@ -147,7 +148,7 @@ export default function BulkScanTab({ onClose }: Props) {
           const path = `paper-batches/${bId}/form-${gi + 1}-page-${pi + 1}-${Date.now()}.${ext}`;
           const { error: upErr } = await supabase.storage
             .from("submissions")
-            .upload(path, p.file, {
+            .upload(await buildOrgPathAsync(path), p.file, {
               upsert: true,
               contentType: p.file.type || "image/jpeg",
             });

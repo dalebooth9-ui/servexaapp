@@ -21,6 +21,7 @@ import {
 import { Plus, Search, CheckCircle2, Clock, AlertCircle, XCircle, Camera, FileText, Loader2, Wrench, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Defect = {
   id: string;
@@ -160,7 +161,7 @@ export default function Defects() {
     const urls: string[] = [];
     for (const file of files) {
       const path = `defects/${defectId}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from("submissions").upload(path, file);
+      const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file);
       if (error) {
         toast.error(`Photo upload failed: ${file.name}`);
         continue;

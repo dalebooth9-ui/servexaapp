@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PenLine, Trash2, RotateCcw, Check } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface Signature {
   id: string;
@@ -162,7 +163,7 @@ export default function SignatureCapture({
       const filePath = `${user.id}/${jobId}-${signerRole}-${Date.now()}.png`;
       const { error: uploadErr } = await supabase.storage
         .from("signatures")
-        .upload(filePath, blob, { contentType: "image/png" });
+        .upload(await buildOrgPathAsync(filePath), blob, { contentType: "image/png" });
       if (uploadErr) throw uploadErr;
 
       const { error: insertErr } = await supabase.from("job_signatures" as any).insert({

@@ -14,6 +14,7 @@ import type { RamsType } from "@/components/RamsPdfExport";
 import { resolveToSignedUrl } from "@/lib/durableStorageRef";
 import JobPdfReport from "@/components/JobPdfReport";
 import JobWordReport from "@/components/JobWordReport";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type JobDoc = {
   id: string;
@@ -400,7 +401,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
         ? `costing-sheets/${jobId}/${Date.now()}-${safeName}`
         : `job-documents/${jobId}/${Date.now()}-${file.name}`;
 
-      const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file, { upsert: true });
+      const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file, { upsert: true });
       if (uploadError) throw new Error(uploadError.message);
 
       const { data: urlData } = await supabase.storage.from("submissions").createSignedUrl(filePath, 60 * 60 * 24 * 365 * 5);
@@ -506,7 +507,7 @@ export default function JobDocuments({ jobId, job, engineers }: Props) {
     const path = isExcel && isCostingSlot
       ? `costing-sheets/${jobId}/${Date.now()}-${safeName}`
       : `job-documents/${jobId}/${Date.now()}-${file.name}`;
-    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true });
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
     } else {

@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Loader2, FileText, Sparkles, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface ExtractedPO {
   customer_name?: string;
@@ -178,7 +179,7 @@ export default function PoImportDialog({ open, onOpenChange, file, onJobCreated 
     // Upload the original PO file as a submission
     if (file) {
       const filePath = `${newJob.id}/${Date.now()}-${file.name}`;
-      const { error: upErr } = await supabase.storage.from("submissions").upload(filePath, file);
+      const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
       if (!upErr) {
         const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(filePath);
         await supabase.from("submissions").insert({

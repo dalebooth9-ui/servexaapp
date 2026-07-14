@@ -9,6 +9,7 @@ import { Upload, ScanLine, AlertCircle, Loader2, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { useAssetCategories } from "@/hooks/useAssetCategories";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type Row = {
   name: string;
@@ -104,7 +105,7 @@ export default function ScanAssetsDialog({ open, onOpenChange, onImported, sites
     let scanPath: string | null = null;
     if (scanFile) {
       const path = `_scans/${user.id}/${Date.now()}_${scanFile.name.replace(/[^\w.\-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, scanFile);
+      const { error: upErr } = await supabase.storage.from("asset-documents").upload(await buildOrgPathAsync(path), scanFile);
       if (!upErr) scanPath = path;
     }
 

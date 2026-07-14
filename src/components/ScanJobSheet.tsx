@@ -16,6 +16,7 @@ import { renderPdfHeader } from "@/lib/pdfHeader";
 import { renderPdfSignatures, renderPdfFooter, getDefaultFooterText } from "@/lib/pdfFooter";
 import { getBrandColorFromLogo } from "@/lib/extractLogoColors";
 import { applyExposedOutletOverrides } from "@/lib/ocrResultNormalization";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type TemplateField = {
   id: string;
@@ -492,7 +493,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
 
       const { error: uploadError } = await supabase.storage
         .from("submissions")
-        .upload(filePath, pdfBlob, { contentType: "application/pdf" });
+        .upload(await buildOrgPathAsync(filePath), pdfBlob, { contentType: "application/pdf" });
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
@@ -518,7 +519,7 @@ export default function ScanJobSheet({ template, jobId, jobInfo, onExtracted }: 
           const imgPath = `${jobId}/${imgFileName}`;
           const { error: imgErr } = await supabase.storage
             .from("submissions")
-            .upload(imgPath, imgFile, { contentType: imgFile.type });
+            .upload(await buildOrgPathAsync(imgPath), imgFile, { contentType: imgFile.type });
           if (!imgErr) {
             const { data: signedImg } = await supabase.storage
               .from("submissions")

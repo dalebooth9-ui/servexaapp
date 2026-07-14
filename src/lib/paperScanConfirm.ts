@@ -2,6 +2,7 @@
 // paper report flows. Creates the completed job, the submitted job_sheet_response,
 // and attaches source-scan photos as job_documents.
 import { supabase } from "@/integrations/supabase/client";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 export type PaperScanConfirmInput = {
   userId: string;
@@ -153,7 +154,7 @@ export async function paperScanConfirm(
       const path = `job-documents/${jobId}/${safeName}`;
       const { error: upErr } = await supabase.storage
         .from("submissions")
-        .upload(path, img, {
+        .upload(await buildOrgPathAsync(path), img, {
           upsert: true,
           contentType: img.type || "image/jpeg",
         });

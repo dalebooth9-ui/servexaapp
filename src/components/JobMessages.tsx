@@ -10,6 +10,7 @@ import { isImageFile } from "@/lib/fileUtils";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import VoiceDictationButton from "@/components/VoiceDictationButton";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 interface JobMessagesProps {
   jobId: string;
@@ -98,7 +99,7 @@ export default function JobMessages({ jobId }: JobMessagesProps) {
       const filePath = `${jobId}/${Date.now()}-${attachPreview.file.name}`;
       const { error: uploadError } = await supabase.storage
         .from("submissions")
-        .upload(filePath, attachPreview.file);
+        .upload(await buildOrgPathAsync(filePath), attachPreview.file);
       if (uploadError) {
         toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
         setSending(false);

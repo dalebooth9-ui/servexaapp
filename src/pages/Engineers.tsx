@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { format } from "date-fns";
 import TableSkeleton from "@/components/TableSkeleton";
 import { normaliseWhatsAppNumber, WHATSAPP_NUMBER_HINT } from "@/lib/normalisePhone";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const DOC_TYPES = ["certificate", "id", "training", "insurance", "dbs", "first_aid", "other"];
 
@@ -198,7 +199,7 @@ export default function Engineers() {
     let uploaded = 0;
     for (const file of pendingDocFiles) {
       const filePath = `${docsEng.user_id}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage.from("engineer-documents").upload(filePath, file);
+      const { error: uploadError } = await supabase.storage.from("engineer-documents").upload(await buildOrgPathAsync(filePath), file);
       if (uploadError) {
         toast({ title: "Upload failed", description: `${file.name}: ${uploadError.message}`, variant: "destructive" });
         continue;

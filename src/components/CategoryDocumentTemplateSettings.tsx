@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { INDUSTRY_TEMPLATES, CATEGORY_META, CATEGORY_ORDER } from "@/pages/IndustryTemplates";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 const TT = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <Tooltip>
@@ -185,7 +186,7 @@ export default function CategoryDocumentTemplateSettings() {
     setUploadingFor(id);
     const ext = file.name.split(".").pop() || "pdf";
     const path = `category-doc-templates/${id}-${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("submissions").upload(path, file, { upsert: true });
+    const { error } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(path), file, { upsert: true });
     if (error) {
       toast({ title: "Upload failed", variant: "destructive" });
     } else {

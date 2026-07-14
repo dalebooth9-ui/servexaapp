@@ -10,6 +10,7 @@ import { FolderOpen, Upload, FileText, Image, Video, Loader2 } from "lucide-reac
 import { useToast } from "@/hooks/use-toast";
 
 import { ALLOWED_EXTENSIONS, IMAGE_EXTENSIONS, VIDEO_EXTENSIONS } from "@/lib/fileUtils";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type FolderEntry = {
   customerName: string;
@@ -122,7 +123,7 @@ const CustomerFolderDrop = forwardRef<CustomerFolderDropHandle, CustomerFolderDr
         for (const file of folder.files) {
           setProgressText(`Uploading: ${file.name}`);
           const filePath = `customer-docs/${customerId}/${Date.now()}-${file.name}`;
-          const { error: uploadError } = await supabase.storage.from("submissions").upload(filePath, file);
+          const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(filePath), file);
 
           if (uploadError) {
             toast({ title: "Upload failed", description: `Failed to upload ${file.name}.`, variant: "destructive" });

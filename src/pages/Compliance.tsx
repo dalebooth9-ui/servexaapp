@@ -25,6 +25,7 @@ import {
   Shield, Plus, Search, Pencil, Trash2, Download, Upload, CheckCircle2, AlertTriangle, XCircle, Clock, FileText, Paperclip, FolderOpen, X, Loader2, Sparkles,
 } from "lucide-react";
 import { format } from "date-fns";
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
 
 type ComplianceRecord = {
   id: string; title: string; record_type: string;
@@ -297,7 +298,7 @@ export default function Compliance() {
 
     for (const file of pendingFiles) {
       const path = `compliance/${Date.now()}_${file.name}`;
-      const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, file);
+      const { error: upErr } = await supabase.storage.from("asset-documents").upload(await buildOrgPathAsync(path), file);
       if (upErr) { toast({ title: "Upload failed", description: `${file.name}: ${upErr.message}`, variant: "destructive" }); continue; }
       allUrls.push(path);
       allNames.push(file.name);
@@ -424,7 +425,7 @@ export default function Compliance() {
           const fileRes = await fetch(signedData.signedUrl);
           const blob = await fileRes.blob();
           const destPath = `${jobId}/${Date.now()}-${fileName}`;
-          const { error: upErr } = await supabase.storage.from("submissions").upload(destPath, blob, { contentType: blob.type });
+          const { error: upErr } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(destPath), blob, { contentType: blob.type });
           if (upErr) continue;
 
           const { data: urlData } = supabase.storage.from("submissions").getPublicUrl(destPath);
@@ -551,7 +552,7 @@ export default function Compliance() {
     let created = 0;
     for (const item of bulkFiles) {
       const path = `compliance/${Date.now()}_${item.file.name}`;
-      const { error: upErr } = await supabase.storage.from("asset-documents").upload(path, item.file);
+      const { error: upErr } = await supabase.storage.from("asset-documents").upload(await buildOrgPathAsync(path), item.file);
       if (upErr) { toast({ title: "Upload failed", description: `${item.file.name}: ${upErr.message}`, variant: "destructive" }); continue; }
       const { error: insErr } = await supabase.from("compliance_records").insert({
         title: item.title.trim() || item.file.name,

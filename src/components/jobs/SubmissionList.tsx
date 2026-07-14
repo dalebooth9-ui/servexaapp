@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import PhotoLightbox from "@/components/PhotoLightbox";
 import SubmissionComments from "@/components/SubmissionComments";
 import {
+import { buildOrgPathAsync } from "@/lib/orgStoragePath";
   getFileExtension,
   extractStoragePath,
   canPreviewInBrowser,
@@ -173,7 +174,7 @@ export default function SubmissionList({ items, isAdmin, onDelete, currentUserId
 
     const jobId = replacingSub.job_id;
     const newPath = `${jobId}/${Date.now()}-${file.name}`;
-    const { error: uploadError } = await supabase.storage.from("submissions").upload(newPath, file);
+    const { error: uploadError } = await supabase.storage.from("submissions").upload(await buildOrgPathAsync(newPath), file);
     if (uploadError) {
       toast({ title: "Upload failed", description: uploadError.message, variant: "destructive" });
       setReplacingSub(null);
