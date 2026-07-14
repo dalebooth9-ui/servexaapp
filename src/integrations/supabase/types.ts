@@ -6199,6 +6199,60 @@ export type Database = {
           },
         ]
       }
+      storage_backfill_log: {
+        Row: {
+          attempts: number
+          bucket: string
+          created_at: string
+          db_rewrites: Json
+          dry_run_result: Json | null
+          id: string
+          is_orphan: boolean
+          last_error: string | null
+          new_name: string | null
+          old_name: string
+          op: string
+          org_id: string
+          run_result: Json | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          bucket: string
+          created_at?: string
+          db_rewrites?: Json
+          dry_run_result?: Json | null
+          id?: string
+          is_orphan?: boolean
+          last_error?: string | null
+          new_name?: string | null
+          old_name: string
+          op?: string
+          org_id: string
+          run_result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          bucket?: string
+          created_at?: string
+          db_rewrites?: Json
+          dry_run_result?: Json | null
+          id?: string
+          is_orphan?: boolean
+          last_error?: string | null
+          new_name?: string | null
+          old_name?: string
+          op?: string
+          org_id?: string
+          run_result?: Json | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       submission_comments: {
         Row: {
           author_id: string
@@ -6869,6 +6923,15 @@ export type Database = {
           id: string
           is_active: boolean
           token: string
+        }[]
+      }
+      apply_backfill_rewrites: { Args: { _row_id: string }; Returns: number }
+      build_backfill_manifest: {
+        Args: { _bucket: string }
+        Returns: {
+          inserted: number
+          orphans: number
+          skipped: number
         }[]
       }
       count_seed_test_jobs: {
