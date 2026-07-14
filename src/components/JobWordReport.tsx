@@ -155,11 +155,11 @@ export default function JobWordReport({ jobId, job }: Props) {
         const first = engineerNames[0];
         if (first) {
           const stored = findEngineerSignatureByName(sigLib, first);
-          if (stored?.storagePath) {
+          if (stored?.file_path) {
             let bytes: ArrayBuffer | null = null;
             try {
               const { data } = await supabase.storage.from("signatures")
-                .createSignedUrl(stored.storagePath, 3600);
+                .createSignedUrl(stored.file_path, 3600);
               if (data?.signedUrl) bytes = await urlToArrayBuffer(data.signedUrl);
             } catch { /* ignore */ }
             if (bytes) sigEntries.push({ role: "Engineer", name: first, date: fmtDate(new Date().toISOString()), bytes });
