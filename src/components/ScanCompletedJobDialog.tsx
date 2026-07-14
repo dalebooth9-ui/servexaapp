@@ -789,67 +789,79 @@ export default function ScanCompletedJobDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {step === "upload" && (
-          <div className="space-y-4">
-            <div
-              className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40"
-              onClick={() => fileRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                addFiles(e.dataTransfer.files);
-              }}
-            >
-              <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
-              <p className="mt-2 text-sm">
-                Click to upload photo(s) of the paper form, or drag & drop
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Add front and back / multiple pages if needed.
-              </p>
-              <input
-                ref={fileRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={(e) => addFiles(e.target.files)}
-              />
-            </div>
+        {step === "upload" && !queueItem && (
+          <Tabs value={mode} onValueChange={(v) => setMode(v as "single" | "bulk")}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="single">Single scan</TabsTrigger>
+              <TabsTrigger value="bulk">Bulk scan</TabsTrigger>
+            </TabsList>
 
-            {images.length > 0 && (
-              <div className="grid grid-cols-3 gap-2">
-                {images.map((im, idx) => (
-                  <div key={idx} className="relative group">
-                    <img
-                      src={im.url}
-                      alt=""
-                      className="w-full h-32 object-cover rounded border"
-                    />
-                    <button
-                      className="absolute top-1 right-1 rounded-full bg-black/60 text-white p-1 opacity-0 group-hover:opacity-100"
-                      onClick={() => removeImg(idx)}
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAnalyze}
-                disabled={images.length === 0}
+            <TabsContent value="single" className="space-y-4 mt-4">
+              <div
+                className="border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:bg-muted/40"
+                onClick={() => fileRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  addFiles(e.dataTransfer.files);
+                }}
               >
-                <ScanLine className="mr-2 h-4 w-4" /> Analyse form
-              </Button>
-            </div>
-          </div>
+                <Upload className="mx-auto h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-sm">
+                  Click to upload photo(s) of one paper form, or drag & drop
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Add front and back / multiple pages if needed.
+                </p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => addFiles(e.target.files)}
+                />
+              </div>
+
+              {images.length > 0 && (
+                <div className="grid grid-cols-3 gap-2">
+                  {images.map((im, idx) => (
+                    <div key={idx} className="relative group">
+                      <img
+                        src={im.url}
+                        alt=""
+                        className="w-full h-32 object-cover rounded border"
+                      />
+                      <button
+                        className="absolute top-1 right-1 rounded-full bg-black/60 text-white p-1 opacity-0 group-hover:opacity-100"
+                        onClick={() => removeImg(idx)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleAnalyze}
+                  disabled={images.length === 0}
+                >
+                  <ScanLine className="mr-2 h-4 w-4" /> Analyse form
+                </Button>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="bulk" className="mt-4">
+              <BulkScanTab onClose={() => onOpenChange(false)} />
+            </TabsContent>
+          </Tabs>
         )}
+
 
         {step === "processing" && (
           <div className="py-12 text-center space-y-3">
