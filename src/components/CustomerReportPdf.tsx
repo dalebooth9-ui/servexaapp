@@ -444,15 +444,66 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
       y += 4;
 
       // === SIGNATURES (shared utility) ===
-      if (signatures.length > 0) {
+      // Resolve the technician name from job_sheet_responses (paper scans
+      // populate this), falling back to assigned engineer names.
+      const sheetRows = (sheetsRes.data as any[]) || [];
+      const technicianFromSheet = sheetRows
+        .map((row: any) => (row?.responses?.technician_name || "").toString().trim())
+        .find((v: string) => v.length > 0);
+      const technicianName = technicianFromSheet || engineerNames[0] || "";
+
+      // Auto-fill technician signature from the stored engineer-signature
+      // library when we don't already have one attached to the job.
+      let engineerSig =
+        signatures.find(
+          (s: any) => s.signer_role === "engineer" || s.signer_role === "admin",
+        ) || null;
+      const customerSig =
+        signatures.find((s: any) => s.signer_role === "customer") || null;
+
+      const hasEngineerImage = engineerSig && engineerSig.file_path && sigImages[engineerSig.id];
+      if (!hasEngineerImage && technicianName) {
+        try {
+          const library = await loadEngineerSignatureLibrary();
+          const match = findEngineerSignatureByName(library, technicianName);
+          if (match?.file_path) {
+            const { data: signed } = await supabase.storage
+              .from("signatures")
+              .createSignedUrl(match.file_path, 3600);
+            if (signed?.signedUrl) {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve();
+                img.onerror = () => reject();
+                img.src = signed.signedUrl;
+              });
+              const synthId = `library-${match.id}`;
+              sigImages[synthId] = img;
+              engineerSig = {
+                id: synthId,
+                signer_name: technicianName,
+                signer_role: "engineer",
+                signer_position: null,
+                created_at: undefined,
+                file_path: match.file_path,
+              } as any;
+            }
+          }
+        } catch (e) {
+          console.warn("engineer signature library lookup failed", e);
+        }
+      }
+
+      const shouldRenderSigs =
+        signatures.length > 0 || engineerSig || customerSig;
+      if (shouldRenderSigs) {
         y = checkPage(30, y);
-
-        const engineerSig = signatures.find((s: any) => s.signer_role === "engineer" || s.signer_role === "admin") || null;
-        const customerSig = signatures.find((s: any) => s.signer_role === "customer") || null;
-
         const sigData: PdfSignatureData = {
-          dateStr: new Date(signatures[0]?.created_at || Date.now()).toLocaleDateString("en-GB"),
-          technicianName: engineerSig?.signer_name || engineerNames[0] || "",
+          dateStr: new Date(
+            signatures[0]?.created_at || job.completed_at || Date.now(),
+          ).toLocaleDateString("en-GB"),
+          technicianName: engineerSig?.signer_name || technicianName,
           customerName: customerSig?.signer_name || customerName,
           sigImages,
           engineerSig,
@@ -460,6 +511,7 @@ export default function CustomerReportPdf({ jobId, job, onPdfGenerated, trigger 
         };
         y = renderPdfSignatures(doc, y, sigData);
       }
+
 
       // === FOOTER (shared utility) ===
       const footerText = getDefaultFooterText(job.name || "");
