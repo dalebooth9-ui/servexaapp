@@ -191,6 +191,7 @@ const App = () => (
               <Route path="/engineers" element={<AdminRoute><Engineers /></AdminRoute>} />
               <Route path="/settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="/settings/import" element={<AdminRoute><ImportWizard /></AdminRoute>} />
+              <Route path="/settings/storage-migration" element={<AdminRoute><div className="p-6"><StorageMigrationPanel /></div></AdminRoute>} />
               <Route path="/install" element={<Suspense fallback={<PageFallback />}><Install /></Suspense>} />
               <Route path="/sign-off" element={<Suspense fallback={<PageFallback />}><CustomerSignOff /></Suspense>} />
               <Route path="/portal" element={<Suspense fallback={<PageFallback />}><CustomerPortal /></Suspense>} />
