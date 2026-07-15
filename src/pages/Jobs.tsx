@@ -144,6 +144,11 @@ export default function Jobs() {
   const [bulkEngineerValue, setBulkEngineerValue] = useState("");
   const [engineers, setEngineers] = useState<{ user_id: string; full_name: string }[]>([]);
   const [jobTemplates, setJobTemplates] = useState<any[]>([]);
+  // Blank-job-sheet counts for pending-review jobs — used to warn the reviewer
+  // when a PO-intake job has no sheets and would otherwise reach an engineer empty.
+  const [pendingSheetCounts, setPendingSheetCounts] = useState<Record<string, number>>({});
+  const [sheetTemplates, setSheetTemplates] = useState<{ id: string; name: string; category: string | null; job_category: string | null }[]>([]);
+
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
   const [templateName, setTemplateName] = useState("");
   const [quickScheduleJob, setQuickScheduleJob] = useState<any>(null);
