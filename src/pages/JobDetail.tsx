@@ -865,8 +865,40 @@ export default function JobDetail() {
                 </div>
               </div>
             ))}
-          </CollapsibleContent>
-        </Collapsible>
+           </CollapsibleContent>
+         </Collapsible>
+
+        {/* Remedial flag + works checklist (visible on every job to admin; engineers see checklist only when items exist) */}
+        {userRole === "admin" && (
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
+            <div className="flex items-center gap-3">
+              <Wrench className="h-4 w-4 text-primary" />
+              <div>
+                <div className="text-sm font-medium">Remedial job</div>
+                <div className="text-xs text-muted-foreground">Flag jobs where defects/snags are being rectified. Enables the works checklist and gates completion until items are resolved.</div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              {!job.is_remedial && !showChecklistOptIn && (
+                <Button size="sm" variant="outline" onClick={() => setShowChecklistOptIn(true)}>
+                  <ClipboardPlus className="mr-1.5 h-4 w-4" /> Add works checklist
+                </Button>
+              )}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Remedial</span>
+                <Switch checked={!!job.is_remedial} disabled={savingRemedialFlag} onCheckedChange={toggleIsRemedial} />
+              </div>
+            </div>
+          </div>
+        )}
+        <JobRemedialChecklist
+          jobId={id!}
+          jobOrgId={job.org_id}
+          isRemedial={!!job.is_remedial}
+          isAdmin={userRole === "admin"}
+          isAssignedEngineer={!!user && assignedEngineerIds.includes(user.id)}
+          forceShow={showChecklistOptIn}
+        />
       </>)}
 
 
