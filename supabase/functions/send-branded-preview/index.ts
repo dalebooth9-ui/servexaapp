@@ -92,7 +92,7 @@ serve(async (req) => {
           <li>Follow-up reminders (6&nbsp;month / 12&nbsp;month)</li>
         </ul>
         <p>All of them use the branding, sender identity and reply-to configured in Settings&nbsp;→&nbsp;Email.</p>
-        <p>Kind regards,<br/>${branding.company_name}</p>
+        
       `,
     });
 
